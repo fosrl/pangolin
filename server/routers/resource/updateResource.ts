@@ -48,7 +48,13 @@ const updateHttpResourceBodySchema = z
         headers: z
             .array(z.strictObject({ name: z.string(), value: z.string() }))
             .nullable()
-            .optional()
+            .optional(),
+        // Maintenance mode fields
+        maintenanceModeEnabled: z.boolean().optional(),
+        maintenanceModeType: z.enum(["forced", "automatic"]).optional(),
+        maintenanceTitle: z.string().max(255).nullable().optional(),
+        maintenanceMessage: z.string().max(2000).nullable().optional(),
+        maintenanceEstimatedTime: z.string().max(100).nullable().optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
