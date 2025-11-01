@@ -132,7 +132,15 @@ export const resources = pgTable("resources", {
     }),
     headers: text("headers"), // comma-separated list of headers to add to the request
     proxyProtocol: boolean("proxyProtocol").notNull().default(false),
-    proxyProtocolVersion: integer("proxyProtocolVersion").default(1)
+    proxyProtocolVersion: integer("proxyProtocolVersion").default(1),
+
+    maintenanceModeEnabled: boolean("maintenanceModeEnabled").notNull().default(false),
+    maintenanceModeType: text("maintenanceModeType", {
+        enum: ["forced", "automatic"]
+    }).default("forced"), // "forced" = always show, "automatic" = only when down
+    maintenanceTitle: text("maintenanceTitle"),
+    maintenanceMessage: text("maintenanceMessage"),
+    maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
 });
 
 export const targets = pgTable("targets", {
