@@ -23,7 +23,7 @@ import { initCleanup } from "#dynamic/cleanup";
 import license from "#dynamic/license/license";
 import { initLogCleanupInterval } from "@server/lib/cleanupLogs";
 import { fetchServerIp } from "@server/lib/serverIpService";
-import { startMaintenanceServer } from "./lib/traefik/maintenance-server.js";
+import { startMaintenanceServer } from "./maintenance/maintenance-server.js";
 
 async function startServers() {
     await setHostMeta();

@@ -308,6 +308,97 @@ export async function getTraefikConfig(
                 config_output.http.services = {};
             }
 
+            const availableServers = (targets as TargetWithSite[]).filter(
+                (target: TargetWithSite) => {
+                    if (!target.enabled) return false;
+
+                    const anySitesOnline = (targets as TargetWithSite[]).some(
+                        (t: TargetWithSite) => t.site.online
+                    );
+                    if (anySitesOnline && !target.site.online) return false;
+
+                    if (target.site.type === "local" || target.site.type === "wireguard") {
+                        return target.ip && target.port && target.method;
+                    } else if (target.site.type === "newt") {
+                        return target.internalPort && target.method && target.site.subnet;
+                    }
+                    return false;
+                }
+            );
+
+            const hasHealthyServers = availableServers.length > 0;
+
+            let showMaintenancePage = false;
+            if (resource.maintenanceModeEnabled) {
+                if (resource.maintenanceModeType === "forced") {
+                    showMaintenancePage = true;
+                    logger.debug(
+                        `Resource ${resource.name} (${fullDomain}) is in FORCED maintenance mode`
+                    );
+                } else if (resource.maintenanceModeType === "automatic") {
+                    showMaintenancePage = !hasHealthyServers;
+                    if (showMaintenancePage) {
+                        logger.warn(
+                            `Resource ${resource.name} (${fullDomain}) has no healthy servers - showing maintenance page (AUTOMATIC mode)`
+                        );
+                    }
+                }
+            }
+
+            if (showMaintenancePage) {
+                const maintenanceServiceName = `${key}-maintenance-service`;
+                const maintenanceRouterName = `${key}-maintenance-router`;
+
+                const maintenancePort = config.getRawConfig().traefik.maintenance_port || 8888;
+                const entrypointHttp = config.getRawConfig().traefik.http_entrypoint;
+                const entrypointHttps = config.getRawConfig().traefik.https_entrypoint;
+
+                const fullDomain = resource.fullDomain;
+                const domainParts = fullDomain.split(".");
+                const wildCard = resource.subdomain
+                    ? `*.${domainParts.slice(1).join(".")}`
+                    : fullDomain;
+
+                const tls = {
+                    certResolver: resource.domainCertResolver?.trim() ||
+                        config.getRawConfig().traefik.cert_resolver,
+                    ...(config.getRawConfig().traefik.prefer_wildcard_cert
+                        ? { domains: [{ main: wildCard }] }
+                        : {})
+                };
+
+                const maintenanceHost = config.getRawConfig().traefik?.maintenance_host || 'pangolin';
+
+                config_output.http.services[maintenanceServiceName] = {
+                    loadBalancer: {
+                        servers: [{ url: `http://${maintenanceHost}:${maintenancePort}` }],
+                        passHostHeader: true
+                    }
+                };
+
+                const rule = `Host(\`${fullDomain}\`)`;
+
+                config_output.http.routers[maintenanceRouterName] = {
+                    entryPoints: [resource.ssl ? entrypointHttps : entrypointHttp],
+                    service: maintenanceServiceName,
+                    rule,
+                    priority: 2000,
+                    ...(resource.ssl ? { tls } : {})
+                };
+
+                if (resource.ssl) {
+                    config_output.http.routers[`${maintenanceRouterName}-redirect`] = {
+                        entryPoints: [entrypointHttp],
+                        middlewares: [redirectHttpsMiddlewareName],
+                        service: maintenanceServiceName,
+                        rule,
+                        priority: 2000
+                    };
+                }
+
+                continue;
+            }
+
             const domainParts = fullDomain.split(".");
             let wildCard;
             if (domainParts.length <= 2) {
@@ -366,12 +457,12 @@ export async function getTraefikConfig(
                     certResolver: resolverName,
                     ...(preferWildcard
                         ? {
-                              domains: [
-                                  {
-                                      main: wildCard
-                                  }
-                              ]
-                          }
+                            domains: [
+                                {
+                                    main: wildCard
+                                }
+                            ]
+                        }
                         : {})
                 };
             } else {
@@ -624,14 +715,14 @@ export async function getTraefikConfig(
                     })(),
                     ...(resource.stickySession
                         ? {
-                              sticky: {
-                                  cookie: {
-                                      name: "p_sticky", // TODO: make this configurable via config.yml like other cookies
-                                      secure: resource.ssl,
-                                      httpOnly: true
-                                  }
-                              }
-                          }
+                            sticky: {
+                                cookie: {
+                                    name: "p_sticky", // TODO: make this configurable via config.yml like other cookies
+                                    secure: resource.ssl,
+                                    httpOnly: true
+                                }
+                            }
+                        }
                         : {})
                 }
             };
@@ -734,18 +825,18 @@ export async function getTraefikConfig(
                     })(),
                     ...(resource.proxyProtocol && protocol == "tcp" // proxy protocol only works for tcp
                         ? {
-                              serversTransport: `${ppPrefix}${resource.proxyProtocolVersion || 1}@file` // TODO: does @file here cause issues?
-                          }
+                            serversTransport: `${ppPrefix}${resource.proxyProtocolVersion || 1}@file` // TODO: does @file here cause issues?
+                        }
                         : {}),
                     ...(resource.stickySession
                         ? {
-                              sticky: {
-                                  ipStrategy: {
-                                      depth: 0,
-                                      sourcePort: true
-                                  }
-                              }
-                          }
+                            sticky: {
+                                ipStrategy: {
+                                    depth: 0,
+                                    sourcePort: true
+                                }
+                            }
+                        }
                         : {})
                 }
             };
@@ -793,10 +884,9 @@ export async function getTraefikConfig(
                     loadBalancer: {
                         servers: [
                             {
-                                url: `http://${
-                                    config.getRawConfig().server
+                                url: `http://${config.getRawConfig().server
                                         .internal_hostname
-                                }:${config.getRawConfig().server.next_port}`
+                                    }:${config.getRawConfig().server.next_port}`
                             }
                         ]
                     }

@@ -1,7 +1,7 @@
 import express from 'express';
 import { db, resources } from '@server/db';
 import { eq } from 'drizzle-orm';
-import { generateMaintenanceHTML } from './getTraefikConfig';
+import { generateMaintenanceHTML } from './maintenanceUI';
 import config from '@server/lib/config';
 import logger from '@server/logger';
 import path from 'path';
