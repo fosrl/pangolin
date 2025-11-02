@@ -8,14 +8,12 @@ import path from 'path';
 import fs from 'fs';
 
 const MAINTENANCE_DIR = path.join(process.cwd(), 'maintenance-pages');
-
 if (!fs.existsSync(MAINTENANCE_DIR)) {
     fs.mkdirSync(MAINTENANCE_DIR, { recursive: true });
 }
 
 export async function generateMaintenanceFiles() {
     logger.info('Regenerating maintenance page files');
-
     const maintenanceResources = await db
         .select()
         .from(resources)
@@ -38,7 +36,7 @@ export async function generateMaintenanceFiles() {
                 resource.maintenanceEstimatedTime
             );
             
-            const filename = `maintenance-${resource.fullDomain}.html`;
+            const filename = `maintenance-${resource.fullDomain.replace(/\./g, '_')}.html`;
             const filepath = path.join(MAINTENANCE_DIR, filename);
             
             fs.writeFileSync(filepath, html, 'utf-8');
@@ -58,7 +56,7 @@ export function startMaintenanceServer() {
         }
     }));
     
-
+    
     app.use(async (req, res) => {
         const host = req.headers.host;
         
@@ -66,7 +64,8 @@ export function startMaintenanceServer() {
             return res.status(400).send("Missing Host header");
         }
         
-        const maintenanceFile = path.join(MAINTENANCE_DIR, `maintenance-${host}.html`);
+        const hostname = host.split(':')[0];
+        const maintenanceFile = path.join(MAINTENANCE_DIR, `maintenance-${hostname}.html`);
         
         if (fs.existsSync(maintenanceFile)) {
             res.status(503)
@@ -78,7 +77,7 @@ export function startMaintenanceServer() {
                 const [resource] = await db
                     .select()
                     .from(resources)
-                    .where(eq(resources.fullDomain, host));
+                    .where(eq(resources.fullDomain, hostname));
                 
                 if (resource?.maintenanceModeEnabled) {
                     const html = generateMaintenanceHTML(
@@ -99,7 +98,7 @@ export function startMaintenanceServer() {
             res.status(404).send('Not found');
         }
     });
-
+    
     const port = config.getRawConfig().traefik?.maintenance_port || 8888;
     
     app.listen(port, '0.0.0.0', () => {

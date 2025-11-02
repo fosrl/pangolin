@@ -385,7 +385,7 @@ export async function getTraefikConfig(
             if (resource.maintenanceModeEnabled) {
                 if (resource.maintenanceModeType === "forced") {
                     showMaintenancePage = true;
-                    logger.info(
+                    logger.debug(
                         `Resource ${resource.name} (${fullDomain}) is in FORCED maintenance mode`
                     );
                 } else if (resource.maintenanceModeType === "automatic") {
@@ -400,7 +400,7 @@ export async function getTraefikConfig(
 
             if (showMaintenancePage) {
                 const maintenanceServiceName = `${key}-maintenance-service`;
-                const routerName = `${key}-maintenance-router`;
+                const maintenanceRouterName = `${key}-maintenance-router`;
 
                 const maintenancePort = config.getRawConfig().traefik.maintenance_port || 8888;
                 const entrypointHttp = config.getRawConfig().traefik.http_entrypoint;
@@ -415,7 +415,7 @@ export async function getTraefikConfig(
                 const tls = {
                     certResolver: resource.domainCertResolver?.trim() ||
                         config.getRawConfig().traefik.cert_resolver,
-                    ...(resource.preferWildcardCert ?? config.getRawConfig().traefik.prefer_wildcard_cert
+                    ...(config.getRawConfig().traefik.prefer_wildcard_cert
                         ? { domains: [{ main: wildCard }] }
                         : {})
                 };
@@ -431,7 +431,7 @@ export async function getTraefikConfig(
 
                 const rule = `Host(\`${fullDomain}\`)`;
 
-                config_output.http.routers[routerName] = {
+                config_output.http.routers[maintenanceRouterName] = { 
                     entryPoints: [resource.ssl ? entrypointHttps : entrypointHttp],
                     service: maintenanceServiceName,
                     rule,
@@ -440,7 +440,7 @@ export async function getTraefikConfig(
                 };
 
                 if (resource.ssl) {
-                    config_output.http.routers[`${routerName}-redirect`] = {
+                    config_output.http.routers[`${maintenanceRouterName}-redirect`] = {
                         entryPoints: [entrypointHttp],
                         middlewares: [redirectHttpsMiddlewareName],
                         service: maintenanceServiceName,
@@ -451,7 +451,6 @@ export async function getTraefikConfig(
 
                 continue;
             }
-
             const domainParts = fullDomain.split(".");
             let wildCard;
             if (domainParts.length <= 2) {
