@@ -133,7 +133,7 @@
         "@faker-js/faker": "^10.1.0"
     },
     "devDependencies": {
-        "@dotenvx/dotenvx": "1.51.0",
+        "@dotenvx/dotenvx": "1.51.1",
         "@esbuild-plugins/tsconfig-paths": "0.1.2",
         "@react-email/preview-server": "4.3.2",
         "@tailwindcss/postcss": "^4.1.16",
@@ -157,7 +157,7 @@
         "@types/ws": "8.18.1",
         "@types/yargs": "17.0.34",
         "drizzle-kit": "0.31.6",
-        "esbuild": "0.25.11",
+        "esbuild": "0.25.12",
         "esbuild-node-externals": "1.18.0",
         "postcss": "^8",
         "react-email": "4.3.2",
@@ -165,7 +165,7 @@
         "tsc-alias": "1.8.16",
         "tsx": "4.20.6",
         "typescript": "^5",
-        "typescript-eslint": "^8.46.2"
+        "typescript-eslint": "^8.46.3"
     },
     "overrides": {
         "emblor": {
