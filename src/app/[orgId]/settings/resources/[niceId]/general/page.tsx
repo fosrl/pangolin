@@ -60,7 +60,6 @@ import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
 import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusContext";
 import { useUserContext } from "@app/hooks/useUserContext";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
-import { Separator } from "@app/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@app/components/ui/radio-group";
 
 export default function GeneralForm() {
@@ -470,170 +469,6 @@ export default function GeneralForm() {
                                                     </Button>
                                                     </div>
                                                 </div>
-
-                                                <Separator className="my-6" />
-
-                                                <div className="space-y-4">
-                                                    <div>
-                                                        <h3 className="text-lg font-medium">
-                                                            {t("maintenanceMode")}
-                                                        </h3>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            {t("maintenanceModeDescription")}
-                                                        </p>
-                                                    </div>
-
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="maintenanceModeEnabled"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <div className="flex items-center space-x-2">
-                                                                    <FormControl>
-                                                                        <SwitchInput
-                                                                            id="enable-maintenance"
-                                                                            checked={field.value}
-                                                                            label="Enable Maintenance Mode"
-                                                                            onCheckedChange={(val) =>
-                                                                                form.setValue(
-                                                                                    "maintenanceModeEnabled",
-                                                                                    val
-                                                                                )
-                                                                            }
-                                                                        />
-                                                                    </FormControl>
-                                                                </div>
-                                                                <FormDescription>
-                                                                    {t("showMaintenancePage")}
-                                                                </FormDescription>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-
-                                                    {isMaintenanceEnabled && (
-                                                        <div className="space-y-4 pl-4 border-l-2 border-primary/20">
-                                                            <FormField
-                                                                control={form.control}
-                                                                name="maintenanceModeType"
-                                                                render={({ field }) => (
-                                                                    <FormItem className="space-y-3">
-                                                                        <FormLabel>
-                                                                            {t("maintenanceModeType")}
-                                                                        </FormLabel>
-                                                                        <FormControl>
-                                                                            <RadioGroup
-                                                                                onValueChange={field.onChange}
-                                                                                defaultValue={field.value}
-                                                                                className="flex flex-col space-y-1"
-                                                                            >
-                                                                                <FormItem className="flex items-start space-x-3 space-y-0">
-                                                                                    <FormControl>
-                                                                                        <RadioGroupItem value="automatic" />
-                                                                                    </FormControl>
-                                                                                    <div className="space-y-1 leading-none">
-                                                                                        <FormLabel className="font-normal">
-                                                                                            <strong>{t("automatic")}</strong> ({t("recommended")})
-                                                                                        </FormLabel>
-                                                                                        <FormDescription>
-                                                                                           {t("automaticModeDescription")}
-                                                                                        </FormDescription>
-                                                                                    </div>
-                                                                                </FormItem>
-                                                                                <FormItem className="flex items-start space-x-3 space-y-0">
-                                                                                    <FormControl>
-                                                                                        <RadioGroupItem value="forced" />
-                                                                                    </FormControl>
-                                                                                    <div className="space-y-1 leading-none">
-                                                                                        <FormLabel className="font-normal">
-                                                                                            <strong>{t("forced")}</strong>
-                                                                                        </FormLabel>
-                                                                                        <FormDescription>
-                                                                                            {t("forcedModeDescription")}
-                                                                                        </FormDescription>
-                                                                                    </div>
-                                                                                </FormItem>
-                                                                            </RadioGroup>
-                                                                        </FormControl>
-                                                                        <FormMessage />
-                                                                    </FormItem>
-                                                                )}
-                                                            />
-
-                                                            {maintenanceModeType === "forced" && (
-                                                                <Alert>
-                                                                    <AlertCircle className="h-4 w-4" />
-                                                                    <AlertDescription>
-                                                                        <strong>{t("warning:")}</strong> {t("forcedModeWarning")}
-                                                                    </AlertDescription>
-                                                                </Alert>
-                                                            )}
-
-                                                            <FormField
-                                                                control={form.control}
-                                                                name="maintenanceTitle"
-                                                                render={({ field }) => (
-                                                                    <FormItem>
-                                                                        <FormLabel>{t("pageTitle")}</FormLabel>
-                                                                        <FormControl>
-                                                                            <Input 
-                                                                                {...field}
-                                                                                placeholder="We'll be back soon!"
-                                                                            />
-                                                                        </FormControl>
-                                                                        <FormDescription>
-                                                                            {t("pageTitleDescription")}
-                                                                        </FormDescription>
-                                                                        <FormMessage />
-                                                                    </FormItem>
-                                                                )}
-                                                            />
-
-                                                            <FormField
-                                                                control={form.control}
-                                                                name="maintenanceMessage"
-                                                                render={({ field }) => (
-                                                                    <FormItem>
-                                                                        <FormLabel>{t("maintenancePageMessage")}</FormLabel>
-                                                                        <FormControl>
-                                                                            <Textarea 
-                                                                                {...field}
-                                                                                rows={4}
-                                                                                placeholder={t("maintenancePageMessagePlaceholder")}
-                                                                            />
-                                                                        </FormControl>
-                                                                        <FormDescription>
-                                                                            {t("maintenancePageMessageDescription")}
-                                                                        </FormDescription>
-                                                                        <FormMessage />
-                                                                    </FormItem>
-                                                                )}
-                                                            />
-
-                                                            <FormField
-                                                                control={form.control}
-                                                                name="maintenanceEstimatedTime"
-                                                                render={({ field }) => (
-                                                                    <FormItem>
-                                                                        <FormLabel>
-                                                                            {t("maintenancePageTimeTitle")}
-                                                                        </FormLabel>
-                                                                        <FormControl>
-                                                                            <Input 
-                                                                                {...field}
-                                                                                placeholder={t("maintenanceTime")}
-                                                                            />
-                                                                        </FormControl>
-                                                                        <FormDescription>
-                                                                            {t("maintenanceEstimatedTimeDescription")}
-                                                                        </FormDescription>
-                                                                        <FormMessage />
-                                                                    </FormItem>
-                                                                )}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
                                             </>
                                         )}
                                     </form>
@@ -656,6 +491,194 @@ export default function GeneralForm() {
                         </SettingsSectionFooter>
                     </SettingsSection>
                 </SettingsContainer>
+
+                {build !== "oss" && resource.http && (
+                    <SettingsContainer>
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("maintenanceMode")}
+                                </SettingsSectionTitle>
+                                <SettingsSectionDescription>
+                                    {t("maintenanceModeDescription")}
+                                </SettingsSectionDescription>
+                            </SettingsSectionHeader>
+
+                            <SettingsSectionBody>
+                                <SettingsSectionForm>
+                                    <Form {...form}>
+                                        <form className="space-y-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="maintenanceModeEnabled"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <div className="flex items-center space-x-2">
+                                                            <FormControl>
+                                                                <SwitchInput
+                                                                    id="enable-maintenance"
+                                                                    checked={field.value}
+                                                                    label={t("enableMaintenanceMode")}
+                                                                    onCheckedChange={(val) =>
+                                                                        form.setValue(
+                                                                            "maintenanceModeEnabled",
+                                                                            val
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </FormControl>
+                                                        </div>
+                                                        <FormDescription>
+                                                            {t("showMaintenancePage")}
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            {isMaintenanceEnabled && (
+                                                <div className="space-y-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="maintenanceModeType"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-3">
+                                                                <FormLabel>
+                                                                    {t("maintenanceModeType")}
+                                                                </FormLabel>
+                                                                <FormControl>
+                                                                    <RadioGroup
+                                                                        onValueChange={field.onChange}
+                                                                        defaultValue={field.value}
+                                                                        className="flex flex-col space-y-1"
+                                                                    >
+                                                                        <FormItem className="flex items-start space-x-3 space-y-0">
+                                                                            <FormControl>
+                                                                                <RadioGroupItem value="automatic" />
+                                                                            </FormControl>
+                                                                            <div className="space-y-1 leading-none">
+                                                                                <FormLabel className="font-normal">
+                                                                                    <strong>{t("automatic")}</strong> ({t("recommended")})
+                                                                                </FormLabel>
+                                                                                <FormDescription>
+                                                                                    {t("automaticModeDescription")}
+                                                                                </FormDescription>
+                                                                            </div>
+                                                                        </FormItem>
+                                                                        <FormItem className="flex items-start space-x-3 space-y-0">
+                                                                            <FormControl>
+                                                                                <RadioGroupItem value="forced" />
+                                                                            </FormControl>
+                                                                            <div className="space-y-1 leading-none">
+                                                                                <FormLabel className="font-normal">
+                                                                                    <strong>{t("forced")}</strong>
+                                                                                </FormLabel>
+                                                                                <FormDescription>
+                                                                                    {t("forcedModeDescription")}
+                                                                                </FormDescription>
+                                                                            </div>
+                                                                        </FormItem>
+                                                                    </RadioGroup>
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    {maintenanceModeType === "forced" && (
+                                                        <Alert>
+                                                            <AlertCircle className="h-4 w-4" />
+                                                            <AlertDescription>
+                                                                <strong>{t("warning:")}</strong> {t("forcedeModeWarning")}
+                                                            </AlertDescription>
+                                                        </Alert>
+                                                    )}
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="maintenanceTitle"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>{t("pageTitle")}</FormLabel>
+                                                                <FormControl>
+                                                                    <Input 
+                                                                        {...field}
+                                                                        placeholder="We'll be back soon!"
+                                                                    />
+                                                                </FormControl>
+                                                                <FormDescription>
+                                                                    {t("pageTitleDescription")}
+                                                                </FormDescription>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="maintenanceMessage"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>{t("maintenancePageMessage")}</FormLabel>
+                                                                <FormControl>
+                                                                    <Textarea 
+                                                                        {...field}
+                                                                        rows={4}
+                                                                        placeholder={t("maintenancePageMessagePlaceholder")}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormDescription>
+                                                                    {t("maintenancePageMessageDescription")}
+                                                                </FormDescription>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="maintenanceEstimatedTime"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>
+                                                                    {t("maintenancePageTimeTitle")}
+                                                                </FormLabel>
+                                                                <FormControl>
+                                                                    <Input 
+                                                                        {...field}
+                                                                        placeholder={t("maintenanceTime")}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormDescription>
+                                                                    {t("maintenanceEstimatedTimeDescription")}
+                                                                </FormDescription>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                            )}
+                                        </form>
+                                    </Form>
+                                </SettingsSectionForm>
+                            </SettingsSectionBody>
+
+                            <SettingsSectionFooter>
+                                <Button
+                                    type="submit"
+                                onClick={() => {
+                                    console.log(form.getValues());
+                                }}
+                                    loading={saveLoading}
+                                    disabled={saveLoading}
+                                    form="general-settings-form"
+                                >
+                                    {t("saveSettings")}
+                                </Button>
+                            </SettingsSectionFooter>
+                        </SettingsSection>
+                    </SettingsContainer>
+                )}
 
                 <Credenza
                     open={editDomainOpen}

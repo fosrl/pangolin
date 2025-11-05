@@ -2370,6 +2370,7 @@
     "maintenanceModeDescription": "Display a maintenance page to visitors",
     "maintenanceModeType": "Maintenance Mode Type",
     "showMaintenancePage": "Show a maintenance page to visitors",
+    "enableMaintenanceMode": "Enable Maintenance Mode",
     "automatic": "Automatic",
     "automaticModeDescription": " Show maintenance page only when all backend targets are down or unhealthy. Your resource continues working normally as long as at least one target is healthy.",
     "forced": "Forced",
