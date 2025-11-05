@@ -2081,5 +2081,19 @@
     "supportSend": "보내기",
     "supportMessageSent": "메시지 전송 완료!",
     "supportWillContact": "곧 연락드리겠습니다!",
-    "selectLogRetention": "Select log retention"
+    "selectLogRetention": "Select log retention",
+    "showColumns": "Show Columns",
+    "hideColumns": "Hide Columns",
+    "columnVisibility": "Column Visibility",
+    "toggleColumn": "Toggle {columnName} column",
+    "allColumns": "All Columns",
+    "defaultColumns": "Default Columns",
+    "customizeView": "Customize View",
+    "viewOptions": "View Options",
+    "selectAll": "Select All",
+    "selectNone": "Select None",
+    "selectedResources": "Selected Resources",
+    "enableSelected": "Enable Selected",
+    "disableSelected": "Disable Selected",
+    "checkSelectedStatus": "Check Status of Selected"
 }
