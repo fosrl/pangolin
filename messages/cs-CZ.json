@@ -2081,5 +2081,19 @@
     "supportSend": "Poslat",
     "supportMessageSent": "Zpráva odeslána!",
     "supportWillContact": "Brzy budeme v kontaktu!",
-    "selectLogRetention": "Select log retention"
+    "selectLogRetention": "Select log retention",
+    "showColumns": "Show Columns",
+    "hideColumns": "Hide Columns",
+    "columnVisibility": "Column Visibility",
+    "toggleColumn": "Toggle {columnName} column",
+    "allColumns": "All Columns",
+    "defaultColumns": "Default Columns",
+    "customizeView": "Customize View",
+    "viewOptions": "View Options",
+    "selectAll": "Select All",
+    "selectNone": "Select None",
+    "selectedResources": "Selected Resources",
+    "enableSelected": "Enable Selected",
+    "disableSelected": "Disable Selected",
+    "checkSelectedStatus": "Check Status of Selected"
 }
