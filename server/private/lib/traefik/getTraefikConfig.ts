@@ -87,6 +87,13 @@ export async function getTraefikConfig(
             headers: resources.headers,
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
+
+            maintenanceModeEnabled: resources.maintenanceModeEnabled,
+            maintenanceModeType: resources.maintenanceModeType,
+            maintenanceTitle: resources.maintenanceTitle,
+            maintenanceMessage: resources.maintenanceMessage,
+            maintenanceEstimatedTime: resources.maintenanceEstimatedTime,
+
             // Target fields
             targetId: targets.targetId,
             targetEnabled: targets.enabled,
@@ -220,7 +227,13 @@ export async function getTraefikConfig(
                 rewritePathType: row.rewritePathType,
                 priority: priority, // may be null, we fallback later
                 domainCertResolver: row.domainCertResolver,
-                preferWildcardCert: row.preferWildcardCert
+                preferWildcardCert: row.preferWildcardCert,
+
+                maintenanceModeEnabled: row.maintenanceModeEnabled,
+                maintenanceModeType: row.maintenanceModeType,
+                maintenanceTitle: row.maintenanceTitle,
+                maintenanceMessage: row.maintenanceMessage,
+                maintenanceEstimatedTime: row.maintenanceEstimatedTime,
             });
         }
 
@@ -348,8 +361,8 @@ export async function getTraefikConfig(
             if (showMaintenancePage) {
                 const maintenanceServiceName = `${key}-maintenance-service`;
                 const maintenanceRouterName = `${key}-maintenance-router`;
+                const rewriteMiddlewareName = `${key}-maintenance-rewrite`;
 
-                const maintenancePort = config.getRawConfig().traefik.maintenance_port || 8888;
                 const entrypointHttp = config.getRawConfig().traefik.http_entrypoint;
                 const entrypointHttps = config.getRawConfig().traefik.https_entrypoint;
 
@@ -367,7 +380,8 @@ export async function getTraefikConfig(
                         : {})
                 };
 
-                const maintenanceHost = config.getRawConfig().traefik?.maintenance_host || 'pangolin';
+                const maintenancePort = config.getRawConfig().traefik?.maintenance_port;
+                const maintenanceHost = config.getRawConfig().traefik?.maintenance_host || 'dev_pangolin';
 
                 config_output.http.services[maintenanceServiceName] = {
                     loadBalancer: {
@@ -376,20 +390,32 @@ export async function getTraefikConfig(
                     }
                 };
 
+                // middleware to rewrite path to /maintenance-screen
+                if (!config_output.http.middlewares) {
+                    config_output.http.middlewares = {};
+                }
+
+                config_output.http.middlewares[rewriteMiddlewareName] = {
+                    replacePath: {
+                        path: "/maintenance-screen"
+                    }
+                };
+
                 const rule = `Host(\`${fullDomain}\`)`;
 
                 config_output.http.routers[maintenanceRouterName] = {
                     entryPoints: [resource.ssl ? entrypointHttps : entrypointHttp],
                     service: maintenanceServiceName,
+                    middlewares: [rewriteMiddlewareName],
                     rule,
                     priority: 2000,
                     ...(resource.ssl ? { tls } : {})
                 };
 
                 if (resource.ssl) {
-                    config_output.http.routers[`${maintenanceRouterName}-redirect`] = {
+                    config_output.http.routers[`${maintenanceRouterName}-redirect`] = { 
                         entryPoints: [entrypointHttp],
-                        middlewares: [redirectHttpsMiddlewareName],
+                        middlewares: [redirectHttpsMiddlewareName, rewriteMiddlewareName],
                         service: maintenanceServiceName,
                         rule,
                         priority: 2000
@@ -398,7 +424,6 @@ export async function getTraefikConfig(
 
                 continue;
             }
-
             const domainParts = fullDomain.split(".");
             let wildCard;
             if (domainParts.length <= 2) {
@@ -885,7 +910,7 @@ export async function getTraefikConfig(
                         servers: [
                             {
                                 url: `http://${config.getRawConfig().server
-                                        .internal_hostname
+                                    .internal_hostname
                                     }:${config.getRawConfig().server.next_port}`
                             }
                         ]
