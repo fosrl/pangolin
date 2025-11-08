@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { db } from '@server/db';
 import { resources } from '@server/db';
 import { eq } from 'drizzle-orm';
-
+export const dynamic = "force-dynamic";
 
 export default async function MaintenanceScreen() {
     const headersList = await headers();
