@@ -403,24 +403,28 @@ export async function getTraefikConfig(
 
                 const rule = `Host(\`${fullDomain}\`)`;
 
+                console.log('DEBUG: Generated rule:', rule); // Should show: Host(`pangolin.pallavi.fosrl.io`)
+
                 config_output.http.routers[maintenanceRouterName] = {
                     entryPoints: [resource.ssl ? entrypointHttps : entrypointHttp],
                     service: maintenanceServiceName,
                     middlewares: [rewriteMiddlewareName],
-                    rule,
+                    rule: rule,
                     priority: 2000,
                     ...(resource.ssl ? { tls } : {})
                 };
 
                 if (resource.ssl) {
-                    config_output.http.routers[`${maintenanceRouterName}-redirect`] = { 
+                    config_output.http.routers[`${maintenanceRouterName}-redirect`] = {
                         entryPoints: [entrypointHttp],
                         middlewares: [redirectHttpsMiddlewareName, rewriteMiddlewareName],
                         service: maintenanceServiceName,
-                        rule,
+                        rule: rule,
                         priority: 2000
                     };
                 }
+
+                logger.info(`Maintenance mode active for ${fullDomain}`);
 
                 continue;
             }
