@@ -2,23 +2,34 @@ import { headers } from 'next/headers';
 import { db } from '@server/db';
 import { resources } from '@server/db';
 import { eq } from 'drizzle-orm';
+
 export const dynamic = "force-dynamic";
 
 export default async function MaintenanceScreen() {
-    const headersList = await headers();
-    const host = headersList.get('host') || '';
-    const hostname = host.split(':')[0];
-    
-    const [resource] = await db
-        .select()
-        .from(resources)
-        .where(eq(resources.fullDomain, hostname))
-        .limit(1);
-    
+    let resource = null;
+    let title = 'Service Temporarily Unavailable';
+    let message = 'We are currently experiencing technical difficulties. Please check back soon.';
+    let estimatedTime;
 
-    const title = resource?.maintenanceTitle || 'Service Temporarily Unavailable';
-    const message = resource?.maintenanceMessage || 'We are currently experiencing technical difficulties. Please check back soon.';
-    const estimatedTime = resource?.maintenanceEstimatedTime;
+    try {
+        const headersList = await headers();
+        const host = headersList.get('host') || '';
+        const hostname = host.split(':')[0];
+
+        const [res] = await db
+            .select()
+            .from(resources)
+            .where(eq(resources.fullDomain, hostname))
+            .limit(1);
+
+        resource = res;
+        title = resource?.maintenanceTitle || title;
+        message = resource?.maintenanceMessage || message;
+        estimatedTime = resource?.maintenanceEstimatedTime;
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("Skipping DB lookup during build or missing config:", msg);
+    }
     
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100">
