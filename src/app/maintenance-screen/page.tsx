@@ -1,7 +1,6 @@
 
 import { headers } from "next/headers";
-import { internal } from "@app/lib/api";
-import { AxiosResponse } from "axios";
+import { priv } from "@app/lib/api";
 import { GetMaintenanceInfoResponse } from "@server/routers/resource";
 
 
@@ -23,12 +22,13 @@ export default async function MaintenanceScreen() {
             const host = headersList.get("host") || "";
             const hostname = host.split(":")[0];
 
-            const res = await internal.get<AxiosResponse<GetMaintenanceInfoResponse>>(
+            const res = await priv.get<GetMaintenanceInfoResponse>(
                 `/maintenance/info?fullDomain=${encodeURIComponent(hostname)}`
             );
 
+
             if (res && res.status === 200) {
-                const maintenanceInfo = res.data.data;
+                const maintenanceInfo = res.data;
                 title = maintenanceInfo?.maintenanceTitle || title;
                 message = maintenanceInfo?.maintenanceMessage || message;
                 estimatedTime = maintenanceInfo?.maintenanceEstimatedTime || null;
