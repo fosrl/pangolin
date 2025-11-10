@@ -396,10 +396,12 @@ export async function getTraefikConfig(
                 }
 
                 config_output.http.middlewares[rewriteMiddlewareName] = {
-                    replacePath: {
-                        path: "/maintenance-screen"
+                    replacePathRegex: {
+                        regex: "^/(.*)",
+                        replacement: "/maintenance-screen"
                     }
                 };
+
 
                 const rule = `Host(\`${fullDomain}\`)`;
 
