@@ -1,8 +1,7 @@
 
 import { headers } from "next/headers";
 import { priv } from "@app/lib/api";
-import { GetMaintenanceInfoResponse } from "@server/routers/resource";
-
+import { GetMaintenanceInfoResponse } from "@server/routers/resource/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,32 +12,26 @@ export default async function MaintenanceScreen() {
         "We are currently experiencing technical difficulties. Please check back soon.";
     let estimatedTime: string | null = null;
 
-    // Check if we're in build mode
-    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
+    try {
+        const headersList = await headers();
+        const host = headersList.get("host") || "";
+        const hostname = host.split(":")[0];
 
-    if (!isBuildTime) {
-        try {
-            const headersList = await headers();
-            const host = headersList.get("host") || "";
-            const hostname = host.split(":")[0];
+        const res = await priv.get<GetMaintenanceInfoResponse>(
+            `/maintenance/info?fullDomain=${encodeURIComponent(hostname)}`
+        );
 
-            const res = await priv.get<GetMaintenanceInfoResponse>(
-                `/maintenance/info?fullDomain=${encodeURIComponent(hostname)}`
-            );
-
-
-            if (res && res.status === 200) {
-                const maintenanceInfo = res.data;
-                title = maintenanceInfo?.maintenanceTitle || title;
-                message = maintenanceInfo?.maintenanceMessage || message;
-                estimatedTime = maintenanceInfo?.maintenanceEstimatedTime || null;
-            }
-        } catch (err) {
-            console.warn(
-                "Failed to fetch maintenance info",
-                err instanceof Error ? err.message : String(err)
-            );
+        if (res && res.status === 200) {
+            const maintenanceInfo = res.data;
+            title = maintenanceInfo?.maintenanceTitle || title;
+            message = maintenanceInfo?.maintenanceMessage || message;
+            estimatedTime = maintenanceInfo?.maintenanceEstimatedTime || null;
         }
+    } catch (err) {
+        console.warn(
+            "Failed to fetch maintenance info",
+            err instanceof Error ? err.message : String(err)
+        );
     }
 
     return (

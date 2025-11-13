@@ -1,3 +1,15 @@
+/*
+ * This file is part of a proprietary work.
+ *
+ * Copyright (c) 2025 Fossorial, Inc.
+ * All rights reserved.
+ *
+ * This file is licensed under the Fossorial Commercial License.
+ * You may not use this file except in compliance with the License.
+ * Unauthorized use, copying, modification, or distribution is strictly prohibited.
+ *
+ * This file is not licensed under the AGPLv3.
+ */
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
@@ -10,6 +22,7 @@ import createHttpError from "http-errors";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { GetMaintenanceInfoResponse } from "@server/routers/resource/types";
 
 const getMaintenanceInfoSchema = z
     .object({
@@ -34,10 +47,6 @@ async function query(fullDomain: string) {
         .limit(1);
     return res;
 }
-
-export type GetMaintenanceInfoResponse = NonNullable<
-    Awaited<ReturnType<typeof query>>
->;
 
 registry.registerPath({
     method: "get",
