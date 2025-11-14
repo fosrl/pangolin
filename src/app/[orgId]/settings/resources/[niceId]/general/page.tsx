@@ -61,7 +61,13 @@ import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusCo
 import { useUserContext } from "@app/hooks/useUserContext";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@app/components/ui/radio-group";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@app/components/ui/tooltip";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from "@app/components/ui/tooltip";
+import { LicenseOrSubscriptionRequiredAlert } from "@app/components/SecurityFeaturesAlert";
 
 export default function GeneralForm() {
     const [formKey, setFormKey] = useState(0);
@@ -122,7 +128,7 @@ export default function GeneralForm() {
             maintenanceModeType: z.enum(["forced", "automatic"]).optional(),
             maintenanceTitle: z.string().max(255).optional(),
             maintenanceMessage: z.string().max(2000).optional(),
-            maintenanceEstimatedTime: z.string().max(100).optional(),
+            maintenanceEstimatedTime: z.string().max(100).optional()
         })
         .refine(
             (data) => {
@@ -155,9 +161,12 @@ export default function GeneralForm() {
             // enableProxy: resource.enableProxy || false
             maintenanceModeEnabled: resource.maintenanceModeEnabled || false,
             maintenanceModeType: resource.maintenanceModeType || "automatic",
-            maintenanceTitle: resource.maintenanceTitle || "We'll be back soon!",
-            maintenanceMessage: resource.maintenanceMessage || "We are currently performing scheduled maintenance. Please check back soon.",
-            maintenanceEstimatedTime: resource.maintenanceEstimatedTime || "",
+            maintenanceTitle:
+                resource.maintenanceTitle || "We'll be back soon!",
+            maintenanceMessage:
+                resource.maintenanceMessage ||
+                "We are currently performing scheduled maintenance. Please check back soon.",
+            maintenanceEstimatedTime: resource.maintenanceEstimatedTime || ""
         },
         mode: "onChange"
     });
@@ -193,7 +202,7 @@ export default function GeneralForm() {
                 const rawDomains = res.data.data.domains as DomainRow[];
                 const domains = rawDomains.map((domain) => ({
                     ...domain,
-                    baseDomain: toUnicode(domain.baseDomain),
+                    baseDomain: toUnicode(domain.baseDomain)
                 }));
                 setBaseDomains(domains);
                 setFormKey((key) => key + 1);
@@ -220,7 +229,9 @@ export default function GeneralForm() {
                     enabled: data.enabled,
                     name: data.name,
                     niceId: data.niceId,
-                    subdomain: data.subdomain ? toASCII(data.subdomain) : undefined,
+                    subdomain: data.subdomain
+                        ? toASCII(data.subdomain)
+                        : undefined,
                     domainId: data.domainId,
                     proxyPort: data.proxyPort,
                     // ...(!resource.http && {
@@ -230,7 +241,8 @@ export default function GeneralForm() {
                     maintenanceModeType: data.maintenanceModeType,
                     maintenanceTitle: data.maintenanceTitle || null,
                     maintenanceMessage: data.maintenanceMessage || null,
-                    maintenanceEstimatedTime: data.maintenanceEstimatedTime || null,
+                    maintenanceEstimatedTime:
+                        data.maintenanceEstimatedTime || null
                 }
             )
             .catch((e) => {
@@ -261,7 +273,7 @@ export default function GeneralForm() {
                 maintenanceModeType: data.maintenanceModeType,
                 maintenanceTitle: data.maintenanceTitle || null,
                 maintenanceMessage: data.maintenanceMessage || null,
-                maintenanceEstimatedTime: data.maintenanceEstimatedTime || null,
+                maintenanceEstimatedTime: data.maintenanceEstimatedTime || null
             });
 
             toast({
@@ -270,7 +282,9 @@ export default function GeneralForm() {
             });
 
             if (data.niceId && data.niceId !== resource?.niceId) {
-                router.replace(`/${updated.orgId}/settings/resources/${data.niceId}/general`);
+                router.replace(
+                    `/${updated.orgId}/settings/resources/${data.niceId}/general`
+                );
             } else {
                 router.refresh();
             }
@@ -355,11 +369,15 @@ export default function GeneralForm() {
                                             name="niceId"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>{t("identifier")}</FormLabel>
+                                                    <FormLabel>
+                                                        {t("identifier")}
+                                                    </FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             {...field}
-                                                            placeholder={t("enterIdentifier")}
+                                                            placeholder={t(
+                                                                "enterIdentifier"
+                                                            )}
                                                             className="flex-1"
                                                         />
                                                     </FormControl>
@@ -395,10 +413,10 @@ export default function GeneralForm() {
                                                                                 .target
                                                                                 .value
                                                                                 ? parseInt(
-                                                                                    e
-                                                                                        .target
-                                                                                        .value
-                                                                                )
+                                                                                      e
+                                                                                          .target
+                                                                                          .value
+                                                                                  )
                                                                                 : undefined
                                                                         )
                                                                     }
@@ -485,20 +503,6 @@ export default function GeneralForm() {
                                 </Form>
                             </SettingsSectionForm>
                         </SettingsSectionBody>
-
-                        <SettingsSectionFooter>
-                            <Button
-                                type="submit"
-                                onClick={() => {
-                                    console.log(form.getValues());
-                                }}
-                                loading={saveLoading}
-                                disabled={saveLoading}
-                                form="general-settings-form"
-                            >
-                                {t("saveSettings")}
-                            </Button>
-                        </SettingsSectionFooter>
                     </SettingsSection>
                 </SettingsContainer>
 
@@ -515,6 +519,8 @@ export default function GeneralForm() {
                             </SettingsSectionHeader>
 
                             <SettingsSectionBody>
+                                <LicenseOrSubscriptionRequiredAlert />
+
                                 <SettingsSectionForm>
                                     <Form {...form}>
                                         <form className="space-y-4">
@@ -526,45 +532,49 @@ export default function GeneralForm() {
                                                         isSecurityFeatureDisabled();
 
                                                     return (
-
                                                         <FormItem>
                                                             <div className="flex items-center space-x-2">
                                                                 <FormControl>
                                                                     <TooltipProvider>
                                                                         <Tooltip>
-                                                                            <TooltipTrigger asChild>
+                                                                            <TooltipTrigger
+                                                                                asChild
+                                                                            >
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <span
-                                                                                        className={isDisabled ? "pointer-events-auto" : ""}
-                                                                                    >
-                                                                                        <SwitchInput
-                                                                                            id="enable-maintenance"
-                                                                                            checked={field.value}
-                                                                                            label={t("enableMaintenanceMode")}
-                                                                                            disabled={isDisabled}
-                                                                                            onCheckedChange={(val) => {
-                                                                                                if (!isDisabled) {
-                                                                                                    form.setValue("maintenanceModeEnabled", val);
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                    </span>
+                                                                                    <SwitchInput
+                                                                                        id="enable-maintenance"
+                                                                                        checked={
+                                                                                            field.value
+                                                                                        }
+                                                                                        label={t(
+                                                                                            "enableMaintenanceMode"
+                                                                                        )}
+                                                                                        disabled={
+                                                                                            isDisabled
+                                                                                        }
+                                                                                        onCheckedChange={(
+                                                                                            val
+                                                                                        ) => {
+                                                                                            if (
+                                                                                                !isDisabled
+                                                                                            ) {
+                                                                                                form.setValue(
+                                                                                                    "maintenanceModeEnabled",
+                                                                                                    val
+                                                                                                );
+                                                                                            }
+                                                                                        }}
+                                                                                    />
                                                                                 </div>
                                                                             </TooltipTrigger>
-
-                                                                            {isDisabled && (
-                                                                                <TooltipContent className="max-w-xs">
-                                                                                    <p>{t("maintenanceModeDisabledTooltip")}</p>
-                                                                                </TooltipContent>
-                                                                            )}
                                                                         </Tooltip>
                                                                     </TooltipProvider>
-
-
                                                                 </FormControl>
                                                             </div>
                                                             <FormDescription>
-                                                                {t("showMaintenancePage")}
+                                                                {t(
+                                                                    "showMaintenancePage"
+                                                                )}
                                                             </FormDescription>
                                                             <FormMessage />
                                                         </FormItem>
@@ -580,12 +590,19 @@ export default function GeneralForm() {
                                                         render={({ field }) => (
                                                             <FormItem className="space-y-3">
                                                                 <FormLabel>
-                                                                    {t("maintenanceModeType")}
+                                                                    {t(
+                                                                        "maintenanceModeType"
+                                                                    )}
                                                                 </FormLabel>
                                                                 <FormControl>
                                                                     <RadioGroup
-                                                                        onValueChange={field.onChange}
-                                                                        defaultValue={field.value}
+                                                                        onValueChange={
+                                                                            field.onChange
+                                                                        }
+                                                                        defaultValue={
+                                                                            field.value
+                                                                        }
+                                                                        disabled={isSecurityFeatureDisabled()}
                                                                         className="flex flex-col space-y-1"
                                                                     >
                                                                         <FormItem className="flex items-start space-x-3 space-y-0">
@@ -594,10 +611,22 @@ export default function GeneralForm() {
                                                                             </FormControl>
                                                                             <div className="space-y-1 leading-none">
                                                                                 <FormLabel className="font-normal">
-                                                                                    <strong>{t("automatic")}</strong> ({t("recommended")})
+                                                                                    <strong>
+                                                                                        {t(
+                                                                                            "automatic"
+                                                                                        )}
+                                                                                    </strong>{" "}
+                                                                                    (
+                                                                                    {t(
+                                                                                        "recommended"
+                                                                                    )}
+
+                                                                                    )
                                                                                 </FormLabel>
                                                                                 <FormDescription>
-                                                                                    {t("automaticModeDescription")}
+                                                                                    {t(
+                                                                                        "automaticModeDescription"
+                                                                                    )}
                                                                                 </FormDescription>
                                                                             </div>
                                                                         </FormItem>
@@ -607,10 +636,16 @@ export default function GeneralForm() {
                                                                             </FormControl>
                                                                             <div className="space-y-1 leading-none">
                                                                                 <FormLabel className="font-normal">
-                                                                                    <strong>{t("forced")}</strong>
+                                                                                    <strong>
+                                                                                        {t(
+                                                                                            "forced"
+                                                                                        )}
+                                                                                    </strong>
                                                                                 </FormLabel>
                                                                                 <FormDescription>
-                                                                                    {t("forcedModeDescription")}
+                                                                                    {t(
+                                                                                        "forcedModeDescription"
+                                                                                    )}
                                                                                 </FormDescription>
                                                                             </div>
                                                                         </FormItem>
@@ -621,11 +656,19 @@ export default function GeneralForm() {
                                                         )}
                                                     />
 
-                                                    {maintenanceModeType === "forced" && (
+                                                    {maintenanceModeType ===
+                                                        "forced" && (
                                                         <Alert>
                                                             <AlertCircle className="h-4 w-4" />
                                                             <AlertDescription>
-                                                                <strong>{t("warning:")}</strong> {t("forcedeModeWarning")}
+                                                                <strong>
+                                                                    {t(
+                                                                        "warning:"
+                                                                    )}
+                                                                </strong>{" "}
+                                                                {t(
+                                                                    "forcedeModeWarning"
+                                                                )}
                                                             </AlertDescription>
                                                         </Alert>
                                                     )}
@@ -635,15 +678,22 @@ export default function GeneralForm() {
                                                         name="maintenanceTitle"
                                                         render={({ field }) => (
                                                             <FormItem>
-                                                                <FormLabel>{t("pageTitle")}</FormLabel>
+                                                                <FormLabel>
+                                                                    {t(
+                                                                        "pageTitle"
+                                                                    )}
+                                                                </FormLabel>
                                                                 <FormControl>
                                                                     <Input
                                                                         {...field}
+                                                                        disabled={isSecurityFeatureDisabled()}
                                                                         placeholder="We'll be back soon!"
                                                                     />
                                                                 </FormControl>
                                                                 <FormDescription>
-                                                                    {t("pageTitleDescription")}
+                                                                    {t(
+                                                                        "pageTitleDescription"
+                                                                    )}
                                                                 </FormDescription>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -655,16 +705,25 @@ export default function GeneralForm() {
                                                         name="maintenanceMessage"
                                                         render={({ field }) => (
                                                             <FormItem>
-                                                                <FormLabel>{t("maintenancePageMessage")}</FormLabel>
+                                                                <FormLabel>
+                                                                    {t(
+                                                                        "maintenancePageMessage"
+                                                                    )}
+                                                                </FormLabel>
                                                                 <FormControl>
                                                                     <Textarea
                                                                         {...field}
                                                                         rows={4}
-                                                                        placeholder={t("maintenancePageMessagePlaceholder")}
+                                                                        disabled={isSecurityFeatureDisabled()}
+                                                                        placeholder={t(
+                                                                            "maintenancePageMessagePlaceholder"
+                                                                        )}
                                                                     />
                                                                 </FormControl>
                                                                 <FormDescription>
-                                                                    {t("maintenancePageMessageDescription")}
+                                                                    {t(
+                                                                        "maintenancePageMessageDescription"
+                                                                    )}
                                                                 </FormDescription>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -677,16 +736,23 @@ export default function GeneralForm() {
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>
-                                                                    {t("maintenancePageTimeTitle")}
+                                                                    {t(
+                                                                        "maintenancePageTimeTitle"
+                                                                    )}
                                                                 </FormLabel>
                                                                 <FormControl>
                                                                     <Input
                                                                         {...field}
-                                                                        placeholder={t("maintenanceTime")}
+                                                                        disabled={isSecurityFeatureDisabled()}
+                                                                        placeholder={t(
+                                                                            "maintenanceTime"
+                                                                        )}
                                                                     />
                                                                 </FormControl>
                                                                 <FormDescription>
-                                                                    {t("maintenanceEstimatedTimeDescription")}
+                                                                    {t(
+                                                                        "maintenanceEstimatedTimeDescription"
+                                                                    )}
                                                                 </FormDescription>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -698,23 +764,23 @@ export default function GeneralForm() {
                                     </Form>
                                 </SettingsSectionForm>
                             </SettingsSectionBody>
-
-                            <SettingsSectionFooter>
-                                <Button
-                                    type="submit"
-                                    onClick={() => {
-                                        console.log(form.getValues());
-                                    }}
-                                    loading={saveLoading}
-                                    disabled={saveLoading}
-                                    form="general-settings-form"
-                                >
-                                    {t("saveSettings")}
-                                </Button>
-                            </SettingsSectionFooter>
                         </SettingsSection>
                     </SettingsContainer>
                 )}
+
+                <div className="flex justify-end">
+                    <Button
+                        type="submit"
+                        onClick={() => {
+                            console.log(form.getValues());
+                        }}
+                        loading={saveLoading}
+                        disabled={saveLoading}
+                        form="general-settings-form"
+                    >
+                        {t("saveSettings")}
+                    </Button>
+                </div>
 
                 <Credenza
                     open={editDomainOpen}
@@ -749,17 +815,29 @@ export default function GeneralForm() {
                             <Button
                                 onClick={() => {
                                     if (selectedDomain) {
-                                        const sanitizedSubdomain = selectedDomain.subdomain
-                                            ? finalizeSubdomainSanitize(selectedDomain.subdomain)
-                                            : "";
+                                        const sanitizedSubdomain =
+                                            selectedDomain.subdomain
+                                                ? finalizeSubdomainSanitize(
+                                                      selectedDomain.subdomain
+                                                  )
+                                                : "";
 
-                                        const sanitizedFullDomain = sanitizedSubdomain
-                                            ? `${sanitizedSubdomain}.${selectedDomain.baseDomain}`
-                                            : selectedDomain.baseDomain;
+                                        const sanitizedFullDomain =
+                                            sanitizedSubdomain
+                                                ? `${sanitizedSubdomain}.${selectedDomain.baseDomain}`
+                                                : selectedDomain.baseDomain;
 
-                                        setResourceFullDomain(`${resource.ssl ? "https" : "http"}://${sanitizedFullDomain}`);
-                                        form.setValue("domainId", selectedDomain.domainId);
-                                        form.setValue("subdomain", sanitizedSubdomain);
+                                        setResourceFullDomain(
+                                            `${resource.ssl ? "https" : "http"}://${sanitizedFullDomain}`
+                                        );
+                                        form.setValue(
+                                            "domainId",
+                                            selectedDomain.domainId
+                                        );
+                                        form.setValue(
+                                            "subdomain",
+                                            sanitizedSubdomain
+                                        );
 
                                         setEditDomainOpen(false);
                                     }

@@ -2386,7 +2386,5 @@
     "maintenanceTime": "e.g., 2 hours, Nov 1 at 5:00 PM",
     "maintenanceEstimatedTimeDescription": "When you expect maintenance to be completed",
     "editDomain": "Edit Domain",
-    "editDomainDescription": "Select a domain for your resource",
-    "maintenanceModeDisabledTooltip": "This feature requires a valid license to enable."
-
+    "editDomainDescription": "Select a domain for your resource"
 }
