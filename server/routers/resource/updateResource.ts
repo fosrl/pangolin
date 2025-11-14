@@ -22,8 +22,8 @@ import { registry } from "@server/openApi";
 import { OpenAPITags } from "@server/openApi";
 import { createCertificate } from "#dynamic/routers/certificates/createCertificate";
 import { validateAndConstructDomain } from "@server/lib/domainUtils";
-import { validateHeaders } from "@server/lib/validators";
 import { build } from "@server/build";
+import { isLicensedOrSubscribed } from "@server/lib/isLicencedOrSubscribed";
 
 const updateResourceParamsSchema = z.strictObject({
     resourceId: z.string().transform(Number).pipe(z.int().positive())
@@ -54,7 +54,7 @@ const updateHttpResourceBodySchema = z
         maintenanceModeType: z.enum(["forced", "automatic"]).optional(),
         maintenanceTitle: z.string().max(255).nullable().optional(),
         maintenanceMessage: z.string().max(2000).nullable().optional(),
-        maintenanceEstimatedTime: z.string().max(100).nullable().optional(),
+        maintenanceEstimatedTime: z.string().max(100).nullable().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
@@ -339,6 +339,16 @@ async function updateHttpResource(
         headers = JSON.stringify(updateData.headers);
     } else if (updateData.headers === null) {
         headers = null;
+    }
+
+    const isLicensed = await isLicensedOrSubscribed(resource.orgId);
+    if (build == "enterprise" && !isLicensed) {
+        // null the maintenance mode fields if not licensed
+        updateData.maintenanceModeEnabled = undefined;
+        updateData.maintenanceModeType = undefined;
+        updateData.maintenanceTitle = undefined;
+        updateData.maintenanceMessage = undefined;
+        updateData.maintenanceEstimatedTime = undefined;
     }
 
     const updatedResource = await db

@@ -10,10 +10,10 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { build } from "@server/build";
-import license from "#dynamic/license/license";
 import { getOrgTierData } from "#dynamic/lib/billing";
 import { TierId } from "@server/lib/billing/tiers";
 import { cache } from "@server/lib/cache";
+import { isLicensedOrSubscribed } from "@server/lib/isLicencedOrSubscribed";
 
 const updateOrgParamsSchema = z.strictObject({
     orgId: z.string()
@@ -154,23 +154,4 @@ export async function updateOrg(
             createHttpError(HttpCode.INTERNAL_SERVER_ERROR, "An error occurred")
         );
     }
-}
-
-async function isLicensedOrSubscribed(orgId: string): Promise<boolean> {
-    if (build === "enterprise") {
-        const isUnlocked = await license.isUnlocked();
-        if (!isUnlocked) {
-            return false;
-        }
-    }
-
-    if (build === "saas") {
-        const { tier } = await getOrgTierData(orgId);
-        const subscribed = tier === TierId.STANDARD;
-        if (!subscribed) {
-            return false;
-        }
-    }
-
-    return true;
 }
