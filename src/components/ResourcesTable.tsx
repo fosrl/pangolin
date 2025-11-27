@@ -1,79 +1,73 @@
 "use client";
 
-import {
-    ColumnDef,
-    flexRender,
-    getCoreRowModel,
-    useReactTable,
-    getPaginationRowModel,
-    SortingState,
-    getSortedRowModel,
-    ColumnFiltersState,
-    getFilteredRowModel,
-    VisibilityState
-} from "@tanstack/react-table";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-    DropdownMenuCheckboxItem
-} from "@app/components/ui/dropdown-menu";
-import { Button } from "@app/components/ui/button";
-import {
-    ArrowRight,
-    ArrowUpDown,
-    MoreHorizontal,
-    ArrowUpRight,
-    ShieldOff,
-    ShieldCheck,
-    RefreshCw,
-    Settings2,
-    Plus,
-    Search,
-    ChevronDown,
-    Clock,
-    Wifi,
-    WifiOff,
-    CheckCircle2,
-    XCircle
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
-import { formatAxiosError } from "@app/lib/api";
-import { toast } from "@app/hooks/useToast";
-import { createApiClient } from "@app/lib/api";
-import { useEnvContext } from "@app/hooks/useEnvContext";
 import CopyToClipboard from "@app/components/CopyToClipboard";
-import { Switch } from "@app/components/ui/switch";
-import { AxiosResponse } from "axios";
-import { UpdateResourceResponse } from "@server/routers/resource";
-import { ListSitesResponse } from "@server/routers/site";
-import { useTranslations } from "next-intl";
-import { InfoPopup } from "@app/components/ui/info-popup";
-import { Input } from "@app/components/ui/input";
+import CreateInternalResourceDialog from "@app/components/CreateInternalResourceDialog";
 import { DataTablePagination } from "@app/components/DataTablePagination";
+import EditInternalResourceDialog from "@app/components/EditInternalResourceDialog";
+import { Alert, AlertDescription } from "@app/components/ui/alert";
+import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader } from "@app/components/ui/card";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger
+} from "@app/components/ui/dropdown-menu";
+import { InfoPopup } from "@app/components/ui/info-popup";
+import { Input } from "@app/components/ui/input";
+import { Switch } from "@app/components/ui/switch";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow
 } from "@app/components/ui/table";
 import {
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger
 } from "@app/components/ui/tabs";
-import { useSearchParams } from "next/navigation";
-import EditInternalResourceDialog from "@app/components/EditInternalResourceDialog";
-import CreateInternalResourceDialog from "@app/components/CreateInternalResourceDialog";
-import { Alert, AlertDescription } from "@app/components/ui/alert";
+import { useEnvContext } from "@app/hooks/useEnvContext";
+import { toast } from "@app/hooks/useToast";
+import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { UpdateResourceResponse } from "@server/routers/resource";
+import { ListSitesResponse } from "@server/routers/site";
+import {
+	ColumnDef,
+	ColumnFiltersState,
+	flexRender,
+	getCoreRowModel,
+	getFilteredRowModel,
+	getPaginationRowModel,
+	getSortedRowModel,
+	SortingState,
+	useReactTable,
+	VisibilityState
+} from "@tanstack/react-table";
+import { AxiosResponse } from "axios";
+import {
+	ArrowRight,
+	ArrowUpDown,
+	ArrowUpRight,
+	CheckCircle2,
+	ChevronDown,
+	Clock,
+	MoreHorizontal,
+	Plus,
+	RefreshCw,
+	Search,
+	ShieldCheck,
+	ShieldOff,
+	XCircle
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export type TargetHealth = {
     targetId: number;
@@ -320,7 +314,7 @@ export default function ResourcesTable({
     const getSearchInput = () => {
         if (currentView === "internal") {
             return (
-                <div className="relative w-full sm:max-w-sm">
+                <div className="relative w-full">
                     <Input
                         placeholder={t("resourcesSearch")}
                         value={internalGlobalFilter ?? ""}
@@ -336,7 +330,7 @@ export default function ResourcesTable({
             );
         }
         return (
-            <div className="relative w-full sm:max-w-sm">
+            <div className="relative w-full">
                 <Input
                     placeholder={t("resourcesSearch")}
                     value={proxyGlobalFilter ?? ""}
@@ -953,12 +947,12 @@ export default function ResourcesTable({
                         className="w-full"
                         onValueChange={handleTabChange}
                     >
-                        <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-0">
-                            <div className="flex flex-row space-y-3 w-full sm:mr-2 gap-2">
+                        <CardHeader className={`grid grid-cols-1 lg:grid-cols-2  ${env.flags.enableClients ? " xl:grid-cols-3" : ""} space-y-4 lg:space-y-0 pb-0`}>
+                            <div className={`flex ${env.flags.enableClients ? "flex-col xl:flex-row xl:col-span-2" : "flex-row"} space-y-3 w-full sm:mr-2 gap-2`}>
                                 {getSearchInput()}
 
                                 {env.flags.enableClients && (
-                                    <TabsList className="grid grid-cols-2">
+                                    <TabsList className="grid grid-cols-2 w-full">
                                         <TabsTrigger value="proxy">
                                             {t("resourcesTableProxyResources")}
                                         </TabsTrigger>
@@ -968,7 +962,7 @@ export default function ResourcesTable({
                                     </TabsList>
                                 )}
                             </div>
-                            <div className="flex items-center gap-2 sm:justify-end">
+                            <div className="flex gap-2 lg:justify-end">
                                 <div>
                                     <Button
                                         variant="outline"
