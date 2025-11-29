@@ -158,14 +158,14 @@
         "@types/yargs": "17.0.34",
         "drizzle-kit": "0.31.6",
         "esbuild": "0.27.0",
-        "esbuild-node-externals": "1.19.1",
+        "esbuild-node-externals": "1.20.1",
         "postcss": "^8",
         "react-email": "4.3.2",
         "tailwindcss": "^4.1.4",
         "tsc-alias": "1.8.16",
         "tsx": "4.20.6",
         "typescript": "^5",
-        "typescript-eslint": "^8.46.3"
+        "typescript-eslint": "^8.48.0"
     },
     "overrides": {
         "emblor": {
