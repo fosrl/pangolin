@@ -1,4 +1,4 @@
-import { db } from "@server/db";
+import { db, olms } from "@server/db";
 import {
     clients,
     orgs,
@@ -16,6 +16,67 @@ import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import NodeCache from "node-cache";
+import semver from "semver";
+
+const olmVersionCache = new NodeCache({ stdTTL: 3600 }); 
+
+async function getLatestOlmVersion(): Promise<string | null> {
+    try {
+        const cachedVersion = olmVersionCache.get<string>("latestOlmVersion");
+        if (cachedVersion) {
+            return cachedVersion;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500); 
+
+        const response = await fetch(
+            "https://api.github.com/repos/fosrl/olm/tags",
+            {
+                signal: controller.signal
+            }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            logger.warn(
+                `Failed to fetch latest Olm version from GitHub: ${response.status} ${response.statusText}`
+            );
+            return null;
+        }
+
+        const tags = await response.json();
+        if (!Array.isArray(tags) || tags.length === 0) {
+            logger.warn("No tags found for Olm repository");
+            return null;
+        }
+
+        const latestVersion = tags[0].name;
+
+        olmVersionCache.set("latestOlmVersion", latestVersion);
+
+        return latestVersion;
+    } catch (error: any) {
+        if (error.name === "AbortError") {
+            logger.warn(
+                "Request to fetch latest Olm version timed out (1.5s)"
+            );
+        } else if (error.cause?.code === "UND_ERR_CONNECT_TIMEOUT") {
+            logger.warn(
+                "Connection timeout while fetching latest Olm version"
+            );
+        } else {
+            logger.warn(
+                "Error fetching latest Olm version:",
+                error.message || error
+            );
+        }
+        return null;
+    }
+}
+
 
 const listClientsParamsSchema = z
     .object({
@@ -50,10 +111,12 @@ function queryClients(orgId: string, accessibleClientIds: number[]) {
             megabytesOut: clients.megabytesOut,
             orgName: orgs.name,
             type: clients.type,
-            online: clients.online
+            online: clients.online,
+            olmVersion: olms.version
         })
         .from(clients)
         .leftJoin(orgs, eq(clients.orgId, orgs.orgId))
+        .leftJoin(olms, eq(clients.clientId, olms.clientId))
         .where(
             and(
                 inArray(clients.clientId, accessibleClientIds),
@@ -77,12 +140,20 @@ async function getSiteAssociations(clientIds: number[]) {
         .where(inArray(clientSites.clientId, clientIds));
 }
 
+type OlmWithUpdateAvailable = Awaited<ReturnType<typeof queryClients>>[0] & {
+    olmUpdateAvailable?: boolean;
+};
+
+
 export type ListClientsResponse = {
-    clients: Array<Awaited<ReturnType<typeof queryClients>>[0] & { sites: Array<{
-        siteId: number;
-        siteName: string | null;
-        siteNiceId: string | null;
-    }> }>;
+    clients: Array<Awaited<ReturnType<typeof queryClients>>[0] & {
+        sites: Array<{
+            siteId: number;
+            siteName: string | null;
+            siteNiceId: string | null;
+        }>
+        olmUpdateAvailable?: boolean;
+    }>;
     pagination: { total: number; limit: number; offset: number };
 };
 
@@ -205,6 +276,43 @@ export async function listClients(
             ...client,
             sites: sitesByClient[client.clientId] || []
         }));
+
+        const latestOlVersionPromise = getLatestOlmVersion();
+
+        const olmsWithUpdates: OlmWithUpdateAvailable[] = clientsWithSites.map(
+            (client) => {
+                const OlmWithUpdate: OlmWithUpdateAvailable = { ...client };
+                // Initially set to false, will be updated if version check succeeds
+                OlmWithUpdate.olmUpdateAvailable = false;
+                return OlmWithUpdate;
+            }
+        );
+
+        // Try to get the latest version, but don't block if it fails
+        try {
+            const latestOlVersion = await latestOlVersionPromise;
+
+            if (latestOlVersion) {
+                olmsWithUpdates.forEach((client) => {
+                    try {
+                        client.olmUpdateAvailable = semver.lt(
+                            client.olmVersion ? client.olmVersion : "",
+                            latestOlVersion
+                        );
+                    } catch (error) {
+                        client.olmUpdateAvailable = false;
+                    }
+
+                });
+            }
+        } catch (error) {
+            // Log the error but don't let it block the response
+            logger.warn(
+                "Failed to check for OLM updates, continuing without update info:",
+                error
+            );
+        }
+
 
         return response<ListClientsResponse>(res, {
             data: {

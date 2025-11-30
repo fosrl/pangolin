@@ -10,11 +10,11 @@ import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { generateSessionToken } from "@server/auth/sessions/app";
 import config from "@server/lib/config";
-import {
-    encodeHexLowerCase
-} from "@oslojs/encoding";
+import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { response } from "@server/lib/response";
+import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
+import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 
 const getExchangeTokenParams = z
     .object({
@@ -47,13 +47,13 @@ export async function getExchangeToken(
 
         const { resourceId } = parsedParams.data;
 
-        const resource = await db
+        const [resource] = await db
             .select()
             .from(resources)
             .where(eq(resources.resourceId, resourceId))
             .limit(1);
 
-        if (resource.length === 0) {
+        if (!resource) {
             return next(
                 createHttpError(
                     HttpCode.NOT_FOUND,
@@ -74,6 +74,23 @@ export async function getExchangeToken(
             );
         }
 
+        // check org policy here
+        const hasAccess = await checkOrgAccessPolicy({
+            orgId: resource.orgId,
+            userId: req.user!.userId,
+            session: req.session
+        });
+
+        if (!hasAccess.allowed || hasAccess.error) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Failed organization access policy check: " +
+                        (hasAccess.error || "Unknown error")
+                )
+            );
+        }
+
         const sessionId = encodeHexLowerCase(
             sha256(new TextEncoder().encode(ssoSession))
         );
@@ -88,6 +105,21 @@ export async function getExchangeToken(
             sessionLength: 1000 * 30,
             doNotExtend: true
         });
+
+        if (req.user) {
+            logAccessAudit({
+                orgId: resource.orgId,
+                resourceId: resourceId,
+                user: {
+                    username: req.user.username,
+                    userId: req.user.userId
+                },
+                action: true,
+                type: "login",
+                userAgent: req.headers["user-agent"],
+                requestIp: req.ip
+            });
+        }
 
         logger.debug("Request token created successfully");
 

@@ -1,8 +1,8 @@
-import { db, exitNodeOrgs, newts } from "@server/db";
+import { db, ExitNode, exitNodeOrgs, newts, Transaction } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
 import { exitNodes, Newt, resources, sites, Target, targets } from "@server/db";
 import { targetHealthCheck } from "@server/db";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql, inArray, ne } from "drizzle-orm";
 import { addPeer, deletePeer } from "../gerbil/peers";
 import logger from "@server/logger";
 import config from "@server/lib/config";
@@ -17,6 +17,7 @@ import {
     verifyExitNodeOrgAccess
 } from "#dynamic/lib/exitNodes";
 import { fetchContainers } from "./dockerSocket";
+import { lockManager } from "#dynamic/lib/lock";
 
 export type ExitNodePingResult = {
     exitNodeId: number;
@@ -151,27 +152,8 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
             return;
         }
 
-        const sitesQuery = await db
-            .select({
-                subnet: sites.subnet
-            })
-            .from(sites)
-            .where(eq(sites.exitNodeId, exitNodeId));
+        const newSubnet = await getUniqueSubnetForSite(exitNode);
 
-        const blockSize = config.getRawConfig().gerbil.site_block_size;
-        const subnets = sitesQuery
-            .map((site) => site.subnet)
-            .filter(
-                (subnet) =>
-                    subnet && /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(subnet)
-            )
-            .filter((subnet) => subnet !== null);
-        subnets.push(exitNode.address.replace(/\/\d+$/, `/${blockSize}`));
-        const newSubnet = findNextAvailableCidr(
-            subnets,
-            blockSize,
-            exitNode.address
-        );
         if (!newSubnet) {
             logger.error(
                 `No available subnets found for the new exit node id ${exitNodeId} and site id ${siteId}`
@@ -376,3 +358,39 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
         excludeSender: false // Include sender in broadcast
     };
 };
+
+async function getUniqueSubnetForSite(
+    exitNode: ExitNode,
+    trx: Transaction | typeof db = db
+): Promise<string | null> {
+    const lockKey = `subnet-allocation:${exitNode.exitNodeId}`;
+    
+    return await lockManager.withLock(
+        lockKey,
+        async () => {
+            const sitesQuery = await trx
+                .select({
+                    subnet: sites.subnet
+                })
+                .from(sites)
+                .where(eq(sites.exitNodeId, exitNode.exitNodeId));
+
+            const blockSize = config.getRawConfig().gerbil.site_block_size;
+            const subnets = sitesQuery
+                .map((site) => site.subnet)
+                .filter(
+                    (subnet) =>
+                        subnet && /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(subnet)
+                )
+                .filter((subnet) => subnet !== null);
+            subnets.push(exitNode.address.replace(/\/\d+$/, `/${blockSize}`));
+            const newSubnet = findNextAvailableCidr(
+                subnets,
+                blockSize,
+                exitNode.address
+            );
+            return newSubnet;
+        },
+        5000 // 5 second lock TTL - subnet allocation should be quick
+    );
+}

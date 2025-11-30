@@ -29,7 +29,7 @@ export const handleRemoteExitNodeRegisterMessage: MessageHandler = async (
         return;
     }
 
-    const { remoteExitNodeVersion } = message.data;
+    const { remoteExitNodeVersion, remoteExitNodeSecondaryVersion } = message.data;
 
     if (!remoteExitNodeVersion) {
         logger.warn("Remote exit node version not found");
@@ -39,7 +39,7 @@ export const handleRemoteExitNodeRegisterMessage: MessageHandler = async (
     // update the version
     await db
         .update(remoteExitNodes)
-        .set({ version: remoteExitNodeVersion })
+        .set({ version: remoteExitNodeVersion, secondaryVersion: remoteExitNodeSecondaryVersion })
         .where(
             eq(
                 remoteExitNodes.remoteExitNodeId,

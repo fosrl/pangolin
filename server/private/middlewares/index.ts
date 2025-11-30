@@ -15,4 +15,5 @@ export * from "./verifyCertificateAccess";
 export * from "./verifyRemoteExitNodeAccess";
 export * from "./verifyIdpAccess";
 export * from "./verifyLoginPageAccess";
-export * from "../../lib/corsWithLoginPage";
+export * from "./logActionAudit";
+export * from "./verifySubscription";

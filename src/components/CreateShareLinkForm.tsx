@@ -98,6 +98,7 @@ export default function CreateShareLinkForm({
         {
             resourceId: number;
             name: string;
+            niceId: string;
             resourceUrl: string;
         }[]
     >([]);
@@ -160,6 +161,7 @@ export default function CreateShareLinkForm({
                         .map((r) => ({
                             resourceId: r.resourceId,
                             name: r.name,
+                            niceId: r.niceId,
                             resourceUrl: `${r.ssl ? "https://" : "http://"}${toUnicode(r.fullDomain || "")}/`
                         }))
                 );
@@ -233,6 +235,7 @@ export default function CreateShareLinkForm({
                 accessTokenId: token.accessTokenId,
                 resourceId: token.resourceId,
                 resourceName: values.resourceName,
+                resourceNiceId: resource ? resource.niceId : "",
                 title: token.title,
                 createdAt: token.createdAt,
                 expiresAt: token.expiresAt

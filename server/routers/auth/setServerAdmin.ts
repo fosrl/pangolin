@@ -98,7 +98,8 @@ export async function setServerAdmin(
                 passwordHash,
                 dateCreated: moment().toISOString(),
                 serverAdmin: true,
-                emailVerified: true
+                emailVerified: true,
+                lastPasswordChange: new Date().getTime()
             });
         });
 

@@ -80,10 +80,12 @@ async function makeApiRequest<T>(
 
     const headersList = await reqHeaders();
     const host = headersList.get("host");
+    const xForwardedFor = headersList.get("x-forwarded-for");
 
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
         "X-CSRF-Token": "x-csrf-protection",
+        ...(xForwardedFor ? { "X-Forwarded-For": xForwardedFor } : {}),
         ...(cookieHeader && { Cookie: cookieHeader }),
         ...additionalHeaders
     };
@@ -202,6 +204,7 @@ export type LoginRequest = {
     email: string;
     password: string;
     code?: string;
+    resourceGuid?: string;
 };
 
 export type LoginResponse = {

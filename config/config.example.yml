@@ -1,5 +1,5 @@
 # To see all available options, please visit the docs:
-# https://docs.digpangolin.com/self-host/advanced/config-file
+# https://docs.pangolin.net/self-host/advanced/config-file
 
 app:
   dashboard_url: http://localhost:3002

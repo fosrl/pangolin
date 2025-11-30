@@ -9,14 +9,12 @@ import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import NodeCache from "node-cache";
 import semver from "semver";
-
-const newtVersionCache = new NodeCache({ stdTTL: 3600 }); // 1 hours in seconds
+import cache from "@server/lib/cache";
 
 async function getLatestNewtVersion(): Promise<string | null> {
     try {
-        const cachedVersion = newtVersionCache.get<string>("latestNewtVersion");
+        const cachedVersion = cache.get<string>("latestNewtVersion");
         if (cachedVersion) {
             return cachedVersion;
         }
@@ -48,7 +46,7 @@ async function getLatestNewtVersion(): Promise<string | null> {
 
         const latestVersion = tags[0].name;
 
-        newtVersionCache.set("latestNewtVersion", latestVersion);
+        cache.set("latestNewtVersion", latestVersion);
 
         return latestVersion;
     } catch (error: any) {

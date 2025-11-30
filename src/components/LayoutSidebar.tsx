@@ -31,6 +31,7 @@ import {
 } from "@app/components/ui/tooltip";
 import { build } from "@server/build";
 import SidebarLicenseButton from "./SidebarLicenseButton";
+import { SidebarSupportButton } from "./SidebarSupportButton";
 
 interface LayoutSidebarProps {
     orgId?: string;
@@ -143,6 +144,11 @@ export function LayoutSidebar({
                 {build === "oss" && (
                     <div className="mb-3">
                         <SupporterStatus isCollapsed={isSidebarCollapsed} />
+                    </div>
+                )}
+                {build === "saas" && (
+                    <div className="mb-3">
+                        <SidebarSupportButton isCollapsed={isSidebarCollapsed} />
                     </div>
                 )}
                 {!isSidebarCollapsed && (

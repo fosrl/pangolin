@@ -269,6 +269,8 @@ export default async function migration() {
             dateCreated: string;
         }[];
 
+        db.prepare(`DELETE FROM 'webauthnCredentials';`).run(); 
+
         for (const webauthnCredential of webauthnCredentials) {
             const newCredentialId = isoBase64URL.fromBuffer(
                 new Uint8Array(
@@ -280,11 +282,6 @@ export default async function migration() {
                     Buffer.from(webauthnCredential.publicKey, "base64")
                 )
             );
-
-            // Delete the old record
-            db.prepare(
-                `DELETE FROM 'webauthnCredentials' WHERE 'credentialId' = ?`
-            ).run(webauthnCredential.credentialId);
 
             // Insert the updated record with converted values
             db.prepare(

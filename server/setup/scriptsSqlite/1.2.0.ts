@@ -62,7 +62,7 @@ export default async function migration() {
         console.log(`Added new config option: resource_access_token_headers`);
     } catch (e) {
         console.log(
-            `Unable to add new config option: resource_access_token_headers. Please add it manually. https://docs.digpangolin.com/self-host/advanced/config-file`
+            `Unable to add new config option: resource_access_token_headers. Please add it manually. https://docs.pangolin.net/self-host/advanced/config-file`
         );
         console.error(e);
     }

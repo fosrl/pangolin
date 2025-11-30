@@ -18,7 +18,8 @@ import {
     resources,
     targets,
     sites,
-    targetHealthCheck
+    targetHealthCheck,
+    Transaction
 } from "@server/db";
 import logger from "@server/logger";
 import { ExitNodePingResult } from "@server/routers/newt";
@@ -333,8 +334,8 @@ export function selectBestExitNode(
     return fallbackNode;
 }
 
-export async function checkExitNodeOrg(exitNodeId: number, orgId: string) {
-    const [exitNodeOrg] = await db
+export async function checkExitNodeOrg(exitNodeId: number, orgId: string, trx: Transaction | typeof db = db) {
+    const [exitNodeOrg] = await trx
         .select()
         .from(exitNodeOrgs)
         .where(

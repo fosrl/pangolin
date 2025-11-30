@@ -352,20 +352,38 @@ export async function validateOidcCallback(
 
             if (!userOrgInfo.length) {
                 if (existingUser) {
-                    // delete the user
-                    // cascade will also delete org users
+                    // get existing user orgs
+                    const existingUserOrgs = await db
+                        .select()
+                        .from(userOrgs)
+                        .where(
+                            and(
+                                eq(userOrgs.userId, existingUser.userId),
+                                eq(userOrgs.autoProvisioned, false)
+                            )
+                        );
 
-                    await db
-                        .delete(users)
-                        .where(eq(users.userId, existingUser.userId));
+                    if (!existingUserOrgs.length) {
+                        // delete the user
+                        // await db
+                        //     .delete(users)
+                        //     .where(eq(users.userId, existingUser.userId));
+                        return next(
+                            createHttpError(
+                                HttpCode.UNAUTHORIZED,
+                                `No policies matched for ${userIdentifier}. This user must be added to an organization before logging in.`
+                            )
+                        );
+                    }
+                } else {
+                    // no orgs to provision and user doesn't exist
+                    return next(
+                        createHttpError(
+                            HttpCode.UNAUTHORIZED,
+                            `No policies matched for ${userIdentifier}. This user must be added to an organization before logging in.`
+                        )
+                    );
                 }
-
-                return next(
-                    createHttpError(
-                        HttpCode.UNAUTHORIZED,
-                        `No policies matched for ${userIdentifier}. This user must be added to an organization before logging in.`
-                    )
-                );
             }
 
             const orgUserCounts: { orgId: string; userCount: number }[] = [];

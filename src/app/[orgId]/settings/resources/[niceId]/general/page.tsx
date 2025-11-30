@@ -56,6 +56,9 @@ import { build } from "@server/build";
 import { finalizeSubdomainSanitize } from "@app/lib/subdomain-utils";
 import { DomainRow } from "../../../../../../components/DomainsTable";
 import { toASCII, toUnicode } from "punycode";
+import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
+import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusContext";
+import { useUserContext } from "@app/hooks/useUserContext";
 
 export default function GeneralForm() {
     const [formKey, setFormKey] = useState(0);
@@ -65,6 +68,9 @@ export default function GeneralForm() {
     const router = useRouter();
     const t = useTranslations();
     const [editDomainOpen, setEditDomainOpen] = useState(false);
+    const {licenseStatus } = useLicenseStatusContext();
+    const subscriptionStatus = useSubscriptionStatusContext();
+    const {user} = useUserContext();
 
     const { env } = useEnvContext();
 

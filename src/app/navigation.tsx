@@ -1,22 +1,23 @@
 import { SidebarNavItem } from "@app/components/SidebarNav";
 import { build } from "@server/build";
 import {
-    Home,
     Settings,
     Users,
     Link as LinkIcon,
     Waypoints,
     Combine,
     Fingerprint,
-    Workflow,
     KeyRound,
     TicketCheck,
     User,
     Globe, // Added from 'dev' branch
     MonitorUp, // Added from 'dev' branch
     Server,
-    Zap,
-    CreditCard
+    ReceiptText,
+    CreditCard,
+    Logs,
+    SquareMousePointer,
+    ScanEye
 } from "lucide-react";
 
 export type SidebarNavSection = {
@@ -74,6 +75,11 @@ export const orgNavSections = (
                 title: "sidebarDomains",
                 href: "/{orgId}/settings/domains",
                 icon: <Globe className="h-4 w-4" />
+            },
+            {
+                title: "sidebarBluePrints",
+                href: "/{orgId}/settings/blueprints",
+                icon: <ReceiptText className="h-4 w-4" />
             }
         ]
     },
@@ -110,6 +116,30 @@ export const orgNavSections = (
                 href: "/{orgId}/settings/share-links",
                 icon: <LinkIcon className="h-4 w-4" />
             }
+        ]
+    },
+    {
+        heading: "Analytics",
+        items: [
+            {
+                title: "sidebarLogsRequest",
+                href: "/{orgId}/settings/logs/request",
+                icon: <SquareMousePointer className="h-4 w-4" />
+            },
+            ...(build != "oss"
+                ? [
+                      {
+                          title: "sidebarLogsAccess",
+                          href: "/{orgId}/settings/logs/access",
+                          icon: <ScanEye className="h-4 w-4" />
+                      },
+                      {
+                          title: "sidebarLogsAction",
+                          href: "/{orgId}/settings/logs/action",
+                          icon: <Logs className="h-4 w-4" />
+                      }
+                  ]
+                : [])
         ]
     },
     {

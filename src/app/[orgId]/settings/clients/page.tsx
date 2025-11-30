@@ -44,7 +44,9 @@ export default async function ClientsPage(props: ClientsPageProps) {
             mbIn: formatSize(client.megabytesIn || 0),
             mbOut: formatSize(client.megabytesOut || 0),
             orgId: params.orgId,
-            online: client.online
+            online: client.online,
+            olmVersion: client.olmVersion || undefined,
+            olmUpdateAvailable: client.olmUpdateAvailable || false,
         };
     });
 

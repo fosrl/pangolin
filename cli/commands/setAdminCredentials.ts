@@ -90,7 +90,8 @@ export const setAdminCredentials: CommandModule<{}, SetAdminCredentialsArgs> = {
                             passwordHash,
                             dateCreated: moment().toISOString(),
                             serverAdmin: true,
-                            emailVerified: true
+                            emailVerified: true,
+                            lastPasswordChange: new Date().getTime()
                         });
 
                         console.log("Server admin created");

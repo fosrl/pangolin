@@ -89,7 +89,7 @@ export function EmailFooter({ children }: { children: React.ReactNode }) {
                     <p className="text-xs text-gray-400 mt-4">
                         For any questions or support, please contact us at:
                         <br />
-                        support@fossorial.io
+                        support@pangolin.net
                     </p>
                     <p className="text-xs text-gray-300 text-center mt-4">
                         &copy; {new Date().getFullYear()} Fossorial, Inc. All

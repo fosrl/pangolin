@@ -418,17 +418,11 @@ export default function SitesTable({ sites, orgId }: SitesTableProps) {
                         setSelectedSite(null);
                     }}
                     dialog={
-                        <div className="space-y-4">
+                        <div className="">
                             <p>
-                                {t("siteQuestionRemove", {
-                                    selectedSite:
-                                        selectedSite?.name || selectedSite?.id
-                                })}
+                                {t("siteQuestionRemove")}
                             </p>
-
                             <p>{t("siteMessageRemove")}</p>
-
-                            <p>{t("siteMessageConfirm")}</p>
                         </div>
                     }
                     buttonText={t("siteConfirmDelete")}

@@ -39,6 +39,7 @@ export type ShareLinkRow = {
     accessTokenId: string;
     resourceId: number;
     resourceName: string;
+    resourceNiceId: string;
     title: string | null;
     createdAt: number;
     expiresAt: number | null;
@@ -120,7 +121,7 @@ export default function ShareLinksTable({
             cell: ({ row }) => {
                 const r = row.original;
                 return (
-                    <Link href={`/${orgId}/settings/resources/${r.resourceId}`}>
+                    <Link href={`/${orgId}/settings/resources/${r.resourceNiceId}`}>
                         <Button variant="outline" size="sm">
                             {r.resourceName}
                             <ArrowUpRight className="ml-2 h-4 w-4" />

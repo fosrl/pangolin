@@ -401,7 +401,7 @@ export default function GeneralPage() {
                 </Badge>
                 <Link
                     className="flex items-center gap-2 text-primary hover:underline"
-                    href="https://digpangolin.com/pricing"
+                    href="https://pangolin.net/pricing"
                     target="_blank"
                     rel="noopener noreferrer"
                 >

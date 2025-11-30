@@ -1,30 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db } from "@server/db";
-import { eq } from "drizzle-orm";
-import {
-    apiKeyOrg,
-    apiKeys,
-    domains,
-    Org,
-    orgDomains,
-    orgs,
-    roleActions,
-    roles,
-    userOrgs,
-    users,
-    actions
-} from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
-import config from "@server/lib/config";
 import { fromError } from "zod-validation-error";
-import { defaultRoleAllowedActions } from "../role";
 import { OpenAPITags, registry } from "@server/openApi";
-import { isValidCIDR } from "@server/lib/validators";
-import { applyBlueprint as applyBlueprintFunc } from "@server/lib/blueprints/applyBlueprint";
+import { applyBlueprint } from "@server/lib/blueprints/applyBlueprint";
 
 const applyBlueprintSchema = z
     .object({
@@ -41,8 +23,8 @@ const applyBlueprintParamsSchema = z
 registry.registerPath({
     method: "put",
     path: "/org/{orgId}/blueprint",
-    description: "Apply a base64 encoded blueprint to an organization",
-    tags: [OpenAPITags.Org],
+    description: "Apply a base64 encoded JSON blueprint to an organization",
+    tags: [OpenAPITags.Org, OpenAPITags.Blueprint],
     request: {
         params: applyBlueprintParamsSchema,
         body: {
@@ -56,7 +38,7 @@ registry.registerPath({
     responses: {}
 });
 
-export async function applyBlueprint(
+export async function applyJSONBlueprint(
     req: Request,
     res: Response,
     next: NextFunction
@@ -100,7 +82,11 @@ export async function applyBlueprint(
             const blueprintParsed = JSON.parse(decoded);
 
             // Update the blueprint in the database
-            await applyBlueprintFunc(orgId, blueprintParsed);
+            await applyBlueprint({
+                orgId,
+                configData: blueprintParsed,
+                source: "API"
+            });
         } catch (error) {
             logger.error(`Failed to update database from config: ${error}`);
             return next(

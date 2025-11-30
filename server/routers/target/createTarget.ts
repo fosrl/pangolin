@@ -163,12 +163,8 @@ export async function createTarget(
         );
 
         if (existingTarget) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    `Target with IP ${targetData.ip}, port ${targetData.port}, method ${targetData.method} already exists for resource ID ${resourceId}`
-                )
-            );
+            // log a warning
+            logger.warn(`Target with IP ${targetData.ip}, port ${targetData.port}, method ${targetData.method} already exists for resource ID ${resourceId}`);
         }
 
         let newTarget: Target[] = [];

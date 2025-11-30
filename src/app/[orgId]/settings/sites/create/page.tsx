@@ -79,9 +79,7 @@ interface RemoteExitNodeOption {
 }
 
 type Commands = {
-    mac: Record<string, string[]>;
-    linux: Record<string, string[]>;
-    freebsd: Record<string, string[]>;
+    unix: Record<string, string[]>;
     windows: Record<string, string[]>;
     docker: Record<string, string[]>;
     kubernetes: Record<string, string[]>;
@@ -90,13 +88,11 @@ type Commands = {
 };
 
 const platforms = [
-    "linux",
+    "unix",
     "docker",
     "kubernetes",
     "podman",
-    "mac",
     "windows",
-    "freebsd",
     "nixos"
 ] as const;
 
@@ -190,7 +186,7 @@ export default function Page() {
 
     const [loadingPage, setLoadingPage] = useState(true);
 
-    const [platform, setPlatform] = useState<Platform>("linux");
+    const [platform, setPlatform] = useState<Platform>("unix");
     const [architecture, setArchitecture] = useState("amd64");
     const [commands, setCommands] = useState<Commands | null>(null);
 
@@ -250,47 +246,11 @@ PersistentKeepalive = 5`;
             : "";
 
         const commands = {
-            mac: {
+            unix: {
                 All: [
-                    `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
+                    `curl -fsSL https://pangolin.net/get-newt.sh | bash`,
                     `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
                 ]
-                // "Intel x64 (amd64)": [
-                //     `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
-                //     `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                // ]
-            },
-            linux: {
-                All: [
-                    `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
-                    `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                ]
-                // arm64: [
-                //     `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
-                //     `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                // ],
-                // arm32: [
-                //     `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
-                //     `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                // ],
-                // arm32v6: [
-                //     `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
-                //     `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                // ],
-                // riscv64: [
-                //     `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
-                //     `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                // ]
-            },
-            freebsd: {
-                All: [
-                    `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
-                    `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                ]
-                // arm64: [
-                //     `curl -fsSL https://digpangolin.com/get-newt.sh | bash`,
-                //     `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                // ]
             },
             windows: {
                 x64: [
@@ -353,9 +313,6 @@ WantedBy=default.target`
                 All: [
                     `nix run 'nixpkgs#fosrl-newt' -- --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
                 ]
-                // aarch64: [
-                //     `nix run 'nixpkgs#fosrl-newt' -- --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
-                // ]
             }
         };
         setCommands(commands);
@@ -363,11 +320,7 @@ WantedBy=default.target`
 
     const getArchitectures = () => {
         switch (platform) {
-            case "linux":
-                // return ["amd64", "arm64", "arm32", "arm32v6", "riscv64"];
-                return ["All"];
-            case "mac":
-                // return ["Apple Silicon (arm64)", "Intel x64 (amd64)"];
+            case "unix":
                 return ["All"];
             case "windows":
                 return ["x64"];
@@ -377,11 +330,7 @@ WantedBy=default.target`
                 return ["Helm Chart"];
             case "podman":
                 return ["Podman Quadlet", "Podman Run"];
-            case "freebsd":
-                // return ["amd64", "arm64"];
-                return ["All"];
             case "nixos":
-                // return ["x86_64", "aarch64"];
                 return ["All"];
             default:
                 return ["x64"];
@@ -392,20 +341,18 @@ WantedBy=default.target`
         switch (platformName) {
             case "windows":
                 return "Windows";
-            case "mac":
-                return "macOS";
+            case "unix":
+                return "Unix & macOS";
             case "docker":
                 return "Docker";
             case "kubernetes":
                 return "Kubernetes";
             case "podman":
                 return "Podman";
-            case "freebsd":
-                return "FreeBSD";
             case "nixos":
                 return "NixOS";
             default:
-                return "Linux";
+                return "Unix / macOS";
         }
     };
 
@@ -440,16 +387,14 @@ WantedBy=default.target`
         switch (platformName) {
             case "windows":
                 return <FaWindows className="h-4 w-4 mr-2" />;
-            case "mac":
-                return <FaApple className="h-4 w-4 mr-2" />;
+            case "unix":
+                return <Terminal className="h-4 w-4 mr-2" />;
             case "docker":
                 return <FaDocker className="h-4 w-4 mr-2" />;
             case "kubernetes":
                 return <SiKubernetes className="h-4 w-4 mr-2" />;
             case "podman":
                 return <FaCubes className="h-4 w-4 mr-2" />;
-            case "freebsd":
-                return <FaFreebsd className="h-4 w-4 mr-2" />;
             case "nixos":
                 return <SiNixos className="h-4 w-4 mr-2" />;
             default:

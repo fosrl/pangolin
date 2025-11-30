@@ -79,6 +79,12 @@ export function createApiServer() {
     // Add request timeout middleware
     apiServer.use(requestTimeoutMiddleware(60000)); // 60 second timeout
 
+    apiServer.use(logIncomingMiddleware);
+
+    if (build !== "oss") {
+        apiServer.use(`${prefix}/hybrid`, hybridRouter); // put before rate limiting because we will rate limit there separately because some of the routes are heavily used
+    }
+
     if (!dev) {
         apiServer.use(
             rateLimit({
@@ -101,11 +107,7 @@ export function createApiServer() {
     }
 
     // API routes
-    apiServer.use(logIncomingMiddleware);
     apiServer.use(prefix, unauthenticated);
-    if (build !== "oss") {
-        apiServer.use(`${prefix}/hybrid`, hybridRouter);
-    }
     apiServer.use(prefix, authenticated);
 
     // WebSocket routes

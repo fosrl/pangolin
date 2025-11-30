@@ -11,7 +11,7 @@ services:
       - ./config/postgres:/var/lib/postgresql/data
     ports:
       - "5432:5432" # Map host port 5432 to container port 5432
-    restart: no 
+    restart: no
 
   redis:
     image: redis:latest # Use the latest Redis image

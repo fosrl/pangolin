@@ -17,6 +17,7 @@ import { hashPassword } from "@server/auth/password";
 import { isValidIP } from "@server/lib/validators";
 import { isIpInCidr } from "@server/lib/ip";
 import { verifyExitNodeOrgAccess } from "#dynamic/lib/exitNodes";
+import { build } from "@server/build";
 
 const createSiteParamsSchema = z
     .object({
@@ -201,12 +202,68 @@ export async function createSite(
             }
         }
 
+        if (subnet && exitNodeId) {
+            //make sure the subnet is in the range of the exit node if provided
+            const [exitNode] = await db
+                .select()
+                .from(exitNodes)
+                .where(eq(exitNodes.exitNodeId, exitNodeId));
+
+            if (!exitNode) {
+                return next(
+                    createHttpError(HttpCode.NOT_FOUND, "Exit node not found")
+                );
+            }
+
+            if (!exitNode.address) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Exit node has no subnet defined"
+                    )
+                );
+            }
+
+            const subnetIp = subnet.split("/")[0];
+
+            if (!isIpInCidr(subnetIp, exitNode.address)) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Subnet is not in the CIDR range of the exit node address."
+                    )
+                );
+            }
+
+            // lets also make sure there is no overlap with other sites on the exit node
+            const sitesQuery = await db
+                .select({
+                    subnet: sites.subnet
+                })
+                .from(sites)
+                .where(
+                    and(
+                        eq(sites.exitNodeId, exitNodeId),
+                        eq(sites.subnet, subnet)
+                    )
+                );
+
+            if (sitesQuery.length > 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.CONFLICT,
+                        `Subnet ${subnet} overlaps with an existing site on this exit node. Please restart site creation.`
+                    )
+                );
+            }
+        }
+
         const niceId = await getUniqueSiteName(orgId);
 
-        await db.transaction(async (trx) => {
-            let newSite: Site;
+        let newSite: Site;
 
-            if ((type == "wireguard" || type == "newt") && exitNodeId) {
+        await db.transaction(async (trx) => {
+            if (type == "wireguard" || type == "newt") {
                 // we are creating a site with an exit node (tunneled)
                 if (!subnet) {
                     return next(
@@ -217,11 +274,19 @@ export async function createSite(
                     );
                 }
 
-                const { exitNode, hasAccess } =
-                    await verifyExitNodeOrgAccess(
-                        exitNodeId,
-                        orgId
+                if (!exitNodeId) {
+                    return next(
+                        createHttpError(
+                            HttpCode.BAD_REQUEST,
+                            "Exit node ID is required for tunneled sites"
+                        )
                     );
+                }
+
+                const { exitNode, hasAccess } = await verifyExitNodeOrgAccess(
+                    exitNodeId,
+                    orgId
+                );
 
                 if (!exitNode) {
                     logger.warn("Exit node not found");
@@ -257,13 +322,11 @@ export async function createSite(
                         ...(pubKey && type == "wireguard" && { pubKey })
                     })
                     .returning();
-            } else {
-                // we are creating a site with no tunneling
-
+            } else if (type == "local") {
                 [newSite] = await trx
                     .insert(sites)
                     .values({
-                        exitNodeId: exitNodeId,
+                        exitNodeId: exitNodeId || null,
                         orgId,
                         name,
                         niceId,
@@ -274,6 +337,13 @@ export async function createSite(
                         subnet: "0.0.0.0/32"
                     })
                     .returning();
+            } else {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Site type not recognized"
+                    )
+                );
             }
 
             const adminRole = await trx

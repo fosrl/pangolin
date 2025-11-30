@@ -56,6 +56,10 @@ export default function LocaleSwitcher() {
                 {
                     value: "nb-NO",
                     label: "Norsk (Bokmål)"
+                },
+                {
+                    value: "zh-TW",
+                    label: "繁體中文"
                 }
             ]}
         />

@@ -15,13 +15,11 @@ import config from "@server/lib/config";
 import { sendEmail } from "@server/emails";
 import ResetPasswordCode from "@server/emails/templates/ResetPasswordCode";
 import { hashPassword } from "@server/auth/password";
+import { UserType } from "@server/types/UserTypes";
 
 export const requestPasswordResetBody = z
     .object({
-        email: z
-            .string()
-            .toLowerCase()
-            .email(),
+        email: z.string().toLowerCase().email()
     })
     .strict();
 
@@ -56,12 +54,35 @@ export async function requestPasswordReset(
             .where(eq(users.email, email));
 
         if (!existingUser || !existingUser.length) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "A user with that email does not exist"
-                )
+            await randomDelay(2000);
+            logger.debug(
+                `Password reset requested for ${email}, but no such user exists`
             );
+            return response<RequestPasswordResetResponse>(res, {
+                data: {
+                    sentEmail: true
+                },
+                success: true,
+                error: false,
+                message: "Password reset requested",
+                status: HttpCode.OK
+            });
+        }
+
+        if (existingUser[0].type !== UserType.Internal) {
+            await randomDelay(2000);
+            logger.debug(
+                `Password reset requested for ${email}, but user is of type ${existingUser[0].type}`
+            );
+            return response<RequestPasswordResetResponse>(res, {
+                data: {
+                    sentEmail: true
+                },
+                success: true,
+                error: false,
+                message: "Password reset requested",
+                status: HttpCode.OK
+            });
         }
 
         const token = generateRandomString(8, alphabet("0-9", "A-Z", "a-z"));
@@ -119,4 +140,9 @@ export async function requestPasswordReset(
             )
         );
     }
+}
+
+async function randomDelay(maxDelayMs: number) {
+    const delay = Math.floor(Math.random() * maxDelayMs);
+    return new Promise((resolve) => setTimeout(resolve, delay));
 }

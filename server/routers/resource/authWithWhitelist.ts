@@ -1,11 +1,6 @@
 import { generateSessionToken } from "@server/auth/sessions/app";
 import { db } from "@server/db";
-import {
-    orgs,
-    resourceOtp,
-    resources,
-    resourceWhitelist
-} from "@server/db";
+import { orgs, resourceOtp, resources, resourceWhitelist } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
 import { eq, and } from "drizzle-orm";
@@ -17,13 +12,11 @@ import { createResourceSession } from "@server/auth/sessions/resource";
 import { isValidOtp, sendResourceOtpEmail } from "@server/auth/resourceOtp";
 import logger from "@server/logger";
 import config from "@server/lib/config";
+import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 
 const authWithWhitelistBodySchema = z
     .object({
-        email: z
-            .string()
-            .toLowerCase()
-            .email(),
+        email: z.string().toLowerCase().email(),
         otp: z.string().optional()
     })
     .strict();
@@ -126,6 +119,19 @@ export async function authWithWhitelist(
                         `Email is not whitelisted. Email: ${email}. IP: ${req.ip}.`
                     );
                 }
+
+                if (org && resource) {
+                    logAccessAudit({
+                        orgId: org.orgId,
+                        resourceId: resource.resourceId,
+                        action: false,
+                        type: "whitelistedEmail",
+                        metadata: { email },
+                        userAgent: req.headers["user-agent"],
+                        requestIp: req.ip
+                    });
+                }
+
                 return next(
                     createHttpError(
                         HttpCode.UNAUTHORIZED,
@@ -217,6 +223,16 @@ export async function authWithWhitelist(
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
             doNotExtend: true
+        });
+
+        logAccessAudit({
+            orgId: org.orgId,
+            resourceId: resource.resourceId,
+            action: true,
+            metadata: { email },
+            type: "whitelistedEmail",
+            userAgent: req.headers["user-agent"],
+            requestIp: req.ip
         });
 
         return response<AuthWithWhitelistResponse>(res, {

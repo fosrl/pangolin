@@ -64,7 +64,7 @@ export const SitesSplashCard = () => {
 
                     <div className="mt-4">
                         <Link
-                            href="https://docs.digpangolin.com/manage/sites/install-site"
+                            href="https://docs.pangolin.net/manage/sites/install-site"
                             target="_blank"
                             rel="noopener noreferrer"
                         >

@@ -16,9 +16,10 @@ import privateConfig from "#private/lib/config";
 import logger from "@server/logger";
 
 export enum AudienceIds {
-    General = "5cfbf99b-c592-40a9-9b8a-577a4681c158",
-    Subscribed = "870b43fd-387f-44de-8fc1-707335f30b20",
-    Churned = "f3ae92bd-2fdb-4d77-8746-2118afd62549"
+  SignUps = "6c4e77b2-0851-4bd6-bac8-f51f91360f1a",
+  Subscribed = "870b43fd-387f-44de-8fc1-707335f30b20",
+  Churned = "f3ae92bd-2fdb-4d77-8746-2118afd62549",
+  Newsletter = "5500c431-191c-42f0-a5d4-8b6d445b4ea0"
 }
 
 const resend = new Resend(

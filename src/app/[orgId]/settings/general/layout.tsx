@@ -72,7 +72,7 @@ export default async function GeneralSettingsPage({
             <OrgProvider org={org}>
                 <OrgUserProvider orgUser={orgUser}>
                     <SettingsSectionTitle
-                        title={t('general')}
+                        title={t('orgGeneralSettings')}
                         description={t('orgSettingsDescription')}
                     />
 

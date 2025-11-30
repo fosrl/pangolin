@@ -130,7 +130,7 @@ export default function ResourceRules(props: {
         PATH: t('path'),
         IP: "IP",
         CIDR: t('ipAddressRange'),
-        GEOIP: t('country')
+        COUNTRY: t('country')
     } as const;
 
     const addRuleForm = useForm({
@@ -212,7 +212,7 @@ export default function ResourceRules(props: {
             setLoading(false);
             return;
         }
-        if (data.match === "GEOIP" && !COUNTRIES.some(c => c.code === data.value)) {
+        if (data.match === "COUNTRY" && !COUNTRIES.some(c => c.code === data.value)) {
             toast({
                 variant: "destructive",
                 title: t('rulesErrorInvalidCountry'),
@@ -270,7 +270,7 @@ export default function ResourceRules(props: {
                 return t('rulesMatchIpAddress');
             case "PATH":
                 return t('rulesMatchUrl');
-            case "GEOIP":
+            case "COUNTRY":
                 return t('rulesMatchCountry');
         }
     }
@@ -438,6 +438,7 @@ export default function ResourceRules(props: {
                     defaultValue={row.original.priority}
                     className="w-[75px]"
                     type="number"
+                    onClick={(e) => e.currentTarget.focus()}
                     onBlur={(e) => {
                         const parsed = z.coerce
                             .number()
@@ -491,8 +492,8 @@ export default function ResourceRules(props: {
             cell: ({ row }) => (
                 <Select
                     defaultValue={row.original.match}
-                    onValueChange={(value: "CIDR" | "IP" | "PATH" | "GEOIP") =>
-                        updateRule(row.original.ruleId, { match: value, value: value === "GEOIP" ? "US" : row.original.value })
+                    onValueChange={(value: "CIDR" | "IP" | "PATH" | "COUNTRY") =>
+                        updateRule(row.original.ruleId, { match: value, value: value === "COUNTRY" ? "US" : row.original.value })
                     }
                 >
                     <SelectTrigger className="min-w-[125px]">
@@ -503,7 +504,7 @@ export default function ResourceRules(props: {
                         <SelectItem value="IP">{RuleMatch.IP}</SelectItem>
                         <SelectItem value="CIDR">{RuleMatch.CIDR}</SelectItem>
                         {isMaxmindAvailable && (
-                            <SelectItem value="GEOIP">{RuleMatch.GEOIP}</SelectItem>
+                            <SelectItem value="COUNTRY">{RuleMatch.COUNTRY}</SelectItem>
                         )}
                     </SelectContent>
                 </Select>
@@ -513,7 +514,7 @@ export default function ResourceRules(props: {
             accessorKey: "value",
             header: t('value'),
             cell: ({ row }) => (
-                row.original.match === "GEOIP" ? (
+                row.original.match === "COUNTRY" ? (
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
@@ -747,8 +748,8 @@ export default function ResourceRules(props: {
                                                                 {RuleMatch.CIDR}
                                                             </SelectItem>
                                                             {isMaxmindAvailable && (
-                                                                <SelectItem value="GEOIP">
-                                                                    {RuleMatch.GEOIP}
+                                                                <SelectItem value="COUNTRY">
+                                                                    {RuleMatch.COUNTRY}
                                                                 </SelectItem>
                                                             )}
                                                         </SelectContent>
@@ -774,7 +775,7 @@ export default function ResourceRules(props: {
                                                     }
                                                 />
                                                 <FormControl>
-                                                    {addRuleForm.watch("match") === "GEOIP" ? (
+                                                    {addRuleForm.watch("match") === "COUNTRY" ? (
                                                         <Popover open={openAddRuleCountrySelect} onOpenChange={setOpenAddRuleCountrySelect}>
                                                             <PopoverTrigger asChild>
                                                                 <Button

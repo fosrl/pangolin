@@ -35,7 +35,7 @@ services:
       - 80:80
 {{end}}
   traefik:
-    image: docker.io/traefik:v3.5
+    image: docker.io/traefik:v3.6
     container_name: traefik
     restart: unless-stopped
 {{if .InstallGerbil}}

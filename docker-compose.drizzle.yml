@@ -1,0 +1,15 @@
+services:
+  drizzle-gateway:
+    image: ghcr.io/drizzle-team/gateway:latest
+    ports:
+      - "4984:4983"
+    depends_on:
+      - db
+    environment:
+      - STORE_PATH=/app
+      - DATABASE_URL=postgresql://postgres:password@db:5432/postgres
+    volumes:
+      - drizzle-gateway-data:/app
+
+volumes:
+  drizzle-gateway-data:

@@ -1,9 +1,15 @@
+import { cn } from "@app/lib/cn";
+
 export function SettingsContainer({ children }: { children: React.ReactNode }) {
     return <div className="space-y-6">{children}</div>;
 }
 
 export function SettingsSection({ children }: { children: React.ReactNode }) {
-    return <div className="border rounded-lg bg-card p-5 flex flex-col min-h-[200px]">{children}</div>;
+    return (
+        <div className="border rounded-lg bg-card p-5 flex flex-col min-h-[200px]">
+            {children}
+        </div>
+    );
 }
 
 export function SettingsSectionHeader({
@@ -15,11 +21,15 @@ export function SettingsSectionHeader({
 }
 
 export function SettingsSectionForm({
-    children
+    children,
+    className
 }: {
     children: React.ReactNode;
+    className?: string;
 }) {
-    return <div className="max-w-xl space-y-4">{children}</div>;
+    return (
+        <div className={cn("max-w-xl space-y-4", className)}>{children}</div>
+    );
 }
 
 export function SettingsSectionTitle({
@@ -55,7 +65,11 @@ export function SettingsSectionFooter({
 }: {
     children: React.ReactNode;
 }) {
-    return <div className="flex justify-end space-x-2 mt-auto pt-6">{children}</div>;
+    return (
+        <div className="flex justify-end space-x-2 mt-auto pt-6">
+            {children}
+        </div>
+    );
 }
 
 export function SettingsSectionGrid({

@@ -1,4 +1,4 @@
-import { db, targetHealthCheck } from "@server/db";
+import { db, targetHealthCheck, domains } from "@server/db";
 import {
     and,
     eq,
@@ -23,7 +23,8 @@ export async function getTraefikConfig(
     exitNodeId: number,
     siteTypes: string[],
     filterOutNamespaceDomains = false,
-    generateLoginPageRouters = false
+    generateLoginPageRouters = false,
+    allowRawResources = true
 ): Promise<any> {
     // Define extended target type with site information
     type TargetWithSite = Target & {
@@ -56,6 +57,8 @@ export async function getTraefikConfig(
             setHostHeader: resources.setHostHeader,
             enableProxy: resources.enableProxy,
             headers: resources.headers,
+            proxyProtocol: resources.proxyProtocol,
+            proxyProtocolVersion: resources.proxyProtocolVersion,
             // Target fields
             targetId: targets.targetId,
             targetEnabled: targets.enabled,
@@ -75,11 +78,15 @@ export async function getTraefikConfig(
             siteType: sites.type,
             siteOnline: sites.online,
             subnet: sites.subnet,
-            exitNodeId: sites.exitNodeId
+            exitNodeId: sites.exitNodeId,
+            // Domain cert resolver fields
+            domainCertResolver: domains.certResolver,
+            preferWildcardCert: domains.preferWildcardCert
         })
         .from(sites)
         .innerJoin(targets, eq(targets.siteId, sites.siteId))
         .innerJoin(resources, eq(resources.resourceId, targets.resourceId))
+        .leftJoin(domains, eq(domains.domainId, resources.domainId))
         .leftJoin(
             targetHealthCheck,
             eq(targetHealthCheck.targetId, targets.targetId)
@@ -92,7 +99,8 @@ export async function getTraefikConfig(
                     eq(sites.exitNodeId, exitNodeId),
                     and(
                         isNull(sites.exitNodeId),
-                        sql`(${siteTypes.includes("local") ? 1 : 0} = 1)` // only allow local sites if "local" is in siteTypes
+                        sql`(${siteTypes.includes("local") ? 1 : 0} = 1)`, // only allow local sites if "local" is in siteTypes
+                        eq(sites.type, "local")
                     )
                 ),
                 or(
@@ -100,7 +108,7 @@ export async function getTraefikConfig(
                     isNull(targetHealthCheck.hcHealth) // Include targets with no health check record
                 ),
                 inArray(sites.type, siteTypes),
-                config.getRawConfig().traefik.allow_raw_resources
+                allowRawResources
                     ? isNotNull(resources.http) // ignore the http check if allow_raw_resources is true
                     : eq(resources.http, true)
             )
@@ -163,11 +171,16 @@ export async function getTraefikConfig(
                 enableProxy: row.enableProxy,
                 targets: [],
                 headers: row.headers,
+                proxyProtocol: row.proxyProtocol,
+                proxyProtocolVersion: row.proxyProtocolVersion ?? 1,
                 path: row.path, // the targets will all have the same path
                 pathMatchType: row.pathMatchType, // the targets will all have the same pathMatchType
                 rewritePath: row.rewritePath,
                 rewritePathType: row.rewritePathType,
-                priority: priority // may be null, we fallback later
+                priority: priority,
+                // Store domain cert resolver fields
+                domainCertResolver: row.domainCertResolver,
+                preferWildcardCert: row.preferWildcardCert
             });
         }
 
@@ -246,21 +259,35 @@ export async function getTraefikConfig(
                 wildCard = resource.fullDomain;
             }
 
-            const configDomain = config.getDomain(resource.domainId);
+            const globalDefaultResolver =
+                config.getRawConfig().traefik.cert_resolver;
+            const globalDefaultPreferWildcard =
+                config.getRawConfig().traefik.prefer_wildcard_cert;
 
-            let certResolver: string, preferWildcardCert: boolean;
-            if (!configDomain) {
-                certResolver = config.getRawConfig().traefik.cert_resolver;
-                preferWildcardCert =
-                    config.getRawConfig().traefik.prefer_wildcard_cert;
+            const domainCertResolver = resource.domainCertResolver;
+            const preferWildcardCert = resource.preferWildcardCert;
+
+            let resolverName: string | undefined;
+            let preferWildcard: boolean | undefined;
+            // Handle both letsencrypt & custom cases
+            if (domainCertResolver) {
+                resolverName = domainCertResolver.trim();
             } else {
-                certResolver = configDomain.cert_resolver;
-                preferWildcardCert = configDomain.prefer_wildcard_cert;
+                resolverName = globalDefaultResolver;
+            }
+
+            if (
+                preferWildcardCert !== undefined &&
+                preferWildcardCert !== null
+            ) {
+                preferWildcard = preferWildcardCert;
+            } else {
+                preferWildcard = globalDefaultPreferWildcard;
             }
 
             const tls = {
-                certResolver: certResolver,
-                ...(preferWildcardCert
+                certResolver: resolverName,
+                ...(preferWildcard
                     ? {
                           domains: [
                               {
@@ -561,6 +588,8 @@ export async function getTraefikConfig(
                 ...(protocol === "tcp" ? { rule: "HostSNI(`*`)" } : {})
             };
 
+            const ppPrefix = config.getRawConfig().traefik.pp_transport_prefix;
+
             config_output[protocol].services[serviceName] = {
                 loadBalancer: {
                     servers: (() => {
@@ -614,6 +643,11 @@ export async function getTraefikConfig(
                                 }
                             });
                     })(),
+                    ...(resource.proxyProtocol && protocol == "tcp"
+                        ? {
+                              serversTransport: `${ppPrefix}${resource.proxyProtocolVersion || 1}@file` // TODO: does @file here cause issues?
+                          }
+                        : {}),
                     ...(resource.stickySession
                         ? {
                               sticky: {

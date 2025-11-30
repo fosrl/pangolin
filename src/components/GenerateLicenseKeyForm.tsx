@@ -401,7 +401,7 @@ export default function GenerateLicenseKeyForm({
                                                     {part}
                                                     {index === 0 && (
                                                         <a
-                                                            href="https://digpangolin.com/fcl.html"
+                                                            href="https://pangolin.net/fcl.html"
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="text-primary hover:underline"
@@ -580,7 +580,7 @@ export default function GenerateLicenseKeyForm({
                                                                             "signUpTerms.IAgreeToThe"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://digpangolin.com/terms-of-service.html"
+                                                                            href="https://pangolin.net/terms-of-service.html"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -593,7 +593,7 @@ export default function GenerateLicenseKeyForm({
                                                                             "signUpTerms.and"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://digpangolin.com/privacy-policy.html"
+                                                                            href="https://pangolin.net/privacy-policy.html"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -637,12 +637,12 @@ export default function GenerateLicenseKeyForm({
                                                                         license
                                                                         details:{" "}
                                                                         <a
-                                                                            href="https://digpangolin.com/fcl.html"
+                                                                            href="https://pangolin.net/fcl.html"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
                                                                         >
-                                                                            https://digpangolin.com/fcl.html
+                                                                            https://pangolin.net/fcl.html
                                                                         </a>
                                                                     </div>
                                                                 </FormLabel>
@@ -966,7 +966,7 @@ export default function GenerateLicenseKeyForm({
                                                                             "signUpTerms.IAgreeToThe"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://digpangolin.com/terms-of-service.html"
+                                                                            href="https://pangolin.net/terms-of-service.html"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -979,7 +979,7 @@ export default function GenerateLicenseKeyForm({
                                                                             "signUpTerms.and"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://digpangolin.com/privacy-policy.html"
+                                                                            href="https://pangolin.net/privacy-policy.html"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -1023,12 +1023,12 @@ export default function GenerateLicenseKeyForm({
                                                                         license
                                                                         details:{" "}
                                                                         <a
-                                                                            href="https://digpangolin.com/fcl.html"
+                                                                            href="https://pangolin.net/fcl.html"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
                                                                         >
-                                                                            https://digpangolin.com/fcl.html
+                                                                            https://pangolin.net/fcl.html
                                                                         </a>
                                                                     </div>
                                                                 </FormLabel>

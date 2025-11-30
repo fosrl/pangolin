@@ -50,7 +50,7 @@ export const configSchema = z
                         .string()
                         .nonempty("base_domain must not be empty")
                         .transform((url) => url.toLowerCase()),
-                    cert_resolver: z.string().optional().default("letsencrypt"),
+                    cert_resolver: z.string().optional(), // null falls back to traefik.cert_resolver
                     prefer_wildcard_cert: z.boolean().optional().default(false)
                 })
             )
@@ -204,7 +204,8 @@ export const configSchema = z
                     .optional()
                     .default(["newt", "wireguard", "local"]),
                 allow_raw_resources: z.boolean().optional().default(true),
-                file_mode: z.boolean().optional().default(false)
+                file_mode: z.boolean().optional().default(false),
+                pp_transport_prefix: z.string().optional().default("pp-transport-v")
             })
             .optional()
             .default({}),
@@ -314,14 +315,11 @@ export const configSchema = z
                 nameservers: z
                     .array(z.string().optional().optional())
                     .optional()
-                    .default(["ns1.fossorial.io", "ns2.fossorial.io"]),
-                cname_extension: z.string().optional().default("fossorial.io")
+                    .default(["ns1.pangolin.net", "ns2.pangolin.net", "ns3.pangolin.net"]),
+                cname_extension: z.string().optional().default("cname.pangolin.net")
             })
             .optional()
-            .default({
-                nameservers: ["ns1.fossorial.io", "ns2.fossorial.io"],
-                cname_extension: "fossorial.io"
-            })
+            .default({})
     })
     .refine(
         (data) => {
@@ -392,7 +390,7 @@ export function readConfigFile() {
 
     if (!environment) {
         throw new Error(
-            "No configuration file found. Please create one. https://docs.digpangolin.com/self-host/advanced/config-file"
+            "No configuration file found. Please create one. https://docs.pangolin.net/self-host/advanced/config-file"
         );
     }
 

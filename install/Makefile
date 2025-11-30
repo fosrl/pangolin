@@ -18,7 +18,11 @@ put-back:
 	mv main.go.bak main.go
 
 dev-update-versions:
-	PANGOLIN_VERSION=$$(curl -s https://api.github.com/repos/fosrl/pangolin/tags | jq -r '.[0].name') && \
+	if [ -z "$(tag)" ]; then \
+		PANGOLIN_VERSION=$$(curl -s https://api.github.com/repos/fosrl/pangolin/tags | jq -r '.[0].name'); \
+	else \
+		PANGOLIN_VERSION=$(tag); \
+	fi && \
 	GERBIL_VERSION=$$(curl -s https://api.github.com/repos/fosrl/gerbil/tags | jq -r '.[0].name') && \
 	BADGER_VERSION=$$(curl -s https://api.github.com/repos/fosrl/badger/tags | jq -r '.[0].name') && \
 	echo "Latest versions - Pangolin: $$PANGOLIN_VERSION, Gerbil: $$GERBIL_VERSION, Badger: $$BADGER_VERSION" && \

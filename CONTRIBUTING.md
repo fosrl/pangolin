@@ -4,7 +4,7 @@ Contributions are welcome!
 
 Please see the contribution and local development guide on the docs page before getting started:
 
-https://docs.digpangolin.com/development/contributing
+https://docs.pangolin.net/development/contributing
 
 ### Licensing Considerations
 

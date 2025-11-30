@@ -88,7 +88,7 @@ export const WelcomeQuickStart = ({
                                     To learn how to use Newt, including more
                                     installation methods, visit the{" "}
                                     <a
-                                        href="https://docs.digpangolin.com/manage/sites/install-site"
+                                        href="https://docs.pangolin.net/manage/sites/install-site"
                                         className="underline"
                                     >
                                         docs

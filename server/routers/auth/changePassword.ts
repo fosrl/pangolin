@@ -5,7 +5,6 @@ import { fromError } from "zod-validation-error";
 import { z } from "zod";
 import { db } from "@server/db";
 import { User, users } from "@server/db";
-import { eq } from "drizzle-orm";
 import { response } from "@server/lib/response";
 import {
     hashPassword,
@@ -15,8 +14,13 @@ import { verifyTotpCode } from "@server/auth/totp";
 import logger from "@server/logger";
 import { unauthorized } from "@server/auth/unauthorizedResponse";
 import { invalidateAllSessions } from "@server/auth/sessions/app";
+import { sessions, resourceSessions } from "@server/db";
+import { and, eq, ne, inArray } from "drizzle-orm";
 import { passwordSchema } from "@server/auth/passwordSchema";
 import { UserType } from "@server/types/UserTypes";
+import { sendEmail } from "@server/emails";
+import ConfirmPasswordReset from "@server/emails/templates/NotifyResetPassword";
+import config from "@server/lib/config";
 
 export const changePasswordBody = z
     .object({
@@ -31,6 +35,46 @@ export type ChangePasswordBody = z.infer<typeof changePasswordBody>;
 export type ChangePasswordResponse = {
     codeRequested?: boolean;
 };
+
+async function invalidateAllSessionsExceptCurrent(
+    userId: string,
+    currentSessionId: string
+): Promise<void> {
+    try {
+        await db.transaction(async (trx) => {
+            // Get all user sessions except the current one
+            const userSessions = await trx
+                .select()
+                .from(sessions)
+                .where(
+                    and(
+                        eq(sessions.userId, userId),
+                        ne(sessions.sessionId, currentSessionId)
+                    )
+                );
+
+            // Delete resource sessions for the sessions we're invalidating
+            if (userSessions.length > 0) {
+                await trx.delete(resourceSessions).where(
+                    inArray(
+                        resourceSessions.userSessionId,
+                        userSessions.map((s) => s.sessionId)
+                    )
+                );
+            }
+
+            // Delete the user sessions (except current)
+            await trx.delete(sessions).where(
+                and(
+                    eq(sessions.userId, userId),
+                    ne(sessions.sessionId, currentSessionId)
+                )
+            );
+        });
+    } catch (e) {
+        logger.error("Failed to invalidate user sessions except current", e);
+    }
+}
 
 export async function changePassword(
     req: Request,
@@ -109,13 +153,24 @@ export async function changePassword(
         await db
             .update(users)
             .set({
-                passwordHash: hash
+                passwordHash: hash,
+                lastPasswordChange: new Date().getTime()
             })
             .where(eq(users.userId, user.userId));
 
-        await invalidateAllSessions(user.userId);
+        // Invalidate all sessions except the current one
+        await invalidateAllSessionsExceptCurrent(user.userId, req.session.sessionId);
 
-        // TODO: send email to user confirming password change
+        try {
+            const email = user.email!;
+            await sendEmail(ConfirmPasswordReset({ email }), {
+                from: config.getNoReplyEmail(),
+                to: email,
+                subject: "Password Reset Confirmation"
+            });
+        } catch (e) {
+            logger.error("Failed to send password reset confirmation email", e);
+        }
 
         return response(res, {
             data: null,

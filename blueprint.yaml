@@ -28,9 +28,10 @@ proxy-resources:
       # sso-roles:
       #   - Member
       # sso-users:
-      #   - owen@fossorial.io
+      #   - owen@pangolin.net
       # whitelist-users:
-      #   - owen@fossorial.io
+      #   - owen@pangolin.net
+      # auto-login-idp: 1
     headers:
       - name: X-Example-Header
         value: example-value

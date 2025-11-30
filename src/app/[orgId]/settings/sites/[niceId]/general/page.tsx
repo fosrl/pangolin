@@ -238,7 +238,7 @@ export default function GeneralPage() {
                                                         "enableDockerSocketDescription"
                                                     )}{" "}
                                                     <Link
-                                                        href="https://docs.digpangolin.com/manage/sites/configure-site#docker-socket-integration"
+                                                        href="https://docs.pangolin.net/manage/sites/configure-site#docker-socket-integration"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="text-primary hover:underline inline-flex items-center"

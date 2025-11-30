@@ -238,7 +238,6 @@ func main() {
 				}
 
 				fmt.Println("CrowdSec installed successfully!")
-				return
 			}
 		}
 	}
@@ -378,7 +377,7 @@ func collectUserInput(reader *bufio.Reader) Config {
 	fmt.Println("\n=== Advanced Configuration ===")
 
 	config.EnableIPv6 = readBool(reader, "Is your server IPv6 capable?", true)
-	config.EnableGeoblocking = readBool(reader, "Do you want to download the MaxMind GeoLite2 database for geoblocking functionality?", false)
+	config.EnableGeoblocking = readBool(reader, "Do you want to download the MaxMind GeoLite2 database for geoblocking functionality?", true)
 
 	if config.DashboardDomain == "" {
 		fmt.Println("Error: Dashboard Domain name is required")

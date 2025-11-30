@@ -19,10 +19,7 @@ import { passwordSchema } from "@server/auth/passwordSchema";
 
 export const resetPasswordBody = z
     .object({
-        email: z
-            .string()
-            .toLowerCase()
-            .email(),
+        email: z.string().toLowerCase().email(),
         token: z.string(), // reset secret code
         newPassword: passwordSchema,
         code: z.string().optional() // 2fa code
@@ -152,7 +149,7 @@ export async function resetPassword(
         await db.transaction(async (trx) => {
             await trx
                 .update(users)
-                .set({ passwordHash })
+                .set({ passwordHash, lastPasswordChange: new Date().getTime() })
                 .where(eq(users.userId, resetRequest[0].userId));
 
             await trx

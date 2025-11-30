@@ -1,5 +1,5 @@
 # To see all available options, please visit the docs:
-# https://docs.digpangolin.com/
+# https://docs.pangolin.net/
 
 gerbil:
     start_port: 51820
@@ -14,7 +14,6 @@ app:
 domains:
     domain1:
         base_domain: "{{.BaseDomain}}"
-        cert_resolver: "letsencrypt"
 
 server:
     secret: "{{.Secret}}"

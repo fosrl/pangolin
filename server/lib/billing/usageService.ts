@@ -1,5 +1,4 @@
 import { eq, sql, and } from "drizzle-orm";
-import NodeCache from "node-cache";
 import { v4 as uuidv4 } from "uuid";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import * as fs from "fs/promises";
@@ -20,6 +19,7 @@ import logger from "@server/logger";
 import { sendToClient } from "#dynamic/routers/ws";
 import { build } from "@server/build";
 import { s3Client } from "@server/lib/s3";
+import cache from "@server/lib/cache"; 
 
 interface StripeEvent {
     identifier?: string;
@@ -43,7 +43,6 @@ export function noop() {
 }
 
 export class UsageService {
-    private cache: NodeCache;
     private bucketName: string | undefined;
     private currentEventFile: string | null = null;
     private currentFileStartTime: number = 0;
@@ -51,7 +50,6 @@ export class UsageService {
     private uploadingFiles: Set<string> = new Set();
 
     constructor() {
-        this.cache = new NodeCache({ stdTTL: 300 }); // 5 minute TTL
         if (noop()) {
             return;
         }
@@ -399,7 +397,7 @@ export class UsageService {
         featureId: FeatureId
     ): Promise<string | null> {
         const cacheKey = `customer_${orgId}_${featureId}`;
-        const cached = this.cache.get<string>(cacheKey);
+        const cached = cache.get<string>(cacheKey);
 
         if (cached) {
             return cached;
@@ -422,7 +420,7 @@ export class UsageService {
             const customerId = customer.customerId;
 
             // Cache the result
-            this.cache.set(cacheKey, customerId);
+            cache.set(cacheKey, customerId, 300); // 5 minute TTL
 
             return customerId;
         } catch (error) {
@@ -612,7 +610,8 @@ export class UsageService {
 
     public async getUsage(
         orgId: string,
-        featureId: FeatureId
+        featureId: FeatureId,
+        trx: Transaction | typeof db = db
     ): Promise<Usage | null> {
         if (noop()) {
             return null;
@@ -621,7 +620,7 @@ export class UsageService {
         const usageId = `${orgId}-${featureId}`;
 
         try {
-            const [result] = await db
+            const [result] = await trx
                 .select()
                 .from(usage)
                 .where(eq(usage.usageId, usageId))
@@ -635,7 +634,7 @@ export class UsageService {
                 const meterId = getFeatureMeterId(featureId);
 
                 try {
-                    const [newUsage] = await db
+                    const [newUsage] = await trx
                         .insert(usage)
                         .values({
                             usageId,
@@ -652,7 +651,7 @@ export class UsageService {
                         return newUsage;
                     } else {
                         // Record was created by another process, fetch it
-                        const [existingUsage] = await db
+                        const [existingUsage] = await trx
                             .select()
                             .from(usage)
                             .where(eq(usage.usageId, usageId))
@@ -665,7 +664,7 @@ export class UsageService {
                         `Insert failed for ${orgId}/${featureId}, attempting to fetch existing record:`,
                         insertError
                     );
-                    const [existingUsage] = await db
+                    const [existingUsage] = await trx
                         .select()
                         .from(usage)
                         .where(eq(usage.usageId, usageId))
@@ -697,10 +696,6 @@ export class UsageService {
 
     public async forceUpload(): Promise<void> {
         await this.uploadFileToS3();
-    }
-
-    public clearCache(): void {
-        this.cache.flushAll();
     }
 
     /**
@@ -812,7 +807,8 @@ export class UsageService {
         orgId: string,
         kickSites = false,
         featureId?: FeatureId,
-        usage?: Usage
+        usage?: Usage,
+        trx: Transaction | typeof db = db
     ): Promise<boolean> {
         if (noop()) {
             return false;
@@ -825,7 +821,7 @@ export class UsageService {
             let orgLimits: Limit[] = [];
             if (featureId) {
                 // Get all limits set for this organization
-                orgLimits = await db
+                orgLimits = await trx
                     .select()
                     .from(limits)
                     .where(
@@ -836,7 +832,7 @@ export class UsageService {
                     );
             } else {
                 // Get all limits set for this organization
-                orgLimits = await db
+                orgLimits = await trx
                     .select()
                     .from(limits)
                     .where(eq(limits.orgId, orgId));
@@ -855,7 +851,8 @@ export class UsageService {
                 } else {
                     currentUsage = await this.getUsage(
                         orgId,
-                        limit.featureId as FeatureId
+                        limit.featureId as FeatureId,
+                        trx
                     );
                 }
 
@@ -890,7 +887,7 @@ export class UsageService {
                 );
 
                 // Get all sites for this organization
-                const orgSites = await db
+                const orgSites = await trx
                     .select()
                     .from(sites)
                     .where(eq(sites.orgId, orgId));
@@ -902,7 +899,7 @@ export class UsageService {
                     // Send termination messages to newt sites
                     for (const site of orgSites) {
                         if (site.type === "newt") {
-                            const [newt] = await db
+                            const [newt] = await trx
                                 .select()
                                 .from(newts)
                                 .where(eq(newts.siteId, site.siteId))
@@ -917,7 +914,7 @@ export class UsageService {
                                 };
 
                                 // Don't await to prevent blocking
-                                sendToClient(newt.newtId, payload).catch(
+                                await sendToClient(newt.newtId, payload).catch(
                                     (error: any) => {
                                         logger.error(
                                             `Failed to send termination message to newt ${newt.newtId}:`,

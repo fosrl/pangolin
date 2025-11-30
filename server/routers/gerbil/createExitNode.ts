@@ -47,7 +47,8 @@ export async function createExitNode(publicKey: string, reachableAt: string | un
             .update(exitNodes)
             .set({
                 reachableAt,
-                publicKey
+                publicKey,
+                online: true
             })
             .where(eq(exitNodes.publicKey, publicKey))
             .returning();

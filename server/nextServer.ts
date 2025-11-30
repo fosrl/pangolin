@@ -9,7 +9,7 @@ const nextPort = config.getRawConfig().server.next_port;
 
 export async function createNextServer() {
     //   const app = next({ dev });
-    const app = next({ dev: process.env.ENVIRONMENT !== "prod" });
+    const app = next({ dev: process.env.ENVIRONMENT !== "prod", turbopack: true });
     const handle = app.getRequestHandler();
 
     await app.prepare();

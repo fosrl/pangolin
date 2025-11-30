@@ -6,7 +6,7 @@ export async function getCountryCodeForIp(
 ): Promise<string | undefined> {
     try {
         if (!maxmindLookup) {
-            logger.warn(
+            logger.debug(
                 "MaxMind DB path not configured, cannot perform GeoIP lookup"
             );
             return;

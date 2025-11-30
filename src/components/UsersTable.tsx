@@ -273,20 +273,11 @@ export default function UsersTable({ users: u }: UsersTableProps) {
                     setSelectedUser(null);
                 }}
                 dialog={
-                    <div className="space-y-4">
+                    <div>
                         <p>
-                            {t("userQuestionOrgRemove", {
-                                email:
-                                    selectedUser?.email ||
-                                    selectedUser?.name ||
-                                    selectedUser?.username ||
-                                    ""
-                            })}
+                            {t("userQuestionOrgRemove")}
                         </p>
-
                         <p>{t("userMessageOrgRemove")}</p>
-
-                        <p>{t("userMessageOrgConfirm")}</p>
                     </div>
                 }
                 buttonText={t("userRemoveOrgConfirm")}

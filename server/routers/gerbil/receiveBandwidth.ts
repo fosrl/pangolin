@@ -98,7 +98,8 @@ export async function updateSiteBandwidth(
                         if (
                             await checkExitNodeOrg(
                                 exitNodeId,
-                                updatedSite.orgId
+                                updatedSite.orgId,
+                                trx
                             )
                         ) {
                             // not allowed
@@ -148,7 +149,8 @@ export async function updateSiteBandwidth(
                                         orgId,
                                         true,
                                         FeatureId.EGRESS_DATA_MB,
-                                        bandwidthUsage
+                                        bandwidthUsage,
+                                        trx
                                     )
                                     .catch((error: any) => {
                                         logger.error(
@@ -174,7 +176,8 @@ export async function updateSiteBandwidth(
                                         orgId,
                                         true,
                                         FeatureId.SITE_UPTIME,
-                                        uptimeUsage
+                                        uptimeUsage,
+                                        trx
                                     )
                                     .catch((error: any) => {
                                         logger.error(
@@ -242,7 +245,8 @@ export async function updateSiteBandwidth(
                         if (
                             await checkExitNodeOrg(
                                 exitNodeId,
-                                updatedSite.orgId
+                                updatedSite.orgId,
+                                trx
                             )
                         ) {
                             // not allowed

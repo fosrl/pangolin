@@ -2,10 +2,12 @@ import {
     sqliteTable,
     integer,
     text,
-    real
+    real,
+    index
 } from "drizzle-orm/sqlite-core";
 import { InferSelectModel } from "drizzle-orm";
 import { domains, orgs, targets, users, exitNodes, sessions } from "./schema";
+import { metadata } from "@app/app/[orgId]/settings/layout";
 
 export const certificates = sqliteTable("certificates", {
     certId: integer("certId").primaryKey({ autoIncrement: true }),
@@ -160,6 +162,7 @@ export const remoteExitNodes = sqliteTable("remoteExitNode", {
     secretHash: text("secretHash").notNull(),
     dateCreated: text("dateCreated").notNull(),
     version: text("version"),
+    secondaryVersion: text("secondaryVersion"), // This is to detect the new nodes after the transition to pangolin-node
     exitNodeId: integer("exitNodeId").references(() => exitNodes.exitNodeId, {
         onDelete: "cascade"
     })
@@ -207,6 +210,43 @@ export const sessionTransferToken = sqliteTable("sessionTransferToken", {
     expiresAt: integer("expiresAt").notNull()
 });
 
+export const actionAuditLog = sqliteTable("actionAuditLog", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    timestamp: integer("timestamp").notNull(), // this is EPOCH time in seconds
+    orgId: text("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    actorType: text("actorType").notNull(),
+    actor: text("actor").notNull(),
+    actorId: text("actorId").notNull(),
+    action: text("action").notNull(),
+    metadata: text("metadata")
+}, (table) => ([
+    index("idx_actionAuditLog_timestamp").on(table.timestamp),
+    index("idx_actionAuditLog_org_timestamp").on(table.orgId, table.timestamp)
+]));
+
+export const accessAuditLog = sqliteTable("accessAuditLog", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    timestamp: integer("timestamp").notNull(), // this is EPOCH time in seconds
+    orgId: text("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    actorType: text("actorType"),
+    actor: text("actor"),
+    actorId: text("actorId"),
+    resourceId: integer("resourceId"),
+    ip: text("ip"),
+    location: text("location"),
+    type: text("type").notNull(),
+    action: integer("action", { mode: "boolean" }).notNull(),
+    userAgent: text("userAgent"),
+    metadata: text("metadata")
+}, (table) => ([
+    index("idx_identityAuditLog_timestamp").on(table.timestamp),
+    index("idx_identityAuditLog_org_timestamp").on(table.orgId, table.timestamp)
+]));
+
 export type Limit = InferSelectModel<typeof limits>;
 export type Account = InferSelectModel<typeof account>;
 export type Certificate = InferSelectModel<typeof certificates>;
@@ -224,3 +264,5 @@ export type RemoteExitNodeSession = InferSelectModel<
 >;
 export type ExitNodeOrg = InferSelectModel<typeof exitNodeOrgs>;
 export type LoginPage = InferSelectModel<typeof loginPage>;
+export type ActionAuditLog = InferSelectModel<typeof actionAuditLog>;
+export type AccessAuditLog = InferSelectModel<typeof accessAuditLog>;

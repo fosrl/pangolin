@@ -3,7 +3,7 @@ import {
     generateSessionToken,
     serializeSessionCookie
 } from "@server/auth/sessions/app";
-import { db } from "@server/db";
+import { db, resources } from "@server/db";
 import { users, securityKeys } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
@@ -18,12 +18,14 @@ import logger from "@server/logger";
 import { verifyPassword } from "@server/auth/password";
 import { verifySession } from "@server/auth/sessions/verifySession";
 import { UserType } from "@server/types/UserTypes";
+import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 
 export const loginBodySchema = z
     .object({
         email: z.string().toLowerCase().email(),
         password: z.string(),
-        code: z.string().optional()
+        code: z.string().optional(),
+        resourceGuid: z.string().optional()
     })
     .strict();
 
@@ -52,7 +54,7 @@ export async function login(
         );
     }
 
-    const { email, password, code } = parsedBody.data;
+    const { email, password, code, resourceGuid } = parsedBody.data;
 
     try {
         const { session: existingSession } = await verifySession(req);
@@ -64,6 +66,28 @@ export async function login(
                 message: "Already logged in",
                 status: HttpCode.OK
             });
+        }
+
+        let resourceId: number | null = null;
+        let orgId: string | null = null;
+        if (resourceGuid) {
+            const [resource] = await db
+                .select()
+                .from(resources)
+                .where(eq(resources.resourceGuid, resourceGuid))
+                .limit(1);
+
+            if (!resource) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Resource with GUID ${resourceGuid} not found`
+                    )
+                );
+            }
+
+            resourceId = resource.resourceId;
+            orgId = resource.orgId;
         }
 
         const existingUserRes = await db
@@ -78,6 +102,18 @@ export async function login(
                     `Username or password incorrect. Email: ${email}. IP: ${req.ip}.`
                 );
             }
+
+            if (resourceId && orgId) {
+                logAccessAudit({
+                    orgId: orgId,
+                    resourceId: resourceId,
+                    action: false,
+                    type: "login",
+                    userAgent: req.headers["user-agent"],
+                    requestIp: req.ip
+                });
+            }
+
             return next(
                 createHttpError(
                     HttpCode.UNAUTHORIZED,
@@ -98,6 +134,18 @@ export async function login(
                     `Username or password incorrect. Email: ${email}. IP: ${req.ip}.`
                 );
             }
+
+            if (resourceId && orgId) {
+                logAccessAudit({
+                    orgId: orgId,
+                    resourceId: resourceId,
+                    action: false,
+                    type: "login",
+                    userAgent: req.headers["user-agent"],
+                    requestIp: req.ip
+                });
+            }
+
             return next(
                 createHttpError(
                     HttpCode.UNAUTHORIZED,
@@ -158,6 +206,18 @@ export async function login(
                         `Two-factor code incorrect. Email: ${email}. IP: ${req.ip}.`
                     );
                 }
+
+                if (resourceId && orgId) {
+                    logAccessAudit({
+                        orgId: orgId,
+                        resourceId: resourceId,
+                        action: false,
+                        type: "login",
+                        userAgent: req.headers["user-agent"],
+                        requestIp: req.ip
+                    });
+                }
+
                 return next(
                     createHttpError(
                         HttpCode.UNAUTHORIZED,

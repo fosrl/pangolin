@@ -10,11 +10,10 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { createResourceSession } from "@server/auth/sessions/resource";
 import logger from "@server/logger";
-import {
-    verifyResourceAccessToken
-} from "@server/auth/verifyResourceAccessToken";
+import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
 import config from "@server/lib/config";
 import stoi from "@server/lib/stoi";
+import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 
 const authWithAccessTokenBodySchema = z
     .object({
@@ -131,6 +130,16 @@ export async function authWithAccessToken(
                     `Resource access token invalid. Resource ID: ${resource.resourceId}. IP: ${req.ip}.`
                 );
             }
+
+            logAccessAudit({
+                orgId: resource.orgId,
+                resourceId: resource.resourceId,
+                action: false,
+                type: "accessToken",
+                userAgent: req.headers["user-agent"],
+                requestIp: req.ip
+            });
+
             return next(
                 createHttpError(
                     HttpCode.UNAUTHORIZED,
@@ -148,6 +157,15 @@ export async function authWithAccessToken(
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
             doNotExtend: true
+        });
+
+        logAccessAudit({
+            orgId: resource.orgId,
+            resourceId: resource.resourceId,
+            action: true,
+            type: "accessToken",
+            userAgent: req.headers["user-agent"],
+            requestIp: req.ip
         });
 
         return response<AuthWithAccessTokenResponse>(res, {

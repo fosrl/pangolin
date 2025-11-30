@@ -219,7 +219,7 @@ export default function SupporterStatus({ isCollapsed = false }: SupporterStatus
                             </Link>{" "}
                             {t('supportKeyPurchase2')}{" "}
                             <Link
-                                href="https://docs.digpangolin.com/self-host/supporter-program"
+                                href="https://docs.pangolin.net/self-host/supporter-program"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="underline"

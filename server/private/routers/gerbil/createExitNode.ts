@@ -65,10 +65,12 @@ export async function createExitNode(
         [exitNode] = await db
             .update(exitNodes)
             .set({
-                reachableAt
+                reachableAt,
+                online: true
             })
             .where(eq(exitNodes.exitNodeId, exitNodeQuery.exitNodeId))
             .returning();
+
         logger.info(`Updated exit node reachableAt to ${reachableAt}`);
     }
 

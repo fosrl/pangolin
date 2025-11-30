@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@app/lib/cn";
+
 export function InfoSections({
     children,
     cols
@@ -9,25 +11,44 @@ export function InfoSections({
 }) {
     return (
         <div
-            className={`grid md:grid-cols-${cols || 1} md:gap-4 gap-2 md:items-start grid-cols-1`}
+            className={`grid md:grid-cols-[var(--columns)] md:gap-4 gap-2 md:items-start grid-cols-1`}
+            style={{
+                // @ts-expect-error dynamic props don't work with tailwind, but we can set the
+                // value of a CSS variable at runtime and tailwind will just reuse that value
+                "--columns": `repeat(${cols || 1}, minmax(0, 1fr))`
+            }}
         >
             {children}
         </div>
     );
 }
 
-export function InfoSection({ children }: { children: React.ReactNode }) {
-    return <div className="space-y-1">{children}</div>;
+export function InfoSection({
+    children,
+    className
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return <div className={cn("space-y-1", className)}>{children}</div>;
 }
 
-export function InfoSectionTitle({ children }: { children: React.ReactNode }) {
-    return <div className="font-semibold">{children}</div>;
+export function InfoSectionTitle({
+    children,
+    className
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return <div className={cn("font-semibold", className)}>{children}</div>;
 }
 
 export function InfoSectionContent({
-    children
+    children,
+    className
 }: {
     children: React.ReactNode;
+    className?: string;
 }) {
-    return <div className="break-words">{children}</div>;
+    return <div className={cn("break-words", className)}>{children}</div>;
 }

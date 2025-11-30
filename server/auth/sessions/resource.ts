@@ -50,7 +50,8 @@ export async function createResourceSession(opts: {
         doNotExtend: opts.doNotExtend || false,
         accessTokenId: opts.accessTokenId || null,
         isRequestToken: opts.isRequestToken || false,
-        userSessionId: opts.userSessionId || null
+        userSessionId: opts.userSessionId || null,
+        issuedAt: new Date().getTime()
     };
 
     await db.insert(resourceSessions).values(session);

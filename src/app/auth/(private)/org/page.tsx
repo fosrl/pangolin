@@ -147,7 +147,7 @@ export default async function OrgAuthPage(props: {
                 <span className="text-sm text-muted-foreground">
                     {t("poweredBy")}{" "}
                     <Link
-                        href="https://digpangolin.com/"
+                        href="https://pangolin.net/"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline"

@@ -23,17 +23,15 @@ import { passwordSchema } from "@server/auth/passwordSchema";
 import { UserType } from "@server/types/UserTypes";
 import { createUserAccountOrg } from "@server/lib/createUserAccountOrg";
 import { build } from "@server/build";
-import resend, {
-    AudienceIds,
-    moveEmailToAudience
-} from "#dynamic/lib/resend";
+import resend, { AudienceIds, moveEmailToAudience } from "#dynamic/lib/resend";
 
 export const signupBodySchema = z.object({
     email: z.string().toLowerCase().email(),
     password: passwordSchema,
     inviteToken: z.string().optional(),
     inviteId: z.string().optional(),
-    termsAcceptedTimestamp: z.string().nullable().optional()
+    termsAcceptedTimestamp: z.string().nullable().optional(),
+    marketingEmailConsent: z.boolean().optional()
 });
 
 export type SignUpBody = z.infer<typeof signupBodySchema>;
@@ -58,7 +56,7 @@ export async function signup(
         );
     }
 
-    const { email, password, inviteToken, inviteId, termsAcceptedTimestamp } =
+    const { email, password, inviteToken, inviteId, termsAcceptedTimestamp, marketingEmailConsent } =
         parsedBody.data;
 
     const passwordHash = await hashPassword(password);
@@ -183,7 +181,8 @@ export async function signup(
             passwordHash,
             dateCreated: moment().toISOString(),
             termsAcceptedTimestamp: termsAcceptedTimestamp || null,
-            termsVersion: "1"
+            termsVersion: "1",
+            lastPasswordChange: new Date().getTime()
         });
 
         // give the user their default permissions:
@@ -222,9 +221,9 @@ export async function signup(
             new Date(sess.expiresAt)
         );
         res.appendHeader("Set-Cookie", cookie);
-
-        if (build == "saas") {
-            moveEmailToAudience(email, AudienceIds.General);
+        if (build == "saas" && marketingEmailConsent) {
+            logger.debug(`User ${email} opted in to marketing emails during signup.`);
+            moveEmailToAudience(email, AudienceIds.SignUps);
         }
 
         if (config.getRawConfig().flags?.require_email_verification) {

@@ -1,25 +1,15 @@
 import { Metadata } from "next";
-import {
-    Combine,
-    KeyRound,
-    LinkIcon,
-    Settings,
-    Users,
-    Waypoints,
-    Workflow
-} from "lucide-react";
+
 import { verifySession } from "@app/lib/auth/verifySession";
 import { redirect } from "next/navigation";
 import { internal } from "@app/lib/api";
 import { AxiosResponse } from "axios";
-import { ListOrgsResponse } from "@server/routers/org";
-import { GetOrgResponse, ListUserOrgsResponse } from "@server/routers/org";
+import { ListUserOrgsResponse } from "@server/routers/org";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { cache } from "react";
 import { GetOrgUserResponse } from "@server/routers/user";
 import UserProvider from "@app/providers/UserProvider";
 import { Layout } from "@app/components/Layout";
-import { SidebarNavItem, SidebarNavProps } from "@app/components/SidebarNav";
 import { getTranslations } from "next-intl/server";
 import { pullEnv } from "@app/lib/pullEnv";
 import { orgNavSections } from "@app/app/navigation";
@@ -27,7 +17,10 @@ import { orgNavSections } from "@app/app/navigation";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: `Settings - ${process.env.BRANDING_APP_NAME || "Pangolin"}`,
+    title: {
+        template: `%s - ${process.env.BRANDING_APP_NAME || "Pangolin"}`,
+        default: `Settings - ${process.env.BRANDING_APP_NAME || "Pangolin"}`
+    },
     description: ""
 };
 
@@ -86,7 +79,11 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
 
     return (
         <UserProvider user={user}>
-            <Layout orgId={params.orgId} orgs={orgs} navItems={orgNavSections(env.flags.enableClients)}>
+            <Layout
+                orgId={params.orgId}
+                orgs={orgs}
+                navItems={orgNavSections(env.flags.enableClients)}
+            >
                 {children}
             </Layout>
         </UserProvider>

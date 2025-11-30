@@ -1,0 +1,132 @@
+name: Mirror & Sign (Docker Hub to GHCR)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write   # for keyless OIDC
+
+env:
+  SOURCE_IMAGE: docker.io/fosrl/pangolin
+  DEST_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+
+jobs:
+  mirror-and-dual-sign:
+    runs-on: amd64-runner
+    steps:
+      - name: Install skopeo + jq
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y skopeo jq
+          skopeo --version
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Input check
+        run: |
+          test -n "${SOURCE_IMAGE}" || (echo "SOURCE_IMAGE is empty" && exit 1)
+          echo "Source : ${SOURCE_IMAGE}"
+          echo "Target : ${DEST_IMAGE}"
+
+      # Auth for skopeo (containers-auth)
+      - name: Skopeo login to GHCR
+        run: |
+          skopeo login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+
+      # Auth for cosign (docker-config)
+      - name: Docker login to GHCR (for cosign)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: List source tags
+        run: |
+          set -euo pipefail
+          skopeo list-tags --retry-times 3 docker://"${SOURCE_IMAGE}" \
+            | jq -r '.Tags[]' | sort -u > src-tags.txt
+          echo "Found source tags: $(wc -l < src-tags.txt)"
+          head -n 20 src-tags.txt || true
+
+      - name: List destination tags (skip existing)
+        run: |
+          set -euo pipefail
+          if skopeo list-tags --retry-times 3 docker://"${DEST_IMAGE}" >/tmp/dst.json 2>/dev/null; then
+            jq -r '.Tags[]' /tmp/dst.json | sort -u > dst-tags.txt
+          else
+            : > dst-tags.txt
+          fi
+          echo "Existing destination tags: $(wc -l < dst-tags.txt)"
+
+      - name: Mirror, dual-sign, and verify
+        env:
+          # keyless
+          COSIGN_YES: "true"
+          # key-based
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD:    ${{ secrets.COSIGN_PASSWORD }}
+          # verify
+          COSIGN_PUBLIC_KEY:  ${{ secrets.COSIGN_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          copied=0; skipped=0; v_ok=0; errs=0
+
+          issuer="https://token.actions.githubusercontent.com"
+          id_regex="^https://github.com/${{ github.repository }}/.+"
+
+          while read -r tag; do
+            [ -z "$tag" ] && continue
+
+            if grep -Fxq "$tag" dst-tags.txt; then
+              echo "::notice ::Skip (exists) ${DEST_IMAGE}:${tag}"
+              skipped=$((skipped+1))
+              continue
+            fi
+
+            echo "==> Copy ${SOURCE_IMAGE}:${tag} → ${DEST_IMAGE}:${tag}"
+            if ! skopeo copy --all --retry-times 3 \
+                 docker://"${SOURCE_IMAGE}:${tag}" docker://"${DEST_IMAGE}:${tag}"; then
+              echo "::warning title=Copy failed::${SOURCE_IMAGE}:${tag}"
+              errs=$((errs+1)); continue
+            fi
+            copied=$((copied+1))
+
+            digest="$(skopeo inspect --retry-times 3 docker://"${DEST_IMAGE}:${tag}" | jq -r '.Digest')"
+            ref="${DEST_IMAGE}@${digest}"
+
+            echo "==> cosign sign (keyless) --recursive ${ref}"
+            if ! cosign sign --recursive "${ref}"; then
+              echo "::warning title=Keyless sign failed::${ref}"
+              errs=$((errs+1))
+            fi
+
+            echo "==> cosign sign (key) --recursive ${ref}"
+            if ! cosign sign --key env://COSIGN_PRIVATE_KEY --recursive "${ref}"; then
+              echo "::warning title=Key sign failed::${ref}"
+              errs=$((errs+1))
+            fi
+
+            echo "==> cosign verify (public key) ${ref}"
+            if ! cosign verify --key env://COSIGN_PUBLIC_KEY "${ref}" -o text; then
+              echo "::warning title=Verify(pubkey) failed::${ref}"
+              errs=$((errs+1))
+            fi
+
+            echo "==> cosign verify (keyless policy) ${ref}"
+            if ! cosign verify \
+                 --certificate-oidc-issuer "${issuer}" \
+                 --certificate-identity-regexp "${id_regex}" \
+                 "${ref}" -o text; then
+              echo "::warning title=Verify(keyless) failed::${ref}"
+              errs=$((errs+1))
+            else
+              v_ok=$((v_ok+1))
+            fi
+          done < src-tags.txt
+
+          echo "---- Summary ----"
+          echo "Copied        : $copied"
+          echo "Skipped       : $skipped"
+          echo "Verified OK   : $v_ok"
+          echo "Errors        : $errs"

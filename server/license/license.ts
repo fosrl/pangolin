@@ -40,6 +40,10 @@ export class License {
     public setServerSecret(secret: string) {
         this.serverSecret = secret;
     }
+
+    public async isUnlocked() {
+        return false;
+    }
 }
 
 await setHostMeta();

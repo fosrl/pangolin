@@ -22,6 +22,7 @@ import { useUserContext } from "@app/hooks/useUserContext";
 import Disable2FaForm from "./Disable2FaForm";
 import SecurityKeyForm from "./SecurityKeyForm";
 import Enable2FaDialog from "./Enable2FaDialog";
+import ChangePasswordDialog from "./ChangePasswordDialog";
 import SupporterStatus from "./SupporterStatus";
 import { UserType } from "@server/types/UserTypes";
 import LocaleSwitcher from "@app/components/LocaleSwitcher";
@@ -41,6 +42,7 @@ export default function ProfileIcon() {
     const [openEnable2fa, setOpenEnable2fa] = useState(false);
     const [openDisable2fa, setOpenDisable2fa] = useState(false);
     const [openSecurityKey, setOpenSecurityKey] = useState(false);
+    const [openChangePassword, setOpenChangePassword] = useState(false);
 
     const t = useTranslations();
 
@@ -77,6 +79,10 @@ export default function ProfileIcon() {
             <SecurityKeyForm
                 open={openSecurityKey}
                 setOpen={setOpenSecurityKey}
+            />
+            <ChangePasswordDialog 
+                open={openChangePassword} 
+                setOpen={setOpenChangePassword} 
             />
 
             <DropdownMenu>
@@ -131,6 +137,11 @@ export default function ProfileIcon() {
                                 onClick={() => setOpenSecurityKey(true)}
                             >
                                 <span>{t("securityKeyManage")}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => setOpenChangePassword(true)}
+                            >
+                                <span>{t("changePassword")}</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                         </>

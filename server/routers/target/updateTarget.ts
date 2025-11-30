@@ -170,12 +170,8 @@ export async function updateTarget(
         );
 
         if (foundTarget) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    `Target with IP ${targetData.ip}, port ${targetData.port}, and method ${targetData.method} already exists on the same site.`
-                )
-            );
+            // log a warning
+            logger.warn(`Target with IP ${targetData.ip}, port ${targetData.port}, method ${targetData.method} already exists for resource ID ${target.resourceId}`);
         }
 
         const { internalPort, targetIps } = await pickPort(site.siteId!, db);

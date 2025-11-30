@@ -73,7 +73,7 @@ func installDocker() error {
 	case strings.Contains(osRelease, "ID=ubuntu"):
 		installCmd = exec.Command("bash", "-c", fmt.Sprintf(`
 			apt-get update &&
-			apt-get install -y apt-transport-https ca-certificates curl software-properties-common &&
+			apt-get install -y apt-transport-https ca-certificates curl &&
 			curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg &&
 			echo "deb [arch=%s signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list &&
 			apt-get update &&
@@ -82,7 +82,7 @@ func installDocker() error {
 	case strings.Contains(osRelease, "ID=debian"):
 		installCmd = exec.Command("bash", "-c", fmt.Sprintf(`
 			apt-get update &&
-			apt-get install -y apt-transport-https ca-certificates curl software-properties-common &&
+			apt-get install -y apt-transport-https ca-certificates curl &&
 			curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg &&
 			echo "deb [arch=%s signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list &&
 			apt-get update &&

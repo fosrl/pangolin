@@ -76,7 +76,7 @@ export const privateConfigSchema = z.object({
             local_exit_node_reachable_at: z
                 .string()
                 .optional()
-                .default("http://gerbil:3003")
+                .default("http://gerbil:3004")
         })
         .optional()
         .default({}),

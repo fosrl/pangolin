@@ -23,3 +23,5 @@ export * from "./listResourceRules";
 export * from "./updateResourceRule";
 export * from "./getUserResources";
 export * from "./setResourceHeaderAuth";
+export * from "./addEmailToResourceWhitelist";
+export * from "./removeEmailFromResourceWhitelist";

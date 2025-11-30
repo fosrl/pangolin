@@ -12,6 +12,7 @@ import { createResourceSession } from "@server/auth/sessions/resource";
 import logger from "@server/logger";
 import { verifyPassword } from "@server/auth/password";
 import config from "@server/lib/config";
+import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 
 export const authWithPincodeBodySchema = z
     .object({
@@ -112,6 +113,16 @@ export async function authWithPincode(
                     `Resource pin code incorrect. Resource ID: ${resource.resourceId}. IP: ${req.ip}.`
                 );
             }
+
+            logAccessAudit({
+                orgId: org.orgId,
+                resourceId: resource.resourceId,
+                action: false,
+                type: "pincode",
+                userAgent: req.headers["user-agent"],
+                requestIp: req.ip
+            });
+
             return next(
                 createHttpError(HttpCode.UNAUTHORIZED, "Incorrect PIN")
             );
@@ -126,6 +137,15 @@ export async function authWithPincode(
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
             doNotExtend: true
+        });
+
+        logAccessAudit({
+            orgId: org.orgId,
+            resourceId: resource.resourceId,
+            action: true,
+            type: "pincode",
+            userAgent: req.headers["user-agent"],
+            requestIp: req.ip
         });
 
         return response<AuthWithPincodeResponse>(res, {

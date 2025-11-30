@@ -39,7 +39,8 @@ export async function createSession(
     const session: Session = {
         sessionId: sessionId,
         userId,
-        expiresAt: new Date(Date.now() + SESSION_COOKIE_EXPIRES).getTime()
+        expiresAt: new Date(Date.now() + SESSION_COOKIE_EXPIRES).getTime(),
+        issuedAt: new Date().getTime()
     };
     await db.insert(sessions).values(session);
     return session;

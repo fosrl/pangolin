@@ -13,6 +13,7 @@ import { AxiosResponse } from "axios";
 import { ListIdpsResponse } from "@server/routers/idp";
 import { getTranslations } from "next-intl/server";
 import { build } from "@server/build";
+import { LoadLoginPageResponse } from "@server/routers/loginPage/types";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,33 @@ export default async function Page(props: {
 
     if (user) {
         redirect("/");
+    }
+
+    // Check for orgId and redirect to org-specific login page if found
+    const orgId = searchParams.orgId as string | undefined;
+    let loginPageDomain: string | undefined;
+    if (orgId) {
+        try {
+            const res = await priv.get<AxiosResponse<LoadLoginPageResponse>>(
+                `/login-page?orgId=${orgId}`
+            );
+
+            if (res && res.status === 200 && res.data.data.fullDomain) {
+                loginPageDomain = res.data.data.fullDomain;
+            }
+        } catch (e) {
+            console.debug("No custom login page found for org", orgId);
+        }
+    }
+
+    if (loginPageDomain) {
+        const redirectUrl = searchParams.redirect as string | undefined;
+        
+        let url = `https://${loginPageDomain}/auth/org`;
+        if (redirectUrl) {
+            url += `?redirect=${redirectUrl}`;
+        }
+        redirect(url);
     }
 
     let redirectUrl: string | undefined = undefined;

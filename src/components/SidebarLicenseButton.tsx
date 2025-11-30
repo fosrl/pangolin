@@ -21,7 +21,7 @@ export default function SidebarLicenseButton({
 }: SidebarLicenseButtonProps) {
     const { licenseStatus, updateLicenseStatus } = useLicenseStatusContext();
 
-    const url = "https://docs.digpangolin.com/self-host/enterprise-edition";
+    const url = "https://docs.pangolin.net/self-host/enterprise-edition";
 
     const t = useTranslations();
 

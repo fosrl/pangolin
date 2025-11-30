@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { InferSelectModel } from "drizzle-orm";
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { boolean } from "yargs";
 
 export const domains = sqliteTable("domains", {
     domainId: text("domainId").primaryKey(),
@@ -11,15 +12,41 @@ export const domains = sqliteTable("domains", {
     type: text("type"), // "ns", "cname", "wildcard"
     verified: integer("verified", { mode: "boolean" }).notNull().default(false),
     failed: integer("failed", { mode: "boolean" }).notNull().default(false),
-    tries: integer("tries").notNull().default(0)
+    tries: integer("tries").notNull().default(0),
+    certResolver: text("certResolver"),
+    preferWildcardCert: integer("preferWildcardCert", { mode: "boolean" })
 });
+
+export const dnsRecords = sqliteTable("dnsRecords", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    domainId: text("domainId")
+        .notNull()
+        .references(() => domains.domainId, { onDelete: "cascade" }),
+
+    recordType: text("recordType").notNull(), // "NS" | "CNAME" | "A" | "TXT"
+    baseDomain: text("baseDomain"),
+    value: text("value").notNull(), 
+    verified: integer("verified", { mode: "boolean" }).notNull().default(false),
+});
+
 
 export const orgs = sqliteTable("orgs", {
     orgId: text("orgId").primaryKey(),
     name: text("name").notNull(),
     subnet: text("subnet"),
     createdAt: text("createdAt"),
-    settings: text("settings") // JSON blob of org-specific settings
+    requireTwoFactor: integer("requireTwoFactor", { mode: "boolean" }),
+    maxSessionLengthHours: integer("maxSessionLengthHours"), // hours
+    passwordExpiryDays: integer("passwordExpiryDays"), // days
+    settingsLogRetentionDaysRequest: integer("settingsLogRetentionDaysRequest") // where 0 = dont keep logs and -1 = keep forever
+        .notNull()
+        .default(7),
+    settingsLogRetentionDaysAccess: integer("settingsLogRetentionDaysAccess")
+        .notNull()
+        .default(0),
+    settingsLogRetentionDaysAction: integer("settingsLogRetentionDaysAction")
+        .notNull()
+        .default(0)
 });
 
 export const userDomains = sqliteTable("userDomains", {
@@ -112,9 +139,12 @@ export const resources = sqliteTable("resources", {
     setHostHeader: text("setHostHeader"),
     enableProxy: integer("enableProxy", { mode: "boolean" }).default(true),
     skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {
-        onDelete: "cascade"
+        onDelete: "set null"
     }),
-    headers: text("headers") // comma-separated list of headers to add to the request
+    headers: text("headers"), // comma-separated list of headers to add to the request
+    proxyProtocol: integer("proxyProtocol", { mode: "boolean" }).notNull().default(false),
+    proxyProtocolVersion: integer("proxyProtocolVersion").default(1)
+
 });
 
 export const targets = sqliteTable("targets", {
@@ -142,11 +172,15 @@ export const targets = sqliteTable("targets", {
 });
 
 export const targetHealthCheck = sqliteTable("targetHealthCheck", {
-    targetHealthCheckId: integer("targetHealthCheckId").primaryKey({ autoIncrement: true }),
+    targetHealthCheckId: integer("targetHealthCheckId").primaryKey({
+        autoIncrement: true
+    }),
     targetId: integer("targetId")
         .notNull()
         .references(() => targets.targetId, { onDelete: "cascade" }),
-    hcEnabled: integer("hcEnabled", { mode: "boolean" }).notNull().default(false),
+    hcEnabled: integer("hcEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
     hcPath: text("hcPath"),
     hcScheme: text("hcScheme"),
     hcMode: text("hcMode").default("http"),
@@ -156,7 +190,9 @@ export const targetHealthCheck = sqliteTable("targetHealthCheck", {
     hcUnhealthyInterval: integer("hcUnhealthyInterval").default(30), // in seconds
     hcTimeout: integer("hcTimeout").default(5), // in seconds
     hcHeaders: text("hcHeaders"),
-    hcFollowRedirects: integer("hcFollowRedirects", { mode: "boolean" }).default(true),
+    hcFollowRedirects: integer("hcFollowRedirects", {
+        mode: "boolean"
+    }).default(true),
     hcMethod: text("hcMethod").default("GET"),
     hcStatus: integer("hcStatus"), // http code
     hcHealth: text("hcHealth").default("unknown") // "unknown", "healthy", "unhealthy"
@@ -222,7 +258,8 @@ export const users = sqliteTable("user", {
     termsVersion: text("termsVersion"),
     serverAdmin: integer("serverAdmin", { mode: "boolean" })
         .notNull()
-        .default(false)
+        .default(false),
+    lastPasswordChange: integer("lastPasswordChange")
 });
 
 export const securityKeys = sqliteTable("webauthnCredentials", {
@@ -327,7 +364,8 @@ export const sessions = sqliteTable("session", {
     userId: text("userId")
         .notNull()
         .references(() => users.userId, { onDelete: "cascade" }),
-    expiresAt: integer("expiresAt").notNull()
+    expiresAt: integer("expiresAt").notNull(),
+    issuedAt: integer("issuedAt")
 });
 
 export const newtSessions = sqliteTable("newtSession", {
@@ -577,7 +615,8 @@ export const resourceSessions = sqliteTable("resourceSessions", {
         {
             onDelete: "cascade"
         }
-    )
+    ),
+    issuedAt: integer("issuedAt")
 });
 
 export const resourceWhitelist = sqliteTable("resourceWhitelist", {
@@ -710,6 +749,59 @@ export const idpOrg = sqliteTable("idpOrg", {
     orgMapping: text("orgMapping")
 });
 
+// Blueprint runs
+export const blueprints = sqliteTable("blueprints", {
+    blueprintId: integer("blueprintId").primaryKey({
+        autoIncrement: true
+    }),
+    orgId: text("orgId")
+        .references(() => orgs.orgId, {
+            onDelete: "cascade"
+        })
+        .notNull(),
+    name: text("name").notNull(),
+    source: text("source").notNull(),
+    createdAt: integer("createdAt").notNull(),
+    succeeded: integer("succeeded", { mode: "boolean" }).notNull(),
+    contents: text("contents").notNull(),
+    message: text("message")
+});
+export const requestAuditLog = sqliteTable(
+    "requestAuditLog",
+    {
+        id: integer("id").primaryKey({ autoIncrement: true }),
+        timestamp: integer("timestamp").notNull(), // this is EPOCH time in seconds
+        orgId: text("orgId").references(() => orgs.orgId, {
+            onDelete: "cascade"
+        }),
+        action: integer("action", { mode: "boolean" }).notNull(),
+        reason: integer("reason").notNull(),
+        actorType: text("actorType"),
+        actor: text("actor"),
+        actorId: text("actorId"),
+        resourceId: integer("resourceId"),
+        ip: text("ip"),
+        location: text("location"),
+        userAgent: text("userAgent"),
+        metadata: text("metadata"),
+        headers: text("headers"), // JSON blob
+        query: text("query"), // JSON blob
+        originalRequestURL: text("originalRequestURL"),
+        scheme: text("scheme"),
+        host: text("host"),
+        path: text("path"),
+        method: text("method"),
+        tls: integer("tls", { mode: "boolean" })
+    },
+    (table) => [
+        index("idx_requestAuditLog_timestamp").on(table.timestamp),
+        index("idx_requestAuditLog_org_timestamp").on(
+            table.orgId,
+            table.timestamp
+        )
+    ]
+);
+
 export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
@@ -746,6 +838,7 @@ export type ResourceWhitelist = InferSelectModel<typeof resourceWhitelist>;
 export type VersionMigration = InferSelectModel<typeof versionMigrations>;
 export type ResourceRule = InferSelectModel<typeof resourceRules>;
 export type Domain = InferSelectModel<typeof domains>;
+export type DnsRecord = InferSelectModel<typeof dnsRecords>;
 export type Client = InferSelectModel<typeof clients>;
 export type ClientSite = InferSelectModel<typeof clientSites>;
 export type RoleClient = InferSelectModel<typeof roleClients>;
@@ -761,3 +854,8 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type Blueprint = InferSelectModel<typeof blueprints>;
+export type LicenseKey = InferSelectModel<typeof licenseKey>;
+export type SecurityKey = InferSelectModel<typeof securityKeys>;
+export type WebauthnChallenge = InferSelectModel<typeof webauthnChallenge>;
+export type RequestAuditLog = InferSelectModel<typeof requestAuditLog>;

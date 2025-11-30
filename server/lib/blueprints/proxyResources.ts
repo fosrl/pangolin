@@ -30,6 +30,7 @@ import { pickPort } from "@server/routers/target/helpers";
 import { resourcePassword } from "@server/db";
 import { hashPassword } from "@server/auth/password";
 import { isValidCIDR, isValidIP, isValidUrlGlobPattern } from "../validators";
+import { get } from "http";
 
 export type ProxyResourcesResults = {
     proxyResource: Resource;
@@ -114,7 +115,12 @@ export async function updateProxyResources(
                     internalPort: internalPortToCreate,
                     path: targetData.path,
                     pathMatchType: targetData["path-match"],
-                    rewritePath: targetData.rewritePath,
+                    rewritePath:
+                        targetData.rewritePath ||
+                        targetData["rewrite-path"] ||
+                        (targetData["rewrite-match"] === "stripPrefix"
+                            ? "/"
+                            : undefined),
                     rewritePathType: targetData["rewrite-match"],
                     priority: targetData.priority
                 })
@@ -139,10 +145,14 @@ export async function updateProxyResources(
                     hcHostname: healthcheckData?.hostname,
                     hcPort: healthcheckData?.port,
                     hcInterval: healthcheckData?.interval,
-                    hcUnhealthyInterval: healthcheckData?.unhealthyInterval,
+                    hcUnhealthyInterval:
+                        healthcheckData?.unhealthyInterval ||
+                        healthcheckData?.["unhealthy-interval"],
                     hcTimeout: healthcheckData?.timeout,
                     hcHeaders: hcHeaders,
-                    hcFollowRedirects: healthcheckData?.followRedirects,
+                    hcFollowRedirects:
+                        healthcheckData?.followRedirects ||
+                        healthcheckData?.["follow-redirects"],
                     hcMethod: healthcheckData?.method,
                     hcStatus: healthcheckData?.status,
                     hcHealth: "unknown"
@@ -211,6 +221,7 @@ export async function updateProxyResources(
                         domainId: domain ? domain.domainId : null,
                         enabled: resourceEnabled,
                         sso: resourceData.auth?.["sso-enabled"] || false,
+                        skipToIdpId: resourceData.auth?.["auto-login-idp"] || null,
                         ssl: resourceSsl,
                         setHostHeader: resourceData["host-header"] || null,
                         tlsServerName: resourceData["tls-server-name"] || null,
@@ -392,7 +403,12 @@ export async function updateProxyResources(
                             enabled: targetData.enabled,
                             path: targetData.path,
                             pathMatchType: targetData["path-match"],
-                            rewritePath: targetData.rewritePath,
+                            rewritePath:
+                                targetData.rewritePath ||
+                                targetData["rewrite-path"] ||
+                                (targetData["rewrite-match"] === "stripPrefix"
+                                    ? "/"
+                                    : undefined),
                             rewritePathType: targetData["rewrite-match"],
                             priority: targetData.priority
                         })
@@ -452,10 +468,13 @@ export async function updateProxyResources(
                             hcPort: healthcheckData?.port,
                             hcInterval: healthcheckData?.interval,
                             hcUnhealthyInterval:
-                                healthcheckData?.unhealthyInterval,
+                                healthcheckData?.unhealthyInterval ||
+                                healthcheckData?.["unhealthy-interval"],
                             hcTimeout: healthcheckData?.timeout,
                             hcHeaders: hcHeaders,
-                            hcFollowRedirects: healthcheckData?.followRedirects,
+                            hcFollowRedirects:
+                                healthcheckData?.followRedirects ||
+                                healthcheckData?.["follow-redirects"],
                             hcMethod: healthcheckData?.method,
                             hcStatus: healthcheckData?.status
                         })
@@ -527,7 +546,7 @@ export async function updateProxyResources(
                     if (
                         existingRule.action !== getRuleAction(rule.action) ||
                         existingRule.match !== rule.match.toUpperCase() ||
-                        existingRule.value !== rule.value
+                        existingRule.value !== getRuleValue(rule.match.toUpperCase(), rule.value)
                     ) {
                         validateRule(rule);
                         await trx
@@ -535,7 +554,7 @@ export async function updateProxyResources(
                             .set({
                                 action: getRuleAction(rule.action),
                                 match: rule.match.toUpperCase(),
-                                value: rule.value
+                                value: getRuleValue(rule.match.toUpperCase(), rule.value),
                             })
                             .where(
                                 eq(resourceRules.ruleId, existingRule.ruleId)
@@ -547,7 +566,7 @@ export async function updateProxyResources(
                         resourceId: existingResource.resourceId,
                         action: getRuleAction(rule.action),
                         match: rule.match.toUpperCase(),
-                        value: rule.value,
+                        value: getRuleValue(rule.match.toUpperCase(), rule.value),
                         priority: index + 1 // start priorities at 1
                     });
                 }
@@ -592,6 +611,7 @@ export async function updateProxyResources(
                     domainId: domain ? domain.domainId : null,
                     enabled: resourceEnabled,
                     sso: resourceData.auth?.["sso-enabled"] || false,
+                    skipToIdpId: resourceData.auth?.["auto-login-idp"] || null,
                     setHostHeader: resourceData["host-header"] || null,
                     tlsServerName: resourceData["tls-server-name"] || null,
                     ssl: resourceSsl,
@@ -705,7 +725,7 @@ export async function updateProxyResources(
                     resourceId: newResource.resourceId,
                     action: getRuleAction(rule.action),
                     match: rule.match.toUpperCase(),
-                    value: rule.value,
+                    value: getRuleValue(rule.match.toUpperCase(), rule.value),
                     priority: index + 1 // start priorities at 1
                 });
             }
@@ -733,6 +753,14 @@ function getRuleAction(input: string) {
         action = "PASS";
     }
     return action;
+}
+
+function getRuleValue(match: string, value: string) {
+    // if the match is a country, uppercase the value
+    if (match == "COUNTRY") {
+        return value.toUpperCase();
+    }
+    return value;
 }
 
 function validateRule(rule: any) {

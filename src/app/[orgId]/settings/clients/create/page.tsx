@@ -42,7 +42,7 @@ import {
     FaFreebsd,
     FaWindows
 } from "react-icons/fa";
-import { 
+import {
     SiNixos,
     SiKubernetes
 } from "react-icons/si";
@@ -72,12 +72,11 @@ interface TunnelTypeOption {
 }
 
 type Commands = {
-    mac: Record<string, string[]>;
-    linux: Record<string, string[]>;
+    unix: Record<string, string[]>;
     windows: Record<string, string[]>;
 };
 
-const platforms = ["linux", "mac", "windows"] as const;
+const platforms = ["unix", "windows"] as const;
 
 type Platform = (typeof platforms)[number];
 
@@ -128,8 +127,8 @@ export default function Page() {
         number | null
     >(null);
 
-    const [platform, setPlatform] = useState<Platform>("linux");
-    const [architecture, setArchitecture] = useState("amd64");
+    const [platform, setPlatform] = useState<Platform>("unix");
+    const [architecture, setArchitecture] = useState("All");
     const [commands, setCommands] = useState<Commands | null>(null);
 
     const [olmId, setOlmId] = useState("");
@@ -148,43 +147,15 @@ export default function Page() {
         version: string
     ) => {
         const commands = {
-            mac: {
-                "Apple Silicon (arm64)": [
-                    `curl -fsSL https://digpangolin.com/get-olm.sh | bash`,
-                    `sudo olm --id ${id} --secret ${secret} --endpoint ${endpoint}`
-                ],
-                "Intel x64 (amd64)": [
-                    `curl -fsSL https://digpangolin.com/get-olm.sh | bash`,
-                    `sudo olm --id ${id} --secret ${secret} --endpoint ${endpoint}`
-                ]
-            },
-            linux: {
-                amd64: [
-                    `curl -fsSL https://digpangolin.com/get-olm.sh | bash`,
-                    `sudo olm --id ${id} --secret ${secret} --endpoint ${endpoint}`
-                ],
-                arm64: [
-                    `curl -fsSL https://digpangolin.com/get-olm.sh | bash`,
-                    `sudo olm --id ${id} --secret ${secret} --endpoint ${endpoint}`
-                ],
-                arm32: [
-                    `curl -fsSL https://digpangolin.com/get-olm.sh | bash`,
-                    `sudo olm --id ${id} --secret ${secret} --endpoint ${endpoint}`
-                ],
-                arm32v6: [
-                    `curl -fsSL https://digpangolin.com/get-olm.sh | bash`,
-                    `sudo olm --id ${id} --secret ${secret} --endpoint ${endpoint}`
-                ],
-                riscv64: [
-                    `curl -fsSL https://digpangolin.com/get-olm.sh | bash`,
+            unix: {
+                All: [
+                    `curl -fsSL https://pangolin.net/get-olm.sh | bash`,
                     `sudo olm --id ${id} --secret ${secret} --endpoint ${endpoint}`
                 ]
             },
             windows: {
                 x64: [
-                    `# Download and run the installer`,
                     `curl -o olm.exe -L "https://github.com/fosrl/olm/releases/download/${version}/olm_windows_installer.exe"`,
-                    `# Then run olm with your credentials`,
                     `olm.exe --id ${id} --secret ${secret} --endpoint ${endpoint}`
                 ]
             }
@@ -194,10 +165,8 @@ export default function Page() {
 
     const getArchitectures = () => {
         switch (platform) {
-            case "linux":
-                return ["amd64", "arm64", "arm32", "arm32v6", "riscv64"];
-            case "mac":
-                return ["Apple Silicon (arm64)", "Intel x64 (amd64)"];
+            case "unix":
+                return ["All"];
             case "windows":
                 return ["x64"];
             default:
@@ -209,12 +178,12 @@ export default function Page() {
         switch (platformName) {
             case "windows":
                 return "Windows";
-            case "mac":
-                return "macOS";
+            case "unix":
+                return "Unix & macOS";
             case "docker":
                 return "Docker";
             default:
-                return "Linux";
+                return "Unix & macOS";
         }
     };
 
@@ -249,8 +218,8 @@ export default function Page() {
         switch (platformName) {
             case "windows":
                 return <FaWindows className="h-4 w-4 mr-2" />;
-            case "mac":
-                return <FaApple className="h-4 w-4 mr-2" />;
+            case "unix":
+                return <Terminal className="h-4 w-4 mr-2" />;
             case "docker":
                 return <FaDocker className="h-4 w-4 mr-2" />;
             case "kubernetes":
@@ -342,14 +311,14 @@ export default function Page() {
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 3000);
-                
+
                 const response = await fetch(
                     `https://api.github.com/repos/fosrl/olm/releases/latest`,
                     { signal: controller.signal }
                 );
-                
+
                 clearTimeout(timeoutId);
-                
+
                 if (!response.ok) {
                     throw new Error(
                         t("olmErrorFetchReleases", {

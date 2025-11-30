@@ -21,7 +21,8 @@ export async function traefikConfigProvider(
             currentExitNodeId,
             config.getRawConfig().traefik.site_types,
             build == "oss", // filter out the namespace domains in open source
-            build != "oss" // generate the login pages on the cloud and hybrid
+            build != "oss", // generate the login pages on the cloud and and enterprise,
+            config.getRawConfig().traefik.allow_raw_resources
         );
 
         if (traefikConfig?.http?.middlewares) {

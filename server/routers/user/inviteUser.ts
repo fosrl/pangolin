@@ -1,8 +1,7 @@
-import NodeCache from "node-cache";
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { orgs, userInvites, userOrgs, users } from "@server/db";
+import { orgs, roles, userInvites, userOrgs, users } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -20,8 +19,7 @@ import { UserType } from "@server/types/UserTypes";
 import { usageService } from "@server/lib/billing/usageService";
 import { FeatureId } from "@server/lib/billing";
 import { build } from "@server/build";
-
-const regenerateTracker = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
+import cache from "@server/lib/cache";
 
 const inviteUserParamsSchema = z
     .object({
@@ -111,6 +109,27 @@ export async function inviteUser(
             );
         }
 
+        // Validate that the roleId belongs to the target organization
+        const [role] = await db
+            .select()
+            .from(roles)
+            .where(
+                and(
+                    eq(roles.roleId, roleId),
+                    eq(roles.orgId, orgId)
+                )
+            )
+            .limit(1);
+
+        if (!role) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Invalid role ID or role does not belong to this organization"
+                )
+            );
+        }
+
         if (build == "saas") {
             const usage = await usageService.getUsage(orgId, FeatureId.USERS);
             if (!usage) {
@@ -182,7 +201,7 @@ export async function inviteUser(
         }
 
         if (existingInvite.length) {
-            const attempts = regenerateTracker.get<number>(email) || 0;
+            const attempts = cache.get<number>(email) || 0;
             if (attempts >= 3) {
                 return next(
                     createHttpError(
@@ -192,7 +211,7 @@ export async function inviteUser(
                 );
             }
 
-            regenerateTracker.set(email, attempts + 1);
+            cache.set(email, attempts + 1);
 
             const inviteId = existingInvite[0].inviteId; // Retrieve the original inviteId
             const token = generateRandomString(

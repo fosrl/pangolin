@@ -13,6 +13,7 @@ import { createResourceSession } from "@server/auth/sessions/resource";
 import logger from "@server/logger";
 import { verifyPassword } from "@server/auth/password";
 import config from "@server/lib/config";
+import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 
 export const authWithPasswordBodySchema = z
     .object({
@@ -113,6 +114,16 @@ export async function authWithPassword(
                     `Resource password incorrect. Resource ID: ${resource.resourceId}. IP: ${req.ip}.`
                 );
             }
+
+            logAccessAudit({
+                orgId: org.orgId,
+                resourceId: resource.resourceId,
+                action: false,
+                type: "password",
+                userAgent: req.headers["user-agent"],
+                requestIp: req.ip
+            });
+
             return next(
                 createHttpError(HttpCode.UNAUTHORIZED, "Incorrect password")
             );
@@ -127,6 +138,15 @@ export async function authWithPassword(
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
             doNotExtend: true
+        });
+
+        logAccessAudit({
+            orgId: org.orgId,
+            resourceId: resource.resourceId,
+            action: true,
+            type: "password",
+            userAgent: req.headers["user-agent"],
+            requestIp: req.ip
         });
 
         return response<AuthWithPasswordResponse>(res, {

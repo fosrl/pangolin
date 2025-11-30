@@ -1,4 +1,4 @@
-import { db, loginPage, LoginPage, loginPageOrg } from "@server/db";
+import { db, loginPage, LoginPage, loginPageOrg, Org, orgs } from "@server/db";
 import {
     Resource,
     ResourcePassword,
@@ -23,6 +23,7 @@ export type ResourceWithAuth = {
     pincode: ResourcePincode | null;
     password: ResourcePassword | null;
     headerAuth: ResourceHeaderAuth | null;
+    org: Org;
 };
 
 export type UserSessionWithUser = {
@@ -51,6 +52,10 @@ export async function getResourceByDomain(
             resourceHeaderAuth,
             eq(resourceHeaderAuth.resourceId, resources.resourceId)
         )
+        .innerJoin(
+            orgs,
+            eq(orgs.orgId, resources.orgId)
+        )
         .where(eq(resources.fullDomain, domain))
         .limit(1);
 
@@ -62,7 +67,8 @@ export async function getResourceByDomain(
         resource: result.resources,
         pincode: result.resourcePincode,
         password: result.resourcePassword,
-        headerAuth: result.resourceHeaderAuth
+        headerAuth: result.resourceHeaderAuth,
+        org: result.orgs
     };
 }
 

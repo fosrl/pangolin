@@ -44,6 +44,36 @@ build-release:
 		--tag fosrl/pangolin:ee-postgresql-$(tag) \
 		--push .
 
+build-rc:
+	@if [ -z "$(tag)" ]; then \
+		echo "Error: tag is required. Usage: make build-release tag=<tag>"; \
+		exit 1; \
+	fi
+	docker buildx build \
+		--build-arg BUILD=oss \
+		--build-arg DATABASE=sqlite \
+		--platform linux/arm64,linux/amd64 \
+		--tag fosrl/pangolin:$(tag) \
+		--push .
+	docker buildx build \
+		--build-arg BUILD=oss \
+		--build-arg DATABASE=pg \
+		--platform linux/arm64,linux/amd64 \
+		--tag fosrl/pangolin:postgresql-$(tag) \
+		--push .
+	docker buildx build \
+		--build-arg BUILD=enterprise \
+		--build-arg DATABASE=sqlite \
+		--platform linux/arm64,linux/amd64 \
+		--tag fosrl/pangolin:ee-$(tag) \
+		--push .
+	docker buildx build \
+		--build-arg BUILD=enterprise \
+		--build-arg DATABASE=pg \
+		--platform linux/arm64,linux/amd64 \
+		--tag fosrl/pangolin:ee-postgresql-$(tag) \
+		--push .
+
 build-arm:
 	docker buildx build --platform linux/arm64 -t fosrl/pangolin:latest .
 

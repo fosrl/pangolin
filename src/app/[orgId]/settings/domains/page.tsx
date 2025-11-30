@@ -9,7 +9,8 @@ import { GetOrgResponse } from "@server/routers/org";
 import { redirect } from "next/navigation";
 import OrgProvider from "@app/providers/OrgProvider";
 import { ListDomainsResponse } from "@server/routers/domain";
-import { toUnicode } from 'punycode';
+import { toUnicode } from "punycode";
+import { getCachedOrg } from "@app/lib/api/getCachedOrg";
 
 type Props = {
     params: Promise<{ orgId: string }>;
@@ -20,15 +21,16 @@ export default async function DomainsPage(props: Props) {
 
     let domains: DomainRow[] = [];
     try {
-        const res = await internal.get<
-            AxiosResponse<ListDomainsResponse>
-        >(`/org/${params.orgId}/domains`, await authCookieHeader());
+        const res = await internal.get<AxiosResponse<ListDomainsResponse>>(
+            `/org/${params.orgId}/domains`,
+            await authCookieHeader()
+        );
 
         const rawDomains = res.data.data.domains as DomainRow[];
 
         domains = rawDomains.map((domain) => ({
             ...domain,
-            baseDomain: toUnicode(domain.baseDomain),
+            baseDomain: toUnicode(domain.baseDomain)
         }));
     } catch (e) {
         console.error(e);
@@ -36,19 +38,10 @@ export default async function DomainsPage(props: Props) {
 
     let org = null;
     try {
-        const getOrg = cache(async () =>
-            internal.get<AxiosResponse<GetOrgResponse>>(
-                `/org/${params.orgId}`,
-                await authCookieHeader()
-            )
-        );
-        const res = await getOrg();
+        const res = await getCachedOrg(params.orgId);
         org = res.data.data;
     } catch {
         redirect(`/${params.orgId}`);
-    }
-
-    if (!org) {
     }
 
     const t = await getTranslations();
@@ -60,7 +53,7 @@ export default async function DomainsPage(props: Props) {
                     title={t("domains")}
                     description={t("domainsDescription")}
                 />
-                <DomainsTable domains={domains} />
+                <DomainsTable domains={domains} orgId={org.org.orgId} />
             </OrgProvider>
         </>
     );

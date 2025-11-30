@@ -8,7 +8,7 @@ import base64
 YAML_FILE_PATH = 'blueprint.yaml'
 
 # The API endpoint and headers from the curl request
-API_URL = 'http://api.pangolin.fossorial.io/v1/org/test/blueprint'
+API_URL = 'http://api.pangolin.net/v1/org/test/blueprint'
 HEADERS = {
     'accept': '*/*',
     'Authorization': 'Bearer <your_token_here>',

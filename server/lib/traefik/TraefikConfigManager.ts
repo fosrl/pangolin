@@ -309,10 +309,7 @@ export class TraefikConfigManager {
                 this.lastActiveDomains = new Set(domains);
             }
 
-            if (
-                process.env.USE_PANGOLIN_DNS === "true" &&
-                build != "oss"
-            ) {
+            if (process.env.USE_PANGOLIN_DNS === "true" && build != "oss") {
                 // Scan current local certificate state
                 this.lastLocalCertificateState =
                     await this.scanLocalCertificateState();
@@ -450,7 +447,8 @@ export class TraefikConfigManager {
                 currentExitNode,
                 config.getRawConfig().traefik.site_types,
                 build == "oss", // filter out the namespace domains in open source
-                build != "oss" // generate the login pages on the cloud and hybrid
+                build != "oss", // generate the login pages on the cloud and hybrid,
+                build == "saas" ? false : config.getRawConfig().traefik.allow_raw_resources // dont allow raw resources on saas otherwise use config
             );
 
             const domains = new Set<string>();
@@ -500,6 +498,25 @@ export class TraefikConfigManager {
                         }
                     }
                 };
+            }
+
+            // tcp:
+            //     serversTransports:
+            //         pp-transport-v1:
+            //         proxyProtocol:
+            //             version: 1
+            //         pp-transport-v2:
+            //         proxyProtocol:
+            //             version: 2
+
+            if (build != "saas") {
+                // add the serversTransports section if not present
+                if (traefikConfig.tcp && !traefikConfig.tcp.serversTransports) {
+                    traefikConfig.tcp.serversTransports = {
+                        "pp-transport-v1": { proxyProtocol: { version: 1 } },
+                        "pp-transport-v2": { proxyProtocol: { version: 2 } }
+                    };
+                }
             }
 
             return { domains, traefikConfig };

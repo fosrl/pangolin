@@ -1,4 +1,4 @@
-import { db, exitNodes } from "@server/db";
+import { db, exitNodes, Transaction } from "@server/db";
 import logger from "@server/logger";
 import { ExitNodePingResult } from "@server/routers/newt";
 import { eq } from "drizzle-orm";
@@ -59,7 +59,11 @@ export function selectBestExitNode(
     return pingResults[0];
 }
 
-export async function checkExitNodeOrg(exitNodeId: number, orgId: string) {
+export async function checkExitNodeOrg(
+    exitNodeId: number,
+    orgId: string,
+    trx?: Transaction | typeof db
+): Promise<boolean> {
     return false;
 }
 

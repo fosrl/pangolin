@@ -43,7 +43,12 @@ export const handleApplyBlueprintMessage: MessageHandler = async (context) => {
     try {
         const blueprintParsed = JSON.parse(blueprint);
         // Update the blueprint in the database
-        await applyBlueprint(site.orgId, blueprintParsed, site.siteId);
+        await applyBlueprint({
+            orgId: site.orgId,
+            configData: blueprintParsed,
+            siteId: site.siteId,
+            source: "NEWT"
+        });
     } catch (error) {
         logger.error(`Failed to update database from config: ${error}`);
         return {

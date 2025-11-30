@@ -185,19 +185,14 @@ export default function OrgApiKeysTable({
                         setSelected(null);
                     }}
                     dialog={
-                        <div className="space-y-4">
+                        <div>
                             <p>
-                                {t("apiKeysQuestionRemove", {
-                                    selectedApiKey:
-                                        selected?.name || selected?.id
-                                })}
+                                {t("apiKeysQuestionRemove")}
                             </p>
 
                             <p>
-                                <b>{t("apiKeysMessageRemove")}</b>
+                                {t("apiKeysMessageRemove")}
                             </p>
-
-                            <p>{t("apiKeysMessageConfirm")}</p>
                         </div>
                     }
                     buttonText={t("apiKeysDeleteConfirm")}

@@ -29,15 +29,29 @@ export async function applyNewtDockerBlueprint(
 
         logger.debug(`Received Docker blueprint: ${JSON.stringify(blueprint)}`);
 
+        // make sure this is not an empty object
+        if (isEmptyObject(blueprint)) {
+            return;
+        }
+
+        if (isEmptyObject(blueprint["proxy-resources"]) && isEmptyObject(blueprint["client-resources"])) {
+            return;
+        }
+
         // Update the blueprint in the database
-        await applyBlueprint(site.orgId, blueprint, site.siteId);
+        await applyBlueprint({
+            orgId: site.orgId,
+            configData: blueprint,
+            siteId: site.siteId,
+            source: "NEWT"
+        });
     } catch (error) {
         logger.error(`Failed to update database from config: ${error}`);
         await sendToClient(newtId, {
             type: "newt/blueprint/results",
             data: {
                 success: false,
-                message: `Failed to update database from config: ${error}`
+                message: `Failed to apply blueprint from config: ${error}`
             }
         });
         return;
@@ -50,4 +64,11 @@ export async function applyNewtDockerBlueprint(
             message: "Config updated successfully"
         }
     });
+}
+
+function isEmptyObject(obj: any) {
+    if (obj === null || obj === undefined) {
+        return true;
+    }
+    return Object.keys(obj).length === 0 && obj.constructor === Object;
 }

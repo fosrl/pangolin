@@ -63,6 +63,7 @@ function queryAccessTokens(
         description: resourceAccessToken.description,
         createdAt: resourceAccessToken.createdAt,
         resourceName: resources.name,
+        resourceNiceId: resources.niceId,
         siteName: sites.name
     };
 

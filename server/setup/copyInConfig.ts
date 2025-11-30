@@ -1,4 +1,4 @@
-import { db } from "@server/db";
+import { db, dnsRecords } from "@server/db";
 import { domains, exitNodes, orgDomains, orgs, resources } from "@server/db";
 import config from "@server/lib/config";
 import { eq, ne } from "drizzle-orm";
@@ -8,7 +8,10 @@ export async function copyInConfig() {
     const endpoint = config.getRawConfig().gerbil.base_endpoint;
     const listenPort = config.getRawConfig().gerbil.start_port;
 
-    if (!config.getRawConfig().flags?.disable_config_managed_domains && config.getRawConfig().domains) {
+    if (
+        !config.getRawConfig().flags?.disable_config_managed_domains &&
+        config.getRawConfig().domains
+    ) {
         await copyInDomains();
     }
 
@@ -37,7 +40,9 @@ async function copyInDomains() {
         const configDomains = Object.entries(rawDomains).map(
             ([key, value]) => ({
                 domainId: key,
-                baseDomain: value.base_domain.toLowerCase()
+                baseDomain: value.base_domain.toLowerCase(),
+                certResolver: value.cert_resolver || null,
+                preferWildcardCert: value.prefer_wildcard_cert || null
             })
         );
 
@@ -54,29 +59,79 @@ async function copyInDomains() {
             if (!configDomainKeys.has(existingDomain.domainId)) {
                 await trx
                     .delete(domains)
-                    .where(eq(domains.domainId, existingDomain.domainId))
-                    .execute();
+                    .where(eq(domains.domainId, existingDomain.domainId));
+                await trx
+                    .delete(dnsRecords)
+                    .where(eq(dnsRecords.domainId, existingDomain.domainId));
             }
         }
 
-        for (const { domainId, baseDomain } of configDomains) {
+        for (const {
+            domainId,
+            baseDomain,
+            certResolver,
+            preferWildcardCert
+        } of configDomains) {
             if (existingDomainKeys.has(domainId)) {
                 await trx
                     .update(domains)
-                    .set({ baseDomain, verified: true, type: "wildcard" })
-                    .where(eq(domains.domainId, domainId))
-                    .execute();
-            } else {
-                await trx
-                    .insert(domains)
-                    .values({
-                        domainId,
+                    .set({
                         baseDomain,
-                        configManaged: true,
+                        verified: true,
                         type: "wildcard",
-                        verified: true
+                        certResolver,
+                        preferWildcardCert
                     })
-                    .execute();
+                    .where(eq(domains.domainId, domainId));
+
+                // delete the dns records and add them again to ensure they are correct
+                await trx
+                    .delete(dnsRecords)
+                    .where(eq(dnsRecords.domainId, domainId));
+
+                await trx.insert(dnsRecords).values([
+                    {
+                        domainId,
+                        recordType: "A",
+                        baseDomain,
+                        value: "Server IP Address",
+                        verified: true
+                    },
+                    {
+                        domainId,
+                        recordType: "A",
+                        baseDomain: `*.${baseDomain}`,
+                        value: "Server IP Address",
+                        verified: true
+                    }
+                ]);
+            } else {
+                await trx.insert(domains).values({
+                    domainId,
+                    baseDomain,
+                    configManaged: true,
+                    type: "wildcard",
+                    verified: true,
+                    certResolver,
+                    preferWildcardCert
+                });
+
+                await trx.insert(dnsRecords).values([
+                    {
+                        domainId,
+                        recordType: "A",
+                        baseDomain,
+                        value: "Server IP Address",
+                        verified: true
+                    },
+                    {
+                        domainId,
+                        recordType: "A",
+                        baseDomain: `*.${baseDomain}`,
+                        value: "Server IP Address",
+                        verified: true
+                    }
+                ]);
             }
         }
 

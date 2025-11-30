@@ -1,22 +1,35 @@
-import { db, newts, Target } from "@server/db";
+import { db, newts, blueprints, Blueprint } from "@server/db";
 import { Config, ConfigSchema } from "./types";
 import { ProxyResourcesResults, updateProxyResources } from "./proxyResources";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
-import { resources, targets, sites } from "@server/db";
-import { eq, and, asc, or, ne, count, isNotNull } from "drizzle-orm";
+import { sites } from "@server/db";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { addTargets as addProxyTargets } from "@server/routers/newt/targets";
 import { addTargets as addClientTargets } from "@server/routers/client/targets";
 import {
     ClientResourcesResults,
     updateClientResources
 } from "./clientResources";
+import { BlueprintSource } from "@server/routers/blueprints/types";
+import { stringify as stringifyYaml } from "yaml";
+import { faker } from "@faker-js/faker";
 
-export async function applyBlueprint(
-    orgId: string,
-    configData: unknown,
-    siteId?: number
-): Promise<void> {
+type ApplyBlueprintArgs = {
+    orgId: string;
+    configData: unknown;
+    name?: string;
+    siteId?: number;
+    source?: BlueprintSource;
+};
+
+export async function applyBlueprint({
+    orgId,
+    configData,
+    siteId,
+    name,
+    source = "API"
+}: ApplyBlueprintArgs): Promise<Blueprint> {
     // Validate the input data
     const validationResult = ConfigSchema.safeParse(configData);
     if (!validationResult.success) {
@@ -24,6 +37,9 @@ export async function applyBlueprint(
     }
 
     const config: Config = validationResult.data;
+    let blueprintSucceeded: boolean = false;
+    let blueprintMessage: string;
+    let error: any | null = null;
 
     try {
         let proxyResourcesResults: ProxyResourcesResults = [];
@@ -120,10 +136,42 @@ export async function applyBlueprint(
                 );
             }
         }
-    } catch (error) {
-        logger.error(`Failed to update database from config: ${error}`);
-        throw error;
+
+        blueprintSucceeded = true;
+        blueprintMessage = "Blueprint applied successfully";
+    } catch (err) {
+        blueprintSucceeded = false;
+        blueprintMessage = `Blueprint applied with errors: ${err}`;
+        logger.error(blueprintMessage);
+        error = err;
     }
+
+    let blueprint: Blueprint | null = null;
+    await db.transaction(async (trx) => {
+        const newBlueprint = await trx
+            .insert(blueprints)
+            .values({
+                orgId,
+                name:
+                    name ??
+                    `${faker.word.adjective()} ${faker.word.adjective()} ${faker.word.noun()}`,
+                contents: stringifyYaml(configData),
+                createdAt: Math.floor(Date.now() / 1000),
+                succeeded: blueprintSucceeded,
+                message: blueprintMessage,
+                source
+            })
+            .returning();
+
+        blueprint = newBlueprint[0];
+    });
+
+    if (!blueprint || (source !== "UI" && !blueprintSucceeded)) {
+        //             ^^^^^^^^^^^^^^^ The UI considers a failed blueprint as a valid response
+        throw error ?? "Unknown Server Error";
+    }
+
+    return blueprint;
 }
 
 // await updateDatabaseFromConfig("org_i21aifypnlyxur2", {
@@ -139,8 +187,8 @@ export async function applyBlueprint(
 //                 password: "sadfasdfadsf",
 //                 "sso-enabled": true,
 //                 "sso-roles": ["Member"],
-//                 "sso-users": ["owen@fossorial.io"],
-//                 "whitelist-users": ["owen@fossorial.io"]
+//                 "sso-users": ["owen@pangolin.net"],
+//                 "whitelist-users": ["owen@pangolin.net"]
 //             },
 //             targets: [
 //                 {

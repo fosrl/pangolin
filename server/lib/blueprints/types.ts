@@ -13,10 +13,12 @@ export const TargetHealthCheckSchema = z.object({
     scheme: z.string().optional(),
     mode: z.string().default("http"),
     interval: z.number().int().default(30),
-    unhealthyInterval: z.number().int().default(30),
+    "unhealthy-interval": z.number().int().default(30),
+    unhealthyInterval: z.number().int().optional(), // deprecated alias
     timeout: z.number().int().default(5),
     headers: z.array(z.object({ name: z.string(), value: z.string() })).nullable().optional().default(null),
-    followRedirects: z.boolean().default(true),
+    "follow-redirects": z.boolean().default(true),
+    followRedirects: z.boolean().optional(), // deprecated alias
     method: z.string().default("GET"),
     status: z.number().int().optional()
 });
@@ -32,7 +34,8 @@ export const TargetSchema = z.object({
     path: z.string().optional(),
     "path-match": z.enum(["exact", "prefix", "regex"]).optional().nullable(),
     healthcheck: TargetHealthCheckSchema.optional(),
-    rewritePath: z.string().optional(),
+    rewritePath: z.string().optional(), // deprecated alias
+    "rewrite-path": z.string().optional(),
     "rewrite-match": z.enum(["exact", "prefix", "regex", "stripPrefix"]).optional().nullable(),
     priority: z.number().int().min(1).max(1000).optional().default(100)
 });
@@ -56,6 +59,7 @@ export const AuthSchema = z.object({
         }),
     "sso-users": z.array(z.string().email()).optional().default([]),
     "whitelist-users": z.array(z.string().email()).optional().default([]),
+    "auto-login-idp": z.number().int().positive().optional(),
 });
 
 export const RuleSchema = z.object({
@@ -275,24 +279,26 @@ export const ConfigSchema = z
         }
     )
     .refine(
-        // Enforce proxy-port uniqueness within proxy-resources
+        // Enforce proxy-port uniqueness within proxy-resources per protocol
         (config) => {
-            const proxyPortMap = new Map<number, string[]>();
+            const protocolPortMap = new Map<string, string[]>();
 
             Object.entries(config["proxy-resources"]).forEach(
                 ([resourceKey, resource]) => {
                     const proxyPort = resource["proxy-port"];
-                    if (proxyPort !== undefined) {
-                        if (!proxyPortMap.has(proxyPort)) {
-                            proxyPortMap.set(proxyPort, []);
+                    const protocol = resource.protocol;
+                    if (proxyPort !== undefined && protocol !== undefined) {
+                        const key = `${protocol}:${proxyPort}`;
+                        if (!protocolPortMap.has(key)) {
+                            protocolPortMap.set(key, []);
                         }
-                        proxyPortMap.get(proxyPort)!.push(resourceKey);
+                        protocolPortMap.get(key)!.push(resourceKey);
                     }
                 }
             );
 
             // Find duplicates
-            const duplicates = Array.from(proxyPortMap.entries()).filter(
+            const duplicates = Array.from(protocolPortMap.entries()).filter(
                 ([_, resourceKeys]) => resourceKeys.length > 1
             );
 
@@ -300,25 +306,29 @@ export const ConfigSchema = z
         },
         (config) => {
             // Extract duplicates for error message
-            const proxyPortMap = new Map<number, string[]>();
+            const protocolPortMap = new Map<string, string[]>();
 
             Object.entries(config["proxy-resources"]).forEach(
                 ([resourceKey, resource]) => {
                     const proxyPort = resource["proxy-port"];
-                    if (proxyPort !== undefined) {
-                        if (!proxyPortMap.has(proxyPort)) {
-                            proxyPortMap.set(proxyPort, []);
+                    const protocol = resource.protocol;
+                    if (proxyPort !== undefined && protocol !== undefined) {
+                        const key = `${protocol}:${proxyPort}`;
+                        if (!protocolPortMap.has(key)) {
+                            protocolPortMap.set(key, []);
                         }
-                        proxyPortMap.get(proxyPort)!.push(resourceKey);
+                        protocolPortMap.get(key)!.push(resourceKey);
                     }
                 }
             );
 
-            const duplicates = Array.from(proxyPortMap.entries())
+            const duplicates = Array.from(protocolPortMap.entries())
                 .filter(([_, resourceKeys]) => resourceKeys.length > 1)
                 .map(
-                    ([proxyPort, resourceKeys]) =>
-                        `port ${proxyPort} used by proxy-resources: ${resourceKeys.join(", ")}`
+                    ([protocolPort, resourceKeys]) => {
+                        const [protocol, port] = protocolPort.split(':');
+                        return `${protocol.toUpperCase()} port ${port} used by proxy-resources: ${resourceKeys.join(", ")}`;
+                    }
                 )
                 .join("; ");
 
