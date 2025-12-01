@@ -80,7 +80,7 @@
         "drizzle-orm": "0.44.7",
         "eslint": "9.39.1",
         "eslint-config-next": "16.0.3",
-        "express": "5.1.0",
+        "express": "5.2.1",
         "express-rate-limit": "8.2.1",
         "glob": "11.1.0",
         "helmet": "8.1.0",
