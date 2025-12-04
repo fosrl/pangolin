@@ -526,6 +526,8 @@
     "targetCreatedDescription": "Cel został utworzony pomyślnie",
     "targetErrorCreate": "Nie udało się utworzyć celu",
     "targetErrorCreateDescription": "Wystąpił błąd podczas tworzenia celu",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "Zapisz",
     "proxyAdditional": "Dodatkowe ustawienia proxy",
     "proxyAdditionalDescription": "Skonfiguruj jak twój zasób obsługuje ustawienia proxy",
