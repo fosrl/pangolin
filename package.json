@@ -135,7 +135,7 @@
     "devDependencies": {
         "@dotenvx/dotenvx": "1.51.1",
         "@esbuild-plugins/tsconfig-paths": "0.1.2",
-        "@react-email/preview-server": "4.3.2",
+        "@react-email/preview-server": "5.0.5",
         "@tailwindcss/postcss": "^4.1.17",
         "@types/better-sqlite3": "7.6.12",
         "@types/cookie-parser": "1.4.10",
