@@ -526,6 +526,8 @@
     "targetCreatedDescription": "Cíl byl úspěšně vytvořen",
     "targetErrorCreate": "Nepodařilo se vytvořit cíl",
     "targetErrorCreateDescription": "Došlo k chybě při vytváření cíle",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "Uložit",
     "proxyAdditional": "Další nastavení proxy",
     "proxyAdditionalDescription": "Konfigurovat nastavení proxy zpracování vašeho zdroje",
