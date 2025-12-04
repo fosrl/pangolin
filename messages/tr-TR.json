@@ -526,6 +526,8 @@
     "targetCreatedDescription": "Hedef başarıyla oluşturuldu",
     "targetErrorCreate": "Hedef oluşturma başarısız oldu",
     "targetErrorCreateDescription": "Hedef oluşturulurken bir hata oluştu",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "Kaydet",
     "proxyAdditional": "Ek Proxy Ayarları",
     "proxyAdditionalDescription": "Kaynağınızın proxy ayarlarını nasıl yöneteceğini yapılandırın",
