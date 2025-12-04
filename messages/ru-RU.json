@@ -526,6 +526,8 @@
     "targetCreatedDescription": "Цель была успешно создана",
     "targetErrorCreate": "Не удалось создать цель",
     "targetErrorCreateDescription": "Произошла ошибка при создании цели",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "Сохранить",
     "proxyAdditional": "Дополнительные настройки прокси",
     "proxyAdditionalDescription": "Настройте, как ваш ресурс обрабатывает настройки прокси",
