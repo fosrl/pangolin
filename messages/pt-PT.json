@@ -526,6 +526,8 @@
     "targetCreatedDescription": "O alvo foi criado com sucesso",
     "targetErrorCreate": "Falha ao criar destino",
     "targetErrorCreateDescription": "Ocorreu um erro ao criar o destino",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "Guardar",
     "proxyAdditional": "Configurações Adicionais de Proxy",
     "proxyAdditionalDescription": "Configure como seu recurso lida com configurações de proxy",
