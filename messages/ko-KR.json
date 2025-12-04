@@ -526,6 +526,8 @@
     "targetCreatedDescription": "대상이 성공적으로 생성되었습니다.",
     "targetErrorCreate": "대상 생성 실패",
     "targetErrorCreateDescription": "대상 생성 중 오류가 발생했습니다.",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "저장",
     "proxyAdditional": "추가 프록시 설정",
     "proxyAdditionalDescription": "리소스가 프록시 설정을 처리하는 방법 구성",
