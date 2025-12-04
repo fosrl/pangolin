@@ -526,6 +526,8 @@
     "targetCreatedDescription": "Doel is succesvol aangemaakt",
     "targetErrorCreate": "Kan doel niet aanmaken",
     "targetErrorCreateDescription": "Fout opgetreden tijdens het aanmaken van het doel",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "Opslaan",
     "proxyAdditional": "Extra Proxy-instellingen",
     "proxyAdditionalDescription": "Configureer hoe de proxy-instellingen van uw bron worden afgehandeld",
