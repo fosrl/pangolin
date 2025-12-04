@@ -526,6 +526,8 @@
     "targetCreatedDescription": "目标已成功创建",
     "targetErrorCreate": "创建目标失败",
     "targetErrorCreateDescription": "创建目标时出错",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "保存",
     "proxyAdditional": "附加代理设置",
     "proxyAdditionalDescription": "配置你的资源如何处理代理设置",
