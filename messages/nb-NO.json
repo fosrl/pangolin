@@ -526,6 +526,8 @@
     "targetCreatedDescription": "Målet har blitt opprettet",
     "targetErrorCreate": "Kunne ikke opprette målet",
     "targetErrorCreateDescription": "Det oppstod en feil under oppretting av målet",
+    "tlsServerName": "TLS Server Name",
+    "tlsServerNameDescription": "The TLS server name to use for SNI",
     "save": "Lagre",
     "proxyAdditional": "Ytterligere Proxy-innstillinger",
     "proxyAdditionalDescription": "Konfigurer hvordan ressursen din håndterer proxy-innstillinger",
