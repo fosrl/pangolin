@@ -2235,7 +2235,6 @@
     "endpoint": "Endpoint",
     "Id": "Id",
     "SecretKey": "Clé privée",
-    "featureDisabledTooltip": "Cette fonctionnalité n'est disponible que dans la version entreprise et nécessite une licence pour être utilisée.",
     "niceId": "Joli ID",
     "niceIdUpdated": "Joli ID mis à jour",
     "niceIdUpdatedSuccessfully": "Joli ID mis à jour avec succès",
