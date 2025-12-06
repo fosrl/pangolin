@@ -2235,7 +2235,6 @@
     "endpoint": "Endpoint",
     "Id": "Id",
     "SecretKey": "Tajný klíč",
-    "featureDisabledTooltip": "Tato funkce je dostupná pouze v podnikovém plánu a vyžaduje její používání.",
     "niceId": "Pěkné ID",
     "niceIdUpdated": "Nice ID aktualizováno",
     "niceIdUpdatedSuccessfully": "Nice ID úspěšně aktualizováno",
