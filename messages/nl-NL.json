@@ -2235,7 +2235,6 @@
     "endpoint": "Endpoint",
     "Id": "Id",
     "SecretKey": "Geheime sleutel",
-    "featureDisabledTooltip": "Deze functie is alleen beschikbaar in het bedrijfsplan en vereist een licentie om deze te gebruiken.",
     "niceId": "Leuk ID",
     "niceIdUpdated": "Leuke ID bijgewerkt",
     "niceIdUpdatedSuccessfully": "Nice ID Updated Successfully",
