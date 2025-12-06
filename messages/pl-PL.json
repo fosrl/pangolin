@@ -2235,7 +2235,6 @@
     "endpoint": "Endpoint",
     "Id": "Id",
     "SecretKey": "Sekretny klucz",
-    "featureDisabledTooltip": "Ta funkcja jest dostępna tylko w planie przedsiębiorstwa i wymaga licencji, aby z niej korzystać.",
     "niceId": "Niepoprawne ID",
     "niceIdUpdated": "Zaktualizowano błędne ID",
     "niceIdUpdatedSuccessfully": "Zaktualizowano błędne ID",
