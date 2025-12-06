@@ -2235,7 +2235,6 @@
     "endpoint": "Endpoint",
     "Id": "Id",
     "SecretKey": "Hemmelig nøkkel",
-    "featureDisabledTooltip": "Denne funksjonen er bare tilgjengelig i virksomhetsplanen og krever en lisens til å bruke den.",
     "niceId": "God ID",
     "niceIdUpdated": "Flott ID oppdatert",
     "niceIdUpdatedSuccessfully": "Id-en ble oppdatert",
