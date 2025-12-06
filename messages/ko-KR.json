@@ -2235,7 +2235,6 @@
     "endpoint": "엔드포인트",
     "Id": "아이디",
     "SecretKey": "비밀 키",
-    "featureDisabledTooltip": "이 기능은 엔터프라이즈 플랜에서만 사용할 수 있으며 라이센스가 필요합니다.",
     "niceId": "예쁜 ID",
     "niceIdUpdated": "예쁜 ID 업데이트됨",
     "niceIdUpdatedSuccessfully": "예쁜 ID가 성공적으로 업데이트되었습니다",
