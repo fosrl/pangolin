@@ -2235,7 +2235,6 @@
     "endpoint": "Endpoint",
     "Id": "Id",
     "SecretKey": "Chiave Segreta",
-    "featureDisabledTooltip": "Questa funzione è disponibile solo nel piano aziendale e richiede una licenza per utilizzarla.",
     "niceId": "Simpatico ID",
     "niceIdUpdated": "Nice ID Aggiornato",
     "niceIdUpdatedSuccessfully": "Nizza Id Aggiornato Con Successo",
