@@ -2235,7 +2235,6 @@
     "endpoint": "Endpoint",
     "Id": "Id",
     "SecretKey": "秘密密钥",
-    "featureDisabledTooltip": "此功能仅在企业计划中可用，需要许可证才能使用。",
     "niceId": "好的 ID",
     "niceIdUpdated": "好的 ID 已更新",
     "niceIdUpdatedSuccessfully": "Nice ID 更新成功",
