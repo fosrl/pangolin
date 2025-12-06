@@ -2235,7 +2235,6 @@
     "endpoint": "Endpoint",
     "Id": "Id",
     "SecretKey": "Секретный ключ",
-    "featureDisabledTooltip": "Эта функция доступна только в плане предприятия и требует лицензии на ее использование.",
     "niceId": "Неплохой ID",
     "niceIdUpdated": "Хороший ID обновлен",
     "niceIdUpdatedSuccessfully": "Неплохой ID успешно обновлен",
