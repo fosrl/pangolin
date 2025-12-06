@@ -2235,7 +2235,6 @@
     "endpoint": "Крайна точка",
     "Id": "Идентификатор",
     "SecretKey": "Таен ключ",
-    "featureDisabledTooltip": "Тази функция е налична само в корпоративния пакет и изисква лиценз за използване.",
     "niceId": "Красив ID",
     "niceIdUpdated": "Красив ID е обновен",
     "niceIdUpdatedSuccessfully": "Красив ID е успешно обновен",
