@@ -2235,7 +2235,6 @@
     "endpoint": "Uç Nokta",
     "Id": "Kimlik",
     "SecretKey": "Gizli Anahtar",
-    "featureDisabledTooltip": "Bu özellik yalnızca kurumsal planda mevcuttur ve kullanmak için lisans gerektirir.",
     "niceId": "Güzel Kimlik",
     "niceIdUpdated": "Güzel Kimlik Güncellendi",
     "niceIdUpdatedSuccessfully": "Güzel Kimlik Başarıyla Güncellendi",
