@@ -32,7 +32,7 @@
         "build:cli": "node esbuild.mjs -e cli/index.ts -o dist/cli.mjs"
     },
     "dependencies": {
-        "@asteasolutions/zod-to-openapi": "8.1.0",
+        "@asteasolutions/zod-to-openapi": "8.2.0",
         "@faker-js/faker": "^10.1.0",
         "@headlessui/react": "^2.2.9",
         "@aws-sdk/client-s3": "3.943.0",
