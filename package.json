@@ -154,7 +154,7 @@
         "@types/express-session": "1.18.2",
         "@types/jmespath": "0.15.2",
         "@types/jsonwebtoken": "9.0.10",
-        "@types/node": "24.10.2",
+        "@types/node": "25.0.0",
         "@types/nodemailer": "7.0.4",
         "@types/nprogress": "0.2.3",
         "@types/pg": "8.15.6",
