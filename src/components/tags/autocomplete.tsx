@@ -308,7 +308,7 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({
                                             role="option"
                                             aria-selected={isSelected}
                                             className={cn(
-                                                "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-accent",
+                                                "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 hover:bg-accent",
                                                 isSelected &&
                                                     "bg-accent text-accent-foreground",
                                                 classStyleProps?.commandItem

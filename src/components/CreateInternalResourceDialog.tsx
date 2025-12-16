@@ -48,9 +48,7 @@ import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { cn } from "@app/lib/cn";
 import { orgQueries } from "@app/lib/queries";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ListClientsResponse } from "@server/routers/client/listClients";
 import { ListSitesResponse } from "@server/routers/site";
-import { ListUsersResponse } from "@server/routers/user";
 import { UserType } from "@server/types/UserTypes";
 import { useQuery } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
@@ -59,7 +57,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { InfoPopup } from "@app/components/ui/info-popup";
+// import { InfoPopup } from "@app/components/ui/info-popup";
 
 // Helper to validate port range string format
 const isValidPortRangeString = (val: string | undefined | null): boolean => {
@@ -838,7 +836,7 @@ export default function CreateInternalResourceDialog({
                                 <h3 className="text-lg font-semibold mb-4">
                                     {t("portRestrictions")}
                                 </h3>
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     {/* TCP Ports */}
                                     <FormField
                                         control={form.control}
@@ -846,21 +844,19 @@ export default function CreateInternalResourceDialog({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <div className="flex items-center gap-2">
-                                                    <FormLabel className="min-w-[50px]">
+                                                    <FormLabel className="min-w-10">
                                                         TCP
                                                     </FormLabel>
-                                                    <InfoPopup
+                                                    {/*<InfoPopup
                                                         info={t("tcpPortsDescription")}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-2">
+                                                    />*/}
                                                     <Select
                                                         value={tcpPortMode}
                                                         onValueChange={(value: PortMode) => {
                                                             setTcpPortMode(value);
                                                         }}
                                                     >
-                                                        <SelectTrigger className="w-[120px]">
+                                                        <SelectTrigger className="w-[110px]">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -910,21 +906,19 @@ export default function CreateInternalResourceDialog({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <div className="flex items-center gap-2">
-                                                    <FormLabel className="min-w-[50px]">
+                                                    <FormLabel className="min-w-10">
                                                         UDP
                                                     </FormLabel>
-                                                    <InfoPopup
+                                                    {/*<InfoPopup
                                                         info={t("udpPortsDescription")}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-2">
+                                                    />*/}
                                                     <Select
                                                         value={udpPortMode}
                                                         onValueChange={(value: PortMode) => {
                                                             setUdpPortMode(value);
                                                         }}
                                                     >
-                                                        <SelectTrigger className="w-[120px]">
+                                                        <SelectTrigger className="w-[110px]">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>

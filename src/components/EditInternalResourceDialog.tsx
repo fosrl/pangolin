@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
 import {
@@ -36,18 +36,11 @@ import { toast } from "@app/hooks/useToast";
 import { useTranslations } from "next-intl";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import { ListRolesResponse } from "@server/routers/role";
-import { ListUsersResponse } from "@server/routers/user";
-import { ListSiteResourceRolesResponse } from "@server/routers/siteResource/listSiteResourceRoles";
-import { ListSiteResourceUsersResponse } from "@server/routers/siteResource/listSiteResourceUsers";
-import { ListSiteResourceClientsResponse } from "@server/routers/siteResource/listSiteResourceClients";
-import { ListClientsResponse } from "@server/routers/client/listClients";
 import { Tag, TagInput } from "@app/components/tags/tag-input";
-import { AxiosResponse } from "axios";
 import { UserType } from "@server/types/UserTypes";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgQueries, resourceQueries } from "@app/lib/queries";
-import { InfoPopup } from "@app/components/ui/info-popup";
+// import { InfoPopup } from "@app/components/ui/info-popup";
 
 // Helper to validate port range string format
 const isValidPortRangeString = (val: string | undefined | null): boolean => {
@@ -822,7 +815,7 @@ export default function EditInternalResourceDialog({
                                 <h3 className="text-lg font-semibold mb-4">
                                     {t("portRestrictions")}
                                 </h3>
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     {/* TCP Ports */}
                                     <FormField
                                         control={form.control}
@@ -830,21 +823,19 @@ export default function EditInternalResourceDialog({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <div className="flex items-center gap-2">
-                                                    <FormLabel className="min-w-[50px]">
+                                                    <FormLabel className="min-w-10">
                                                         TCP
                                                     </FormLabel>
-                                                    <InfoPopup
+                                                    {/*<InfoPopup
                                                         info={t("tcpPortsDescription")}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-2">
+                                                    />*/}
                                                     <Select
                                                         value={tcpPortMode}
                                                         onValueChange={(value: PortMode) => {
                                                             setTcpPortMode(value);
                                                         }}
                                                     >
-                                                        <SelectTrigger className="w-[120px]">
+                                                        <SelectTrigger className="w-[110px]">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -894,21 +885,19 @@ export default function EditInternalResourceDialog({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <div className="flex items-center gap-2">
-                                                    <FormLabel className="min-w-[50px]">
+                                                    <FormLabel className="min-w-10">
                                                         UDP
                                                     </FormLabel>
-                                                    <InfoPopup
+                                                    {/*<InfoPopup
                                                         info={t("udpPortsDescription")}
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-2">
+                                                    />*/}
                                                     <Select
                                                         value={udpPortMode}
                                                         onValueChange={(value: PortMode) => {
                                                             setUdpPortMode(value);
                                                         }}
                                                     >
-                                                        <SelectTrigger className="w-[120px]">
+                                                        <SelectTrigger className="w-[110px]">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
