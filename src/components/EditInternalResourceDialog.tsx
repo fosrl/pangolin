@@ -47,6 +47,82 @@ import { AxiosResponse } from "axios";
 import { UserType } from "@server/types/UserTypes";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgQueries, resourceQueries } from "@app/lib/queries";
+import { InfoPopup } from "@app/components/ui/info-popup";
+
+// Helper to validate port range string format
+const isValidPortRangeString = (val: string | undefined | null): boolean => {
+    if (!val || val.trim() === "" || val.trim() === "*") {
+        return true;
+    }
+
+    const parts = val.split(",").map((p) => p.trim());
+
+    for (const part of parts) {
+        if (part === "") {
+            return false;
+        }
+
+        if (part.includes("-")) {
+            const [start, end] = part.split("-").map((p) => p.trim());
+            if (!start || !end) {
+                return false;
+            }
+
+            const startPort = parseInt(start, 10);
+            const endPort = parseInt(end, 10);
+
+            if (isNaN(startPort) || isNaN(endPort)) {
+                return false;
+            }
+
+            if (startPort < 1 || startPort > 65535 || endPort < 1 || endPort > 65535) {
+                return false;
+            }
+
+            if (startPort > endPort) {
+                return false;
+            }
+        } else {
+            const port = parseInt(part, 10);
+            if (isNaN(port)) {
+                return false;
+            }
+            if (port < 1 || port > 65535) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+};
+
+// Port range string schema for client-side validation
+const portRangeStringSchema = z
+    .string()
+    .optional()
+    .nullable()
+    .refine(
+        (val) => isValidPortRangeString(val),
+        {
+            message:
+                'Port range must be "*" for all ports, or a comma-separated list of ports and ranges (e.g., "80,443,8000-9000"). Ports must be between 1 and 65535.'
+        }
+    );
+
+// Helper to determine the port mode from a port range string
+type PortMode = "all" | "blocked" | "custom";
+const getPortModeFromString = (val: string | undefined | null): PortMode => {
+    if (val === "*") return "all";
+    if (!val || val.trim() === "") return "blocked";
+    return "custom";
+};
+
+// Helper to get the port string for API from mode and custom value
+const getPortStringFromMode = (mode: PortMode, customValue: string): string | undefined => {
+    if (mode === "all") return "*";
+    if (mode === "blocked") return "";
+    return customValue;
+};
 
 type InternalResourceData = {
     id: number;
@@ -61,6 +137,8 @@ type InternalResourceData = {
     destination: string;
     // destinationPort?: number | null;
     alias?: string | null;
+    tcpPortRangeString?: string | null;
+    udpPortRangeString?: string | null;
 };
 
 type EditInternalResourceDialogProps = {
@@ -94,6 +172,8 @@ export default function EditInternalResourceDialog({
         destination: z.string().min(1),
         // destinationPort: z.int().positive().min(1, t("editInternalResourceDialogDestinationPortMin")).max(65535, t("editInternalResourceDialogDestinationPortMax")).nullish(),
         alias: z.string().nullish(),
+        tcpPortRangeString: portRangeStringSchema,
+        udpPortRangeString: portRangeStringSchema,
         roles: z
             .array(
                 z.object({
@@ -255,6 +335,24 @@ export default function EditInternalResourceDialog({
         number | null
     >(null);
 
+    // Port restriction UI state
+    const [tcpPortMode, setTcpPortMode] = useState<PortMode>(
+        getPortModeFromString(resource.tcpPortRangeString)
+    );
+    const [udpPortMode, setUdpPortMode] = useState<PortMode>(
+        getPortModeFromString(resource.udpPortRangeString)
+    );
+    const [tcpCustomPorts, setTcpCustomPorts] = useState<string>(
+        resource.tcpPortRangeString && resource.tcpPortRangeString !== "*"
+            ? resource.tcpPortRangeString
+            : ""
+    );
+    const [udpCustomPorts, setUdpCustomPorts] = useState<string>(
+        resource.udpPortRangeString && resource.udpPortRangeString !== "*"
+            ? resource.udpPortRangeString
+            : ""
+    );
+
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -265,6 +363,8 @@ export default function EditInternalResourceDialog({
             destination: resource.destination || "",
             // destinationPort: resource.destinationPort ?? undefined,
             alias: resource.alias ?? null,
+            tcpPortRangeString: resource.tcpPortRangeString ?? "*",
+            udpPortRangeString: resource.udpPortRangeString ?? "*",
             roles: [],
             users: [],
             clients: []
@@ -272,6 +372,17 @@ export default function EditInternalResourceDialog({
     });
 
     const mode = form.watch("mode");
+
+    // Update form values when port mode or custom ports change
+    useEffect(() => {
+        const tcpValue = getPortStringFromMode(tcpPortMode, tcpCustomPorts);
+        form.setValue("tcpPortRangeString", tcpValue);
+    }, [tcpPortMode, tcpCustomPorts, form]);
+
+    useEffect(() => {
+        const udpValue = getPortStringFromMode(udpPortMode, udpCustomPorts);
+        form.setValue("udpPortRangeString", udpValue);
+    }, [udpPortMode, udpCustomPorts, form]);
 
     // Helper function to check if destination contains letters (hostname vs IP)
     const isHostname = (destination: string): boolean => {
@@ -327,6 +438,8 @@ export default function EditInternalResourceDialog({
                         data.alias.trim()
                             ? data.alias
                             : null,
+                    tcpPortRangeString: data.tcpPortRangeString,
+                    udpPortRangeString: data.udpPortRangeString,
                     roleIds: (data.roles || []).map((r) => parseInt(r.id)),
                     userIds: (data.users || []).map((u) => u.id),
                     clientIds: (data.clients || []).map((c) => parseInt(c.id))
@@ -396,10 +509,25 @@ export default function EditInternalResourceDialog({
                     mode: resource.mode || "host",
                     destination: resource.destination || "",
                     alias: resource.alias ?? null,
+                    tcpPortRangeString: resource.tcpPortRangeString ?? "*",
+                    udpPortRangeString: resource.udpPortRangeString ?? "*",
                     roles: [],
                     users: [],
                     clients: []
                 });
+                // Reset port mode state
+                setTcpPortMode(getPortModeFromString(resource.tcpPortRangeString));
+                setUdpPortMode(getPortModeFromString(resource.udpPortRangeString));
+                setTcpCustomPorts(
+                    resource.tcpPortRangeString && resource.tcpPortRangeString !== "*"
+                        ? resource.tcpPortRangeString
+                        : ""
+                );
+                setUdpCustomPorts(
+                    resource.udpPortRangeString && resource.udpPortRangeString !== "*"
+                        ? resource.udpPortRangeString
+                        : ""
+                );
                 previousResourceId.current = resource.id;
             }
 
@@ -438,10 +566,25 @@ export default function EditInternalResourceDialog({
                         destination: resource.destination || "",
                         // destinationPort: resource.destinationPort ?? undefined,
                         alias: resource.alias ?? null,
+                        tcpPortRangeString: resource.tcpPortRangeString ?? "*",
+                        udpPortRangeString: resource.udpPortRangeString ?? "*",
                         roles: [],
                         users: [],
                         clients: []
                     });
+                    // Reset port mode state
+                    setTcpPortMode(getPortModeFromString(resource.tcpPortRangeString));
+                    setUdpPortMode(getPortModeFromString(resource.udpPortRangeString));
+                    setTcpCustomPorts(
+                        resource.tcpPortRangeString && resource.tcpPortRangeString !== "*"
+                            ? resource.tcpPortRangeString
+                            : ""
+                    );
+                    setUdpCustomPorts(
+                        resource.udpPortRangeString && resource.udpPortRangeString !== "*"
+                            ? resource.udpPortRangeString
+                            : ""
+                    );
                     // Reset previous resource ID to ensure clean state on next open
                     previousResourceId.current = null;
                 }
@@ -673,6 +816,142 @@ export default function EditInternalResourceDialog({
                                     />
                                 </div>
                             )}
+
+                            {/* Port Restrictions Section */}
+                            <div>
+                                <h3 className="text-lg font-semibold mb-4">
+                                    {t("portRestrictions")}
+                                </h3>
+                                <div className="space-y-4">
+                                    {/* TCP Ports */}
+                                    <FormField
+                                        control={form.control}
+                                        name="tcpPortRangeString"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <div className="flex items-center gap-2">
+                                                    <FormLabel className="min-w-[50px]">
+                                                        TCP
+                                                    </FormLabel>
+                                                    <InfoPopup
+                                                        info={t("tcpPortsDescription")}
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Select
+                                                        value={tcpPortMode}
+                                                        onValueChange={(value: PortMode) => {
+                                                            setTcpPortMode(value);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="w-[120px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="all">
+                                                                {t("allPorts")}
+                                                            </SelectItem>
+                                                            <SelectItem value="blocked">
+                                                                {t("blocked")}
+                                                            </SelectItem>
+                                                            <SelectItem value="custom">
+                                                                {t("custom")}
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {tcpPortMode === "custom" ? (
+                                                        <FormControl>
+                                                            <Input
+                                                                placeholder="80,443,8000-9000"
+                                                                value={tcpCustomPorts}
+                                                                onChange={(e) =>
+                                                                    setTcpCustomPorts(e.target.value)
+                                                                }
+                                                                className="flex-1"
+                                                            />
+                                                        </FormControl>
+                                                    ) : (
+                                                        <Input
+                                                            disabled
+                                                            placeholder={
+                                                                tcpPortMode === "all"
+                                                                    ? t("allPortsAllowed")
+                                                                    : t("allPortsBlocked")
+                                                            }
+                                                            className="flex-1"
+                                                        />
+                                                    )}
+                                                </div>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    {/* UDP Ports */}
+                                    <FormField
+                                        control={form.control}
+                                        name="udpPortRangeString"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <div className="flex items-center gap-2">
+                                                    <FormLabel className="min-w-[50px]">
+                                                        UDP
+                                                    </FormLabel>
+                                                    <InfoPopup
+                                                        info={t("udpPortsDescription")}
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Select
+                                                        value={udpPortMode}
+                                                        onValueChange={(value: PortMode) => {
+                                                            setUdpPortMode(value);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger className="w-[120px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="all">
+                                                                {t("allPorts")}
+                                                            </SelectItem>
+                                                            <SelectItem value="blocked">
+                                                                {t("blocked")}
+                                                            </SelectItem>
+                                                            <SelectItem value="custom">
+                                                                {t("custom")}
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {udpPortMode === "custom" ? (
+                                                        <FormControl>
+                                                            <Input
+                                                                placeholder="53,123,500-600"
+                                                                value={udpCustomPorts}
+                                                                onChange={(e) =>
+                                                                    setUdpCustomPorts(e.target.value)
+                                                                }
+                                                                className="flex-1"
+                                                            />
+                                                        </FormControl>
+                                                    ) : (
+                                                        <Input
+                                                            disabled
+                                                            placeholder={
+                                                                udpPortMode === "all"
+                                                                    ? t("allPortsAllowed")
+                                                                    : t("allPortsBlocked")
+                                                            }
+                                                            className="flex-1"
+                                                        />
+                                                    )}
+                                                </div>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </div>
 
                             {/* Access Control Section */}
                             <div>

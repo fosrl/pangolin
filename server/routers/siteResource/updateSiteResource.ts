@@ -23,7 +23,8 @@ import { updatePeerData, updateTargets } from "@server/routers/client/targets";
 import {
     generateAliasConfig,
     generateRemoteSubnets,
-    generateSubnetProxyTargets
+    generateSubnetProxyTargets,
+    portRangeStringSchema
 } from "@server/lib/ip";
 import {
     getClientSiteResourceAccess,
@@ -55,7 +56,9 @@ const updateSiteResourceSchema = z
             .nullish(),
         userIds: z.array(z.string()),
         roleIds: z.array(z.int()),
-        clientIds: z.array(z.int())
+        clientIds: z.array(z.int()),
+        tcpPortRangeString: portRangeStringSchema,
+        udpPortRangeString: portRangeStringSchema
     })
     .strict()
     .refine(
@@ -160,7 +163,9 @@ export async function updateSiteResource(
             enabled,
             userIds,
             roleIds,
-            clientIds
+            clientIds,
+            tcpPortRangeString,
+            udpPortRangeString
         } = parsedBody.data;
 
         const [site] = await db
@@ -226,7 +231,9 @@ export async function updateSiteResource(
                     mode: mode,
                     destination: destination,
                     enabled: enabled,
-                    alias: alias && alias.trim() ? alias : null
+                    alias: alias && alias.trim() ? alias : null,
+                    tcpPortRangeString: tcpPortRangeString,
+                    udpPortRangeString: udpPortRangeString
                 })
                 .where(
                     and(

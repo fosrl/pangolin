@@ -67,7 +67,9 @@ export default async function ClientResourcesPage(
                 // destinationPort: siteResource.destinationPort,
                 alias: siteResource.alias || null,
                 siteNiceId: siteResource.siteNiceId,
-                niceId: siteResource.niceId
+                niceId: siteResource.niceId,
+                tcpPortRangeString: siteResource.tcpPortRangeString || null,
+                udpPortRangeString: siteResource.udpPortRangeString || null
             };
         }
     );

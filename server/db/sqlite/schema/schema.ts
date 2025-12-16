@@ -234,7 +234,9 @@ export const siteResources = sqliteTable("siteResources", {
     destination: text("destination").notNull(), // ip, cidr, hostname
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     alias: text("alias"),
-    aliasAddress: text("aliasAddress")
+    aliasAddress: text("aliasAddress"),
+    tcpPortRangeString: text("tcpPortRangeString"),
+    udpPortRangeString: text("udpPortRangeString")
 });
 
 export const clientSiteResources = sqliteTable("clientSiteResources", {

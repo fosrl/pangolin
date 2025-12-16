@@ -10,7 +10,7 @@ import {
     userSiteResources
 } from "@server/db";
 import { getUniqueSiteResourceName } from "@server/db/names";
-import { getNextAvailableAliasAddress } from "@server/lib/ip";
+import { getNextAvailableAliasAddress, portRangeStringSchema } from "@server/lib/ip";
 import { rebuildClientAssociationsFromSiteResource } from "@server/lib/rebuildClientAssociations";
 import response from "@server/lib/response";
 import logger from "@server/logger";
@@ -45,7 +45,9 @@ const createSiteResourceSchema = z
             .optional(),
         userIds: z.array(z.string()),
         roleIds: z.array(z.int()),
-        clientIds: z.array(z.int())
+        clientIds: z.array(z.int()),
+        tcpPortRangeString: portRangeStringSchema,
+        udpPortRangeString: portRangeStringSchema
     })
     .strict()
     .refine(
@@ -154,7 +156,9 @@ export async function createSiteResource(
             alias,
             userIds,
             roleIds,
-            clientIds
+            clientIds,
+            tcpPortRangeString,
+            udpPortRangeString
         } = parsedBody.data;
 
         // Verify the site exists and belongs to the org
@@ -239,7 +243,9 @@ export async function createSiteResource(
                     destination,
                     enabled,
                     alias,
-                    aliasAddress
+                    aliasAddress,
+                    tcpPortRangeString,
+                    udpPortRangeString
                 })
                 .returning();
 

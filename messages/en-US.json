@@ -2275,5 +2275,12 @@
     "agent": "Agent",
     "personalUseOnly":  "Personal Use Only",
     "loginPageLicenseWatermark":  "This instance is licensed for personal use only.",
-    "instanceIsUnlicensed":  "This instance is unlicensed."
+    "instanceIsUnlicensed":  "This instance is unlicensed.",
+    "portRestrictions": "Port Restrictions",
+    "allPorts": "All",
+    "custom": "Custom",
+    "allPortsAllowed": "All Ports Allowed",
+    "allPortsBlocked": "All Ports Blocked",
+    "tcpPortsDescription": "Specify which TCP ports are allowed for this resource. Use '*' for all ports, leave empty to block all, or enter a comma-separated list of ports and ranges (e.g., 80,443,8000-9000).",
+    "udpPortsDescription": "Specify which UDP ports are allowed for this resource. Use '*' for all ports, leave empty to block all, or enter a comma-separated list of ports and ranges (e.g., 53,123,500-600)."
 }
