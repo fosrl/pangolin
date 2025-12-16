@@ -355,10 +355,14 @@ export async function handleMessagingForUpdatedSiteResource(
     const aliasChanged =
         existingSiteResource &&
         existingSiteResource.alias !== updatedSiteResource.alias;
+    const portRangesChanged =
+        existingSiteResource &&
+        (existingSiteResource.tcpPortRangeString !== updatedSiteResource.tcpPortRangeString ||
+         existingSiteResource.udpPortRangeString !== updatedSiteResource.udpPortRangeString);
 
     // if the existingSiteResource is undefined (new resource) we don't need to do anything here, the rebuild above handled it all
 
-    if (destinationChanged || aliasChanged) {
+    if (destinationChanged || aliasChanged || portRangesChanged) {
         const [newt] = await trx
             .select()
             .from(newts)
@@ -372,7 +376,7 @@ export async function handleMessagingForUpdatedSiteResource(
         }
 
         // Only update targets on newt if destination changed
-        if (destinationChanged) {
+        if (destinationChanged || portRangesChanged) {
             const oldTargets = generateSubnetProxyTargets(
                 existingSiteResource,
                 mergedAllClients
