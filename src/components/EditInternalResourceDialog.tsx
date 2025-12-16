@@ -10,6 +10,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@app/components/ui/select";
+import { Switch } from "@app/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -132,6 +133,7 @@ type InternalResourceData = {
     alias?: string | null;
     tcpPortRangeString?: string | null;
     udpPortRangeString?: string | null;
+    disableIcmp?: boolean;
 };
 
 type EditInternalResourceDialogProps = {
@@ -167,6 +169,7 @@ export default function EditInternalResourceDialog({
         alias: z.string().nullish(),
         tcpPortRangeString: portRangeStringSchema,
         udpPortRangeString: portRangeStringSchema,
+        disableIcmp: z.boolean().optional(),
         roles: z
             .array(
                 z.object({
@@ -358,6 +361,7 @@ export default function EditInternalResourceDialog({
             alias: resource.alias ?? null,
             tcpPortRangeString: resource.tcpPortRangeString ?? "*",
             udpPortRangeString: resource.udpPortRangeString ?? "*",
+            disableIcmp: resource.disableIcmp ?? false,
             roles: [],
             users: [],
             clients: []
@@ -433,6 +437,7 @@ export default function EditInternalResourceDialog({
                             : null,
                     tcpPortRangeString: data.tcpPortRangeString,
                     udpPortRangeString: data.udpPortRangeString,
+                    disableIcmp: data.disableIcmp ?? false,
                     roleIds: (data.roles || []).map((r) => parseInt(r.id)),
                     userIds: (data.users || []).map((u) => u.id),
                     clientIds: (data.clients || []).map((c) => parseInt(c.id))
@@ -504,6 +509,7 @@ export default function EditInternalResourceDialog({
                     alias: resource.alias ?? null,
                     tcpPortRangeString: resource.tcpPortRangeString ?? "*",
                     udpPortRangeString: resource.udpPortRangeString ?? "*",
+                    disableIcmp: resource.disableIcmp ?? false,
                     roles: [],
                     users: [],
                     clients: []
@@ -561,6 +567,7 @@ export default function EditInternalResourceDialog({
                         alias: resource.alias ?? null,
                         tcpPortRangeString: resource.tcpPortRangeString ?? "*",
                         udpPortRangeString: resource.udpPortRangeString ?? "*",
+                        disableIcmp: resource.disableIcmp ?? false,
                         roles: [],
                         users: [],
                         clients: []
@@ -815,7 +822,7 @@ export default function EditInternalResourceDialog({
                                 <h3 className="text-lg font-semibold mb-4">
                                     {t("portRestrictions")}
                                 </h3>
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {/* TCP Ports */}
                                     <FormField
                                         control={form.control}
@@ -934,6 +941,31 @@ export default function EditInternalResourceDialog({
                                                             className="flex-1"
                                                         />
                                                     )}
+                                                </div>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    {/* ICMP Toggle */}
+                                    <FormField
+                                        control={form.control}
+                                        name="disableIcmp"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <div className="flex items-center gap-2">
+                                                    <FormLabel className="min-w-10">
+                                                        ICMP
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Switch
+                                                            checked={!field.value}
+                                                            onCheckedChange={(checked) => field.onChange(!checked)}
+                                                        />
+                                                    </FormControl>
+                                                    <span className="text-sm text-muted-foreground">
+                                                        {field.value ? t("blocked") : t("allowed")}
+                                                    </span>
                                                 </div>
                                                 <FormMessage />
                                             </FormItem>

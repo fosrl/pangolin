@@ -236,7 +236,8 @@ export const siteResources = sqliteTable("siteResources", {
     alias: text("alias"),
     aliasAddress: text("aliasAddress"),
     tcpPortRangeString: text("tcpPortRangeString"),
-    udpPortRangeString: text("udpPortRangeString")
+    udpPortRangeString: text("udpPortRangeString"),
+    disableIcmp: integer("disableIcmp", { mode: "boolean" })
 });
 
 export const clientSiteResources = sqliteTable("clientSiteResources", {

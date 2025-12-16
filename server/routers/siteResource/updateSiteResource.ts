@@ -58,7 +58,8 @@ const updateSiteResourceSchema = z
         roleIds: z.array(z.int()),
         clientIds: z.array(z.int()),
         tcpPortRangeString: portRangeStringSchema,
-        udpPortRangeString: portRangeStringSchema
+        udpPortRangeString: portRangeStringSchema,
+        disableIcmp: z.boolean().optional()
     })
     .strict()
     .refine(
@@ -165,7 +166,8 @@ export async function updateSiteResource(
             roleIds,
             clientIds,
             tcpPortRangeString,
-            udpPortRangeString
+            udpPortRangeString,
+            disableIcmp
         } = parsedBody.data;
 
         const [site] = await db
@@ -233,7 +235,8 @@ export async function updateSiteResource(
                     enabled: enabled,
                     alias: alias && alias.trim() ? alias : null,
                     tcpPortRangeString: tcpPortRangeString,
-                    udpPortRangeString: udpPortRangeString
+                    udpPortRangeString: udpPortRangeString,
+                    disableIcmp: disableIcmp
                 })
                 .where(
                     and(
@@ -357,8 +360,12 @@ export async function handleMessagingForUpdatedSiteResource(
         existingSiteResource.alias !== updatedSiteResource.alias;
     const portRangesChanged =
         existingSiteResource &&
-        (existingSiteResource.tcpPortRangeString !== updatedSiteResource.tcpPortRangeString ||
-         existingSiteResource.udpPortRangeString !== updatedSiteResource.udpPortRangeString);
+        (existingSiteResource.tcpPortRangeString !==
+            updatedSiteResource.tcpPortRangeString ||
+            existingSiteResource.udpPortRangeString !==
+                updatedSiteResource.udpPortRangeString ||
+            existingSiteResource.disableIcmp !==
+                updatedSiteResource.disableIcmp);
 
     // if the existingSiteResource is undefined (new resource) we don't need to do anything here, the rebuild above handled it all
 

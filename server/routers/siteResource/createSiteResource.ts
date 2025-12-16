@@ -47,7 +47,8 @@ const createSiteResourceSchema = z
         roleIds: z.array(z.int()),
         clientIds: z.array(z.int()),
         tcpPortRangeString: portRangeStringSchema,
-        udpPortRangeString: portRangeStringSchema
+        udpPortRangeString: portRangeStringSchema,
+        disableIcmp: z.boolean().optional()
     })
     .strict()
     .refine(
@@ -158,7 +159,8 @@ export async function createSiteResource(
             roleIds,
             clientIds,
             tcpPortRangeString,
-            udpPortRangeString
+            udpPortRangeString,
+            disableIcmp
         } = parsedBody.data;
 
         // Verify the site exists and belongs to the org
@@ -245,7 +247,8 @@ export async function createSiteResource(
                     alias,
                     aliasAddress,
                     tcpPortRangeString,
-                    udpPortRangeString
+                    udpPortRangeString,
+                    disableIcmp
                 })
                 .returning();
 

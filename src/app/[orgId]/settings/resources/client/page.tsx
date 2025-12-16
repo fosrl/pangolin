@@ -69,7 +69,8 @@ export default async function ClientResourcesPage(
                 siteNiceId: siteResource.siteNiceId,
                 niceId: siteResource.niceId,
                 tcpPortRangeString: siteResource.tcpPortRangeString || null,
-                udpPortRangeString: siteResource.udpPortRangeString || null
+                udpPortRangeString: siteResource.udpPortRangeString || null,
+                disableIcmp: siteResource.disableIcmp || false,
             };
         }
     );

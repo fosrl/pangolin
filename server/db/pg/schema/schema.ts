@@ -215,7 +215,8 @@ export const siteResources = pgTable("siteResources", {
     alias: varchar("alias"),
     aliasAddress: varchar("aliasAddress"),
     tcpPortRangeString: varchar("tcpPortRangeString"),
-    udpPortRangeString: varchar("udpPortRangeString")
+    udpPortRangeString: varchar("udpPortRangeString"),
+    disableIcmp: boolean("disableIcmp").notNull().default(false)
 });
 
 export const clientSiteResources = pgTable("clientSiteResources", {

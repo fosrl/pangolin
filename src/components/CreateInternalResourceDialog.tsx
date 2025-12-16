@@ -42,6 +42,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@app/components/ui/select";
+import { Switch } from "@app/components/ui/switch";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
@@ -179,6 +180,7 @@ export default function CreateInternalResourceDialog({
         alias: z.string().nullish(),
         tcpPortRangeString: portRangeStringSchema,
         udpPortRangeString: portRangeStringSchema,
+        disableIcmp: z.boolean().optional(),
         roles: z
             .array(
                 z.object({
@@ -308,6 +310,7 @@ export default function CreateInternalResourceDialog({
             alias: "",
             tcpPortRangeString: "*",
             udpPortRangeString: "*",
+            disableIcmp: false,
             roles: [],
             users: [],
             clients: []
@@ -355,6 +358,7 @@ export default function CreateInternalResourceDialog({
                 alias: "",
                 tcpPortRangeString: "*",
                 udpPortRangeString: "*",
+                disableIcmp: false,
                 roles: [],
                 users: [],
                 clients: []
@@ -408,6 +412,7 @@ export default function CreateInternalResourceDialog({
                             : undefined,
                     tcpPortRangeString: data.tcpPortRangeString,
                     udpPortRangeString: data.udpPortRangeString,
+                    disableIcmp: data.disableIcmp ?? false,
                     roleIds: data.roles
                         ? data.roles.map((r) => parseInt(r.id))
                         : [],
@@ -836,7 +841,7 @@ export default function CreateInternalResourceDialog({
                                 <h3 className="text-lg font-semibold mb-4">
                                     {t("portRestrictions")}
                                 </h3>
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {/* TCP Ports */}
                                     <FormField
                                         control={form.control}
@@ -955,6 +960,31 @@ export default function CreateInternalResourceDialog({
                                                             className="flex-1"
                                                         />
                                                     )}
+                                                </div>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    {/* ICMP Toggle */}
+                                    <FormField
+                                        control={form.control}
+                                        name="disableIcmp"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <div className="flex items-center gap-2">
+                                                    <FormLabel className="min-w-10">
+                                                        ICMP
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Switch
+                                                            checked={!field.value}
+                                                            onCheckedChange={(checked) => field.onChange(!checked)}
+                                                        />
+                                                    </FormControl>
+                                                    <span className="text-sm text-muted-foreground">
+                                                        {field.value ? t("blocked") : t("allowed")}
+                                                    </span>
                                                 </div>
                                                 <FormMessage />
                                             </FormItem>

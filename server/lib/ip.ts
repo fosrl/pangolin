@@ -466,6 +466,7 @@ export function generateAliasConfig(allSiteResources: SiteResource[]): Alias[] {
 export type SubnetProxyTarget = {
     sourcePrefix: string; // must be a cidr
     destPrefix: string; // must be a cidr
+    disableIcmp?: boolean;
     rewriteTo?: string; // must be a cidr
     portRange?: {
         min: number;
@@ -504,6 +505,7 @@ export function generateSubnetProxyTargets(
             ...parsePortRangeString(siteResource.tcpPortRangeString, "tcp"),
             ...parsePortRangeString(siteResource.udpPortRangeString, "udp")
         ];
+        const disableIcmp = siteResource.disableIcmp ?? false;
 
         if (siteResource.mode == "host") {
             let destination = siteResource.destination;
@@ -515,7 +517,8 @@ export function generateSubnetProxyTargets(
                 targets.push({
                     sourcePrefix: clientPrefix,
                     destPrefix: destination,
-                    portRange
+                    portRange,
+                    disableIcmp
                 });
             }
 
@@ -525,14 +528,16 @@ export function generateSubnetProxyTargets(
                     sourcePrefix: clientPrefix,
                     destPrefix: `${siteResource.aliasAddress}/32`,
                     rewriteTo: destination,
-                    portRange
+                    portRange,
+                    disableIcmp
                 });
             }
         } else if (siteResource.mode == "cidr") {
             targets.push({
                 sourcePrefix: clientPrefix,
                 destPrefix: siteResource.destination,
-                portRange
+                portRange,
+                disableIcmp
             });
         }
     }
