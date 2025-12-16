@@ -197,6 +197,7 @@ export async function getOlmToken(
         const exitNodesHpData = allExitNodes.map((exitNode: ExitNode) => {
             return {
                 publicKey: exitNode.publicKey,
+                relayPort: config.getRawConfig().gerbil.clients_start_port,
                 endpoint: exitNode.endpoint
             };
         });

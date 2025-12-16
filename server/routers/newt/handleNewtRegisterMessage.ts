@@ -346,6 +346,7 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
             type: "newt/wg/connect",
             data: {
                 endpoint: `${exitNode.endpoint}:${exitNode.listenPort}`,
+                relayPort: config.getRawConfig().gerbil.clients_start_port,
                 publicKey: exitNode.publicKey,
                 serverIP: exitNode.address.split("/")[0],
                 tunnelIP: siteSubnet.split("/")[0],

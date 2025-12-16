@@ -4,6 +4,7 @@ import { clients, clientSitesAssociationsCache, Olm } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import { updatePeer as newtUpdatePeer } from "../newt/peers";
 import logger from "@server/logger";
+import config from "@server/lib/config";
 
 export const handleOlmRelayMessage: MessageHandler = async (context) => {
     const { message, client: c, sendToClient } = context;
@@ -88,7 +89,8 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
             type: "olm/wg/peer/relay",
             data: {
                 siteId: siteId,
-                relayEndpoint: exitNode.endpoint
+                relayEndpoint: exitNode.endpoint,
+                relayPort: config.getRawConfig().gerbil.clients_start_port
             }
         },
         broadcast: false,

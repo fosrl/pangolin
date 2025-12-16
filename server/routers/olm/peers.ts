@@ -1,5 +1,6 @@
 import { sendToClient } from "#dynamic/routers/ws";
 import { db, olms } from "@server/db";
+import config from "@server/lib/config";
 import logger from "@server/logger";
 import { eq } from "drizzle-orm";
 import { Alias } from "yaml";
@@ -156,6 +157,7 @@ export async function initPeerAddHandshake(
             siteId: peer.siteId,
             exitNode: {
                 publicKey: peer.exitNode.publicKey,
+                relayPort: config.getRawConfig().gerbil.clients_start_port,
                 endpoint: peer.exitNode.endpoint
             }
         }
