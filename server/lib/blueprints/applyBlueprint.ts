@@ -114,16 +114,6 @@ export async function applyBlueprint({
                     result.oldSiteResource.siteId !=
                         result.newSiteResource.siteId
                 ) {
-                    // the site resource has moved sites
-                    // insert it first so we get a new siteResourceId just in case
-                    const [insertedSiteResource] = await trx
-                        .insert(siteResources)
-                        .values({
-                            ...result.oldSiteResource,
-                            siteResourceId: undefined // to generate a new one
-                        })
-                        .returning();
-
                     // query existing associations
                     const existingRoleIds = await trx
                         .select()
@@ -167,6 +157,13 @@ export async function applyBlueprint({
                         result.oldSiteResource,
                         trx
                     );
+
+                    const [insertedSiteResource] = await trx
+                        .insert(siteResources)
+                        .values({
+                            ...result.oldSiteResource,
+                        })
+                        .returning();
 
                     // wait some time to allow for messages to be handled
                     await new Promise((resolve) => setTimeout(resolve, 750));

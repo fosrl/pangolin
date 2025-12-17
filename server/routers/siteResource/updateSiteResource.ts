@@ -245,16 +245,6 @@ export async function updateSiteResource(
         await db.transaction(async (trx) => {
             // if the site is changed we need to delete and recreate the resource to avoid complications with the rebuild function otherwise we can just update in place
             if (siteChanged) {
-                // create the new site resource from the removed one with the new siteId and updated fields
-                // insert it first so we get a new siteResourceId just in case
-                const [insertedSiteResource] = await trx
-                    .insert(siteResources)
-                    .values({
-                        ...existingSiteResource,
-                        siteResourceId: undefined // to generate a new one
-                    })
-                    .returning();
-
                 // delete the existing site resource
                 await trx
                     .delete(siteResources)
@@ -266,6 +256,14 @@ export async function updateSiteResource(
                     existingSiteResource,
                     trx
                 );
+
+                // create the new site resource from the removed one - the ID should stay the same
+                const [insertedSiteResource] = await trx
+                    .insert(siteResources)
+                    .values({
+                        ...existingSiteResource,
+                    })
+                    .returning();
 
                 // wait some time to allow for messages to be handled
                 await new Promise((resolve) => setTimeout(resolve, 750));
