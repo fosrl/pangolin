@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Legen Sie fest, wie Sie sich mit dem Standort verbinden möchten",
     "siteNewtCredentials": "Zugangsdaten",
     "siteNewtCredentialsDescription": "So wird sich die Seite mit dem Server authentifizieren",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Anmeldedaten speichern",
     "siteCredentialsSaveDescription": "Du kannst das nur einmal sehen. Stelle sicher, dass du es an einen sicheren Ort kopierst.",
     "siteInfo": "Standortinformationen",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "Keine Weiterleitungs-URL vom Identitätsanbieter erhalten.",
     "autoLoginErrorGeneratingUrl": "Fehler beim Generieren der Authentifizierungs-URL.",
     "remoteExitNodeManageRemoteExitNodes": "Entfernte Knoten",
-    "remoteExitNodeDescription": "Self-Hoster einen oder mehrere entfernte Knoten, um die Netzwerkverbindung zu erweitern und die Abhängigkeit von der Cloud zu verringern",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Knoten",
     "searchRemoteExitNodes": "Knoten suchen...",
     "remoteExitNodeAdd": "Knoten hinzufügen",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Löschknoten bestätigen",
     "remoteExitNodeDelete": "Knoten löschen",
     "sidebarRemoteExitNodes": "Entfernte Knoten",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Knoten erstellen",
-        "description": "Erstelle einen neuen Knoten, um die Netzwerkverbindung zu erweitern",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Alle Knoten anzeigen",
         "strategy": {
             "title": "Erstellungsstrategie",
-            "description": "Wählen Sie diese Option, um den Knoten manuell zu konfigurieren oder neue Zugangsdaten zu generieren.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Node übernehmen",
                 "description": "Wählen Sie dies, wenn Sie bereits die Anmeldedaten für den Knoten haben."
             },
             "generate": {
                 "title": "Schlüssel generieren",
-                "description": "Wählen Sie dies, wenn Sie neue Schlüssel für den Knoten generieren möchten"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
