@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Sitenize nasıl bağlanmak istediğinizi belirleyin",
     "siteNewtCredentials": "Kimlik Bilgileri",
     "siteNewtCredentialsDescription": "Bu, sitenin sunucu ile kimlik doğrulaması yapacağı yöntemdir",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Kimlik Bilgilerinizi Kaydedin",
     "siteCredentialsSaveDescription": "Yalnızca bir kez görebileceksiniz. Güvenli bir yere kopyaladığınızdan emin olun.",
     "siteInfo": "Site Bilgilendirmesi",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "Kimlik sağlayıcıdan yönlendirme URL'si alınamadı.",
     "autoLoginErrorGeneratingUrl": "Kimlik doğrulama URL'si oluşturulamadı.",
     "remoteExitNodeManageRemoteExitNodes": "Uzak Düğümler",
-    "remoteExitNodeDescription": "Ağ bağlantınızı genişletmek ve buluta bağlı kalmayı azaltmak için bir veya daha fazla uzak düğüm barındırın",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Düğümler",
     "searchRemoteExitNodes": "Düğüm ara...",
     "remoteExitNodeAdd": "Düğüm Ekle",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Düğüm Silmeyi Onayla",
     "remoteExitNodeDelete": "Düğümü Sil",
     "sidebarRemoteExitNodes": "Uzak Düğümler",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Düğüm Oluştur",
-        "description": "Ağ bağlantınızı genişletmek için yeni bir düğüm oluşturun",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Tüm Düğümleri Gör",
         "strategy": {
             "title": "Oluşturma Stratejisi",
-            "description": "Düğümünüzü manuel olarak yapılandırmak veya yeni kimlik bilgileri oluşturmak için bunu seçin.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Düğüm Benimse",
                 "description": "Zaten düğüm için kimlik bilgilerine sahipseniz bunu seçin."
             },
             "generate": {
                 "title": "Anahtarları Oluştur",
-                "description": "Düğüm için yeni anahtarlar oluşturmak istiyorsanız bunu seçin"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
