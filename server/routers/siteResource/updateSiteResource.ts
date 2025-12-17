@@ -32,14 +32,13 @@ import {
 } from "@server/lib/rebuildClientAssociations";
 
 const updateSiteResourceParamsSchema = z.strictObject({
-    siteResourceId: z.string().transform(Number).pipe(z.int().positive()),
-    siteId: z.string().transform(Number).pipe(z.int().positive()),
-    orgId: z.string()
+    siteResourceId: z.string().transform(Number).pipe(z.int().positive())
 });
 
 const updateSiteResourceSchema = z
     .strictObject({
         name: z.string().min(1).max(255).optional(),
+        siteId: z.int(),
         // mode: z.enum(["host", "cidr", "port"]).optional(),
         mode: z.enum(["host", "cidr"]).optional(),
         // protocol: z.enum(["tcp", "udp"]).nullish(),
@@ -78,7 +77,10 @@ const updateSiteResourceSchema = z
                 const domainRegex =
                     /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/;
                 const isValidDomain = domainRegex.test(data.destination);
-                const isValidAlias = data.alias !== undefined && data.alias !== null && data.alias.trim() !== "";
+                const isValidAlias =
+                    data.alias !== undefined &&
+                    data.alias !== null &&
+                    data.alias.trim() !== "";
 
                 return isValidDomain && isValidAlias; // require the alias to be set in the case of domain
             }
@@ -111,7 +113,7 @@ export type UpdateSiteResourceResponse = SiteResource;
 
 registry.registerPath({
     method: "post",
-    path: "/org/{orgId}/site/{siteId}/resource/{siteResourceId}",
+    path: "/site-resource/{siteResourceId}",
     description: "Update a site resource.",
     tags: [OpenAPITags.Client, OpenAPITags.Org],
     request: {
@@ -155,9 +157,10 @@ export async function updateSiteResource(
             );
         }
 
-        const { siteResourceId, siteId, orgId } = parsedParams.data;
+        const { siteResourceId } = parsedParams.data;
         const {
             name,
+            siteId, // because it can change
             mode,
             destination,
             alias,
@@ -173,7 +176,7 @@ export async function updateSiteResource(
         const [site] = await db
             .select()
             .from(sites)
-            .where(and(eq(sites.siteId, siteId), eq(sites.orgId, orgId)))
+            .where(eq(sites.siteId, siteId))
             .limit(1);
 
         if (!site) {
@@ -184,13 +187,7 @@ export async function updateSiteResource(
         const [existingSiteResource] = await db
             .select()
             .from(siteResources)
-            .where(
-                and(
-                    eq(siteResources.siteResourceId, siteResourceId),
-                    eq(siteResources.siteId, siteId),
-                    eq(siteResources.orgId, orgId)
-                )
-            )
+            .where(and(eq(siteResources.siteResourceId, siteResourceId)))
             .limit(1);
 
         if (!existingSiteResource) {
@@ -206,7 +203,7 @@ export async function updateSiteResource(
                 .from(siteResources)
                 .where(
                     and(
-                        eq(siteResources.orgId, orgId),
+                        eq(siteResources.orgId, existingSiteResource.orgId),
                         eq(siteResources.alias, alias.trim()),
                         ne(siteResources.siteResourceId, siteResourceId) // exclude self
                     )
@@ -230,6 +227,7 @@ export async function updateSiteResource(
                 .update(siteResources)
                 .set({
                     name: name,
+                    siteId: siteId,
                     mode: mode,
                     destination: destination,
                     enabled: enabled,
@@ -238,13 +236,7 @@ export async function updateSiteResource(
                     udpPortRangeString: udpPortRangeString,
                     disableIcmp: disableIcmp
                 })
-                .where(
-                    and(
-                        eq(siteResources.siteResourceId, siteResourceId),
-                        eq(siteResources.siteId, siteId),
-                        eq(siteResources.orgId, orgId)
-                    )
-                )
+                .where(and(eq(siteResources.siteResourceId, siteResourceId)))
                 .returning();
 
             //////////////////// update the associations ////////////////////

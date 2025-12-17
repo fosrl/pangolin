@@ -146,9 +146,8 @@ authenticated.get(
 );
 // Site Resource endpoints
 authenticated.put(
-    "/org/:orgId/site/:siteId/resource",
+    "/org/:orgId/private-resource",
     verifyApiKeyOrgAccess,
-    verifyApiKeySiteAccess,
     verifyApiKeyHasAction(ActionsEnum.createSiteResource),
     logActionAudit(ActionsEnum.createSiteResource),
     siteResource.createSiteResource
@@ -170,18 +169,14 @@ authenticated.get(
 );
 
 authenticated.get(
-    "/org/:orgId/site/:siteId/resource/:siteResourceId",
-    verifyApiKeyOrgAccess,
-    verifyApiKeySiteAccess,
+    "/site-resource/:siteResourceId",
     verifyApiKeySiteResourceAccess,
     verifyApiKeyHasAction(ActionsEnum.getSiteResource),
     siteResource.getSiteResource
 );
 
 authenticated.post(
-    "/org/:orgId/site/:siteId/resource/:siteResourceId",
-    verifyApiKeyOrgAccess,
-    verifyApiKeySiteAccess,
+    "/site-resource/:siteResourceId",
     verifyApiKeySiteResourceAccess,
     verifyApiKeyHasAction(ActionsEnum.updateSiteResource),
     logActionAudit(ActionsEnum.updateSiteResource),
@@ -189,9 +184,7 @@ authenticated.post(
 );
 
 authenticated.delete(
-    "/org/:orgId/site/:siteId/resource/:siteResourceId",
-    verifyApiKeyOrgAccess,
-    verifyApiKeySiteAccess,
+    "/site-resource/:siteResourceId",
     verifyApiKeySiteResourceAccess,
     verifyApiKeyHasAction(ActionsEnum.deleteSiteResource),
     logActionAudit(ActionsEnum.deleteSiteResource),

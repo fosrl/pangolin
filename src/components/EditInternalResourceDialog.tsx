@@ -41,6 +41,22 @@ import { Tag, TagInput } from "@app/components/tags/tag-input";
 import { UserType } from "@server/types/UserTypes";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgQueries, resourceQueries } from "@app/lib/queries";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList
+} from "@app/components/ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger
+} from "@app/components/ui/popover";
+import { cn } from "@app/lib/cn";
+import { ListSitesResponse } from "@server/routers/site";
+import { Check, ChevronsUpDown } from "lucide-react";
 // import { InfoPopup } from "@app/components/ui/info-popup";
 
 // Helper to validate port range string format
@@ -118,6 +134,8 @@ const getPortStringFromMode = (mode: PortMode, customValue: string): string | un
     return customValue;
 };
 
+type Site = ListSitesResponse["sites"][0];
+
 type InternalResourceData = {
     id: number;
     name: string;
@@ -141,6 +159,7 @@ type EditInternalResourceDialogProps = {
     setOpen: (val: boolean) => void;
     resource: InternalResourceData;
     orgId: string;
+    sites: Site[];
     onSuccess?: () => void;
 };
 
@@ -149,6 +168,7 @@ export default function EditInternalResourceDialog({
     setOpen,
     resource,
     orgId,
+    sites,
     onSuccess
 }: EditInternalResourceDialogProps) {
     const t = useTranslations();
@@ -161,6 +181,7 @@ export default function EditInternalResourceDialog({
             .string()
             .min(1, t("editInternalResourceDialogNameRequired"))
             .max(255, t("editInternalResourceDialogNameMaxLength")),
+        siteId: z.number().int().positive(),
         mode: z.enum(["host", "cidr", "port"]),
         // protocol: z.enum(["tcp", "udp"]).nullish(),
         // proxyPort: z.int().positive().min(1, t("editInternalResourceDialogProxyPortMin")).max(65535, t("editInternalResourceDialogProxyPortMax")).nullish(),
@@ -349,10 +370,15 @@ export default function EditInternalResourceDialog({
             : ""
     );
 
+    const availableSites = sites.filter(
+        (site) => site.type === "newt" && site.subnet
+    );
+
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: resource.name,
+            siteId: resource.siteId,
             mode: resource.mode || "host",
             // protocol: (resource.protocol as "tcp" | "udp" | null | undefined) ?? undefined,
             // proxyPort: resource.proxyPort ?? undefined,
@@ -421,9 +447,10 @@ export default function EditInternalResourceDialog({
 
             // Update the site resource
             await api.post(
-                `/org/${orgId}/site/${resource.siteId}/resource/${resource.id}`,
+                `/site-resource/${resource.id}`,
                 {
                     name: data.name,
+                    siteId: data.siteId,
                     mode: data.mode,
                     // protocol: data.mode === "port" ? data.protocol : null,
                     // proxyPort: data.mode === "port" ? data.proxyPort : null,
@@ -504,6 +531,7 @@ export default function EditInternalResourceDialog({
             if (resourceChanged) {
                 form.reset({
                     name: resource.name,
+                    siteId: resource.siteId,
                     mode: resource.mode || "host",
                     destination: resource.destination || "",
                     alias: resource.alias ?? null,
@@ -559,6 +587,7 @@ export default function EditInternalResourceDialog({
                     // reset only on close
                     form.reset({
                         name: resource.name,
+                        siteId: resource.siteId,
                         mode: resource.mode || "host",
                         // protocol: (resource.protocol as "tcp" | "udp" | null | undefined) ?? undefined,
                         // proxyPort: resource.proxyPort ?? undefined,
@@ -631,6 +660,99 @@ export default function EditInternalResourceDialog({
                                                 <FormControl>
                                                     <Input {...field} />
                                                 </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="siteId"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                <FormLabel>
+                                                    {t(
+                                                        "site"
+                                                    )}
+                                                </FormLabel>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                                variant="outline"
+                                                                role="combobox"
+                                                                className={cn(
+                                                                    "w-full justify-between",
+                                                                    !field.value &&
+                                                                        "text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                {field.value
+                                                                    ? availableSites.find(
+                                                                          (
+                                                                              site
+                                                                          ) =>
+                                                                              site.siteId ===
+                                                                              field.value
+                                                                      )?.name
+                                                                    : t(
+                                                                          "selectSite"
+                                                                      )}
+                                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-full p-0">
+                                                        <Command>
+                                                            <CommandInput
+                                                                placeholder={t(
+                                                                    "searchSites"
+                                                                )}
+                                                            />
+                                                            <CommandList>
+                                                                <CommandEmpty>
+                                                                    {t(
+                                                                        "noSitesFound"
+                                                                    )}
+                                                                </CommandEmpty>
+                                                                <CommandGroup>
+                                                                    {availableSites.map(
+                                                                        (
+                                                                            site
+                                                                        ) => (
+                                                                            <CommandItem
+                                                                                key={
+                                                                                    site.siteId
+                                                                                }
+                                                                                value={
+                                                                                    site.name
+                                                                                }
+                                                                                onSelect={() => {
+                                                                                    field.onChange(
+                                                                                        site.siteId
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                <Check
+                                                                                    className={cn(
+                                                                                        "mr-2 h-4 w-4",
+                                                                                        field.value ===
+                                                                                            site.siteId
+                                                                                            ? "opacity-100"
+                                                                                            : "opacity-0"
+                                                                                    )}
+                                                                                />
+                                                                                {
+                                                                                    site.name
+                                                                                }
+                                                                            </CommandItem>
+                                                                        )
+                                                                    )}
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
                                                 <FormMessage />
                                             </FormItem>
                                         )}

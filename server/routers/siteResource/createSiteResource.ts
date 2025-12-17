@@ -23,7 +23,6 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 
 const createSiteResourceParamsSchema = z.strictObject({
-    siteId: z.string().transform(Number).pipe(z.int().positive()),
     orgId: z.string()
 });
 
@@ -31,6 +30,7 @@ const createSiteResourceSchema = z
     .strictObject({
         name: z.string().min(1).max(255),
         mode: z.enum(["host", "cidr", "port"]),
+        siteId: z.int(),
         // protocol: z.enum(["tcp", "udp"]).optional(),
         // proxyPort: z.int().positive().optional(),
         // destinationPort: z.int().positive().optional(),
@@ -101,7 +101,7 @@ export type CreateSiteResourceResponse = SiteResource;
 
 registry.registerPath({
     method: "put",
-    path: "/org/{orgId}/site/{siteId}/resource",
+    path: "/org/{orgId}/site-resource",
     description: "Create a new site resource.",
     tags: [OpenAPITags.Client, OpenAPITags.Org],
     request: {
@@ -145,9 +145,10 @@ export async function createSiteResource(
             );
         }
 
-        const { siteId, orgId } = parsedParams.data;
+        const { orgId } = parsedParams.data;
         const {
             name,
+            siteId,
             mode,
             // protocol,
             // proxyPort,

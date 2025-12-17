@@ -395,9 +395,10 @@ export default function CreateInternalResourceDialog({
             }
 
             const response = await api.put<AxiosResponse<any>>(
-                `/org/${orgId}/site/${data.siteId}/resource`,
+                `/org/${orgId}/site-resource`,
                 {
                     name: data.name,
+                    siteId: data.siteId,
                     mode: data.mode,
                     // protocol: data.protocol,
                     // proxyPort: data.mode === "port" ? data.proxyPort : undefined,
@@ -548,7 +549,7 @@ export default function CreateInternalResourceDialog({
                                             <FormItem className="flex flex-col">
                                                 <FormLabel>
                                                     {t(
-                                                        "createInternalResourceDialogSite"
+                                                        "site"
                                                     )}
                                                 </FormLabel>
                                                 <Popover>
@@ -572,7 +573,7 @@ export default function CreateInternalResourceDialog({
                                                                               field.value
                                                                       )?.name
                                                                     : t(
-                                                                          "createInternalResourceDialogSelectSite"
+                                                                          "selectSite"
                                                                       )}
                                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                             </Button>
@@ -582,13 +583,13 @@ export default function CreateInternalResourceDialog({
                                                         <Command>
                                                             <CommandInput
                                                                 placeholder={t(
-                                                                    "createInternalResourceDialogSearchSites"
+                                                                    "searchSites"
                                                                 )}
                                                             />
                                                             <CommandList>
                                                                 <CommandEmpty>
                                                                     {t(
-                                                                        "createInternalResourceDialogNoSitesFound"
+                                                                        "noSitesFound"
                                                                     )}
                                                                 </CommandEmpty>
                                                                 <CommandGroup>

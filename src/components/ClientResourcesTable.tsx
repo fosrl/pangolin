@@ -100,7 +100,7 @@ export default function ClientResourcesTable({
     ) => {
         try {
             await api
-                .delete(`/org/${orgId}/site/${siteId}/resource/${resourceId}`)
+                .delete(`/site-resource/${resourceId}`)
                 .then(() => {
                     startTransition(() => {
                         router.refresh();
@@ -327,6 +327,7 @@ export default function ClientResourcesTable({
                     setOpen={setIsEditDialogOpen}
                     resource={editingResource}
                     orgId={orgId}
+                    sites={sites}
                     onSuccess={() => {
                         router.refresh();
                         setEditingResource(null);
