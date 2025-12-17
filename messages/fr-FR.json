@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Déterminer comment vous voulez vous connecter au site",
     "siteNewtCredentials": "Identifiants",
     "siteNewtCredentialsDescription": "Voici comment le site s'authentifiera avec le serveur",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Enregistrer les informations d'identification",
     "siteCredentialsSaveDescription": "Vous ne pourrez voir cela qu'une seule fois. Assurez-vous de l'enregistrer dans un endroit sécurisé.",
     "siteInfo": "Informations du nœud",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "Aucune URL de redirection reçue du fournisseur d'identité.",
     "autoLoginErrorGeneratingUrl": "Échec de la génération de l'URL d'authentification.",
     "remoteExitNodeManageRemoteExitNodes": "Nœuds distants",
-    "remoteExitNodeDescription": "Héberger un ou plusieurs nœuds distants pour étendre la connectivité réseau et réduire la dépendance sur le cloud",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Nœuds",
     "searchRemoteExitNodes": "Rechercher des nœuds...",
     "remoteExitNodeAdd": "Ajouter un noeud",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Confirmer la suppression du noeud",
     "remoteExitNodeDelete": "Supprimer le noeud",
     "sidebarRemoteExitNodes": "Nœuds distants",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Créer un noeud",
-        "description": "Créer un nouveau nœud pour étendre la connectivité réseau",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Voir tous les nœuds",
         "strategy": {
             "title": "Stratégie de création",
-            "description": "Choisissez ceci pour configurer manuellement le noeud ou générer de nouveaux identifiants.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Adopter un nœud",
                 "description": "Choisissez ceci si vous avez déjà les identifiants pour le noeud."
             },
             "generate": {
                 "title": "Générer des clés",
-                "description": "Choisissez ceci si vous voulez générer de nouvelles clés pour le noeud"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
