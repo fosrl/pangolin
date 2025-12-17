@@ -1,4 +1,4 @@
-import { db, newts, blueprints, Blueprint } from "@server/db";
+import { db, newts, blueprints, Blueprint, Site, siteResources, roleSiteResources, userSiteResources, clientSiteResources } from "@server/db";
 import { Config, ConfigSchema } from "./types";
 import { ProxyResourcesResults, updateProxyResources } from "./proxyResources";
 import { fromError } from "zod-validation-error";
@@ -15,6 +15,7 @@ import { BlueprintSource } from "@server/routers/blueprints/types";
 import { stringify as stringifyYaml } from "yaml";
 import { faker } from "@faker-js/faker";
 import { handleMessagingForUpdatedSiteResource } from "@server/routers/siteResource";
+import { rebuildClientAssociationsFromSiteResource } from "../rebuildClientAssociations";
 
 type ApplyBlueprintArgs = {
     orgId: string;
@@ -108,37 +109,138 @@ export async function applyBlueprint({
 
             // We need to update the targets on the newts from the successfully updated information
             for (const result of clientResourcesResults) {
-                const [site] = await trx
-                    .select()
-                    .from(sites)
-                    .innerJoin(newts, eq(sites.siteId, newts.siteId))
-                    .where(
-                        and(
-                            eq(sites.siteId, result.newSiteResource.siteId),
-                            eq(sites.orgId, orgId),
-                            eq(sites.type, "newt"),
-                            isNotNull(sites.pubKey)
+                if (
+                    result.oldSiteResource &&
+                    result.oldSiteResource.siteId !=
+                        result.newSiteResource.siteId
+                ) {
+                    // the site resource has moved sites
+                    // insert it first so we get a new siteResourceId just in case
+                    const [insertedSiteResource] = await trx
+                        .insert(siteResources)
+                        .values({
+                            ...result.oldSiteResource,
+                            siteResourceId: undefined // to generate a new one
+                        })
+                        .returning();
+
+                    // query existing associations
+                    const existingRoleIds = await trx
+                        .select()
+                        .from(roleSiteResources)
+                        .where(
+                            eq(
+                                roleSiteResources.siteResourceId,
+                                result.oldSiteResource.siteResourceId
+                            )
                         )
-                    )
-                    .limit(1);
+                        .then((rows) => rows.map((row) => row.roleId));
 
-                if (!site) {
-                    logger.debug(
-                        `No newt site found for client resource ${result.newSiteResource.siteResourceId}, skipping target update`
+                    const existingUserIds= await trx
+                        .select()
+                        .from(userSiteResources)
+                        .where(
+                            eq(
+                                userSiteResources.siteResourceId,
+                                result.oldSiteResource.siteResourceId
+                            )
+                        ).then((rows) => rows.map((row) => row.userId));
+
+                    const existingClientIds = await trx
+                        .select()
+                        .from(clientSiteResources)
+                        .where(
+                            eq(
+                                clientSiteResources.siteResourceId,
+                                result.oldSiteResource.siteResourceId
+                            )
+                        ).then((rows) => rows.map((row) => row.clientId));
+
+                    // delete the existing site resource
+                    await trx
+                        .delete(siteResources)
+                        .where(
+                            and(eq(siteResources.siteResourceId, result.oldSiteResource.siteResourceId))
+                        );
+
+                    await rebuildClientAssociationsFromSiteResource(
+                        result.oldSiteResource,
+                        trx
                     );
-                    continue;
+
+                    // wait some time to allow for messages to be handled
+                    await new Promise((resolve) => setTimeout(resolve, 750));
+
+                    //////////////////// update the associations ////////////////////
+
+                    if (existingRoleIds.length > 0) {
+                        await trx.insert(roleSiteResources).values(
+                           existingRoleIds.map((roleId) => ({
+                                roleId,
+                                siteResourceId: insertedSiteResource!.siteResourceId
+                            }))
+                        );
+                    }
+
+                    if (existingUserIds.length > 0) {
+                        await trx.insert(userSiteResources).values(
+                           existingUserIds.map((userId) => ({
+                                userId,
+                                siteResourceId: insertedSiteResource!.siteResourceId
+                            }))
+                        );
+                    }
+
+                    if (existingClientIds.length > 0) {
+                        await trx.insert(clientSiteResources).values(
+                            existingClientIds.map((clientId) => ({
+                                clientId,
+                                siteResourceId: insertedSiteResource!.siteResourceId
+                            }))
+                        );
+                    }
+
+                    await rebuildClientAssociationsFromSiteResource(
+                        insertedSiteResource,
+                        trx
+                    );
+
+                } else {
+                    const [newSite] = await trx
+                        .select()
+                        .from(sites)
+                        .innerJoin(newts, eq(sites.siteId, newts.siteId))
+                        .where(
+                            and(
+                                eq(sites.siteId, result.newSiteResource.siteId),
+                                eq(sites.orgId, orgId),
+                                eq(sites.type, "newt"),
+                                isNotNull(sites.pubKey)
+                            )
+                        )
+                        .limit(1);
+
+                    if (!newSite) {
+                        logger.debug(
+                            `No newt site found for client resource ${result.newSiteResource.siteResourceId}, skipping target update`
+                        );
+                        continue;
+                    }
+
+                    logger.debug(
+                        `Updating client resource ${result.newSiteResource.siteResourceId} on site ${newSite.sites.siteId}`
+                    );
+
+                    await handleMessagingForUpdatedSiteResource(
+                        result.oldSiteResource,
+                        result.newSiteResource,
+                        {
+                            siteId: newSite.sites.siteId,
+                            orgId: newSite.sites.orgId
+                        },
+                        trx
+                    );
                 }
-
-                logger.debug(
-                    `Updating client resource ${result.newSiteResource.siteResourceId} on site ${site.sites.siteId}`
-                );
-
-                await handleMessagingForUpdatedSiteResource(
-                    result.oldSiteResource,
-                    result.newSiteResource,
-                    { siteId: site.sites.siteId, orgId: site.sites.orgId },
-                    trx
-                );
 
                 // await addClientTargets(
                 //     site.newt.newtId,

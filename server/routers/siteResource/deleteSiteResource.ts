@@ -12,9 +12,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { rebuildClientAssociationsFromSiteResource } from "@server/lib/rebuildClientAssociations";
 
 const deleteSiteResourceParamsSchema = z.strictObject({
-    siteResourceId: z.string().transform(Number).pipe(z.int().positive()),
-    siteId: z.string().transform(Number).pipe(z.int().positive()),
-    orgId: z.string()
+    siteResourceId: z.string().transform(Number).pipe(z.int().positive())
 });
 
 export type DeleteSiteResourceResponse = {
@@ -23,7 +21,7 @@ export type DeleteSiteResourceResponse = {
 
 registry.registerPath({
     method: "delete",
-    path: "/org/{orgId}/site/{siteId}/resource/{siteResourceId}",
+    path: "/site-resource/{siteResourceId}",
     description: "Delete a site resource.",
     tags: [OpenAPITags.Client, OpenAPITags.Org],
     request: {
@@ -50,29 +48,13 @@ export async function deleteSiteResource(
             );
         }
 
-        const { siteResourceId, siteId, orgId } = parsedParams.data;
-
-        const [site] = await db
-            .select()
-            .from(sites)
-            .where(and(eq(sites.siteId, siteId), eq(sites.orgId, orgId)))
-            .limit(1);
-
-        if (!site) {
-            return next(createHttpError(HttpCode.NOT_FOUND, "Site not found"));
-        }
+        const { siteResourceId } = parsedParams.data;
 
         // Check if site resource exists
         const [existingSiteResource] = await db
             .select()
             .from(siteResources)
-            .where(
-                and(
-                    eq(siteResources.siteResourceId, siteResourceId),
-                    eq(siteResources.siteId, siteId),
-                    eq(siteResources.orgId, orgId)
-                )
-            )
+            .where(and(eq(siteResources.siteResourceId, siteResourceId)))
             .limit(1);
 
         if (!existingSiteResource) {
@@ -85,19 +67,13 @@ export async function deleteSiteResource(
             // Delete the site resource
             const [removedSiteResource] = await trx
                 .delete(siteResources)
-                .where(
-                    and(
-                        eq(siteResources.siteResourceId, siteResourceId),
-                        eq(siteResources.siteId, siteId),
-                        eq(siteResources.orgId, orgId)
-                    )
-                )
+                .where(and(eq(siteResources.siteResourceId, siteResourceId)))
                 .returning();
 
             const [newt] = await trx
                 .select()
                 .from(newts)
-                .where(eq(newts.siteId, site.siteId))
+                .where(eq(newts.siteId, removedSiteResource.siteId))
                 .limit(1);
 
             if (!newt) {
@@ -113,7 +89,7 @@ export async function deleteSiteResource(
         });
 
         logger.info(
-            `Deleted site resource ${siteResourceId} for site ${siteId}`
+            `Deleted site resource ${siteResourceId}`
         );
 
         return response(res, {
