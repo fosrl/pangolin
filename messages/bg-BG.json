@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Определете как искате да се свържете със сайта",
     "siteNewtCredentials": "Пълномощия",
     "siteNewtCredentialsDescription": "Това е как сайтът ще се удостоверява с сървъра",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Запазете Пълномощията",
     "siteCredentialsSaveDescription": "Ще можете да виждате това само веднъж. Уверете се да го копирате на сигурно място.",
     "siteInfo": "Информация за сайта",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "Не е получен URL за пренасочване от доставчика на идентификационни данни.",
     "autoLoginErrorGeneratingUrl": "Неуспешно генериране на URL за удостоверяване.",
     "remoteExitNodeManageRemoteExitNodes": "Отдалечени възли",
-    "remoteExitNodeDescription": "Самостоятелно хоствайте един или повече отдалечени възли, за да разширите мрежовата свързаност и да намалите зависимостта от облака",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Възли",
     "searchRemoteExitNodes": "Търсене на възли...",
     "remoteExitNodeAdd": "Добавяне на възел",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Потвърдете изтриването на възела (\"Confirm Delete Site\" match)",
     "remoteExitNodeDelete": "Изтрийте възела (\"Delete Site\" match)",
     "sidebarRemoteExitNodes": "Отдалечени възли",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Създаване на възел",
-        "description": "Създайте нов възел, за да разширите мрежовата свързаност",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Вижте всички възли",
         "strategy": {
             "title": "Стратегия на създаване",
-            "description": "Изберете това, за да конфигурирате ръчно възела или да генерирате нови идентификационни данни.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Осиновете възел",
                 "description": "Изберете това, ако вече имате кредити за възела."
             },
             "generate": {
                 "title": "Генериране на ключове",
-                "description": "Изберете това, ако искате да генерирате нови ключове за възела"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
