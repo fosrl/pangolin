@@ -1045,6 +1045,8 @@
     "actionGetSite": "Get Site",
     "actionListSites": "List Sites",
     "actionApplyBlueprint": "Apply Blueprint",
+    "actionListBlueprints": "List Blueprints",
+    "actionGetBlueprint": "Get Blueprint",
     "setupToken": "Setup Token",
     "setupTokenDescription": "Enter the setup token from the server console.",
     "setupTokenRequired": "Setup token is required",

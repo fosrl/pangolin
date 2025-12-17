@@ -1022,6 +1022,8 @@
     "actionGetSite": "獲取站點",
     "actionListSites": "站點列表",
     "actionApplyBlueprint": "應用藍圖",
+    "actionListBlueprints": "藍圖列表",
+    "actionGetBlueprint": "獲取藍圖",
     "setupToken": "設置令牌",
     "setupTokenDescription": "從伺服器控制台輸入設定令牌。",
     "setupTokenRequired": "需要設置令牌",
