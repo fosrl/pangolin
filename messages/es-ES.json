@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Determina cómo quieres conectarte al sitio",
     "siteNewtCredentials": "Credenciales",
     "siteNewtCredentialsDescription": "Así es como el sitio se autentificará con el servidor",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Guardar las credenciales",
     "siteCredentialsSaveDescription": "Sólo podrás verlo una vez. Asegúrate de copiarlo a un lugar seguro.",
     "siteInfo": "Información del sitio",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "No se recibió URL de redirección del proveedor de identidad.",
     "autoLoginErrorGeneratingUrl": "Error al generar URL de autenticación.",
     "remoteExitNodeManageRemoteExitNodes": "Nodos remotos",
-    "remoteExitNodeDescription": "Autoalojar uno o más nodos remotos para extender la conectividad de red y reducir la dependencia de la nube",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Nodos",
     "searchRemoteExitNodes": "Buscar nodos...",
     "remoteExitNodeAdd": "Añadir Nodo",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Confirmar eliminar nodo",
     "remoteExitNodeDelete": "Eliminar Nodo",
     "sidebarRemoteExitNodes": "Nodos remotos",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Crear Nodo",
-        "description": "Crear un nuevo nodo para extender la conectividad de red",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Ver todos los nodos",
         "strategy": {
             "title": "Estrategia de Creación",
-            "description": "Elija esto para configurar manualmente el nodo o generar nuevas credenciales.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Adoptar Nodo",
                 "description": "Elija esto si ya tiene las credenciales para el nodo."
             },
             "generate": {
                 "title": "Generar Claves",
-                "description": "Elija esto si desea generar nuevas claves para el nodo"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
