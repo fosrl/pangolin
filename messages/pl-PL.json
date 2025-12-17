@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Określ jak chcesz połączyć się z witryną",
     "siteNewtCredentials": "Dane logowania",
     "siteNewtCredentialsDescription": "Oto jak witryna będzie uwierzytelniać się z serwerem",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Zapisz dane logowania",
     "siteCredentialsSaveDescription": "Możesz to zobaczyć tylko raz. Upewnij się, że skopiuj je do bezpiecznego miejsca.",
     "siteInfo": "Informacje o witrynie",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "Nie otrzymano URL przekierowania od dostawcy tożsamości.",
     "autoLoginErrorGeneratingUrl": "Nie udało się wygenerować URL uwierzytelniania.",
     "remoteExitNodeManageRemoteExitNodes": "Zdalne węzły",
-    "remoteExitNodeDescription": "Samodzielny host jeden lub więcej węzłów zdalnych, aby rozszerzyć łączność z siecią i zmniejszyć zależność od chmury",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Węzły",
     "searchRemoteExitNodes": "Szukaj węzłów...",
     "remoteExitNodeAdd": "Dodaj węzeł",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Potwierdź usunięcie węzła",
     "remoteExitNodeDelete": "Usuń węzeł",
     "sidebarRemoteExitNodes": "Zdalne węzły",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Utwórz węzeł",
-        "description": "Utwórz nowy węzeł, aby rozszerzyć łączność z siecią",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Zobacz wszystkie węzły",
         "strategy": {
             "title": "Strategia Tworzenia",
-            "description": "Wybierz to, aby ręcznie skonfigurować węzeł lub wygenerować nowe poświadczenia.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Zaadoptuj Węzeł",
                 "description": "Wybierz to, jeśli masz już dane logowania dla węzła."
             },
             "generate": {
                 "title": "Generuj Klucze",
-                "description": "Wybierz to, jeśli chcesz wygenerować nowe klucze dla węzła"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
