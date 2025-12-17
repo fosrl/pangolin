@@ -100,6 +100,7 @@
     "siteTunnelDescription": "确定如何连接到站点",
     "siteNewtCredentials": "全权证书",
     "siteNewtCredentialsDescription": "站点如何通过服务器进行身份验证",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "保存证书",
     "siteCredentialsSaveDescription": "您只能看到一次。请确保将其复制并保存到一个安全的地方。",
     "siteInfo": "站点信息",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "未从身份提供商收到重定向URL。",
     "autoLoginErrorGeneratingUrl": "生成身份验证URL失败。",
     "remoteExitNodeManageRemoteExitNodes": "远程节点",
-    "remoteExitNodeDescription": "自我主机一个或多个远程节点来扩展网络连接并减少对云的依赖性",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "节点",
     "searchRemoteExitNodes": "搜索节点...",
     "remoteExitNodeAdd": "添加节点",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "确认删除节点",
     "remoteExitNodeDelete": "删除节点",
     "sidebarRemoteExitNodes": "远程节点",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "创建节点",
-        "description": "创建一个新节点来扩展网络连接",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "查看所有节点",
         "strategy": {
             "title": "创建策略",
-            "description": "选择此选项以手动配置节点或生成新凭据。",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "采纳节点",
                 "description": "如果您已经拥有该节点的凭据，请选择此项。"
             },
             "generate": {
                 "title": "生成密钥",
-                "description": "如果您想为节点生成新密钥，请选择此选项"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
