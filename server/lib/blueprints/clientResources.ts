@@ -90,7 +90,10 @@ export async function updateClientResources(
                     destination: resourceData.destination,
                     enabled: true, // hardcoded for now
                     // enabled: resourceData.enabled ?? true,
-                    alias: resourceData.alias || null
+                    alias: resourceData.alias || null,
+                    disableIcmp: resourceData["disable-icmp"],
+                    tcpPortRangeString: resourceData["tcp-ports"],
+                    udpPortRangeString: resourceData["udp-ports"]
                 })
                 .where(
                     eq(
@@ -217,7 +220,10 @@ export async function updateClientResources(
                     destination: resourceData.destination,
                     enabled: true, // hardcoded for now
                     // enabled: resourceData.enabled ?? true,
-                    alias: resourceData.alias || null
+                    alias: resourceData.alias || null,
+                    disableIcmp: resourceData["disable-icmp"],
+                    tcpPortRangeString: resourceData["tcp-ports"],
+                    udpPortRangeString: resourceData["udp-ports"]
                 })
                 .returning();
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { portRangeStringSchema } from "@server/lib/ip";
 
 export const SiteSchema = z.object({
     name: z.string().min(1).max(100),
@@ -222,6 +223,9 @@ export const ClientResourceSchema = z
         // destinationPort: z.int().positive().optional(),
         destination: z.string().min(1),
         // enabled: z.boolean().default(true),
+        "tcp-ports": portRangeStringSchema.optional().default("*"),
+        "udp-ports": portRangeStringSchema.optional().default("*"),
+        "disable-icmp": z.boolean().optional().default(false),
         alias: z
             .string()
             .regex(
