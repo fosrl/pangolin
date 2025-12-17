@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Bepaal hoe u verbinding wilt maken met de site",
     "siteNewtCredentials": "Aanmeldgegevens",
     "siteNewtCredentialsDescription": "Dit is hoe de site zich zal verifiëren met de server",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Sla de aanmeldgegevens op",
     "siteCredentialsSaveDescription": "Je kunt dit slechts één keer zien. Kopieer het naar een beveiligde plek.",
     "siteInfo": "Site informatie",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "Geen redirect URL ontvangen van de identity provider.",
     "autoLoginErrorGeneratingUrl": "Genereren van authenticatie-URL mislukt.",
     "remoteExitNodeManageRemoteExitNodes": "Externe knooppunten",
-    "remoteExitNodeDescription": "Zelf host één of meer externe knooppunten om de netwerkverbinding uit te breiden en het vertrouwen in de cloud te verminderen",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Nodes",
     "searchRemoteExitNodes": "Knooppunten zoeken...",
     "remoteExitNodeAdd": "Voeg node toe",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Bevestig verwijderen node",
     "remoteExitNodeDelete": "Knoop verwijderen",
     "sidebarRemoteExitNodes": "Externe knooppunten",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Maak node",
-        "description": "Maak een nieuwe node aan om de netwerkverbinding uit te breiden",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Alle nodes weergeven",
         "strategy": {
             "title": "Creatie Strategie",
-            "description": "Kies dit om handmatig het knooppunt te configureren of nieuwe referenties te genereren.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Adopteer Node",
                 "description": "Kies dit als u al de referenties voor deze node heeft"
             },
             "generate": {
                 "title": "Genereer Sleutels",
-                "description": "Kies dit als u nieuwe sleutels voor het knooppunt wilt genereren"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
