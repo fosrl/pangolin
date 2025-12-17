@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Avgjør hvordan du vil koble deg til nettstedet",
     "siteNewtCredentials": "Legitimasjon",
     "siteNewtCredentialsDescription": "Dette er hvordan nettstedet vil godkjenne med serveren",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Lagre brukeropplysninger",
     "siteCredentialsSaveDescription": "Du vil kun kunne se dette én gang. Sørg for å kopiere det til et sikkert sted.",
     "siteInfo": "Områdeinformasjon",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "Ingen omdirigerings-URL mottatt fra identitetsleverandøren.",
     "autoLoginErrorGeneratingUrl": "Kunne ikke generere autentiserings-URL.",
     "remoteExitNodeManageRemoteExitNodes": "Eksterne Noder",
-    "remoteExitNodeDescription": "Selvbetjent én eller flere eksterne noder for å utvide nettverkstilkobling og redusere avhengighet på skyen",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Noder",
     "searchRemoteExitNodes": "Søk noder...",
     "remoteExitNodeAdd": "Legg til Node",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Bekreft sletting av Node",
     "remoteExitNodeDelete": "Slett Node",
     "sidebarRemoteExitNodes": "Eksterne Noder",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Opprett node",
-        "description": "Opprett en ny node for å utvide nettverkstilkoblingen",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Vis alle koder",
         "strategy": {
             "title": "Opprettelsesstrategi",
-            "description": "Velg denne for manuelt å konfigurere noden eller generere nye legitimasjoner.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Adopter Node",
                 "description": "Velg dette hvis du allerede har legitimasjon til noden."
             },
             "generate": {
                 "title": "Generer Nøkler",
-                "description": "Velg denne hvis du vil generere nye nøkler for noden"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
