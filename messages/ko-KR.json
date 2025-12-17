@@ -100,6 +100,7 @@
     "siteTunnelDescription": "사이트에 연결하는 방법을 결정하세요.",
     "siteNewtCredentials": "자격 증명",
     "siteNewtCredentialsDescription": "이것이 사이트가 서버와 인증하는 방법입니다.",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "자격 증명 저장",
     "siteCredentialsSaveDescription": "이것은 한 번만 볼 수 있습니다. 안전한 장소에 복사해 두세요.",
     "siteInfo": "사이트 정보",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "ID 공급자로부터 리디렉션 URL을 받지 못했습니다.",
     "autoLoginErrorGeneratingUrl": "인증 URL 생성 실패.",
     "remoteExitNodeManageRemoteExitNodes": "원격 노드",
-    "remoteExitNodeDescription": "하나 이상의 원격 노드를 자체 호스팅하여 네트워크 연결을 확장하고 클라우드에 대한 의존도를 줄입니다.",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "노드",
     "searchRemoteExitNodes": "노드 검색...",
     "remoteExitNodeAdd": "노드 추가",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "노드 삭제 확인",
     "remoteExitNodeDelete": "노드 삭제",
     "sidebarRemoteExitNodes": "원격 노드",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "노드 생성",
-        "description": "네트워크 연결성을 확장하기 위해 새 노드를 생성하세요",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "모든 노드 보기",
         "strategy": {
             "title": "생성 전략",
-            "description": "노드를 직접 구성하거나 새 자격 증명을 생성하려면 이것을 선택하세요.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "노드 채택",
                 "description": "이미 노드의 자격 증명이 있는 경우 이것을 선택하세요."
             },
             "generate": {
                 "title": "키 생성",
-                "description": "노드에 대한 새 키를 생성하려면 이것을 선택하세요"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
