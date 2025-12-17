@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Определите, как вы хотите подключиться к сайту",
     "siteNewtCredentials": "Полномочия",
     "siteNewtCredentialsDescription": "Вот как сайт будет аутентифицироваться с сервером",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Сохранить учетные данные",
     "siteCredentialsSaveDescription": "Вы сможете увидеть эти данные только один раз. Обязательно скопируйте их в безопасное место.",
     "siteInfo": "Информация о сайте",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "URL-адрес перенаправления не получен от провайдера удостоверения.",
     "autoLoginErrorGeneratingUrl": "Не удалось сгенерировать URL-адрес аутентификации.",
     "remoteExitNodeManageRemoteExitNodes": "Удаленные узлы",
-    "remoteExitNodeDescription": "Самохост-один или несколько удаленных узлов для расширения сетевого соединения и уменьшения зависимости от облака",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Узлы",
     "searchRemoteExitNodes": "Поиск узлов...",
     "remoteExitNodeAdd": "Добавить узел",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Подтвердите удаление узла",
     "remoteExitNodeDelete": "Удалить узел",
     "sidebarRemoteExitNodes": "Удаленные узлы",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Создать узел",
-        "description": "Создать новый узел для расширения сетевого подключения",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Все узлы",
         "strategy": {
             "title": "Стратегия создания",
-            "description": "Выберите эту опцию для настройки узла или создания новых учетных данных.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Принять узел",
                 "description": "Выберите это, если у вас уже есть учетные данные для узла."
             },
             "generate": {
                 "title": "Сгенерировать ключи",
-                "description": "Выберите это, если вы хотите создать новые ключи для узла"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
