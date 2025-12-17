@@ -100,6 +100,7 @@
     "siteTunnelDescription": "Určete, jak se chcete připojit k webu",
     "siteNewtCredentials": "Pověření",
     "siteNewtCredentialsDescription": "Takto se bude stránka autentizovat se serverem",
+    "remoteNodeCredentialsDescription": "This is how the remote node will authenticate with the server",
     "siteCredentialsSave": "Uložit pověření",
     "siteCredentialsSaveDescription": "Toto nastavení uvidíte pouze jednou. Ujistěte se, že jej zkopírujete na bezpečné místo.",
     "siteInfo": "Údaje o lokalitě",
@@ -1671,7 +1672,7 @@
     "autoLoginErrorNoRedirectUrl": "Od poskytovatele identity nebyla obdržena žádná adresa URL.",
     "autoLoginErrorGeneratingUrl": "Nepodařilo se vygenerovat ověřovací URL.",
     "remoteExitNodeManageRemoteExitNodes": "Vzdálené uzly",
-    "remoteExitNodeDescription": "Samohostitelská jedna nebo více vzdálených uzlů pro rozšíření připojení k síti a snížení závislosti na cloudu",
+    "remoteExitNodeDescription": "Self-host your own remote relay and proxy server nodes",
     "remoteExitNodes": "Uzly",
     "searchRemoteExitNodes": "Hledat uzly...",
     "remoteExitNodeAdd": "Přidat uzel",
@@ -1681,20 +1682,22 @@
     "remoteExitNodeConfirmDelete": "Potvrdit odstranění uzlu",
     "remoteExitNodeDelete": "Odstranit uzel",
     "sidebarRemoteExitNodes": "Vzdálené uzly",
+    "remoteExitNodeId": "ID",
+    "remoteExitNodeSecretKey": "Secret",
     "remoteExitNodeCreate": {
-        "title": "Vytvořit uzel",
-        "description": "Vytvořit nový uzel pro rozšíření síťového připojení",
+        "title": "Create Remote Node",
+        "description": "Create a new self-hosted remote relay and proxy server node",
         "viewAllButton": "Zobrazit všechny uzly",
         "strategy": {
             "title": "Strategie tvorby",
-            "description": "Zvolte pro ruční nastavení uzlu nebo vygenerování nových pověření.",
+            "description": "Select how you want to create the remote node",
             "adopt": {
                 "title": "Přijmout uzel",
                 "description": "Zvolte tuto možnost, pokud již máte přihlašovací údaje k uzlu."
             },
             "generate": {
                 "title": "Generovat klíče",
-                "description": "Vyberte tuto možnost, pokud chcete vygenerovat nové klíče pro uzel"
+                "description": "Choose this if you want to generate new keys for the node."
             }
         },
         "adopt": {
@@ -2308,5 +2311,6 @@
     "organizationLoginPageTitle": "Organization Login Page",
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
-    "resourceLoginPageDescription": "Customize the login page for individual resources"
+    "resourceLoginPageDescription": "Customize the login page for individual resources",
+    "enterConfirmation": "Enter confirmation"
 }
