@@ -33,7 +33,7 @@
     "password": "Пароль",
     "confirmPassword": "Подтвердите пароль",
     "createAccount": "Создать учётную запись",
-    "viewSettings": "Посмотреть настройки",
+    "viewSettings": "View Settings",
     "delete": "Удалить",
     "name": "Имя",
     "online": "Онлайн",
@@ -1618,9 +1618,8 @@
     "createInternalResourceDialogResourceProperties": "Свойства ресурса",
     "createInternalResourceDialogName": "Имя",
     "createInternalResourceDialogSite": "Сайт",
-    "createInternalResourceDialogSelectSite": "Выберите сайт...",
-    "createInternalResourceDialogSearchSites": "Поиск сайтов...",
-    "createInternalResourceDialogNoSitesFound": "Сайты не найдены.",
+    "selectSite": "Select site...",
+    "noSitesFound": "No sites found.",
     "createInternalResourceDialogProtocol": "Протокол",
     "createInternalResourceDialogTcp": "TCP",
     "createInternalResourceDialogUdp": "UDP",
@@ -2312,5 +2311,6 @@
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
     "resourceLoginPageDescription": "Customize the login page for individual resources",
-    "enterConfirmation": "Enter confirmation"
+    "enterConfirmation": "Enter confirmation",
+    "blueprintViewDetails": "Details"
 }
