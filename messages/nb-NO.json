@@ -33,7 +33,7 @@
     "password": "Passord",
     "confirmPassword": "Bekreft Passord",
     "createAccount": "Opprett Konto",
-    "viewSettings": "Vis Innstillinger",
+    "viewSettings": "View Settings",
     "delete": "Slett",
     "name": "Navn",
     "online": "Online",
@@ -1618,9 +1618,8 @@
     "createInternalResourceDialogResourceProperties": "Ressursegenskaper",
     "createInternalResourceDialogName": "Navn",
     "createInternalResourceDialogSite": "Område",
-    "createInternalResourceDialogSelectSite": "Velg område...",
-    "createInternalResourceDialogSearchSites": "Søk i områder...",
-    "createInternalResourceDialogNoSitesFound": "Ingen områder funnet.",
+    "selectSite": "Select site...",
+    "noSitesFound": "No sites found.",
     "createInternalResourceDialogProtocol": "Protokoll",
     "createInternalResourceDialogTcp": "TCP",
     "createInternalResourceDialogUdp": "UDP",
@@ -2312,5 +2311,6 @@
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
     "resourceLoginPageDescription": "Customize the login page for individual resources",
-    "enterConfirmation": "Enter confirmation"
+    "enterConfirmation": "Enter confirmation",
+    "blueprintViewDetails": "Details"
 }
