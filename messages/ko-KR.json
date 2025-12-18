@@ -33,7 +33,7 @@
     "password": "비밀번호",
     "confirmPassword": "비밀번호 확인",
     "createAccount": "계정 생성",
-    "viewSettings": "설정 보기",
+    "viewSettings": "View Settings",
     "delete": "삭제",
     "name": "이름",
     "online": "온라인",
@@ -1618,9 +1618,8 @@
     "createInternalResourceDialogResourceProperties": "리소스 속성",
     "createInternalResourceDialogName": "이름",
     "createInternalResourceDialogSite": "사이트",
-    "createInternalResourceDialogSelectSite": "사이트 선택...",
-    "createInternalResourceDialogSearchSites": "사이트 검색...",
-    "createInternalResourceDialogNoSitesFound": "사이트를 찾을 수 없습니다.",
+    "selectSite": "Select site...",
+    "noSitesFound": "No sites found.",
     "createInternalResourceDialogProtocol": "프로토콜",
     "createInternalResourceDialogTcp": "TCP",
     "createInternalResourceDialogUdp": "UDP",
@@ -2312,5 +2311,6 @@
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
     "resourceLoginPageDescription": "Customize the login page for individual resources",
-    "enterConfirmation": "Enter confirmation"
+    "enterConfirmation": "Enter confirmation",
+    "blueprintViewDetails": "Details"
 }
