@@ -33,7 +33,7 @@
     "password": "Heslo",
     "confirmPassword": "Potvrďte heslo",
     "createAccount": "Vytvořit účet",
-    "viewSettings": "Zobrazit nastavení",
+    "viewSettings": "View Settings",
     "delete": "Odstranit",
     "name": "Jméno",
     "online": "Online",
@@ -1618,9 +1618,8 @@
     "createInternalResourceDialogResourceProperties": "Vlastnosti zdroje",
     "createInternalResourceDialogName": "Jméno",
     "createInternalResourceDialogSite": "Lokalita",
-    "createInternalResourceDialogSelectSite": "Vybrat lokalitu...",
-    "createInternalResourceDialogSearchSites": "Hledat lokality...",
-    "createInternalResourceDialogNoSitesFound": "Nebyly nalezeny žádné stránky.",
+    "selectSite": "Select site...",
+    "noSitesFound": "No sites found.",
     "createInternalResourceDialogProtocol": "Protokol",
     "createInternalResourceDialogTcp": "TCP",
     "createInternalResourceDialogUdp": "UDP",
@@ -2312,5 +2311,6 @@
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
     "resourceLoginPageDescription": "Customize the login page for individual resources",
-    "enterConfirmation": "Enter confirmation"
+    "enterConfirmation": "Enter confirmation",
+    "blueprintViewDetails": "Details"
 }
