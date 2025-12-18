@@ -33,7 +33,7 @@
     "password": "Wachtwoord",
     "confirmPassword": "Bevestig wachtwoord",
     "createAccount": "Account Aanmaken",
-    "viewSettings": "Instellingen weergeven",
+    "viewSettings": "View Settings",
     "delete": "Verwijderen",
     "name": "Naam",
     "online": "Online",
@@ -1618,9 +1618,8 @@
     "createInternalResourceDialogResourceProperties": "Bron-eigenschappen",
     "createInternalResourceDialogName": "Naam",
     "createInternalResourceDialogSite": "Site",
-    "createInternalResourceDialogSelectSite": "Selecteer site...",
-    "createInternalResourceDialogSearchSites": "Zoek sites...",
-    "createInternalResourceDialogNoSitesFound": "Geen sites gevonden.",
+    "selectSite": "Select site...",
+    "noSitesFound": "No sites found.",
     "createInternalResourceDialogProtocol": "Protocol",
     "createInternalResourceDialogTcp": "TCP",
     "createInternalResourceDialogUdp": "UDP",
@@ -2312,5 +2311,6 @@
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
     "resourceLoginPageDescription": "Customize the login page for individual resources",
-    "enterConfirmation": "Enter confirmation"
+    "enterConfirmation": "Enter confirmation",
+    "blueprintViewDetails": "Details"
 }
