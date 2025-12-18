@@ -33,7 +33,7 @@
     "password": "Şifre",
     "confirmPassword": "Şifreyi Onayla",
     "createAccount": "Hesap Oluştur",
-    "viewSettings": "Ayarları görüntüle",
+    "viewSettings": "View Settings",
     "delete": "Sil",
     "name": "Ad",
     "online": "Çevrimiçi",
@@ -1618,9 +1618,8 @@
     "createInternalResourceDialogResourceProperties": "Kaynak Özellikleri",
     "createInternalResourceDialogName": "Ad",
     "createInternalResourceDialogSite": "Site",
-    "createInternalResourceDialogSelectSite": "Site seç...",
-    "createInternalResourceDialogSearchSites": "Siteleri ara...",
-    "createInternalResourceDialogNoSitesFound": "Site bulunamadı.",
+    "selectSite": "Select site...",
+    "noSitesFound": "No sites found.",
     "createInternalResourceDialogProtocol": "Protokol",
     "createInternalResourceDialogTcp": "TCP",
     "createInternalResourceDialogUdp": "UDP",
@@ -2312,5 +2311,6 @@
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
     "resourceLoginPageDescription": "Customize the login page for individual resources",
-    "enterConfirmation": "Enter confirmation"
+    "enterConfirmation": "Enter confirmation",
+    "blueprintViewDetails": "Details"
 }
