@@ -48,7 +48,7 @@ export const queryAccessAuditLogsQuery = z.object({
         })
         .transform((val) => Math.floor(new Date(val).getTime() / 1000))
         .optional()
-        .prefault(new Date().toISOString())
+        .prefault(() => new Date().toISOString())
         .openapi({
             type: "string",
             format: "date-time",
