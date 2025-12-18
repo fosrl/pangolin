@@ -33,7 +33,7 @@
     "password": "Contraseña",
     "confirmPassword": "Confirmar contraseña",
     "createAccount": "Crear cuenta",
-    "viewSettings": "Ver ajustes",
+    "viewSettings": "View Settings",
     "delete": "Eliminar",
     "name": "Nombre",
     "online": "En línea",
@@ -1618,9 +1618,8 @@
     "createInternalResourceDialogResourceProperties": "Propiedades del recurso",
     "createInternalResourceDialogName": "Nombre",
     "createInternalResourceDialogSite": "Sitio",
-    "createInternalResourceDialogSelectSite": "Seleccionar sitio...",
-    "createInternalResourceDialogSearchSites": "Buscar sitios...",
-    "createInternalResourceDialogNoSitesFound": "Sitios no encontrados.",
+    "selectSite": "Select site...",
+    "noSitesFound": "No sites found.",
     "createInternalResourceDialogProtocol": "Protocolo",
     "createInternalResourceDialogTcp": "TCP",
     "createInternalResourceDialogUdp": "UDP",
@@ -2312,5 +2311,6 @@
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
     "resourceLoginPageDescription": "Customize the login page for individual resources",
-    "enterConfirmation": "Enter confirmation"
+    "enterConfirmation": "Enter confirmation",
+    "blueprintViewDetails": "Details"
 }
