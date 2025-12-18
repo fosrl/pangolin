@@ -33,7 +33,7 @@
     "password": "密码",
     "confirmPassword": "确认密码",
     "createAccount": "创建帐户",
-    "viewSettings": "查看设置",
+    "viewSettings": "View Settings",
     "delete": "删除",
     "name": "名称",
     "online": "在线",
@@ -1618,9 +1618,8 @@
     "createInternalResourceDialogResourceProperties": "资源属性",
     "createInternalResourceDialogName": "名称",
     "createInternalResourceDialogSite": "站点",
-    "createInternalResourceDialogSelectSite": "选择站点...",
-    "createInternalResourceDialogSearchSites": "搜索站点...",
-    "createInternalResourceDialogNoSitesFound": "未找到站点。",
+    "selectSite": "Select site...",
+    "noSitesFound": "No sites found.",
     "createInternalResourceDialogProtocol": "协议",
     "createInternalResourceDialogTcp": "TCP",
     "createInternalResourceDialogUdp": "UDP",
@@ -2312,5 +2311,6 @@
     "organizationLoginPageDescription": "Customize the login page for this organization",
     "resourceLoginPageTitle": "Resource Login Page",
     "resourceLoginPageDescription": "Customize the login page for individual resources",
-    "enterConfirmation": "Enter confirmation"
+    "enterConfirmation": "Enter confirmation",
+    "blueprintViewDetails": "Details"
 }
