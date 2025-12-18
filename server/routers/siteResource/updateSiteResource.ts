@@ -483,6 +483,10 @@ export async function handleMessagingForUpdatedSiteResource(
     site: { siteId: number; orgId: string },
     trx: Transaction
 ) {
+
+    logger.debug("handleMessagingForUpdatedSiteResource: existingSiteResource is: ", existingSiteResource);
+    logger.debug("handleMessagingForUpdatedSiteResource: updatedSiteResource is: ", updatedSiteResource);
+
     const { mergedAllClients } =
         await rebuildClientAssociationsFromSiteResource(
             existingSiteResource || updatedSiteResource, // we want to rebuild based on the existing resource then we will apply the change to the destination below

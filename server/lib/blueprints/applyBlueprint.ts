@@ -161,7 +161,7 @@ export async function applyBlueprint({
                     const [insertedSiteResource] = await trx
                         .insert(siteResources)
                         .values({
-                            ...result.oldSiteResource,
+                            ...result.newSiteResource,
                         })
                         .returning();
 

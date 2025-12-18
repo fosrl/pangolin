@@ -14,6 +14,7 @@ import { sites } from "@server/db";
 import { eq, and, ne, inArray } from "drizzle-orm";
 import { Config } from "./types";
 import logger from "@server/logger";
+import { getNextAvailableAliasAddress } from "../ip";
 
 export type ClientResourcesResults = {
     newSiteResource: SiteResource;
@@ -75,17 +76,12 @@ export async function updateClientResources(
         }
 
         if (existingResource) {
-            if (existingResource.siteId !== site.siteId) {
-                throw new Error(
-                    `You can not change the site of an existing client resource (${resourceNiceId}). Please delete and recreate it instead.`
-                );
-            }
-
             // Update existing resource
             const [updatedResource] = await trx
                 .update(siteResources)
                 .set({
                     name: resourceData.name || resourceNiceId,
+                    siteId: site.siteId,
                     mode: resourceData.mode,
                     destination: resourceData.destination,
                     enabled: true, // hardcoded for now
@@ -208,6 +204,12 @@ export async function updateClientResources(
                 oldSiteResource: existingResource
             });
         } else {
+            let aliasAddress: string | null = null;
+            if (resourceData.mode == "host") {
+                // we can only have an alias on a host
+                aliasAddress = await getNextAvailableAliasAddress(orgId);
+            }
+
             // Create new resource
             const [newResource] = await trx
                 .insert(siteResources)
@@ -221,6 +223,7 @@ export async function updateClientResources(
                     enabled: true, // hardcoded for now
                     // enabled: resourceData.enabled ?? true,
                     alias: resourceData.alias || null,
+                    aliasAddress: aliasAddress,
                     disableIcmp: resourceData["disable-icmp"],
                     tcpPortRangeString: resourceData["tcp-ports"],
                     udpPortRangeString: resourceData["udp-ports"]
