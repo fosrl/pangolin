@@ -208,27 +208,23 @@ export default function Page() {
                                 </form>
                             </Form>
                         </SettingsSectionForm>
-                    </SettingsSectionBody>
-                </SettingsSection>
 
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("idpType")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            {t("idpTypeDescription")}
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <StrategySelect
-                            options={providerTypes}
-                            defaultValue={form.getValues("type")}
-                            onChange={(value) => {
-                                form.setValue("type", value as "oidc");
-                            }}
-                            cols={3}
-                        />
+                        <div>
+                            <div className="mb-2">
+                                <span className="text-sm font-medium">
+                                    {t("idpType")}
+                                </span>
+                            </div>
+
+                            <StrategySelect
+                                options={providerTypes}
+                                defaultValue={form.getValues("type")}
+                                onChange={(value) => {
+                                    form.setValue("type", value as "oidc");
+                                }}
+                                cols={3}
+                            />
+                        </div>
                     </SettingsSectionBody>
                 </SettingsSection>
 

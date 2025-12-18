@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useResourceContext } from "@app/hooks/useResourceContext";
 import { ListSitesResponse } from "@server/routers/site";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AxiosResponse } from "axios";
 import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -90,8 +90,15 @@ export default function GeneralForm() {
     const [resourceFullDomain, setResourceFullDomain] = useState(
         `${resource.ssl ? "https" : "http"}://${toUnicode(resource.fullDomain || "")}`
     );
+
+    const resourceFullDomainName = useMemo(() => {
+        const url = new URL(resourceFullDomain);
+        return url.hostname;
+    }, [resourceFullDomain]);
+
     const [selectedDomain, setSelectedDomain] = useState<{
         domainId: string;
+        domainNamespaceId?: string;
         subdomain?: string;
         fullDomain: string;
         baseDomain: string;
@@ -225,7 +232,8 @@ export default function GeneralForm() {
                 niceId: data.niceId,
                 subdomain: data.subdomain,
                 fullDomain: updated.fullDomain,
-                proxyPort: data.proxyPort
+                proxyPort: data.proxyPort,
+                domainId: data.domainId
                 // ...(!resource.http && {
                 //     enableProxy: data.enableProxy
                 // })
@@ -488,13 +496,27 @@ export default function GeneralForm() {
                             <DomainPicker
                                 orgId={orgId as string}
                                 cols={1}
+                                defaultSubdomain={
+                                    form.getValues("subdomain") ??
+                                    resource.subdomain
+                                }
+                                defaultDomainId={
+                                    form.getValues("domainId") ??
+                                    resource.domainId
+                                }
+                                defaultFullDomain={resourceFullDomainName}
                                 onDomainChange={(res) => {
-                                    const selected = {
-                                        domainId: res.domainId,
-                                        subdomain: res.subdomain,
-                                        fullDomain: res.fullDomain,
-                                        baseDomain: res.baseDomain
-                                    };
+                                    const selected =
+                                        res === null
+                                            ? null
+                                            : {
+                                                  domainId: res.domainId,
+                                                  subdomain: res.subdomain,
+                                                  fullDomain: res.fullDomain,
+                                                  baseDomain: res.baseDomain,
+                                                  domainNamespaceId:
+                                                      res.domainNamespaceId
+                                              };
                                     setSelectedDomain(selected);
                                 }}
                             />

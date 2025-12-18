@@ -192,11 +192,71 @@ export async function validateOidcCallback(
             state
         });
 
-        const tokens = await client.validateAuthorizationCode(
-            ensureTrailingSlash(existingIdp.idpOidcConfig.tokenUrl),
-            code,
-            codeVerifier
-        );
+        let tokens: arctic.OAuth2Tokens;
+        try {
+            tokens = await client.validateAuthorizationCode(
+                ensureTrailingSlash(existingIdp.idpOidcConfig.tokenUrl),
+                code,
+                codeVerifier
+            );
+        } catch (err: unknown) {
+            if (err instanceof arctic.OAuth2RequestError) {
+                logger.warn("OIDC provider rejected the authorization code", {
+                    error: err.code,
+                    description: err.description,
+                    uri: err.uri,
+                    state: err.state
+                });
+                return next(
+                    createHttpError(
+                        HttpCode.UNAUTHORIZED,
+                        err.description ||
+                            `OIDC provider rejected the request (${err.code})`
+                    )
+                );
+            }
+
+            if (err instanceof arctic.UnexpectedResponseError) {
+                logger.error(
+                    "OIDC provider returned an unexpected response during token exchange",
+                    { status: err.status }
+                );
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_GATEWAY,
+                        "Received an unexpected response from the identity provider while exchanging the authorization code."
+                    )
+                );
+            }
+
+            if (err instanceof arctic.UnexpectedErrorResponseBodyError) {
+                logger.error(
+                    "OIDC provider returned an unexpected error payload during token exchange",
+                    { status: err.status, data: err.data }
+                );
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_GATEWAY,
+                        "Identity provider returned an unexpected error payload while exchanging the authorization code."
+                    )
+                );
+            }
+
+            if (err instanceof arctic.ArcticFetchError) {
+                logger.error(
+                    "Failed to reach OIDC provider while exchanging authorization code",
+                    { error: err.message }
+                );
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_GATEWAY,
+                        "Unable to reach the identity provider while exchanging the authorization code. Please try again."
+                    )
+                );
+            }
+
+            throw err;
+        }
 
         const idToken = tokens.idToken();
         logger.debug("ID token", { idToken });

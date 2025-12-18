@@ -19,7 +19,7 @@ export default function ExitNodeInfoCard({}: ExitNodeInfoCardProps) {
 
     return (
         <Alert>
-            <AlertDescription className="mt-4">
+            <AlertDescription>
                 <InfoSections cols={2}>
                     <>
                         <InfoSection>

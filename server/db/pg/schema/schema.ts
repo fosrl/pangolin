@@ -7,7 +7,8 @@ import {
     bigint,
     real,
     text,
-    index
+    index,
+    uniqueIndex
 } from "drizzle-orm/pg-core";
 import { InferSelectModel } from "drizzle-orm";
 import { randomUUID } from "crypto";

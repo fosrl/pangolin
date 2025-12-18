@@ -89,7 +89,6 @@ export async function getResourceAuthInfo(
                           resourcePassword,
                           eq(resourcePassword.resourceId, resources.resourceId)
                       )
-
                       .leftJoin(
                           resourceHeaderAuth,
                           eq(

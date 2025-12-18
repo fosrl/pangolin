@@ -10,7 +10,7 @@ const runMigrations = async () => {
         await migrate(db as any, {
             migrationsFolder: migrationsFolder
         });
-        console.log("Migrations completed successfully.");
+        console.log("Migrations completed successfully. ✅");
         process.exit(0);
     } catch (error) {
         console.error("Error running migrations:", error);

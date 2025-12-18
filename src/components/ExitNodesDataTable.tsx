@@ -10,6 +10,8 @@ interface DataTableProps<TData, TValue> {
     createRemoteExitNode?: () => void;
     onRefresh?: () => void;
     isRefreshing?: boolean;
+    columnVisibility?: Record<string, boolean>;
+    enableColumnVisibility?: boolean;
 }
 
 export function ExitNodesDataTable<TData, TValue>({
@@ -17,7 +19,9 @@ export function ExitNodesDataTable<TData, TValue>({
     data,
     createRemoteExitNode,
     onRefresh,
-    isRefreshing
+    isRefreshing,
+    columnVisibility,
+    enableColumnVisibility
 }: DataTableProps<TData, TValue>) {
     const t = useTranslations();
 
@@ -36,6 +40,10 @@ export function ExitNodesDataTable<TData, TValue>({
                 id: "name",
                 desc: false
             }}
+            columnVisibility={columnVisibility}
+            enableColumnVisibility={enableColumnVisibility}
+            stickyLeftColumn="name"
+            stickyRightColumn="actions"
         />
     );
 }

@@ -2,7 +2,9 @@ import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { ListRemoteExitNodesResponse } from "@server/routers/remoteExitNode/types";
 import { AxiosResponse } from "axios";
-import ExitNodesTable, { RemoteExitNodeRow } from "./ExitNodesTable";
+import ExitNodesTable, {
+    RemoteExitNodeRow
+} from "@app/components/ExitNodesTable";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { getTranslations } from "next-intl/server";
 

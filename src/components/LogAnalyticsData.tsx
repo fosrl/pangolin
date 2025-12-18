@@ -91,15 +91,12 @@ export function LogAnalyticsData(props: AnalyticsContentProps) {
         })
     );
 
-    const percentBlocked = stats
-        ? new Intl.NumberFormat(navigator.language, {
-              maximumFractionDigits: 2
-          }).format(
-              stats.totalRequests
-                  ? (stats.totalBlocked / stats.totalRequests) * 100
-                  : 0
-          )
-        : null;
+    const percentBlocked =
+        stats && stats.totalRequests > 0
+            ? new Intl.NumberFormat(navigator.language, {
+                  maximumFractionDigits: 2
+              }).format((stats.totalBlocked / stats.totalRequests) * 100)
+            : null;
     const totalRequests = stats
         ? new Intl.NumberFormat(navigator.language, {
               maximumFractionDigits: 0

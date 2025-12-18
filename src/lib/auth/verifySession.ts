@@ -3,8 +3,9 @@ import { authCookieHeader } from "@app/lib/api/cookies";
 import { GetUserResponse } from "@server/routers/user";
 import { AxiosResponse } from "axios";
 import { pullEnv } from "../pullEnv";
+import { cache } from "react";
 
-export async function verifySession({
+export const verifySession = cache(async function ({
     skipCheckVerifyEmail,
     forceLogin
 }: {
@@ -14,8 +15,12 @@ export async function verifySession({
     const env = pullEnv();
 
     try {
+        const search = new URLSearchParams();
+        if (forceLogin) {
+            search.set("forceLogin", "true");
+        }
         const res = await internal.get<AxiosResponse<GetUserResponse>>(
-            `/user${forceLogin ? "?forceLogin=true" : ""}`,
+            `/user?${search.toString()}`,
             await authCookieHeader()
         );
 
@@ -37,4 +42,4 @@ export async function verifySession({
     } catch (e) {
         return null;
     }
-}
+});

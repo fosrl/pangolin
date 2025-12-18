@@ -89,7 +89,7 @@ export async function deleteSite(
         // Send termination message outside of transaction to prevent blocking
         if (deletedNewtId) {
             const payload = {
-                type: `newt/terminate`,
+                type: `newt/wg/terminate`,
                 data: {}
             };
             // Don't await this to prevent blocking the response

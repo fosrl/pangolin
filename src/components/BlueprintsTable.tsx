@@ -33,35 +33,6 @@ export default function BlueprintsTable({ blueprints, orgId }: Props) {
 
     const columns: ExtendedColumnDef<BlueprintRow>[] = [
         {
-            accessorKey: "createdAt",
-            friendlyName: t("appliedAt"),
-            header: ({ column }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        onClick={() =>
-                            column.toggleSorting(column.getIsSorted() === "asc")
-                        }
-                    >
-                        {t("appliedAt")}
-                        <ArrowUpDown className="ml-2 size-4" />
-                    </Button>
-                );
-            },
-            cell: ({ row }) => {
-                return (
-                    <time
-                        className="text-muted-foreground"
-                        dateTime={row.original.createdAt.toString()}
-                    >
-                        {new Date(
-                            row.original.createdAt * 1000
-                        ).toLocaleString()}
-                    </time>
-                );
-            }
-        },
-        {
             accessorKey: "name",
             enableHiding: false,
             friendlyName: t("name"),
@@ -79,7 +50,32 @@ export default function BlueprintsTable({ blueprints, orgId }: Props) {
                 );
             }
         },
-
+        {
+            accessorKey: "createdAt",
+            friendlyName: t("appliedAt"),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() =>
+                            column.toggleSorting(column.getIsSorted() === "asc")
+                        }
+                    >
+                        {t("appliedAt")}
+                        <ArrowUpDown className="ml-2 size-4" />
+                    </Button>
+                );
+            },
+            cell: ({ row }) => {
+                return (
+                    <time dateTime={row.original.createdAt.toString()}>
+                        {new Date(
+                            row.original.createdAt * 1000
+                        ).toLocaleString()}
+                    </time>
+                );
+            }
+        },
         {
             accessorKey: "source",
             friendlyName: t("source"),
@@ -104,7 +100,7 @@ export default function BlueprintsTable({ blueprints, orgId }: Props) {
                             <Badge variant="secondary">
                                 <span className="inline-flex items-center gap-1 ">
                                     API
-                                    <Webhook className="size-4 flex-none" />
+                                    <Webhook className="w-3 h-3 flex-none" />
                                 </span>
                             </Badge>
                         );
@@ -114,7 +110,7 @@ export default function BlueprintsTable({ blueprints, orgId }: Props) {
                             <Badge variant="secondary">
                                 <span className="inline-flex items-center gap-1 ">
                                     Newt CLI
-                                    <Terminal className="size-4 flex-none" />
+                                    <Terminal className="w-3 h-3 flex-none" />
                                 </span>
                             </Badge>
                         );
@@ -174,7 +170,7 @@ export default function BlueprintsTable({ blueprints, orgId }: Props) {
                             href={`/${orgId}/settings/blueprints/${row.original.blueprintId}`}
                         >
                             <Button variant="outline" className="items-center">
-                                View Details
+                                {t("blueprintViewDetails")}
                                 <ArrowRight className="ml-2 w-4 h-4" />
                             </Button>
                         </Link>

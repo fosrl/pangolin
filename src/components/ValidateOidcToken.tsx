@@ -26,6 +26,11 @@ type ValidateOidcTokenParams = {
     stateCookie: string | undefined;
     idp: { name: string };
     loginPageId?: number;
+    providerError?: {
+        error: string;
+        description?: string | null;
+        uri?: string | null;
+    };
 };
 
 export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
@@ -35,14 +40,65 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isProviderError, setIsProviderError] = useState(false);
 
     const { licenseStatus, isLicenseViolation } = useLicenseStatusContext();
 
     const t = useTranslations();
 
     useEffect(() => {
-        async function validate() {
+        let isCancelled = false;
+
+        async function runValidation() {
             setLoading(true);
+            setIsProviderError(false);
+
+            if (props.providerError?.error) {
+                const providerMessage =
+                    props.providerError.description ||
+                    t("idpErrorOidcProviderRejected", {
+                        error: props.providerError.error,
+                        defaultValue:
+                            "The identity provider returned an error: {error}."
+                    });
+                const suffix = props.providerError.uri
+                    ? ` (${props.providerError.uri})`
+                    : "";
+                if (!isCancelled) {
+                    setIsProviderError(true);
+                    setError(`${providerMessage}${suffix}`);
+                    setLoading(false);
+                }
+                return;
+            }
+
+            if (!props.code) {
+                if (!isCancelled) {
+                    setIsProviderError(false);
+                    setError(
+                        t("idpErrorOidcMissingCode", {
+                            defaultValue:
+                                "The identity provider did not return an authorization code."
+                        })
+                    );
+                    setLoading(false);
+                }
+                return;
+            }
+
+            if (!props.expectedState || !props.stateCookie) {
+                if (!isCancelled) {
+                    setIsProviderError(false);
+                    setError(
+                        t("idpErrorOidcMissingState", {
+                            defaultValue:
+                                "The login request is missing state information. Please restart the login process."
+                        })
+                    );
+                    setLoading(false);
+                }
+                return;
+            }
 
             console.log(t("idpOidcTokenValidating"), {
                 code: props.code,
@@ -57,22 +113,28 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
             try {
                 const response = await validateOidcUrlCallbackProxy(
                     props.idpId,
-                    props.code || "",
-                    props.expectedState || "",
-                    props.stateCookie || "",
+                    props.code,
+                    props.expectedState,
+                    props.stateCookie,
                     props.loginPageId
                 );
 
                 if (response.error) {
-                    setError(response.message);
-                    setLoading(false);
+                    if (!isCancelled) {
+                        setIsProviderError(false);
+                        setError(response.message);
+                        setLoading(false);
+                    }
                     return;
                 }
 
                 const data = response.data;
                 if (!data) {
-                    setError("Unable to validate OIDC token");
-                    setLoading(false);
+                    if (!isCancelled) {
+                        setIsProviderError(false);
+                        setError("Unable to validate OIDC token");
+                        setLoading(false);
+                    }
                     return;
                 }
 
@@ -82,8 +144,11 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
                     router.push(env.app.dashboardUrl);
                 }
 
-                setLoading(false);
-                await new Promise((resolve) => setTimeout(resolve, 100));
+                if (!isCancelled) {
+                    setIsProviderError(false);
+                    setLoading(false);
+                    await new Promise((resolve) => setTimeout(resolve, 100));
+                }
 
                 if (redirectUrl.startsWith("http")) {
                     window.location.href = data.redirectUrl; // this is validated by the parent using this component
@@ -92,18 +157,27 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
                 }
             } catch (e: any) {
                 console.error(e);
-                setError(
-                    t("idpErrorOidcTokenValidating", {
-                        defaultValue:
-                            "An unexpected error occurred. Please try again."
-                    })
-                );
+                if (!isCancelled) {
+                    setIsProviderError(false);
+                    setError(
+                        t("idpErrorOidcTokenValidating", {
+                            defaultValue:
+                                "An unexpected error occurred. Please try again."
+                        })
+                    );
+                }
             } finally {
-                setLoading(false);
+                if (!isCancelled) {
+                    setLoading(false);
+                }
             }
         }
 
-        validate();
+        runValidation();
+
+        return () => {
+            isCancelled = true;
+        };
     }, []);
 
     return (
@@ -134,12 +208,16 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
                         <Alert variant="destructive" className="w-full">
                             <AlertCircle className="h-5 w-5" />
                             <AlertDescription className="flex flex-col space-y-2">
-                                <span>
-                                    {t("idpErrorConnectingTo", {
-                                        name: props.idp.name
-                                    })}
+                                <span className="text-sm font-medium">
+                                    {isProviderError
+                                        ? error
+                                        : t("idpErrorConnectingTo", {
+                                              name: props.idp.name
+                                          })}
                                 </span>
-                                <span className="text-xs">{error}</span>
+                                {!isProviderError && (
+                                    <span className="text-xs">{error}</span>
+                                )}
                             </AlertDescription>
                         </Alert>
                     )}

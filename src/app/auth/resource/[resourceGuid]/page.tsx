@@ -19,11 +19,15 @@ import { ListOrgIdpsResponse } from "@server/routers/orgIdp/types";
 import AutoLoginHandler from "@app/components/AutoLoginHandler";
 import { build } from "@server/build";
 import { headers } from "next/headers";
-import { GetLoginPageResponse } from "@server/routers/loginPage/types";
+import type {
+    LoadLoginPageBrandingResponse,
+    LoadLoginPageResponse
+} from "@server/routers/loginPage/types";
 import { GetOrgTierResponse } from "@server/routers/billing/types";
 import { TierId } from "@server/lib/billing/tiers";
 import { CheckOrgUserAccessResponse } from "@server/routers/org";
 import OrgPolicyRequired from "@app/components/OrgPolicyRequired";
+import { isOrgSubscribed } from "@app/lib/api/isOrgSubscribed";
 
 export const dynamic = "force-dynamic";
 
@@ -52,8 +56,7 @@ export default async function ResourceAuthPage(props: {
         }
     } catch (e) {}
 
-    const getUser = cache(verifySession);
-    const user = await getUser({ skipCheckVerifyEmail: true });
+    const user = await verifySession({ skipCheckVerifyEmail: true });
 
     if (!authInfo) {
         return (
@@ -63,22 +66,7 @@ export default async function ResourceAuthPage(props: {
         );
     }
 
-    let subscriptionStatus: GetOrgTierResponse | null = null;
-    if (build == "saas") {
-        try {
-            const getSubscription = cache(() =>
-                priv.get<AxiosResponse<GetOrgTierResponse>>(
-                    `/org/${authInfo.orgId}/billing/tier`
-                )
-            );
-            const subRes = await getSubscription();
-            subscriptionStatus = subRes.data.data;
-        } catch {}
-    }
-    const subscribed =
-        build === "enterprise"
-            ? true
-            : subscriptionStatus?.tier === TierId.STANDARD;
+    const subscribed = await isOrgSubscribed(authInfo.orgId);
 
     const allHeaders = await headers();
     const host = allHeaders.get("host");
@@ -89,9 +77,9 @@ export default async function ResourceAuthPage(props: {
             redirect(env.app.dashboardUrl);
         }
 
-        let loginPage: GetLoginPageResponse | undefined;
+        let loginPage: LoadLoginPageResponse | undefined;
         try {
-            const res = await priv.get<AxiosResponse<GetLoginPageResponse>>(
+            const res = await priv.get<AxiosResponse<LoadLoginPageResponse>>(
                 `/login-page?resourceId=${authInfo.resourceId}&fullDomain=${host}`
             );
 
@@ -106,6 +94,7 @@ export default async function ResourceAuthPage(props: {
     }
 
     let redirectUrl = authInfo.url;
+
     if (searchParams.redirect) {
         try {
             const serverResourceHost = new URL(authInfo.url).host;
@@ -230,9 +219,7 @@ export default async function ResourceAuthPage(props: {
             })) as LoginFormIDP[];
         }
     } else {
-        const idpsRes = await cache(
-            async () => await priv.get<AxiosResponse<ListIdpsResponse>>("/idp")
-        )();
+        const idpsRes = await priv.get<AxiosResponse<ListIdpsResponse>>("/idp");
         loginIdps = idpsRes.data.data.idps.map((idp) => ({
             idpId: idp.idpId,
             name: idp.name,
@@ -253,11 +240,23 @@ export default async function ResourceAuthPage(props: {
                     resourceId={authInfo.resourceId}
                     skipToIdpId={authInfo.skipToIdpId}
                     redirectUrl={redirectUrl}
-                    orgId={build == "saas" ? authInfo.orgId : undefined}
+                    orgId={build === "saas" ? authInfo.orgId : undefined}
                 />
             );
         }
     }
+
+    let branding: LoadLoginPageBrandingResponse | null = null;
+    try {
+        if (subscribed) {
+            const res = await priv.get<
+                AxiosResponse<LoadLoginPageBrandingResponse>
+            >(`/login-page-branding?orgId=${authInfo.orgId}`);
+            if (res.status === 200) {
+                branding = res.data.data;
+            }
+        }
+    } catch (error) {}
 
     return (
         <>
@@ -281,6 +280,19 @@ export default async function ResourceAuthPage(props: {
                         redirect={redirectUrl}
                         idps={loginIdps}
                         orgId={build === "saas" ? authInfo.orgId : undefined}
+                        branding={
+                            !branding || build === "oss"
+                                ? undefined
+                                : {
+                                      logoHeight: branding.logoHeight,
+                                      logoUrl: branding.logoUrl,
+                                      logoWidth: branding.logoWidth,
+                                      primaryColor: branding.primaryColor,
+                                      resourceTitle: branding.resourceTitle,
+                                      resourceSubtitle:
+                                          branding.resourceSubtitle
+                                  }
+                        }
                     />
                 </div>
             )}

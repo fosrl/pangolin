@@ -22,7 +22,6 @@ import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
 import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusContext";
 import { build } from "@server/build";
-import { SecurityFeaturesAlert } from "@app/components/SecurityFeaturesAlert";
 import {
     InfoSection,
     InfoSectionContent,
@@ -32,6 +31,7 @@ import {
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { InfoIcon } from "lucide-react";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 
 export default function CredentialsPage() {
     const { env } = useEnvContext();
@@ -127,7 +127,7 @@ export default function CredentialsPage() {
                         </SettingsSectionDescription>
                     </SettingsSectionHeader>
                     <SettingsSectionBody>
-                        <SecurityFeaturesAlert />
+                        <PaidFeaturesAlert />
 
                         <InfoSections cols={3}>
                             <InfoSection>

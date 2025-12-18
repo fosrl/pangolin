@@ -199,7 +199,7 @@ function ProductUpdatesListPopup({
                                     {t("productUpdateWhatsNew")}
                                 </p>
                                 <div className="p-1 cursor-pointer">
-                                    <ChevronRightIcon className="size-4 flex-none" />
+                                    <ChevronRightIcon className="size-4 flex-none opacity-50" />
                                 </div>
                             </div>
                         </div>

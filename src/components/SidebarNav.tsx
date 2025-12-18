@@ -112,7 +112,7 @@ function CollapsibleNavItem({
             <CollapsibleTrigger asChild>
                 <button
                     className={cn(
-                        "flex items-center w-full rounded transition-colors hover:bg-secondary/50 dark:hover:bg-secondary/20 rounded-md",
+                        "flex items-center w-full rounded transition-colors hover:bg-secondary/80 dark:hover:bg-secondary/50 rounded-md",
                         level === 0 ? "p-3 py-1.5" : "py-1.5",
                         isChildActive
                             ? "text-primary font-medium"
@@ -252,7 +252,7 @@ export function SidebarNav({
             <Link
                 href={isDisabled ? "#" : hydratedHref}
                 className={cn(
-                    "flex items-center rounded transition-colors hover:bg-secondary/50 dark:hover:bg-secondary/20 rounded-md",
+                    "flex items-center rounded transition-colors hover:bg-secondary/80 dark:hover:bg-secondary/50 rounded-md",
                     isCollapsed ? "px-2 py-2 justify-center" : "px-3 py-1.5",
                     isActive
                         ? "text-primary font-medium"
@@ -338,7 +338,7 @@ export function SidebarNav({
                                     <TooltipTrigger asChild>
                                         <button
                                             className={cn(
-                                                "flex items-center rounded transition-colors hover:bg-secondary/50 dark:hover:bg-secondary/20 rounded-md px-2 py-2 justify-center w-full",
+                                                "flex items-center rounded transition-colors hover:bg-secondary/80 dark:hover:bg-secondary/50 rounded-md px-2 py-2 justify-center w-full",
                                                 isChildActive
                                                     ? "text-primary font-medium"
                                                     : "text-muted-foreground hover:text-foreground",

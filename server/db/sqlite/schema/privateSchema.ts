@@ -1,13 +1,12 @@
-import {
-    sqliteTable,
-    integer,
-    text,
-    real,
-    index
-} from "drizzle-orm/sqlite-core";
 import { InferSelectModel } from "drizzle-orm";
-import { domains, orgs, targets, users, exitNodes, sessions } from "./schema";
-import { metadata } from "@app/app/[orgId]/settings/layout";
+import {
+    index,
+    integer,
+    real,
+    sqliteTable,
+    text
+} from "drizzle-orm/sqlite-core";
+import { domains, exitNodes, orgs, sessions, users } from "./schema";
 
 export const certificates = sqliteTable("certificates", {
     certId: integer("certId").primaryKey({ autoIncrement: true }),
@@ -203,6 +202,31 @@ export const loginPageOrg = sqliteTable("loginPageOrg", {
         .references(() => orgs.orgId, { onDelete: "cascade" })
 });
 
+export const loginPageBranding = sqliteTable("loginPageBranding", {
+    loginPageBrandingId: integer("loginPageBrandingId").primaryKey({
+        autoIncrement: true
+    }),
+    logoUrl: text("logoUrl").notNull(),
+    logoWidth: integer("logoWidth").notNull(),
+    logoHeight: integer("logoHeight").notNull(),
+    primaryColor: text("primaryColor"),
+    resourceTitle: text("resourceTitle").notNull(),
+    resourceSubtitle: text("resourceSubtitle"),
+    orgTitle: text("orgTitle"),
+    orgSubtitle: text("orgSubtitle")
+});
+
+export const loginPageBrandingOrg = sqliteTable("loginPageBrandingOrg", {
+    loginPageBrandingId: integer("loginPageBrandingId")
+        .notNull()
+        .references(() => loginPageBranding.loginPageBrandingId, {
+            onDelete: "cascade"
+        }),
+    orgId: text("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" })
+});
+
 export const sessionTransferToken = sqliteTable("sessionTransferToken", {
     token: text("token").primaryKey(),
     sessionId: text("sessionId")
@@ -282,5 +306,6 @@ export type RemoteExitNodeSession = InferSelectModel<
 >;
 export type ExitNodeOrg = InferSelectModel<typeof exitNodeOrgs>;
 export type LoginPage = InferSelectModel<typeof loginPage>;
+export type LoginPageBranding = InferSelectModel<typeof loginPageBranding>;
 export type ActionAuditLog = InferSelectModel<typeof actionAuditLog>;
 export type AccessAuditLog = InferSelectModel<typeof accessAuditLog>;

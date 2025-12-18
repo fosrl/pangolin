@@ -1,5 +1,6 @@
 import { db, exitNodes, newts } from "@server/db";
 import { orgs, roleSites, sites, userSites } from "@server/db";
+import { remoteExitNodes } from "@server/db";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
@@ -104,12 +105,17 @@ function querySites(orgId: string, accessibleSiteIds: number[]) {
             newtVersion: newts.version,
             exitNodeId: sites.exitNodeId,
             exitNodeName: exitNodes.name,
-            exitNodeEndpoint: exitNodes.endpoint
+            exitNodeEndpoint: exitNodes.endpoint,
+            remoteExitNodeId: remoteExitNodes.remoteExitNodeId
         })
         .from(sites)
         .leftJoin(orgs, eq(sites.orgId, orgs.orgId))
         .leftJoin(newts, eq(newts.siteId, sites.siteId))
         .leftJoin(exitNodes, eq(exitNodes.exitNodeId, sites.exitNodeId))
+        .leftJoin(
+            remoteExitNodes,
+            eq(remoteExitNodes.exitNodeId, sites.exitNodeId)
+        )
         .where(
             and(
                 inArray(sites.siteId, accessibleSiteIds),

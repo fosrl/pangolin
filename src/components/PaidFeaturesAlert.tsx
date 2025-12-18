@@ -2,17 +2,14 @@
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { build } from "@server/build";
 import { useTranslations } from "next-intl";
-import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
-import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusContext";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
 
-export function SecurityFeaturesAlert() {
+export function PaidFeaturesAlert() {
     const t = useTranslations();
-    const { isUnlocked } = useLicenseStatusContext();
-    const subscriptionStatus = useSubscriptionStatusContext();
-
+    const { hasSaasSubscription, hasEnterpriseLicense } = usePaidStatus();
     return (
         <>
-            {build === "saas" && !subscriptionStatus?.isSubscribed() ? (
+            {build === "saas" && !hasSaasSubscription ? (
                 <Alert variant="info" className="mb-6">
                     <AlertDescription>
                         {t("subscriptionRequiredToUse")}
@@ -20,7 +17,7 @@ export function SecurityFeaturesAlert() {
                 </Alert>
             ) : null}
 
-            {build === "enterprise" && !isUnlocked() ? (
+            {build === "enterprise" && !hasEnterpriseLicense ? (
                 <Alert variant="info" className="mb-6">
                     <AlertDescription>
                         {t("licenseRequiredToUse")}

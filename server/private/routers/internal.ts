@@ -28,6 +28,7 @@ internalRouter.get("/org/:orgId/idp", orgIdp.listOrgIdps);
 internalRouter.get("/org/:orgId/billing/tier", billing.getOrgTier);
 
 internalRouter.get("/login-page", loginPage.loadLoginPage);
+internalRouter.get("/login-page-branding", loginPage.loadLoginPageBranding);
 
 internalRouter.post(
     "/get-session-transfer-token",

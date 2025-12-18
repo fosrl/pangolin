@@ -179,7 +179,7 @@ const CredenzaFooter = ({ className, children, ...props }: CredenzaProps) => {
     return (
         <CredenzaFooter
             className={cn(
-                "mt-8 md:mt-0 -mx-6 px-6 pt-6 border-t border-border",
+                "mt-8 md:mt-0 -mx-6 px-6 pt-4 border-t border-border",
                 className
             )}
             {...props}

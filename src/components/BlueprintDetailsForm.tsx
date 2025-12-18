@@ -52,8 +52,14 @@ export default function BlueprintDetailsForm({
         <Form {...form}>
             <div className="flex flex-col gap-6">
                 <Alert>
-                    <AlertDescription>
-                        <InfoSections cols={3}>
+                    <AlertDescription className="space-y-2">
+                        <InfoSections cols={4}>
+                            <InfoSection>
+                                <InfoSectionTitle>{t("name")}</InfoSectionTitle>
+                                <InfoSectionContent>
+                                    {blueprint.name}
+                                </InfoSectionContent>
+                            </InfoSection>
                             <InfoSection>
                                 <InfoSectionTitle>
                                     {t("status")}
@@ -121,6 +127,8 @@ export default function BlueprintDetailsForm({
                                     </time>
                                 </InfoSectionContent>
                             </InfoSection>
+                        </InfoSections>
+                        <InfoSections cols={1}>
                             {blueprint.message && (
                                 <InfoSection>
                                     <InfoSectionTitle>
@@ -138,60 +146,39 @@ export default function BlueprintDetailsForm({
                 </Alert>
                 <SettingsContainer>
                     <SettingsSection>
-                        <SettingsSectionHeader>
-                            <SettingsSectionTitle>
-                                {t("blueprintInfo")}
-                            </SettingsSectionTitle>
-                        </SettingsSectionHeader>
                         <SettingsSectionBody>
-                            <SettingsSectionForm className="max-w-2xl">
-                                <FormField
-                                    control={form.control}
-                                    name="name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>{t("name")}</FormLabel>
-                                            <FormControl>
-                                                <Input {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="contents"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>
-                                                {t("parsedContents")}
-                                            </FormLabel>
-                                            <FormControl>
-                                                <div
-                                                    className={cn(
-                                                        "resize-y h-64 min-h-64 overflow-y-auto overflow-x-clip max-w-full rounded-md"
-                                                    )}
-                                                >
-                                                    <Editor
-                                                        className="w-full h-full max-w-full"
-                                                        language="yaml"
-                                                        theme="vs-dark"
-                                                        options={{
-                                                            minimap: {
-                                                                enabled: false
-                                                            },
-                                                            readOnly: true
-                                                        }}
-                                                        {...field}
-                                                    />
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </SettingsSectionForm>
+                            <FormField
+                                control={form.control}
+                                name="contents"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            {t("parsedContents")}
+                                        </FormLabel>
+                                        <FormControl>
+                                            <div
+                                                className={cn(
+                                                    "resize-y h-64 min-h-128 overflow-y-auto overflow-x-clip max-w-full rounded-md"
+                                                )}
+                                            >
+                                                <Editor
+                                                    className="w-full h-full max-w-full"
+                                                    language="yaml"
+                                                    theme="vs-dark"
+                                                    options={{
+                                                        minimap: {
+                                                            enabled: false
+                                                        },
+                                                        readOnly: true
+                                                    }}
+                                                    {...field}
+                                                />
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </SettingsSectionBody>
                     </SettingsSection>
                 </SettingsContainer>

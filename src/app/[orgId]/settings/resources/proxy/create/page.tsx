@@ -1396,6 +1396,8 @@ export default function Page() {
                                         <DomainPicker
                                             orgId={orgId as string}
                                             onDomainChange={(res) => {
+                                                if (!res) return;
+
                                                 httpForm.setValue(
                                                     "subdomain",
                                                     res.subdomain
@@ -1848,7 +1850,7 @@ export default function Page() {
 
                                         <Link
                                             className="text-sm text-primary flex items-center gap-1"
-                                            href="https://docs.pangolin.net/manage/resources/tcp-udp-resources"
+                                            href="https://docs.pangolin.net/manage/resources/public/raw-resources"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >

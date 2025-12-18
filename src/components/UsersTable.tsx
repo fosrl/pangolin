@@ -11,7 +11,7 @@ import {
 import { Button } from "@app/components/ui/button";
 import { ArrowRight, ArrowUpDown, Crown, MoreHorizontal } from "lucide-react";
 import { UsersDataTable } from "@app/components/UsersDataTable";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useOrgContext } from "@app/hooks/useOrgContext";
 import { toast } from "@app/hooks/useToast";
@@ -53,6 +53,11 @@ export default function UsersTable({ users: u }: UsersTableProps) {
     const { org } = useOrgContext();
     const t = useTranslations();
     const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Update local state when props change (e.g., after refresh)
+    useEffect(() => {
+        setUsers(u);
+    }, [u]);
 
     const refreshData = async () => {
         console.log("Data refreshed");

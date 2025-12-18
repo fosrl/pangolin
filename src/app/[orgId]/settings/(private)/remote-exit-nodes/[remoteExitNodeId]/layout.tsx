@@ -43,7 +43,7 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
     return (
         <>
             <SettingsSectionTitle
-                title={`Remote Exit Node ${remoteExitNode?.name || "Unknown"}`}
+                title={`Remote Node ${remoteExitNode?.name || "Unknown"}`}
                 description="Manage your remote exit node settings and configuration"
             />
 

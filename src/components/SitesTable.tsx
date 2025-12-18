@@ -13,6 +13,7 @@ import { Button } from "@app/components/ui/button";
 import {
     ArrowRight,
     ArrowUpDown,
+    ArrowUpRight,
     Check,
     MoreHorizontal,
     X
@@ -46,6 +47,7 @@ export type SiteRow = {
     address?: string;
     exitNodeName?: string;
     exitNodeEndpoint?: string;
+    remoteExitNodeId?: string;
 };
 
 type SitesTableProps = {
@@ -303,27 +305,51 @@ export default function SitesTable({ sites, orgId }: SitesTableProps) {
             },
             cell: ({ row }) => {
                 const originalRow = row.original;
-                return originalRow.exitNodeName ? (
-                    <div className="flex items-center space-x-2">
-                        <span>{originalRow.exitNodeName}</span>
-                        {build == "saas" &&
-                            originalRow.exitNodeName &&
-                            [
-                                "mercury",
-                                "venus",
-                                "earth",
-                                "mars",
-                                "jupiter",
-                                "saturn",
-                                "uranus",
-                                "neptune"
-                            ].includes(
-                                originalRow.exitNodeName.toLowerCase()
-                            ) && <Badge variant="secondary">Cloud</Badge>}
-                    </div>
-                ) : (
-                    "-"
-                );
+                if (!originalRow.exitNodeName) {
+                    return "-";
+                }
+
+                const isCloudNode =
+                    build == "saas" &&
+                    originalRow.exitNodeName &&
+                    [
+                        "mercury",
+                        "venus",
+                        "earth",
+                        "mars",
+                        "jupiter",
+                        "saturn",
+                        "uranus",
+                        "neptune"
+                    ].includes(originalRow.exitNodeName.toLowerCase());
+
+                if (isCloudNode) {
+                    const capitalizedName =
+                        originalRow.exitNodeName.charAt(0).toUpperCase() +
+                        originalRow.exitNodeName.slice(1).toLowerCase();
+                    return (
+                        <Badge variant="secondary">
+                            Pangolin {capitalizedName}
+                        </Badge>
+                    );
+                }
+
+                // Self-hosted node
+                if (originalRow.remoteExitNodeId) {
+                    return (
+                        <Link
+                            href={`/${originalRow.orgId}/settings/remote-exit-nodes/${originalRow.remoteExitNodeId}`}
+                        >
+                            <Button variant="outline">
+                                {originalRow.exitNodeName}
+                                <ArrowUpRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        </Link>
+                    );
+                }
+
+                // Fallback if no remoteExitNodeId
+                return <span>{originalRow.exitNodeName}</span>;
             }
         },
         {

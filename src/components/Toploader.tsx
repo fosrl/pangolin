@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 export function TopLoader() {
     return (
         <>
-            <NextTopLoader showSpinner={false} />
+            <NextTopLoader showSpinner={false} color="var(--color-primary)" />
             <FinishingLoader />
         </>
     );

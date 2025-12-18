@@ -39,16 +39,15 @@ import {
     resourceWhitelistProxy,
     resourceAccessProxy
 } from "@app/actions/server";
-import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import Link from "next/link";
-import Image from "next/image";
 import BrandingLogo from "@app/components/BrandingLogo";
 import { useSupporterStatusContext } from "@app/hooks/useSupporterStatusContext";
 import { useTranslations } from "next-intl";
 import { build } from "@server/build";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
+import { replacePlaceholder } from "@app/lib/replacePlaceholder";
 
 const pinSchema = z.object({
     pin: z
@@ -88,6 +87,14 @@ type ResourceAuthPortalProps = {
     redirect: string;
     idps?: LoginFormIDP[];
     orgId?: string;
+    branding?: {
+        logoUrl: string;
+        logoWidth: number;
+        logoHeight: number;
+        primaryColor: string | null;
+        resourceTitle: string;
+        resourceSubtitle: string | null;
+    };
 };
 
 export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
@@ -104,7 +111,7 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
         return colLength;
     };
 
-    const [numMethods, setNumMethods] = useState(getNumMethods());
+    const [numMethods] = useState(() => getNumMethods());
 
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [pincodeError, setPincodeError] = useState<string | null>(null);
@@ -309,13 +316,19 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
         }
     }
 
-    function getTitle() {
+    function getTitle(resourceName: string) {
         if (
-            isUnlocked() &&
             build !== "oss" &&
-            env.branding.resourceAuthPage?.titleText
+            isUnlocked() &&
+            (!!env.branding.resourceAuthPage?.titleText ||
+                !!props.branding?.resourceTitle)
         ) {
-            return env.branding.resourceAuthPage.titleText;
+            if (props.branding?.resourceTitle) {
+                return replacePlaceholder(props.branding?.resourceTitle, {
+                    resourceName
+                });
+            }
+            return env.branding.resourceAuthPage?.titleText;
         }
         return t("authenticationRequired");
     }
@@ -324,10 +337,16 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
         if (
             isUnlocked() &&
             build !== "oss" &&
-            env.branding.resourceAuthPage?.subtitleText
+            (env.branding.resourceAuthPage?.subtitleText ||
+                props.branding?.resourceSubtitle)
         ) {
-            return env.branding.resourceAuthPage.subtitleText
-                .split("{{resourceName}}")
+            if (props.branding?.resourceSubtitle) {
+                return replacePlaceholder(props.branding?.resourceSubtitle, {
+                    resourceName
+                });
+            }
+            return env.branding.resourceAuthPage?.subtitleText
+                ?.split("{{resourceName}}")
                 .join(resourceName);
         }
         return numMethods > 1
@@ -336,14 +355,23 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
     }
 
     const logoWidth = isUnlocked()
-        ? env.branding.logo?.authPage?.width || 100
+        ? (props.branding?.logoWidth ??
+          env.branding.logo?.authPage?.width ??
+          100)
         : 100;
     const logoHeight = isUnlocked()
-        ? env.branding.logo?.authPage?.height || 100
+        ? (props.branding?.logoHeight ??
+          env.branding.logo?.authPage?.height ??
+          100)
         : 100;
 
     return (
-        <div>
+        <div
+            style={{
+                // @ts-expect-error CSS variable
+                "--primary": isUnlocked() ? props.branding?.primaryColor : null
+            }}
+        >
             {!accessDenied ? (
                 <div>
                     {isUnlocked() && build === "enterprise" ? (
@@ -381,15 +409,19 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
                         <CardHeader>
                             {isUnlocked() &&
                                 build !== "oss" &&
-                                env.branding?.resourceAuthPage?.showLogo && (
+                                (env.branding?.resourceAuthPage?.showLogo ||
+                                    props.branding) && (
                                     <div className="flex flex-row items-center justify-center mb-3">
                                         <BrandingLogo
                                             height={logoHeight}
                                             width={logoWidth}
+                                            logoPath={props.branding?.logoUrl}
                                         />
                                     </div>
                                 )}
-                            <CardTitle>{getTitle()}</CardTitle>
+                            <CardTitle>
+                                {getTitle(props.resource.name)}
+                            </CardTitle>
                             <CardDescription>
                                 {getSubtitle(props.resource.name)}
                             </CardDescription>

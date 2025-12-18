@@ -311,6 +311,33 @@ authenticated.get(
     loginPage.getLoginPage
 );
 
+authenticated.get(
+    "/org/:orgId/login-page-branding",
+    verifyValidLicense,
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getLoginPage),
+    logActionAudit(ActionsEnum.getLoginPage),
+    loginPage.getLoginPageBranding
+);
+
+authenticated.put(
+    "/org/:orgId/login-page-branding",
+    verifyValidLicense,
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.updateLoginPage),
+    logActionAudit(ActionsEnum.updateLoginPage),
+    loginPage.upsertLoginPageBranding
+);
+
+authenticated.delete(
+    "/org/:orgId/login-page-branding",
+    verifyValidLicense,
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.deleteLoginPage),
+    logActionAudit(ActionsEnum.deleteLoginPage),
+    loginPage.deleteLoginPageBranding
+);
+
 authRouter.post(
     "/remoteExitNode/get-token",
     verifyValidLicense,

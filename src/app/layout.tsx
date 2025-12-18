@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Inter } from "next/font/google";
+import { Geist, Inter, Manrope, Open_Sans } from "next/font/google";
 import { ThemeProvider } from "@app/providers/ThemeProvider";
 import EnvProvider from "@app/providers/EnvProvider";
 import { pullEnv } from "@app/lib/pullEnv";
@@ -30,7 +30,9 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-const font = Inter({ subsets: ["latin"] });
+const font = Inter({
+    subsets: ["latin"]
+});
 
 export default async function RootLayout({
     children

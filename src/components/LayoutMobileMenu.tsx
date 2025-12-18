@@ -49,7 +49,7 @@ export function LayoutMobileMenu({
 
     return (
         <div className="shrink-0 md:hidden">
-            <div className="h-16 flex items-center px-4">
+            <div className="h-16 flex items-center px-2">
                 <div className="flex items-center gap-4">
                     {showSidebar && (
                         <div>

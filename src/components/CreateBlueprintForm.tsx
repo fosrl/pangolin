@@ -127,7 +127,7 @@ export default function CreateBlueprintForm({
                             </SettingsSectionTitle>
                         </SettingsSectionHeader>
                         <SettingsSectionBody>
-                            <SettingsSectionForm className="max-w-2xl">
+                            <SettingsSectionForm>
                                 <FormField
                                     control={form.control}
                                     name="name"
@@ -141,44 +141,40 @@ export default function CreateBlueprintForm({
                                         </FormItem>
                                     )}
                                 />
-
-                                <FormField
-                                    control={form.control}
-                                    name="contents"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>
-                                                {t("contents")}
-                                            </FormLabel>
-                                            <FormDescription>
-                                                {t(
-                                                    "blueprintContentsDescription"
-                                                )}
-                                            </FormDescription>
-                                            <FormControl>
-                                                <div
-                                                    className={cn(
-                                                        "resize-y h-64 min-h-64 overflow-y-auto overflow-x-clip max-w-full rounded-md"
-                                                    )}
-                                                >
-                                                    <Editor
-                                                        className="w-full h-full max-w-full"
-                                                        language="yaml"
-                                                        theme="vs-dark"
-                                                        options={{
-                                                            minimap: {
-                                                                enabled: false
-                                                            }
-                                                        }}
-                                                        {...field}
-                                                    />
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
                             </SettingsSectionForm>
+
+                            <FormField
+                                control={form.control}
+                                name="contents"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>{t("contents")}</FormLabel>
+                                        <FormDescription>
+                                            {t("blueprintContentsDescription")}
+                                        </FormDescription>
+                                        <FormControl>
+                                            <div
+                                                className={cn(
+                                                    "resize-y h-64 min-h-128 overflow-y-auto overflow-x-clip max-w-full rounded-md"
+                                                )}
+                                            >
+                                                <Editor
+                                                    className="w-full h-full max-w-full"
+                                                    language="yaml"
+                                                    theme="vs-dark"
+                                                    options={{
+                                                        minimap: {
+                                                            enabled: false
+                                                        }
+                                                    }}
+                                                    {...field}
+                                                />
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </SettingsSectionBody>
                     </SettingsSection>
 

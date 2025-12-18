@@ -2,7 +2,7 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
-import { ExitNodesDataTable } from "./ExitNodesDataTable";
+import { ExitNodesDataTable } from "@app/components/ExitNodesDataTable";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -246,12 +246,13 @@ export default function ExitNodesTable({
         },
         {
             id: "actions",
-            header: () => <span className="p-3">{t("actions")}</span>,
+            enableHiding: false,
+            header: () => <span className="p-3"></span>,
             cell: ({ row }) => {
                 const nodeRow = row.original;
                 const remoteExitNodeId = nodeRow.id;
                 return (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-end">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -283,7 +284,7 @@ export default function ExitNodesTable({
                         <Link
                             href={`/${nodeRow.orgId}/settings/remote-exit-nodes/${remoteExitNodeId}`}
                         >
-                            <Button variant={"secondary"} size="sm">
+                            <Button variant={"outline"}>
                                 {t("edit")}
                                 <ArrowRight className="ml-2 w-4 h-4" />
                             </Button>
@@ -327,6 +328,11 @@ export default function ExitNodesTable({
                 }
                 onRefresh={refreshData}
                 isRefreshing={isRefreshing}
+                columnVisibility={{
+                    type: false,
+                    address: false,
+                }}
+                enableColumnVisibility={true}
             />
         </>
     );

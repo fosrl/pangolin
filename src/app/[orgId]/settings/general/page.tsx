@@ -43,16 +43,16 @@ import {
     SettingsSectionTitle,
     SettingsSectionDescription,
     SettingsSectionBody,
-    SettingsSectionForm,
-    SettingsSectionFooter
+    SettingsSectionForm
 } from "@app/components/Settings";
 import { useUserContext } from "@app/hooks/useUserContext";
 import { useTranslations } from "next-intl";
 import { build } from "@server/build";
 import { SwitchInput } from "@app/components/SwitchInput";
-import { SecurityFeaturesAlert } from "@app/components/SecurityFeaturesAlert";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
 import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusContext";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
 
 // Session length options in hours
 const SESSION_LENGTH_OPTIONS = [
@@ -112,29 +112,18 @@ const LOG_RETENTION_OPTIONS = [
 
 export default function GeneralPage() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const { orgUser } = userOrgUserContext();
     const router = useRouter();
     const { org } = useOrgContext();
     const api = createApiClient(useEnvContext());
     const { user } = useUserContext();
     const t = useTranslations();
     const { env } = useEnvContext();
-    const { licenseStatus, isUnlocked } = useLicenseStatusContext();
-    const subscription = useSubscriptionStatusContext();
-
-    // Check if security features are disabled due to licensing/subscription
-    const isSecurityFeatureDisabled = () => {
-        const isEnterpriseNotLicensed = build === "enterprise" && !isUnlocked();
-        const isSaasNotSubscribed =
-            build === "saas" && !subscription?.isSubscribed();
-        return isEnterpriseNotLicensed || isSaasNotSubscribed;
-    };
+    const { isPaidUser, hasSaasSubscription } = usePaidStatus();
 
     const [loadingDelete, setLoadingDelete] = useState(false);
     const [loadingSave, setLoadingSave] = useState(false);
     const [isSecurityPolicyConfirmOpen, setIsSecurityPolicyConfirmOpen] =
         useState(false);
-    const authPageSettingsRef = useRef<AuthPageSettingsRef>(null);
 
     const form = useForm({
         resolver: zodResolver(GeneralFormSchema),
@@ -256,14 +245,6 @@ export default function GeneralPage() {
 
             // Update organization
             await api.post(`/org/${org?.org.orgId}`, reqData);
-
-            // Also save auth page settings if they have unsaved changes
-            if (
-                build === "saas" &&
-                authPageSettingsRef.current?.hasUnsavedChanges()
-            ) {
-                await authPageSettingsRef.current.saveAuthSettings();
-            }
 
             toast({
                 title: t("orgUpdated"),
@@ -409,9 +390,7 @@ export default function GeneralPage() {
                                                         {LOG_RETENTION_OPTIONS.filter(
                                                             (option) => {
                                                                 if (
-                                                                    build ==
-                                                                        "saas" &&
-                                                                    !subscription?.subscribed &&
+                                                                    hasSaasSubscription &&
                                                                     option.value >
                                                                         30
                                                                 ) {
@@ -439,19 +418,15 @@ export default function GeneralPage() {
                                     )}
                                 />
 
-                                {build != "oss" && (
+                                {build !== "oss" && (
                                     <>
-                                        <SecurityFeaturesAlert />
+                                        <PaidFeaturesAlert />
 
                                         <FormField
                                             control={form.control}
                                             name="settingsLogRetentionDaysAccess"
                                             render={({ field }) => {
-                                                const isDisabled =
-                                                    (build == "saas" &&
-                                                        !subscription?.subscribed) ||
-                                                    (build == "enterprise" &&
-                                                        !isUnlocked());
+                                                const isDisabled = !isPaidUser;
 
                                                 return (
                                                     <FormItem>
@@ -517,11 +492,7 @@ export default function GeneralPage() {
                                             control={form.control}
                                             name="settingsLogRetentionDaysAction"
                                             render={({ field }) => {
-                                                const isDisabled =
-                                                    (build == "saas" &&
-                                                        !subscription?.subscribed) ||
-                                                    (build == "enterprise" &&
-                                                        !isUnlocked());
+                                                const isDisabled = !isPaidUser;
 
                                                 return (
                                                     <FormItem>
@@ -601,13 +572,12 @@ export default function GeneralPage() {
                             </SettingsSectionHeader>
                             <SettingsSectionBody>
                                 <SettingsSectionForm>
-                                    <SecurityFeaturesAlert />
+                                    <PaidFeaturesAlert />
                                     <FormField
                                         control={form.control}
                                         name="requireTwoFactor"
                                         render={({ field }) => {
-                                            const isDisabled =
-                                                isSecurityFeatureDisabled();
+                                            const isDisabled = !isPaidUser;
 
                                             return (
                                                 <FormItem className="col-span-2">
@@ -654,8 +624,7 @@ export default function GeneralPage() {
                                         control={form.control}
                                         name="maxSessionLengthHours"
                                         render={({ field }) => {
-                                            const isDisabled =
-                                                isSecurityFeatureDisabled();
+                                            const isDisabled = !isPaidUser;
 
                                             return (
                                                 <FormItem className="col-span-2">
@@ -741,8 +710,7 @@ export default function GeneralPage() {
                                         control={form.control}
                                         name="passwordExpiryDays"
                                         render={({ field }) => {
-                                            const isDisabled =
-                                                isSecurityFeatureDisabled();
+                                            const isDisabled = !isPaidUser;
 
                                             return (
                                                 <FormItem className="col-span-2">
@@ -832,8 +800,6 @@ export default function GeneralPage() {
                     )}
                 </form>
             </Form>
-
-            {build === "saas" && <AuthPageSettings ref={authPageSettingsRef} />}
 
             <div className="flex justify-end gap-2">
                 {build !== "saas" && (

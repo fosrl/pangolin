@@ -204,6 +204,29 @@ export const loginPageOrg = pgTable("loginPageOrg", {
         .references(() => orgs.orgId, { onDelete: "cascade" })
 });
 
+export const loginPageBranding = pgTable("loginPageBranding", {
+    loginPageBrandingId: serial("loginPageBrandingId").primaryKey(),
+    logoUrl: text("logoUrl").notNull(),
+    logoWidth: integer("logoWidth").notNull(),
+    logoHeight: integer("logoHeight").notNull(),
+    primaryColor: text("primaryColor"),
+    resourceTitle: text("resourceTitle").notNull(),
+    resourceSubtitle: text("resourceSubtitle"),
+    orgTitle: text("orgTitle"),
+    orgSubtitle: text("orgSubtitle")
+});
+
+export const loginPageBrandingOrg = pgTable("loginPageBrandingOrg", {
+    loginPageBrandingId: integer("loginPageBrandingId")
+        .notNull()
+        .references(() => loginPageBranding.loginPageBrandingId, {
+            onDelete: "cascade"
+        }),
+    orgId: varchar("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" })
+});
+
 export const sessionTransferToken = pgTable("sessionTransferToken", {
     token: varchar("token").primaryKey(),
     sessionId: varchar("sessionId")
@@ -283,5 +306,6 @@ export type RemoteExitNodeSession = InferSelectModel<
 >;
 export type ExitNodeOrg = InferSelectModel<typeof exitNodeOrgs>;
 export type LoginPage = InferSelectModel<typeof loginPage>;
+export type LoginPageBranding = InferSelectModel<typeof loginPageBranding>;
 export type ActionAuditLog = InferSelectModel<typeof actionAuditLog>;
 export type AccessAuditLog = InferSelectModel<typeof accessAuditLog>;

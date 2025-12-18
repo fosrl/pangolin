@@ -23,7 +23,6 @@ import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
 import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusContext";
 import { build } from "@server/build";
-import { SecurityFeaturesAlert } from "@app/components/SecurityFeaturesAlert";
 import {
     InfoSection,
     InfoSectionContent,
@@ -39,6 +38,7 @@ import {
     generateObfuscatedWireGuardConfig
 } from "@app/lib/wireguard";
 import { QRCodeCanvas } from "qrcode.react";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 
 export default function CredentialsPage() {
     const { env } = useEnvContext();
@@ -203,7 +203,7 @@ export default function CredentialsPage() {
                             </SettingsSectionDescription>
                         </SettingsSectionHeader>
 
-                        <SecurityFeaturesAlert />
+                        <PaidFeaturesAlert />
 
                         <SettingsSectionBody>
                             <InfoSections cols={3}>
@@ -300,7 +300,7 @@ export default function CredentialsPage() {
                             </SettingsSectionDescription>
                         </SettingsSectionHeader>
 
-                        <SecurityFeaturesAlert />
+                        <PaidFeaturesAlert />
 
                         <SettingsSectionBody>
                             {!loadingDefaults && (

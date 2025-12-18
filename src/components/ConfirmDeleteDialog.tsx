@@ -6,43 +6,22 @@ import {
     FormControl,
     FormField,
     FormItem,
-    FormLabel,
     FormMessage
 } from "@app/components/ui/form";
 import { Input } from "@app/components/ui/input";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
-} from "@app/components/ui/select";
-import { useToast } from "@app/hooks/useToast";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-    InviteUserBody,
-    InviteUserResponse,
-    ListUsersResponse
-} from "@server/routers/user";
-import { AxiosResponse } from "axios";
-import React, { useState } from "react";
+import React, { useActionState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import CopyTextBox from "@app/components/CopyTextBox";
 import {
     Credenza,
     CredenzaBody,
     CredenzaClose,
     CredenzaContent,
-    CredenzaDescription,
     CredenzaFooter,
     CredenzaHeader,
     CredenzaTitle
 } from "@app/components/Credenza";
-import { useOrgContext } from "@app/hooks/useOrgContext";
-import { Description } from "@radix-ui/react-toast";
-import { createApiClient } from "@app/lib/api";
-import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useTranslations } from "next-intl";
 import CopyToClipboard from "./CopyToClipboard";
 
@@ -57,7 +36,7 @@ type InviteUserFormProps = {
     warningText?: string;
 };
 
-export default function InviteUserForm({
+export default function ConfirmDeleteDialog({
     open,
     setOpen,
     string,
@@ -67,9 +46,7 @@ export default function InviteUserForm({
     dialog,
     warningText
 }: InviteUserFormProps) {
-    const [loading, setLoading] = useState(false);
-
-    const api = createApiClient(useEnvContext());
+    const [, formAction, loading] = useActionState(onSubmit, null);
 
     const t = useTranslations();
 
@@ -86,21 +63,14 @@ export default function InviteUserForm({
         }
     });
 
-    function reset() {
-        form.reset();
-    }
-
-    async function onSubmit(values: z.infer<typeof formSchema>) {
-        setLoading(true);
+    async function onSubmit() {
         try {
             await onConfirm();
             setOpen(false);
-            reset();
+            form.reset();
         } catch (error) {
             // Handle error if needed
             console.error("Confirmation failed:", error);
-        } finally {
-            setLoading(false);
         }
     }
 
@@ -110,7 +80,7 @@ export default function InviteUserForm({
                 open={open}
                 onOpenChange={(val) => {
                     setOpen(val);
-                    reset();
+                    form.reset();
                 }}
             >
                 <CredenzaContent>
@@ -136,7 +106,7 @@ export default function InviteUserForm({
                         </div>
                         <Form {...form}>
                             <form
-                                onSubmit={form.handleSubmit(onSubmit)}
+                                action={formAction}
                                 className="space-y-4"
                                 id="confirm-delete-form"
                             >
@@ -146,7 +116,12 @@ export default function InviteUserForm({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormControl>
-                                                <Input {...field} />
+                                                <Input
+                                                    {...field}
+                                                    placeholder={t(
+                                                        "enterConfirmation"
+                                                    )}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
