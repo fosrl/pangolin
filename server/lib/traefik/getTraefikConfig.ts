@@ -19,6 +19,109 @@ import { sanitize, validatePathRewriteConfig } from "./utils";
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const badgerMiddlewareName = "badger";
 
+
+function escapeHtml(text: string): string {
+    const map: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, (char) => map[char]);
+}
+
+
+export function generateMaintenanceHTML(
+    title: string | null,
+    message: string | null,
+    estimatedTime: string | null
+): string {
+    const safeTitle = escapeHtml(title || 'Service Temporarily Unavailable');
+    const safeMessage = escapeHtml(message || 'We are currently experiencing technical difficulties. Please check back soon.');
+    const safeEstimatedTime = estimatedTime ? escapeHtml(estimatedTime) : null;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>${safeTitle}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 1rem;
+            line-height: 1.6;
+        }
+        .container {
+            text-align: center;
+            padding: 3rem 2rem;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .message {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            opacity: 0.95;
+        }
+        .time {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        @media (max-width: 640px) {
+            h1 { font-size: 2rem; }
+            .message { font-size: 1rem; }
+            .container { padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🔧</div>
+        <h1>${safeTitle}</h1>
+        <p class="message">${safeMessage}</p>
+        ${safeEstimatedTime ?
+            `<div class="time">
+                <strong>Estimated completion:</strong><br>
+                ${safeEstimatedTime}
+            </div>`
+            : ''}
+    </div>
+</body>
+</html>`;
+}
+
 export async function getTraefikConfig(
     exitNodeId: number,
     siteTypes: string[],
@@ -59,6 +162,12 @@ export async function getTraefikConfig(
             headers: resources.headers,
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
+
+            maintenanceModeEnabled: resources.maintenanceModeEnabled,
+            maintenanceModeType: resources.maintenanceModeType,
+            maintenanceTitle: resources.maintenanceTitle,
+            maintenanceMessage: resources.maintenanceMessage,
+            maintenanceEstimatedTime: resources.maintenanceEstimatedTime,
             // Target fields
             targetId: targets.targetId,
             targetEnabled: targets.enabled,
@@ -181,10 +290,14 @@ export async function getTraefikConfig(
                 // Store domain cert resolver fields
                 domainCertResolver: row.domainCertResolver,
                 preferWildcardCert: row.preferWildcardCert
+                maintenanceModeEnabled: row.maintenanceModeEnabled,
+                maintenanceModeType: row.maintenanceModeType,
+                maintenanceTitle: row.maintenanceTitle,
+                maintenanceMessage: row.maintenanceMessage,
+                maintenanceEstimatedTime: row.maintenanceEstimatedTime,
             });
         }
 
-        // Add target with its associated site data
         resourcesMap.get(key).targets.push({
             resourceId: row.resourceId,
             targetId: row.targetId,
@@ -247,6 +360,98 @@ export async function getTraefikConfig(
                 config_output.http.services = {};
             }
 
+            // available healthy servers for automatic mode
+            const availableServers = (targets as TargetWithSite[]).filter(
+                (target: TargetWithSite) => {
+                    if (!target.enabled) return false;
+
+                    const anySitesOnline = (targets as TargetWithSite[]).some(
+                        (t: TargetWithSite) => t.site.online
+                    );
+                    if (anySitesOnline && !target.site.online) return false;
+
+                    if (target.site.type === "local" || target.site.type === "wireguard") {
+                        return target.ip && target.port && target.method;
+                    } else if (target.site.type === "newt") {
+                        return target.internalPort && target.method && target.site.subnet;
+                    }
+                    return false;
+                }
+            );
+
+            const hasHealthyServers = availableServers.length > 0;
+
+            let showMaintenancePage = false;
+            if (resource.maintenanceModeEnabled) {
+                if (resource.maintenanceModeType === "forced") {
+                    showMaintenancePage = true;
+                    logger.info(
+                        `Resource ${resource.name} (${fullDomain}) is in FORCED maintenance mode`
+                    );
+                } else if (resource.maintenanceModeType === "automatic") {
+                    showMaintenancePage = !hasHealthyServers;
+                    if (showMaintenancePage) {
+                        logger.warn(
+                            `Resource ${resource.name} (${fullDomain}) has no healthy servers - showing maintenance page (AUTOMATIC mode)`
+                        );
+                    }
+                }
+            }
+
+            if (showMaintenancePage) {
+                const maintenanceServiceName = `${key}-maintenance-service`;
+                const routerName = `${key}-maintenance-router`;
+
+                const maintenancePort = config.getRawConfig().traefik.maintenance_port || 8888;
+                const entrypointHttp = config.getRawConfig().traefik.http_entrypoint;
+                const entrypointHttps = config.getRawConfig().traefik.https_entrypoint;
+
+                const fullDomain = resource.fullDomain;
+                const domainParts = fullDomain.split(".");
+                const wildCard = resource.subdomain
+                    ? `*.${domainParts.slice(1).join(".")}`
+                    : fullDomain;
+
+                const tls = {
+                    certResolver: resource.domainCertResolver?.trim() ||
+                        config.getRawConfig().traefik.cert_resolver,
+                    ...(resource.preferWildcardCert ?? config.getRawConfig().traefik.prefer_wildcard_cert
+                        ? { domains: [{ main: wildCard }] }
+                        : {})
+                };
+
+                const maintenanceHost = config.getRawConfig().traefik?.maintenance_host || 'pangolin';
+
+                config_output.http.services[maintenanceServiceName] = {
+                    loadBalancer: {
+                        servers: [{ url: `http://${maintenanceHost}:${maintenancePort}` }],
+                        passHostHeader: true
+                    }
+                };
+
+                const rule = `Host(\`${fullDomain}\`)`;
+
+                config_output.http.routers[routerName] = {
+                    entryPoints: [resource.ssl ? entrypointHttps : entrypointHttp],
+                    service: maintenanceServiceName,
+                    rule,
+                    priority: 2000,
+                    ...(resource.ssl ? { tls } : {})
+                };
+
+                if (resource.ssl) {
+                    config_output.http.routers[`${routerName}-redirect`] = {
+                        entryPoints: [entrypointHttp],
+                        middlewares: [redirectHttpsMiddlewareName],
+                        service: maintenanceServiceName,
+                        rule,
+                        priority: 2000
+                    };
+                }
+
+                continue;
+            }
+
             const domainParts = fullDomain.split(".");
             let wildCard;
             if (domainParts.length <= 2) {
@@ -289,12 +494,12 @@ export async function getTraefikConfig(
                 certResolver: resolverName,
                 ...(preferWildcard
                     ? {
-                          domains: [
-                              {
-                                  main: wildCard
-                              }
-                          ]
-                      }
+                        domains: [
+                            {
+                                main: wildCard
+                            }
+                        ]
+                    }
                     : {})
             };
 
@@ -535,14 +740,14 @@ export async function getTraefikConfig(
                     })(),
                     ...(resource.stickySession
                         ? {
-                              sticky: {
-                                  cookie: {
-                                      name: "p_sticky", // TODO: make this configurable via config.yml like other cookies
-                                      secure: resource.ssl,
-                                      httpOnly: true
-                                  }
-                              }
-                          }
+                            sticky: {
+                                cookie: {
+                                    name: "p_sticky", // TODO: make this configurable via config.yml like other cookies
+                                    secure: resource.ssl,
+                                    httpOnly: true
+                                }
+                            }
+                        }
                         : {})
                 }
             };
@@ -645,18 +850,18 @@ export async function getTraefikConfig(
                     })(),
                     ...(resource.proxyProtocol && protocol == "tcp"
                         ? {
-                              serversTransport: `${ppPrefix}${resource.proxyProtocolVersion || 1}@file` // TODO: does @file here cause issues?
-                          }
+                            serversTransport: `${ppPrefix}${resource.proxyProtocolVersion || 1}@file` // TODO: does @file here cause issues?
+                        }
                         : {}),
                     ...(resource.stickySession
                         ? {
-                              sticky: {
-                                  ipStrategy: {
-                                      depth: 0,
-                                      sourcePort: true
-                                  }
-                              }
-                          }
+                            sticky: {
+                                ipStrategy: {
+                                    depth: 0,
+                                    sourcePort: true
+                                }
+                            }
+                        }
                         : {})
                 }
             };

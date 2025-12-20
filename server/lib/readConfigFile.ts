@@ -216,10 +216,9 @@ export const configSchema = z
                     .default(["newt", "wireguard", "local"]),
                 allow_raw_resources: z.boolean().optional().default(true),
                 file_mode: z.boolean().optional().default(false),
-                pp_transport_prefix: z
-                    .string()
-                    .optional()
-                    .default("pp-transport-v")
+                pp_transport_prefix: z.string().optional().default("pp-transport-v"),
+                maintenance_host: z.string().optional(),
+                maintenance_port: z.number().optional().default(8888)
             })
             .optional()
             .prefault({}),
