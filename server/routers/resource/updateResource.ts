@@ -343,7 +343,7 @@ async function updateHttpResource(
 
     const isLicensed = await isLicensedOrSubscribed(resource.orgId);
     if (build == "enterprise" && !isLicensed) {
-        logger.warn("Server is not licensed! Clearing set maintenance screen values")
+        logger.warn("Server is not licensed! Clearing set maintenance screen values");
         // null the maintenance mode fields if not licensed
         updateData.maintenanceModeEnabled = undefined;
         updateData.maintenanceModeType = undefined;
