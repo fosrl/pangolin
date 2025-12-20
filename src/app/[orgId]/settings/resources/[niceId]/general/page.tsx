@@ -51,7 +51,7 @@ import {
     CredenzaTitle
 } from "@app/components/Credenza";
 import DomainPicker from "@app/components/DomainPicker";
-import { AlertCircle, Globe } from "lucide-react";
+import { AlertCircle, Globe, Info } from "lucide-react";
 import { build } from "@server/build";
 import { finalizeSubdomainSanitize } from "@app/lib/subdomain-utils";
 import { DomainRow } from "../../../../../../components/DomainsTable";
@@ -61,6 +61,7 @@ import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusCo
 import { useUserContext } from "@app/hooks/useUserContext";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@app/components/ui/radio-group";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@app/components/ui/tooltip";
 
 export default function GeneralForm() {
     const [formKey, setFormKey] = useState(0);
@@ -70,8 +71,9 @@ export default function GeneralForm() {
     const router = useRouter();
     const t = useTranslations();
     const [editDomainOpen, setEditDomainOpen] = useState(false);
-    const { licenseStatus } = useLicenseStatusContext();
     const subscriptionStatus = useSubscriptionStatusContext();
+    const { licenseStatus, isUnlocked } = useLicenseStatusContext();
+    const subscription = useSubscriptionStatusContext();
     const { user } = useUserContext();
 
     const { env } = useEnvContext();
@@ -98,6 +100,14 @@ export default function GeneralForm() {
         fullDomain: string;
         baseDomain: string;
     } | null>(null);
+
+    // Check if security features are disabled due to licensing/subscription
+    const isSecurityFeatureDisabled = () => {
+        const isEnterpriseNotLicensed = build === "enterprise" && !isUnlocked();
+        const isSaasNotSubscribed =
+            build === "saas" && !subscription?.isSubscribed();
+        return isEnterpriseNotLicensed || isSaasNotSubscribed;
+    };
 
     const GeneralFormSchema = z
         .object({
@@ -360,19 +370,19 @@ export default function GeneralForm() {
 
                                         {!resource.http && (
                                             <>
-                                            <FormField
-                                                control={form.control}
-                                                name="proxyPort"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>
+                                                <FormField
+                                                    control={form.control}
+                                                    name="proxyPort"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>
                                                                 {t(
                                                                     "resourcePortNumber"
                                                                 )}
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <Input
-                                                                type="number"
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input
+                                                                    type="number"
                                                                     value={
                                                                         field.value ??
                                                                         ""
@@ -380,7 +390,7 @@ export default function GeneralForm() {
                                                                     onChange={(
                                                                         e
                                                                     ) =>
-                                                                    field.onChange(
+                                                                        field.onChange(
                                                                             e
                                                                                 .target
                                                                                 .value
@@ -389,20 +399,20 @@ export default function GeneralForm() {
                                                                                         .target
                                                                                         .value
                                                                                 )
-                                                                            : undefined
-                                                                    )
-                                                                }
-                                                            />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                        <FormDescription>
+                                                                                : undefined
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                            <FormDescription>
                                                                 {t(
                                                                     "resourcePortNumberDescription"
                                                                 )}
-                                                        </FormDescription>
-                                                    </FormItem>
-                                                )}
-                                            />
+                                                            </FormDescription>
+                                                        </FormItem>
+                                                    )}
+                                                />
 
                                                 {/* {build == "oss" && (
                                                     <FormField
@@ -445,9 +455,9 @@ export default function GeneralForm() {
                                         {resource.http && (
                                             <>
                                                 <div className="space-y-2">
-                                                <Label>
-                                                    {t("resourceDomain")}
-                                                </Label>
+                                                    <Label>
+                                                        {t("resourceDomain")}
+                                                    </Label>
                                                     <div className="border p-2 rounded-md flex items-center justify-between">
                                                         <span className="text-sm text-muted-foreground flex items-center gap-2">
                                                             <Globe size="14" />
@@ -458,15 +468,15 @@ export default function GeneralForm() {
                                                             type="button"
                                                             size="sm"
                                                             onClick={() =>
-                                                            setEditDomainOpen(
-                                                                true
-                                                            )
-                                                        }
-                                                    >
-                                                        {t(
-                                                            "resourceEditDomain"
-                                                        )}
-                                                    </Button>
+                                                                setEditDomainOpen(
+                                                                    true
+                                                                )
+                                                            }
+                                                        >
+                                                            {t(
+                                                                "resourceEditDomain"
+                                                            )}
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             </>
@@ -511,29 +521,55 @@ export default function GeneralForm() {
                                             <FormField
                                                 control={form.control}
                                                 name="maintenanceModeEnabled"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <div className="flex items-center space-x-2">
-                                                            <FormControl>
-                                                                <SwitchInput
-                                                                    id="enable-maintenance"
-                                                                    checked={field.value}
-                                                                    label={t("enableMaintenanceMode")}
-                                                                    onCheckedChange={(val) =>
-                                                                        form.setValue(
-                                                                            "maintenanceModeEnabled",
-                                                                            val
-                                                                        )
-                                                                    }
-                                                                />
-                                                            </FormControl>
-                                                        </div>
-                                                        <FormDescription>
-                                                            {t("showMaintenancePage")}
-                                                        </FormDescription>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
+                                                render={({ field }) => {
+                                                    const isDisabled =
+                                                        isSecurityFeatureDisabled();
+
+                                                    return (
+
+                                                        <FormItem>
+                                                            <div className="flex items-center space-x-2">
+                                                                <FormControl>
+                                                                    <TooltipProvider>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger asChild>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span
+                                                                                        className={isDisabled ? "pointer-events-auto" : ""}
+                                                                                    >
+                                                                                        <SwitchInput
+                                                                                            id="enable-maintenance"
+                                                                                            checked={field.value}
+                                                                                            label={t("enableMaintenanceMode")}
+                                                                                            disabled={isDisabled}
+                                                                                            onCheckedChange={(val) => {
+                                                                                                if (!isDisabled) {
+                                                                                                    form.setValue("maintenanceModeEnabled", val);
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                    </span>
+                                                                                </div>
+                                                                            </TooltipTrigger>
+
+                                                                            {isDisabled && (
+                                                                                <TooltipContent className="max-w-xs">
+                                                                                    <p>{t("maintenanceModeDisabledTooltip")}</p>
+                                                                                </TooltipContent>
+                                                                            )}
+                                                                        </Tooltip>
+                                                                    </TooltipProvider>
+
+
+                                                                </FormControl>
+                                                            </div>
+                                                            <FormDescription>
+                                                                {t("showMaintenancePage")}
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    );
+                                                }}
                                             />
 
                                             {isMaintenanceEnabled && (
@@ -601,7 +637,7 @@ export default function GeneralForm() {
                                                             <FormItem>
                                                                 <FormLabel>{t("pageTitle")}</FormLabel>
                                                                 <FormControl>
-                                                                    <Input 
+                                                                    <Input
                                                                         {...field}
                                                                         placeholder="We'll be back soon!"
                                                                     />
@@ -621,7 +657,7 @@ export default function GeneralForm() {
                                                             <FormItem>
                                                                 <FormLabel>{t("maintenancePageMessage")}</FormLabel>
                                                                 <FormControl>
-                                                                    <Textarea 
+                                                                    <Textarea
                                                                         {...field}
                                                                         rows={4}
                                                                         placeholder={t("maintenancePageMessagePlaceholder")}
@@ -644,7 +680,7 @@ export default function GeneralForm() {
                                                                     {t("maintenancePageTimeTitle")}
                                                                 </FormLabel>
                                                                 <FormControl>
-                                                                    <Input 
+                                                                    <Input
                                                                         {...field}
                                                                         placeholder={t("maintenanceTime")}
                                                                     />
@@ -666,9 +702,9 @@ export default function GeneralForm() {
                             <SettingsSectionFooter>
                                 <Button
                                     type="submit"
-                                onClick={() => {
-                                    console.log(form.getValues());
-                                }}
+                                    onClick={() => {
+                                        console.log(form.getValues());
+                                    }}
                                     loading={saveLoading}
                                     disabled={saveLoading}
                                     form="general-settings-form"
