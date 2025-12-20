@@ -57,6 +57,8 @@ unauthenticated.get("/", (_, res) => {
     res.status(HttpCode.OK).json({ message: "Healthy" });
 });
 
+unauthenticated.get("/maintenance/info", resource.getMaintenanceInfo);
+
 // Authenticated Root routes
 export const authenticated = Router();
 authenticated.use(verifySessionUserMiddleware);
