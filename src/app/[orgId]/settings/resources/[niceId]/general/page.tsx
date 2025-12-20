@@ -476,10 +476,10 @@ export default function GeneralForm() {
                                                 <div className="space-y-4">
                                                     <div>
                                                         <h3 className="text-lg font-medium">
-                                                            Maintenance Mode
+                                                            {t("maintenanceMode")}
                                                         </h3>
                                                         <p className="text-sm text-muted-foreground">
-                                                            Display a maintenance page to visitors
+                                                            {t("maintenanceModeDescription")}
                                                         </p>
                                                     </div>
 
@@ -504,7 +504,7 @@ export default function GeneralForm() {
                                                                     </FormControl>
                                                                 </div>
                                                                 <FormDescription>
-                                                                    Show a maintenance page to visitors
+                                                                    {t("showMaintenancePage")}
                                                                 </FormDescription>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -519,7 +519,7 @@ export default function GeneralForm() {
                                                                 render={({ field }) => (
                                                                     <FormItem className="space-y-3">
                                                                         <FormLabel>
-                                                                            Maintenance Mode Type
+                                                                            {t("maintenanceModeType")}
                                                                         </FormLabel>
                                                                         <FormControl>
                                                                             <RadioGroup
@@ -533,11 +533,10 @@ export default function GeneralForm() {
                                                                                     </FormControl>
                                                                                     <div className="space-y-1 leading-none">
                                                                                         <FormLabel className="font-normal">
-                                                                                            <strong>Automatic</strong> (Recommended)
+                                                                                            <strong>{t("automatic")}</strong> ({t("recommended")})
                                                                                         </FormLabel>
                                                                                         <FormDescription>
-                                                                                            Show maintenance page only when all backend targets are down or unhealthy. 
-                                                                                            Your resource continues working normally as long as at least one target is healthy.
+                                                                                           {t("automaticModeDescription")}
                                                                                         </FormDescription>
                                                                                     </div>
                                                                                 </FormItem>
@@ -547,11 +546,10 @@ export default function GeneralForm() {
                                                                                     </FormControl>
                                                                                     <div className="space-y-1 leading-none">
                                                                                         <FormLabel className="font-normal">
-                                                                                            <strong>Forced</strong>
+                                                                                            <strong>{t("forced")}</strong>
                                                                                         </FormLabel>
                                                                                         <FormDescription>
-                                                                                            Always show the maintenance page regardless of backend health. 
-                                                                                            Use this for planned maintenance when you want to prevent all access.
+                                                                                            {t("forcedModeDescription")}
                                                                                         </FormDescription>
                                                                                     </div>
                                                                                 </FormItem>
@@ -566,8 +564,7 @@ export default function GeneralForm() {
                                                                 <Alert>
                                                                     <AlertCircle className="h-4 w-4" />
                                                                     <AlertDescription>
-                                                                        <strong>Warning:</strong> All traffic will be directed to the maintenance page. 
-                                                                        Your backend resources will not receive any requests.
+                                                                        <strong>{t("warning:")}</strong> {t("forcedModeWarning")}
                                                                     </AlertDescription>
                                                                 </Alert>
                                                             )}
@@ -577,7 +574,7 @@ export default function GeneralForm() {
                                                                 name="maintenanceTitle"
                                                                 render={({ field }) => (
                                                                     <FormItem>
-                                                                        <FormLabel>Page Title</FormLabel>
+                                                                        <FormLabel>{t("pageTitle")}</FormLabel>
                                                                         <FormControl>
                                                                             <Input 
                                                                                 {...field}
@@ -585,7 +582,7 @@ export default function GeneralForm() {
                                                                             />
                                                                         </FormControl>
                                                                         <FormDescription>
-                                                                            The main heading displayed on the maintenance page
+                                                                            {t("pageTitleDescription")}
                                                                         </FormDescription>
                                                                         <FormMessage />
                                                                     </FormItem>
@@ -597,16 +594,16 @@ export default function GeneralForm() {
                                                                 name="maintenanceMessage"
                                                                 render={({ field }) => (
                                                                     <FormItem>
-                                                                        <FormLabel>Maintenance Message</FormLabel>
+                                                                        <FormLabel>{t("maintenancePageMessage")}</FormLabel>
                                                                         <FormControl>
                                                                             <Textarea 
                                                                                 {...field}
                                                                                 rows={4}
-                                                                                placeholder="We are currently performing scheduled maintenance. Please check back soon."
+                                                                                placeholder={t("maintenancePageMessagePlaceholder")}
                                                                             />
                                                                         </FormControl>
                                                                         <FormDescription>
-                                                                            Detailed message explaining the maintenance
+                                                                            {t("maintenancePageMessageDescription")}
                                                                         </FormDescription>
                                                                         <FormMessage />
                                                                     </FormItem>
@@ -619,16 +616,16 @@ export default function GeneralForm() {
                                                                 render={({ field }) => (
                                                                     <FormItem>
                                                                         <FormLabel>
-                                                                            Estimated Completion Time (Optional)
+                                                                            {t("maintenancePageTimeTitle")}
                                                                         </FormLabel>
                                                                         <FormControl>
                                                                             <Input 
                                                                                 {...field}
-                                                                                placeholder="e.g., 2 hours, Nov 1 at 5:00 PM"
+                                                                                placeholder={t("maintenanceTime")}
                                                                             />
                                                                         </FormControl>
                                                                         <FormDescription>
-                                                                            When you expect maintenance to be completed
+                                                                            {t("maintenanceEstimatedTimeDescription")}
                                                                         </FormDescription>
                                                                         <FormMessage />
                                                                     </FormItem>
@@ -666,9 +663,9 @@ export default function GeneralForm() {
                 >
                     <CredenzaContent>
                         <CredenzaHeader>
-                            <CredenzaTitle>Edit Domain</CredenzaTitle>
+                            <CredenzaTitle>{t("editDomain")}</CredenzaTitle>
                             <CredenzaDescription>
-                                Select a domain for your resource
+                                {t("editDomainDescription")}
                             </CredenzaDescription>
                         </CredenzaHeader>
                         <CredenzaBody>
@@ -709,7 +706,7 @@ export default function GeneralForm() {
                                     }
                                 }}
                             >
-                                Select Domain
+                                {t("selectDomain")}
                             </Button>
                         </CredenzaFooter>
                     </CredenzaContent>
