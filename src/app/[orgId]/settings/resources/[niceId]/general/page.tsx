@@ -67,7 +67,7 @@ import {
     TooltipProvider,
     TooltipTrigger
 } from "@app/components/ui/tooltip";
-import { LicenseOrSubscriptionRequiredAlert } from "@app/components/SecurityFeaturesAlert";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 
 export default function GeneralForm() {
     const [formKey, setFormKey] = useState(0);
@@ -519,7 +519,7 @@ export default function GeneralForm() {
                             </SettingsSectionHeader>
 
                             <SettingsSectionBody>
-                                <LicenseOrSubscriptionRequiredAlert />
+                                <PaidFeaturesAlert />
 
                                 <SettingsSectionForm>
                                     <Form {...form}>
@@ -798,6 +798,10 @@ export default function GeneralForm() {
                                 orgId={orgId as string}
                                 cols={1}
                                 onDomainChange={(res) => {
+                                    if (!res) {
+                                        setSelectedDomain(null);
+                                        return;
+                                    }
                                     const selected = {
                                         domainId: res.domainId,
                                         subdomain: res.subdomain,
