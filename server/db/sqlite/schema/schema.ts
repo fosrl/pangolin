@@ -147,10 +147,19 @@ export const resources = sqliteTable("resources", {
         onDelete: "set null"
     }),
     headers: text("headers"), // comma-separated list of headers to add to the request
-    proxyProtocol: integer("proxyProtocol", { mode: "boolean" })
+    proxyProtocol: integer("proxyProtocol", { mode: "boolean" }).notNull().default(false),
+    proxyProtocolVersion: integer("proxyProtocolVersion").default(1),
+
+    maintenanceModeEnabled: integer("maintenanceModeEnabled", { mode: "boolean" })
         .notNull()
         .default(false),
-    proxyProtocolVersion: integer("proxyProtocolVersion").default(1)
+    maintenanceModeType: text("maintenanceModeType", {
+        enum: ["forced", "automatic"]
+    }).default("forced"), // "forced" = always show, "automatic" = only when down
+    maintenanceTitle: text("maintenanceTitle"),
+    maintenanceMessage: text("maintenanceMessage"),
+    maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
+
 });
 
 export const targets = sqliteTable("targets", {
