@@ -430,6 +430,7 @@ export async function getTraefikConfig(
 
                 continue;
             }
+
             const domainParts = fullDomain.split(".");
             let wildCard;
             if (domainParts.length <= 2) {
