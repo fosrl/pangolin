@@ -96,7 +96,8 @@ export async function verifyResourceSession(
             requestIp,
             path,
             headers,
-            query
+            query,
+            method
         } = parsedBody.data;
 
         // Extract HTTP Basic Auth credentials if present
@@ -222,7 +223,8 @@ export async function verifyResourceSession(
                 clientIp,
                 path,
                 ipCC,
-                ipAsn
+                ipAsn,
+                method
             );
 
             if (action == "ACCEPT") {
@@ -917,7 +919,8 @@ async function checkRules(
     clientIp: string | undefined,
     path: string | undefined,
     ipCC?: string,
-    ipAsn?: number
+    ipAsn?: number,
+    method?: string
 ): Promise<"ACCEPT" | "DROP" | "PASS" | undefined> {
     const ruleCacheKey = `rules:${resourceId}`;
 
@@ -939,6 +942,14 @@ async function checkRules(
     for (const rule of rules) {
         if (!rule.enabled) {
             continue;
+        }
+
+        // If rule has a method constraint, check if it matches
+        if (rule.method && method) {
+            if (rule.method.toUpperCase() !== method.toUpperCase()) {
+                // Method doesn't match, skip this rule
+                continue;
+            }
         }
 
         if (

@@ -38,7 +38,8 @@ function queryResourceRules(resourceId: number) {
             match: resourceRules.match,
             value: resourceRules.value,
             priority: resourceRules.priority,
-            enabled: resourceRules.enabled
+            enabled: resourceRules.enabled,
+            method: resourceRules.method
         })
         .from(resourceRules)
         .leftJoin(resources, eq(resourceRules.resourceId, resources.resourceId))

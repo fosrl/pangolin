@@ -542,7 +542,8 @@ export const resourceRules = pgTable("resourceRules", {
     priority: integer("priority").notNull(),
     action: varchar("action").notNull(), // ACCEPT, DROP, PASS
     match: varchar("match").notNull(), // CIDR, PATH, IP
-    value: varchar("value").notNull()
+    value: varchar("value").notNull(),
+    method: varchar("method") // Optional HTTP method: GET, POST, PUT, DELETE, PATCH, etc.
 });
 
 export const supporterKey = pgTable("supporterKey", {

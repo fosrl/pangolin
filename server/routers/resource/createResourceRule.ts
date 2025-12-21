@@ -20,7 +20,8 @@ const createResourceRuleSchema = z.strictObject({
     match: z.enum(["CIDR", "IP", "PATH", "COUNTRY", "ASN"]),
     value: z.string().min(1),
     priority: z.int(),
-    enabled: z.boolean().optional()
+    enabled: z.boolean().optional(),
+    method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE"]).optional()
 });
 
 const createResourceRuleParamsSchema = z.strictObject({
@@ -61,7 +62,7 @@ export async function createResourceRule(
             );
         }
 
-        const { action, match, value, priority, enabled } = parsedBody.data;
+        const { action, match, value, priority, enabled, method } = parsedBody.data;
 
         const parsedParams = createResourceRuleParamsSchema.safeParse(
             req.params
@@ -137,7 +138,8 @@ export async function createResourceRule(
                 match,
                 value,
                 priority,
-                enabled
+                enabled,
+                method
             })
             .returning();
 

@@ -28,7 +28,8 @@ const updateResourceRuleSchema = z
         match: z.enum(["CIDR", "IP", "PATH", "COUNTRY", "ASN"]).optional(),
         value: z.string().min(1).optional(),
         priority: z.int(),
-        enabled: z.boolean().optional()
+        enabled: z.boolean().optional(),
+        method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE"]).optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"

@@ -94,7 +94,8 @@ const addRuleSchema = z.object({
     action: z.enum(["ACCEPT", "DROP", "PASS"]),
     match: z.string(),
     value: z.string(),
-    priority: z.coerce.number<number>().int().optional()
+    priority: z.coerce.number<number>().int().optional(),
+    method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE"]).optional()
 });
 
 type LocalRule = ArrayElement<ListResourceRulesResponse["rules"]> & {
@@ -347,7 +348,8 @@ export default function ResourceRules(props: {
                     match: rule.match,
                     value: rule.value,
                     priority: rule.priority,
-                    enabled: rule.enabled
+                    enabled: rule.enabled,
+                    method: rule.method
                 };
 
                 if (rule.match === "CIDR" && !isValidCIDR(rule.value)) {
@@ -562,6 +564,34 @@ export default function ResourceRules(props: {
                                 {RuleMatch.ASN}
                             </SelectItem>
                         )}
+                    </SelectContent>
+                </Select>
+            )
+        },
+        {
+            accessorKey: "method",
+            header: () => <span className="p-3">{t("httpMethod")}</span>,
+            cell: ({ row }) => (
+                <Select
+                    value={row.original.method || ""}
+                    onValueChange={(value) =>
+                        updateRule(row.original.ruleId, {
+                            method: value || undefined
+                        })
+                    }
+                >
+                    <SelectTrigger className="min-w-[125px]">
+                        <SelectValue placeholder={t("any")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="">{t("any")}</SelectItem>
+                        <SelectItem value="GET">GET</SelectItem>
+                        <SelectItem value="POST">POST</SelectItem>
+                        <SelectItem value="PUT">PUT</SelectItem>
+                        <SelectItem value="DELETE">DELETE</SelectItem>
+                        <SelectItem value="PATCH">PATCH</SelectItem>
+                        <SelectItem value="HEAD">HEAD</SelectItem>
+                        <SelectItem value="OPTIONS">OPTIONS</SelectItem>
                     </SelectContent>
                 </Select>
             )
@@ -1166,6 +1196,39 @@ export default function ResourceRules(props: {
                                                     ) : (
                                                         <Input {...field} />
                                                     )}
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={addRuleForm.control}
+                                        name="method"
+                                        render={({ field }) => (
+                                            <FormItem className="gap-1">
+                                                <InfoPopup
+                                                    text={t("httpMethod")}
+                                                    info={t("httpMethodHelp") || "Filter by HTTP method (optional)"}
+                                                />
+                                                <FormControl>
+                                                    <Select
+                                                        value={field.value || ""}
+                                                        onValueChange={field.onChange}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder={t("any")} />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="">{t("any")}</SelectItem>
+                                                            <SelectItem value="GET">GET</SelectItem>
+                                                            <SelectItem value="POST">POST</SelectItem>
+                                                            <SelectItem value="PUT">PUT</SelectItem>
+                                                            <SelectItem value="DELETE">DELETE</SelectItem>
+                                                            <SelectItem value="PATCH">PATCH</SelectItem>
+                                                            <SelectItem value="HEAD">HEAD</SelectItem>
+                                                            <SelectItem value="OPTIONS">OPTIONS</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

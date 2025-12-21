@@ -710,7 +710,8 @@ export const resourceRules = sqliteTable("resourceRules", {
     priority: integer("priority").notNull(),
     action: text("action").notNull(), // ACCEPT, DROP, PASS
     match: text("match").notNull(), // CIDR, PATH, IP
-    value: text("value").notNull()
+    value: text("value").notNull(),
+    method: text("method") // Optional HTTP method: GET, POST, PUT, DELETE, PATCH, etc.
 });
 
 export const supporterKey = sqliteTable("supporterKey", {

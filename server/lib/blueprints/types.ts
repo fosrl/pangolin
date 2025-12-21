@@ -75,7 +75,8 @@ export const RuleSchema = z
     .object({
         action: z.enum(["allow", "deny", "pass"]),
         match: z.enum(["cidr", "path", "ip", "country", "asn"]),
-        value: z.string()
+        value: z.string(),
+        method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE"]).optional()
     })
     .refine(
         (rule) => {
