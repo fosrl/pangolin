@@ -161,8 +161,11 @@ async function getCountryCodeFromIp(ip: string): Promise<string | undefined> {
 
     if (!cachedCountryCode) {
         cachedCountryCode = await getCountryCodeForIp(ip); // do it locally
-        // Cache for longer since IP geolocation doesn't change frequently
-        cache.set(geoIpCacheKey, cachedCountryCode, 300); // 5 minutes
+        // Only cache successful lookups to avoid filling cache with undefined values
+        if (cachedCountryCode) {
+            // Cache for longer since IP geolocation doesn't change frequently
+            cache.set(geoIpCacheKey, cachedCountryCode, 300); // 5 minutes
+        }
     }
 
     return cachedCountryCode;
