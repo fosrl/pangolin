@@ -1524,6 +1524,7 @@
     "addNewTarget": "添加新目标",
     "targetsList": "目标列表",
     "advancedMode": "高级模式",
+    "advancedSettings": "Advanced Settings",
     "targetErrorDuplicateTargetFound": "找到重复的目标",
     "healthCheckHealthy": "正常",
     "healthCheckUnhealthy": "不正常",
@@ -2390,5 +2391,6 @@
     "maintenanceModeDisabledTooltip": "This feature requires a valid license to enable.",
     "maintenanceScreenTitle": "Service Temporarily Unavailable",
     "maintenanceScreenMessage": "We are currently experiencing technical difficulties. Please check back soon.",
-    "maintenanceScreenEstimatedCompletion": "Estimated Completion:"
+    "maintenanceScreenEstimatedCompletion": "Estimated Completion:",
+    "createInternalResourceDialogDestinationRequired": "Destination is required"
 }
