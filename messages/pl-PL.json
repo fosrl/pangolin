@@ -1524,6 +1524,7 @@
     "addNewTarget": "Dodaj nowy cel",
     "targetsList": "Lista celów",
     "advancedMode": "Tryb zaawansowany",
+    "advancedSettings": "Advanced Settings",
     "targetErrorDuplicateTargetFound": "Znaleziono duplikat celu",
     "healthCheckHealthy": "Zdrowy",
     "healthCheckUnhealthy": "Niezdrowy",
@@ -2390,5 +2391,6 @@
     "maintenanceModeDisabledTooltip": "This feature requires a valid license to enable.",
     "maintenanceScreenTitle": "Service Temporarily Unavailable",
     "maintenanceScreenMessage": "We are currently experiencing technical difficulties. Please check back soon.",
-    "maintenanceScreenEstimatedCompletion": "Estimated Completion:"
+    "maintenanceScreenEstimatedCompletion": "Estimated Completion:",
+    "createInternalResourceDialogDestinationRequired": "Destination is required"
 }
