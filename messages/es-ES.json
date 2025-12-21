@@ -1524,6 +1524,7 @@
     "addNewTarget": "Agregar nuevo destino",
     "targetsList": "Lista de destinos",
     "advancedMode": "Modo avanzado",
+    "advancedSettings": "Advanced Settings",
     "targetErrorDuplicateTargetFound": "Se encontró un destino duplicado",
     "healthCheckHealthy": "Saludable",
     "healthCheckUnhealthy": "No saludable",
@@ -2390,5 +2391,6 @@
     "maintenanceModeDisabledTooltip": "This feature requires a valid license to enable.",
     "maintenanceScreenTitle": "Service Temporarily Unavailable",
     "maintenanceScreenMessage": "We are currently experiencing technical difficulties. Please check back soon.",
-    "maintenanceScreenEstimatedCompletion": "Estimated Completion:"
+    "maintenanceScreenEstimatedCompletion": "Estimated Completion:",
+    "createInternalResourceDialogDestinationRequired": "Destination is required"
 }
