@@ -1524,6 +1524,7 @@
     "addNewTarget": "Neues Ziel hinzufügen",
     "targetsList": "Ziel-Liste",
     "advancedMode": "Erweiterter Modus",
+    "advancedSettings": "Advanced Settings",
     "targetErrorDuplicateTargetFound": "Doppeltes Ziel gefunden",
     "healthCheckHealthy": "Gesund",
     "healthCheckUnhealthy": "Ungesund",
@@ -2390,5 +2391,6 @@
     "maintenanceModeDisabledTooltip": "Diese Funktion erfordert eine gültige Lizenz, um sie zu aktivieren.",
     "maintenanceScreenTitle": "Dienst vorübergehend nicht verfügbar",
     "maintenanceScreenMessage": "Wir haben derzeit technische Schwierigkeiten. Bitte schauen Sie bald noch einmal vorbei.",
-    "maintenanceScreenEstimatedCompletion": "Geschätzter Abschluss:"
+    "maintenanceScreenEstimatedCompletion": "Geschätzter Abschluss:",
+    "createInternalResourceDialogDestinationRequired": "Destination is required"
 }
