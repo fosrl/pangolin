@@ -1524,6 +1524,7 @@
     "addNewTarget": "Aggiungi Nuovo Target",
     "targetsList": "Elenco dei Target",
     "advancedMode": "Modalità Avanzata",
+    "advancedSettings": "Advanced Settings",
     "targetErrorDuplicateTargetFound": "Target duplicato trovato",
     "healthCheckHealthy": "Sano",
     "healthCheckUnhealthy": "Non Sano",
@@ -2390,5 +2391,6 @@
     "maintenanceModeDisabledTooltip": "This feature requires a valid license to enable.",
     "maintenanceScreenTitle": "Service Temporarily Unavailable",
     "maintenanceScreenMessage": "We are currently experiencing technical difficulties. Please check back soon.",
-    "maintenanceScreenEstimatedCompletion": "Estimated Completion:"
+    "maintenanceScreenEstimatedCompletion": "Estimated Completion:",
+    "createInternalResourceDialogDestinationRequired": "Destination is required"
 }
