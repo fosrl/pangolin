@@ -1524,6 +1524,7 @@
     "addNewTarget": "새 대상 추가",
     "targetsList": "대상 목록",
     "advancedMode": "고급 모드",
+    "advancedSettings": "Advanced Settings",
     "targetErrorDuplicateTargetFound": "중복 대상 발견",
     "healthCheckHealthy": "정상",
     "healthCheckUnhealthy": "비정상",
@@ -2390,5 +2391,6 @@
     "maintenanceModeDisabledTooltip": "This feature requires a valid license to enable.",
     "maintenanceScreenTitle": "Service Temporarily Unavailable",
     "maintenanceScreenMessage": "We are currently experiencing technical difficulties. Please check back soon.",
-    "maintenanceScreenEstimatedCompletion": "Estimated Completion:"
+    "maintenanceScreenEstimatedCompletion": "Estimated Completion:",
+    "createInternalResourceDialogDestinationRequired": "Destination is required"
 }
