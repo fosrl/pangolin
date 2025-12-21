@@ -365,7 +365,14 @@ function RequestChart(props: RequestChartProps) {
             className="min-h-[200px] w-full h-80"
         >
             <LineChart accessibilityLayer data={props.data}>
-                <ChartLegend content={<ChartLegendContent />} />
+                <ChartLegend
+                    content={({ payload, verticalAlign }) => (
+                        <ChartLegendContent
+                            payload={payload}
+                            verticalAlign={verticalAlign}
+                        />
+                    )}
+                />
                 <ChartTooltip
                     content={
                         <ChartTooltipContent
