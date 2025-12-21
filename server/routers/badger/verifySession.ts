@@ -952,29 +952,65 @@ async function checkRules(
             }
         }
 
+        // If rule has multi-conditions, all must match (AND)
+        if (rule.conditions) {
+            let conditions: Array<{ match: string; value: string }> = [];
+            try {
+                conditions = JSON.parse(rule.conditions as any);
+            } catch (e) {
+                logger.warn("Invalid conditions JSON on rule", {
+                    ruleId: rule.ruleId
+                });
+                // Skip invalid condition rules
+                continue;
+            }
+
+            const allMatch = await areAllConditionsMatched(
+                conditions,
+                clientIp,
+                path,
+                ipCC,
+                ipAsn
+            );
+
+            if (allMatch) {
+                return rule.action as any;
+            }
+            // Otherwise, fall through to check single match/value below
+        }
+
         if (
             clientIp &&
             rule.match == "CIDR" &&
+            rule.value &&
             isIpInCidr(clientIp, rule.value)
         ) {
             return rule.action as any;
-        } else if (clientIp && rule.match == "IP" && clientIp == rule.value) {
+        } else if (
+            clientIp &&
+            rule.match == "IP" &&
+            rule.value &&
+            clientIp == rule.value
+        ) {
             return rule.action as any;
         } else if (
             path &&
             rule.match == "PATH" &&
+            rule.value &&
             isPathAllowed(rule.value, path)
         ) {
             return rule.action as any;
         } else if (
             clientIp &&
             rule.match == "COUNTRY" &&
+            rule.value &&
             (await isIpInGeoIP(ipCC, rule.value))
         ) {
             return rule.action as any;
         } else if (
             clientIp &&
             rule.match == "ASN" &&
+            rule.value &&
             (await isIpInAsn(ipAsn, rule.value))
         ) {
             return rule.action as any;
@@ -982,6 +1018,49 @@ async function checkRules(
     }
 
     return;
+}
+
+export async function areAllConditionsMatched(
+    conditions: Array<{ match: string; value: string }>,
+    clientIp: string | undefined,
+    path: string | undefined,
+    ipCC?: string,
+    ipAsn?: number
+): Promise<boolean> {
+    for (const c of conditions) {
+        if (
+            clientIp &&
+            c.match === "CIDR" &&
+            isIpInCidr(clientIp, c.value)
+        ) {
+            continue;
+        } else if (clientIp && c.match === "IP" && clientIp === c.value) {
+            continue;
+        } else if (
+            path &&
+            c.match === "PATH" &&
+            isPathAllowed(c.value, path)
+        ) {
+            continue;
+        } else if (
+            clientIp &&
+            c.match === "COUNTRY" &&
+            (await isIpInGeoIP(ipCC, c.value))
+        ) {
+            continue;
+        } else if (
+            clientIp &&
+            c.match === "ASN" &&
+            (await isIpInAsn(ipAsn, c.value))
+        ) {
+            continue;
+        }
+
+        // If none matched for this condition, AND fails
+        return false;
+    }
+
+    return true;
 }
 
 export function isPathAllowed(pattern: string, path: string): boolean {

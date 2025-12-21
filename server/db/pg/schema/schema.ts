@@ -541,9 +541,12 @@ export const resourceRules = pgTable("resourceRules", {
     enabled: boolean("enabled").notNull().default(true),
     priority: integer("priority").notNull(),
     action: varchar("action").notNull(), // ACCEPT, DROP, PASS
-    match: varchar("match").notNull(), // CIDR, PATH, IP
-    value: varchar("value").notNull(),
-    method: varchar("method") // Optional HTTP method: GET, POST, PUT, DELETE, PATCH, etc.
+    match: varchar("match"), // CIDR, PATH, IP (nullable when using conditions)
+    value: varchar("value"),
+    method: varchar("method"), // Optional HTTP method: GET, POST, PUT, DELETE, PATCH, etc.
+    // Optional JSON-encoded array of conditions for AND logic
+    // When present, all conditions must match for the rule to apply
+    conditions: varchar("conditions")
 });
 
 export const supporterKey = pgTable("supporterKey", {

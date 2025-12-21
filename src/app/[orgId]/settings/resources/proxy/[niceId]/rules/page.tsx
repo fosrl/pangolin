@@ -276,7 +276,9 @@ export default function ResourceRules(props: {
             new: true,
             resourceId: resource.resourceId,
             priority,
-            enabled: true
+            enabled: true,
+            // Ensure nullable fields use null rather than undefined to match API types
+            method: data.method ?? null
         };
 
         setRules([...rules, newRule]);
@@ -352,7 +354,11 @@ export default function ResourceRules(props: {
                     method: rule.method
                 };
 
-                if (rule.match === "CIDR" && !isValidCIDR(rule.value)) {
+                if (
+                    rule.match === "CIDR" &&
+                    rule.value &&
+                    !isValidCIDR(rule.value)
+                ) {
                     toast({
                         variant: "destructive",
                         title: t("rulesErrorInvalidIpAddressRange"),
@@ -365,6 +371,7 @@ export default function ResourceRules(props: {
                 }
                 if (
                     rule.match === "PATH" &&
+                    rule.value &&
                     !isValidUrlGlobPattern(rule.value)
                 ) {
                     toast({
@@ -375,7 +382,7 @@ export default function ResourceRules(props: {
                     setLoading(false);
                     return;
                 }
-                if (rule.match === "IP" && !isValidIP(rule.value)) {
+                if (rule.match === "IP" && rule.value && !isValidIP(rule.value)) {
                     toast({
                         variant: "destructive",
                         title: t("rulesErrorInvalidIpAddress"),
@@ -536,7 +543,7 @@ export default function ResourceRules(props: {
             header: () => <span className="p-3">{t("rulesMatchType")}</span>,
             cell: ({ row }) => (
                 <Select
-                    defaultValue={row.original.match}
+                    defaultValue={row.original.match ?? undefined}
                     onValueChange={(
                         value: "CIDR" | "IP" | "PATH" | "COUNTRY" | "ASN"
                     ) =>
@@ -724,7 +731,7 @@ export default function ResourceRules(props: {
                                             (asn) =>
                                                 asn.code === row.original.value
                                         )
-                                            ? row.original.value
+                                            ? row.original.value ?? ""
                                             : ""
                                     }
                                     onKeyDown={(e) => {
@@ -747,7 +754,7 @@ export default function ResourceRules(props: {
                     </Popover>
                 ) : (
                     <Input
-                        defaultValue={row.original.value}
+                        defaultValue={row.original.value ?? ""}
                         className="min-w-[200px]"
                         onBlur={(e) =>
                             updateRule(row.original.ruleId, {

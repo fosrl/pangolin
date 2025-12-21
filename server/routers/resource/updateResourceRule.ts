@@ -22,14 +22,33 @@ const updateResourceRuleParamsSchema = z.strictObject({
 });
 
 // Define Zod schema for request body validation
+const conditionSchema = z.strictObject({
+    match: z.enum(["CIDR", "IP", "PATH", "COUNTRY", "ASN"]),
+    value: z.string().min(1)
+});
+
 const updateResourceRuleSchema = z
     .strictObject({
         action: z.enum(["ACCEPT", "DROP", "PASS"]).optional(),
         match: z.enum(["CIDR", "IP", "PATH", "COUNTRY", "ASN"]).optional(),
         value: z.string().min(1).optional(),
+        // Multi-condition AND support
+        conditions: z.array(conditionSchema).min(1).optional(),
         priority: z.int(),
         enabled: z.boolean().optional(),
-        method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE"]).optional()
+        method: z
+            .enum([
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH",
+                "HEAD",
+                "OPTIONS",
+                "CONNECT",
+                "TRACE"
+            ])
+            .optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
@@ -137,7 +156,7 @@ export async function updateResourceRule(
         }
 
         const match = updateData.match || existingRule.match;
-        const { value } = updateData;
+        const { value, conditions } = updateData;
 
         if (value !== undefined) {
             if (match === "CIDR") {
@@ -170,10 +189,46 @@ export async function updateResourceRule(
             }
         }
 
-        // Update the rule
+        // Validate multi-conditions if provided
+        if (conditions && conditions.length > 0) {
+            for (const c of conditions) {
+                if (c.match === "CIDR") {
+                    if (!isValidCIDR(c.value)) {
+                        return next(
+                            createHttpError(HttpCode.BAD_REQUEST, "Invalid CIDR provided in conditions")
+                        );
+                    }
+                } else if (c.match === "IP") {
+                    if (!isValidIP(c.value)) {
+                        return next(
+                            createHttpError(HttpCode.BAD_REQUEST, "Invalid IP provided in conditions")
+                        );
+                    }
+                } else if (c.match === "PATH") {
+                    if (!isValidUrlGlobPattern(c.value)) {
+                        return next(
+                            createHttpError(
+                                HttpCode.BAD_REQUEST,
+                                "Invalid URL glob pattern provided in conditions"
+                            )
+                        );
+                    }
+                }
+            }
+        }
+
+        // Update the rule; encode conditions if provided
         const [updatedRule] = await db
             .update(resourceRules)
-            .set(updateData)
+            .set({
+                ...updateData,
+                conditions:
+                    conditions && conditions.length > 0
+                        ? JSON.stringify(conditions)
+                        : updateData.conditions === undefined
+                        ? existingRule.conditions
+                        : undefined
+            })
             .where(eq(resourceRules.ruleId, ruleId))
             .returning();
 

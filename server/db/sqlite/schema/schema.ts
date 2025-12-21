@@ -709,9 +709,12 @@ export const resourceRules = sqliteTable("resourceRules", {
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     priority: integer("priority").notNull(),
     action: text("action").notNull(), // ACCEPT, DROP, PASS
-    match: text("match").notNull(), // CIDR, PATH, IP
-    value: text("value").notNull(),
-    method: text("method") // Optional HTTP method: GET, POST, PUT, DELETE, PATCH, etc.
+    match: text("match"), // CIDR, PATH, IP (nullable when using conditions)
+    value: text("value"),
+    method: text("method"), // Optional HTTP method: GET, POST, PUT, DELETE, PATCH, etc.
+    // Optional JSON-encoded array of conditions for AND logic
+    // When present, all conditions must match for the rule to apply
+    conditions: text("conditions")
 });
 
 export const supporterKey = sqliteTable("supporterKey", {
