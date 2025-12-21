@@ -54,10 +54,14 @@ function getContainerPort(container: Container): number | null {
 export function processContainerLabels(containers: Container[]): {
     "proxy-resources": { [key: string]: ResourceConfig };
     "client-resources": { [key: string]: ResourceConfig };
+    "public-resources": { [key: string]: ResourceConfig };
+    "private-resources": { [key: string]: ResourceConfig };
 } {
     const result = {
         "proxy-resources": {} as { [key: string]: ResourceConfig },
-        "client-resources": {} as { [key: string]: ResourceConfig }
+        "client-resources": {} as { [key: string]: ResourceConfig },
+        "public-resources": {} as { [key: string]: ResourceConfig },
+        "private-resources": {} as { [key: string]: ResourceConfig }
     };
 
     // Process each container
@@ -68,8 +72,10 @@ export function processContainerLabels(containers: Container[]): {
 
         const proxyResourceLabels: DockerLabels = {};
         const clientResourceLabels: DockerLabels = {};
+        const publicResourceLabels: DockerLabels = {};
+        const privateResourceLabels: DockerLabels = {};
 
-        // Filter and separate proxy-resources and client-resources labels
+        // Filter and separate proxy-resources, client-resources, public-resources, and private-resources labels
         Object.entries(container.labels).forEach(([key, value]) => {
             if (key.startsWith("pangolin.proxy-resources.")) {
                 // remove the pangolin.proxy- prefix to get "resources.xxx"
@@ -79,6 +85,14 @@ export function processContainerLabels(containers: Container[]): {
                 // remove the pangolin.client- prefix to get "resources.xxx"
                 const strippedKey = key.replace("pangolin.client-", "");
                 clientResourceLabels[strippedKey] = value;
+            } else if (key.startsWith("pangolin.public-resources.")) {
+                // remove the pangolin.public- prefix to get "resources.xxx"
+                const strippedKey = key.replace("pangolin.public-", "");
+                publicResourceLabels[strippedKey] = value;
+            } else if (key.startsWith("pangolin.private-resources.")) {
+                // remove the pangolin.private- prefix to get "resources.xxx"
+                const strippedKey = key.replace("pangolin.private-", "");
+                privateResourceLabels[strippedKey] = value;
             }
         });
 
@@ -97,6 +111,24 @@ export function processContainerLabels(containers: Container[]): {
                 clientResourceLabels,
                 container,
                 result["client-resources"]
+            );
+        }
+
+        // Process public resources (alias for proxy resources)
+        if (Object.keys(publicResourceLabels).length > 0) {
+            processResourceLabels(
+                publicResourceLabels,
+                container,
+                result["public-resources"]
+            );
+        }
+
+        // Process private resources (alias for client resources)
+        if (Object.keys(privateResourceLabels).length > 0) {
+            processResourceLabels(
+                privateResourceLabels,
+                container,
+                result["private-resources"]
             );
         }
     });

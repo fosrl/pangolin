@@ -36,7 +36,9 @@ export async function applyNewtDockerBlueprint(
 
         if (
             isEmptyObject(blueprint["proxy-resources"]) &&
-            isEmptyObject(blueprint["client-resources"])
+            isEmptyObject(blueprint["client-resources"]) &&
+            isEmptyObject(blueprint["public-resources"]) &&
+            isEmptyObject(blueprint["private-resources"])
         ) {
             return;
         }
