@@ -2349,6 +2349,7 @@
     "enterConfirmation": "Skriv inn bekreftelse",
     "blueprintViewDetails": "Detaljer",
     "defaultIdentityProvider": "Standard identitetsleverandør",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "Nettverksinnstillinger",
     "editInternalResourceDialogAccessPolicy": "Tilgangsregler for tilgang",
     "editInternalResourceDialogAddRoles": "Legg til roller",
