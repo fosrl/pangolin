@@ -2349,6 +2349,7 @@
     "enterConfirmation": "Bevestiging invoeren",
     "blueprintViewDetails": "Details",
     "defaultIdentityProvider": "Standaard Identiteitsprovider",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "Netwerkinstellingen",
     "editInternalResourceDialogAccessPolicy": "Toegangsbeleid",
     "editInternalResourceDialogAddRoles": "Rollen toevoegen",
