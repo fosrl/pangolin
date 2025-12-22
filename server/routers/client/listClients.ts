@@ -56,12 +56,12 @@ async function getLatestOlmVersion(): Promise<string | null> {
             return null;
         }
 
-        const tags = await response.json();
+        let tags = await response.json();
         if (!Array.isArray(tags) || tags.length === 0) {
             logger.warn("No tags found for Olm repository");
             return null;
         }
-
+        tags = tags.filter((version) => !version.name.includes("rc"));
         const latestVersion = tags[0].name;
 
         olmVersionCache.set("latestOlmVersion", latestVersion);
