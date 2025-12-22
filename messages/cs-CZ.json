@@ -2349,6 +2349,7 @@
     "enterConfirmation": "Zadejte potvrzení",
     "blueprintViewDetails": "Detaily",
     "defaultIdentityProvider": "Výchozí poskytovatel identity",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "Nastavení sítě",
     "editInternalResourceDialogAccessPolicy": "Přístupová politika",
     "editInternalResourceDialogAddRoles": "Přidat role",
