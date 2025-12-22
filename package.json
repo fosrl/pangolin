@@ -34,7 +34,7 @@
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "8.2.0",
-        "@aws-sdk/client-s3": "3.955.0",
+        "@aws-sdk/client-s3": "3.956.0",
         "@faker-js/faker": "10.1.0",
         "@headlessui/react": "2.2.9",
         "@hookform/resolvers": "5.2.2",
@@ -116,7 +116,7 @@
         "react-day-picker": "9.13.0",
         "react-dom": "19.2.3",
         "react-easy-sort": "1.8.0",
-        "react-hook-form": "7.68.0",
+        "react-hook-form": "7.69.0",
         "react-icons": "5.5.0",
         "rebuild": "0.1.2",
         "recharts": "2.15.4",
