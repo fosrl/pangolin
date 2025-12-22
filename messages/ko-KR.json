@@ -2349,6 +2349,7 @@
     "enterConfirmation": "확인 입력",
     "blueprintViewDetails": "세부 정보",
     "defaultIdentityProvider": "기본 아이덴티티 공급자",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "네트워크 설정",
     "editInternalResourceDialogAccessPolicy": "액세스 정책",
     "editInternalResourceDialogAddRoles": "역할 추가",
