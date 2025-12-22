@@ -2349,6 +2349,7 @@
     "enterConfirmation": "Wprowadź potwierdzenie",
     "blueprintViewDetails": "Szczegóły",
     "defaultIdentityProvider": "Domyślny dostawca tożsamości",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "Ustawienia sieci",
     "editInternalResourceDialogAccessPolicy": "Polityka dostępowa",
     "editInternalResourceDialogAddRoles": "Dodaj role",
