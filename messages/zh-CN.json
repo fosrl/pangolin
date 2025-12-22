@@ -2349,6 +2349,7 @@
     "enterConfirmation": "输入确认",
     "blueprintViewDetails": "详细信息",
     "defaultIdentityProvider": "默认身份提供商",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "网络设置",
     "editInternalResourceDialogAccessPolicy": "访问策略",
     "editInternalResourceDialogAddRoles": "添加角色",
