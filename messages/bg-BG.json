@@ -2349,6 +2349,7 @@
     "enterConfirmation": "Въведете потвърждение.",
     "blueprintViewDetails": "Подробности.",
     "defaultIdentityProvider": "По подразбиране доставчик на идентичност.",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "Мрежови настройки.",
     "editInternalResourceDialogAccessPolicy": "Политика за достъп.",
     "editInternalResourceDialogAddRoles": "Добавяне на роли.",
