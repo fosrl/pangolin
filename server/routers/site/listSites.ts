@@ -39,12 +39,12 @@ async function getLatestNewtVersion(): Promise<string | null> {
             return null;
         }
 
-        const tags = await response.json();
+        let tags = await response.json();
         if (!Array.isArray(tags) || tags.length === 0) {
             logger.warn("No tags found for Newt repository");
             return null;
         }
-
+        tags = tags.filter((version) => !version.name.includes("rc"));
         const latestVersion = tags[0].name;
 
         cache.set("latestNewtVersion", latestVersion);
