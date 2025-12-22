@@ -2349,6 +2349,7 @@
     "enterConfirmation": "Bestätigung eingeben",
     "blueprintViewDetails": "Details",
     "defaultIdentityProvider": "Standard Identitätsanbieter",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "Netzwerkeinstellungen",
     "editInternalResourceDialogAccessPolicy": "Zugriffsrichtlinie",
     "editInternalResourceDialogAddRoles": "Rollen hinzufügen",
