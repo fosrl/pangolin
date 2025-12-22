@@ -2349,6 +2349,7 @@
     "enterConfirmation": "Onayı girin",
     "blueprintViewDetails": "Detaylar",
     "defaultIdentityProvider": "Varsayılan Kimlik Sağlayıcı",
+    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
     "editInternalResourceDialogNetworkSettings": "Ağ Ayarları",
     "editInternalResourceDialogAccessPolicy": "Erişim Politikası",
     "editInternalResourceDialogAddRoles": "Roller Ekle",
