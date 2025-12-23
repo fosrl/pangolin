@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Bir kuruluş için erişimi yapılandırın",
     "idpUpdatedDescription": "Kimlik sağlayıcı başarıyla güncellendi",
     "redirectUrl": "Yönlendirme URL'si",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "Yönlendirme URL'si Hakkında",
     "redirectUrlAboutDescription": "Bu, kimlik doğrulamasından sonra kullanıcıların yönlendirileceği URL'dir. Bu URL'yi kimlik sağlayıcınızın ayarlarında yapılandırmanız gerekir.",
     "pangolinAuth": "Yetkilendirme - Pangolin",
