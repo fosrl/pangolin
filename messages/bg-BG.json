@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Конфигуриране на достъп за организация",
     "idpUpdatedDescription": "Идентификационният доставчик беше актуализиран успешно",
     "redirectUrl": "URL за пренасочване",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "За URL за пренасочване",
     "redirectUrlAboutDescription": "Това е URL адресът, към който потребителите ще бъдат пренасочени след удостоверяване. Трябва да конфигурирате този URL адрес в настройките на доставчика на идентичност.",
     "pangolinAuth": "Authent - Pangolin",
