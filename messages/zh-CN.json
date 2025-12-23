@@ -850,6 +850,7 @@
     "orgPolicyConfig": "配置组织访问权限",
     "idpUpdatedDescription": "身份提供商更新成功",
     "redirectUrl": "重定向网址",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "关于重定向网址",
     "redirectUrlAboutDescription": "这是用户在验证后将被重定向到的URL。您需要在身份提供者的设置中配置此URL。",
     "pangolinAuth": "认证 - Pangolin",
