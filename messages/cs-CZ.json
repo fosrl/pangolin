@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Konfigurace přístupu pro organizaci",
     "idpUpdatedDescription": "Poskytovatel identity byl úspěšně aktualizován",
     "redirectUrl": "Přesměrovat URL",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "O přesměrování URL",
     "redirectUrlAboutDescription": "Toto je URL, na kterou budou uživatelé po ověření přesměrováni. Tuto URL je třeba nastavit v nastavení poskytovatele identity.",
     "pangolinAuth": "Auth - Pangolin",
