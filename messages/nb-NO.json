@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Konfigurer tilgang for en organisasjon",
     "idpUpdatedDescription": "Identitetsleverandør vellykket oppdatert",
     "redirectUrl": "Omdirigerings-URL",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "Om omdirigerings-URL",
     "redirectUrlAboutDescription": "Dette er URLen som brukere vil bli omdirigert etter autentisering. Du må konfigurere denne URLen i identitetsleverandørens innstillinger.",
     "pangolinAuth": "Autentisering - Pangolin",
