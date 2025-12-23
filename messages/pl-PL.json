@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Skonfiguruj dostęp dla organizacji",
     "idpUpdatedDescription": "Dostawca tożsamości został pomyślnie zaktualizowany",
     "redirectUrl": "URL przekierowania",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "O URL przekierowania",
     "redirectUrlAboutDescription": "Jest to adres URL, na który użytkownicy zostaną przekierowani po uwierzytelnieniu. Musisz skonfigurować ten adres URL w ustawieniach dostawcy tożsamości.",
     "pangolinAuth": "Autoryzacja - Pangolin",
