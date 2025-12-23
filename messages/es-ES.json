@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Configurar acceso para una organización",
     "idpUpdatedDescription": "Proveedor de identidad actualizado correctamente",
     "redirectUrl": "URL de redirección",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "Acerca de la URL de redirección",
     "redirectUrlAboutDescription": "Esta es la URL a la que los usuarios serán redireccionados después de la autenticación. Necesitas configurar esta URL en la configuración del proveedor de identidad.",
     "pangolinAuth": "Autenticación - Pangolin",
