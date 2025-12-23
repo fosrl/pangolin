@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Настроить доступ для организации",
     "idpUpdatedDescription": "Поставщик удостоверений успешно обновлён",
     "redirectUrl": "URL редиректа",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "О редиректе URL",
     "redirectUrlAboutDescription": "Это URL, на который пользователи будут перенаправлены после аутентификации. Вам нужно настроить этот URL в настройках провайдера.",
     "pangolinAuth": "Аутентификация - Pangolin",
