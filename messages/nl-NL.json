@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Toegang voor een organisatie configureren",
     "idpUpdatedDescription": "Identity provider succesvol bijgewerkt",
     "redirectUrl": "Omleidings URL",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "Over omleidings-URL",
     "redirectUrlAboutDescription": "Dit is de URL waarnaar gebruikers worden doorverwezen na verificatie. U moet deze URL configureren in de instellingen van de identiteitsprovider.",
     "pangolinAuth": "Authenticatie - Pangolin",
