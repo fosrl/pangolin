@@ -850,6 +850,7 @@
     "orgPolicyConfig": "조직에 대한 접근을 구성하십시오.",
     "idpUpdatedDescription": "아이덴티티 제공자가 성공적으로 업데이트되었습니다",
     "redirectUrl": "리디렉션 URL",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "리디렉션 URL에 대한 정보",
     "redirectUrlAboutDescription": "사용자가 인증 후 리디렉션될 URL입니다. 이 URL을 신원 제공자 설정에서 구성해야 합니다.",
     "pangolinAuth": "인증 - 판골린",
