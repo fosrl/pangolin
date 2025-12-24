@@ -850,7 +850,7 @@
     "orgPolicyConfig": "Toegang voor een organisatie configureren",
     "idpUpdatedDescription": "Identity provider succesvol bijgewerkt",
     "redirectUrl": "Omleidings URL",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "URL's omleiden",
     "redirectUrlAbout": "Over omleidings-URL",
     "redirectUrlAboutDescription": "Dit is de URL waarnaar gebruikers worden doorverwezen na verificatie. U moet deze URL configureren in de instellingen van de identiteitsprovider.",
     "pangolinAuth": "Authenticatie - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "Ik ga akkoord met de",
         "termsOfService": "servicevoorwaarden",
         "and": "en",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "privacy beleid"
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Houd me op de hoogte met nieuws, updates en nieuwe functies per e-mail."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "Bevestiging invoeren",
     "blueprintViewDetails": "Details",
     "defaultIdentityProvider": "Standaard Identiteitsprovider",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "Wanneer een standaard identity provider is geselecteerd, zal de gebruiker automatisch worden doorgestuurd naar de provider voor authenticatie.",
     "editInternalResourceDialogNetworkSettings": "Netwerkinstellingen",
     "editInternalResourceDialogAccessPolicy": "Toegangsbeleid",
     "editInternalResourceDialogAddRoles": "Rollen toevoegen",
