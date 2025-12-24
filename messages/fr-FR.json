@@ -850,7 +850,7 @@
     "orgPolicyConfig": "Configurer l'accès pour une organisation",
     "idpUpdatedDescription": "Fournisseur d'identité mis à jour avec succès",
     "redirectUrl": "URL de redirection",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "URL de redirection",
     "redirectUrlAbout": "À propos de l'URL de redirection",
     "redirectUrlAboutDescription": "C'est l'URL vers laquelle les utilisateurs seront redirigés après l'authentification. Vous devez configurer cette URL dans les paramètres du fournisseur d'identité.",
     "pangolinAuth": "Auth - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "Je suis d'accord avec",
         "termsOfService": "les conditions d'utilisation",
         "and": "et",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "politique de confidentialité."
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Gardez-moi dans la boucle avec des nouvelles, des mises à jour et de nouvelles fonctionnalités par courriel."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "Entrez la confirmation",
     "blueprintViewDetails": "Détails",
     "defaultIdentityProvider": "Fournisseur d'identité par défaut",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "Lorsqu'un fournisseur d'identité par défaut est sélectionné, l'utilisateur sera automatiquement redirigé vers le fournisseur pour authentification.",
     "editInternalResourceDialogNetworkSettings": "Paramètres réseau",
     "editInternalResourceDialogAccessPolicy": "Politique d'accès",
     "editInternalResourceDialogAddRoles": "Ajouter des rôles",
