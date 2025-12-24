@@ -850,7 +850,7 @@
     "orgPolicyConfig": "Конфигуриране на достъп за организация",
     "idpUpdatedDescription": "Идентификационният доставчик беше актуализиран успешно",
     "redirectUrl": "URL за пренасочване",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "URL адреси за пренасочване",
     "redirectUrlAbout": "За URL за пренасочване",
     "redirectUrlAboutDescription": "Това е URL адресът, към който потребителите ще бъдат пренасочени след удостоверяване. Трябва да конфигурирате този URL адрес в настройките на доставчика на идентичност.",
     "pangolinAuth": "Authent - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "Съгласен съм с",
         "termsOfService": "условията за ползване",
         "and": "и",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "политика за поверителност."
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Дръж ме в течение с новини, актуализации и нови функции чрез имейл."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "Въведете потвърждение.",
     "blueprintViewDetails": "Подробности.",
     "defaultIdentityProvider": "По подразбиране доставчик на идентичност.",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "Когато е избран основен доставчик на идентичност, потребителят ще бъде автоматично пренасочен към доставчика за удостоверяване.",
     "editInternalResourceDialogNetworkSettings": "Мрежови настройки.",
     "editInternalResourceDialogAccessPolicy": "Политика за достъп.",
     "editInternalResourceDialogAddRoles": "Добавяне на роли.",
