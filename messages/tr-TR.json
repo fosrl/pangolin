@@ -850,7 +850,7 @@
     "orgPolicyConfig": "Bir kuruluş için erişimi yapılandırın",
     "idpUpdatedDescription": "Kimlik sağlayıcı başarıyla güncellendi",
     "redirectUrl": "Yönlendirme URL'si",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "Yönlendirme URL'leri",
     "redirectUrlAbout": "Yönlendirme URL'si Hakkında",
     "redirectUrlAboutDescription": "Bu, kimlik doğrulamasından sonra kullanıcıların yönlendirileceği URL'dir. Bu URL'yi kimlik sağlayıcınızın ayarlarında yapılandırmanız gerekir.",
     "pangolinAuth": "Yetkilendirme - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "Kabul ediyorum",
         "termsOfService": "hizmet şartları",
         "and": "ve",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "gizlilik politikası."
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Bana e-posta yoluyla haberler, güncellemeler ve yeni özellikler hakkında bilgi verin."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "Onayı girin",
     "blueprintViewDetails": "Detaylar",
     "defaultIdentityProvider": "Varsayılan Kimlik Sağlayıcı",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "Varsayılan bir kimlik sağlayıcı seçildiğinde, kullanıcı kimlik doğrulaması için otomatik olarak sağlayıcıya yönlendirilecektir.",
     "editInternalResourceDialogNetworkSettings": "Ağ Ayarları",
     "editInternalResourceDialogAccessPolicy": "Erişim Politikası",
     "editInternalResourceDialogAddRoles": "Roller Ekle",
