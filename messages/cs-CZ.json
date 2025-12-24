@@ -850,7 +850,7 @@
     "orgPolicyConfig": "Konfigurace přístupu pro organizaci",
     "idpUpdatedDescription": "Poskytovatel identity byl úspěšně aktualizován",
     "redirectUrl": "Přesměrovat URL",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "Přesměrovat URL",
     "redirectUrlAbout": "O přesměrování URL",
     "redirectUrlAboutDescription": "Toto je URL, na kterou budou uživatelé po ověření přesměrováni. Tuto URL je třeba nastavit v nastavení poskytovatele identity.",
     "pangolinAuth": "Auth - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "Souhlasím s",
         "termsOfService": "podmínky služby",
         "and": "a",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "zásady ochrany osobních údajů."
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Udržujte mě ve smyčce s novinkami, aktualizacemi a novými funkcemi e-mailem."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "Zadejte potvrzení",
     "blueprintViewDetails": "Detaily",
     "defaultIdentityProvider": "Výchozí poskytovatel identity",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "Pokud je vybrán výchozí poskytovatel identity, uživatel bude automaticky přesměrován na poskytovatele pro ověření.",
     "editInternalResourceDialogNetworkSettings": "Nastavení sítě",
     "editInternalResourceDialogAccessPolicy": "Přístupová politika",
     "editInternalResourceDialogAddRoles": "Přidat role",
