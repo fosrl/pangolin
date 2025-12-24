@@ -850,6 +850,7 @@
     "orgPolicyConfig": "Zugriff für eine Organisation konfigurieren",
     "idpUpdatedDescription": "Identitätsanbieter erfolgreich aktualisiert",
     "redirectUrl": "Weiterleitungs-URL",
+    "orgIdpRedirectUrls": "Redirect URLs",
     "redirectUrlAbout": "Über die Weiterleitungs-URL",
     "redirectUrlAboutDescription": "Dies ist die URL, zu der Benutzer nach der Authentifizierung umgeleitet werden. Sie müssen diese URL in den Einstellungen des Identity Providers konfigurieren.",
     "pangolinAuth": "Authentifizierung - Pangolin",
@@ -1479,7 +1480,7 @@
         "IAgreeToThe": "Ich stimme den",
         "termsOfService": "Nutzungsbedingungen zu",
         "and": "und",
-        "privacyPolicy": "Datenschutzrichtlinie"
+        "privacyPolicy": "privacy policy."
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Halten Sie mich auf dem Laufenden mit Neuigkeiten, Updates und neuen Funktionen per E-Mail."
