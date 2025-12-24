@@ -850,7 +850,7 @@
     "orgPolicyConfig": "Настроить доступ для организации",
     "idpUpdatedDescription": "Поставщик удостоверений успешно обновлён",
     "redirectUrl": "URL редиректа",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "Перенаправление URL",
     "redirectUrlAbout": "О редиректе URL",
     "redirectUrlAboutDescription": "Это URL, на который пользователи будут перенаправлены после аутентификации. Вам нужно настроить этот URL в настройках провайдера.",
     "pangolinAuth": "Аутентификация - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "Я согласен с",
         "termsOfService": "условия использования",
         "and": "и",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "политика конфиденциальности."
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Держите меня в цикле с новостями, обновлениями и новыми функциями по электронной почте."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "Введите подтверждение",
     "blueprintViewDetails": "Подробности",
     "defaultIdentityProvider": "Поставщик удостоверений по умолчанию",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "Когда выбран поставщик идентификации по умолчанию, пользователь будет автоматически перенаправлен на провайдер для аутентификации.",
     "editInternalResourceDialogNetworkSettings": "Настройки сети",
     "editInternalResourceDialogAccessPolicy": "Политика доступа",
     "editInternalResourceDialogAddRoles": "Добавить роли",
