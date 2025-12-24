@@ -850,7 +850,7 @@
     "orgPolicyConfig": "配置组织访问权限",
     "idpUpdatedDescription": "身份提供商更新成功",
     "redirectUrl": "重定向网址",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "重定向URL",
     "redirectUrlAbout": "关于重定向网址",
     "redirectUrlAboutDescription": "这是用户在验证后将被重定向到的URL。您需要在身份提供者的设置中配置此URL。",
     "pangolinAuth": "认证 - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "我同意",
         "termsOfService": "服务条款",
         "and": "和",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "隐私政策。"
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "通过电子邮件让我在循环中保持新闻、更新和新功能。"
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "输入确认",
     "blueprintViewDetails": "详细信息",
     "defaultIdentityProvider": "默认身份提供商",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "当选择默认身份提供商时，用户将自动重定向到提供商进行身份验证。",
     "editInternalResourceDialogNetworkSettings": "网络设置",
     "editInternalResourceDialogAccessPolicy": "访问策略",
     "editInternalResourceDialogAddRoles": "添加角色",
