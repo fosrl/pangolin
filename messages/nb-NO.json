@@ -850,7 +850,7 @@
     "orgPolicyConfig": "Konfigurer tilgang for en organisasjon",
     "idpUpdatedDescription": "Identitetsleverandør vellykket oppdatert",
     "redirectUrl": "Omdirigerings-URL",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "Omadressere URL'er",
     "redirectUrlAbout": "Om omdirigerings-URL",
     "redirectUrlAboutDescription": "Dette er URLen som brukere vil bli omdirigert etter autentisering. Du må konfigurere denne URLen i identitetsleverandørens innstillinger.",
     "pangolinAuth": "Autentisering - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "Jeg godtar",
         "termsOfService": "brukervilkårene",
         "and": "og",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "retningslinjer for personvern"
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Hold meg i løken med nyheter, oppdateringer og nye funksjoner via e-post."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "Skriv inn bekreftelse",
     "blueprintViewDetails": "Detaljer",
     "defaultIdentityProvider": "Standard identitetsleverandør",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "Når en standard identitetsleverandør er valgt, vil brukeren automatisk bli omdirigert til leverandøren for autentisering.",
     "editInternalResourceDialogNetworkSettings": "Nettverksinnstillinger",
     "editInternalResourceDialogAccessPolicy": "Tilgangsregler for tilgang",
     "editInternalResourceDialogAddRoles": "Legg til roller",
