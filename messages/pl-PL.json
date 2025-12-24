@@ -850,7 +850,7 @@
     "orgPolicyConfig": "Skonfiguruj dostęp dla organizacji",
     "idpUpdatedDescription": "Dostawca tożsamości został pomyślnie zaktualizowany",
     "redirectUrl": "URL przekierowania",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "Przekieruj adresy URL",
     "redirectUrlAbout": "O URL przekierowania",
     "redirectUrlAboutDescription": "Jest to adres URL, na który użytkownicy zostaną przekierowani po uwierzytelnieniu. Musisz skonfigurować ten adres URL w ustawieniach dostawcy tożsamości.",
     "pangolinAuth": "Autoryzacja - Pangolin",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "Zgadzam się z",
         "termsOfService": "warunkami usługi",
         "and": "oraz",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "polityka prywatności."
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "Zachowaj mnie w pętli z wiadomościami, aktualizacjami i nowymi funkcjami przez e-mail."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "Wprowadź potwierdzenie",
     "blueprintViewDetails": "Szczegóły",
     "defaultIdentityProvider": "Domyślny dostawca tożsamości",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "Gdy zostanie wybrany domyślny dostawca tożsamości, użytkownik zostanie automatycznie przekierowany do dostawcy w celu uwierzytelnienia.",
     "editInternalResourceDialogNetworkSettings": "Ustawienia sieci",
     "editInternalResourceDialogAccessPolicy": "Polityka dostępowa",
     "editInternalResourceDialogAddRoles": "Dodaj role",
