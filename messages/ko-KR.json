@@ -850,7 +850,7 @@
     "orgPolicyConfig": "조직에 대한 접근을 구성하십시오.",
     "idpUpdatedDescription": "아이덴티티 제공자가 성공적으로 업데이트되었습니다",
     "redirectUrl": "리디렉션 URL",
-    "orgIdpRedirectUrls": "Redirect URLs",
+    "orgIdpRedirectUrls": "리디렉션 URL",
     "redirectUrlAbout": "리디렉션 URL에 대한 정보",
     "redirectUrlAboutDescription": "사용자가 인증 후 리디렉션될 URL입니다. 이 URL을 신원 제공자 설정에서 구성해야 합니다.",
     "pangolinAuth": "인증 - 판골린",
@@ -1480,7 +1480,7 @@
         "IAgreeToThe": "동의합니다",
         "termsOfService": "서비스 약관",
         "and": "및",
-        "privacyPolicy": "privacy policy."
+        "privacyPolicy": "개인 정보 보호 정책."
     },
     "signUpMarketing": {
         "keepMeInTheLoop": "이메일을 통해 소식, 업데이트 및 새로운 기능을 받아보세요."
@@ -2350,7 +2350,7 @@
     "enterConfirmation": "확인 입력",
     "blueprintViewDetails": "세부 정보",
     "defaultIdentityProvider": "기본 아이덴티티 공급자",
-    "defaultIdentityProviderDescription": "When a default identity provider is selected, the user will be automatically redirected to the provider for authentication.",
+    "defaultIdentityProviderDescription": "기본 ID 공급자가 선택되면, 사용자는 인증을 위해 자동으로 해당 공급자로 리디렉션됩니다.",
     "editInternalResourceDialogNetworkSettings": "네트워크 설정",
     "editInternalResourceDialogAccessPolicy": "액세스 정책",
     "editInternalResourceDialogAddRoles": "역할 추가",
