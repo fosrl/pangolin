@@ -78,7 +78,8 @@ export const RuleSchema = z
     .object({
         action: z.enum(["allow", "deny", "pass"]),
         match: z.enum(["cidr", "path", "ip", "country", "asn"]),
-        value: z.string()
+        value: z.string(),
+        priority: z.int().optional()
     })
     .refine(
         (rule) => {
@@ -267,6 +268,39 @@ export const ResourceSchema = z
         {
             path: ["auth"],
             error: "When protocol is 'tcp' or 'udp', 'auth' must not be provided"
+        }
+    )
+    .refine(
+        (resource) => {
+            // Skip validation for targets-only resources
+            if (isTargetsOnlyResource(resource)) {
+                return true;
+            }
+            // Skip validation if no rules are defined
+            if (!resource.rules || resource.rules.length === 0) return true;
+
+            const finalPriorities: number[] = [];
+            let priorityCounter = 1;
+
+            // Gather priorities, assigning auto-priorities where needed
+            // following the logic from the backend implementation where
+            // empty priorities are auto-assigned a value of 1 + index of rule
+            for (const rule of resource.rules) {
+                if (rule.priority !== undefined) {
+                    finalPriorities.push(rule.priority);
+                } else {
+                    finalPriorities.push(priorityCounter);
+                }
+                priorityCounter++;
+            }
+
+            // Validate for duplicate priorities
+            return finalPriorities.length === new Set(finalPriorities).size;
+        },
+        {
+            path: ["rules"],
+            message:
+                "Rules have conflicting or invalid priorities (must be unique, including auto-assigned ones)"
         }
     );
 
