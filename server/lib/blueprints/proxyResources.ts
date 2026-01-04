@@ -587,13 +587,15 @@ export async function updateProxyResources(
 
             // Sync rules
             for (const [index, rule] of resourceData.rules?.entries() || []) {
+                const intendedPriority = rule.priority ?? index + 1;
                 const existingRule = existingRules[index];
                 if (existingRule) {
                     if (
                         existingRule.action !== getRuleAction(rule.action) ||
                         existingRule.match !== rule.match.toUpperCase() ||
                         existingRule.value !==
-                            getRuleValue(rule.match.toUpperCase(), rule.value)
+                            getRuleValue(rule.match.toUpperCase(), rule.value) ||
+                        existingRule.priority !== intendedPriority
                     ) {
                         validateRule(rule);
                         await trx
@@ -604,7 +606,8 @@ export async function updateProxyResources(
                                 value: getRuleValue(
                                     rule.match.toUpperCase(),
                                     rule.value
-                                )
+                                ),
+                                priority: intendedPriority
                             })
                             .where(
                                 eq(resourceRules.ruleId, existingRule.ruleId)
@@ -620,7 +623,7 @@ export async function updateProxyResources(
                             rule.match.toUpperCase(),
                             rule.value
                         ),
-                        priority: index + 1 // start priorities at 1
+                        priority: intendedPriority
                     });
                 }
             }
@@ -809,7 +812,7 @@ export async function updateProxyResources(
                     action: getRuleAction(rule.action),
                     match: rule.match.toUpperCase(),
                     value: getRuleValue(rule.match.toUpperCase(), rule.value),
-                    priority: index + 1 // start priorities at 1
+                    priority: rule.priority ?? index + 1
                 });
             }
 
