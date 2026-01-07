@@ -290,7 +290,7 @@ export const ClientResourceSchema = z
         alias: z
             .string()
             .regex(
-                /^(?:\*\.)?(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/,
+                /^(?=.{1,253}$)(?!\.)(?!.*\.\.)(?:[a-zA-Z0-9*?](?:[a-zA-Z0-9*?-]{0,61}[a-zA-Z0-9*?])?\.)+[a-zA-Z0-9*?](?:[a-zA-Z0-9*?-]{0,61}[a-zA-Z0-9*?])$/,
                 "Alias must be a fully qualified domain name or a valid wildcard (e.g., example.com or *.example.com)"
             )
             .optional(),
