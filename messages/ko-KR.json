@@ -2394,5 +2394,17 @@
     "maintenanceScreenTitle": "서비스 일시 중단",
     "maintenanceScreenMessage": "현재 기술적 문제를 겪고 있습니다. 곧 다시 확인하십시오.",
     "maintenanceScreenEstimatedCompletion": "예상 완료:",
-    "createInternalResourceDialogDestinationRequired": "목적지가 필요합니다."
+    "createInternalResourceDialogDestinationRequired": "목적지가 필요합니다.",
+    "available": "Available",
+    "archived": "Archived",
+    "noArchivedDevices": "No archived devices found",
+    "deviceArchived": "Device archived",
+    "deviceArchivedDescription": "The device has been successfully archived.",
+    "errorArchivingDevice": "Error archiving device",
+    "failedToArchiveDevice": "Failed to archive device",
+    "deviceQuestionArchive": "Are you sure you want to archive this device?",
+    "deviceMessageArchive": "The device will be archived and removed from your active devices list.",
+    "deviceArchiveConfirm": "Archive Device",
+    "archiveDevice": "Archive Device",
+    "archive": "Archive"
 }
