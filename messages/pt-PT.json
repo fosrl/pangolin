@@ -2394,5 +2394,17 @@
     "maintenanceScreenTitle": "Serviço Temporariamente Indisponível",
     "maintenanceScreenMessage": "Estamos enfrentando dificuldades técnicas no momento. Por favor, volte em breve.",
     "maintenanceScreenEstimatedCompletion": "Conclusão Estimada:",
-    "createInternalResourceDialogDestinationRequired": "Destino é obrigatório"
+    "createInternalResourceDialogDestinationRequired": "Destino é obrigatório",
+    "available": "Available",
+    "archived": "Archived",
+    "noArchivedDevices": "No archived devices found",
+    "deviceArchived": "Device archived",
+    "deviceArchivedDescription": "The device has been successfully archived.",
+    "errorArchivingDevice": "Error archiving device",
+    "failedToArchiveDevice": "Failed to archive device",
+    "deviceQuestionArchive": "Are you sure you want to archive this device?",
+    "deviceMessageArchive": "The device will be archived and removed from your active devices list.",
+    "deviceArchiveConfirm": "Archive Device",
+    "archiveDevice": "Archive Device",
+    "archive": "Archive"
 }
