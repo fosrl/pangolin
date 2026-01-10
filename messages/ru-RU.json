@@ -2394,5 +2394,17 @@
     "maintenanceScreenTitle": "Сервис временно недоступен",
     "maintenanceScreenMessage": "В настоящее время мы испытываем технические трудности. Пожалуйста, зайдите позже.",
     "maintenanceScreenEstimatedCompletion": "Предполагаемое завершение:",
-    "createInternalResourceDialogDestinationRequired": "Укажите адрес назначения. Это может быть имя хоста или IP-адрес."
+    "createInternalResourceDialogDestinationRequired": "Укажите адрес назначения. Это может быть имя хоста или IP-адрес.",
+    "available": "Available",
+    "archived": "Archived",
+    "noArchivedDevices": "No archived devices found",
+    "deviceArchived": "Device archived",
+    "deviceArchivedDescription": "The device has been successfully archived.",
+    "errorArchivingDevice": "Error archiving device",
+    "failedToArchiveDevice": "Failed to archive device",
+    "deviceQuestionArchive": "Are you sure you want to archive this device?",
+    "deviceMessageArchive": "The device will be archived and removed from your active devices list.",
+    "deviceArchiveConfirm": "Archive Device",
+    "archiveDevice": "Archive Device",
+    "archive": "Archive"
 }
