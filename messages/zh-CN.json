@@ -2394,5 +2394,17 @@
     "maintenanceScreenTitle": "服务暂时不可用",
     "maintenanceScreenMessage": "我们目前遇到技术问题。 请稍后再回来查看。",
     "maintenanceScreenEstimatedCompletion": "预计完成时间：",
-    "createInternalResourceDialogDestinationRequired": "需要目标地址"
+    "createInternalResourceDialogDestinationRequired": "需要目标地址",
+    "available": "Available",
+    "archived": "Archived",
+    "noArchivedDevices": "No archived devices found",
+    "deviceArchived": "Device archived",
+    "deviceArchivedDescription": "The device has been successfully archived.",
+    "errorArchivingDevice": "Error archiving device",
+    "failedToArchiveDevice": "Failed to archive device",
+    "deviceQuestionArchive": "Are you sure you want to archive this device?",
+    "deviceMessageArchive": "The device will be archived and removed from your active devices list.",
+    "deviceArchiveConfirm": "Archive Device",
+    "archiveDevice": "Archive Device",
+    "archive": "Archive"
 }
