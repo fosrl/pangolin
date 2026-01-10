@@ -2394,5 +2394,17 @@
     "maintenanceScreenTitle": "Dienst vorübergehend nicht verfügbar",
     "maintenanceScreenMessage": "Wir haben derzeit technische Schwierigkeiten. Bitte schauen Sie bald noch einmal vorbei.",
     "maintenanceScreenEstimatedCompletion": "Geschätzter Abschluss:",
-    "createInternalResourceDialogDestinationRequired": "Ziel ist erforderlich"
+    "createInternalResourceDialogDestinationRequired": "Ziel ist erforderlich",
+    "available": "Available",
+    "archived": "Archived",
+    "noArchivedDevices": "No archived devices found",
+    "deviceArchived": "Device archived",
+    "deviceArchivedDescription": "The device has been successfully archived.",
+    "errorArchivingDevice": "Error archiving device",
+    "failedToArchiveDevice": "Failed to archive device",
+    "deviceQuestionArchive": "Are you sure you want to archive this device?",
+    "deviceMessageArchive": "The device will be archived and removed from your active devices list.",
+    "deviceArchiveConfirm": "Archive Device",
+    "archiveDevice": "Archive Device",
+    "archive": "Archive"
 }
