@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "Достъп до всички организации, до които има достъп акаунтът ви",
     "deviceAuthorize": "Разрешете {applicationName}",
     "deviceConnected": "Устройството е свързано!",
-    "deviceAuthorizedMessage": "Устройството е разрешено да има достъп до вашия акаунт.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "Pangolin Cloud",
     "viewDevices": "Преглед на устройствата",
     "viewDevicesDescription": "Управлявайте свързаните си устройства",
