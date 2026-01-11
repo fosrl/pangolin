@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "Tilgang til alle organisasjoner din konto har tilgang til",
     "deviceAuthorize": "Autoriser {applicationName}",
     "deviceConnected": "Enhet tilkoblet!",
-    "deviceAuthorizedMessage": "Enhet er autorisert for tilgang til kontoen din.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "Pangolin Sky",
     "viewDevices": "Vis enheter",
     "viewDevicesDescription": "Administrer tilkoblede enheter",
