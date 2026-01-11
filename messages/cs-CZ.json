@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "Přístup ke všem organizacím má přístup k vašemu účtu",
     "deviceAuthorize": "Autorizovat {applicationName}",
     "deviceConnected": "Zařízení připojeno!",
-    "deviceAuthorizedMessage": "Zařízení má oprávnění k přístupu k vašemu účtu.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "Pangolin Cloud",
     "viewDevices": "Zobrazit zařízení",
     "viewDevicesDescription": "Spravovat připojená zařízení",
