@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "Доступ ко всем организациям, к которым ваш аккаунт имеет доступ",
     "deviceAuthorize": "Авторизовать {applicationName}",
     "deviceConnected": "Устройство подключено!",
-    "deviceAuthorizedMessage": "Устройство авторизовано для доступа к вашей учетной записи.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "Облако Панголина",
     "viewDevices": "Просмотр устройств",
     "viewDevicesDescription": "Управление подключенными устройствами",
