@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "Toegang tot alle organisaties waar uw account toegang tot heeft",
     "deviceAuthorize": "Autoriseer {applicationName}",
     "deviceConnected": "Apparaat verbonden!",
-    "deviceAuthorizedMessage": "Apparaat is gemachtigd om toegang te krijgen tot je account.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "Pangoline Cloud",
     "viewDevices": "Bekijk apparaten",
     "viewDevicesDescription": "Beheer uw aangesloten apparaten",
