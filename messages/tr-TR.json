@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "Hesabınızın erişim hakkına sahip olduğu tüm organizasyonlara erişim",
     "deviceAuthorize": "{uygulamaAdi} yetkilendir",
     "deviceConnected": "Cihaz Bağlandı!",
-    "deviceAuthorizedMessage": "Cihazınız, hesabınıza erişim izni almıştır.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "Pangolin Cloud",
     "viewDevices": "Cihazları Görüntüle",
     "viewDevicesDescription": "Bağlantılı cihazlarınızı yönetin",
