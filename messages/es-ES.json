@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "Acceso a todas las organizaciones a las que su cuenta tiene acceso",
     "deviceAuthorize": "Autorizar a {applicationName}",
     "deviceConnected": "¡Dispositivo conectado!",
-    "deviceAuthorizedMessage": "El dispositivo está autorizado para acceder a su cuenta.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "Nube de Pangolin",
     "viewDevices": "Ver dispositivos",
     "viewDevicesDescription": "Administra tus dispositivos conectados",
