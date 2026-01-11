@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "계정이 접근할 수 있는 모든 조직에 대한 접근",
     "deviceAuthorize": "{applicationName} 권한 부여",
     "deviceConnected": "장치가 연결되었습니다!",
-    "deviceAuthorizedMessage": "장치가 계정에 액세스할 수 있도록 승인되었습니다.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "판골린 클라우드",
     "viewDevices": "장치 보기",
     "viewDevicesDescription": "연결된 장치를 관리하십시오",
