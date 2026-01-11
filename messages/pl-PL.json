@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "Dostęp do wszystkich organizacji, do których Twoje konto ma dostęp",
     "deviceAuthorize": "Autoryzuj {applicationName}",
     "deviceConnected": "Urządzenie podłączone!",
-    "deviceAuthorizedMessage": "Urządzenie jest upoważnione do dostępu do Twojego konta.",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "Chmura Pangolin",
     "viewDevices": "Zobacz urządzenia",
     "viewDevicesDescription": "Zarządzaj podłączonymi urządzeniami",
