@@ -2244,7 +2244,7 @@
     "deviceOrganizationsAccess": "访问您的帐户拥有访问权限的所有组织",
     "deviceAuthorize": "授权{applicationName}",
     "deviceConnected": "设备已连接！",
-    "deviceAuthorizedMessage": "设备被授权访问您的帐户。",
+    "deviceAuthorizedMessage": "Device is authorized to access your account. Please return to the client application.",
     "pangolinCloud": "邦戈林云",
     "viewDevices": "查看设备",
     "viewDevicesDescription": "管理您已连接的设备",
