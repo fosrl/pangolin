@@ -1118,6 +1118,8 @@
     "actionUpdateIdpOrg": "Обновить организацию IDP",
     "actionCreateClient": "Создать Клиента",
     "actionDeleteClient": "Удалить Клиента",
+    "actionArchiveClient": "Archive Client",
+    "actionUnarchiveClient": "Unarchive Client",
     "actionUpdateClient": "Обновить Клиента",
     "actionListClients": "Список Клиентов",
     "actionGetClient": "Получить Клиента",
@@ -2406,5 +2408,15 @@
     "deviceMessageArchive": "The device will be archived and removed from your active devices list.",
     "deviceArchiveConfirm": "Archive Device",
     "archiveDevice": "Archive Device",
-    "archive": "Archive"
+    "archive": "Archive",
+    "deviceUnarchived": "Device unarchived",
+    "deviceUnarchivedDescription": "The device has been successfully unarchived.",
+    "errorUnarchivingDevice": "Error unarchiving device",
+    "failedToUnarchiveDevice": "Failed to unarchive device",
+    "unarchive": "Unarchive",
+    "archiveClient": "Archive Client",
+    "archiveClientQuestion": "Are you sure you want to archive this client?",
+    "archiveClientMessage": "The client will be archived and removed from your active clients list.",
+    "archiveClientConfirm": "Archive Client",
+    "active": "Active"
 }
