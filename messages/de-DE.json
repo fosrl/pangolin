@@ -1118,6 +1118,8 @@
     "actionUpdateIdpOrg": "IDP-Organisation aktualisieren",
     "actionCreateClient": "Client erstellen",
     "actionDeleteClient": "Client löschen",
+    "actionArchiveClient": "Archive Client",
+    "actionUnarchiveClient": "Unarchive Client",
     "actionUpdateClient": "Client aktualisieren",
     "actionListClients": "Clients auflisten",
     "actionGetClient": "Clients abrufen",
@@ -2406,5 +2408,15 @@
     "deviceMessageArchive": "Das Gerät wird archiviert und aus Ihrer Liste der aktiven Geräte entfernt.",
     "deviceArchiveConfirm": "Gerät archivieren",
     "archiveDevice": "Gerät archivieren",
-    "archive": "Archiv"
+    "archive": "Archiv",
+    "deviceUnarchived": "Device unarchived",
+    "deviceUnarchivedDescription": "The device has been successfully unarchived.",
+    "errorUnarchivingDevice": "Error unarchiving device",
+    "failedToUnarchiveDevice": "Failed to unarchive device",
+    "unarchive": "Unarchive",
+    "archiveClient": "Archive Client",
+    "archiveClientQuestion": "Are you sure you want to archive this client?",
+    "archiveClientMessage": "The client will be archived and removed from your active clients list.",
+    "archiveClientConfirm": "Archive Client",
+    "active": "Active"
 }
