@@ -1120,6 +1120,8 @@
     "actionDeleteClient": "Удалить Клиента",
     "actionArchiveClient": "Archive Client",
     "actionUnarchiveClient": "Unarchive Client",
+    "actionBlockClient": "Block Client",
+    "actionUnblockClient": "Unblock Client",
     "actionUpdateClient": "Обновить Клиента",
     "actionListClients": "Список Клиентов",
     "actionGetClient": "Получить Клиента",
@@ -2418,5 +2420,9 @@
     "archiveClientQuestion": "Are you sure you want to archive this client?",
     "archiveClientMessage": "The client will be archived and removed from your active clients list.",
     "archiveClientConfirm": "Archive Client",
+    "blockClient": "Block Client",
+    "blockClientQuestion": "Are you sure you want to block this client?",
+    "blockClientMessage": "The device will be forced to disconnect if currently connected. You can unblock the device later.",
+    "blockClientConfirm": "Block Client",
     "active": "Active"
 }
