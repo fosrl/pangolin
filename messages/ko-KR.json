@@ -1209,7 +1209,7 @@
     "sidebarIdentityProviders": "신원 공급자",
     "sidebarLicense": "라이선스",
     "sidebarClients": "클라이언트",
-    "sidebarUserDevices": "사용자",
+    "sidebarUserDevices": "User Devices",
     "sidebarMachineClients": "기계",
     "sidebarDomains": "도메인",
     "sidebarGeneral": "관리",
