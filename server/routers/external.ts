@@ -861,6 +861,12 @@ authenticated.get(
     olm.getUserOlm
 );
 
+authenticated.post(
+    "/user/:userId/olm/recover",
+    verifyIsLoggedInUser,
+    olm.recoverOlmWithFingerprint
+);
+
 authenticated.put(
     "/idp/oidc",
     verifyUserIsServerAdmin,
