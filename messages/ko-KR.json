@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "서버 관리자 계정을 생성하는 동안 오류가 발생했습니다.",
     "certificateStatus": "인증서 상태",
     "loading": "로딩 중",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "재시작",
     "domains": "도메인",
     "domainsDescription": "조직에서 사용 가능한 도메인 생성 및 관리",
