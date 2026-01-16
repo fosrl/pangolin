@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "Beim Erstellen des Server-Admin-Kontos ist ein Fehler aufgetreten.",
     "certificateStatus": "Zertifikatsstatus",
     "loading": "Laden",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "Neustart",
     "domains": "Domänen",
     "domainsDescription": "Erstellen und verwalten der in der Organisation verfügbaren Domänen",
