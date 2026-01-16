@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "Sunucu yönetici hesabı oluşturulurken bir hata oluştu.",
     "certificateStatus": "Sertifika Durumu",
     "loading": "Yükleniyor",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "Yeniden Başlat",
     "domains": "Alan Adları",
     "domainsDescription": "Organizasyonda kullanılabilir alan adlarını oluşturun ve yönetin",
