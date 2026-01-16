@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "Došlo k chybě při vytváření účtu správce serveru.",
     "certificateStatus": "Stav certifikátu",
     "loading": "Načítání",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "Restartovat",
     "domains": "Domény",
     "domainsDescription": "Vytvořit a spravovat domény dostupné v organizaci",
