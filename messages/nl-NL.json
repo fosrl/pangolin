@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "Er is een fout opgetreden bij het maken van het serverbeheerdersaccount.",
     "certificateStatus": "Certificaatstatus",
     "loading": "Bezig met laden",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "Herstarten",
     "domains": "Domeinen",
     "domainsDescription": "Maak en beheer domeinen die beschikbaar zijn in de organisatie",
