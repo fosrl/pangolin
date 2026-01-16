@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "Произошла ошибка при создании учётной записи администратора сервера.",
     "certificateStatus": "Статус сертификата",
     "loading": "Загрузка",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "Перезагрузка",
     "domains": "Домены",
     "domainsDescription": "Создание и управление доменами, доступными в организации",
