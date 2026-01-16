@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "Възникна грешка при създаване на админ акаунт.",
     "certificateStatus": "Статус на сертификата",
     "loading": "Зареждане",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "Рестарт",
     "domains": "Домейни",
     "domainsDescription": "Създайте и управлявайте наличните домейни в организацията",
