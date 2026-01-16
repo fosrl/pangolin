@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "创建服务器管理员账户时发生错误。",
     "certificateStatus": "证书状态",
     "loading": "加载中",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "重启",
     "domains": "域",
     "domainsDescription": "创建和管理组织中可用的域",
