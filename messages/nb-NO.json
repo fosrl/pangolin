@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "En feil oppstod under opprettelsen av serveradministratorkontoen.",
     "certificateStatus": "Sertifikatstatus",
     "loading": "Laster inn",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "Start på nytt",
     "domains": "Domener",
     "domainsDescription": "Opprett og behandle domener som er tilgjengelige i organisasjonen",
