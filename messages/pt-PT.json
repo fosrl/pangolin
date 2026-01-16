@@ -1308,6 +1308,7 @@
     "setupErrorCreateAdmin": "Ocorreu um erro ao criar a conta de administrador do servidor.",
     "certificateStatus": "Status do Certificado",
     "loading": "Carregando",
+    "loadingAnalytics": "Loading Analytics",
     "restart": "Reiniciar",
     "domains": "Domínios",
     "domainsDescription": "Criar e gerenciar domínios disponíveis na organização",
