@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "타임아웃(초)",
     "timeIsInSeconds": "시간은 초 단위입니다",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "재시도 횟수",
     "expectedResponseCodes": "예상 응답 코드",
     "expectedResponseCodesDescription": "정상 상태를 나타내는 HTTP 상태 코드입니다. 비워 두면 200-300이 정상으로 간주됩니다.",
