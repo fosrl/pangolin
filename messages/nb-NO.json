@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "Tidsavbrudd (sek)",
     "timeIsInSeconds": "Tid er i sekunder",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "Forsøk på nytt",
     "expectedResponseCodes": "Forventede svarkoder",
     "expectedResponseCodesDescription": "HTTP-statuskode som indikerer sunn status. Hvis den blir stående tom, regnes 200-300 som sunn.",
