@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "Време за изчакване (сек)",
     "timeIsInSeconds": "Времето е в секунди",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "Опити за повторно",
     "expectedResponseCodes": "Очаквани кодове за отговор",
     "expectedResponseCodesDescription": "HTTP статус код, указващ здравословно състояние. Ако бъде оставено празно, между 200-300 се счита за здравословно.",
