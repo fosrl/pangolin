@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "超时(秒)",
     "timeIsInSeconds": "时间以秒为单位",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "重试次数",
     "expectedResponseCodes": "期望响应代码",
     "expectedResponseCodesDescription": "HTTP 状态码表示健康状态。如留空，200-300 被视为健康。",
