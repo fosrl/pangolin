@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "Délai d'attente (sec)",
     "timeIsInSeconds": "Le temps est exprimé en secondes",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "Tentatives de réessai",
     "expectedResponseCodes": "Codes de réponse attendus",
     "expectedResponseCodesDescription": "Code de statut HTTP indiquant un état de santé satisfaisant. Si non renseigné, 200-300 est considéré comme satisfaisant.",
