@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "Časový limit (sek)",
     "timeIsInSeconds": "Čas je v sekundách",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "Opakovat pokusy",
     "expectedResponseCodes": "Očekávané kódy odezvy",
     "expectedResponseCodesDescription": "HTTP kód stavu, který označuje zdravý stav. Ponecháte-li prázdné, 200-300 je považováno za zdravé.",
