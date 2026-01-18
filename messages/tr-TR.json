@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "Zaman Aşımı (saniye)",
     "timeIsInSeconds": "Zaman saniye cinsindendir",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "Tekrar Deneme Girişimleri",
     "expectedResponseCodes": "Beklenen Yanıt Kodları",
     "expectedResponseCodesDescription": "Sağlıklı durumu gösteren HTTP durum kodu. Boş bırakılırsa, 200-300 arası sağlıklı kabul edilir.",
