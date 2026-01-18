@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "Limit czasu (sek)",
     "timeIsInSeconds": "Czas w sekundach",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "Próby Ponowienia",
     "expectedResponseCodes": "Oczekiwane Kody Odpowiedzi",
     "expectedResponseCodesDescription": "Kod statusu HTTP, który wskazuje zdrowy status. Jeśli pozostanie pusty, uznaje się 200-300 za zdrowy.",
