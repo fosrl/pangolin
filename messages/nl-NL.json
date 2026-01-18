@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "Timeout (sec)",
     "timeIsInSeconds": "Tijd is in seconden",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "Herhaal Pogingen",
     "expectedResponseCodes": "Verwachte Reactiecodes",
     "expectedResponseCodesDescription": "HTTP-statuscode die gezonde status aangeeft. Indien leeg wordt 200-300 als gezond beschouwd.",
