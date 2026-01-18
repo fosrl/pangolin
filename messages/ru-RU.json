@@ -1581,7 +1581,7 @@
     "timeoutSeconds": "Таймаут (сек)",
     "timeIsInSeconds": "Время указано в секундах",
     "requireDeviceApproval": "Require Device Approvals",
-    "requireDeviceApprovalDescription": "Users with this role need their devices approved by an admin before they can access resources",
+    "requireDeviceApprovalDescription": "Users with this role need new devices approved by an admin before they can connect and access resources.",
     "retryAttempts": "Количество попыток повторного запроса",
     "expectedResponseCodes": "Ожидаемые коды ответов",
     "expectedResponseCodesDescription": "HTTP-код состояния, указывающий на здоровое состояние. Если оставить пустым, 200-300 считается здоровым.",
