@@ -60,6 +60,18 @@ export default function LocaleSwitcher() {
                 {
                     value: "zh-TW",
                     label: "繁體中文"
+                },
+                {
+                    value: "ru-RU",
+                    label: "Русский"
+                },
+                {
+                    value: "bg-BG",
+                    label: "Български"
+                },
+                {
+                    value: "cs-CZ",
+                    label: "Čeština"
                 }
             ]}
         />
