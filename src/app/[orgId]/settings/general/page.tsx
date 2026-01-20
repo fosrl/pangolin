@@ -60,7 +60,6 @@ import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
 import { useSubscriptionStatusContext } from "@app/hooks/useSubscriptionStatusContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import type { t } from "@faker-js/faker/dist/airline-DF6RqYmq";
 import type { OrgContextType } from "@app/contexts/orgContext";
 
 // Session length options in hours
