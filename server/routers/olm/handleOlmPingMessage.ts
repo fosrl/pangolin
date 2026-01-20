@@ -1,5 +1,5 @@
 import { disconnectClient, getClientConfigVersion } from "#dynamic/routers/ws";
-import { clientPostureSnapshots, db, currentFingerprint } from "@server/db";
+import { db } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
 import { clients, olms, Olm } from "@server/db";
 import { eq, lt, isNull, and, or } from "drizzle-orm";
@@ -215,36 +215,11 @@ export const handleOlmPingMessage: MessageHandler = async (context) => {
                 .set({ archived: false })
                 .where(eq(olms.olmId, olm.olmId));
         }
-
-        await handleFingerprintInsertion(olm, fingerprint);
     } catch (error) {
         logger.error("Error handling ping message", { error });
     }
 
-    const now = Math.floor(Date.now() / 1000);
-
-    if (postures && olm.clientId) {
-        await db.insert(clientPostureSnapshots).values({
-            clientId: olm.clientId,
-
-            biometricsEnabled: postures?.biometricsEnabled,
-            diskEncrypted: postures?.diskEncrypted,
-            firewallEnabled: postures?.firewallEnabled,
-            autoUpdatesEnabled: postures?.autoUpdatesEnabled,
-            tpmAvailable: postures?.tpmAvailable,
-
-            windowsDefenderEnabled: postures?.windowsDefenderEnabled,
-
-            macosSipEnabled: postures?.macosSipEnabled,
-            macosGatekeeperEnabled: postures?.macosGatekeeperEnabled,
-            macosFirewallStealthMode: postures?.macosFirewallStealthMode,
-
-            linuxAppArmorEnabled: postures?.linuxAppArmorEnabled,
-            linuxSELinuxEnabled: postures?.linuxSELinuxEnabled,
-
-            collectedAt: now
-        });
-    }
+    await handleFingerprintInsertion(olm, fingerprint, postures);
 
     return {
         message: {

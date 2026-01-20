@@ -416,12 +416,117 @@ export const clientSiteResourcesAssociationsCache = sqliteTable(
     }
 );
 
-export const clientPostureSnapshots = sqliteTable("clientPostureSnapshots", {
-    snapshotId: integer("snapshotId").primaryKey({ autoIncrement: true }),
-
+export const olms = sqliteTable("olms", {
+    olmId: text("id").primaryKey(),
+    secretHash: text("secretHash").notNull(),
+    dateCreated: text("dateCreated").notNull(),
+    version: text("version"),
+    agent: text("agent"),
+    name: text("name"),
     clientId: integer("clientId").references(() => clients.clientId, {
+        // we will switch this depending on the current org it wants to connect to
+        onDelete: "set null"
+    }),
+    userId: text("userId").references(() => users.userId, {
+        // optionally tied to a user and in this case delete when the user deletes
         onDelete: "cascade"
     }),
+    archived: integer("archived", { mode: "boolean" }).notNull().default(false)
+});
+
+export const currentFingerprint = sqliteTable("currentFingerprint", {
+    fingerprintId: integer("id").primaryKey({ autoIncrement: true }),
+
+    olmId: text("olmId")
+        .references(() => olms.olmId, { onDelete: "cascade" })
+        .notNull(),
+
+    firstSeen: integer("firstSeen").notNull(),
+    lastSeen: integer("lastSeen").notNull(),
+    lastCollectedAt: integer("lastCollectedAt").notNull(),
+
+    username: text("username"),
+    hostname: text("hostname"),
+    platform: text("platform"),
+    osVersion: text("osVersion"),
+    kernelVersion: text("kernelVersion"),
+    arch: text("arch"),
+    deviceModel: text("deviceModel"),
+    serialNumber: text("serialNumber"),
+    platformFingerprint: text("platformFingerprint"),
+
+    // Platform-agnostic checks
+
+    biometricsEnabled: integer("biometricsEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    diskEncrypted: integer("diskEncrypted", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    firewallEnabled: integer("firewallEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    autoUpdatesEnabled: integer("autoUpdatesEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    tpmAvailable: integer("tpmAvailable", { mode: "boolean" })
+        .notNull()
+        .default(false),
+
+    // Windows-specific posture check information
+
+    windowsDefenderEnabled: integer("windowsDefenderEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+
+    // macOS-specific posture check information
+
+    macosSipEnabled: integer("macosSipEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    macosGatekeeperEnabled: integer("macosGatekeeperEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    macosFirewallStealthMode: integer("macosFirewallStealthMode", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+
+    // Linux-specific posture check information
+
+    linuxAppArmorEnabled: integer("linuxAppArmorEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    linuxSELinuxEnabled: integer("linuxSELinuxEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false)
+});
+
+export const fingerprintSnapshots = sqliteTable("fingerprintSnapshots", {
+    snapshotId: integer("id").primaryKey({ autoIncrement: true }),
+
+    fingerprintId: integer("fingerprintId")
+        .references(() => currentFingerprint.fingerprintId, {
+            onDelete: "cascade"
+        })
+        .notNull(),
+
+    username: text("username"),
+    hostname: text("hostname"),
+    platform: text("platform"),
+    osVersion: text("osVersion"),
+    kernelVersion: text("kernelVersion"),
+    arch: text("arch"),
+    deviceModel: text("deviceModel"),
+    serialNumber: text("serialNumber"),
+    platformFingerprint: text("platformFingerprint"),
 
     // Platform-agnostic checks
 
@@ -475,67 +580,6 @@ export const clientPostureSnapshots = sqliteTable("clientPostureSnapshots", {
     })
         .notNull()
         .default(false),
-
-    collectedAt: integer("collectedAt").notNull()
-});
-
-export const olms = sqliteTable("olms", {
-    olmId: text("id").primaryKey(),
-    secretHash: text("secretHash").notNull(),
-    dateCreated: text("dateCreated").notNull(),
-    version: text("version"),
-    agent: text("agent"),
-    name: text("name"),
-    clientId: integer("clientId").references(() => clients.clientId, {
-        // we will switch this depending on the current org it wants to connect to
-        onDelete: "set null"
-    }),
-    userId: text("userId").references(() => users.userId, {
-        // optionally tied to a user and in this case delete when the user deletes
-        onDelete: "cascade"
-    }),
-    archived: integer("archived", { mode: "boolean" }).notNull().default(false)
-});
-
-export const currentFingerprint = sqliteTable("currentFingerprint", {
-    fingerprintId: integer("id").primaryKey({ autoIncrement: true }),
-
-    olmId: text("olmId")
-        .references(() => olms.olmId, { onDelete: "cascade" })
-        .notNull(),
-
-    firstSeen: integer("firstSeen").notNull(),
-    lastSeen: integer("lastSeen").notNull(),
-
-    username: text("username"),
-    hostname: text("hostname"),
-    platform: text("platform"),
-    osVersion: text("osVersion"),
-    kernelVersion: text("kernelVersion"),
-    arch: text("arch"),
-    deviceModel: text("deviceModel"),
-    serialNumber: text("serialNumber"),
-    platformFingerprint: text("platformFingerprint")
-});
-
-export const fingerprintSnapshots = sqliteTable("fingerprintSnapshots", {
-    snapshotId: integer("id").primaryKey({ autoIncrement: true }),
-
-    fingerprintId: integer("fingerprintId")
-        .references(() => currentFingerprint.fingerprintId, {
-            onDelete: "cascade"
-        })
-        .notNull(),
-
-    username: text("username"),
-    hostname: text("hostname"),
-    platform: text("platform"),
-    osVersion: text("osVersion"),
-    kernelVersion: text("kernelVersion"),
-    arch: text("arch"),
-    deviceModel: text("deviceModel"),
-    serialNumber: text("serialNumber"),
-    platformFingerprint: text("platformFingerprint"),
 
     hash: text("hash").notNull(),
     collectedAt: integer("collectedAt").notNull()

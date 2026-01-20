@@ -3,17 +3,32 @@ import { encodeHexLowerCase } from "@oslojs/encoding";
 import { currentFingerprint, db, fingerprintSnapshots, Olm } from "@server/db";
 import { desc, eq } from "drizzle-orm";
 
-function fingerprintHash(fp: any): string {
+function fingerprintSnapshotHash(fingerprint: any, postures: any): string {
     const canonical = {
-        username: fp.username ?? null,
-        hostname: fp.hostname ?? null,
-        platform: fp.platform ?? null,
-        osVersion: fp.osVersion ?? null,
-        kernelVersion: fp.kernelVersion ?? null,
-        arch: fp.arch ?? null,
-        deviceModel: fp.deviceModel ?? null,
-        serialNumber: fp.serialNumber ?? null,
-        platformFingerprint: fp.platformFingerprint ?? null
+        username: fingerprint.username ?? null,
+        hostname: fingerprint.hostname ?? null,
+        platform: fingerprint.platform ?? null,
+        osVersion: fingerprint.osVersion ?? null,
+        kernelVersion: fingerprint.kernelVersion ?? null,
+        arch: fingerprint.arch ?? null,
+        deviceModel: fingerprint.deviceModel ?? null,
+        serialNumber: fingerprint.serialNumber ?? null,
+        platformFingerprint: fingerprint.platformFingerprint ?? null,
+
+        biometricsEnabled: postures.biometricsEnabled ?? false,
+        diskEncrypted: postures.diskEncrypted ?? false,
+        firewallEnabled: postures.firewallEnabled ?? false,
+        autoUpdatesEnabled: postures.autoUpdatesEnabled ?? false,
+        tpmAvailable: postures.tpmAvailable ?? false,
+
+        windowsDefenderEnabled: postures.windowsDefenderEnabled ?? false,
+
+        macosSipEnabled: postures.macosSipEnabled ?? false,
+        macosGatekeeperEnabled: postures.macosGatekeeperEnabled ?? false,
+        macosFirewallStealthMode: postures.macosFirewallStealthMode ?? false,
+
+        linuxAppArmorEnabled: postures.linuxAppArmorEnabled ?? false,
+        linuxSELinuxEnabled: postures.linuxSELinuxEnabled ?? false
     };
 
     return encodeHexLowerCase(
@@ -21,14 +36,23 @@ function fingerprintHash(fp: any): string {
     );
 }
 
-export async function handleFingerprintInsertion(olm: Olm, fingerprint: any) {
-    if (!fingerprint || !olm.olmId || Object.keys(fingerprint).length < 1) {
+export async function handleFingerprintInsertion(
+    olm: Olm,
+    fingerprint: any,
+    postures: any
+) {
+    if (
+        !olm?.olmId ||
+        !fingerprint ||
+        !postures ||
+        Object.keys(fingerprint).length === 0 ||
+        Object.keys(postures).length === 0
+    ) {
         return;
     }
 
-    const hash = fingerprintHash(fingerprint);
-
     const now = Math.floor(Date.now() / 1000);
+    const hash = fingerprintSnapshotHash(fingerprint, postures);
 
     const [current] = await db
         .select()
@@ -43,7 +67,9 @@ export async function handleFingerprintInsertion(olm: Olm, fingerprint: any) {
                 olmId: olm.olmId,
                 firstSeen: now,
                 lastSeen: now,
+                lastCollectedAt: now,
 
+                // fingerprint
                 username: fingerprint.username,
                 hostname: fingerprint.hostname,
                 platform: fingerprint.platform,
@@ -52,7 +78,22 @@ export async function handleFingerprintInsertion(olm: Olm, fingerprint: any) {
                 arch: fingerprint.arch,
                 deviceModel: fingerprint.deviceModel,
                 serialNumber: fingerprint.serialNumber,
-                platformFingerprint: fingerprint.platformFingerprint
+                platformFingerprint: fingerprint.platformFingerprint,
+
+                biometricsEnabled: postures.biometricsEnabled,
+                diskEncrypted: postures.diskEncrypted,
+                firewallEnabled: postures.firewallEnabled,
+                autoUpdatesEnabled: postures.autoUpdatesEnabled,
+                tpmAvailable: postures.tpmAvailable,
+
+                windowsDefenderEnabled: postures.windowsDefenderEnabled,
+
+                macosSipEnabled: postures.macosSipEnabled,
+                macosGatekeeperEnabled: postures.macosGatekeeperEnabled,
+                macosFirewallStealthMode: postures.macosFirewallStealthMode,
+
+                linuxAppArmorEnabled: postures.linuxAppArmorEnabled,
+                linuxSELinuxEnabled: postures.linuxSELinuxEnabled
             })
             .returning();
 
@@ -69,6 +110,21 @@ export async function handleFingerprintInsertion(olm: Olm, fingerprint: any) {
             serialNumber: fingerprint.serialNumber,
             platformFingerprint: fingerprint.platformFingerprint,
 
+            biometricsEnabled: postures.biometricsEnabled,
+            diskEncrypted: postures.diskEncrypted,
+            firewallEnabled: postures.firewallEnabled,
+            autoUpdatesEnabled: postures.autoUpdatesEnabled,
+            tpmAvailable: postures.tpmAvailable,
+
+            windowsDefenderEnabled: postures.windowsDefenderEnabled,
+
+            macosSipEnabled: postures.macosSipEnabled,
+            macosGatekeeperEnabled: postures.macosGatekeeperEnabled,
+            macosFirewallStealthMode: postures.macosFirewallStealthMode,
+
+            linuxAppArmorEnabled: postures.linuxAppArmorEnabled,
+            linuxSELinuxEnabled: postures.linuxSELinuxEnabled,
+
             hash,
             collectedAt: now
         });
@@ -76,7 +132,6 @@ export async function handleFingerprintInsertion(olm: Olm, fingerprint: any) {
         return;
     }
 
-    // Get most recent snapshot hash
     const [latestSnapshot] = await db
         .select({ hash: fingerprintSnapshots.hash })
         .from(fingerprintSnapshots)
@@ -87,7 +142,6 @@ export async function handleFingerprintInsertion(olm: Olm, fingerprint: any) {
     const changed = !latestSnapshot || latestSnapshot.hash !== hash;
 
     if (changed) {
-        // Insert snapshot if it has changed
         await db.insert(fingerprintSnapshots).values({
             fingerprintId: current.fingerprintId,
 
@@ -101,15 +155,30 @@ export async function handleFingerprintInsertion(olm: Olm, fingerprint: any) {
             serialNumber: fingerprint.serialNumber,
             platformFingerprint: fingerprint.platformFingerprint,
 
+            biometricsEnabled: postures.biometricsEnabled,
+            diskEncrypted: postures.diskEncrypted,
+            firewallEnabled: postures.firewallEnabled,
+            autoUpdatesEnabled: postures.autoUpdatesEnabled,
+            tpmAvailable: postures.tpmAvailable,
+
+            windowsDefenderEnabled: postures.windowsDefenderEnabled,
+
+            macosSipEnabled: postures.macosSipEnabled,
+            macosGatekeeperEnabled: postures.macosGatekeeperEnabled,
+            macosFirewallStealthMode: postures.macosFirewallStealthMode,
+
+            linuxAppArmorEnabled: postures.linuxAppArmorEnabled,
+            linuxSELinuxEnabled: postures.linuxSELinuxEnabled,
+
             hash,
             collectedAt: now
         });
 
-        // Update current fingerprint fully
         await db
             .update(currentFingerprint)
             .set({
                 lastSeen: now,
+                lastCollectedAt: now,
 
                 username: fingerprint.username,
                 hostname: fingerprint.hostname,
@@ -119,11 +188,25 @@ export async function handleFingerprintInsertion(olm: Olm, fingerprint: any) {
                 arch: fingerprint.arch,
                 deviceModel: fingerprint.deviceModel,
                 serialNumber: fingerprint.serialNumber,
-                platformFingerprint: fingerprint.platformFingerprint
+                platformFingerprint: fingerprint.platformFingerprint,
+
+                biometricsEnabled: postures.biometricsEnabled,
+                diskEncrypted: postures.diskEncrypted,
+                firewallEnabled: postures.firewallEnabled,
+                autoUpdatesEnabled: postures.autoUpdatesEnabled,
+                tpmAvailable: postures.tpmAvailable,
+
+                windowsDefenderEnabled: postures.windowsDefenderEnabled,
+
+                macosSipEnabled: postures.macosSipEnabled,
+                macosGatekeeperEnabled: postures.macosGatekeeperEnabled,
+                macosFirewallStealthMode: postures.macosFirewallStealthMode,
+
+                linuxAppArmorEnabled: postures.linuxAppArmorEnabled,
+                linuxSELinuxEnabled: postures.linuxSELinuxEnabled
             })
             .where(eq(currentFingerprint.fingerprintId, current.fingerprintId));
     } else {
-        // No change, so only bump lastSeen
         await db
             .update(currentFingerprint)
             .set({ lastSeen: now })
