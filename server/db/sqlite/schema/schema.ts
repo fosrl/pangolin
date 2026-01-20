@@ -512,11 +512,12 @@ export const currentFingerprint = sqliteTable("currentFingerprint", {
 export const fingerprintSnapshots = sqliteTable("fingerprintSnapshots", {
     snapshotId: integer("id").primaryKey({ autoIncrement: true }),
 
-    fingerprintId: integer("fingerprintId")
-        .references(() => currentFingerprint.fingerprintId, {
-            onDelete: "cascade"
-        })
-        .notNull(),
+    fingerprintId: integer("fingerprintId").references(
+        () => currentFingerprint.fingerprintId,
+        {
+            onDelete: "set null"
+        }
+    ),
 
     username: text("username"),
     hostname: text("hostname"),

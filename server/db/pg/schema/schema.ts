@@ -803,11 +803,12 @@ export const currentFingerprint = pgTable("currentFingerprint", {
 export const fingerprintSnapshots = pgTable("fingerprintSnapshots", {
     snapshotId: serial("id").primaryKey(),
 
-    fingerprintId: integer("fingerprintId")
-        .references(() => currentFingerprint.fingerprintId, {
-            onDelete: "cascade"
-        })
-        .notNull(),
+    fingerprintId: integer("fingerprintId").references(
+        () => currentFingerprint.fingerprintId,
+        {
+            onDelete: "set null"
+        }
+    ),
 
     username: text("username"),
     hostname: text("hostname"),
