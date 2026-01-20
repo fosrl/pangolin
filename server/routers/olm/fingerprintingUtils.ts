@@ -1,7 +1,8 @@
 import { sha256 } from "@oslojs/crypto/sha2";
 import { encodeHexLowerCase } from "@oslojs/encoding";
 import { currentFingerprint, db, fingerprintSnapshots, Olm } from "@server/db";
-import { desc, eq } from "drizzle-orm";
+import { calculateCutoffTimestamp } from "@server/lib/cleanupLogs";
+import { desc, eq, lt } from "drizzle-orm";
 
 function fingerprintSnapshotHash(fingerprint: any, postures: any): string {
     const canonical = {
@@ -212,4 +213,12 @@ export async function handleFingerprintInsertion(
             .set({ lastSeen: now })
             .where(eq(currentFingerprint.fingerprintId, current.fingerprintId));
     }
+}
+
+export async function cleanUpOldFingerprintSnapshots(retentionDays: number) {
+    const cutoff = calculateCutoffTimestamp(retentionDays);
+
+    await db
+        .delete(fingerprintSnapshots)
+        .where(lt(fingerprintSnapshots.collectedAt, cutoff));
 }
