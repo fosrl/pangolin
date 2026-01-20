@@ -170,12 +170,12 @@
         "esbuild": "0.27.2",
         "esbuild-node-externals": "1.20.1",
         "postcss": "8.5.6",
-        "prettier": "3.7.4",
-        "react-email": "5.0.7",
+        "prettier": "3.8.0",
+        "react-email": "5.2.5",
         "tailwindcss": "4.1.18",
         "tsc-alias": "1.8.16",
         "tsx": "4.21.0",
         "typescript": "5.9.3",
-        "typescript-eslint": "8.49.0"
+        "typescript-eslint": "8.53.1"
     }
 }
