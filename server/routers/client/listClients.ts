@@ -6,7 +6,7 @@ import {
     sites,
     userClients,
     clientSitesAssociationsCache,
-    fingerprints
+    currentFingerprint
 } from "@server/db";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
@@ -143,20 +143,20 @@ function queryClients(
             olmArchived: olms.archived,
             archived: clients.archived,
             blocked: clients.blocked,
-            deviceModel: fingerprints.deviceModel,
-            fingerprintPlatform: fingerprints.platform,
-            fingerprintOsVersion: fingerprints.osVersion,
-            fingerprintKernelVersion: fingerprints.kernelVersion,
-            fingerprintArch: fingerprints.arch,
-            fingerprintSerialNumber: fingerprints.serialNumber,
-            fingerprintUsername: fingerprints.username,
-            fingerprintHostname: fingerprints.hostname
+            deviceModel: currentFingerprint.deviceModel,
+            fingerprintPlatform: currentFingerprint.platform,
+            fingerprintOsVersion: currentFingerprint.osVersion,
+            fingerprintKernelVersion: currentFingerprint.kernelVersion,
+            fingerprintArch: currentFingerprint.arch,
+            fingerprintSerialNumber: currentFingerprint.serialNumber,
+            fingerprintUsername: currentFingerprint.username,
+            fingerprintHostname: currentFingerprint.hostname
         })
         .from(clients)
         .leftJoin(orgs, eq(clients.orgId, orgs.orgId))
         .leftJoin(olms, eq(clients.clientId, olms.clientId))
         .leftJoin(users, eq(clients.userId, users.userId))
-        .leftJoin(fingerprints, eq(olms.olmId, fingerprints.olmId))
+        .leftJoin(currentFingerprint, eq(olms.olmId, currentFingerprint.olmId))
         .where(and(...conditions));
 }
 

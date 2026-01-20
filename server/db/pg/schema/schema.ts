@@ -780,7 +780,7 @@ export const olms = pgTable("olms", {
     archived: boolean("archived").notNull().default(false)
 });
 
-export const fingerprints = pgTable("fingerprints", {
+export const currentFingerprint = pgTable("currentFingerprint", {
     fingerprintId: serial("id").primaryKey(),
 
     olmId: text("olmId")
@@ -792,13 +792,36 @@ export const fingerprints = pgTable("fingerprints", {
 
     username: text("username"),
     hostname: text("hostname"),
-    platform: text("platform"), // macos | windows | linux | ios | android | unknown
+    platform: text("platform"),
     osVersion: text("osVersion"),
     kernelVersion: text("kernelVersion"),
     arch: text("arch"),
     deviceModel: text("deviceModel"),
     serialNumber: text("serialNumber"),
     platformFingerprint: varchar("platformFingerprint")
+});
+
+export const fingerprintSnapshots = pgTable("fingerprintSnapshots", {
+    snapshotId: serial("id").primaryKey(),
+
+    fingerprintId: integer("fingerprintId")
+        .references(() => currentFingerprint.fingerprintId, {
+            onDelete: "cascade"
+        })
+        .notNull(),
+
+    username: text("username"),
+    hostname: text("hostname"),
+    platform: text("platform"),
+    osVersion: text("osVersion"),
+    kernelVersion: text("kernelVersion"),
+    arch: text("arch"),
+    deviceModel: text("deviceModel"),
+    serialNumber: text("serialNumber"),
+    platformFingerprint: varchar("platformFingerprint"),
+
+    hash: text("hash").notNull(),
+    collectedAt: integer("collectedAt").notNull()
 });
 
 export const olmSessions = pgTable("clientSession", {

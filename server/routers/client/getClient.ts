@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, olms } from "@server/db";
-import { clients, fingerprints } from "@server/db";
+import { clients, currentFingerprint } from "@server/db";
 import { eq, and } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -30,7 +30,10 @@ async function query(clientId?: number, niceId?: string, orgId?: string) {
             .from(clients)
             .where(eq(clients.clientId, clientId))
             .leftJoin(olms, eq(clients.clientId, olms.clientId))
-            .leftJoin(fingerprints, eq(olms.olmId, fingerprints.olmId))
+            .leftJoin(
+                currentFingerprint,
+                eq(olms.olmId, currentFingerprint.olmId)
+            )
             .limit(1);
         return res;
     } else if (niceId && orgId) {
@@ -39,7 +42,10 @@ async function query(clientId?: number, niceId?: string, orgId?: string) {
             .from(clients)
             .where(and(eq(clients.niceId, niceId), eq(clients.orgId, orgId)))
             .leftJoin(olms, eq(clients.clientId, olms.clientId))
-            .leftJoin(fingerprints, eq(olms.olmId, fingerprints.olmId))
+            .leftJoin(
+                currentFingerprint,
+                eq(olms.olmId, currentFingerprint.olmId)
+            )
             .limit(1);
         return res;
     }
@@ -125,24 +131,25 @@ export async function getClient(
         // Replace name with device name if OLM exists
         let clientName = client.clients.name;
         if (client.olms) {
-            const model = client.fingerprints?.deviceModel || null;
+            const model = client.currentFingerprint?.deviceModel || null;
             clientName = getUserDeviceName(model, client.clients.name);
         }
 
         // Build fingerprint data if available
-        const fingerprintData = client.fingerprints
+        const fingerprintData = client.currentFingerprint
             ? {
-                  username: client.fingerprints.username || null,
-                  hostname: client.fingerprints.hostname || null,
-                  platform: client.fingerprints.platform || null,
-                  osVersion: client.fingerprints.osVersion || null,
-                  kernelVersion: client.fingerprints.kernelVersion || null,
-                  arch: client.fingerprints.arch || null,
-                  deviceModel: client.fingerprints.deviceModel || null,
-                  serialNumber: client.fingerprints.serialNumber || null,
-                  firstSeen: client.fingerprints.firstSeen || null,
-                  lastSeen: client.fingerprints.lastSeen || null
-              }
+                username: client.currentFingerprint.username || null,
+                hostname: client.currentFingerprint.hostname || null,
+                platform: client.currentFingerprint.platform || null,
+                osVersion: client.currentFingerprint.osVersion || null,
+                kernelVersion:
+                    client.currentFingerprint.kernelVersion || null,
+                arch: client.currentFingerprint.arch || null,
+                deviceModel: client.currentFingerprint.deviceModel || null,
+                serialNumber: client.currentFingerprint.serialNumber || null,
+                firstSeen: client.currentFingerprint.firstSeen || null,
+                lastSeen: client.currentFingerprint.lastSeen || null
+            }
             : null;
 
         const data: GetClientResponse = {

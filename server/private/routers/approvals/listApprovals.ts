@@ -21,7 +21,15 @@ import type { Request, Response, NextFunction } from "express";
 import { build } from "@server/build";
 import { getOrgTierData } from "@server/lib/billing";
 import { TierId } from "@server/lib/billing/tiers";
-import { approvals, clients, db, users, olms, fingerprints, type Approval } from "@server/db";
+import {
+    approvals,
+    clients,
+    db,
+    users,
+    olms,
+    currentFingerprint,
+    type Approval
+} from "@server/db";
 import { eq, isNull, sql, not, and, desc } from "drizzle-orm";
 import response from "@server/lib/response";
 import { getUserDeviceName } from "@server/db/names";
@@ -92,14 +100,14 @@ async function queryApprovals(
             },
             clientName: clients.name,
             niceId: clients.niceId,
-            deviceModel: fingerprints.deviceModel,
-            fingerprintPlatform: fingerprints.platform,
-            fingerprintOsVersion: fingerprints.osVersion,
-            fingerprintKernelVersion: fingerprints.kernelVersion,
-            fingerprintArch: fingerprints.arch,
-            fingerprintSerialNumber: fingerprints.serialNumber,
-            fingerprintUsername: fingerprints.username,
-            fingerprintHostname: fingerprints.hostname
+            deviceModel: currentFingerprint.deviceModel,
+            fingerprintPlatform: currentFingerprint.platform,
+            fingerprintOsVersion: currentFingerprint.osVersion,
+            fingerprintKernelVersion: currentFingerprint.kernelVersion,
+            fingerprintArch: currentFingerprint.arch,
+            fingerprintSerialNumber: currentFingerprint.serialNumber,
+            fingerprintUsername: currentFingerprint.username,
+            fingerprintHostname: currentFingerprint.hostname
         })
         .from(approvals)
         .innerJoin(users, and(eq(approvals.userId, users.userId)))
@@ -111,7 +119,7 @@ async function queryApprovals(
             )
         )
         .leftJoin(olms, eq(clients.clientId, olms.clientId))
-        .leftJoin(fingerprints, eq(olms.olmId, fingerprints.olmId))
+        .leftJoin(currentFingerprint, eq(olms.olmId, currentFingerprint.olmId))
         .where(
             and(
                 eq(approvals.orgId, orgId),
@@ -125,14 +133,14 @@ async function queryApprovals(
         )
         .limit(limit)
         .offset(offset);
-    
+
     // Process results to format device names and build fingerprint objects
     return res.map((approval) => {
         const model = approval.deviceModel || null;
-        const deviceName = approval.clientName 
+        const deviceName = approval.clientName
             ? getUserDeviceName(model, approval.clientName)
             : null;
-        
+
         // Build fingerprint object if any fingerprint data exists
         const hasFingerprintData =
             approval.fingerprintPlatform ||
@@ -143,20 +151,20 @@ async function queryApprovals(
             approval.fingerprintUsername ||
             approval.fingerprintHostname ||
             approval.deviceModel;
-        
+
         const fingerprint = hasFingerprintData
             ? {
-                  platform: approval.fingerprintPlatform || null,
-                  osVersion: approval.fingerprintOsVersion || null,
-                  kernelVersion: approval.fingerprintKernelVersion || null,
-                  arch: approval.fingerprintArch || null,
-                  deviceModel: approval.deviceModel || null,
-                  serialNumber: approval.fingerprintSerialNumber || null,
-                  username: approval.fingerprintUsername || null,
-                  hostname: approval.fingerprintHostname || null
-              }
+                platform: approval.fingerprintPlatform || null,
+                osVersion: approval.fingerprintOsVersion || null,
+                kernelVersion: approval.fingerprintKernelVersion || null,
+                arch: approval.fingerprintArch || null,
+                deviceModel: approval.deviceModel || null,
+                serialNumber: approval.fingerprintSerialNumber || null,
+                username: approval.fingerprintUsername || null,
+                hostname: approval.fingerprintHostname || null
+            }
             : null;
-        
+
         const {
             clientName,
             deviceModel,
@@ -169,7 +177,7 @@ async function queryApprovals(
             fingerprintHostname,
             ...rest
         } = approval;
-        
+
         return {
             ...rest,
             deviceName,

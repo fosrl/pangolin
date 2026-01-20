@@ -497,7 +497,7 @@ export const olms = sqliteTable("olms", {
     archived: integer("archived", { mode: "boolean" }).notNull().default(false)
 });
 
-export const fingerprints = sqliteTable("fingerprints", {
+export const currentFingerprint = sqliteTable("currentFingerprint", {
     fingerprintId: integer("id").primaryKey({ autoIncrement: true }),
 
     olmId: text("olmId")
@@ -509,13 +509,36 @@ export const fingerprints = sqliteTable("fingerprints", {
 
     username: text("username"),
     hostname: text("hostname"),
-    platform: text("platform"), // macos | windows | linux | ios | android | unknown
+    platform: text("platform"),
     osVersion: text("osVersion"),
     kernelVersion: text("kernelVersion"),
     arch: text("arch"),
     deviceModel: text("deviceModel"),
     serialNumber: text("serialNumber"),
     platformFingerprint: text("platformFingerprint")
+});
+
+export const fingerprintSnapshots = sqliteTable("fingerprintSnapshots", {
+    snapshotId: integer("id").primaryKey({ autoIncrement: true }),
+
+    fingerprintId: integer("fingerprintId")
+        .references(() => currentFingerprint.fingerprintId, {
+            onDelete: "cascade"
+        })
+        .notNull(),
+
+    username: text("username"),
+    hostname: text("hostname"),
+    platform: text("platform"),
+    osVersion: text("osVersion"),
+    kernelVersion: text("kernelVersion"),
+    arch: text("arch"),
+    deviceModel: text("deviceModel"),
+    serialNumber: text("serialNumber"),
+    platformFingerprint: text("platformFingerprint"),
+
+    hash: text("hash").notNull(),
+    collectedAt: integer("collectedAt").notNull()
 });
 
 export const twoFactorBackupCodes = sqliteTable("twoFactorBackupCodes", {

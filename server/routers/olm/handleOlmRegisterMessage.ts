@@ -1,4 +1,9 @@
-import { clientPostureSnapshots, db, fingerprints, orgs } from "@server/db";
+import {
+    clientPostureSnapshots,
+    db,
+    currentFingerprint,
+    orgs
+} from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
 import {
     clients,
@@ -48,12 +53,12 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
     if (fingerprint) {
         const [existingFingerprint] = await db
             .select()
-            .from(fingerprints)
-            .where(eq(fingerprints.olmId, olm.olmId))
+            .from(currentFingerprint)
+            .where(eq(currentFingerprint.olmId, olm.olmId))
             .limit(1);
 
         if (!existingFingerprint) {
-            await db.insert(fingerprints).values({
+            await db.insert(currentFingerprint).values({
                 olmId: olm.olmId,
                 firstSeen: now,
                 lastSeen: now,
@@ -75,16 +80,16 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
                 existingFingerprint.platform !== fingerprint.platform ||
                 existingFingerprint.osVersion !== fingerprint.osVersion ||
                 existingFingerprint.kernelVersion !==
-                    fingerprint.kernelVersion ||
+                fingerprint.kernelVersion ||
                 existingFingerprint.arch !== fingerprint.arch ||
                 existingFingerprint.deviceModel !== fingerprint.deviceModel ||
                 existingFingerprint.serialNumber !== fingerprint.serialNumber ||
                 existingFingerprint.platformFingerprint !==
-                    fingerprint.platformFingerprint;
+                fingerprint.platformFingerprint;
 
             if (hasChanges) {
                 await db
-                    .update(fingerprints)
+                    .update(currentFingerprint)
                     .set({
                         lastSeen: now,
                         username: fingerprint.username,
@@ -97,7 +102,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
                         serialNumber: fingerprint.serialNumber,
                         platformFingerprint: fingerprint.platformFingerprint
                     })
-                    .where(eq(fingerprints.olmId, olm.olmId));
+                    .where(eq(currentFingerprint.olmId, olm.olmId));
             }
         }
     }

@@ -1,4 +1,4 @@
-import { db, fingerprints, olms } from "@server/db";
+import { db, currentFingerprint, olms } from "@server/db";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq } from "drizzle-orm";
@@ -55,18 +55,24 @@ export async function recoverOlmWithFingerprint(
         const result = await db
             .select({
                 olm: olms,
-                fingerprint: fingerprints
+                fingerprint: currentFingerprint
             })
             .from(olms)
-            .innerJoin(fingerprints, eq(fingerprints.olmId, olms.olmId))
+            .innerJoin(
+                currentFingerprint,
+                eq(currentFingerprint.olmId, olms.olmId)
+            )
             .where(
                 and(
                     eq(olms.userId, userId),
                     eq(olms.archived, false),
-                    eq(fingerprints.platformFingerprint, platformFingerprint)
+                    eq(
+                        currentFingerprint.platformFingerprint,
+                        platformFingerprint
+                    )
                 )
             )
-            .orderBy(fingerprints.lastSeen);
+            .orderBy(currentFingerprint.lastSeen);
 
         if (!result || result.length == 0) {
             return next(

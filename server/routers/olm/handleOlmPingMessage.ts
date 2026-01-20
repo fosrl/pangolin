@@ -1,5 +1,5 @@
 import { disconnectClient, getClientConfigVersion } from "#dynamic/routers/ws";
-import { clientPostureSnapshots, db, fingerprints } from "@server/db";
+import { clientPostureSnapshots, db, currentFingerprint } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
 import { clients, olms, Olm } from "@server/db";
 import { eq, lt, isNull, and, or } from "drizzle-orm";
@@ -11,6 +11,7 @@ import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { sendOlmSyncMessage } from "./sync";
 import { OlmErrorCodes } from "./error";
+import { handleFingerprintInsertion } from "./fingerprintingUtils";
 
 // Track if the offline checker interval is running
 let offlineCheckerInterval: NodeJS.Timeout | null = null;
@@ -173,15 +174,25 @@ export const handleOlmPingMessage: MessageHandler = async (context) => {
         }
 
         // get the version
-        logger.debug(`handleOlmPingMessage: About to get config version for olmId: ${olm.olmId}`);
+        logger.debug(
+            `handleOlmPingMessage: About to get config version for olmId: ${olm.olmId}`
+        );
         const configVersion = await getClientConfigVersion(olm.olmId);
-        logger.debug(`handleOlmPingMessage: Got config version: ${configVersion} (type: ${typeof configVersion})`);
+        logger.debug(
+            `handleOlmPingMessage: Got config version: ${configVersion} (type: ${typeof configVersion})`
+        );
 
         if (configVersion == null || configVersion === undefined) {
-            logger.debug(`handleOlmPingMessage: could not get config version from server for olmId: ${olm.olmId}`);
+            logger.debug(
+                `handleOlmPingMessage: could not get config version from server for olmId: ${olm.olmId}`
+            );
         }
 
-        if (message.configVersion != null && configVersion != null && configVersion != message.configVersion) {
+        if (
+            message.configVersion != null &&
+            configVersion != null &&
+            configVersion != message.configVersion
+        ) {
             logger.debug(
                 `handleOlmPingMessage: Olm ping with outdated config version: ${message.configVersion} (current: ${configVersion})`
             );
@@ -204,54 +215,13 @@ export const handleOlmPingMessage: MessageHandler = async (context) => {
                 .set({ archived: false })
                 .where(eq(olms.olmId, olm.olmId));
         }
+
+        await handleFingerprintInsertion(olm, fingerprint);
     } catch (error) {
         logger.error("Error handling ping message", { error });
     }
 
     const now = Math.floor(Date.now() / 1000);
-
-    if (fingerprint && olm.olmId) {
-        const [existingFingerprint] = await db
-            .select()
-            .from(fingerprints)
-            .where(eq(fingerprints.olmId, olm.olmId))
-            .limit(1);
-
-        if (!existingFingerprint) {
-            await db.insert(fingerprints).values({
-                olmId: olm.olmId,
-                firstSeen: now,
-                lastSeen: now,
-
-                username: fingerprint.username,
-                hostname: fingerprint.hostname,
-                platform: fingerprint.platform,
-                osVersion: fingerprint.osVersion,
-                kernelVersion: fingerprint.kernelVersion,
-                arch: fingerprint.arch,
-                deviceModel: fingerprint.deviceModel,
-                serialNumber: fingerprint.serialNumber,
-                platformFingerprint: fingerprint.platformFingerprint
-            });
-        } else {
-            await db
-                .update(fingerprints)
-                .set({
-                    lastSeen: now,
-
-                    username: fingerprint.username,
-                    hostname: fingerprint.hostname,
-                    platform: fingerprint.platform,
-                    osVersion: fingerprint.osVersion,
-                    kernelVersion: fingerprint.kernelVersion,
-                    arch: fingerprint.arch,
-                    deviceModel: fingerprint.deviceModel,
-                    serialNumber: fingerprint.serialNumber,
-                    platformFingerprint: fingerprint.platformFingerprint
-                })
-                .where(eq(fingerprints.olmId, olm.olmId));
-        }
-    }
 
     if (postures && olm.clientId) {
         await db.insert(clientPostureSnapshots).values({

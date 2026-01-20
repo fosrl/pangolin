@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { db } from "@server/db";
-import { olms, clients, fingerprints } from "@server/db";
+import { olms, clients, currentFingerprint } from "@server/db";
 import { eq, and } from "drizzle-orm";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -66,16 +66,14 @@ export async function getUserOlm(
             .select()
             .from(olms)
             .where(and(eq(olms.userId, userId), eq(olms.olmId, olmId)))
-            .leftJoin(fingerprints, eq(olms.olmId, fingerprints.olmId))
+            .leftJoin(
+                currentFingerprint,
+                eq(olms.olmId, currentFingerprint.olmId)
+            )
             .limit(1);
 
         if (!result || !result.olms) {
-            return next(
-                createHttpError(
-                    HttpCode.NOT_FOUND,
-                    "Olm not found"
-                )
-            );
+            return next(createHttpError(HttpCode.NOT_FOUND, "Olm not found"));
         }
 
         const olm = result.olms;
@@ -98,12 +96,13 @@ export async function getUserOlm(
         }
 
         // Replace name with device name
-        const model = result.fingerprints?.deviceModel || null;
+        const model = result.currentFingerprint?.deviceModel || null;
         const newName = getUserDeviceName(model, olm.name);
 
-        const responseData = blocked !== undefined
-            ? { ...olm, name: newName, blocked }
-            : { ...olm, name: newName };
+        const responseData =
+            blocked !== undefined
+                ? { ...olm, name: newName, blocked }
+                : { ...olm, name: newName };
 
         return response(res, {
             data: responseData,

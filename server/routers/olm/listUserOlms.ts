@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { db, fingerprints } from "@server/db";
+import { db, currentFingerprint } from "@server/db";
 import { olms } from "@server/db";
 import { eq, count, desc } from "drizzle-orm";
 import HttpCode from "@server/types/HttpCode";
@@ -104,13 +104,16 @@ export async function listUserOlms(
             .select()
             .from(olms)
             .where(eq(olms.userId, userId))
-            .leftJoin(fingerprints, eq(olms.olmId, fingerprints.olmId))
+            .leftJoin(
+                currentFingerprint,
+                eq(olms.olmId, currentFingerprint.olmId)
+            )
             .orderBy(desc(olms.dateCreated))
             .limit(limit)
             .offset(offset);
 
         const userOlms = list.map((item) => {
-            const model = item.fingerprints?.deviceModel || null;
+            const model = item.currentFingerprint?.deviceModel || null;
             const newName = getUserDeviceName(model, item.olms.name);
 
             return {
