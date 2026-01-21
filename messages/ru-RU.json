@@ -1625,6 +1625,8 @@
     "resourcesTableNoInternalResourcesFound": "Внутренних ресурсов не найдено.",
     "resourcesTableDestination": "Пункт назначения",
     "resourcesTableAlias": "Alias",
+    "resourcesTableAliasAddress": "Alias Address",
+    "resourcesTableAliasAddressInfo": "This address is part of the organization's utility subnet. It's used to resolve alias records using internal DNS resolution.",
     "resourcesTableClients": "Клиенты",
     "resourcesTableAndOnlyAccessibleInternally": "и доступны только внутренне при подключении с клиентом.",
     "resourcesTableNoTargets": "Нет ярлыков",
