@@ -1625,6 +1625,8 @@
     "resourcesTableNoInternalResourcesFound": "Hiçbir dahili kaynak bulunamadı.",
     "resourcesTableDestination": "Hedef",
     "resourcesTableAlias": "Takma Ad",
+    "resourcesTableAliasAddress": "Alias Address",
+    "resourcesTableAliasAddressInfo": "This address is part of the organization's utility subnet. It's used to resolve alias records using internal DNS resolution.",
     "resourcesTableClients": "İstemciler",
     "resourcesTableAndOnlyAccessibleInternally": "veyalnızca bir istemci ile bağlandığında dahili olarak erişilebilir.",
     "resourcesTableNoTargets": "Hedef yok",
