@@ -34,7 +34,7 @@
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "8.4.0",
-        "@aws-sdk/client-s3": "3.971.0",
+        "@aws-sdk/client-s3": "3.972.0",
         "@faker-js/faker": "10.2.0",
         "@headlessui/react": "2.2.9",
         "@hookform/resolvers": "5.2.2",
@@ -110,7 +110,7 @@
         "nprogress": "0.2.0",
         "oslo": "1.2.1",
         "pg": "8.17.1",
-        "posthog-node": "5.23.0",
+        "posthog-node": "5.24.1",
         "qrcode.react": "4.2.0",
         "react": "19.2.3",
         "react-day-picker": "9.13.0",
