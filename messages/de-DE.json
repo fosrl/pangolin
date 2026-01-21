@@ -1625,6 +1625,8 @@
     "resourcesTableNoInternalResourcesFound": "Keine internen Ressourcen gefunden.",
     "resourcesTableDestination": "Ziel",
     "resourcesTableAlias": "Alias",
+    "resourcesTableAliasAddress": "Alias Address",
+    "resourcesTableAliasAddressInfo": "This address is part of the organization's utility subnet. It's used to resolve alias records using internal DNS resolution.",
     "resourcesTableClients": "Clients",
     "resourcesTableAndOnlyAccessibleInternally": "und sind nur intern zugänglich, wenn mit einem Client verbunden.",
     "resourcesTableNoTargets": "Keine Ziele",
