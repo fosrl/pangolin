@@ -1625,6 +1625,8 @@
     "resourcesTableNoInternalResourcesFound": "Nebyly nalezeny žádné vnitřní zdroje.",
     "resourcesTableDestination": "Místo určení",
     "resourcesTableAlias": "Alias",
+    "resourcesTableAliasAddress": "Alias Address",
+    "resourcesTableAliasAddressInfo": "This address is part of the organization's utility subnet. It's used to resolve alias records using internal DNS resolution.",
     "resourcesTableClients": "Klienti",
     "resourcesTableAndOnlyAccessibleInternally": "a jsou interně přístupné pouze v případě, že jsou propojeni s klientem.",
     "resourcesTableNoTargets": "Žádné cíle",
