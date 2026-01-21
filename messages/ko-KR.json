@@ -1625,6 +1625,8 @@
     "resourcesTableNoInternalResourcesFound": "내부 리소스를 찾을 수 없습니다.",
     "resourcesTableDestination": "대상지",
     "resourcesTableAlias": "별칭",
+    "resourcesTableAliasAddress": "Alias Address",
+    "resourcesTableAliasAddressInfo": "This address is part of the organization's utility subnet. It's used to resolve alias records using internal DNS resolution.",
     "resourcesTableClients": "클라이언트",
     "resourcesTableAndOnlyAccessibleInternally": "클라이언트와 연결되었을 때만 내부적으로 접근 가능합니다.",
     "resourcesTableNoTargets": "대상 없음",
