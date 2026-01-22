@@ -2510,7 +2510,7 @@
     "firewallEnabled": "Брандмауэр включен",
     "autoUpdatesEnabled": "Автоматические обновления включены",
     "tpmAvailable": "Доступно TPM",
-    "windowsDefenderEnabled": "Защитник Windows включен",
+    "windowsAntivirusEnabled": "Antivirus Enabled",
     "macosSipEnabled": "Защита целостности системы (SIP)",
     "macosGatekeeperEnabled": "Gatekeeper",
     "macosFirewallStealthMode": "Стилс-режим брандмауэра",
