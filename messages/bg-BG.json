@@ -2510,7 +2510,7 @@
     "firewallEnabled": "Активирана защитна стена.",
     "autoUpdatesEnabled": "Активирани автоматични актуализации.",
     "tpmAvailable": "TPM е на разположение.",
-    "windowsDefenderEnabled": "Windows Defender е активиран.",
+    "windowsAntivirusEnabled": "Antivirus Enabled",
     "macosSipEnabled": "Protection на системната цялост (SIP).",
     "macosGatekeeperEnabled": "Gatekeeper.",
     "macosFirewallStealthMode": "Скрит режим на защитната стена.",
