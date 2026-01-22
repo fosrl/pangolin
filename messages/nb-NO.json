@@ -2510,7 +2510,7 @@
     "firewallEnabled": "Brannmur aktivert",
     "autoUpdatesEnabled": "Automatiske oppdateringer aktivert",
     "tpmAvailable": "TPM tilgjengelig",
-    "windowsDefenderEnabled": "Windows svarer aktivert",
+    "windowsAntivirusEnabled": "Antivirus Enabled",
     "macosSipEnabled": "System Integritetsbeskyttelse (SIP)",
     "macosGatekeeperEnabled": "Gatekeeper",
     "macosFirewallStealthMode": "Brannmur Usynlig Modus",
