@@ -2510,7 +2510,7 @@
     "firewallEnabled": "Zapora włączona",
     "autoUpdatesEnabled": "Automatyczne aktualizacje włączone",
     "tpmAvailable": "TPM dostępne",
-    "windowsDefenderEnabled": "Obrońca Windows włączony",
+    "windowsAntivirusEnabled": "Antivirus Enabled",
     "macosSipEnabled": "Ochrona integralności systemu (SIP)",
     "macosGatekeeperEnabled": "Gatekeeper",
     "macosFirewallStealthMode": "Tryb Stealth zapory",
