@@ -2510,7 +2510,7 @@
     "firewallEnabled": "Cortafuegos activado",
     "autoUpdatesEnabled": "Actualizaciones automáticas habilitadas",
     "tpmAvailable": "TPM disponible",
-    "windowsDefenderEnabled": "Windows Defender activado",
+    "windowsAntivirusEnabled": "Antivirus Enabled",
     "macosSipEnabled": "Protección de integridad del sistema (SIP)",
     "macosGatekeeperEnabled": "Gatekeeper",
     "macosFirewallStealthMode": "Modo Sigilo Firewall",
