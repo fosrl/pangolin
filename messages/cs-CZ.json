@@ -2510,7 +2510,7 @@
     "firewallEnabled": "Firewall povolen",
     "autoUpdatesEnabled": "Automatické aktualizace povoleny",
     "tpmAvailable": "TPM k dispozici",
-    "windowsDefenderEnabled": "Okna byla povolena",
+    "windowsAntivirusEnabled": "Antivirus Enabled",
     "macosSipEnabled": "Ochrana systémové integrity (SIP)",
     "macosGatekeeperEnabled": "Gatekeeper",
     "macosFirewallStealthMode": "Režim neviditelnosti firewallu",
