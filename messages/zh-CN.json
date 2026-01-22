@@ -2510,7 +2510,7 @@
     "firewallEnabled": "防火墙已启用",
     "autoUpdatesEnabled": "启用自动更新",
     "tpmAvailable": "TPM 可用",
-    "windowsDefenderEnabled": "Windows Defender 已启用",
+    "windowsAntivirusEnabled": "Antivirus Enabled",
     "macosSipEnabled": "系统完整性保护 (SIP)",
     "macosGatekeeperEnabled": "Gatekeeper",
     "macosFirewallStealthMode": "防火墙隐形模式",
