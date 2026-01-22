@@ -2510,7 +2510,7 @@
     "firewallEnabled": "방화벽 활성화",
     "autoUpdatesEnabled": "자동 업데이트 활성화",
     "tpmAvailable": "TPM 사용 가능",
-    "windowsDefenderEnabled": "Windows Defender 활성화",
+    "windowsAntivirusEnabled": "Antivirus Enabled",
     "macosSipEnabled": "시스템 무결성 보호 (SIP)",
     "macosGatekeeperEnabled": "Gatekeeper",
     "macosFirewallStealthMode": "방화벽 스텔스 모드",
