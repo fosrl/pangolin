@@ -161,10 +161,6 @@ p {
     white-space: normal;
 }
 
-#nprogress .bar {
-    background: var(--color-primary) !important;
-}
-
 @keyframes dot-pulse {
     0%, 80%, 100% {
         opacity: 0.3;

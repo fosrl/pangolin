@@ -19,7 +19,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Copy config file
         run: cp config/config.example.yml config/config.yml
@@ -64,9 +64,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Copy config file
-        run: cp config/config.example.yml config/config.yml
-
       - name: Build Docker image sqlite
         run: make dev-build-sqlite
 
@@ -75,9 +72,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
-      - name: Copy config file
-        run: cp config/config.example.yml config/config.yml
 
       - name: Build Docker image pg
         run: make dev-build-pg

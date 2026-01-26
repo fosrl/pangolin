@@ -30,7 +30,7 @@
         "start": "ENVIRONMENT=prod node dist/migrations.mjs && ENVIRONMENT=prod NODE_ENV=development node --enable-source-maps dist/server.mjs",
         "email": "email dev --dir server/emails/templates --port 3005",
         "build:cli": "node esbuild.mjs -e cli/index.ts -o dist/cli.mjs",
-        "format": "prettier --write ."
+        "format": "npx prettier --write ."
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "8.4.0",
@@ -100,7 +100,6 @@
         "nextjs-toploader": "3.9.17",
         "node-cache": "5.1.2",
         "nodemailer": "7.0.11",
-        "nprogress": "0.2.0",
         "oslo": "1.2.1",
         "pg": "8.17.1",
         "posthog-node": "5.23.0",
@@ -162,7 +161,6 @@
         "esbuild": "0.27.2",
         "esbuild-node-externals": "1.20.1",
         "postcss": "8.5.6",
-        "prettier": "3.8.0",
         "react-email": "5.2.5",
         "tailwindcss": "4.1.18",
         "tsc-alias": "1.8.16",
