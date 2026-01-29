@@ -107,7 +107,7 @@
     "siteSeeAll": "Alle Standorte anzeigen",
     "siteTunnelDescription": "Legen Sie fest, wie Sie sich mit dem Standort verbinden möchten",
     "siteNewtCredentials": "Zugangsdaten",
-    "siteNewtCredentialsDescription": "So wird sich die Seite mit dem Server authentifizieren",
+    "siteNewtCredentialsDescription": "So wird sich der Standort mit dem Server authentifizieren",
     "remoteNodeCredentialsDescription": "So wird sich der entfernte Node mit dem Server authentifizieren",
     "siteCredentialsSave": "Anmeldedaten speichern",
     "siteCredentialsSaveDescription": "Du kannst das nur einmal sehen. Stelle sicher, dass du es an einen sicheren Ort kopierst.",
