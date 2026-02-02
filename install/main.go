@@ -21,9 +21,9 @@ import (
 
 // DO NOT EDIT THIS FUNCTION; IT MATCHED BY REGEX IN CICD
 func loadVersions(config *Config) {
-	config.PangolinVersion = "replaceme"
-	config.GerbilVersion = "replaceme"
-	config.BadgerVersion = "replaceme"
+	config.PangolinVersion = "latest"
+	config.GerbilVersion = "latest"
+	config.BadgerVersion = "v1.3.1"
 }
 
 //go:embed config/*
@@ -50,6 +50,9 @@ type Config struct {
 	EnableGeoblocking         bool
 	Secret                    string
 	IsEnterprise              bool
+	HttpPort                  int
+	HttpsPort                 int
+	Rootless                  bool
 }
 
 type SupportedContainer string
@@ -70,17 +73,6 @@ func main() {
 	fmt.Println("- Open TCP ports 80 and 443 and UDP ports 51820 and 21820 on your VPS and firewall.")
 	fmt.Println("\nLets get started!")
 
-	if os.Geteuid() == 0 { // WE NEED TO BE SUDO TO CHECK THIS
-		for _, p := range []int{80, 443} {
-			if err := checkPortsAvailable(p); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-
-				fmt.Printf("Please close any services on ports 80/443 in order to run the installation smoothly. If you already have the Pangolin stack running, shut them down before proceeding.\n")
-				os.Exit(1)
-			}
-		}
-	}
-
 	reader := bufio.NewReader(os.Stdin)
 
 	var config Config
@@ -89,6 +81,17 @@ func main() {
 	// check if there is already a config file
 	if _, err := os.Stat("config/config.yml"); err != nil {
 		config = collectUserInput(reader)
+
+		if os.Geteuid() == 0 {
+			for _, p := range []int{config.HttpPort, config.HttpsPort} {
+				if err := checkPortsAvailable(p); err != nil {
+					fmt.Fprintln(os.Stderr, err)
+
+					fmt.Printf("Please close any services on ports %d/%d in order to run the installation smoothly. If you already have the Pangolin stack running, shut them down before proceeding.\n", config.HttpPort, config.HttpsPort)
+					os.Exit(1)
+				}
+			}
+		}
 
 		loadVersions(&config)
 		config.DoCrowdsecInstall = false
@@ -118,7 +121,7 @@ func main() {
 
 		if readBool(reader, "Would you like to install and start the containers?", true) {
 
-			config.InstallationContainerType = podmanOrDocker(reader)
+			config.InstallationContainerType = podmanOrDocker(reader, &config)
 
 			if !isDockerInstalled() && runtime.GOOS == "linux" && config.InstallationContainerType == Docker {
 				if readBool(reader, "Docker is not installed. Would you like to install it?", true) {
@@ -234,7 +237,7 @@ func main() {
 				if detectedType == Undefined {
 					// If detection fails, prompt the user
 					fmt.Println("Unable to detect container type from existing installation.")
-					config.InstallationContainerType = podmanOrDocker(reader)
+					config.InstallationContainerType = podmanOrDocker(reader, &config)
 				} else {
 					config.InstallationContainerType = detectedType
 					fmt.Printf("Detected container type: %s\n", config.InstallationContainerType)
@@ -276,7 +279,7 @@ func main() {
 	fmt.Printf("\nTo complete the initial setup, please visit:\nhttps://%s/auth/initial-setup\n", config.DashboardDomain)
 }
 
-func podmanOrDocker(reader *bufio.Reader) SupportedContainer {
+func podmanOrDocker(reader *bufio.Reader, config *Config) SupportedContainer {
 	inputContainer := readString(reader, "Would you like to run Pangolin as Docker or Podman containers?", "docker")
 
 	chosenContainer := Docker
@@ -295,29 +298,183 @@ func podmanOrDocker(reader *bufio.Reader) SupportedContainer {
 			os.Exit(1)
 		}
 
-		if err := exec.Command("bash", "-c", "cat /etc/sysctl.d/99-podman.conf 2>/dev/null | grep 'net.ipv4.ip_unprivileged_port_start=' || cat /etc/sysctl.conf 2>/dev/null | grep 'net.ipv4.ip_unprivileged_port_start='").Run(); err != nil {
-			fmt.Println("Would you like to configure ports >= 80 as unprivileged ports? This enables podman containers to listen on low-range ports.")
-			fmt.Println("Pangolin will experience startup issues if this is not configured, because it needs to listen on port 80/443 by default.")
-			approved := readBool(reader, "The installer is about to execute \"echo 'net.ipv4.ip_unprivileged_port_start=80' > /etc/sysctl.d/99-podman.conf && sysctl --system\". Approve?", true)
-			if approved {
-				if os.Geteuid() != 0 {
-					fmt.Println("You need to run the installer as root for such a configuration.")
-					os.Exit(1)
-				}
+		// Detect rootless mode
+		config.Rootless = os.Geteuid() != 0
+		if config.Rootless {
+			fmt.Println("Running in Rootless Podman mode.")
+		}
 
-				// Podman containers are not able to listen on privileged ports. The official recommendation is to
-				// container low-range ports as unprivileged ports.
-				// Linux only.
+		// Only check for unprivileged port configuration if ports are privileged (< 1024)
+		if config.HttpPort < 1024 || config.HttpsPort < 1024 {
+			if err := exec.Command("bash", "-c", "cat /etc/sysctl.d/99-podman.conf 2>/dev/null | grep 'net.ipv4.ip_unprivileged_port_start=' || cat /etc/sysctl.conf 2>/dev/null | grep 'net.ipv4.ip_unprivileged_port_start='").Run(); err != nil {
+				fmt.Println("Would you like to configure ports >= 80 as unprivileged ports? This enables podman containers to listen on low-range ports.")
+				fmt.Println("Pangolin will experience startup issues if this is not configured, because it needs to listen on port 80/443 by default.")
+				approved := readBool(reader, "The installer is about to execute \"echo 'net.ipv4.ip_unprivileged_port_start=80' > /etc/sysctl.d/99-podman.conf && sysctl --system\". Approve?", true)
+				if approved {
+					// Podman containers are not able to listen on privileged ports. The official recommendation is to
+					// container low-range ports as unprivileged ports.
+					// Linux only.
 
-				if err := run("bash", "-c", "echo 'net.ipv4.ip_unprivileged_port_start=80' > /etc/sysctl.d/99-podman.conf && sysctl --system"); err != nil {
-				    fmt.Printf("Error configuring unprivileged ports: %v\n", err)
-					os.Exit(1)
+					cmdString := "echo 'net.ipv4.ip_unprivileged_port_start=80' > /etc/sysctl.d/99-podman.conf && sysctl --system"
+					var cmd *exec.Cmd
+
+					if os.Geteuid() != 0 {
+						fmt.Println("This configuration requires root privileges. Attempting to run with sudo...")
+						cmd = exec.Command("sudo", "bash", "-c", cmdString)
+					} else {
+						cmd = exec.Command("bash", "-c", cmdString)
+					}
+
+					// Connect standard I/O to allow password prompt and output
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					cmd.Stdin = os.Stdin
+
+					if err := cmd.Run(); err != nil {
+						fmt.Printf("Error configuring unprivileged ports: %v\n", err)
+						fmt.Println("Please run the following command manually as root and restart the installer:")
+						fmt.Printf("  sudo bash -c \"%s\"\n", cmdString)
+						os.Exit(1)
+					}
+				} else {
+					fmt.Println("You need to configure port forwarding or adjust the listening ports before running pangolin.")
 				}
 			} else {
-				fmt.Println("You need to configure port forwarding or adjust the listening ports before running pangolin.")
+				fmt.Println("Unprivileged ports have been configured.")
 			}
 		} else {
-			fmt.Println("Unprivileged ports have been configured.")
+			fmt.Println("Selected ports are unprivileged (>1024). Skipping Podman sysctl configuration.")
+		}
+
+		// Check for IP Forwarding (Critical for VPN/WireGuard functionality)
+		if config.InstallGerbil {
+			// Check if ip_forward is enabled
+			ipFwdCmd := exec.Command("cat", "/proc/sys/net/ipv4/ip_forward")
+			output, err := ipFwdCmd.Output()
+			isForwardingEnabled := err == nil && strings.TrimSpace(string(output)) == "1"
+
+			if !isForwardingEnabled {
+				fmt.Println("\nWARNING: IP Forwarding is disabled on this host.")
+				fmt.Println("Pangolin (specifically the WireGuard/Gerbil component) requires IP forwarding to route traffic from VPN clients.")
+
+				approved := readBool(reader, "Would you like to enable IP forwarding now? (Writes 'net.ipv4.ip_forward=1' to /etc/sysctl.d/99-forwarding.conf)", true)
+				if approved {
+					cmdString := "echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-forwarding.conf && sysctl --system"
+					var cmd *exec.Cmd
+
+					if os.Geteuid() != 0 {
+						fmt.Println("Enabling IP forwarding requires root privileges. Attempting to run with sudo...")
+						cmd = exec.Command("sudo", "bash", "-c", cmdString)
+					} else {
+						cmd = exec.Command("bash", "-c", cmdString)
+					}
+
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					cmd.Stdin = os.Stdin
+
+					if err := cmd.Run(); err != nil {
+						fmt.Printf("Error enabling IP forwarding: %v\n", err)
+						fmt.Println("Please enable IP forwarding manually: sudo sysctl -w net.ipv4.ip_forward=1")
+						// We don't exit here, strictly speaking, they might want to do it later, but things won't work well.
+					} else {
+						fmt.Println("IP Forwarding enabled successfully.")
+					}
+				}
+			}
+
+			// Check if WireGuard kernel module is loaded (Critical for Gerbil in rootless mode)
+			if config.Rootless {
+				// Check if module is loaded
+				lsmodCmd := exec.Command("lsmod")
+				output, err := lsmodCmd.Output()
+				isWireguardLoaded := err == nil && strings.Contains(string(output), "wireguard")
+
+				if !isWireguardLoaded {
+					fmt.Println("\nWARNING: WireGuard kernel module is NOT loaded.")
+					fmt.Println("Since you are running in Rootless mode, the container cannot load kernel modules itself.")
+					fmt.Println("Gerbil requires the host to have the 'wireguard' module loaded to create interfaces.")
+
+					approved := readBool(reader, "Would you like to load the WireGuard module now? (Executes 'modprobe wireguard')", true)
+					if approved {
+						cmdString := "modprobe wireguard"
+						var cmd *exec.Cmd
+
+						if os.Geteuid() != 0 {
+							fmt.Println("Loading kernel modules requires root privileges. Attempting to run with sudo...")
+							cmd = exec.Command("sudo", "bash", "-c", cmdString)
+						} else {
+							cmd = exec.Command("bash", "-c", cmdString)
+						}
+
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						cmd.Stdin = os.Stdin
+
+						if err := cmd.Run(); err != nil {
+							fmt.Printf("Error loading WireGuard module: %v\n", err)
+							fmt.Println("Please ensure WireGuard is installed and load it manually: sudo modprobe wireguard")
+							// Critical failure for Gerbil
+						} else {
+							fmt.Println("WireGuard module loaded successfully.")
+
+							// Optional: Try to make it persistent
+							if readBool(reader, "Should we try to make this persistent (add to /etc/modules-load.d/)?", true) {
+								persistCmdString := "echo 'wireguard' > /etc/modules-load.d/wireguard.conf"
+								var persistCmd *exec.Cmd
+								if os.Geteuid() != 0 {
+									persistCmd = exec.Command("sudo", "bash", "-c", persistCmdString)
+								} else {
+									persistCmd = exec.Command("bash", "-c", persistCmdString)
+								}
+								if err := persistCmd.Run(); err != nil {
+									fmt.Printf("Failed to make persistent: %v. You may need to load it manually after reboot.\n", err)
+								} else {
+									fmt.Println("WireGuard module set to load on boot.")
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Check /dev/net/tun permissions (Critical for userspace WireGuard / Olm / Newt)
+			if config.Rootless {
+				f, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+				if err != nil {
+					if os.IsPermission(err) {
+						fmt.Println("\nWARNING: You do not have permission to access /dev/net/tun.")
+						fmt.Println("This is required for WireGuard to function in rootless mode.")
+
+						approved := readBool(reader, "Would you like to fix permissions for /dev/net/tun? (Grants RW access to everyone via 'chmod 666')", true)
+						if approved {
+							cmdString := "chmod 666 /dev/net/tun"
+							var cmd *exec.Cmd
+
+							if os.Geteuid() != 0 {
+								fmt.Println("Changing device permissions requires root privileges. Attempting to run with sudo...")
+								cmd = exec.Command("sudo", "bash", "-c", cmdString)
+							} else {
+								cmd = exec.Command("bash", "-c", cmdString)
+							}
+
+							cmd.Stdout = os.Stdout
+							cmd.Stderr = os.Stderr
+							cmd.Stdin = os.Stdin
+
+							if err := cmd.Run(); err != nil {
+								fmt.Printf("Error changing /dev/net/tun permissions: %v\n", err)
+								fmt.Println("Please fix permissions manually: sudo chmod 666 /dev/net/tun")
+							} else {
+								fmt.Println("/dev/net/tun permissions fixed.")
+							}
+						}
+					}
+				} else {
+					f.Close()
+					fmt.Println("/dev/net/tun is accessible.")
+				}
+			}
 		}
 
 	} else if chosenContainer == Docker {
@@ -350,6 +507,9 @@ func collectUserInput(reader *bufio.Reader) Config {
 	fmt.Println("\n=== Basic Configuration ===")
 
 	config.IsEnterprise = readBoolNoDefault(reader, "Do you want to install the Enterprise version of Pangolin? The EE is free for personal use or for businesses making less than 100k USD annually.")
+
+	config.HttpPort = readInt(reader, "Enter the HTTP port Pangolin should listen on (default 80)", 80)
+	config.HttpsPort = readInt(reader, "Enter the HTTPS port Pangolin should listen on (default 443)", 443)
 
 	config.BaseDomain = readString(reader, "Enter your base domain (no subdomain e.g. example.com)", "")
 
