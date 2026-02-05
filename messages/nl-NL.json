@@ -1436,6 +1436,15 @@
     "billingUsersInfo": "U bent in rekening gebracht voor elke gebruiker in de organisatie. Facturering wordt dagelijks berekend op basis van het aantal actieve gebruikersaccounts in uw org.",
     "billingDomainInfo": "U wordt voor elk domein in de organisatie in rekening gebracht. Facturering wordt dagelijks berekend op basis van het aantal actieve domeinaccounts in uw org.",
     "billingRemoteExitNodesInfo": "U bent belast voor elke beheerde node in de organisatie. Facturering wordt dagelijks berekend op basis van het aantal actieve beheerde knooppunten in uw org.",
+    "billingLicenseKeys": "License Keys",
+    "billingLicenseKeysDescription": "Manage your license key subscriptions",
+    "billingLicenseSubscription": "License Subscription",
+    "billingInactive": "Inactive",
+    "billingLicenseItem": "License Item",
+    "billingQuantity": "Quantity",
+    "billingTotal": "total",
+    "billingModifyLicenses": "Modify License Subscription",
+    "billingPricingCalculatorLink": "Prijs Calculator",
     "domainNotFound": "Domein niet gevonden",
     "domainNotFoundDescription": "Deze bron is uitgeschakeld omdat het domein niet langer in ons systeem bestaat. Stel een nieuw domein in voor deze bron.",
     "failed": "Mislukt",
@@ -1511,7 +1520,6 @@
     "createDomainDnsPropagationDescription": "DNS-wijzigingen kunnen enige tijd duren om over het internet te worden verspreid. Dit kan enkele minuten tot 48 uur duren, afhankelijk van je DNS-provider en TTL-instellingen.",
     "resourcePortRequired": "Poortnummer is vereist voor niet-HTTP-bronnen",
     "resourcePortNotAllowed": "Poortnummer mag niet worden ingesteld voor HTTP-bronnen",
-    "billingPricingCalculatorLink": "Prijs Calculator",
     "signUpTerms": {
         "IAgreeToThe": "Ik ga akkoord met de",
         "termsOfService": "servicevoorwaarden",
@@ -2110,6 +2118,32 @@
             "error": {
                 "title": "Kan licentiesleutel niet genereren",
                 "description": "Fout opgetreden tijdens het genereren van de licentiesleutel."
+            }
+        }
+    },
+    "newPricingLicenseForm": {
+        "title": "Get a license",
+        "description": "Choose a plan and tell us how you plan to use Pangolin.",
+        "chooseTier": "Choose your plan",
+        "viewPricingLink": "See pricing, features, and limits",
+        "tiers": {
+            "starter": {
+                "title": "Starter",
+                "description": "Enterprise features, 25 users, 25 sites, and community support."
+            },
+            "scale": {
+                "title": "Scale",
+                "description": "Enterprise features, 50 users, 50 sites, and priority support."
+            }
+        },
+        "personalUseOnly": "Personal use only (free license — no checkout)",
+        "buttons": {
+            "continueToCheckout": "Continue to Checkout"
+        },
+        "toasts": {
+            "checkoutError": {
+                "title": "Checkout error",
+                "description": "Could not start checkout. Please try again."
             }
         }
     },
