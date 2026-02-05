@@ -1436,6 +1436,15 @@
     "billingUsersInfo": "Opłata za każdego użytkownika w organizacji. Płatność jest obliczana codziennie na podstawie liczby aktywnych kont użytkowników w Twojej organizacji.",
     "billingDomainInfo": "Opłata za każdą domenę w organizacji. Płatność jest obliczana codziennie na podstawie liczby aktywnych kont domen w Twojej organizacji.",
     "billingRemoteExitNodesInfo": "Opłata za każdy zarządzany węzeł w organizacji. Płatność jest obliczana codziennie na podstawie liczby aktywnych zarządzanych węzłów w Twojej organizacji.",
+    "billingLicenseKeys": "License Keys",
+    "billingLicenseKeysDescription": "Manage your license key subscriptions",
+    "billingLicenseSubscription": "License Subscription",
+    "billingInactive": "Inactive",
+    "billingLicenseItem": "License Item",
+    "billingQuantity": "Quantity",
+    "billingTotal": "total",
+    "billingModifyLicenses": "Modify License Subscription",
+    "billingPricingCalculatorLink": "Kalkulator Cen",
     "domainNotFound": "Nie znaleziono domeny",
     "domainNotFoundDescription": "Zasób jest wyłączony, ponieważ domena nie istnieje już w naszym systemie. Proszę ustawić nową domenę dla tego zasobu.",
     "failed": "Niepowodzenie",
@@ -1511,7 +1520,6 @@
     "createDomainDnsPropagationDescription": "Zmiany DNS mogą zająć trochę czasu na rozpropagowanie się w Internecie. Może to potrwać od kilku minut do 48 godzin, w zależności od dostawcy DNS i ustawień TTL.",
     "resourcePortRequired": "Numer portu jest wymagany dla zasobów non-HTTP",
     "resourcePortNotAllowed": "Numer portu nie powinien być ustawiony dla zasobów HTTP",
-    "billingPricingCalculatorLink": "Kalkulator Cen",
     "signUpTerms": {
         "IAgreeToThe": "Zgadzam się z",
         "termsOfService": "warunkami usługi",
@@ -2110,6 +2118,32 @@
             "error": {
                 "title": "Nie udało się wygenerować klucza licencyjnego",
                 "description": "Wystąpił błąd podczas generowania klucza licencji."
+            }
+        }
+    },
+    "newPricingLicenseForm": {
+        "title": "Get a license",
+        "description": "Choose a plan and tell us how you plan to use Pangolin.",
+        "chooseTier": "Choose your plan",
+        "viewPricingLink": "See pricing, features, and limits",
+        "tiers": {
+            "starter": {
+                "title": "Starter",
+                "description": "Enterprise features, 25 users, 25 sites, and community support."
+            },
+            "scale": {
+                "title": "Scale",
+                "description": "Enterprise features, 50 users, 50 sites, and priority support."
+            }
+        },
+        "personalUseOnly": "Personal use only (free license — no checkout)",
+        "buttons": {
+            "continueToCheckout": "Continue to Checkout"
+        },
+        "toasts": {
+            "checkoutError": {
+                "title": "Checkout error",
+                "description": "Could not start checkout. Please try again."
             }
         }
     },
