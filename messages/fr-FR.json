@@ -1436,6 +1436,15 @@
     "billingUsersInfo": "Vous êtes facturé pour chaque utilisateur de l'organisation. La facturation est calculée quotidiennement en fonction du nombre de comptes d'utilisateurs actifs dans votre organisation.",
     "billingDomainInfo": "Vous êtes facturé pour chaque domaine de l'organisation. La facturation est calculée quotidiennement en fonction du nombre de comptes de domaine actifs dans votre organisation.",
     "billingRemoteExitNodesInfo": "Vous êtes facturé pour chaque noeud géré dans l'organisation. La facturation est calculée quotidiennement en fonction du nombre de nœuds gérés actifs dans votre organisation.",
+    "billingLicenseKeys": "License Keys",
+    "billingLicenseKeysDescription": "Manage your license key subscriptions",
+    "billingLicenseSubscription": "License Subscription",
+    "billingInactive": "Inactive",
+    "billingLicenseItem": "License Item",
+    "billingQuantity": "Quantity",
+    "billingTotal": "total",
+    "billingModifyLicenses": "Modify License Subscription",
+    "billingPricingCalculatorLink": "Calculateur de prix",
     "domainNotFound": "Domaine introuvable",
     "domainNotFoundDescription": "Cette ressource est désactivée car le domaine n'existe plus dans notre système. Veuillez définir un nouveau domaine pour cette ressource.",
     "failed": "Échec",
@@ -1511,7 +1520,6 @@
     "createDomainDnsPropagationDescription": "Les modifications DNS peuvent mettre du temps à se propager sur internet. Cela peut prendre de quelques minutes à 48 heures selon votre fournisseur DNS et les réglages TTL.",
     "resourcePortRequired": "Le numéro de port est requis pour les ressources non-HTTP",
     "resourcePortNotAllowed": "Le numéro de port ne doit pas être défini pour les ressources HTTP",
-    "billingPricingCalculatorLink": "Calculateur de prix",
     "signUpTerms": {
         "IAgreeToThe": "Je suis d'accord avec",
         "termsOfService": "les conditions d'utilisation",
@@ -2110,6 +2118,32 @@
             "error": {
                 "title": "Impossible de générer la clé de licence",
                 "description": "Une erreur s'est produite lors de la génération de la clé de licence."
+            }
+        }
+    },
+    "newPricingLicenseForm": {
+        "title": "Get a license",
+        "description": "Choose a plan and tell us how you plan to use Pangolin.",
+        "chooseTier": "Choose your plan",
+        "viewPricingLink": "See pricing, features, and limits",
+        "tiers": {
+            "starter": {
+                "title": "Starter",
+                "description": "Enterprise features, 25 users, 25 sites, and community support."
+            },
+            "scale": {
+                "title": "Scale",
+                "description": "Enterprise features, 50 users, 50 sites, and priority support."
+            }
+        },
+        "personalUseOnly": "Personal use only (free license — no checkout)",
+        "buttons": {
+            "continueToCheckout": "Continue to Checkout"
+        },
+        "toasts": {
+            "checkoutError": {
+                "title": "Checkout error",
+                "description": "Could not start checkout. Please try again."
             }
         }
     },
