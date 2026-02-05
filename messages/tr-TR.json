@@ -1436,6 +1436,15 @@
     "billingUsersInfo": "Kuruluşunuzdaki her kullanıcı için ücretlendirilirsiniz. Faturalandırma, organizasyonunuza kayıtlı aktif kullanıcı hesaplarının sayısına göre günlük olarak hesaplanır.",
     "billingDomainInfo": "Kuruluşunuzdaki her alan adı için ücretlendirilirsiniz. Faturalandırma, organizasyonunuza kayıtlı aktif alan adları hesaplarının sayısına göre günlük olarak hesaplanır.",
     "billingRemoteExitNodesInfo": "Kuruluşunuzdaki her yönetilen Düğüm için ücretlendirilirsiniz. Faturalandırma, organizasyonunuza kayıtlı aktif yönetilen Düğümler sayısına göre günlük olarak hesaplanır.",
+    "billingLicenseKeys": "License Keys",
+    "billingLicenseKeysDescription": "Manage your license key subscriptions",
+    "billingLicenseSubscription": "License Subscription",
+    "billingInactive": "Inactive",
+    "billingLicenseItem": "License Item",
+    "billingQuantity": "Quantity",
+    "billingTotal": "total",
+    "billingModifyLicenses": "Modify License Subscription",
+    "billingPricingCalculatorLink": "Fiyat Hesaplayıcı",
     "domainNotFound": "Alan Adı Bulunamadı",
     "domainNotFoundDescription": "Bu kaynak devre dışıdır çünkü alan adı sistemimizde artık mevcut değil. Bu kaynak için yeni bir alan adı belirleyin.",
     "failed": "Başarısız",
@@ -1511,7 +1520,6 @@
     "createDomainDnsPropagationDescription": "DNS değişikliklerinin internet genelinde yayılması zaman alabilir. DNS sağlayıcınız ve TTL ayarlarına bağlı olarak bu birkaç dakika ile 48 saat arasında değişebilir.",
     "resourcePortRequired": "HTTP dışı kaynaklar için bağlantı noktası numarası gereklidir",
     "resourcePortNotAllowed": "HTTP kaynakları için bağlantı noktası numarası ayarlanmamalı",
-    "billingPricingCalculatorLink": "Fiyat Hesaplayıcı",
     "signUpTerms": {
         "IAgreeToThe": "Kabul ediyorum",
         "termsOfService": "hizmet şartları",
@@ -2110,6 +2118,32 @@
             "error": {
                 "title": "Lisans anahtarı oluşturulamadı",
                 "description": "Lisans anahtarı oluşturulurken bir hata oluştu."
+            }
+        }
+    },
+    "newPricingLicenseForm": {
+        "title": "Get a license",
+        "description": "Choose a plan and tell us how you plan to use Pangolin.",
+        "chooseTier": "Choose your plan",
+        "viewPricingLink": "See pricing, features, and limits",
+        "tiers": {
+            "starter": {
+                "title": "Starter",
+                "description": "Enterprise features, 25 users, 25 sites, and community support."
+            },
+            "scale": {
+                "title": "Scale",
+                "description": "Enterprise features, 50 users, 50 sites, and priority support."
+            }
+        },
+        "personalUseOnly": "Personal use only (free license — no checkout)",
+        "buttons": {
+            "continueToCheckout": "Continue to Checkout"
+        },
+        "toasts": {
+            "checkoutError": {
+                "title": "Checkout error",
+                "description": "Could not start checkout. Please try again."
             }
         }
     },
