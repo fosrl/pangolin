@@ -73,7 +73,8 @@ export default async function SitesPage(props: SitesPageProps) {
             newtUpdateAvailable: site.newtUpdateAvailable || false,
             exitNodeName: site.exitNodeName || undefined,
             exitNodeEndpoint: site.exitNodeEndpoint || undefined,
-            remoteExitNodeId: (site as any).remoteExitNodeId || undefined
+            remoteExitNodeId: (site as any).remoteExitNodeId || undefined,
+            dnsStatus: site.dnsStatus || null
         };
     });
 

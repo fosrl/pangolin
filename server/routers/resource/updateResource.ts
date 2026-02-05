@@ -43,6 +43,11 @@ import { build } from "@server/build";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
+import {
+    updateDNSAuthorityForResource,
+    updateDNSAuthorityForDomain
+} from "@server/routers/dns/dnsAuthority";
+import { updateAuthProxyForResource } from "@server/routers/auth/authProxy";
 
 const updateResourceParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -87,6 +92,12 @@ const updateHttpResourceBodySchema = z
         pamMode: z.enum(["passthrough", "push"]).optional(),
         authDaemonMode: z.enum(["site", "remote", "native"]).optional(),
         authDaemonPort: z.int().min(1).max(65535).nullable().optional(),
+        // DNS Authority fields
+        dnsAuthorityEnabled: z.boolean().optional(),
+        dnsAuthorityTtl: z.int().min(1).max(86400).optional(),
+        dnsAuthorityRoutingPolicy: z
+            .enum(["failover", "roundrobin", "priority"])
+            .optional(),
         resourcePolicyId: z.number().nullable().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
@@ -185,6 +196,12 @@ const updateRawResourceBodySchema = z
         enabled: z.boolean().optional(),
         proxyProtocol: z.boolean().optional(),
         proxyProtocolVersion: z.int().min(1).optional(),
+        // DNS Authority fields
+        dnsAuthorityEnabled: z.boolean().optional(),
+        dnsAuthorityTtl: z.int().min(1).max(86400).optional(),
+        dnsAuthorityRoutingPolicy: z
+            .enum(["failover", "roundrobin", "priority"])
+            .optional(),
         resourcePolicyId: z.number().nullable().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
@@ -564,6 +581,20 @@ async function updateHttpResource(
         );
     }
 
+    if (updatedResource[0].dnsAuthorityEnabled) {
+        await updateDNSAuthorityForResource(updatedResource[0].resourceId);
+        if (updatedResource[0].domainId) {
+            await updateDNSAuthorityForDomain(updatedResource[0].domainId);
+        }
+        if (
+            updatedResource[0].sso ||
+            updatedResource[0].blockAccess ||
+            updatedResource[0].emailWhitelistEnabled
+        ) {
+            await updateAuthProxyForResource(updatedResource[0].resourceId);
+        }
+    }
+
     return response(res, {
         data: updatedResource[0],
         success: true,
@@ -720,6 +751,20 @@ async function updateRawResource(
                 `Resource with ID ${resource.resourceId} not found`
             )
         );
+    }
+
+    if (updatedResource.dnsAuthorityEnabled) {
+        await updateDNSAuthorityForResource(updatedResource.resourceId);
+        if (updatedResource.domainId) {
+            await updateDNSAuthorityForDomain(updatedResource.domainId);
+        }
+        if (
+            updatedResource.sso ||
+            updatedResource.blockAccess ||
+            updatedResource.emailWhitelistEnabled
+        ) {
+            await updateAuthProxyForResource(updatedResource.resourceId);
+        }
     }
 
     return response(res, {

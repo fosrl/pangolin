@@ -6,6 +6,8 @@ import * as badger from "./badger";
 import * as auth from "@server/routers/auth";
 import * as supporterKey from "@server/routers/supporterKey";
 import * as idp from "@server/routers/idp";
+import * as newt from "./newt";
+import * as olm from "./olm";
 import HttpCode from "@server/types/HttpCode";
 import {
     verifyResourceAccess,
@@ -41,6 +43,13 @@ internalRouter.get(
 internalRouter.get("/idp", idp.listIdps);
 
 internalRouter.get("/idp/:idpId", idp.getIdp);
+
+// Auth endpoints for Newt/OLM to get tokens (needed for WebSocket connection)
+const authRouter = Router();
+internalRouter.use("/auth", authRouter);
+
+authRouter.post("/newt/get-token", newt.getNewtToken);
+authRouter.post("/olm/get-token", olm.getOlmToken);
 
 // Gerbil routes
 const gerbilRouter = Router();

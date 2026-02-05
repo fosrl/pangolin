@@ -10,6 +10,7 @@ import {
 } from "@server/middlewares";
 import { internalRouter } from "#dynamic/routers/internal";
 import { stripDuplicateSesions } from "./middlewares/stripDuplicateSessions";
+import { router as wsRouter, handleWSUpgrade } from "#dynamic/routers/ws";
 
 const internalPort = config.getRawConfig().server.internal_port;
 
@@ -30,15 +31,21 @@ export function createInternalServer() {
     const prefix = `/api/v1`;
     internalServer.use(prefix, internalRouter);
 
+    // WebSocket routes
+    internalServer.use(prefix, wsRouter);
+
     internalServer.use(notFoundMiddleware);
     internalServer.use(errorHandlerMiddleware);
 
-    internalServer.listen(internalPort, (err?: any) => {
+    const httpServer = internalServer.listen(internalPort, (err?: any) => {
         if (err) throw err;
         logger.info(
             `Internal API server is running on http://localhost:${internalPort}`
         );
     });
 
-    return internalServer;
+    // Handle WebSocket upgrades
+    handleWSUpgrade(httpServer);
+
+    return httpServer;
 }

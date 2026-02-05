@@ -57,11 +57,40 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
         </InfoSection>
     ) : null;
 
+    const dnsStatusSection = site.dnsAuthorityEnabled ? (
+        <InfoSection>
+            <InfoSectionTitle>{t("dnsAuthorityShort")}</InfoSectionTitle>
+            <InfoSectionContent>
+                {site.dnsStatus === "running" ? (
+                    <div className="flex items-center space-x-2 text-green-500">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>{t("siteDnsAuthorityStatusRunning")}</span>
+                    </div>
+                ) : site.dnsStatus === "warning" ? (
+                    <div className="flex items-center space-x-2 text-yellow-500">
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                        <span>{t("siteDnsAuthorityStatusWarning")}</span>
+                    </div>
+                ) : site.dnsStatus === "error" ? (
+                    <div className="flex items-center space-x-2 text-red-500">
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span>{t("siteDnsAuthorityStatusError")}</span>
+                    </div>
+                ) : (
+                    <div className="flex items-center space-x-2 text-neutral-500">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                        <span>{t("siteDnsAuthorityStatusDisabled")}</span>
+                    </div>
+                )}
+            </InfoSectionContent>
+        </InfoSection>
+    ) : null;
+
     if (site.type === "newt") {
         return (
             <Alert>
                 <AlertDescription>
-                    <InfoSections cols={site.endpoint ? 4 : 3}>
+                    <InfoSections cols={site.endpoint ? (site.dnsAuthorityEnabled ? 5 : 4) : site.dnsAuthorityEnabled ? 4 : 3}>
                         {statusSection}
                         <InfoSection>
                             <InfoSectionTitle>
@@ -79,6 +108,7 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
                                     : "-"}
                             </InfoSectionContent>
                         </InfoSection>
+                        {dnsStatusSection}
                         {endpointSection}
                     </InfoSections>
                 </AlertDescription>
@@ -90,7 +120,7 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
         return (
             <Alert>
                 <AlertDescription>
-                    <InfoSections cols={site.endpoint ? 4 : 3}>
+                    <InfoSections cols={site.endpoint ? (site.dnsAuthorityEnabled ? 5 : 4) : site.dnsAuthorityEnabled ? 4 : 3}>
                         {identifierSection}
                         {statusSection}
                         <InfoSection>
@@ -99,6 +129,7 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
                             </InfoSectionTitle>
                             <InfoSectionContent>WireGuard</InfoSectionContent>
                         </InfoSection>
+                        {dnsStatusSection}
                         {endpointSection}
                     </InfoSections>
                 </AlertDescription>
@@ -110,7 +141,7 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
         return (
             <Alert>
                 <AlertDescription>
-                    <InfoSections cols={site.endpoint ? 3 : 2}>
+                    <InfoSections cols={site.endpoint ? (site.dnsAuthorityEnabled ? 4 : 3) : site.dnsAuthorityEnabled ? 3 : 2}>
                         {identifierSection}
                         <InfoSection>
                             <InfoSectionTitle>
@@ -120,6 +151,7 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
                                 {t("local")}
                             </InfoSectionContent>
                         </InfoSection>
+                        {dnsStatusSection}
                         {endpointSection}
                     </InfoSections>
                 </AlertDescription>
@@ -130,7 +162,7 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
     return (
         <Alert>
             <AlertDescription>
-                <InfoSections cols={site.endpoint ? 3 : 2}>
+                <InfoSections cols={site.endpoint ? (site.dnsAuthorityEnabled ? 4 : 3) : site.dnsAuthorityEnabled ? 3 : 2}>
                     {identifierSection}
                     <InfoSection>
                         <InfoSectionTitle>
@@ -138,6 +170,7 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
                         </InfoSectionTitle>
                         <InfoSectionContent>{t("unknown")}</InfoSectionContent>
                     </InfoSection>
+                    {dnsStatusSection}
                     {endpointSection}
                 </InfoSections>
             </AlertDescription>

@@ -47,7 +47,9 @@ const GeneralFormSchema = z.object({
     niceId: z.string().min(1).max(255).optional(),
     dockerSocketEnabled: z.boolean().optional(),
     autoUpdateEnabled: z.boolean().optional(),
-    autoUpdateOverrideOrg: z.boolean().optional()
+    autoUpdateOverrideOrg: z.boolean().optional(),
+    publicIp: z.string().nullable().optional(),
+    dnsAuthorityEnabled: z.boolean().optional()
 });
 
 type GeneralFormValues = z.infer<typeof GeneralFormSchema>;
@@ -82,7 +84,9 @@ export default function GeneralPage() {
             autoUpdateEnabled: site?.autoUpdateOverrideOrg
                 ? (site?.autoUpdateEnabled ?? false)
                 : orgAutoUpdate,
-            autoUpdateOverrideOrg: site?.autoUpdateOverrideOrg ?? false
+            autoUpdateOverrideOrg: site?.autoUpdateOverrideOrg ?? false,
+            publicIp: site?.publicIp ?? "",
+            dnsAuthorityEnabled: site?.dnsAuthorityEnabled ?? false
         },
         mode: "onChange"
     });
@@ -96,7 +100,9 @@ export default function GeneralPage() {
                 niceId: data.niceId,
                 dockerSocketEnabled: data.dockerSocketEnabled,
                 autoUpdateEnabled: data.autoUpdateEnabled,
-                autoUpdateOverrideOrg: data.autoUpdateOverrideOrg
+                autoUpdateOverrideOrg: data.autoUpdateOverrideOrg,
+                publicIp: data.publicIp || null,
+                dnsAuthorityEnabled: data.dnsAuthorityEnabled
             });
 
             updateSite({
@@ -104,7 +110,9 @@ export default function GeneralPage() {
                 niceId: data.niceId,
                 dockerSocketEnabled: data.dockerSocketEnabled,
                 autoUpdateEnabled: data.autoUpdateEnabled,
-                autoUpdateOverrideOrg: data.autoUpdateOverrideOrg
+                autoUpdateOverrideOrg: data.autoUpdateOverrideOrg,
+                publicIp: data.publicIp || null,
+                dnsAuthorityEnabled: data.dnsAuthorityEnabled
             });
 
             if (data.niceId && data.niceId !== site?.niceId) {
@@ -313,6 +321,60 @@ export default function GeneralPage() {
                                                 </FormItem>
                                             );
                                         }}
+                                    />
+                                )}
+
+                                <FormField
+                                    control={form.control}
+                                    name="dnsAuthorityEnabled"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl>
+                                                <SwitchInput
+                                                    id="dns-authority-enabled"
+                                                    label={t(
+                                                        "siteDnsAuthorityEnable"
+                                                    )}
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                />
+                                            </FormControl>
+                                            <FormDescription>
+                                                {t(
+                                                    "siteDnsAuthorityDescription"
+                                                )}
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {form.watch("dnsAuthorityEnabled") && (
+                                    <FormField
+                                        control={form.control}
+                                        name="publicIp"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    {t("sitePublicIp")}
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        {...field}
+                                                        value={field.value || ""}
+                                                        placeholder={t(
+                                                            "sitePublicIpPlaceholder"
+                                                        )}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    {t(
+                                                        "sitePublicIpDescription"
+                                                    )}
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
                                     />
                                 )}
                             </form>

@@ -11,6 +11,8 @@ import { fromError } from "zod-validation-error";
 import { removeTargets } from "../newt/targets";
 import { OpenAPITags, registry } from "@server/openApi";
 import { targetHealthCheck } from "@server/db";
+import { updateDNSAuthorityForResource } from "../dns/dnsAuthority";
+import { updateAuthProxyForSite } from "../auth/authProxy";
 
 const deleteTargetSchema = z.strictObject({
     targetId: z.coerce.number().int().positive()
@@ -145,6 +147,14 @@ export async function deleteTarget(
                     newt.version
                 );
             }
+        }
+
+        if (resource.dnsAuthorityEnabled) {
+            await updateDNSAuthorityForResource(resource.resourceId);
+        }
+
+        if (deletedTarget.siteId) {
+            await updateAuthProxyForSite(deletedTarget.siteId);
         }
 
         return response(res, {

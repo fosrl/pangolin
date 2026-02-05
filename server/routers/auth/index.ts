@@ -19,3 +19,5 @@ export * from "./verifyDeviceWebAuth";
 export * from "./pollDeviceWebAuth";
 export * from "./lookupUser";
 export * from "./deleteMyAccount";
+export * from "./validateSession";
+export * from "./authProxy";

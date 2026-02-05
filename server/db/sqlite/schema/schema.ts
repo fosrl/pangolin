@@ -122,6 +122,13 @@ export const sites = sqliteTable("sites", {
     dockerSocketEnabled: integer("dockerSocketEnabled", { mode: "boolean" })
         .notNull()
         .default(true),
+    // DNS Authority fields - for sites that can serve as authoritative DNS
+    publicIp: text("publicIp"), // Public IP address for DNS authority responses
+    dnsAuthorityEnabled: integer("dnsAuthorityEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false), // Whether this site serves as DNS authority
+    dnsStatus: text("dnsStatus"), // "running", "warning", "error", "disabled"
+    dnsError: text("dnsError"), // Error message if status is error/warning
     autoUpdateEnabled: integer("autoUpdateEnabled", { mode: "boolean" })
         .notNull()
         .default(false),
@@ -209,7 +216,15 @@ export const resources = sqliteTable("resources", {
     authDaemonMode: text("authDaemonMode")
         .$type<"site" | "remote" | "native">()
         .default("site"),
-    authDaemonPort: integer("authDaemonPort").default(22123)
+    authDaemonPort: integer("authDaemonPort").default(22123),
+    // DNS Authority fields - for intelligent DNS routing based on health checks
+    dnsAuthorityEnabled: integer("dnsAuthorityEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false), // Enable DNS authority for this resource
+    dnsAuthorityTtl: integer("dnsAuthorityTtl").default(60), // TTL for DNS responses in seconds
+    dnsAuthorityRoutingPolicy: text("dnsAuthorityRoutingPolicy", {
+        enum: ["failover", "roundrobin", "priority"]
+    }).default("failover") // Routing policy based on health checks
 });
 
 export const labels = sqliteTable("labels", {

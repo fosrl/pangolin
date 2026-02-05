@@ -21,5 +21,6 @@ export enum OpenAPITags {
     Domain = "Domain",
     Blueprint = "Blueprint",
     Ssh = "SSH",
-    Logs = "Logs"
+    Logs = "Logs",
+    Auth = "Auth"
 }

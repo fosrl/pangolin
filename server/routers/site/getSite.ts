@@ -10,6 +10,7 @@ import logger from "@server/logger";
 import stoi from "@server/lib/stoi";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { getServerIp } from "@server/lib/serverIpService";
 
 const getSiteSchema = z.strictObject({
     siteId: z
@@ -47,6 +48,7 @@ type SiteQueryRow = NonNullable<Awaited<ReturnType<typeof query>>>;
 export type GetSiteResponse = SiteQueryRow["sites"] & {
     newtId: string | null;
     newtVersion: string | null;
+    serverPublicIp: string | null;
 };
 
 registry.registerPath({
@@ -134,7 +136,8 @@ export async function getSite(
         const data: GetSiteResponse = {
             ...site.sites,
             newtId: site.newt ? site.newt.newtId : null,
-            newtVersion: site.newt?.version ?? null
+            newtVersion: site.newt?.version ?? null,
+            serverPublicIp: getServerIp()
         };
 
         return response<GetSiteResponse>(res, {

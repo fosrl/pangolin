@@ -1541,6 +1541,9 @@ authRouter.put("/set-server-admin", auth.setServerAdmin);
 authRouter.get("/initial-setup-complete", auth.initialSetupComplete);
 authRouter.post("/validate-setup-token", auth.validateSetupToken);
 
+// Session validation for Newt auth proxy
+authRouter.get("/session/validate", auth.validateSession);
+
 // Security Key routes
 authRouter.post(
     "/security-key/register/start",

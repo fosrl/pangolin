@@ -72,6 +72,7 @@ export type SiteRow = {
     exitNodeEndpoint?: string;
     remoteExitNodeId?: string;
     resourceCount: number;
+    dnsStatus?: string | null;
     labels?: Array<{
         labelId: number;
         name: string;
@@ -370,6 +371,28 @@ export default function SitesTable({
                             </div>
                         );
                     }
+                }
+            },
+            {
+                id: "dnsStatus",
+                accessorKey: "dnsStatus",
+                friendlyName: t("dnsAuthorityShort"),
+                header: () => <span className="p-3">{t("dnsAuthorityShort")}</span>,
+                cell: ({ row }) => {
+                    const status = row.original.dnsStatus;
+                    if (!status || status === "disabled") {
+                        return <span className="text-neutral-500">{t("siteDnsAuthorityStatusDisabled")}</span>;
+                    }
+                    if (status === "running") {
+                        return <span className="text-green-500">{t("siteDnsAuthorityStatusRunning")}</span>;
+                    }
+                    if (status === "warning") {
+                        return <span className="text-yellow-500">{t("siteDnsAuthorityStatusWarning")}</span>;
+                    }
+                    if (status === "error") {
+                        return <span className="text-red-500">{t("siteDnsAuthorityStatusError")}</span>;
+                    }
+                    return <span>-</span>;
                 }
             },
             {

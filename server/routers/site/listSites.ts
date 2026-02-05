@@ -246,6 +246,9 @@ function querySitesBase() {
                 FROM ${browserGatewayTarget}
                 WHERE ${browserGatewayTarget.siteId} = ${sites.siteId}
             )`,
+            publicIp: sites.publicIp,
+            dnsAuthorityEnabled: sites.dnsAuthorityEnabled,
+            dnsStatus: sites.dnsStatus,
             status: sites.status
         })
         .from(sites)

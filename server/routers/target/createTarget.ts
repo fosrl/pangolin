@@ -24,6 +24,8 @@ import {
     fireHealthCheckUnhealthyAlert,
     fireHealthCheckUnknownAlert
 } from "@server/lib/alerts";
+import { updateDNSAuthorityForResource } from "../dns/dnsAuthority";
+import { updateAuthProxyForResource } from "../auth/authProxy";
 
 const createTargetParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -333,6 +335,17 @@ export async function createTarget(
                     newt.version
                 );
             }
+        }
+
+        if (resource.dnsAuthorityEnabled) {
+            await updateDNSAuthorityForResource(resource.resourceId);
+        }
+
+        if (
+            resource.dnsAuthorityEnabled &&
+            (resource.sso || resource.blockAccess || resource.emailWhitelistEnabled)
+        ) {
+            await updateAuthProxyForResource(resource.resourceId);
         }
 
         return response<CreateTargetResponse>(res, {

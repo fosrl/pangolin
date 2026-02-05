@@ -11,6 +11,9 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
+import { getServerIp } from "@server/lib/serverIpService";
+import { updateDNSAuthorityForSite } from "@server/routers/dns/dnsAuthority";
+import { updateAuthProxyForSite } from "@server/routers/auth/authProxy";
 
 const updateSiteParamsSchema = z.strictObject({
     siteId: z.coerce.number().int().positive()
@@ -23,7 +26,9 @@ const updateSiteBodySchema = z
         dockerSocketEnabled: z.boolean().optional(),
         status: z.enum(["pending", "approved"]).optional(),
         autoUpdateEnabled: z.boolean().optional(),
-        autoUpdateOverrideOrg: z.boolean().optional()
+        autoUpdateOverrideOrg: z.boolean().optional(),
+        publicIp: z.string().nullable().optional(),
+        dnsAuthorityEnabled: z.boolean().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
@@ -139,6 +144,23 @@ export async function updateSite(
             parsedBody.data.autoUpdateOverrideOrg = false; // force it off
         }
 
+        if (updateData.dnsAuthorityEnabled === true && !updateData.publicIp) {
+            const [existingSiteWithPublicIp] = await db
+                .select({ publicIp: sites.publicIp })
+                .from(sites)
+                .where(eq(sites.siteId, siteId))
+                .limit(1);
+
+            if (existingSiteWithPublicIp?.publicIp) {
+                updateData.publicIp = existingSiteWithPublicIp.publicIp;
+            } else {
+                const detectedIp = getServerIp();
+                if (detectedIp) {
+                    updateData.publicIp = detectedIp;
+                }
+            }
+        }
+
         // // if remoteSubnets is provided, ensure it's a valid comma-separated list of cidrs
         // if (updateData.remoteSubnets) {
         //     const subnets = updateData.remoteSubnets
@@ -169,6 +191,14 @@ export async function updateSite(
                     `Site with ID ${siteId} not found`
                 )
             );
+        }
+
+        if (
+            updateData.dnsAuthorityEnabled !== undefined ||
+            updateData.publicIp !== undefined
+        ) {
+            await updateDNSAuthorityForSite(siteId);
+            await updateAuthProxyForSite(siteId);
         }
 
         return response(res, {

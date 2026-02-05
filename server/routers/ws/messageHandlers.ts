@@ -10,6 +10,8 @@ import {
     handleNewtPingMessage,
     startNewtOfflineChecker,
     handleNewtDisconnectingMessage
+    handleNewtDisconnectingMessage,
+    handleDnsStatusMessage
 } from "../newt";
 import { startPingAccumulator } from "../newt/pingAccumulator";
 import {
@@ -41,6 +43,7 @@ export const messageHandlers: Record<string, MessageHandler> = {
     "newt/receive-bandwidth": handleReceiveBandwidthMessage,
     "newt/socket/status": handleDockerStatusMessage,
     "newt/socket/containers": handleDockerContainersMessage,
+    "newt/dns/status": handleDnsStatusMessage,
     "newt/ping/request": handleNewtPingRequestMessage,
     "newt/blueprint/apply": handleApplyBlueprintMessage,
     "newt/healthcheck/status": handleHealthcheckStatusMessage,

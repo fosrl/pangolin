@@ -14,6 +14,7 @@ import { fetchContainers } from "./dockerSocket";
 import { lockManager } from "#dynamic/lib/lock";
 import { buildTargetConfigurationForNewtClient } from "./buildConfiguration";
 import { canCompress } from "@server/lib/clientVersionChecks";
+import { sendAllDNSAuthorityConfigsToNewt } from "@server/routers/dns/dnsAuthority";
 
 export type ExitNodePingResult = {
     exitNodeId: number;
@@ -59,6 +60,29 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
         logger.debug(
             "Backwards compatible mode detecting - not sending connect message and waiting for ping response."
         );
+
+        // Mark the site as online since the Newt is connected via WebSocket
+        // await db
+        //     .update(sites)
+        //     .set({
+        //         online: true,
+        //         pubKey: publicKey
+        //     })
+        //     .where(eq(sites.siteId, siteId));
+
+        // Even in backwards-compatible mode, push DNS authority configs
+        // since DNS authority works independently of WireGuard
+        setTimeout(async () => {
+            try {
+                await sendAllDNSAuthorityConfigsToNewt(newt.newtId, siteId);
+            } catch (error) {
+                logger.error(
+                    `Failed to send DNS authority configs to Newt ${newt.newtId}:`,
+                    error
+                );
+            }
+        }, 3000);
+
         return;
     }
 
@@ -144,6 +168,21 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
             .where(eq(sites.siteId, siteId))
             .returning();
     }
+
+    // Push DNS authority zone configs to the Newt after a short delay
+    // to allow the WG tunnel to establish first (if applicable).
+    // This must be before exit node checks since DNS authority works
+    // independently of WireGuard connectivity.
+    setTimeout(async () => {
+        try {
+            await sendAllDNSAuthorityConfigsToNewt(newt.newtId, siteId);
+        } catch (error) {
+            logger.error(
+                `Failed to send DNS authority configs to Newt ${newt.newtId}:`,
+                error
+            );
+        }
+    }, 3000);
 
     if (!exitNodeIdToQuery) {
         logger.warn("No exit node ID to query");
