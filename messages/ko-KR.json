@@ -1436,6 +1436,15 @@
     "billingUsersInfo": "조직의 사용자마다 요금이 청구됩니다. 청구는 조직의 활성 사용자 계정 수에 따라 매일 계산됩니다.",
     "billingDomainInfo": "조직의 도메인마다 요금이 청구됩니다. 청구는 조직의 활성 도메인 계정 수에 따라 매일 계산됩니다.",
     "billingRemoteExitNodesInfo": "조직의 관리 노드마다 요금이 청구됩니다. 청구는 조직의 활성 관리 노드 수에 따라 매일 계산됩니다.",
+    "billingLicenseKeys": "License Keys",
+    "billingLicenseKeysDescription": "Manage your license key subscriptions",
+    "billingLicenseSubscription": "License Subscription",
+    "billingInactive": "Inactive",
+    "billingLicenseItem": "License Item",
+    "billingQuantity": "Quantity",
+    "billingTotal": "total",
+    "billingModifyLicenses": "Modify License Subscription",
+    "billingPricingCalculatorLink": "가격 계산기",
     "domainNotFound": "도메인을 찾을 수 없습니다",
     "domainNotFoundDescription": "이 리소스는 도메인이 더 이상 시스템에 존재하지 않아 비활성화되었습니다. 이 리소스에 대한 새 도메인을 설정하세요.",
     "failed": "실패",
@@ -1511,7 +1520,6 @@
     "createDomainDnsPropagationDescription": "DNS 변경 사항은 인터넷 전체에 전파되는 데 시간이 걸립니다. DNS 제공자와 TTL 설정에 따라 몇 분에서 48시간까지 걸릴 수 있습니다.",
     "resourcePortRequired": "HTTP 리소스가 아닌 경우 포트 번호가 필요합니다",
     "resourcePortNotAllowed": "HTTP 리소스에 대해 포트 번호를 설정하지 마세요",
-    "billingPricingCalculatorLink": "가격 계산기",
     "signUpTerms": {
         "IAgreeToThe": "동의합니다",
         "termsOfService": "서비스 약관",
@@ -2110,6 +2118,32 @@
             "error": {
                 "title": "라이선스 키 생성에 실패했습니다",
                 "description": "라이선스 키를 생성하는 동안 오류가 발생했습니다."
+            }
+        }
+    },
+    "newPricingLicenseForm": {
+        "title": "Get a license",
+        "description": "Choose a plan and tell us how you plan to use Pangolin.",
+        "chooseTier": "Choose your plan",
+        "viewPricingLink": "See pricing, features, and limits",
+        "tiers": {
+            "starter": {
+                "title": "Starter",
+                "description": "Enterprise features, 25 users, 25 sites, and community support."
+            },
+            "scale": {
+                "title": "Scale",
+                "description": "Enterprise features, 50 users, 50 sites, and priority support."
+            }
+        },
+        "personalUseOnly": "Personal use only (free license — no checkout)",
+        "buttons": {
+            "continueToCheckout": "Continue to Checkout"
+        },
+        "toasts": {
+            "checkoutError": {
+                "title": "Checkout error",
+                "description": "Could not start checkout. Please try again."
             }
         }
     },
