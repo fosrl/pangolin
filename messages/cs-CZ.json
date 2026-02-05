@@ -1436,6 +1436,15 @@
     "billingUsersInfo": "Každý uživatel v organizaci je účtován denně. Fakturace je počítána na základě počtu aktivních uživatelských účtů na Vašem org.",
     "billingDomainInfo": "Objednávka je účtována za každou doménu v organizaci. Fakturace je počítána denně na základě počtu aktivních doménových účtů na Vašem org.",
     "billingRemoteExitNodesInfo": "Za každý spravovaný uzel v organizaci se vám účtuje denně. Fakturace je vypočítávána na základě počtu aktivních spravovaných uzlů ve vašem org.",
+    "billingLicenseKeys": "License Keys",
+    "billingLicenseKeysDescription": "Manage your license key subscriptions",
+    "billingLicenseSubscription": "License Subscription",
+    "billingInactive": "Inactive",
+    "billingLicenseItem": "License Item",
+    "billingQuantity": "Quantity",
+    "billingTotal": "total",
+    "billingModifyLicenses": "Modify License Subscription",
+    "billingPricingCalculatorLink": "Cenová kalkulačka",
     "domainNotFound": "Doména nenalezena",
     "domainNotFoundDescription": "Tento dokument je zakázán, protože doména již neexistuje náš systém. Nastavte prosím novou doménu pro tento dokument.",
     "failed": "Selhalo",
@@ -1511,7 +1520,6 @@
     "createDomainDnsPropagationDescription": "Změna DNS může trvat nějakou dobu, než se šíří po internetu. To může trvat kdekoli od několika minut do 48 hodin v závislosti na poskytovateli DNS a nastavení TTL.",
     "resourcePortRequired": "Pro neHTTP zdroje je vyžadováno číslo portu",
     "resourcePortNotAllowed": "Číslo portu by nemělo být nastaveno pro HTTP zdroje",
-    "billingPricingCalculatorLink": "Cenová kalkulačka",
     "signUpTerms": {
         "IAgreeToThe": "Souhlasím s",
         "termsOfService": "podmínky služby",
@@ -2110,6 +2118,32 @@
             "error": {
                 "title": "Nepodařilo se vytvořit licenční klíč",
                 "description": "Při generování licenčního klíče došlo k chybě."
+            }
+        }
+    },
+    "newPricingLicenseForm": {
+        "title": "Get a license",
+        "description": "Choose a plan and tell us how you plan to use Pangolin.",
+        "chooseTier": "Choose your plan",
+        "viewPricingLink": "See pricing, features, and limits",
+        "tiers": {
+            "starter": {
+                "title": "Starter",
+                "description": "Enterprise features, 25 users, 25 sites, and community support."
+            },
+            "scale": {
+                "title": "Scale",
+                "description": "Enterprise features, 50 users, 50 sites, and priority support."
+            }
+        },
+        "personalUseOnly": "Personal use only (free license — no checkout)",
+        "buttons": {
+            "continueToCheckout": "Continue to Checkout"
+        },
+        "toasts": {
+            "checkoutError": {
+                "title": "Checkout error",
+                "description": "Could not start checkout. Please try again."
             }
         }
     },
