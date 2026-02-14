@@ -1917,7 +1917,7 @@
     "authPageBrandingDeleteConfirm": "Bevestig verwijder Branding",
     "brandingLogoURL": "Het logo-URL",
     "brandingLogoURLOrPath": "Logo URL or Path",
-    "brandingLogoPathDescription": "Enter a URL (https://...) or a local path (/logo.png) from the public/ directory on your Pangolin installation.",
+    "brandingLogoPathDescription": "Enter a URL or a local path.",
     "brandingLogoURLDescription": "Enter a publicly accessible URL to your logo image.",
     "brandingPrimaryColor": "Primaire kleur",
     "brandingLogoWidth": "Breedte (px)",
