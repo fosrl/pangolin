@@ -1917,7 +1917,7 @@
     "authPageBrandingDeleteConfirm": "브랜딩 삭제 확인",
     "brandingLogoURL": "로고 URL",
     "brandingLogoURLOrPath": "Logo URL or Path",
-    "brandingLogoPathDescription": "Enter a URL (https://...) or a local path (/logo.png) from the public/ directory on your Pangolin installation.",
+    "brandingLogoPathDescription": "Enter a URL or a local path.",
     "brandingLogoURLDescription": "Enter a publicly accessible URL to your logo image.",
     "brandingPrimaryColor": "기본 색상",
     "brandingLogoWidth": "너비(px)",
