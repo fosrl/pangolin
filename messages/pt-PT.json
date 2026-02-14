@@ -1917,7 +1917,7 @@
     "authPageBrandingDeleteConfirm": "Confirmar Exclusão de Marca",
     "brandingLogoURL": "URL do Logo",
     "brandingLogoURLOrPath": "Logo URL or Path",
-    "brandingLogoPathDescription": "Enter a URL (https://...) or a local path (/logo.png) from the public/ directory on your Pangolin installation.",
+    "brandingLogoPathDescription": "Enter a URL or a local path.",
     "brandingLogoURLDescription": "Enter a publicly accessible URL to your logo image.",
     "brandingPrimaryColor": "Cor Primária",
     "brandingLogoWidth": "Largura (px)",
