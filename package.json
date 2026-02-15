@@ -33,7 +33,7 @@
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "8.4.0",
-        "@aws-sdk/client-s3": "3.971.0",
+        "@aws-sdk/client-s3": "3.990.0",
         "@faker-js/faker": "10.2.0",
         "@headlessui/react": "2.2.9",
         "@hookform/resolvers": "5.2.2",
