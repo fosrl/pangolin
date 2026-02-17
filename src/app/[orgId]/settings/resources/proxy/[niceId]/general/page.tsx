@@ -42,7 +42,7 @@ import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { finalizeSubdomainSanitize } from "@app/lib/subdomain-utils";
 import { UpdateResourceResponse } from "@server/routers/resource";
 import { AxiosResponse } from "axios";
-import { AlertCircle, Globe } from "lucide-react";
+import { AlertCircle, Globe, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import { toASCII, toUnicode } from "punycode";
@@ -442,6 +442,7 @@ export default function GeneralForm() {
     const router = useRouter();
     const t = useTranslations();
     const [editDomainOpen, setEditDomainOpen] = useState(false);
+    const [editRedirectOpen, setEditRedirectOpen] = useState(false);
 
     const { env } = useEnvContext();
 
@@ -472,6 +473,23 @@ export default function GeneralForm() {
         fullDomain: string;
         baseDomain: string;
     } | null>(null);
+    const [selectedRedirectDomain, setSelectedRedirectDomain] = useState<{
+        domainId: string;
+        domainNamespaceId?: string;
+        subdomain?: string;
+        fullDomain: string;
+        baseDomain: string;
+    } | null>(null);
+
+    const normalizeDomain = (domain: string) => {
+        try {
+            return toASCII(domain).trim().toLowerCase();
+        } catch {
+            return "";
+        }
+    };
+    const tx = (key: string, fallback: string) =>
+        t.has(key as any) ? t(key as any) : fallback;
 
     const GeneralFormSchema = z
         .object({
@@ -481,7 +499,7 @@ export default function GeneralForm() {
             niceId: z.string().min(1).max(255).optional(),
             domainId: z.string().optional(),
             proxyPort: z.number().int().min(1).max(65535).optional(),
-            redirectDomainsText: z.string().optional()
+            redirectDomains: z.array(z.string()).optional()
         })
         .refine(
             (data) => {
@@ -511,12 +529,11 @@ export default function GeneralForm() {
             subdomain: resource.subdomain ? resource.subdomain : undefined,
             domainId: resource.domainId || undefined,
             proxyPort: resource.proxyPort || undefined,
-            redirectDomainsText: (resource.redirectDomains || [])
-                .map((domain) => toUnicode(domain))
-                .join("\n")
+            redirectDomains: resource.redirectDomains || []
         },
         mode: "onChange"
     });
+    const redirectDomainValues = form.watch("redirectDomains") || [];
 
     const [, formAction, saveLoading] = useActionState(onSubmit, null);
 
@@ -525,15 +542,14 @@ export default function GeneralForm() {
         if (!isValid) return;
 
         const data = form.getValues();
+        const normalizedPrimaryDomain = normalizeDomain(resourceFullDomainName);
         const redirectDomains = Array.from(
             new Set(
-                (data.redirectDomainsText || "")
-                    .split("\n")
-                    .map((host) => host.trim())
+                (data.redirectDomains || [])
+                    .map((host) => normalizeDomain(host))
                     .filter((host) => host.length > 0)
-                    .map((host) => toASCII(host).toLowerCase())
             )
-        );
+        ).filter((host) => host !== normalizedPrimaryDomain);
 
         const res = await api
             .post<AxiosResponse<UpdateResourceResponse>>(`resource/${resource?.resourceId}`, {
@@ -754,26 +770,85 @@ export default function GeneralForm() {
 
                                             <FormField
                                                 control={form.control}
-                                                name="redirectDomainsText"
-                                                render={({ field }) => (
+                                                name="redirectDomains"
+                                                render={() => (
                                                     <FormItem>
                                                         <FormLabel>
-                                                            Redirect domains
+                                                            {tx(
+                                                                "resourceRedirects",
+                                                                "Redirects"
+                                                            )}
                                                         </FormLabel>
-                                                        <FormControl>
-                                                            <Textarea
-                                                                {...field}
-                                                                rows={5}
-                                                                placeholder={`www.${resourceFullDomainName}\nexample.org`}
-                                                            />
-                                                        </FormControl>
+                                                        <div className="border p-2 rounded-md space-y-2">
+                                                            {redirectDomainValues.map(
+                                                                (domain) => (
+                                                                    <div
+                                                                        key={
+                                                                            domain
+                                                                        }
+                                                                        className="flex items-center justify-between gap-2"
+                                                                    >
+                                                                        <span className="text-sm flex items-center gap-2">
+                                                                            <Globe
+                                                                                size="14"
+                                                                            />
+                                                                            {toUnicode(
+                                                                                domain
+                                                                            )}
+                                                                        </span>
+                                                                        <Button
+                                                                            type="button"
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            onClick={() => {
+                                                                                const current =
+                                                                                    form.getValues(
+                                                                                        "redirectDomains"
+                                                                                    ) ||
+                                                                                    [];
+                                                                                form.setValue(
+                                                                                    "redirectDomains",
+                                                                                    current.filter(
+                                                                                        (
+                                                                                            d
+                                                                                        ) =>
+                                                                                            d !==
+                                                                                            domain
+                                                                                    )
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <X
+                                                                                size="14"
+                                                                            />
+                                                                        </Button>
+                                                                    </div>
+                                                                )
+                                                            )}
+                                                            <div className="flex sm:justify-end">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="secondary"
+                                                                    size="sm"
+                                                                    className="w-full sm:w-auto"
+                                                                    onClick={() =>
+                                                                        setEditRedirectOpen(
+                                                                            true
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    {tx(
+                                                                        "resourceAddRedirect",
+                                                                        "Add Redirect"
+                                                                    )}
+                                                                </Button>
+                                                            </div>
+                                                        </div>
                                                         <FormDescription>
-                                                            One source host per
-                                                            line. Requests to
-                                                            these hosts will
-                                                            redirect to this
-                                                            resource domain and
-                                                            preserve path/query.
+                                                            {tx(
+                                                                "resourceRedirectDomainsDescription",
+                                                                "Redirect requests from other domains to this resource."
+                                                            )}
                                                         </FormDescription>
                                                         <FormMessage />
                                                     </FormItem>
@@ -812,9 +887,12 @@ export default function GeneralForm() {
             >
                 <CredenzaContent>
                     <CredenzaHeader>
-                        <CredenzaTitle>Edit Domain</CredenzaTitle>
+                        <CredenzaTitle>{t("resourceEditDomain")}</CredenzaTitle>
                         <CredenzaDescription>
-                            Select a domain for your resource
+                            {tx(
+                                "resourceEditDomainDescription",
+                                "Select a domain for your resource"
+                            )}
                         </CredenzaDescription>
                     </CredenzaHeader>
                     <CredenzaBody>
@@ -880,7 +958,135 @@ export default function GeneralForm() {
                                 }
                             }}
                         >
-                            Select Domain
+                            {tx("selectDomain", "Select Domain")}
+                        </Button>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
+
+            <Credenza
+                open={editRedirectOpen}
+                onOpenChange={(setOpen) => {
+                    setEditRedirectOpen(setOpen);
+                    if (!setOpen) {
+                        setSelectedRedirectDomain(null);
+                    }
+                }}
+            >
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>
+                            {tx("resourceAddRedirect", "Add Redirect")}
+                        </CredenzaTitle>
+                        <CredenzaDescription>
+                            {tx(
+                                "resourceAddRedirectDescription",
+                                "Select a redirect source domain (for example www.example.com)"
+                            )}
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaBody>
+                        <DomainPicker
+                            orgId={orgId as string}
+                            cols={1}
+                            defaultDomainId={form.watch("domainId")}
+                            onDomainChange={(res) => {
+                                const selected =
+                                    res === null
+                                        ? null
+                                        : {
+                                              domainId: res.domainId,
+                                              subdomain: res.subdomain,
+                                              fullDomain: res.fullDomain,
+                                              baseDomain: res.baseDomain,
+                                              domainNamespaceId:
+                                                  res.domainNamespaceId
+                                          };
+
+                                setSelectedRedirectDomain(selected);
+                            }}
+                        />
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <CredenzaClose asChild>
+                            <Button variant="outline">{t("cancel")}</Button>
+                        </CredenzaClose>
+                        <Button
+                            disabled={!selectedRedirectDomain}
+                            onClick={() => {
+                                if (selectedRedirectDomain) {
+                                    const sanitizedSubdomain =
+                                        selectedRedirectDomain.subdomain
+                                            ? finalizeSubdomainSanitize(
+                                                  selectedRedirectDomain.subdomain
+                                              )
+                                            : "";
+
+                                    const fullRedirectDomain =
+                                        sanitizedSubdomain
+                                            ? `${sanitizedSubdomain}.${selectedRedirectDomain.baseDomain}`
+                                            : selectedRedirectDomain.baseDomain;
+
+                                    const normalizedRedirectDomain =
+                                        normalizeDomain(fullRedirectDomain);
+                                    const normalizedPrimaryDomain =
+                                        normalizeDomain(resourceFullDomainName);
+
+                                    if (
+                                        !normalizedRedirectDomain ||
+                                        normalizedRedirectDomain ===
+                                            normalizedPrimaryDomain
+                                    ) {
+                                        toast({
+                                            variant: "destructive",
+                                            title: tx(
+                                                "resourceRedirectInvalid",
+                                                "Invalid redirect domain"
+                                            ),
+                                            description: tx(
+                                                "resourceRedirectInvalidDescription",
+                                                "Redirect domain must be different from the primary domain."
+                                            )
+                                        });
+                                        return;
+                                    }
+
+                                    const currentRedirectDomains =
+                                        form.getValues("redirectDomains") || [];
+                                    const nextRedirectDomains = Array.from(
+                                        new Set([
+                                            ...currentRedirectDomains,
+                                            normalizedRedirectDomain
+                                        ])
+                                    );
+
+                                    if (
+                                        nextRedirectDomains.length ===
+                                        currentRedirectDomains.length
+                                    ) {
+                                        toast({
+                                            variant: "destructive",
+                                            title: tx(
+                                                "resourceRedirectDuplicate",
+                                                "Redirect already added"
+                                            ),
+                                            description: tx(
+                                                "resourceRedirectDuplicateDescription",
+                                                "That redirect domain is already in the list."
+                                            )
+                                        });
+                                        return;
+                                    }
+
+                                    form.setValue(
+                                        "redirectDomains",
+                                        nextRedirectDomains
+                                    );
+                                    setEditRedirectOpen(false);
+                                }
+                            }}
+                        >
+                            {tx("resourceAddRedirect", "Add Redirect")}
                         </Button>
                     </CredenzaFooter>
                 </CredenzaContent>

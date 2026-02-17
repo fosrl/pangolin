@@ -12,7 +12,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { InferSelectModel } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { alias } from "yargs";
 
 export const domains = pgTable("domains", {
     domainId: varchar("domainId").primaryKey(),
