@@ -143,7 +143,8 @@ export const resources = pgTable("resources", {
     maintenanceTitle: text("maintenanceTitle"),
     maintenanceMessage: text("maintenanceMessage"),
     maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
-    postAuthPath: text("postAuthPath")
+    postAuthPath: text("postAuthPath"),
+    redirectDomains: text("redirectDomains")
 });
 
 export const targets = pgTable("targets", {

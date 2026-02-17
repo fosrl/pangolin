@@ -480,7 +480,8 @@ export default function GeneralForm() {
             name: z.string().min(1).max(255),
             niceId: z.string().min(1).max(255).optional(),
             domainId: z.string().optional(),
-            proxyPort: z.number().int().min(1).max(65535).optional()
+            proxyPort: z.number().int().min(1).max(65535).optional(),
+            redirectDomainsText: z.string().optional()
         })
         .refine(
             (data) => {
@@ -509,7 +510,10 @@ export default function GeneralForm() {
             niceId: resource.niceId,
             subdomain: resource.subdomain ? resource.subdomain : undefined,
             domainId: resource.domainId || undefined,
-            proxyPort: resource.proxyPort || undefined
+            proxyPort: resource.proxyPort || undefined,
+            redirectDomainsText: (resource.redirectDomains || [])
+                .map((domain) => toUnicode(domain))
+                .join("\n")
         },
         mode: "onChange"
     });
@@ -521,21 +525,26 @@ export default function GeneralForm() {
         if (!isValid) return;
 
         const data = form.getValues();
+        const redirectDomains = Array.from(
+            new Set(
+                (data.redirectDomainsText || "")
+                    .split("\n")
+                    .map((host) => host.trim())
+                    .filter((host) => host.length > 0)
+                    .map((host) => toASCII(host).toLowerCase())
+            )
+        );
 
         const res = await api
-            .post<AxiosResponse<UpdateResourceResponse>>(
-                `resource/${resource?.resourceId}`,
-                {
-                    enabled: data.enabled,
-                    name: data.name,
-                    niceId: data.niceId,
-                    subdomain: data.subdomain
-                        ? toASCII(data.subdomain)
-                        : undefined,
-                    domainId: data.domainId,
-                    proxyPort: data.proxyPort
-                }
-            )
+            .post<AxiosResponse<UpdateResourceResponse>>(`resource/${resource?.resourceId}`, {
+                enabled: data.enabled,
+                name: data.name,
+                niceId: data.niceId,
+                subdomain: data.subdomain ? toASCII(data.subdomain) : undefined,
+                domainId: data.domainId,
+                proxyPort: data.proxyPort,
+                ...(resource.http ? { redirectDomains } : {})
+            })
             .catch((e) => {
                 toast({
                     variant: "destructive",
@@ -557,7 +566,8 @@ export default function GeneralForm() {
                 subdomain: data.subdomain,
                 fullDomain: updated.fullDomain,
                 proxyPort: data.proxyPort,
-                domainId: data.domainId
+                domainId: data.domainId,
+                redirectDomains
             });
 
             toast({
@@ -715,24 +725,60 @@ export default function GeneralForm() {
                                     )}
 
                                     {resource.http && (
-                                        <div className="space-y-2">
-                                            <Label>{t("resourceDomain")}</Label>
-                                            <div className="border p-2 rounded-md flex items-center justify-between">
-                                                <span className="text-sm flex items-center gap-2">
-                                                    <Globe size="14" />
-                                                    {resourceFullDomain}
-                                                </span>
-                                                <Button
-                                                    variant="secondary"
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        setEditDomainOpen(true)
-                                                    }
-                                                >
-                                                    {t("resourceEditDomain")}
-                                                </Button>
+                                        <div className="space-y-4">
+                                            <div className="space-y-2">
+                                                <Label>
+                                                    {t("resourceDomain")}
+                                                </Label>
+                                                <div className="border p-2 rounded-md flex items-center justify-between">
+                                                    <span className="text-sm flex items-center gap-2">
+                                                        <Globe size="14" />
+                                                        {resourceFullDomain}
+                                                    </span>
+                                                    <Button
+                                                        variant="secondary"
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            setEditDomainOpen(
+                                                                true
+                                                            )
+                                                        }
+                                                    >
+                                                        {t(
+                                                            "resourceEditDomain"
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             </div>
+
+                                            <FormField
+                                                control={form.control}
+                                                name="redirectDomainsText"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            Redirect domains
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Textarea
+                                                                {...field}
+                                                                rows={5}
+                                                                placeholder={`www.${resourceFullDomainName}\nexample.org`}
+                                                            />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            One source host per
+                                                            line. Requests to
+                                                            these hosts will
+                                                            redirect to this
+                                                            resource domain and
+                                                            preserve path/query.
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
                                         </div>
                                     )}
                                 </form>

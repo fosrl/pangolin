@@ -56,7 +56,8 @@ const updateHttpResourceBodySchema = z
         maintenanceTitle: z.string().max(255).nullable().optional(),
         maintenanceMessage: z.string().max(2000).nullable().optional(),
         maintenanceEstimatedTime: z.string().max(100).nullable().optional(),
-        postAuthPath: z.string().nullable().optional()
+        postAuthPath: z.string().nullable().optional(),
+        redirectDomains: z.array(tlsNameSchema).max(100).nullable().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
@@ -265,6 +266,8 @@ async function updateHttpResource(
         }
     }
 
+    let effectiveFullDomain = resource.fullDomain;
+
     if (updateData.domainId) {
         const domainId = updateData.domainId;
 
@@ -328,6 +331,8 @@ async function updateHttpResource(
                 .where(eq(resources.resourceId, resource.resourceId));
         }
 
+        effectiveFullDomain = fullDomain;
+
         // Update the subdomain in the update data
         updateData.subdomain = finalSubdomain;
 
@@ -343,6 +348,32 @@ async function updateHttpResource(
         headers = null;
     }
 
+    let redirectDomains = undefined;
+    if (updateData.redirectDomains !== undefined) {
+        const normalizedRedirectDomains = (
+            updateData.redirectDomains || []
+        ).map((domain) => domain.trim().toLowerCase());
+
+        const uniqueRedirectDomains = Array.from(
+            new Set(normalizedRedirectDomains)
+        ).filter((domain) => {
+            if (domain.length === 0) {
+                return false;
+            }
+
+            if (!effectiveFullDomain) {
+                return true;
+            }
+
+            return domain !== effectiveFullDomain.toLowerCase();
+        });
+
+        redirectDomains =
+            uniqueRedirectDomains.length > 0
+                ? JSON.stringify(uniqueRedirectDomains)
+                : null;
+    }
+
     const isLicensed = await isLicensedOrSubscribed(resource.orgId, tierMatrix.maintencePage);
     if (!isLicensed) {
         updateData.maintenanceModeEnabled = undefined;
@@ -354,7 +385,7 @@ async function updateHttpResource(
 
     const updatedResource = await db
         .update(resources)
-        .set({ ...updateData, headers })
+        .set({ ...updateData, headers, redirectDomains })
         .where(eq(resources.resourceId, resource.resourceId))
         .returning();
 

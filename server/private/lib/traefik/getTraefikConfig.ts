@@ -94,6 +94,7 @@ export async function getTraefikConfig(
             setHostHeader: resources.setHostHeader,
             enableProxy: resources.enableProxy,
             headers: resources.headers,
+            redirectDomains: resources.redirectDomains,
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
 
@@ -224,6 +225,18 @@ export async function getTraefikConfig(
                 enableProxy: row.enableProxy,
                 targets: [],
                 headers: row.headers,
+                redirectDomains: (() => {
+                    if (!row.redirectDomains) {
+                        return [] as string[];
+                    }
+
+                    try {
+                        const parsed = JSON.parse(row.redirectDomains);
+                        return Array.isArray(parsed) ? parsed : [];
+                    } catch {
+                        return [] as string[];
+                    }
+                })(),
                 proxyProtocol: row.proxyProtocol,
                 proxyProtocolVersion: row.proxyProtocolVersion ?? 1,
                 path: row.path, // the targets will all have the same path
@@ -654,6 +667,67 @@ export async function getTraefikConfig(
                 priority: priority,
                 ...(resource.ssl ? { tls } : {})
             };
+
+            if (Array.isArray(resource.redirectDomains)) {
+                resource.redirectDomains.forEach(
+                    (sourceDomain: string, index: number) => {
+                        const normalizedSourceDomain = sourceDomain
+                            .trim()
+                            .toLowerCase();
+
+                        if (
+                            !normalizedSourceDomain ||
+                            normalizedSourceDomain === fullDomain.toLowerCase()
+                        ) {
+                            return;
+                        }
+
+                        const redirectMiddlewareName = `${key}-redirect-domain-${index}-middleware`;
+                        const redirectRouterHttpName = `${key}-redirect-domain-${index}-http`;
+                        const redirectRouterHttpsName = `${key}-redirect-domain-${index}-https`;
+                        const targetScheme = resource.ssl ? "https" : "http";
+
+                        if (!config_output.http.middlewares) {
+                            config_output.http.middlewares = {};
+                        }
+
+                        config_output.http.middlewares[redirectMiddlewareName] =
+                            {
+                                redirectRegex: {
+                                    regex: "^https?://[^/]+(.*)",
+                                    replacement: `${targetScheme}://${fullDomain}$1`,
+                                    permanent: true
+                                }
+                            };
+
+                        config_output.http.routers![redirectRouterHttpName] = {
+                            entryPoints: [
+                                config.getRawConfig().traefik.http_entrypoint
+                            ],
+                            middlewares: [redirectMiddlewareName],
+                            service: "noop@internal",
+                            rule: `Host(\`${normalizedSourceDomain}\`)`,
+                            priority: 2000
+                        };
+
+                        if (resource.ssl) {
+                            config_output.http.routers![
+                                redirectRouterHttpsName
+                            ] = {
+                                entryPoints: [
+                                    config.getRawConfig().traefik
+                                        .https_entrypoint
+                                ],
+                                middlewares: [redirectMiddlewareName],
+                                service: "noop@internal",
+                                rule: `Host(\`${normalizedSourceDomain}\`)`,
+                                priority: 2000,
+                                tls
+                            };
+                        }
+                    }
+                );
+            }
 
             config_output.http.services![serviceName] = {
                 loadBalancer: {

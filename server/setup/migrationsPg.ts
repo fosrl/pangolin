@@ -19,6 +19,7 @@ import m11 from "./scriptsPg/1.14.0";
 import m12 from "./scriptsPg/1.15.0";
 import m13 from "./scriptsPg/1.15.3";
 import m14 from "./scriptsPg/1.15.4";
+import m15 from "./scriptsPg/1.15.5";
 
 // THIS CANNOT IMPORT ANYTHING FROM THE SERVER
 // EXCEPT FOR THE DATABASE AND THE SCHEMA
@@ -38,7 +39,8 @@ const migrations = [
     { version: "1.14.0", run: m11 },
     { version: "1.15.0", run: m12 },
     { version: "1.15.3", run: m13 },
-    { version: "1.15.4", run: m14 }
+    { version: "1.15.4", run: m14 },
+    { version: "1.15.5", run: m15 }
     // Add new migrations here as they are created
 ] as {
     version: string;

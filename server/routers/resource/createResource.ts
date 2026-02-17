@@ -17,7 +17,7 @@ import createHttpError from "http-errors";
 import { eq, and } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
-import { subdomainSchema } from "@server/lib/schemas";
+import { subdomainSchema, tlsNameSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import { OpenAPITags, registry } from "@server/openApi";
 import { build } from "@server/build";
@@ -37,7 +37,8 @@ const createHttpResourceSchema = z
         protocol: z.enum(["tcp", "udp"]),
         domainId: z.string(),
         stickySession: z.boolean().optional(),
-        postAuthPath: z.string().nullable().optional()
+        postAuthPath: z.string().nullable().optional(),
+        redirectDomains: z.array(tlsNameSchema).max(100).nullable().optional()
     })
     .refine(
         (data) => {
@@ -192,6 +193,7 @@ async function createHttpResource(
     const { name, domainId, postAuthPath } = parsedBody.data;
     const subdomain = parsedBody.data.subdomain;
     const stickySession = parsedBody.data.stickySession;
+    const redirectDomains = parsedBody.data.redirectDomains;
 
     // Validate domain and construct full domain
     const domainResult = await validateAndConstructDomain(
@@ -239,6 +241,16 @@ async function createHttpResource(
         }
     }
 
+    const normalizedRedirectDomains = redirectDomains
+        ? Array.from(
+              new Set(
+                  redirectDomains
+                      .map((domain) => domain.trim().toLowerCase())
+                      .filter((domain) => domain.length > 0)
+              )
+          ).filter((domain) => domain !== fullDomain.toLowerCase())
+        : [];
+
     let resource: Resource | undefined;
 
     const niceId = await getUniqueResourceName(orgId);
@@ -257,7 +269,11 @@ async function createHttpResource(
                 protocol: "tcp",
                 ssl: true,
                 stickySession: stickySession,
-                postAuthPath: postAuthPath
+                postAuthPath: postAuthPath,
+                redirectDomains:
+                    normalizedRedirectDomains.length > 0
+                        ? JSON.stringify(normalizedRedirectDomains)
+                        : null
             })
             .returning();
 

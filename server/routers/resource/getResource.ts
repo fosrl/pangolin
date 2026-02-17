@@ -44,9 +44,10 @@ async function query(resourceId?: number, niceId?: string, orgId?: string) {
 
 export type GetResourceResponse = Omit<
     NonNullable<Awaited<ReturnType<typeof query>>>,
-    "headers"
+    "headers" | "redirectDomains"
 > & {
     headers: { name: string; value: string }[] | null;
+    redirectDomains: string[] | null;
 };
 
 registry.registerPath({
@@ -103,12 +104,29 @@ export async function getResource(
             );
         }
 
+        let parsedHeaders: { name: string; value: string }[] | null = null;
+        if (resource.headers) {
+            try {
+                parsedHeaders = JSON.parse(resource.headers);
+            } catch {
+                parsedHeaders = null;
+            }
+        }
+
+        let parsedRedirectDomains: string[] | null = null;
+        if (resource.redirectDomains) {
+            try {
+                parsedRedirectDomains = JSON.parse(resource.redirectDomains);
+            } catch {
+                parsedRedirectDomains = null;
+            }
+        }
+
         return response<GetResourceResponse>(res, {
             data: {
                 ...resource,
-                headers: resource.headers
-                    ? JSON.parse(resource.headers)
-                    : resource.headers
+                headers: parsedHeaders,
+                redirectDomains: parsedRedirectDomains
             },
             success: true,
             error: false,
