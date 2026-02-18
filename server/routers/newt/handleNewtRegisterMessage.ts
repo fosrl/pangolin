@@ -15,6 +15,7 @@ import { lockManager } from "#dynamic/lib/lock";
 import { buildTargetConfigurationForNewtClient } from "./buildConfiguration";
 import { canCompress } from "@server/lib/clientVersionChecks";
 import { sendAllDNSAuthorityConfigsToNewt } from "@server/routers/dns/dnsAuthority";
+import { sendAllAuthProxyConfigsToNewt } from "@server/routers/auth/authProxy";
 
 export type ExitNodePingResult = {
     exitNodeId: number;
@@ -78,6 +79,15 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
             } catch (error) {
                 logger.error(
                     `Failed to send DNS authority configs to Newt ${newt.newtId}:`,
+                    error
+                );
+            }
+            // Also push auth proxy config (with TLS certs) for DNS authority
+            try {
+                await sendAllAuthProxyConfigsToNewt(newt.newtId, siteId);
+            } catch (error) {
+                logger.error(
+                    `Failed to send auth proxy configs to Newt ${newt.newtId}:`,
                     error
                 );
             }
@@ -179,6 +189,15 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
         } catch (error) {
             logger.error(
                 `Failed to send DNS authority configs to Newt ${newt.newtId}:`,
+                error
+            );
+        }
+        // Also push auth proxy config (with TLS certs) for DNS authority
+        try {
+            await sendAllAuthProxyConfigsToNewt(newt.newtId, siteId);
+        } catch (error) {
+            logger.error(
+                `Failed to send auth proxy configs to Newt ${newt.newtId}:`,
                 error
             );
         }

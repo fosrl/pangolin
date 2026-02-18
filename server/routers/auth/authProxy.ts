@@ -12,6 +12,7 @@ import logger from "@server/logger";
 import { eq, and, inArray } from "drizzle-orm";
 import config from "@server/lib/config";
 import { getJwtPublicKeyPem } from "@server/lib/jwtKeypair";
+import { readCertificatePEMsForDomains } from "@server/lib/traefik/TraefikConfigManager";
 
 // AuthConfig holds the global authentication configuration for a site
 interface AuthConfig {
@@ -35,11 +36,21 @@ interface ResourceAuthConfig {
     ssl: boolean;
 }
 
+// TLSCertificateConfig holds a TLS certificate to push to Newt
+interface TLSCertificateConfig {
+    domain: string;
+    certPem: string;
+    keyPem: string;
+    expiresAt: number;
+    wildcard: boolean;
+}
+
 // AuthProxyConfigMessage represents the message to send to Newt
 interface AuthProxyConfigMessage {
     action: "update" | "remove" | "start" | "stop";
     auth: AuthConfig;
     resources: ResourceAuthConfig[];
+    tlsCertificates?: TLSCertificateConfig[];
 }
 
 /**
@@ -96,12 +107,15 @@ export async function buildAuthProxyConfig(
             )
         );
 
-    // Filter to only resources with DNS authority and SSO/protection enabled
-    const protectedResources = siteTargets.filter(
-        (t: typeof siteTargets[0]) => t.dnsAuthorityEnabled && (t.sso || t.blockAccess || t.emailWhitelistEnabled)
+    // Get all DNS authority-enabled resources on this site.
+    // We need ALL of them (not just SSO-protected ones) because:
+    // - Protected resources need auth proxy + TLS termination
+    // - Unprotected resources still need TLS termination for HTTPS to work
+    const dnsAuthorityResources = siteTargets.filter(
+        (t: typeof siteTargets[0]) => t.dnsAuthorityEnabled
     );
 
-    if (protectedResources.length === 0) {
+    if (dnsAuthorityResources.length === 0) {
         return null;
     }
 
@@ -124,9 +138,12 @@ export async function buildAuthProxyConfig(
 
     // Build resource configs
     const resourceConfigs: ResourceAuthConfig[] = [];
+    const allDomains: string[] = [];
 
-    for (const target of protectedResources) {
+    for (const target of dnsAuthorityResources) {
         if (!target.fullDomain) continue;
+
+        allDomains.push(target.fullDomain);
 
         // Get email whitelist for this resource
         let allowedEmails: string[] = [];
@@ -155,10 +172,21 @@ export async function buildAuthProxyConfig(
         });
     }
 
+    // Read TLS certificates for all DNS authority domains from Traefik's cert store
+    const certPEMs = readCertificatePEMsForDomains(allDomains);
+    const tlsCertificates: TLSCertificateConfig[] = certPEMs.map((c) => ({
+        domain: c.domain,
+        certPem: c.certPem,
+        keyPem: c.keyPem,
+        expiresAt: c.expiresAt,
+        wildcard: c.wildcard
+    }));
+
     return {
         action: "update",
         auth: authConfig,
-        resources: resourceConfigs
+        resources: resourceConfigs,
+        tlsCertificates: tlsCertificates.length > 0 ? tlsCertificates : undefined
     };
 }
 
@@ -254,6 +282,26 @@ export async function updateAuthProxyForSite(siteId: number) {
         await sendAuthProxyConfigToNewt(site.newtId, config);
     } else {
         await sendAuthProxyConfigToNewt(site.newtId, buildEmptyAuthProxyConfigMessage());
+    }
+}
+
+/**
+ * Send auth proxy configuration (including TLS certs) to a Newt on connect/register.
+ * Called from handleNewtRegisterMessage to ensure Newt gets the full config immediately.
+ */
+export async function sendAllAuthProxyConfigsToNewt(
+    newtId: string,
+    siteId: number
+) {
+    const authConfig = await buildAuthProxyConfig(siteId);
+    if (authConfig) {
+        await sendAuthProxyConfigToNewt(newtId, authConfig);
+        logger.info(
+            `Auth Proxy: Sent config with ${authConfig.resources.length} resource(s) and ${authConfig.tlsCertificates?.length || 0} cert(s) to Newt ${newtId} on connect`
+        );
+    } else {
+        // Send empty config so Newt knows to clear any stale state
+        await sendAuthProxyConfigToNewt(newtId, buildEmptyAuthProxyConfigMessage());
     }
 }
 

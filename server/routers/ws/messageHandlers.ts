@@ -9,9 +9,9 @@ import {
     handleApplyBlueprintMessage,
     handleNewtPingMessage,
     startNewtOfflineChecker,
-    handleNewtDisconnectingMessage
     handleNewtDisconnectingMessage,
-    handleDnsStatusMessage
+    handleDnsStatusMessage,
+    handleAuthProxyStatusMessage
 } from "../newt";
 import { startPingAccumulator } from "../newt/pingAccumulator";
 import {
@@ -44,6 +44,7 @@ export const messageHandlers: Record<string, MessageHandler> = {
     "newt/socket/status": handleDockerStatusMessage,
     "newt/socket/containers": handleDockerContainersMessage,
     "newt/dns/status": handleDnsStatusMessage,
+    "newt/auth/proxy/status": handleAuthProxyStatusMessage,
     "newt/ping/request": handleNewtPingRequestMessage,
     "newt/blueprint/apply": handleApplyBlueprintMessage,
     "newt/healthcheck/status": handleHealthcheckStatusMessage,

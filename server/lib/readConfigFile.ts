@@ -238,6 +238,7 @@ export const configSchema = z
                 cert_resolver: z.string().optional().default("letsencrypt"),
                 prefer_wildcard_cert: z.boolean().optional().default(false),
                 certificates_path: z.string().default("/var/certificates"),
+                acme_path: z.string().optional(), // path to Traefik's acme.json for cert extraction
                 monitor_interval: z.number().default(5000),
                 dynamic_cert_config_path: z
                     .string()

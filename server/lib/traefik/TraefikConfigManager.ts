@@ -1214,3 +1214,226 @@ export function isDomainCoveredByWildcard(
     }
     return false;
 }
+
+/**
+ * Certificate PEM data for a domain, read from the local Traefik certificate store.
+ */
+export interface CertificatePEM {
+    domain: string;       // The domain this cert covers (prefixed with *. for wildcards)
+    certPem: string;      // PEM-encoded certificate chain
+    keyPem: string;       // PEM-encoded private key
+    expiresAt: number;    // Unix timestamp (seconds) when the cert expires, or 0 if unknown
+    wildcard: boolean;    // Whether this is a wildcard certificate
+}
+
+/**
+ * Read TLS certificate PEM data from the local Traefik certificate store for the
+ * given list of domains. Uses the same directory layout as TraefikConfigManager:
+ *   {certificates_path}/{domain}/cert.pem
+ *   {certificates_path}/{domain}/key.pem
+ *   {certificates_path}/{domain}/.expires_at   (optional, unix timestamp)
+ *   {certificates_path}/{domain}/.wildcard     (optional, "true" if wildcard)
+ *
+ * For each domain, tries an exact-match directory first, then falls back to
+ * wildcard cert coverage (e.g. for "sub.example.com", checks "example.com"
+ * with a .wildcard marker).
+ *
+ * Returns one CertificatePEM per unique cert directory loaded (deduplicates
+ * when multiple domains share the same wildcard cert).
+ */
+export function readCertificatePEMsForDomains(
+    domains: string[]
+): CertificatePEM[] {
+    const results: CertificatePEM[] = [];
+    const coveredDomains = new Set<string>();
+
+    // 1. Try the certificates directory (written by the cert monitor)
+    const certsPath = config.getRawConfig().traefik?.certificates_path;
+    if (certsPath) {
+        const loadedDirs = new Set<string>();
+        for (const domain of domains) {
+            // Try exact match first
+            const exactDir = path.join(certsPath, domain);
+            if (
+                !loadedDirs.has(exactDir) &&
+                loadCertFromDir(exactDir, domain, false, results)
+            ) {
+                loadedDirs.add(exactDir);
+                coveredDomains.add(domain);
+                continue;
+            }
+
+            // Try wildcard cert: for "sub.example.com", look at "example.com"
+            const parts = domain.split(".");
+            if (parts.length >= 2) {
+                const baseDomain = parts.slice(1).join(".");
+                const wildcardDir = path.join(certsPath, baseDomain);
+                if (!loadedDirs.has(wildcardDir)) {
+                    const wildcardMarker = path.join(wildcardDir, ".wildcard");
+                    if (
+                        fs.existsSync(wildcardMarker) &&
+                        loadCertFromDir(wildcardDir, baseDomain, true, results)
+                    ) {
+                        loadedDirs.add(wildcardDir);
+                        coveredDomains.add(domain);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Fall back to Traefik's acme.json for any domains not yet covered
+    const acmePath = config.getRawConfig().traefik?.acme_path;
+    if (acmePath) {
+        const remaining = domains.filter((d) => !coveredDomains.has(d));
+        if (remaining.length > 0) {
+            const acmeCerts = readCertsFromAcmeJson(acmePath, remaining);
+            results.push(...acmeCerts);
+        }
+    }
+
+    return results;
+}
+
+/**
+ * Read TLS certificates from Traefik's acme.json storage for the given domains.
+ * Certificates in acme.json are base64-encoded PEM. Tries exact domain match
+ * first, then falls back to wildcard (*.example.com covering sub.example.com).
+ * @internal — used by readCertificatePEMsForDomains
+ */
+function readCertsFromAcmeJson(
+    acmePath: string,
+    domains: string[]
+): CertificatePEM[] {
+    try {
+        if (!fs.existsSync(acmePath)) {
+            logger.warn(
+                `Auth Proxy: acme.json not found at ${acmePath}`
+            );
+            return [];
+        }
+
+        type AcmeEntry = {
+            domain: { main: string; sans?: string[] };
+            certificate: string;
+            key: string;
+        };
+        type AcmeResolver = { Certificates?: AcmeEntry[] };
+
+        const raw: Record<string, AcmeResolver> = JSON.parse(
+            fs.readFileSync(acmePath, "utf8")
+        );
+
+        const results: CertificatePEM[] = [];
+        // Track which acme cert (by main domain) we've already loaded to avoid duplicates
+        const loadedCertMains = new Set<string>();
+
+        for (const resolver of Object.values(raw)) {
+            for (const entry of resolver.Certificates ?? []) {
+                const main = entry.domain?.main ?? "";
+                const sans: string[] = entry.domain?.sans ?? [];
+                const allCertNames = [main, ...sans];
+
+                if (loadedCertMains.has(main)) continue;
+
+                // Check if this cert covers any of the requested domains
+                const covers = domains.some((d) =>
+                    allCertNames.some((name) => acmeDomainCovers(name, d))
+                );
+                if (!covers) continue;
+
+                try {
+                    const certPem = Buffer.from(
+                        entry.certificate,
+                        "base64"
+                    ).toString("utf8");
+                    const keyPem = Buffer.from(
+                        entry.key,
+                        "base64"
+                    ).toString("utf8");
+                    const wildcard = main.startsWith("*.");
+
+                    results.push({
+                        domain: main,
+                        certPem,
+                        keyPem,
+                        expiresAt: 0, // expiry is embedded in the cert itself
+                        wildcard
+                    });
+                    loadedCertMains.add(main);
+                    logger.debug(
+                        `Auth Proxy: Loaded cert for ${
+                            main
+                        } from acme.json`
+                    );
+                } catch (e) {
+                    logger.warn(
+                        `Auth Proxy: Failed to decode acme.json cert for ${main}: ${e}`
+                    );
+                }
+            }
+        }
+
+        return results;
+    } catch (e) {
+        logger.warn(`Auth Proxy: Failed to read acme.json at ${acmePath}: ${e}`);
+        return [];
+    }
+}
+
+/**
+ * Returns true if a cert's SAN/CN entry `certName` covers `domain`.
+ * Handles wildcard certs (*.example.com) and exact matches.
+ * @internal
+ */
+function acmeDomainCovers(certName: string, domain: string): boolean {
+    const cn = certName.toLowerCase();
+    const d = domain.toLowerCase();
+    if (cn.startsWith("*.")) {
+        const base = cn.slice(2);
+        return d === base || d.endsWith("." + base);
+    }
+    return cn === d;
+}
+
+/**
+ * Attempt to read cert.pem + key.pem from a directory. Returns true on success.
+ * @internal — used by readCertificatePEMsForDomains
+ */
+function loadCertFromDir(
+    dir: string,
+    domain: string,
+    wildcard: boolean,
+    out: CertificatePEM[]
+): boolean {
+    const certPath = path.join(dir, "cert.pem");
+    const keyPath = path.join(dir, "key.pem");
+
+    try {
+        if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+            return false;
+        }
+
+        const certPem = fs.readFileSync(certPath, "utf8");
+        const keyPem = fs.readFileSync(keyPath, "utf8");
+
+        let expiresAt = 0;
+        const expiresAtPath = path.join(dir, ".expires_at");
+        if (fs.existsSync(expiresAtPath)) {
+            const raw = fs.readFileSync(expiresAtPath, "utf8").trim();
+            expiresAt = parseInt(raw, 10) || 0;
+        }
+
+        out.push({
+            domain: wildcard ? `*.${domain}` : domain,
+            certPem,
+            keyPem,
+            expiresAt,
+            wildcard
+        });
+        return true;
+    } catch (err) {
+        logger.warn(`Failed to read TLS certificate from ${dir}: ${err}`);
+        return false;
+    }
+}
