@@ -223,7 +223,7 @@ export const resources = sqliteTable("resources", {
         .default(false), // Enable DNS authority for this resource
     dnsAuthorityTtl: integer("dnsAuthorityTtl").default(60), // TTL for DNS responses in seconds
     dnsAuthorityRoutingPolicy: text("dnsAuthorityRoutingPolicy", {
-        enum: ["failover", "roundrobin", "priority"]
+        enum: ["failover", "roundrobin", "priority", "intelligent"]
     }).default("failover") // Routing policy based on health checks
 });
 

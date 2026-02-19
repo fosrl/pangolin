@@ -44,6 +44,8 @@ import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import {
+    isHealthDependentDNSRoutingPolicy,
+    resourceHasEnabledHealthChecks,
     updateDNSAuthorityForResource,
     updateDNSAuthorityForDomain
 } from "@server/routers/dns/dnsAuthority";
@@ -96,7 +98,7 @@ const updateHttpResourceBodySchema = z
         dnsAuthorityEnabled: z.boolean().optional(),
         dnsAuthorityTtl: z.int().min(1).max(86400).optional(),
         dnsAuthorityRoutingPolicy: z
-            .enum(["failover", "roundrobin", "priority"])
+            .enum(["failover", "roundrobin", "priority", "intelligent"])
             .optional(),
         resourcePolicyId: z.number().nullable().optional()
     })
@@ -200,7 +202,7 @@ const updateRawResourceBodySchema = z
         dnsAuthorityEnabled: z.boolean().optional(),
         dnsAuthorityTtl: z.int().min(1).max(86400).optional(),
         dnsAuthorityRoutingPolicy: z
-            .enum(["failover", "roundrobin", "priority"])
+            .enum(["failover", "roundrobin", "priority", "intelligent"])
             .optional(),
         resourcePolicyId: z.number().nullable().optional()
     })
@@ -386,6 +388,28 @@ async function updateHttpResource(
                     `Resource policy with ID ${updateData.resourcePolicyId} not found`
                 )
             );
+        }
+    }
+
+    if (updateData.dnsAuthorityEnabled || updateData.dnsAuthorityRoutingPolicy) {
+        const effectivePolicy =
+            updateData.dnsAuthorityRoutingPolicy ||
+            resource.dnsAuthorityRoutingPolicy ||
+            "failover";
+
+        if (isHealthDependentDNSRoutingPolicy(effectivePolicy)) {
+            const hasHealthChecks = await resourceHasEnabledHealthChecks(
+                resource.resourceId
+            );
+
+            if (!hasHealthChecks) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        `dnsAuthorityRoutingPolicy '${effectivePolicy}' requires at least one enabled target health check for this resource. Use 'roundrobin' or enable health checks.`
+                    )
+                );
+            }
         }
     }
 
@@ -630,6 +654,28 @@ async function updateRawResource(
 
     const updateData = parsedBody.data;
     let updatedResource: Resource | null = null;
+
+    if (updateData.dnsAuthorityEnabled || updateData.dnsAuthorityRoutingPolicy) {
+        const effectivePolicy =
+            updateData.dnsAuthorityRoutingPolicy ||
+            resource.dnsAuthorityRoutingPolicy ||
+            "failover";
+
+        if (isHealthDependentDNSRoutingPolicy(effectivePolicy)) {
+            const hasHealthChecks = await resourceHasEnabledHealthChecks(
+                resource.resourceId
+            );
+
+            if (!hasHealthChecks) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        `dnsAuthorityRoutingPolicy '${effectivePolicy}' requires at least one enabled target health check for this resource. Use 'roundrobin' or enable health checks.`
+                    )
+                );
+            }
+        }
+    }
 
     const [existingResource] = await db
         .select()

@@ -59,7 +59,7 @@ interface DNSAuthorityFormProps {
 const dnsAuthoritySchema = z.object({
     dnsAuthorityEnabled: z.boolean(),
     dnsAuthorityTtl: z.number().min(10).max(86400),
-    dnsAuthorityRoutingPolicy: z.enum(["failover", "roundrobin", "priority"])
+    dnsAuthorityRoutingPolicy: z.enum(["failover", "roundrobin", "priority", "intelligent"])
 });
 
 type DNSAuthorityFormData = z.infer<typeof dnsAuthoritySchema>;
@@ -92,8 +92,8 @@ export function DNSAuthorityForm({ resource, updateResource, targets, sites }: D
     }, [relevantSites]);
 
     const defaultPolicy = (() => {
-        const saved = resource.dnsAuthorityRoutingPolicy as "failover" | "roundrobin" | "priority" | undefined;
-        if (!hasHealthChecks && (saved === "failover" || saved === "priority" || !saved)) {
+        const saved = resource.dnsAuthorityRoutingPolicy as "failover" | "roundrobin" | "priority" | "intelligent" | undefined;
+        if (!hasHealthChecks && (saved === "failover" || saved === "priority" || saved === "intelligent" || !saved)) {
             return "roundrobin";
         }
         return saved ?? "failover";
@@ -113,7 +113,7 @@ export function DNSAuthorityForm({ resource, updateResource, targets, sites }: D
     // Auto-switch to roundrobin when health-dependent policies are selected but no healthchecks exist
     useEffect(() => {
         const currentPolicy = form.getValues("dnsAuthorityRoutingPolicy");
-        if (!hasHealthChecks && (currentPolicy === "failover" || currentPolicy === "priority")) {
+        if (!hasHealthChecks && (currentPolicy === "failover" || currentPolicy === "priority" || currentPolicy === "intelligent")) {
             form.setValue("dnsAuthorityRoutingPolicy", "roundrobin");
         }
     }, [hasHealthChecks, form]);
@@ -251,12 +251,16 @@ export function DNSAuthorityForm({ resource, updateResource, targets, sites }: D
                                                         <SelectItem value="priority" disabled={!hasHealthChecks}>
                                                             {t("dnsAuthorityPolicyPriority")}
                                                         </SelectItem>
+                                                        <SelectItem value="intelligent" disabled={!hasHealthChecks}>
+                                                            Intelligent (Lowest Latency + Healthy)
+                                                        </SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 <FormDescription>
                                                     {field.value === "failover" && t("dnsAuthorityPolicyFailoverDescription")}
                                                     {field.value === "roundrobin" && t("dnsAuthorityPolicyRoundRobinDescription")}
                                                     {field.value === "priority" && t("dnsAuthorityPolicyPriorityDescription")}
+                                                    {field.value === "intelligent" && t("dnsAuthorityPolicyIntelligentDescription")}
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>

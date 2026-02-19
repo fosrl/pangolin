@@ -19,7 +19,63 @@ interface DNSAuthorityConfig {
     domain: string;
     ttl: number;
     routingPolicy: string;
+    stickySession?: boolean;
+    servingSiteId?: number;
     targets: DNSAuthorityTarget[];
+}
+
+function withServingSiteId(
+    config: DNSAuthorityConfig,
+    siteId: number
+): DNSAuthorityConfig {
+    return {
+        ...config,
+        servingSiteId: siteId
+    };
+}
+
+export const healthDependentDNSRoutingPolicies = [
+    "failover",
+    "priority",
+    "intelligent"
+] as const;
+
+export function isHealthDependentDNSRoutingPolicy(policy: string): boolean {
+    return (healthDependentDNSRoutingPolicies as readonly string[]).includes(
+        policy
+    );
+}
+
+export function normalizeDNSRoutingPolicyForHealthChecks(
+    policy: string,
+    hasHealthChecks: boolean
+): string {
+    if (!hasHealthChecks && isHealthDependentDNSRoutingPolicy(policy)) {
+        return "roundrobin";
+    }
+
+    return policy;
+}
+
+export async function resourceHasEnabledHealthChecks(
+    resourceId: number
+): Promise<boolean> {
+    const [row] = await db
+        .select({ targetId: targets.targetId })
+        .from(targets)
+        .innerJoin(
+            targetHealthCheck,
+            eq(targets.targetId, targetHealthCheck.targetId)
+        )
+        .where(
+            and(
+                eq(targets.resourceId, resourceId),
+                eq(targetHealthCheck.hcEnabled, true)
+            )
+        )
+        .limit(1);
+
+    return !!row;
 }
 
 // DNSAuthorityConfigMessage represents the message to send to Newt
@@ -104,11 +160,25 @@ export async function buildDNSAuthorityConfig(
         siteName: t.siteName || `Site ${t.siteId}`
     }));
 
+    const hasHealthChecks = validTargets.some((t) => t.hcEnabled);
+    const requestedPolicy = resource.dnsAuthorityRoutingPolicy || "failover";
+    const routingPolicy = normalizeDNSRoutingPolicyForHealthChecks(
+        requestedPolicy,
+        hasHealthChecks
+    );
+
+    if (routingPolicy !== requestedPolicy) {
+        logger.debug(
+            `Resource ${resourceId} requested DNS policy ${requestedPolicy} without health checks; using roundrobin`
+        );
+    }
+
     return {
         enabled: true,
         domain: domain,
         ttl: resource.dnsAuthorityTtl || 60,
-        routingPolicy: resource.dnsAuthorityRoutingPolicy || "failover",
+        routingPolicy,
+        stickySession: resource.stickySession || false,
         targets: dnsTargets
     };
 }
@@ -176,11 +246,11 @@ export async function updateDNSAuthorityForResource(resourceId: number) {
     // Get all NEWT instances that should serve this resource
     const newtSites = await getDNSAuthoritySiteNewtIds(resourceId);
 
-    for (const { newtId } of newtSites) {
+    for (const { newtId, siteId } of newtSites) {
         if (config) {
             await sendDNSAuthorityConfigToNewt(newtId, {
                 action: "update",
-                zones: [config]
+                zones: [withServingSiteId(config, siteId)]
             });
         } else {
             // DNS authority disabled for this resource, remove the zone
@@ -416,7 +486,7 @@ export async function buildDomainDNSAuthorityConfig(
  */
 async function getDomainDNSAuthorityNewtIds(
     domainId: string
-): Promise<string[]> {
+): Promise<{ newtId: string; siteId: number }[]> {
     const domainResources = await db
         .select({ resourceId: resources.resourceId })
         .from(resources)
@@ -429,6 +499,7 @@ async function getDomainDNSAuthorityNewtIds(
     const newtRows = await db
         .select({
             newtId: newts.newtId,
+            siteId: sites.siteId,
             sitePublicIp: sites.publicIp,
             siteDnsAuthorityEnabled: sites.dnsAuthorityEnabled
         })
@@ -443,13 +514,16 @@ async function getDomainDNSAuthorityNewtIds(
         );
 
     // Deduplicate and filter to DNS Authority sites
-    const newtIds = new Set<string>();
+    const newtBySite = new Map<number, string>();
     for (const row of newtRows) {
         if (row.newtId && row.sitePublicIp && row.siteDnsAuthorityEnabled) {
-            newtIds.add(row.newtId);
+            newtBySite.set(row.siteId, row.newtId);
         }
     }
-    return Array.from(newtIds);
+    return Array.from(newtBySite.entries()).map(([siteId, newtId]) => ({
+        siteId,
+        newtId
+    }));
 }
 
 /**
@@ -464,11 +538,11 @@ export async function updateDNSAuthorityForDomain(domainId: string) {
         return;
     }
 
-    for (const newtId of newtIds) {
+    for (const { newtId, siteId } of newtIds) {
         if (config) {
             await sendDNSAuthorityConfigToNewt(newtId, {
                 action: "update",
-                zones: [config]
+                zones: [withServingSiteId(config, siteId)]
             });
         } else {
             // No valid config — remove the wildcard zone
@@ -607,7 +681,7 @@ export async function sendAllDNSAuthorityConfigsToNewt(
     if (allZones.length > 0) {
         await sendDNSAuthorityConfigToNewt(newtId, {
             action: "update",
-            zones: allZones
+            zones: allZones.map((zone) => withServingSiteId(zone, siteId))
         });
         logger.info(
             `DNS Authority: Sent ${allZones.length} zone(s) to Newt ${newtId} on connect`
