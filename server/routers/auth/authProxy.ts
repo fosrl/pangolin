@@ -34,6 +34,7 @@ interface ResourceAuthConfig {
     allowedEmails: string[];
     ssl: boolean;
     // Proxy settings
+    targetUrl: string; // backward compat: first target URL for older Newt builds
     targets: TargetConfig[];
     stickySession: boolean;
     tlsServerName?: string;
@@ -251,6 +252,7 @@ export async function buildAuthProxyConfig(
             blockAccess: row.blockAccess || false,
             emailWhitelistEnabled: row.emailWhitelistEnabled || false,
             allowedEmails,
+            targetUrl: tgts.length > 0 ? tgts[0].targetUrl : "", // backward compat
             targets: tgts,
             ssl: row.ssl || false,
             stickySession: row.stickySession || false,

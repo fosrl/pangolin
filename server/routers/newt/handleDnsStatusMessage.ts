@@ -4,6 +4,10 @@ import { Newt } from "@server/db";
 import { eq } from "drizzle-orm";
 import logger from "@server/logger";
 
+// In-memory cache to avoid redundant DB writes and log spam
+// when Newt sends identical consecutive status messages.
+const lastDnsStatus = new Map<number, string>();
+
 export const handleDnsStatusMessage: MessageHandler = async (context) => {
     const { message, client } = context;
     const newt = client as Newt;
@@ -20,8 +24,18 @@ export const handleDnsStatusMessage: MessageHandler = async (context) => {
 
     const { status, error, address } = message.data;
 
+    // Deduplicate: skip if status + error unchanged since last message
+    const cacheKey = `${status}|${error || ""}`;
+    if (lastDnsStatus.get(newt.siteId) === cacheKey) {
+        logger.debug(
+            `DNS status unchanged for site ${newt.siteId}: status=${status} (skipped)`
+        );
+        return;
+    }
+    lastDnsStatus.set(newt.siteId, cacheKey);
+
     logger.info(
-        `Updating DNS status for site ${newt.siteId}: status=${status}, address=${address}, error=${error}`
+        `DNS status changed for site ${newt.siteId}: status=${status}, address=${address}, error=${error || "none"}`
     );
 
     try {
