@@ -333,6 +333,7 @@ export const targetHealthCheck = pgTable("targetHealthCheck", {
     hcFollowRedirects: boolean("hcFollowRedirects").default(true),
     hcMethod: varchar("hcMethod").default("GET"),
     hcStatus: integer("hcStatus"), // http code
+    hcLatencyMs: integer("hcLatencyMs"), // most recent healthcheck latency in ms
     hcHealth: text("hcHealth")
         .$type<"unknown" | "healthy" | "unhealthy">()
         .default("unknown"), // "unknown", "healthy", "unhealthy"

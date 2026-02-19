@@ -11,6 +11,7 @@ interface DNSAuthorityTarget {
     healthy: boolean;
     siteId: number;
     siteName: string;
+    backendLatencyMs?: number;
 }
 
 // DNSAuthorityConfig holds configuration for a DNS authority zone
@@ -127,7 +128,8 @@ export async function buildDNSAuthorityConfig(
             sitePublicIp: sites.publicIp,
             siteDnsAuthorityEnabled: sites.dnsAuthorityEnabled,
             hcEnabled: targetHealthCheck.hcEnabled,
-            hcHealth: targetHealthCheck.hcHealth
+            hcHealth: targetHealthCheck.hcHealth,
+            hcLatencyMs: targetHealthCheck.hcLatencyMs
         })
         .from(targets)
         .innerJoin(sites, eq(targets.siteId, sites.siteId))
@@ -157,7 +159,11 @@ export async function buildDNSAuthorityConfig(
         priority: t.priority || 100,
         healthy: t.hcEnabled ? t.hcHealth === "healthy" : true, // If no health check, assume healthy
         siteId: t.siteId,
-        siteName: t.siteName || `Site ${t.siteId}`
+        siteName: t.siteName || `Site ${t.siteId}`,
+        backendLatencyMs:
+            t.hcEnabled && typeof t.hcLatencyMs === "number"
+                ? t.hcLatencyMs
+                : undefined
     }));
 
     const hasHealthChecks = validTargets.some((t) => t.hcEnabled);
@@ -408,7 +414,8 @@ export async function buildDomainDNSAuthorityConfig(
             sitePublicIp: sites.publicIp,
             siteDnsAuthorityEnabled: sites.dnsAuthorityEnabled,
             hcEnabled: targetHealthCheck.hcEnabled,
-            hcHealth: targetHealthCheck.hcHealth
+            hcHealth: targetHealthCheck.hcHealth,
+            hcLatencyMs: targetHealthCheck.hcLatencyMs
         })
         .from(targets)
         .innerJoin(sites, eq(targets.siteId, sites.siteId))
@@ -438,6 +445,7 @@ export async function buildDomainDNSAuthorityConfig(
             name: string;
             healthy: boolean;
             minPriority: number;
+            minLatencyMs?: number;
         }
     >();
 
@@ -451,12 +459,26 @@ export async function buildDomainDNSAuthorityConfig(
                 existing.minPriority,
                 t.priority || 100
             );
+            if (
+                typeof t.hcLatencyMs === "number" &&
+                Number.isFinite(t.hcLatencyMs)
+            ) {
+                existing.minLatencyMs =
+                    typeof existing.minLatencyMs === "number"
+                        ? Math.min(existing.minLatencyMs, t.hcLatencyMs)
+                        : t.hcLatencyMs;
+            }
         } else {
             siteMap.set(t.siteId, {
                 ip: t.sitePublicIp!,
                 name: t.siteName || `Site ${t.siteId}`,
                 healthy: targetHealthy,
-                minPriority: t.priority || 100
+                minPriority: t.priority || 100,
+                minLatencyMs:
+                    typeof t.hcLatencyMs === "number" &&
+                    Number.isFinite(t.hcLatencyMs)
+                        ? t.hcLatencyMs
+                        : undefined
             });
         }
     }
@@ -468,7 +490,8 @@ export async function buildDomainDNSAuthorityConfig(
         priority: info.minPriority,
         healthy: info.healthy,
         siteId,
-        siteName: info.name
+        siteName: info.name,
+        backendLatencyMs: info.minLatencyMs
     }));
 
     return {

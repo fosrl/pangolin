@@ -13,6 +13,7 @@ interface TargetHealthStatus {
     status: string;
     lastCheck: string;
     checkCount: number;
+    latencyMs?: number;
     lastError?: string;
     config: {
         id: string; // this could be the hc id or the target id, depending on the version of newt
@@ -129,6 +130,14 @@ export const handleHealthcheckStatusMessage: MessageHandler = async (
                 await trx
                     .update(targetHealthCheck)
                     .set({
+                        hcLatencyMs:
+                            typeof healthStatus.latencyMs === "number" &&
+                            Number.isFinite(healthStatus.latencyMs)
+                                ? Math.max(
+                                      0,
+                                      Math.round(healthStatus.latencyMs)
+                                  )
+                                : null,
                         hcHealth: healthStatus.status as
                             | "unknown"
                             | "healthy"

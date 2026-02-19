@@ -375,6 +375,7 @@ export const targetHealthCheck = sqliteTable("targetHealthCheck", {
     }).default(true),
     hcMethod: text("hcMethod").default("GET"),
     hcStatus: integer("hcStatus"), // http code
+    hcLatencyMs: integer("hcLatencyMs"), // most recent healthcheck latency in ms
     hcHealth: text("hcHealth")
         .$type<"unknown" | "healthy" | "unhealthy">()
         .default("unknown"), // "unknown", "healthy", "unhealthy"

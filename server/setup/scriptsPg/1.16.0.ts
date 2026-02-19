@@ -116,6 +116,13 @@ export default async function migration() {
             sql`UPDATE "roles" SET "sshSudoMode" = 'full' WHERE "isAdmin" = true;`
         );
 
+        // Add health check latency column used by intelligent DNS scoring
+        if (!(await columnExists("targetHealthCheck", "hcLatencyMs"))) {
+            await db.execute(
+                sql`ALTER TABLE "targetHealthCheck" ADD COLUMN "hcLatencyMs" integer;`
+            );
+        }
+
         await db.execute(sql`
             UPDATE "resources"
             SET "dnsAuthorityRoutingPolicy" = 'failover'
