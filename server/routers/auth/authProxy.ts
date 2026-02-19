@@ -156,8 +156,9 @@ export async function buildAuthProxyConfig(
             allowedEmails = whitelist.map((w: typeof whitelist[0]) => w.email);
         }
 
-        // Build target URL
-        const scheme = target.ssl ? "https" : "http";
+        // Build target URL — use the target's method (http/https) for the backend
+        // connection, NOT the resource's ssl flag (which controls public-facing TLS)
+        const scheme = target.targetMethod || "http";
         const targetUrl = `${scheme}://${target.targetIp}:${target.targetPort}`;
 
         resourceConfigs.push({
