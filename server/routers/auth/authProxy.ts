@@ -32,8 +32,24 @@ interface ResourceAuthConfig {
     blockAccess: boolean;
     emailWhitelistEnabled: boolean;
     allowedEmails: string[];
-    targetUrl: string;
     ssl: boolean;
+    // Proxy settings
+    targets: TargetConfig[];
+    stickySession: boolean;
+    tlsServerName?: string;
+    setHostHeader?: string;
+    headers?: Record<string, string>;
+    postAuthPath?: string;
+}
+
+// TargetConfig holds a single backend target
+interface TargetConfig {
+    targetUrl: string;
+    path?: string;
+    pathMatchType?: string; // exact, prefix, regex
+    rewritePath?: string;
+    rewritePathType?: string; // exact, prefix, regex, stripPrefix
+    priority?: number;
 }
 
 // TLSCertificateConfig holds a TLS certificate to push to Newt
@@ -81,7 +97,7 @@ export async function buildAuthProxyConfig(
         return null;
     }
 
-    // Get all resources that have targets on this site with SSO or access control enabled
+    // Get all resources that have targets on this site
     const siteTargets = await db
         .select({
             resourceId: targets.resourceId,
@@ -89,6 +105,11 @@ export async function buildAuthProxyConfig(
             targetIp: targets.ip,
             targetPort: targets.port,
             targetMethod: targets.method,
+            targetPath: targets.path,
+            targetPathMatchType: targets.pathMatchType,
+            targetRewritePath: targets.rewritePath,
+            targetRewritePathType: targets.rewritePathType,
+            targetPriority: targets.priority,
             resourceName: resources.name,
             fullDomain: resources.fullDomain,
             sso: resources.sso,
@@ -96,7 +117,12 @@ export async function buildAuthProxyConfig(
             emailWhitelistEnabled: resources.emailWhitelistEnabled,
             ssl: resources.ssl,
             http: resources.http,
-            dnsAuthorityEnabled: resources.dnsAuthorityEnabled
+            dnsAuthorityEnabled: resources.dnsAuthorityEnabled,
+            stickySession: resources.stickySession,
+            tlsServerName: resources.tlsServerName,
+            setHostHeader: resources.setHostHeader,
+            headers: resources.headers,
+            postAuthPath: resources.postAuthPath
         })
         .from(targets)
         .innerJoin(resources, eq(targets.resourceId, resources.resourceId))
@@ -136,40 +162,102 @@ export async function buildAuthProxyConfig(
         sessionValidationUrl: `${resolvedDashboardUrl}/api/v1/auth/session/validate`
     };
 
+    // Group targets by resourceId since multiple targets can exist per resource
+    const resourceMap = new Map<
+        number,
+        {
+            row: (typeof dnsAuthorityResources)[0];
+            targets: TargetConfig[];
+        }
+    >();
+
+    for (const t of dnsAuthorityResources) {
+        if (!t.fullDomain) continue;
+
+        const scheme = t.targetMethod || "http";
+        const targetUrl = `${scheme}://${t.targetIp}:${t.targetPort}`;
+
+        const targetConfig: TargetConfig = {
+            targetUrl,
+            path: t.targetPath || undefined,
+            pathMatchType: t.targetPathMatchType || undefined,
+            rewritePath: t.targetRewritePath || undefined,
+            rewritePathType: t.targetRewritePathType || undefined,
+            priority: t.targetPriority ?? undefined
+        };
+
+        const existing = resourceMap.get(t.resourceId);
+        if (existing) {
+            existing.targets.push(targetConfig);
+        } else {
+            resourceMap.set(t.resourceId, {
+                row: t,
+                targets: [targetConfig]
+            });
+        }
+    }
+
     // Build resource configs
     const resourceConfigs: ResourceAuthConfig[] = [];
     const allDomains: string[] = [];
 
-    for (const target of dnsAuthorityResources) {
-        if (!target.fullDomain) continue;
-
-        allDomains.push(target.fullDomain);
+    for (const [, { row, targets: tgts }] of resourceMap) {
+        allDomains.push(row.fullDomain!);
 
         // Get email whitelist for this resource
         let allowedEmails: string[] = [];
-        if (target.emailWhitelistEnabled) {
+        if (row.emailWhitelistEnabled) {
             const whitelist = await db
                 .select()
                 .from(resourceWhitelist)
-                .where(eq(resourceWhitelist.resourceId, target.resourceId));
+                .where(eq(resourceWhitelist.resourceId, row.resourceId));
 
             allowedEmails = whitelist.map((w: typeof whitelist[0]) => w.email);
         }
 
-        // Build target URL — use the target's method (http/https) for the backend
-        // connection, NOT the resource's ssl flag (which controls public-facing TLS)
-        const scheme = target.targetMethod || "http";
-        const targetUrl = `${scheme}://${target.targetIp}:${target.targetPort}`;
+        // Parse custom headers JSON if present
+        // DB stores as [{name, value}, ...] array, convert to {name: value} map
+        let parsedHeaders:
+            | Record<string, string>
+            | undefined;
+        if (row.headers) {
+            try {
+                const raw =
+                    typeof row.headers === "string"
+                        ? JSON.parse(row.headers)
+                        : row.headers;
+                if (Array.isArray(raw)) {
+                    parsedHeaders = {};
+                    for (const h of raw) {
+                        if (h.name) parsedHeaders[h.name] = h.value || "";
+                    }
+                } else if (typeof raw === "object" && raw !== null) {
+                    parsedHeaders = raw as Record<string, string>;
+                }
+            } catch {
+                parsedHeaders = undefined;
+            }
+        }
+
+        // Sort targets by priority (lower = higher priority)
+        tgts.sort(
+            (a, b) => (a.priority ?? 999) - (b.priority ?? 999)
+        );
 
         resourceConfigs.push({
-            resourceId: target.resourceId,
-            domain: target.fullDomain,
-            sso: target.sso || false,
-            blockAccess: target.blockAccess || false,
-            emailWhitelistEnabled: target.emailWhitelistEnabled || false,
+            resourceId: row.resourceId,
+            domain: row.fullDomain!,
+            sso: row.sso || false,
+            blockAccess: row.blockAccess || false,
+            emailWhitelistEnabled: row.emailWhitelistEnabled || false,
             allowedEmails,
-            targetUrl,
-            ssl: target.ssl || false
+            targets: tgts,
+            ssl: row.ssl || false,
+            stickySession: row.stickySession || false,
+            tlsServerName: row.tlsServerName || undefined,
+            setHostHeader: row.setHostHeader || undefined,
+            headers: parsedHeaders,
+            postAuthPath: row.postAuthPath || undefined
         });
     }
 
