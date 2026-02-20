@@ -114,6 +114,7 @@ Description=Newt container
 [Container]
 ContainerName=newt
 Image=docker.io/fosrl/newt
+Network=host
 Environment=PANGOLIN_ENDPOINT=${endpoint}
 Environment=NEWT_ID=${id}
 Environment=NEWT_SECRET=${secret}${!acceptClients ? "\nEnvironment=DISABLE_CLIENTS=true" : ""}
