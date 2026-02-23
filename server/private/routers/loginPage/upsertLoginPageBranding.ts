@@ -35,76 +35,80 @@ const paramsSchema = z.strictObject({
 
 const bodySchema = z.strictObject({
     logoUrl: z
-        .union([
-            z.literal(""),
-            z
-                .string()
-                .superRefine(async (urlOrPath, ctx) => {
-                    const parseResult = z.url().safeParse(urlOrPath);
-                    if (!parseResult.success) {
-                        if (build !== "enterprise") {
-                            ctx.addIssue({
-                                code: "custom",
-                                message: "Must be a valid URL"
-                            });
-                            return;
-                        } else {
-                            try {
-                                validateLocalPath(urlOrPath);
-                            } catch (error) {
-                                ctx.addIssue({
-                                    code: "custom",
-                                    message: "Must be either a valid image URL or a valid pathname starting with `/` and not containing query parameters, `..` or `*`"
-                                });
-                            } finally {
-                                return;
-                            }
-                        }
-                    }
+        .string()
+        .superRefine(async (urlOrPath, ctx) => {
+            // Allow empty string (no logo)
+            if (urlOrPath.length === 0) {
+                return;
+            }
 
+            const parseResult = z.url().safeParse(urlOrPath);
+            if (!parseResult.success) {
+                if (build !== "enterprise") {
+                    ctx.addIssue({
+                        code: "custom",
+                        message: "Must be a valid URL"
+                    });
+                    return;
+                } else {
                     try {
-                        const response = await fetch(urlOrPath, {
-                            method: "HEAD"
-                        }).catch(() => {
-                            // If HEAD fails (CORS or method not allowed), try GET
-                            return fetch(urlOrPath, { method: "GET" });
-                        });
-
-                        if (response.status !== 200) {
-                            ctx.addIssue({
-                                code: "custom",
-                                message: `Failed to load image. Please check that the URL is accessible.`
-                            });
-                            return;
-                        }
-
-                        const contentType =
-                            response.headers.get("content-type") ?? "";
-                        if (!contentType.startsWith("image/")) {
-                            ctx.addIssue({
-                                code: "custom",
-                                message: `URL does not point to an image. Please provide a URL to an image file (e.g., .png, .jpg, .svg).`
-                            });
-                            return;
-                        }
+                        validateLocalPath(urlOrPath);
                     } catch (error) {
-                        let errorMessage =
-                            "Unable to verify image URL. Please check that the URL is accessible and points to an image file.";
-
-                        if (error instanceof TypeError && error.message.includes("fetch")) {
-                            errorMessage =
-                                "Network error: Unable to reach the URL. Please check your internet connection and verify the URL is correct.";
-                        } else if (error instanceof Error) {
-                            errorMessage = `Error verifying URL: ${error.message}`;
-                        }
-
                         ctx.addIssue({
                             code: "custom",
-                            message: errorMessage
+                            message:
+                                "Must be either a valid image URL or a valid pathname starting with `/` and not containing query parameters, `..` or `*`"
                         });
+                    } finally {
+                        return;
                     }
-                })
-        ])
+                }
+            }
+
+            try {
+                const response = await fetch(urlOrPath, {
+                    method: "HEAD"
+                }).catch(() => {
+                    // If HEAD fails (CORS or method not allowed), try GET
+                    return fetch(urlOrPath, { method: "GET" });
+                });
+
+                if (response.status !== 200) {
+                    ctx.addIssue({
+                        code: "custom",
+                        message: `Failed to load image. Please check that the URL is accessible.`
+                    });
+                    return;
+                }
+
+                const contentType = response.headers.get("content-type") ?? "";
+                if (!contentType.startsWith("image/")) {
+                    ctx.addIssue({
+                        code: "custom",
+                        message: `URL does not point to an image. Please provide a URL to an image file (e.g., .png, .jpg, .svg).`
+                    });
+                    return;
+                }
+            } catch (error) {
+                let errorMessage =
+                    "Unable to verify image URL. Please check that the URL is accessible and points to an image file.";
+
+                if (
+                    error instanceof TypeError &&
+                    error.message.includes("fetch")
+                ) {
+                    errorMessage =
+                        "Network error: Unable to reach the URL. Please check your internet connection and verify the URL is correct.";
+                } else if (error instanceof Error) {
+                    errorMessage = `Error verifying URL: ${error.message}`;
+                }
+
+                ctx.addIssue({
+                    code: "custom",
+                    message: errorMessage
+                });
+            }
+        })
         .transform((val) => (val === "" ? null : val))
         .nullish(),
     logoWidth: z.coerce.number<number>().min(1),
