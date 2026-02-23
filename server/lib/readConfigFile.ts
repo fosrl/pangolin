@@ -212,6 +212,10 @@ export const configSchema = z
                     .optional()
                     .default(["newt", "wireguard", "local"]),
                 allow_raw_resources: z.boolean().optional().default(true),
+                acme_json_path: z
+                    .string()
+                    .optional()
+                    .default("/app/config/letsencrypt/acme.json"),
                 file_mode: z.boolean().optional().default(false),
                 pp_transport_prefix: z
                     .string()
