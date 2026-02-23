@@ -1,27 +1,7 @@
 import * as fs from "fs";
 import logger from "@server/logger";
 import config from "@server/lib/config";
-
-/**
- * Structure of Traefik's acme.json file.
- * Each resolver (e.g., "letsencrypt") has an Account and Certificates array.
- */
-interface AcmeCertificate {
-    domain: {
-        main: string;
-        sans?: string[];
-    };
-    certificate: string;
-    key: string;
-    Store?: string;
-}
-
-interface AcmeResolver {
-    Account?: any;
-    Certificates?: AcmeCertificate[];
-}
-
-type AcmeJson = Record<string, AcmeResolver>;
+import { AcmeJson, removeDomainFromAcmeData } from "./acmeData";
 
 /**
  * Remove a domain's certificate from Traefik's acme.json file.
@@ -51,32 +31,7 @@ export async function removeDomainFromAcmeJson(domain: string): Promise<void> {
         const rawContent = fs.readFileSync(acmeJsonPath, "utf8");
         const acmeData: AcmeJson = JSON.parse(rawContent);
 
-        let modified = false;
-
-        for (const resolverName of Object.keys(acmeData)) {
-            const resolver = acmeData[resolverName];
-            if (
-                !resolver.Certificates ||
-                !Array.isArray(resolver.Certificates)
-            ) {
-                continue;
-            }
-
-            const originalLength = resolver.Certificates.length;
-            resolver.Certificates = resolver.Certificates.filter((cert) => {
-                const isMatch =
-                    cert.domain.main === domain ||
-                    cert.domain.sans?.includes(domain);
-                return !isMatch;
-            });
-
-            if (resolver.Certificates.length !== originalLength) {
-                modified = true;
-                logger.info(
-                    `Removed certificate for domain "${domain}" from ACME resolver "${resolverName}"`
-                );
-            }
-        }
+        const modified = removeDomainFromAcmeData(acmeData, domain);
 
         if (modified) {
             fs.writeFileSync(acmeJsonPath, JSON.stringify(acmeData, null, 2), {
@@ -84,7 +39,7 @@ export async function removeDomainFromAcmeJson(domain: string): Promise<void> {
                 mode: 0o600
             });
             logger.info(
-                `Updated acme.json after removing certificates for domain "${domain}"`
+                `Removed ACME certificate for domain "${domain}" from ${acmeJsonPath}`
             );
         }
     } catch (error) {

@@ -2,62 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { assertEquals } from "@test/assert";
-
-/**
- * Standalone test for ACME JSON cleanup logic.
- *
- * Since the actual removeDomainFromAcmeJson function depends on the config
- * module (which requires DB setup), we test the core logic directly here
- * by extracting and testing the same algorithm.
- */
-
-// ---- Core logic extracted from acmeCleanup.ts for testability ----
-
-interface AcmeCertificate {
-    domain: {
-        main: string;
-        sans?: string[];
-    };
-    certificate: string;
-    key: string;
-}
-
-interface AcmeResolver {
-    Account?: any;
-    Certificates?: AcmeCertificate[];
-}
-
-type AcmeJson = Record<string, AcmeResolver>;
-
-function removeDomainFromAcmeData(
-    acmeData: AcmeJson,
-    domain: string
-): { modified: boolean; result: AcmeJson } {
-    let modified = false;
-
-    for (const resolverName of Object.keys(acmeData)) {
-        const resolver = acmeData[resolverName];
-        if (!resolver.Certificates || !Array.isArray(resolver.Certificates)) {
-            continue;
-        }
-
-        const originalLength = resolver.Certificates.length;
-        resolver.Certificates = resolver.Certificates.filter((cert) => {
-            const isMatch =
-                cert.domain.main === domain ||
-                cert.domain.sans?.includes(domain);
-            return !isMatch;
-        });
-
-        if (resolver.Certificates.length !== originalLength) {
-            modified = true;
-        }
-    }
-
-    return { modified, result: acmeData };
-}
-
-// ---- Tests ----
+import { removeDomainFromAcmeData, AcmeJson } from "./acmeData";
 
 function runTests() {
     console.log("Running ACME cleanup tests...\n");
@@ -82,19 +27,17 @@ function runTests() {
             }
         };
 
-        const { modified, result } = removeDomainFromAcmeData(
-            structuredClone(acmeData),
-            "app.example.com"
-        );
+        const data = structuredClone(acmeData);
+        const modified = removeDomainFromAcmeData(data, "app.example.com");
 
         assertEquals(modified, true, "Should detect modification");
         assertEquals(
-            result.letsencrypt.Certificates!.length,
+            data.letsencrypt.Certificates!.length,
             1,
             "Should have 1 cert remaining"
         );
         assertEquals(
-            result.letsencrypt.Certificates![0].domain.main,
+            data.letsencrypt.Certificates![0].domain.main,
             "other.example.com",
             "Should keep the other cert"
         );
@@ -118,10 +61,8 @@ function runTests() {
             }
         };
 
-        const { modified, result } = removeDomainFromAcmeData(
-            structuredClone(acmeData),
-            "app.example.com"
-        );
+        const data = structuredClone(acmeData);
+        const modified = removeDomainFromAcmeData(data, "app.example.com");
 
         assertEquals(
             modified,
@@ -129,7 +70,7 @@ function runTests() {
             "Should detect modification for SAN match"
         );
         assertEquals(
-            result.letsencrypt.Certificates!.length,
+            data.letsencrypt.Certificates!.length,
             0,
             "Should remove cert when domain is in SANs"
         );
@@ -150,10 +91,8 @@ function runTests() {
             }
         };
 
-        const { modified, result } = removeDomainFromAcmeData(
-            structuredClone(acmeData),
-            "app.example.com"
-        );
+        const data = structuredClone(acmeData);
+        const modified = removeDomainFromAcmeData(data, "app.example.com");
 
         assertEquals(
             modified,
@@ -161,7 +100,7 @@ function runTests() {
             "Should not modify when domain not found"
         );
         assertEquals(
-            result.letsencrypt.Certificates!.length,
+            data.letsencrypt.Certificates!.length,
             1,
             "Should keep all certs"
         );
@@ -196,10 +135,8 @@ function runTests() {
             }
         };
 
-        const { modified, result } = removeDomainFromAcmeData(
-            structuredClone(acmeData),
-            "app.example.com"
-        );
+        const data = structuredClone(acmeData);
+        const modified = removeDomainFromAcmeData(data, "app.example.com");
 
         assertEquals(
             modified,
@@ -207,17 +144,17 @@ function runTests() {
             "Should detect modification across resolvers"
         );
         assertEquals(
-            result.letsencrypt.Certificates!.length,
+            data.letsencrypt.Certificates!.length,
             0,
             "Should remove from first resolver"
         );
         assertEquals(
-            result.customresolver.Certificates!.length,
+            data.customresolver.Certificates!.length,
             1,
             "Should remove from second resolver but keep other cert"
         );
         assertEquals(
-            result.customresolver.Certificates![0].domain.main,
+            data.customresolver.Certificates![0].domain.main,
             "keep.example.com",
             "Should keep unrelated cert in second resolver"
         );
@@ -233,14 +170,12 @@ function runTests() {
             }
         };
 
-        const { modified, result } = removeDomainFromAcmeData(
-            structuredClone(acmeData),
-            "app.example.com"
-        );
+        const data = structuredClone(acmeData);
+        const modified = removeDomainFromAcmeData(data, "app.example.com");
 
         assertEquals(modified, false, "Should not modify empty Certificates");
         assertEquals(
-            result.letsencrypt.Certificates!.length,
+            data.letsencrypt.Certificates!.length,
             0,
             "Should remain empty"
         );
@@ -255,10 +190,8 @@ function runTests() {
             }
         };
 
-        const { modified } = removeDomainFromAcmeData(
-            structuredClone(acmeData),
-            "app.example.com"
-        );
+        const data = structuredClone(acmeData);
+        const modified = removeDomainFromAcmeData(data, "app.example.com");
 
         assertEquals(
             modified,
@@ -291,48 +224,44 @@ function runTests() {
             }
         };
 
-        // Write initial acme.json
         fs.writeFileSync(acmeJsonPath, JSON.stringify(acmeData, null, 2), {
             encoding: "utf8",
             mode: 0o600
         });
 
-        // Read, modify, write back
-        const rawContent = fs.readFileSync(acmeJsonPath, "utf8");
-        const parsed: AcmeJson = JSON.parse(rawContent);
-        const { modified, result } = removeDomainFromAcmeData(
-            parsed,
-            "app.example.com"
+        // Read, modify, write back (same flow as removeDomainFromAcmeJson)
+        const parsed: AcmeJson = JSON.parse(
+            fs.readFileSync(acmeJsonPath, "utf8")
         );
+        const modified = removeDomainFromAcmeData(parsed, "app.example.com");
 
         assertEquals(modified, true, "Should detect modification in roundtrip");
 
-        fs.writeFileSync(acmeJsonPath, JSON.stringify(result, null, 2), {
+        fs.writeFileSync(acmeJsonPath, JSON.stringify(parsed, null, 2), {
             encoding: "utf8",
             mode: 0o600
         });
 
-        // Verify written file
-        const verifyContent = fs.readFileSync(acmeJsonPath, "utf8");
-        const verifyParsed: AcmeJson = JSON.parse(verifyContent);
+        const verified: AcmeJson = JSON.parse(
+            fs.readFileSync(acmeJsonPath, "utf8")
+        );
 
         assertEquals(
-            verifyParsed.letsencrypt.Certificates!.length,
+            verified.letsencrypt.Certificates!.length,
             1,
             "Written file should have 1 cert"
         );
         assertEquals(
-            verifyParsed.letsencrypt.Certificates![0].domain.main,
+            verified.letsencrypt.Certificates![0].domain.main,
             "keep.example.com",
             "Written file should keep correct cert"
         );
         assertEquals(
-            verifyParsed.letsencrypt.Account.email,
+            verified.letsencrypt.Account.email,
             "test@example.com",
             "Account info should be preserved"
         );
 
-        // Cleanup
         fs.rmSync(tmpDir, { recursive: true, force: true });
         console.log("  PASS: File read/write roundtrip");
     }
@@ -361,24 +290,22 @@ function runTests() {
             }
         };
 
-        const { modified, result } = removeDomainFromAcmeData(
-            structuredClone(acmeData),
-            "app.example.com"
-        );
+        const data = structuredClone(acmeData);
+        const modified = removeDomainFromAcmeData(data, "app.example.com");
 
         assertEquals(modified, true, "Should only remove exact match");
         assertEquals(
-            result.letsencrypt.Certificates!.length,
+            data.letsencrypt.Certificates!.length,
             2,
             "Should keep non-matching certs"
         );
         assertEquals(
-            result.letsencrypt.Certificates![0].domain.main,
+            data.letsencrypt.Certificates![0].domain.main,
             "myapp.example.com",
             "Should keep myapp.example.com"
         );
         assertEquals(
-            result.letsencrypt.Certificates![1].domain.main,
+            data.letsencrypt.Certificates![1].domain.main,
             "app.example.com.evil.com",
             "Should keep app.example.com.evil.com"
         );
@@ -388,7 +315,6 @@ function runTests() {
     console.log("\nAll ACME cleanup tests passed!");
 }
 
-// Run all tests
 try {
     runTests();
 } catch (error) {
