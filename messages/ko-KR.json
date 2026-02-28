@@ -2750,5 +2750,7 @@
     "oauthClientSecretDialogTitle": "Client Secret",
     "oauthClientSecretDialogDescription": "This secret is shown only once. Store it in your application now.",
     "oauthClientNewSecretDialogTitle": "New Client Secret",
-    "oauthClientNewSecretDialogDescription": "This secret is shown only once. Save it now."
+    "oauthClientNewSecretDialogDescription": "This secret is shown only once. Save it now.",
+    "oauthClientsSearch": "Search OAuth clients...",
+    "oauthClientOptionsTitle": "Options"
 }
