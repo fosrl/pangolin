@@ -6,9 +6,7 @@ type OauthAuthorizePageProps = {
     searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function firstParam(
-    value: string | string[] | undefined
-): string | undefined {
+function firstParam(value: string | string[] | undefined): string | undefined {
     if (Array.isArray(value)) {
         return value[0];
     }

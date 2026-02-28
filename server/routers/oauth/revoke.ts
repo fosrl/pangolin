@@ -23,7 +23,11 @@ function getBodyValue(body: unknown, key: string): string | undefined {
         return value;
     }
 
-    if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
+    if (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        typeof value[0] === "string"
+    ) {
         return value[0];
     }
 
@@ -56,12 +60,16 @@ function parseBasicAuth(
     }
 }
 
-async function authenticateClient(req: Request): Promise<OAuthClientRecord | null> {
+async function authenticateClient(
+    req: Request
+): Promise<OAuthClientRecord | null> {
     const basicCredentials = parseBasicAuth(req.headers.authorization);
 
-    const clientId = basicCredentials?.clientId || getBodyValue(req.body, "client_id");
+    const clientId =
+        basicCredentials?.clientId || getBodyValue(req.body, "client_id");
     const clientSecret =
-        basicCredentials?.clientSecret || getBodyValue(req.body, "client_secret");
+        basicCredentials?.clientSecret ||
+        getBodyValue(req.body, "client_secret");
 
     if (!clientId) {
         return null;
@@ -82,7 +90,10 @@ async function authenticateClient(req: Request): Promise<OAuthClientRecord | nul
             return null;
         }
 
-        const validSecret = await verifyPassword(clientSecret, client.clientSecretHash);
+        const validSecret = await verifyPassword(
+            clientSecret,
+            client.clientSecretHash
+        );
         if (!validSecret) {
             return null;
         }
@@ -130,7 +141,10 @@ export async function revokeToken(
                 .update(oauthRefreshTokens)
                 .set({ revokedAt: Date.now() })
                 .where(
-                    eq(oauthRefreshTokens.refreshTokenId, refreshToken.refreshTokenId)
+                    eq(
+                        oauthRefreshTokens.refreshTokenId,
+                        refreshToken.refreshTokenId
+                    )
                 );
         }
 
@@ -153,7 +167,10 @@ export async function revokeToken(
             await db
                 .delete(oauthAccessTokens)
                 .where(
-                    eq(oauthAccessTokens.accessTokenId, accessToken.accessTokenId)
+                    eq(
+                        oauthAccessTokens.accessTokenId,
+                        accessToken.accessTokenId
+                    )
                 );
         }
 
@@ -174,7 +191,9 @@ export async function revokeToken(
     if (accessToken) {
         await db
             .delete(oauthAccessTokens)
-            .where(eq(oauthAccessTokens.accessTokenId, accessToken.accessTokenId));
+            .where(
+                eq(oauthAccessTokens.accessTokenId, accessToken.accessTokenId)
+            );
         return res.status(HttpCode.OK).json({});
     }
 
@@ -194,7 +213,10 @@ export async function revokeToken(
             .update(oauthRefreshTokens)
             .set({ revokedAt: Date.now() })
             .where(
-                eq(oauthRefreshTokens.refreshTokenId, refreshToken.refreshTokenId)
+                eq(
+                    oauthRefreshTokens.refreshTokenId,
+                    refreshToken.refreshTokenId
+                )
             );
     }
 

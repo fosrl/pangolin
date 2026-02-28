@@ -37,6 +37,8 @@
   "createAccount": "創建帳戶",
   "viewSettings": "查看設置",
   "delete": "刪除",
+  "approve": "批准",
+  "deny": "拒絕",
   "name": "名稱",
   "online": "在線",
   "offline": "離線的",

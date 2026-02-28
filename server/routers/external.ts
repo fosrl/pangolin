@@ -80,7 +80,10 @@ export const authenticated = Router();
 authenticated.use(verifySessionUserMiddleware);
 
 authenticated.post("/oauth/authorize/initiate", oauth.initiateAuthorization);
-authenticated.post("/oauth/authorize/consent", oauth.handleAuthorizationConsent);
+authenticated.post(
+    "/oauth/authorize/consent",
+    oauth.handleAuthorizationConsent
+);
 
 authenticated.post(
     "/org/:orgId/oauth-clients",

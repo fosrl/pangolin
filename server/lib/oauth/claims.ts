@@ -12,7 +12,10 @@ type BaseClaims = {
     groups?: string[];
 };
 
-async function buildBaseClaims(userId: string, scope: string): Promise<BaseClaims> {
+async function buildBaseClaims(
+    userId: string,
+    scope: string
+): Promise<BaseClaims> {
     const [user] = await db
         .select()
         .from(users)

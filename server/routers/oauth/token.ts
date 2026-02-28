@@ -40,14 +40,22 @@ function getBodyValue(body: unknown, key: string): string | undefined {
         return value;
     }
 
-    if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
+    if (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        typeof value[0] === "string"
+    ) {
         return value[0];
     }
 
     return undefined;
 }
 
-function sendOAuthError(res: Response, status: number, oauthError: OAuthError): void {
+function sendOAuthError(
+    res: Response,
+    status: number,
+    oauthError: OAuthError
+): void {
     res.status(status).json(oauthError);
 }
 
@@ -80,14 +88,15 @@ function parseBasicAuth(
 async function authenticateClient(
     req: Request
 ): Promise<
-    | { client: OAuthClientRecord }
-    | { status: number; oauthError: OAuthError }
+    { client: OAuthClientRecord } | { status: number; oauthError: OAuthError }
 > {
     const basicCredentials = parseBasicAuth(req.headers.authorization);
 
-    const clientId = basicCredentials?.clientId || getBodyValue(req.body, "client_id");
+    const clientId =
+        basicCredentials?.clientId || getBodyValue(req.body, "client_id");
     const clientSecret =
-        basicCredentials?.clientSecret || getBodyValue(req.body, "client_secret");
+        basicCredentials?.clientSecret ||
+        getBodyValue(req.body, "client_secret");
 
     if (!clientId) {
         return {
@@ -126,7 +135,10 @@ async function authenticateClient(
             };
         }
 
-        const validSecret = await verifyPassword(clientSecret, client.clientSecretHash);
+        const validSecret = await verifyPassword(
+            clientSecret,
+            client.clientSecretHash
+        );
         if (!validSecret) {
             return {
                 status: HttpCode.UNAUTHORIZED,
@@ -160,7 +172,11 @@ export async function issueToken(
     try {
         const authResult = await authenticateClient(req);
         if (!("client" in authResult)) {
-            return sendOAuthError(res, authResult.status, authResult.oauthError);
+            return sendOAuthError(
+                res,
+                authResult.status,
+                authResult.oauthError
+            );
         }
 
         const grantType = getBodyValue(req.body, "grant_type");
@@ -277,26 +293,35 @@ export async function issueToken(
                 });
             });
 
-            const claims = await buildIdTokenClaims(
-                authCode.userId,
-                authCode.clientId,
-                authCode.scope,
-                authCode.nonce || undefined
+            const includeIdToken = parseScopeString(authCode.scope).includes(
+                "openid"
             );
-            const signingKey = await getActiveSigningKey();
 
-            return res.status(HttpCode.OK).json({
+            const responseBody: Record<string, unknown> = {
                 access_token: accessToken,
                 token_type: "Bearer",
                 expires_in: 3600,
                 refresh_token: refreshToken,
-                id_token: signIdToken(
+                scope: authCode.scope
+            };
+
+            if (includeIdToken) {
+                const claims = await buildIdTokenClaims(
+                    authCode.userId,
+                    authCode.clientId,
+                    authCode.scope,
+                    authCode.nonce || undefined
+                );
+                const signingKey = await getActiveSigningKey();
+
+                responseBody.id_token = signIdToken(
                     claims,
                     signingKey.privateKeyPem,
                     signingKey.keyId
-                ),
-                scope: authCode.scope
-            });
+                );
+            }
+
+            return res.status(HttpCode.OK).json(responseBody);
         }
 
         if (grantType === "refresh_token") {
@@ -315,7 +340,10 @@ export async function issueToken(
                 .from(oauthRefreshTokens)
                 .where(
                     and(
-                        eq(oauthRefreshTokens.tokenHash, hashToken(refreshToken)),
+                        eq(
+                            oauthRefreshTokens.tokenHash,
+                            hashToken(refreshToken)
+                        ),
                         isNull(oauthRefreshTokens.revokedAt)
                     )
                 )
@@ -348,6 +376,12 @@ export async function issueToken(
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_scope",
                     error_description: "Requested scope is not a subset"
+                });
+            }
+            if (!parseScopeString(finalScope).includes("openid")) {
+                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+                    error: "invalid_scope",
+                    error_description: "openid scope is required"
                 });
             }
 

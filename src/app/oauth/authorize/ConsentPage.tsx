@@ -237,7 +237,7 @@ export default function ConsentPage({
                                 {interaction.logoUri && (
                                     <img
                                         src={interaction.logoUri}
-                                        alt={`${interaction.clientName} logo`}
+                                        alt={interaction.clientName}
                                         className="w-10 h-10 rounded"
                                     />
                                 )}
@@ -302,7 +302,7 @@ export default function ConsentPage({
                                     onClick={() => submitConsent(true)}
                                     disabled={consentLoading}
                                 >
-                                    {t("allow")}
+                                    {t("approve")}
                                 </Button>
                             </div>
                         </>

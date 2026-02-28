@@ -32,7 +32,8 @@ const createBodySchema = z.strictObject({
     redirectUris: z.array(z.string().min(1)).min(1),
     clientUri: z.string().optional(),
     logoUri: z.string().optional(),
-    scopes: z.array(z.enum(["openid", "profile", "email", "groups"]))
+    scopes: z
+        .array(z.enum(["openid", "profile", "email", "groups"]))
         .optional()
         .default(["openid", "profile", "email"]),
     pkceRequired: z.boolean().optional().default(true),
@@ -44,7 +45,8 @@ const updateBodySchema = z.strictObject({
     redirectUris: z.array(z.string().min(1)).min(1).optional(),
     clientUri: z.string().optional(),
     logoUri: z.string().optional(),
-    scopes: z.array(z.enum(["openid", "profile", "email", "groups"]))
+    scopes: z
+        .array(z.enum(["openid", "profile", "email", "groups"]))
         .optional(),
     pkceRequired: z.boolean().optional(),
     enabled: z.boolean().optional()
@@ -299,7 +301,9 @@ export async function updateOAuthClient(
                 ...(body.clientUri !== undefined
                     ? { clientUri: body.clientUri }
                     : {}),
-                ...(body.logoUri !== undefined ? { logoUri: body.logoUri } : {}),
+                ...(body.logoUri !== undefined
+                    ? { logoUri: body.logoUri }
+                    : {}),
                 ...(body.redirectUris
                     ? { redirectUris: JSON.stringify(body.redirectUris) }
                     : {}),
@@ -309,7 +313,9 @@ export async function updateOAuthClient(
                 ...(body.pkceRequired !== undefined
                     ? { pkceRequired: body.pkceRequired }
                     : {}),
-                ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
+                ...(body.enabled !== undefined
+                    ? { enabled: body.enabled }
+                    : {}),
                 updatedAt: Date.now()
             })
             .where(eq(oauthClients.clientId, existingClient.clientId));
@@ -372,14 +378,19 @@ export async function deleteOAuthClient(
             await trx
                 .delete(oauthAuthorizationCodes)
                 .where(
-                    eq(oauthAuthorizationCodes.clientId, existingClient.clientId)
+                    eq(
+                        oauthAuthorizationCodes.clientId,
+                        existingClient.clientId
+                    )
                 );
             await trx
                 .delete(oauthAccessTokens)
                 .where(eq(oauthAccessTokens.clientId, existingClient.clientId));
             await trx
                 .delete(oauthRefreshTokens)
-                .where(eq(oauthRefreshTokens.clientId, existingClient.clientId));
+                .where(
+                    eq(oauthRefreshTokens.clientId, existingClient.clientId)
+                );
             await trx
                 .delete(oauthConsents)
                 .where(eq(oauthConsents.clientId, existingClient.clientId));

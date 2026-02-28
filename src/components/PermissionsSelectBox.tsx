@@ -124,6 +124,13 @@ function getActionsCategories(root: boolean) {
         Logs: {
             [t("actionExportLogs")]: "exportLogs",
             [t("actionViewLogs")]: "viewLogs"
+        },
+
+        "OAuth Client": {
+            [t("actionCreateOAuthClient")]: "createOAuthClient",
+            [t("actionListOAuthClients")]: "listOAuthClients",
+            [t("actionUpdateOAuthClient")]: "updateOAuthClient",
+            [t("actionDeleteOAuthClient")]: "deleteOAuthClient"
         }
     };
 
