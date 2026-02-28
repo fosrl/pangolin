@@ -40,7 +40,10 @@ async function handleUserinfoRequest(
         );
     }
 
-    const claims = await buildUserinfoClaims(accessToken.userId, accessToken.scope);
+    const claims = await buildUserinfoClaims(
+        accessToken.userId,
+        accessToken.scope
+    );
 
     res.setHeader("Content-Type", "application/json");
     res.status(HttpCode.OK).json(claims);

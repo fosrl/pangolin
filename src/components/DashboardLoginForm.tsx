@@ -80,7 +80,11 @@ export default function DashboardLoginForm({
                     defaultEmail={defaultUser}
                     onLogin={(redirectUrl) => {
                         if (redirectUrl) {
-                            const safe = cleanRedirect(redirectUrl);
+                            const preserveAllQueryParams =
+                                redirectUrl.startsWith("/oauth/authorize");
+                            const safe = cleanRedirect(redirectUrl, {
+                                allowAllQueryParams: preserveAllQueryParams
+                            });
                             router.replace(safe);
                         } else {
                             router.replace("/");

@@ -8,7 +8,9 @@ import { generateIdFromEntropySize } from "@server/auth/sessions/app";
 function getEncryptionKey(): string {
     const key = config.getRawConfig().server.secret;
     if (!key) {
-        throw new Error("Missing server secret for OAuth signing key encryption");
+        throw new Error(
+            "Missing server secret for OAuth signing key encryption"
+        );
     }
     return key;
 }

@@ -13,11 +13,12 @@ import {
 import HttpCode from "@server/types/HttpCode";
 import logger from "@server/logger";
 import response from "@server/lib/response";
-import { validateScopes, parseScopeString } from "@server/lib/oauth/scopes";
 import {
-    generateAuthorizationCode,
-    hashToken
-} from "@server/lib/oauth/tokens";
+    hasScope,
+    validateScopes,
+    parseScopeString
+} from "@server/lib/oauth/scopes";
+import { generateAuthorizationCode, hashToken } from "@server/lib/oauth/tokens";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
 
 const initiateSchema = z.strictObject({
@@ -158,7 +159,9 @@ export async function initiateAuthorization(
             );
         }
 
-        const allowedRedirectUris = parseClientRedirectUris(client.redirectUris);
+        const allowedRedirectUris = parseClientRedirectUris(
+            client.redirectUris
+        );
         if (!allowedRedirectUris.includes(body.redirect_uri)) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Invalid redirect_uri")
@@ -174,10 +177,7 @@ export async function initiateAuthorization(
             );
         }
 
-        if (
-            body.code_challenge &&
-            body.code_challenge_method !== "S256"
-        ) {
+        if (body.code_challenge && body.code_challenge_method !== "S256") {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
@@ -189,7 +189,18 @@ export async function initiateAuthorization(
         const grantedScope = validateScopes(body.scope, client.scopes);
         if (!grantedScope) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, "No valid scopes requested")
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "No valid scopes requested"
+                )
+            );
+        }
+        if (!hasScope(grantedScope, "openid")) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "openid scope is required"
+                )
             );
         }
 
@@ -204,7 +215,10 @@ export async function initiateAuthorization(
             )
             .limit(1);
 
-        if (existingConsent && hasAllScopes(existingConsent.scope, grantedScope)) {
+        if (
+            existingConsent &&
+            hasAllScopes(existingConsent.scope, grantedScope)
+        ) {
             const code = await issueAuthorizationCode({
                 clientId: client.clientId,
                 userId,
@@ -318,7 +332,12 @@ export async function handleAuthorizationConsent(
         if (Date.now() > interaction.expiresAt) {
             await db
                 .delete(oauthInteractions)
-                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
+                .where(
+                    eq(
+                        oauthInteractions.interactionId,
+                        interaction.interactionId
+                    )
+                );
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Interaction expired")
             );
@@ -327,7 +346,12 @@ export async function handleAuthorizationConsent(
         if (!approved) {
             await db
                 .delete(oauthInteractions)
-                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
+                .where(
+                    eq(
+                        oauthInteractions.interactionId,
+                        interaction.interactionId
+                    )
+                );
 
             const redirectTo = appendOAuthParams(interaction.redirectUri, {
                 error: "access_denied",
@@ -373,7 +397,9 @@ export async function handleAuthorizationConsent(
                         scope: Array.from(mergedScopes).join(" "),
                         updatedAt: now
                     })
-                    .where(eq(oauthConsents.consentId, existingConsent.consentId));
+                    .where(
+                        eq(oauthConsents.consentId, existingConsent.consentId)
+                    );
             } else {
                 await trx.insert(oauthConsents).values({
                     consentId: generateIdFromEntropySize(12),
@@ -401,7 +427,12 @@ export async function handleAuthorizationConsent(
 
             await trx
                 .delete(oauthInteractions)
-                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
+                .where(
+                    eq(
+                        oauthInteractions.interactionId,
+                        interaction.interactionId
+                    )
+                );
         });
 
         const redirectTo = appendOAuthParams(interaction.redirectUri, {

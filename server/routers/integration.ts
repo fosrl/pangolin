@@ -19,6 +19,7 @@ import * as virtualApiKey from "./virtualApiKey";
 import * as redirect from "./redirect";
 import * as labels from "./labels";
 import * as reKey from "./re-key";
+import * as oauth from "./oauth";
 import {
     verifyApiKey,
     verifyApiKeyOrgAccess,
@@ -2028,4 +2029,50 @@ authenticated.delete(
     verifyApiKeyHasAction(ActionsEnum.deleteResourceMtlsCertificate),
     logActionAudit(ActionsEnum.deleteResourceMtlsCertificate),
     resource.deleteResourceMtlsCertificate
+);
+
+// OAuth client management
+authenticated.post(
+    "/org/:orgId/oauth-clients",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.createOAuthClient),
+    oauth.createOAuthClient
+);
+
+authenticated.get(
+    "/org/:orgId/oauth-clients",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.listOAuthClients),
+    oauth.listOAuthClients
+);
+
+authenticated.get(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.listOAuthClients),
+    oauth.getOAuthClient
+);
+
+authenticated.patch(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateOAuthClient),
+    oauth.updateOAuthClient
+);
+
+authenticated.delete(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteOAuthClient),
+    oauth.deleteOAuthClient
+);
+
+authenticated.post(
+    "/org/:orgId/oauth-clients/:clientId/rotate-secret",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateOAuthClient),
+    oauth.rotateOAuthClientSecret
 );

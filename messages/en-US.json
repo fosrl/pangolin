@@ -1730,6 +1730,10 @@
     "actionListSiteProvisioningKeys": "List Site Provisioning Keys",
     "actionUpdateSiteProvisioningKey": "Update Site Provisioning Key",
     "actionDeleteSiteProvisioningKey": "Delete Site Provisioning Key",
+    "actionCreateOAuthClient": "Create OAuth Client",
+    "actionListOAuthClients": "List OAuth Clients",
+    "actionUpdateOAuthClient": "Update OAuth Client",
+    "actionDeleteOAuthClient": "Delete OAuth Client",
     "noneSelected": "None selected",
     "orgNotFound2": "No organizations found.",
     "search": "Search…",
@@ -4794,5 +4798,7 @@
     "oauthClientSecretDialogTitle": "Client Secret",
     "oauthClientSecretDialogDescription": "This secret is shown only once. Store it in your application now.",
     "oauthClientNewSecretDialogTitle": "New Client Secret",
-    "oauthClientNewSecretDialogDescription": "This secret is shown only once. Save it now."
+    "oauthClientNewSecretDialogDescription": "This secret is shown only once. Save it now.",
+    "oauthClientsSearch": "Search OAuth clients...",
+    "oauthClientOptionsTitle": "Options"
 }

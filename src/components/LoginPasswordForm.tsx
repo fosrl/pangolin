@@ -42,6 +42,9 @@ export default function LoginPasswordForm({
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [mfaRequested, setMfaRequested] = useState(false);
+    const cleanRedirectOptions = redirect?.startsWith("/oauth/authorize")
+        ? { allowAllQueryParams: true as const }
+        : {};
 
     // Check if identifier is a valid email
     const isEmail = (() => {
@@ -114,7 +117,7 @@ export default function LoginPasswordForm({
             if (!data) {
                 // Already logged in
                 if (redirect) {
-                    const safe = cleanRedirect(redirect);
+                    const safe = cleanRedirect(redirect, cleanRedirectOptions);
                     router.replace(safe);
                 } else {
                     router.replace("/");
@@ -167,7 +170,7 @@ export default function LoginPasswordForm({
 
             // Success
             if (redirect) {
-                const safe = cleanRedirect(redirect);
+                const safe = cleanRedirect(redirect, cleanRedirectOptions);
                 router.replace(safe);
             } else {
                 router.replace("/");
@@ -208,7 +211,7 @@ export default function LoginPasswordForm({
 
             if (!data) {
                 if (redirect) {
-                    const safe = cleanRedirect(redirect);
+                    const safe = cleanRedirect(redirect, cleanRedirectOptions);
                     router.replace(safe);
                 } else {
                     router.replace("/");
@@ -249,7 +252,7 @@ export default function LoginPasswordForm({
 
             // Success
             if (redirect) {
-                const safe = cleanRedirect(redirect);
+                const safe = cleanRedirect(redirect, cleanRedirectOptions);
                 router.replace(safe);
             } else {
                 router.replace("/");
