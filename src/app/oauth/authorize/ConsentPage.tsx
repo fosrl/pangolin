@@ -12,6 +12,7 @@ import { Button } from "@app/components/ui/button";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
+import { KeyRound, User, Mail, Users, ShieldQuestion } from "lucide-react";
 
 type OauthAuthorizeParams = {
     response_type?: string;
@@ -59,6 +60,14 @@ const scopeDescriptionKeys: Record<string, string> = {
     email: "oauthScopeEmailDescription",
     groups: "oauthScopeGroupsDescription"
 };
+
+const scopeIcons: Record<string, React.ComponentType<{ className?: string }>> =
+    {
+        openid: KeyRound,
+        profile: User,
+        email: Mail,
+        groups: Users
+    };
 
 export default function ConsentPage({
     params
@@ -210,8 +219,8 @@ export default function ConsentPage({
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 py-8">
-            <Card className="w-full max-w-md">
+        <div>
+            <Card className="w-full">
                 <CardHeader>
                     <CardTitle>{t("oauthAuthorizeTitle")}</CardTitle>
                     <CardDescription>
@@ -268,24 +277,32 @@ export default function ConsentPage({
                                 </p>
                                 <ul className="space-y-2">
                                     {interaction.requestedScopes.map(
-                                        (scope) => (
-                                            <li
-                                                key={scope}
-                                                className="border rounded-md p-2"
-                                            >
-                                                <p className="text-sm font-medium">
-                                                    {scope}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {t(
-                                                        scopeDescriptionKeys[
-                                                            scope
-                                                        ] ||
-                                                            "oauthAuthorizeUnknownScopeDescription"
-                                                    )}
-                                                </p>
-                                            </li>
-                                        )
+                                        (scope) => {
+                                            const Icon =
+                                                scopeIcons[scope] ||
+                                                ShieldQuestion;
+                                            return (
+                                                <li
+                                                    key={scope}
+                                                    className="border rounded-md px-4 py-3 flex items-center gap-3"
+                                                >
+                                                    <Icon className="size-4 md:size-5 shrink-0 text-muted-foreground" />
+                                                    <div className="pl-2">
+                                                        <p className="text-sm font-medium">
+                                                            {scope}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {t(
+                                                                scopeDescriptionKeys[
+                                                                    scope
+                                                                ] ||
+                                                                    "oauthAuthorizeUnknownScopeDescription"
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </li>
+                                            );
+                                        }
                                     )}
                                 </ul>
                             </div>
