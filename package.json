@@ -29,7 +29,8 @@
         "email": "email dev --dir server/emails/templates --port 3005",
         "build:cli": "node esbuild.mjs -e cli/index.ts -o dist/cli.mjs",
         "format:check": "prettier --check .",
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "postinstall": "patch-package"
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "8.4.1",
@@ -164,6 +165,7 @@
         "esbuild-node-externals": "1.20.1",
         "eslint": "9.39.2",
         "eslint-config-next": "16.1.6",
+        "patch-package": "^8.0.1",
         "postcss": "8.5.6",
         "prettier": "3.8.1",
         "react-email": "5.2.8",

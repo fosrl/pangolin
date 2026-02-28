@@ -1,0 +1,56 @@
+diff --git a/node_modules/@asteasolutions/zod-to-openapi/dist/index.cjs b/node_modules/@asteasolutions/zod-to-openapi/dist/index.cjs
+index eb088ed..08d89dc 100644
+--- a/node_modules/@asteasolutions/zod-to-openapi/dist/index.cjs
++++ b/node_modules/@asteasolutions/zod-to-openapi/dist/index.cjs
+@@ -65,6 +65,7 @@ const ZodTypeKeys = {
+     ZodVoid: 'void',
+     ZodDate: 'date',
+     ZodTemplateLiteral: 'template_literal',
++    ZodCatch: 'catch',
+ };
+ function isZodType(schema, typeNames) {
+     const typeNamesArray = Array.isArray(typeNames) ? typeNames : [typeNames];
+@@ -298,6 +299,7 @@ class Metadata {
+             'ZodPrefault',
+             'ZodReadonly',
+             'ZodNonOptional',
++            'ZodCatch',
+         ]) &&
+             isAnyZodType(schema._zod.def.innerType)) {
+             return this.collectMetadata(schema._zod.def.innerType, totalMetadata);
+@@ -373,6 +375,7 @@ class Metadata {
+             'ZodPrefault',
+             'ZodReadonly',
+             'ZodNonOptional',
++            'ZodCatch',
+         ]) &&
+             isAnyZodType(schema._zod.def.innerType)) {
+             return this.unwrapUntil(schema._zod.def.innerType, typeName);
+diff --git a/node_modules/@asteasolutions/zod-to-openapi/dist/index.mjs b/node_modules/@asteasolutions/zod-to-openapi/dist/index.mjs
+index 57373e2..740f2f4 100644
+--- a/node_modules/@asteasolutions/zod-to-openapi/dist/index.mjs
++++ b/node_modules/@asteasolutions/zod-to-openapi/dist/index.mjs
+@@ -63,6 +63,7 @@ const ZodTypeKeys = {
+     ZodVoid: 'void',
+     ZodDate: 'date',
+     ZodTemplateLiteral: 'template_literal',
++    ZodCatch: 'catch',
+ };
+ function isZodType(schema, typeNames) {
+     const typeNamesArray = Array.isArray(typeNames) ? typeNames : [typeNames];
+@@ -296,6 +297,7 @@ class Metadata {
+             'ZodPrefault',
+             'ZodReadonly',
+             'ZodNonOptional',
++            'ZodCatch',
+         ]) &&
+             isAnyZodType(schema._zod.def.innerType)) {
+             return this.collectMetadata(schema._zod.def.innerType, totalMetadata);
+@@ -371,6 +373,7 @@ class Metadata {
+             'ZodPrefault',
+             'ZodReadonly',
+             'ZodNonOptional',
++            'ZodCatch',
+         ]) &&
+             isAnyZodType(schema._zod.def.innerType)) {
+             return this.unwrapUntil(schema._zod.def.innerType, typeName);
