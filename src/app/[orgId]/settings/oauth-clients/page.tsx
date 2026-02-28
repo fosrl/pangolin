@@ -23,6 +23,7 @@ import {
     DialogTitle
 } from "@app/components/ui/dialog";
 import CopyTextBox from "@app/components/CopyTextBox";
+import { useTranslations } from "next-intl";
 
 type OAuthClientListItem = {
     clientId: string;
@@ -85,6 +86,7 @@ export default function OAuthClientsPage() {
     const api = createApiClient({ env });
     const router = useRouter();
     const params = useParams();
+    const t = useTranslations();
 
     const orgId = useMemo(() => {
         const rawOrgId = params.orgId;
@@ -109,12 +111,14 @@ export default function OAuthClientsPage() {
         setLoading(true);
 
         try {
-            const res = await api.get<ListResponse>(`/org/${orgId}/oauth-clients`);
+            const res = await api.get<ListResponse>(
+                `/org/${orgId}/oauth-clients`
+            );
             setClients(res.data.data.clients || []);
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Failed to load OAuth clients",
+                title: t("oauthClientsLoadErrorTitle"),
                 description: formatAxiosError(error)
             });
         } finally {
@@ -127,21 +131,23 @@ export default function OAuthClientsPage() {
     }, [orgId]);
 
     async function deleteClient(clientId: string) {
-        if (!confirm("Delete this OAuth client?")) {
+        if (!confirm(t("oauthClientDeleteConfirm"))) {
             return;
         }
 
         try {
             await api.delete(`/org/${orgId}/oauth-clients/${clientId}`);
-            setClients((prev) => prev.filter((client) => client.clientId !== clientId));
+            setClients((prev) =>
+                prev.filter((client) => client.clientId !== clientId)
+            );
             toast({
-                title: "OAuth client deleted",
-                description: "The OAuth client was deleted successfully."
+                title: t("oauthClientDeleteSuccessTitle"),
+                description: t("oauthClientDeleteSuccessDescription")
             });
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Failed to delete OAuth client",
+                title: t("oauthClientDeleteErrorTitle"),
                 description: formatAxiosError(error)
             });
         }
@@ -156,13 +162,13 @@ export default function OAuthClientsPage() {
             setRotatedSecret(res.data.data);
 
             toast({
-                title: "Secret rotated",
-                description: "A new client secret was issued."
+                title: t("oauthClientRotateSuccessTitle"),
+                description: t("oauthClientRotateSuccessDescription")
             });
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Failed to rotate secret",
+                title: t("oauthClientRotateErrorTitle"),
                 description: formatAxiosError(error)
             });
         }
@@ -172,8 +178,8 @@ export default function OAuthClientsPage() {
         <>
             <div className="flex items-center justify-between mb-4">
                 <SettingsSectionTitle
-                    title="OAuth Clients"
-                    description="Manage applications that can authenticate users via Pangolin OIDC."
+                    title={t("oauthClientsTitle")}
+                    description={t("oauthClientsDescription")}
                 />
 
                 <Button
@@ -181,7 +187,7 @@ export default function OAuthClientsPage() {
                         router.push(`/${orgId}/settings/oauth-clients/create`);
                     }}
                 >
-                    Create OAuth Client
+                    {t("oauthClientsCreateButton")}
                 </Button>
             </div>
 
@@ -195,9 +201,11 @@ export default function OAuthClientsPage() {
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>New Client Secret</DialogTitle>
+                        <DialogTitle>
+                            {t("oauthClientNewSecretDialogTitle")}
+                        </DialogTitle>
                         <DialogDescription>
-                            This secret is shown only once. Save it now.
+                            {t("oauthClientNewSecretDialogDescription")}
                         </DialogDescription>
                     </DialogHeader>
                     {rotatedSecret && (
@@ -210,32 +218,48 @@ export default function OAuthClientsPage() {
             </Dialog>
 
             {loading ? (
-                <p className="text-sm text-muted-foreground">Loading OAuth clients...</p>
+                <p className="text-sm text-muted-foreground">
+                    {t("oauthClientsLoading")}
+                </p>
             ) : (
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Client ID</TableHead>
-                            <TableHead>Redirect URIs</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Created</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
+                            <TableHead>{t("name")}</TableHead>
+                            <TableHead>{t("oauthClientIdHeader")}</TableHead>
+                            <TableHead>
+                                {t("oauthClientRedirectUrisHeader")}
+                            </TableHead>
+                            <TableHead>{t("status")}</TableHead>
+                            <TableHead>{t("created")}</TableHead>
+                            <TableHead className="text-right">
+                                {t("actions")}
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {clients.map((client) => (
                             <TableRow key={client.clientId}>
-                                <TableCell className="font-medium">{client.clientName}</TableCell>
+                                <TableCell className="font-medium">
+                                    {client.clientName}
+                                </TableCell>
                                 <TableCell className="font-mono text-xs">
                                     {truncateClientId(client.clientId)}
                                 </TableCell>
                                 <TableCell className="text-xs">
-                                    {parseRedirectUris(client.redirectUris).join(", ") || "-"}
+                                    {parseRedirectUris(
+                                        client.redirectUris
+                                    ).join(", ") || "-"}
                                 </TableCell>
-                                <TableCell>{client.enabled ? "Enabled" : "Disabled"}</TableCell>
                                 <TableCell>
-                                    {new Date(client.createdAt).toLocaleString()}
+                                    {client.enabled
+                                        ? t("enabled")
+                                        : t("disabled")}
+                                </TableCell>
+                                <TableCell>
+                                    {new Date(
+                                        client.createdAt
+                                    ).toLocaleString()}
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex gap-2 justify-end">
@@ -248,21 +272,25 @@ export default function OAuthClientsPage() {
                                                 );
                                             }}
                                         >
-                                            Edit
+                                            {t("edit")}
                                         </Button>
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => rotateSecret(client.clientId)}
+                                            onClick={() =>
+                                                rotateSecret(client.clientId)
+                                            }
                                         >
-                                            Rotate Secret
+                                            {t("oauthClientRotateButton")}
                                         </Button>
                                         <Button
                                             variant="destructive"
                                             size="sm"
-                                            onClick={() => deleteClient(client.clientId)}
+                                            onClick={() =>
+                                                deleteClient(client.clientId)
+                                            }
                                         >
-                                            Delete
+                                            {t("delete")}
                                         </Button>
                                     </div>
                                 </TableCell>

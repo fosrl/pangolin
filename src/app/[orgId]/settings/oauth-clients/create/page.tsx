@@ -19,6 +19,7 @@ import {
     DialogTitle
 } from "@app/components/ui/dialog";
 import CopyTextBox from "@app/components/CopyTextBox";
+import { useTranslations } from "next-intl";
 
 type CreateResponse = {
     data: {
@@ -36,6 +37,7 @@ export default function CreateOAuthClientPage() {
     const api = createApiClient({ env });
     const params = useParams();
     const router = useRouter();
+    const t = useTranslations();
 
     const orgId = useMemo(() => {
         const rawOrgId = params.orgId;
@@ -61,7 +63,9 @@ export default function CreateOAuthClientPage() {
     } | null>(null);
 
     function updateRedirectUri(index: number, value: string) {
-        setRedirectUris((prev) => prev.map((item, i) => (i === index ? value : item)));
+        setRedirectUris((prev) =>
+            prev.map((item, i) => (i === index ? value : item))
+        );
     }
 
     function removeRedirectUri(index: number) {
@@ -76,7 +80,7 @@ export default function CreateOAuthClientPage() {
         if (!clientName.trim()) {
             toast({
                 variant: "destructive",
-                title: "Client name is required"
+                title: t("oauthClientNameRequired")
             });
             return;
         }
@@ -84,7 +88,7 @@ export default function CreateOAuthClientPage() {
         if (cleanedRedirectUris.length === 0) {
             toast({
                 variant: "destructive",
-                title: "At least one redirect URI is required"
+                title: t("oauthClientRedirectUrisRequired")
             });
             return;
         }
@@ -103,25 +107,28 @@ export default function CreateOAuthClientPage() {
                 scopes.push("groups");
             }
 
-            const res = await api.post<CreateResponse>(`/org/${orgId}/oauth-clients`, {
-                clientName: clientName.trim(),
-                redirectUris: cleanedRedirectUris,
-                clientUri: clientUri.trim() || undefined,
-                logoUri: logoUri.trim() || undefined,
-                scopes,
-                pkceRequired,
-                enabled
-            });
+            const res = await api.post<CreateResponse>(
+                `/org/${orgId}/oauth-clients`,
+                {
+                    clientName: clientName.trim(),
+                    redirectUris: cleanedRedirectUris,
+                    clientUri: clientUri.trim() || undefined,
+                    logoUri: logoUri.trim() || undefined,
+                    scopes,
+                    pkceRequired,
+                    enabled
+                }
+            );
 
             setCreatedSecret(res.data.data);
             toast({
-                title: "OAuth client created",
-                description: "Save the secret now. It will not be shown again."
+                title: t("oauthClientCreateSuccessTitle"),
+                description: t("oauthClientCreateSuccessDescription")
             });
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Failed to create OAuth client",
+                title: t("oauthClientCreateErrorTitle"),
                 description: formatAxiosError(error)
             });
         } finally {
@@ -132,8 +139,8 @@ export default function CreateOAuthClientPage() {
     return (
         <>
             <SettingsSectionTitle
-                title="Create OAuth Client"
-                description="Register an application to use Login with Pangolin."
+                title={t("oauthClientsCreateTitle")}
+                description={t("oauthClientsCreateDescription")}
             />
 
             <Dialog
@@ -147,9 +154,11 @@ export default function CreateOAuthClientPage() {
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Client Secret</DialogTitle>
+                        <DialogTitle>
+                            {t("oauthClientSecretDialogTitle")}
+                        </DialogTitle>
                         <DialogDescription>
-                            This secret is shown only once. Store it in your application now.
+                            {t("oauthClientSecretDialogDescription")}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -164,7 +173,9 @@ export default function CreateOAuthClientPage() {
 
             <div className="space-y-6 max-w-2xl">
                 <div className="space-y-2">
-                    <Label htmlFor="client-name">Client Name</Label>
+                    <Label htmlFor="client-name">
+                        {t("oauthClientNameLabel")}
+                    </Label>
                     <Input
                         id="client-name"
                         value={clientName}
@@ -173,7 +184,9 @@ export default function CreateOAuthClientPage() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="client-uri">Homepage URL (optional)</Label>
+                    <Label htmlFor="client-uri">
+                        {t("oauthClientHomepageLabel")}
+                    </Label>
                     <Input
                         id="client-uri"
                         value={clientUri}
@@ -182,7 +195,9 @@ export default function CreateOAuthClientPage() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="logo-uri">Logo URL (optional)</Label>
+                    <Label htmlFor="logo-uri">
+                        {t("oauthClientLogoLabel")}
+                    </Label>
                     <Input
                         id="logo-uri"
                         value={logoUri}
@@ -191,7 +206,7 @@ export default function CreateOAuthClientPage() {
                 </div>
 
                 <div className="space-y-3">
-                    <Label>Redirect URIs</Label>
+                    <Label>{t("oauthClientRedirectUrisLabel")}</Label>
                     {redirectUris.map((redirectUri, index) => (
                         <div key={index} className="flex gap-2">
                             <Input
@@ -199,14 +214,16 @@ export default function CreateOAuthClientPage() {
                                 onChange={(event) =>
                                     updateRedirectUri(index, event.target.value)
                                 }
-                                placeholder="https://app.example.com/callback"
+                                placeholder={t(
+                                    "oauthClientRedirectUriPlaceholder"
+                                )}
                             />
                             {redirectUris.length > 1 && (
                                 <Button
                                     variant="outline"
                                     onClick={() => removeRedirectUri(index)}
                                 >
-                                    Remove
+                                    {t("oauthClientRemoveRedirectUri")}
                                 </Button>
                             )}
                         </div>
@@ -215,41 +232,57 @@ export default function CreateOAuthClientPage() {
                         variant="outline"
                         onClick={() => setRedirectUris((prev) => [...prev, ""])}
                     >
-                        Add Redirect URI
+                        {t("oauthClientAddRedirectUri")}
                     </Button>
                 </div>
 
                 <div className="space-y-3">
-                    <Label>Scopes</Label>
-                    <div className="text-xs text-muted-foreground">openid is always enabled.</div>
+                    <Label>{t("oauthClientScopesLabel")}</Label>
+                    <div className="text-xs text-muted-foreground">
+                        {t("oauthClientOpenidAlwaysEnabled")}
+                    </div>
                     <div className="flex items-center gap-2">
                         <Checkbox
                             checked={scopeProfile}
-                            onCheckedChange={(value) => setScopeProfile(value === true)}
+                            onCheckedChange={(value) =>
+                                setScopeProfile(value === true)
+                            }
                             id="scope-profile"
                         />
-                        <Label htmlFor="scope-profile">profile</Label>
+                        <Label htmlFor="scope-profile">
+                            {t("oauthClientScopeProfile")}
+                        </Label>
                     </div>
                     <div className="flex items-center gap-2">
                         <Checkbox
                             checked={scopeEmail}
-                            onCheckedChange={(value) => setScopeEmail(value === true)}
+                            onCheckedChange={(value) =>
+                                setScopeEmail(value === true)
+                            }
                             id="scope-email"
                         />
-                        <Label htmlFor="scope-email">email</Label>
+                        <Label htmlFor="scope-email">
+                            {t("oauthClientScopeEmail")}
+                        </Label>
                     </div>
                     <div className="flex items-center gap-2">
                         <Checkbox
                             checked={scopeGroups}
-                            onCheckedChange={(value) => setScopeGroups(value === true)}
+                            onCheckedChange={(value) =>
+                                setScopeGroups(value === true)
+                            }
                             id="scope-groups"
                         />
-                        <Label htmlFor="scope-groups">groups</Label>
+                        <Label htmlFor="scope-groups">
+                            {t("oauthClientScopeGroups")}
+                        </Label>
                     </div>
                 </div>
 
                 <div className="flex items-center justify-between">
-                    <Label htmlFor="pkce-required">Require PKCE</Label>
+                    <Label htmlFor="pkce-required">
+                        {t("oauthClientRequirePkceLabel")}
+                    </Label>
                     <Switch
                         id="pkce-required"
                         checked={pkceRequired}
@@ -258,7 +291,9 @@ export default function CreateOAuthClientPage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                    <Label htmlFor="client-enabled">Enabled</Label>
+                    <Label htmlFor="client-enabled">
+                        {t("oauthClientEnabledLabel")}
+                    </Label>
                     <Switch
                         id="client-enabled"
                         checked={enabled}
@@ -268,13 +303,17 @@ export default function CreateOAuthClientPage() {
 
                 <div className="flex gap-2">
                     <Button onClick={createClient} disabled={creating}>
-                        {creating ? "Creating..." : "Create OAuth Client"}
+                        {creating
+                            ? t("oauthClientCreateSubmitting")
+                            : t("oauthClientCreateButton")}
                     </Button>
                     <Button
                         variant="outline"
-                        onClick={() => router.push(`/${orgId}/settings/oauth-clients`)}
+                        onClick={() =>
+                            router.push(`/${orgId}/settings/oauth-clients`)
+                        }
                     >
-                        Cancel
+                        {t("cancel")}
                     </Button>
                 </div>
             </div>

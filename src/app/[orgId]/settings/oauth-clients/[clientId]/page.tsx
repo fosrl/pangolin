@@ -19,6 +19,7 @@ import {
     DialogTitle
 } from "@app/components/ui/dialog";
 import CopyTextBox from "@app/components/CopyTextBox";
+import { useTranslations } from "next-intl";
 
 type OAuthClient = {
     clientId: string;
@@ -82,6 +83,7 @@ export default function EditOAuthClientPage() {
     const api = createApiClient({ env });
     const params = useParams();
     const router = useRouter();
+    const t = useTranslations();
 
     const orgId = useMemo(() => {
         const rawOrgId = params.orgId;
@@ -146,7 +148,7 @@ export default function EditOAuthClientPage() {
             } catch (error) {
                 toast({
                     variant: "destructive",
-                    title: "Failed to load OAuth client",
+                    title: t("oauthClientLoadErrorTitle"),
                     description: formatAxiosError(error)
                 });
             } finally {
@@ -158,7 +160,9 @@ export default function EditOAuthClientPage() {
     }, [orgId, clientId]);
 
     function updateRedirectUri(index: number, value: string) {
-        setRedirectUris((prev) => prev.map((item, i) => (i === index ? value : item)));
+        setRedirectUris((prev) =>
+            prev.map((item, i) => (i === index ? value : item))
+        );
     }
 
     function removeRedirectUri(index: number) {
@@ -173,7 +177,7 @@ export default function EditOAuthClientPage() {
         if (!clientName.trim()) {
             toast({
                 variant: "destructive",
-                title: "Client name is required"
+                title: t("oauthClientNameRequired")
             });
             return;
         }
@@ -181,7 +185,7 @@ export default function EditOAuthClientPage() {
         if (cleanedRedirectUris.length === 0) {
             toast({
                 variant: "destructive",
-                title: "At least one redirect URI is required"
+                title: t("oauthClientRedirectUrisRequired")
             });
             return;
         }
@@ -211,13 +215,13 @@ export default function EditOAuthClientPage() {
             });
 
             toast({
-                title: "OAuth client updated",
-                description: "Changes saved successfully."
+                title: t("oauthClientUpdateSuccessTitle"),
+                description: t("oauthClientUpdateSuccessDescription")
             });
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Failed to update OAuth client",
+                title: t("oauthClientUpdateErrorTitle"),
                 description: formatAxiosError(error)
             });
         } finally {
@@ -233,34 +237,34 @@ export default function EditOAuthClientPage() {
 
             setRotatedSecret(res.data.data);
             toast({
-                title: "Secret rotated",
-                description: "A new client secret was issued."
+                title: t("oauthClientRotateSuccessTitle"),
+                description: t("oauthClientRotateSuccessDescription")
             });
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Failed to rotate secret",
+                title: t("oauthClientRotateErrorTitle"),
                 description: formatAxiosError(error)
             });
         }
     }
 
     async function deleteClient() {
-        if (!confirm("Delete this OAuth client?")) {
+        if (!confirm(t("oauthClientDeleteConfirm"))) {
             return;
         }
 
         try {
             await api.delete(`/org/${orgId}/oauth-clients/${clientId}`);
             toast({
-                title: "OAuth client deleted",
-                description: "The OAuth client was deleted successfully."
+                title: t("oauthClientDeleteSuccessTitle"),
+                description: t("oauthClientDeleteSuccessDescription")
             });
             router.push(`/${orgId}/settings/oauth-clients`);
         } catch (error) {
             toast({
                 variant: "destructive",
-                title: "Failed to delete OAuth client",
+                title: t("oauthClientDeleteErrorTitle"),
                 description: formatAxiosError(error)
             });
         }
@@ -269,8 +273,8 @@ export default function EditOAuthClientPage() {
     return (
         <>
             <SettingsSectionTitle
-                title="Edit OAuth Client"
-                description="Update client settings, rotate secrets, or delete this client."
+                title={t("oauthClientEditTitle")}
+                description={t("oauthClientEditDescription")}
             />
 
             <Dialog
@@ -283,9 +287,11 @@ export default function EditOAuthClientPage() {
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>New Client Secret</DialogTitle>
+                        <DialogTitle>
+                            {t("oauthClientNewSecretDialogTitle")}
+                        </DialogTitle>
                         <DialogDescription>
-                            This secret is shown only once. Save it now.
+                            {t("oauthClientNewSecretDialogDescription")}
                         </DialogDescription>
                     </DialogHeader>
                     {rotatedSecret && (
@@ -298,29 +304,41 @@ export default function EditOAuthClientPage() {
             </Dialog>
 
             {loading ? (
-                <p className="text-sm text-muted-foreground">Loading OAuth client...</p>
+                <p className="text-sm text-muted-foreground">
+                    {t("oauthClientLoading")}
+                </p>
             ) : (
                 <div className="space-y-6 max-w-2xl">
                     <div className="space-y-2">
-                        <Label htmlFor="client-name">Client Name</Label>
+                        <Label htmlFor="client-name">
+                            {t("oauthClientNameLabel")}
+                        </Label>
                         <Input
                             id="client-name"
                             value={clientName}
-                            onChange={(event) => setClientName(event.target.value)}
+                            onChange={(event) =>
+                                setClientName(event.target.value)
+                            }
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="client-uri">Homepage URL (optional)</Label>
+                        <Label htmlFor="client-uri">
+                            {t("oauthClientHomepageLabel")}
+                        </Label>
                         <Input
                             id="client-uri"
                             value={clientUri}
-                            onChange={(event) => setClientUri(event.target.value)}
+                            onChange={(event) =>
+                                setClientUri(event.target.value)
+                            }
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="logo-uri">Logo URL (optional)</Label>
+                        <Label htmlFor="logo-uri">
+                            {t("oauthClientLogoLabel")}
+                        </Label>
                         <Input
                             id="logo-uri"
                             value={logoUri}
@@ -329,64 +347,88 @@ export default function EditOAuthClientPage() {
                     </div>
 
                     <div className="space-y-3">
-                        <Label>Redirect URIs</Label>
+                        <Label>{t("oauthClientRedirectUrisLabel")}</Label>
                         {redirectUris.map((redirectUri, index) => (
                             <div key={index} className="flex gap-2">
                                 <Input
                                     value={redirectUri}
                                     onChange={(event) =>
-                                        updateRedirectUri(index, event.target.value)
+                                        updateRedirectUri(
+                                            index,
+                                            event.target.value
+                                        )
                                     }
+                                    placeholder={t(
+                                        "oauthClientRedirectUriPlaceholder"
+                                    )}
                                 />
                                 {redirectUris.length > 1 && (
                                     <Button
                                         variant="outline"
                                         onClick={() => removeRedirectUri(index)}
                                     >
-                                        Remove
+                                        {t("oauthClientRemoveRedirectUri")}
                                     </Button>
                                 )}
                             </div>
                         ))}
                         <Button
                             variant="outline"
-                            onClick={() => setRedirectUris((prev) => [...prev, ""])}
+                            onClick={() =>
+                                setRedirectUris((prev) => [...prev, ""])
+                            }
                         >
-                            Add Redirect URI
+                            {t("oauthClientAddRedirectUri")}
                         </Button>
                     </div>
 
                     <div className="space-y-3">
-                        <Label>Scopes</Label>
-                        <div className="text-xs text-muted-foreground">openid is always enabled.</div>
+                        <Label>{t("oauthClientScopesLabel")}</Label>
+                        <div className="text-xs text-muted-foreground">
+                            {t("oauthClientOpenidAlwaysEnabled")}
+                        </div>
                         <div className="flex items-center gap-2">
                             <Checkbox
                                 checked={scopeProfile}
-                                onCheckedChange={(value) => setScopeProfile(value === true)}
+                                onCheckedChange={(value) =>
+                                    setScopeProfile(value === true)
+                                }
                                 id="scope-profile"
                             />
-                            <Label htmlFor="scope-profile">profile</Label>
+                            <Label htmlFor="scope-profile">
+                                {t("oauthClientScopeProfile")}
+                            </Label>
                         </div>
                         <div className="flex items-center gap-2">
                             <Checkbox
                                 checked={scopeEmail}
-                                onCheckedChange={(value) => setScopeEmail(value === true)}
+                                onCheckedChange={(value) =>
+                                    setScopeEmail(value === true)
+                                }
                                 id="scope-email"
                             />
-                            <Label htmlFor="scope-email">email</Label>
+                            <Label htmlFor="scope-email">
+                                {t("oauthClientScopeEmail")}
+                            </Label>
                         </div>
                         <div className="flex items-center gap-2">
                             <Checkbox
                                 checked={scopeGroups}
-                                onCheckedChange={(value) => setScopeGroups(value === true)}
+                                onCheckedChange={(value) =>
+                                    setScopeGroups(value === true)
+                                }
                                 id="scope-groups"
                             />
-                            <Label htmlFor="scope-groups">groups</Label>
+                            <Label htmlFor="scope-groups">
+                                {t("oauthClientScopeGroups")}
+                            </Label>
                         </div>
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <Label htmlFor="pkce-required">Require PKCE</Label>
+                        <Label htmlFor="pkce-required">
+                            {t("oauthClientRequirePkceLabel")}
+                        </Label>
                         <Switch
                             id="pkce-required"
                             checked={pkceRequired}
@@ -395,7 +437,9 @@ export default function EditOAuthClientPage() {
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <Label htmlFor="client-enabled">Enabled</Label>
+                        <Label htmlFor="client-enabled">
+                            {t("oauthClientEnabledLabel")}
+                        </Label>
                         <Switch
                             id="client-enabled"
                             checked={enabled}
@@ -405,19 +449,23 @@ export default function EditOAuthClientPage() {
 
                     <div className="flex gap-2 flex-wrap">
                         <Button onClick={saveClient} disabled={saving}>
-                            {saving ? "Saving..." : "Save Changes"}
+                            {saving
+                                ? t("oauthClientSaveSubmitting")
+                                : t("saveChanges")}
                         </Button>
                         <Button variant="outline" onClick={rotateSecret}>
-                            Rotate Secret
+                            {t("oauthClientRotateButton")}
                         </Button>
                         <Button variant="destructive" onClick={deleteClient}>
-                            Delete Client
+                            {t("oauthClientDeleteButton")}
                         </Button>
                         <Button
                             variant="outline"
-                            onClick={() => router.push(`/${orgId}/settings/oauth-clients`)}
+                            onClick={() =>
+                                router.push(`/${orgId}/settings/oauth-clients`)
+                            }
                         >
-                            Back
+                            {t("oauthClientBackButton")}
                         </Button>
                     </div>
                 </div>

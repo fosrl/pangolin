@@ -11,6 +11,7 @@ import {
 import { Button } from "@app/components/ui/button";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 
 type OauthAuthorizeParams = {
     response_type?: string;
@@ -52,11 +53,11 @@ const consentResponseSchema = z.strictObject({
     status: z.number()
 });
 
-const scopeDescriptions: Record<string, string> = {
-    openid: "Authenticate with your Pangolin account",
-    profile: "Access your basic profile information",
-    email: "Access your email address",
-    groups: "Access your organization and role memberships"
+const scopeDescriptionKeys: Record<string, string> = {
+    openid: "oauthScopeOpenidDescription",
+    profile: "oauthScopeProfileDescription",
+    email: "oauthScopeEmailDescription",
+    groups: "oauthScopeGroupsDescription"
 };
 
 export default function ConsentPage({
@@ -64,6 +65,7 @@ export default function ConsentPage({
 }: {
     params: OauthAuthorizeParams;
 }) {
+    const t = useTranslations();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [consentLoading, setConsentLoading] = useState(false);
@@ -88,7 +90,7 @@ export default function ConsentPage({
     useEffect(() => {
         if (isMissingRequiredParams) {
             setLoading(false);
-            setError("Missing required OAuth parameters.");
+            setError(t("oauthAuthorizeMissingParams"));
             return;
         }
 
@@ -118,7 +120,7 @@ export default function ConsentPage({
 
                 if (!parsedPayload.success) {
                     if (!cancelled) {
-                        setError("Invalid OAuth authorization response.");
+                        setError(t("oauthAuthorizeInvalidInitResponse"));
                     }
                     return;
                 }
@@ -128,8 +130,7 @@ export default function ConsentPage({
                 if (!res.ok) {
                     if (!cancelled) {
                         setError(
-                            payload.message ||
-                                "Failed to start OAuth authorization."
+                            payload.message || t("oauthAuthorizeInitFailed")
                         );
                     }
                     return;
@@ -145,7 +146,7 @@ export default function ConsentPage({
                 }
             } catch {
                 if (!cancelled) {
-                    setError("Failed to connect to Pangolin OAuth service.");
+                    setError(t("oauthAuthorizeConnectionFailed"));
                 }
             } finally {
                 if (!cancelled) {
@@ -188,7 +189,7 @@ export default function ConsentPage({
             );
 
             if (!parsedPayload.success) {
-                setError("Invalid OAuth consent response.");
+                setError(t("oauthAuthorizeInvalidConsentResponse"));
                 setConsentLoading(false);
                 return;
             }
@@ -196,14 +197,14 @@ export default function ConsentPage({
             const payload = parsedPayload.data;
 
             if (!res.ok) {
-                setError(payload.message || "Failed to process OAuth consent.");
+                setError(payload.message || t("oauthAuthorizeConsentFailed"));
                 setConsentLoading(false);
                 return;
             }
 
             window.location.href = payload.data.redirectTo;
         } catch {
-            setError("Failed to submit OAuth consent.");
+            setError(t("oauthAuthorizeSubmitFailed"));
             setConsentLoading(false);
         }
     }
@@ -212,15 +213,15 @@ export default function ConsentPage({
         <div className="min-h-screen flex items-center justify-center px-4 py-8">
             <Card className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle>Authorize Application</CardTitle>
+                    <CardTitle>{t("oauthAuthorizeTitle")}</CardTitle>
                     <CardDescription>
-                        Review requested access before continuing.
+                        {t("oauthAuthorizeDescription")}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {loading && (
                         <p className="text-sm text-muted-foreground">
-                            Preparing authorization request...
+                            {t("oauthAuthorizePreparing")}
                         </p>
                     )}
 
@@ -246,7 +247,7 @@ export default function ConsentPage({
                                         <strong>
                                             {interaction.clientName}
                                         </strong>{" "}
-                                        wants to access your account.
+                                        {t("oauthAuthorizeClientRequestAccess")}
                                     </p>
                                     {interaction.clientUri && (
                                         <a
@@ -263,7 +264,7 @@ export default function ConsentPage({
 
                             <div className="space-y-2">
                                 <p className="text-sm font-medium">
-                                    Requested permissions
+                                    {t("oauthAuthorizeRequestedPermissions")}
                                 </p>
                                 <ul className="space-y-2">
                                     {interaction.requestedScopes.map(
@@ -276,8 +277,12 @@ export default function ConsentPage({
                                                     {scope}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {scopeDescriptions[scope] ||
-                                                        "Access requested by the application"}
+                                                    {t(
+                                                        scopeDescriptionKeys[
+                                                            scope
+                                                        ] ||
+                                                            "oauthAuthorizeUnknownScopeDescription"
+                                                    )}
                                                 </p>
                                             </li>
                                         )
@@ -291,13 +296,13 @@ export default function ConsentPage({
                                     onClick={() => submitConsent(false)}
                                     disabled={consentLoading}
                                 >
-                                    Deny
+                                    {t("deny")}
                                 </Button>
                                 <Button
                                     onClick={() => submitConsent(true)}
                                     disabled={consentLoading}
                                 >
-                                    Allow
+                                    {t("allow")}
                                 </Button>
                             </div>
                         </>
