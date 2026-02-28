@@ -9,6 +9,7 @@ import {
     real,
     serial,
     text,
+    uniqueIndex,
     varchar
 } from "drizzle-orm/pg-core";
 
@@ -668,6 +669,169 @@ export const apiKeyOrg = pgTable("apiKeyOrg", {
         .notNull()
 });
 
+export const oauthClients = pgTable(
+    "oauthClients",
+    {
+        clientId: text("clientId").primaryKey(),
+        clientSecretHash: text("clientSecretHash"),
+        lastChars: text("lastChars").notNull().default(""),
+        clientName: text("clientName").notNull(),
+        clientUri: text("clientUri"),
+        logoUri: text("logoUri"),
+        redirectUris: text("redirectUris").notNull(),
+        scopes: text("scopes").notNull().default("openid profile email"),
+        pkceRequired: boolean("pkceRequired").notNull().default(true),
+        enabled: boolean("enabled").notNull().default(true),
+        orgId: text("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+        updatedAt: bigint("updatedAt", { mode: "number" }).notNull()
+    },
+    (table) => [
+        index("idx_oauthClients_orgId").on(table.orgId),
+        index("idx_oauthClients_enabled").on(table.enabled)
+    ]
+);
+
+export const oauthInteractions = pgTable(
+    "oauthInteractions",
+    {
+        interactionId: text("interactionId").primaryKey(),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        state: text("state").notNull(),
+        nonce: text("nonce"),
+        redirectUri: text("redirectUri").notNull(),
+        codeChallenge: text("codeChallenge"),
+        codeChallengeMethod: text("codeChallengeMethod"),
+        responseType: text("responseType").notNull(),
+        expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull()
+    },
+    (table) => [
+        index("idx_oauthInteractions_expiresAt").on(table.expiresAt),
+        index("idx_oauthInteractions_clientId").on(table.clientId),
+        index("idx_oauthInteractions_userId").on(table.userId)
+    ]
+);
+
+export const oauthAuthorizationCodes = pgTable(
+    "oauthAuthorizationCodes",
+    {
+        codeId: text("codeId").primaryKey(),
+        codeHash: text("codeHash").notNull(),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        redirectUri: text("redirectUri").notNull(),
+        codeChallenge: text("codeChallenge"),
+        codeChallengeMethod: text("codeChallengeMethod"),
+        nonce: text("nonce"),
+        expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull()
+    },
+    (table) => [
+        uniqueIndex("uidx_oauthAuthorizationCodes_codeHash").on(table.codeHash),
+        index("idx_oauthAuthorizationCodes_expiresAt").on(table.expiresAt),
+        index("idx_oauthAuthorizationCodes_clientId").on(table.clientId),
+        index("idx_oauthAuthorizationCodes_userId").on(table.userId)
+    ]
+);
+
+export const oauthAccessTokens = pgTable(
+    "oauthAccessTokens",
+    {
+        accessTokenId: text("accessTokenId").primaryKey(),
+        tokenHash: text("tokenHash").notNull(),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull()
+    },
+    (table) => [
+        uniqueIndex("uidx_oauthAccessTokens_tokenHash").on(table.tokenHash),
+        index("idx_oauthAccessTokens_expiresAt").on(table.expiresAt),
+        index("idx_oauthAccessTokens_clientId").on(table.clientId),
+        index("idx_oauthAccessTokens_userId").on(table.userId)
+    ]
+);
+
+export const oauthRefreshTokens = pgTable(
+    "oauthRefreshTokens",
+    {
+        refreshTokenId: text("refreshTokenId").primaryKey(),
+        tokenHash: text("tokenHash").notNull(),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+        revokedAt: bigint("revokedAt", { mode: "number" }),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull()
+    },
+    (table) => [
+        uniqueIndex("uidx_oauthRefreshTokens_tokenHash").on(table.tokenHash),
+        index("idx_oauthRefreshTokens_expiresAt").on(table.expiresAt),
+        index("idx_oauthRefreshTokens_clientId").on(table.clientId),
+        index("idx_oauthRefreshTokens_userId").on(table.userId),
+        index("idx_oauthRefreshTokens_revokedAt").on(table.revokedAt)
+    ]
+);
+
+export const oauthConsents = pgTable(
+    "oauthConsents",
+    {
+        consentId: text("consentId").primaryKey(),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+        updatedAt: bigint("updatedAt", { mode: "number" }).notNull()
+    },
+    (table) => [
+        uniqueIndex("uidx_oauthConsents_userId_clientId").on(
+            table.userId,
+            table.clientId
+        ),
+        index("idx_oauthConsents_clientId").on(table.clientId)
+    ]
+);
+
+export const oauthSigningKeys = pgTable(
+    "oauthSigningKeys",
+    {
+        keyId: text("keyId").primaryKey(),
+        algorithm: text("algorithm").notNull(),
+        publicKeyPem: text("publicKeyPem").notNull(),
+        privateKeyPem: text("privateKeyPem").notNull(),
+        active: boolean("active").notNull().default(true),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull()
+    },
+    (table) => [index("idx_oauthSigningKeys_active").on(table.active)]
+);
+
 export const idpOrg = pgTable("idpOrg", {
     idpId: integer("idpId")
         .notNull()
@@ -1051,6 +1215,15 @@ export type Idp = InferSelectModel<typeof idp>;
 export type ApiKey = InferSelectModel<typeof apiKeys>;
 export type ApiKeyAction = InferSelectModel<typeof apiKeyActions>;
 export type ApiKeyOrg = InferSelectModel<typeof apiKeyOrg>;
+export type OauthClient = InferSelectModel<typeof oauthClients>;
+export type OauthInteraction = InferSelectModel<typeof oauthInteractions>;
+export type OauthAuthorizationCode = InferSelectModel<
+    typeof oauthAuthorizationCodes
+>;
+export type OauthAccessToken = InferSelectModel<typeof oauthAccessTokens>;
+export type OauthRefreshToken = InferSelectModel<typeof oauthRefreshTokens>;
+export type OauthConsent = InferSelectModel<typeof oauthConsents>;
+export type OauthSigningKey = InferSelectModel<typeof oauthSigningKeys>;
 export type Client = InferSelectModel<typeof clients>;
 export type ClientSite = InferSelectModel<typeof clientSitesAssociationsCache>;
 export type Olm = InferSelectModel<typeof olms>;

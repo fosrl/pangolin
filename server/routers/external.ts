@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import config from "@server/lib/config";
 import * as site from "./site";
 import * as org from "./org";
@@ -19,6 +19,7 @@ import * as logs from "./auditLogs";
 import * as newt from "./newt";
 import * as olm from "./olm";
 import * as serverInfo from "./serverInfo";
+import * as oauth from "./oauth";
 import HttpCode from "@server/types/HttpCode";
 import {
     verifyAccessTokenAccess,
@@ -42,7 +43,8 @@ import {
     verifyUserIsOrgOwner,
     verifySiteResourceAccess,
     verifyOlmAccess,
-    verifyLimits
+    verifyLimits,
+    verifyAdmin
 } from "@server/middlewares";
 import { ActionsEnum } from "@server/auth/actions";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -59,9 +61,69 @@ unauthenticated.get("/", (_, res) => {
     res.status(HttpCode.OK).json({ message: "Healthy" });
 });
 
+unauthenticated.post(
+    "/oauth/token",
+    express.urlencoded({ extended: false }),
+    oauth.issueToken
+);
+unauthenticated.get("/oauth/jwks", oauth.getJwks);
+unauthenticated.get("/oauth/userinfo", oauth.getUserinfo);
+unauthenticated.post("/oauth/userinfo", oauth.postUserinfo);
+unauthenticated.post(
+    "/oauth/revoke",
+    express.urlencoded({ extended: false }),
+    oauth.revokeToken
+);
+
 // Authenticated Root routes
 export const authenticated = Router();
 authenticated.use(verifySessionUserMiddleware);
+
+authenticated.post("/oauth/authorize/initiate", oauth.initiateAuthorization);
+authenticated.post("/oauth/authorize/consent", oauth.handleAuthorizationConsent);
+
+authenticated.post(
+    "/org/:orgId/oauth-clients",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.createOAuthClient),
+    oauth.createOAuthClient
+);
+authenticated.get(
+    "/org/:orgId/oauth-clients",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.listOAuthClients),
+    oauth.listOAuthClients
+);
+authenticated.get(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.listOAuthClients),
+    oauth.getOAuthClient
+);
+authenticated.patch(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.updateOAuthClient),
+    oauth.updateOAuthClient
+);
+authenticated.delete(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.deleteOAuthClient),
+    oauth.deleteOAuthClient
+);
+authenticated.post(
+    "/org/:orgId/oauth-clients/:clientId/rotate-secret",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.updateOAuthClient),
+    oauth.rotateOAuthClientSecret
+);
 
 authenticated.get("/pick-org-defaults", org.pickOrgDefaults);
 authenticated.get("/org/checkId", org.checkId);

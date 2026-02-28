@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Toestel goedkeuringen inschakelen",
     "approvalsEmptyStateStep2Description": "Bewerk een rol en schakel de optie 'Vereist Apparaat Goedkeuringen' in. Gebruikers met deze rol hebben admin goedkeuring nodig voor nieuwe apparaten.",
     "approvalsEmptyStatePreviewDescription": "Voorbeeld: Indien ingeschakeld, zullen in afwachting van apparaatverzoeken hier verschijnen om te beoordelen",
-    "approvalsEmptyStateButtonText": "Rollen beheren"
+    "approvalsEmptyStateButtonText": "Rollen beheren",
+    "sidebarOAuthClients": "OAuth Clients"
 }

@@ -68,7 +68,12 @@ export default async function Page(props: {
 
     let redirectUrl: string | undefined = undefined;
     if (searchParams.redirect) {
-        redirectUrl = cleanRedirect(searchParams.redirect as string);
+        const requestedRedirect = searchParams.redirect as string;
+        const preserveAllQueryParams =
+            requestedRedirect.startsWith("/oauth/authorize");
+        redirectUrl = cleanRedirect(requestedRedirect, {
+            allowAllQueryParams: preserveAllQueryParams
+        });
         searchParams.redirect = redirectUrl;
     }
 

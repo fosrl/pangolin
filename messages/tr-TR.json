@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Cihaz Onaylarını Etkinleştir",
     "approvalsEmptyStateStep2Description": "Bir rolü düzenleyin ve 'Cihaz Onaylarını Gerektir' seçeneğini etkinleştirin. Bu role sahip kullanıcıların yeni cihazlar için yönetici onayına ihtiyacı olacaktır.",
     "approvalsEmptyStatePreviewDescription": "Önizleme: Etkinleştirildiğinde, bekleyen cihaz talepleri incelenmek üzere burada görünecektir.",
-    "approvalsEmptyStateButtonText": "Rolleri Yönet"
+    "approvalsEmptyStateButtonText": "Rolleri Yönet",
+    "sidebarOAuthClients": "OAuth Clients"
 }

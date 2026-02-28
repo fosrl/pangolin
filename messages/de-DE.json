@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Gerätegenehmigungen aktivieren",
     "approvalsEmptyStateStep2Description": "Bearbeite eine Rolle und aktiviere die Option 'Gerätegenehmigung erforderlich'. Benutzer mit dieser Rolle benötigen Administrator-Genehmigung für neue Geräte.",
     "approvalsEmptyStatePreviewDescription": "Vorschau: Wenn aktiviert, werden ausstehende Geräteanfragen hier zur Überprüfung angezeigt",
-    "approvalsEmptyStateButtonText": "Rollen verwalten"
+    "approvalsEmptyStateButtonText": "Rollen verwalten",
+    "sidebarOAuthClients": "OAuth Clients"
 }

@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Включить утверждения устройства",
     "approvalsEmptyStateStep2Description": "Редактировать роль и включить опцию 'Требовать утверждения устройств'. Пользователям с этой ролью потребуется подтверждение администратора для новых устройств.",
     "approvalsEmptyStatePreviewDescription": "Предпросмотр: Если включено, ожидающие запросы на устройство появятся здесь для проверки",
-    "approvalsEmptyStateButtonText": "Управление ролями"
+    "approvalsEmptyStateButtonText": "Управление ролями",
+    "sidebarOAuthClients": "OAuth Clients"
 }

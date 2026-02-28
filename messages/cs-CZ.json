@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Povolit schválení zařízení",
     "approvalsEmptyStateStep2Description": "Upravte roli a povolte možnost 'Vyžadovat schválení zařízení'. Uživatelé s touto rolí budou potřebovat schválení pro nová zařízení správce.",
     "approvalsEmptyStatePreviewDescription": "Náhled: Pokud je povoleno, čekající na zařízení se zde zobrazí žádosti o recenzi",
-    "approvalsEmptyStateButtonText": "Spravovat role"
+    "approvalsEmptyStateButtonText": "Spravovat role",
+    "sidebarOAuthClients": "OAuth Clients"
 }

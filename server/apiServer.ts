@@ -22,6 +22,7 @@ import { stripDuplicateSesions } from "./middlewares/stripDuplicateSessions";
 import { corsWithLoginPageSupport } from "@server/lib/corsWithLoginPage";
 import { hybridRouter } from "#dynamic/routers/hybrid";
 import { billingWebhookHandler } from "#dynamic/routers/billing/webhooks";
+import { openidConfiguration } from "@server/routers/oauth";
 
 const dev = config.isDev;
 const externalPort = config.getRawConfig().server.external_port;
@@ -29,6 +30,8 @@ const externalPort = config.getRawConfig().server.external_port;
 export function createApiServer() {
     const apiServer = express();
     const prefix = `/api/v1`;
+
+    apiServer.get("/.well-known/openid-configuration", openidConfiguration);
 
     const trustProxy = config.getRawConfig().server.trust_proxy;
     if (trustProxy) {

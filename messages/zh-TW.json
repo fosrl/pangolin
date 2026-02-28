@@ -2394,5 +2394,6 @@
   "maintenanceScreenTitle": "服務暫時無法使用",
   "maintenanceScreenMessage": "我們目前遇到技術問題。請稍後再試。",
   "maintenanceScreenEstimatedCompletion": "預計完成時間：",
-  "createInternalResourceDialogDestinationRequired": "目的地為必填欄位"
+  "createInternalResourceDialogDestinationRequired": "目的地為必填欄位",
+    "sidebarOAuthClients": "OAuth Clients"
 }

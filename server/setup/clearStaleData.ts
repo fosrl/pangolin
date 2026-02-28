@@ -3,6 +3,9 @@ import { db, deviceWebAuthCodes, sessionTransferToken } from "@server/db";
 import {
     emailVerificationCodes,
     newtSessions,
+    oauthAccessTokens,
+    oauthAuthorizationCodes,
+    oauthInteractions,
     passwordResetTokens,
     resourceAccessToken,
     resourceOtp,
@@ -96,5 +99,29 @@ export async function clearStaleData() {
             .where(lt(deviceWebAuthCodes.expiresAt, new Date().getTime()));
     } catch (e) {
         logger.warn("Error clearing expired deviceWebAuthCodes:", e);
+    }
+
+    try {
+        await db
+            .delete(oauthInteractions)
+            .where(lt(oauthInteractions.expiresAt, new Date().getTime()));
+    } catch (e) {
+        logger.warn("Error clearing expired oauthInteractions:", e);
+    }
+
+    try {
+        await db
+            .delete(oauthAuthorizationCodes)
+            .where(lt(oauthAuthorizationCodes.expiresAt, new Date().getTime()));
+    } catch (e) {
+        logger.warn("Error clearing expired oauthAuthorizationCodes:", e);
+    }
+
+    try {
+        await db
+            .delete(oauthAccessTokens)
+            .where(lt(oauthAccessTokens.expiresAt, new Date().getTime()));
+    } catch (e) {
+        logger.warn("Error clearing expired oauthAccessTokens:", e);
     }
 }

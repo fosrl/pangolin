@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "启用设备批准",
     "approvalsEmptyStateStep2Description": "编辑角色并启用“需要设备审批”选项。具有此角色的用户需要管理员批准新设备。",
     "approvalsEmptyStatePreviewDescription": "预览：如果启用，待处理设备请求将出现在这里供审核",
-    "approvalsEmptyStateButtonText": "管理角色"
+    "approvalsEmptyStateButtonText": "管理角色",
+    "sidebarOAuthClients": "OAuth Clients"
 }

@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Habilitar aprobaciones de dispositivo",
     "approvalsEmptyStateStep2Description": "Editar un rol y habilitar la opción 'Requerir aprobaciones de dispositivos'. Los usuarios con este rol necesitarán la aprobación del administrador para nuevos dispositivos.",
     "approvalsEmptyStatePreviewDescription": "Vista previa: Cuando está habilitado, las solicitudes de dispositivo pendientes aparecerán aquí para su revisión",
-    "approvalsEmptyStateButtonText": "Administrar roles"
+    "approvalsEmptyStateButtonText": "Administrar roles",
+    "sidebarOAuthClients": "OAuth Clients"
 }

@@ -13,6 +13,17 @@ export function csrfProtectionMiddleware(
         return;
     }
 
+    const csrfExemptPaths = new Set([
+        "/api/v1/oauth/token",
+        "/api/v1/oauth/revoke",
+        "/api/v1/oauth/userinfo"
+    ]);
+
+    if (csrfExemptPaths.has(req.path)) {
+        next();
+        return;
+    }
+
     if (!csrfToken || csrfToken !== "x-csrf-protection") {
         res.status(403).json({
             error: "CSRF token missing or invalid"
