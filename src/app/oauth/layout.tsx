@@ -1,6 +1,5 @@
 import ThemeSwitcher from "@app/components/ThemeSwitcher";
 import { Separator } from "@app/components/ui/separator";
-import { pullEnv } from "@app/lib/pullEnv";
 import { build } from "@server/build";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -15,7 +14,6 @@ type OAuthLayoutProps = {
 };
 
 export default async function OAuthLayout({ children }: OAuthLayoutProps) {
-    const env = pullEnv();
     const t = await getTranslations();
 
     return (

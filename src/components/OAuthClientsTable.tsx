@@ -76,22 +76,21 @@ export default function OAuthClientsTable({
         }
     };
 
-    const deleteClient = (clientId: string) => {
-        api.delete(`/org/${orgId}/oauth-clients/${clientId}`)
-            .catch((e) => {
-                toast({
-                    variant: "destructive",
-                    title: t("oauthClientDeleteErrorTitle"),
-                    description: formatAxiosError(e)
-                });
-            })
-            .then(() => {
-                router.refresh();
-                setIsDeleteModalOpen(false);
-                setRows((prev) =>
-                    prev.filter((row) => row.clientId !== clientId)
-                );
+    const deleteClient = async (clientId: string) => {
+        try {
+            await api.delete(`/org/${orgId}/oauth-clients/${clientId}`);
+            router.refresh();
+            setIsDeleteModalOpen(false);
+            setRows((prev) =>
+                prev.filter((row) => row.clientId !== clientId)
+            );
+        } catch (e) {
+            toast({
+                variant: "destructive",
+                title: t("oauthClientDeleteErrorTitle"),
+                description: formatAxiosError(e)
             });
+        }
     };
 
     const rotateSecret = async (clientId: string) => {

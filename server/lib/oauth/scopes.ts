@@ -2,13 +2,6 @@ export const validScopes = ["openid", "profile", "email", "groups"] as const;
 
 export type OAuthScope = (typeof validScopes)[number];
 
-export const scopeDescriptions: Record<OAuthScope, string> = {
-    openid: "Authenticate with your Pangolin account",
-    profile: "Access your basic profile information",
-    email: "Access your email address and verification status",
-    groups: "Access your organization and role memberships"
-};
-
 function isOAuthScope(scope: string): scope is OAuthScope {
     return (
         scope === "openid" ||

@@ -43,7 +43,7 @@ export default function EditProfileDialog({
             setName(user.name || "");
             setUsername(user.username || "");
         }
-    }, [open]);
+    }, [open, user]);
 
     async function handleSave() {
         setLoading(true);
