@@ -346,14 +346,6 @@ export default function EditOAuthClientPage() {
 
             <SettingsContainer>
                 <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("oauthClientEditTitle")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            {t("oauthClientEditDescription")}
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
                     <SettingsSectionBody>
                         <SettingsSectionForm>
                             <div className="space-y-2">
