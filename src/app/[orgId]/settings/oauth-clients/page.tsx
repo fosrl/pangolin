@@ -1,11 +1,11 @@
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
-import { AxiosResponse } from "axios";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import OAuthClientsTable, {
     OAuthClientRow
 } from "@app/components/OAuthClientsTable";
 import { getTranslations } from "next-intl/server";
+import { parseRedirectUris } from "@app/lib/parseRedirectUris";
 
 type OAuthClientListItem = {
     clientId: string;
@@ -38,25 +38,13 @@ type OAuthClientsPageProps = {
 
 export const dynamic = "force-dynamic";
 
-function parseRedirectUris(redirectUris: string): string[] {
-    try {
-        const parsed = JSON.parse(redirectUris);
-        if (Array.isArray(parsed)) {
-            return parsed.filter((item) => typeof item === "string");
-        }
-        return [];
-    } catch {
-        return [];
-    }
-}
-
 export default async function OAuthClientsPage(props: OAuthClientsPageProps) {
     const params = await props.params;
     const t = await getTranslations();
 
     let clients: OAuthClientListItem[] = [];
     try {
-        const res = await internal.get<AxiosResponse<ListResponse>>(
+        const res = await internal.get<ListResponse>(
             `/org/${params.orgId}/oauth-clients`,
             await authCookieHeader()
         );

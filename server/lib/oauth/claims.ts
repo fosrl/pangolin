@@ -84,15 +84,12 @@ export async function buildIdTokenClaims(
     scope: string,
     nonce?: string
 ): Promise<Record<string, unknown>> {
-    const now = Math.floor(Date.now() / 1000);
     const baseClaims = await buildBaseClaims(userId, scope);
 
     return {
         iss: getIssuerUrl(),
         sub: baseClaims.sub,
         aud: clientId,
-        exp: now + 3600,
-        iat: now,
         ...(nonce ? { nonce } : {}),
         ...(baseClaims.email ? { email: baseClaims.email } : {}),
         ...(baseClaims.email_verified !== undefined
