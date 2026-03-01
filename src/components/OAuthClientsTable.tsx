@@ -12,7 +12,7 @@ import { Button } from "@app/components/ui/button";
 import { ArrowRight, ArrowUpDown, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { Badge } from "@app/components/ui/badge";
 import { toast } from "@app/hooks/useToast";
@@ -51,6 +51,9 @@ export default function OAuthClientsTable({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selected, setSelected] = useState<OAuthClientRow | null>(null);
     const [rows, setRows] = useState<OAuthClientRow[]>(clients);
+    useEffect(() => {
+        setRows(clients);
+    }, [clients]);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [rotatedSecret, setRotatedSecret] = useState<{
         clientId: string;

@@ -243,13 +243,16 @@ export default function ConsentPage({
                     {!loading && !error && interaction && (
                         <>
                             <div className="space-y-3">
-                                {interaction.logoUri && (
-                                    <img
-                                        src={interaction.logoUri}
-                                        alt={interaction.clientName}
-                                        className="w-10 h-10 rounded"
-                                    />
-                                )}
+                                {interaction.logoUri &&
+                                    /^https?:\/\//.test(
+                                        interaction.logoUri
+                                    ) && (
+                                        <img
+                                            src={interaction.logoUri}
+                                            alt={interaction.clientName}
+                                            className="w-10 h-10 rounded"
+                                        />
+                                    )}
 
                                 <div className="space-y-1">
                                     <p className="text-sm">
@@ -258,16 +261,19 @@ export default function ConsentPage({
                                         </strong>{" "}
                                         {t("oauthAuthorizeClientRequestAccess")}
                                     </p>
-                                    {interaction.clientUri && (
-                                        <a
-                                            href={interaction.clientUri}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-xs text-muted-foreground underline"
-                                        >
-                                            {interaction.clientUri}
-                                        </a>
-                                    )}
+                                    {interaction.clientUri &&
+                                        /^https?:\/\//.test(
+                                            interaction.clientUri
+                                        ) && (
+                                            <a
+                                                href={interaction.clientUri}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-xs text-muted-foreground underline"
+                                            >
+                                                {interaction.clientUri}
+                                            </a>
+                                        )}
                                 </div>
                             </div>
 
