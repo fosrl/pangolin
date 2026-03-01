@@ -4,11 +4,8 @@ import {
     SettingsContainer,
     SettingsSection,
     SettingsSectionBody,
-    SettingsSectionDescription,
     SettingsSectionFooter,
-    SettingsSectionForm,
-    SettingsSectionHeader,
-    SettingsSectionTitle
+    SettingsSectionForm
 } from "@app/components/Settings";
 import SettingsHeaderTitle from "@app/components/SettingsSectionTitle";
 import { useMemo, useState } from "react";
@@ -198,14 +195,6 @@ export default function CreateOAuthClientPage() {
 
             <SettingsContainer>
                 <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("oauthClientsCreateTitle")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            {t("oauthClientsCreateDescription")}
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
                     <SettingsSectionBody>
                         <SettingsSectionForm>
                             <div className="space-y-2">
