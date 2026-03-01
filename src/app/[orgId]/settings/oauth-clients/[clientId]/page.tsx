@@ -30,6 +30,7 @@ import {
 import CopyTextBox from "@app/components/CopyTextBox";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
+import { parseRedirectUris } from "@app/lib/parseRedirectUris";
 
 type OAuthClient = {
     clientId: string;
@@ -66,18 +67,6 @@ type RotateSecretResponse = {
     message: string;
     status: number;
 };
-
-function parseRedirectUris(redirectUris: string): string[] {
-    try {
-        const parsed = JSON.parse(redirectUris);
-        if (Array.isArray(parsed)) {
-            return parsed.filter((item) => typeof item === "string");
-        }
-        return [];
-    } catch {
-        return [];
-    }
-}
 
 function parseScopes(scopeString: string): Set<string> {
     return new Set(
