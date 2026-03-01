@@ -2758,5 +2758,18 @@
     "oauthClientNewSecretDialogTitle": "New Client Secret",
     "oauthClientNewSecretDialogDescription": "This secret is shown only once. Save it now.",
     "oauthClientsSearch": "Search OAuth clients...",
-    "oauthClientOptionsTitle": "Options"
+    "oauthClientOptionsTitle": "Options",
+    "connectedApps": "Connected Apps",
+    "connectedAppsDescription": "Manage applications you've authorized to access your account.",
+    "noConnectedApps": "No connected apps. Apps you authorize will appear here.",
+    "disconnect": "Disconnect",
+    "connectedAppScopes": "Permissions",
+    "connectedAppAuthorizedOn": "Authorized on {date}",
+    "connectedAppDisconnected": "App disconnected",
+    "connectedAppDisconnectedDescription": "The app has been disconnected and its access has been revoked.",
+    "connectedAppDisconnectError": "Failed to disconnect app",
+    "connectedAppDisconnectConfirmTitle": "Disconnect app?",
+    "connectedAppDisconnectConfirmDescription": "This will revoke access for {appName}. The app will no longer be able to act on your behalf.",
+    "connectedAppDisconnectConfirmWarning": "You will need to re-authorize this app if you want to use it again.",
+    "connectedAppsLoadError": "Failed to load connected apps"
 }

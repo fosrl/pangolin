@@ -5,3 +5,4 @@ export * from "./token";
 export * from "./userinfo";
 export * from "./revoke";
 export * from "./clients";
+export * from "./consents";

@@ -85,6 +85,12 @@ authenticated.post(
     oauth.handleAuthorizationConsent
 );
 
+authenticated.get("/user/oauth/consents", oauth.listUserConsents);
+authenticated.delete(
+    "/user/oauth/consent/:consentId",
+    oauth.deleteUserConsent
+);
+
 authenticated.post(
     "/org/:orgId/oauth-clients",
     verifyOrgAccess,

@@ -15,7 +15,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { formatAxiosError } from "@app/lib/api";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
-import { Laptop, LogOut, Moon, Sun, Smartphone, Trash2 } from "lucide-react";
+import { AppWindow, Laptop, LogOut, Moon, Sun, Smartphone, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -157,6 +157,15 @@ export default function ProfileIcon() {
                     <DropdownMenuItem onClick={() => setOpenViewDevices(true)}>
                         <Smartphone className="mr-2 h-4 w-4" />
                         <span>{t("viewDevices") || "View Devices"}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link
+                            href="/auth/connected-apps"
+                            className="flex cursor-pointer items-center"
+                        >
+                            <AppWindow className="mr-2 h-4 w-4" />
+                            <span>{t("connectedApps")}</span>
+                        </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>{t("theme")}</DropdownMenuLabel>
