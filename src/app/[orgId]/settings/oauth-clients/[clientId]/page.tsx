@@ -315,10 +315,16 @@ export default function EditOAuthClientPage() {
                         </DialogDescription>
                     </DialogHeader>
                     {rotatedSecret && (
-                        <CopyTextBox
-                            text={`${rotatedSecret.clientId}.${rotatedSecret.clientSecret}`}
-                            wrapText
-                        />
+                        <div className="space-y-3">
+                            <div className="space-y-1">
+                                <Label>{t("oauthClientIdHeader")}</Label>
+                                <CopyTextBox text={rotatedSecret.clientId} wrapText />
+                            </div>
+                            <div className="space-y-1">
+                                <Label>{t("oauthClientSecretLabel")}</Label>
+                                <CopyTextBox text={rotatedSecret.clientSecret} wrapText />
+                            </div>
+                        </div>
                     )}
                 </DialogContent>
             </Dialog>
@@ -347,6 +353,13 @@ export default function EditOAuthClientPage() {
                     <SettingsSectionBody>
                         <SettingsSectionForm>
                             <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label>
+                                        {t("oauthClientIdHeader")}
+                                    </Label>
+                                    <CopyTextBox text={clientId} />
+                                </div>
+
                                 <div className="space-y-2">
                                     <Label htmlFor="client-name">
                                         {t("oauthClientNameLabel")}

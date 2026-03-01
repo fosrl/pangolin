@@ -2753,6 +2753,7 @@
     "oauthClientRotateButton": "Rotate Secret",
     "oauthClientDeleteButton": "Delete Client",
     "oauthClientBackButton": "Back",
+    "oauthClientSecretLabel": "Client Secret",
     "oauthClientSecretDialogTitle": "Client Secret",
     "oauthClientSecretDialogDescription": "This secret is shown only once. Store it in your application now.",
     "oauthClientNewSecretDialogTitle": "New Client Secret",
