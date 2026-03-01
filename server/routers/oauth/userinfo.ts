@@ -23,6 +23,7 @@ async function handleUserinfoRequest(
     const token = extractBearerToken(req);
 
     if (!token) {
+        res.setHeader("WWW-Authenticate", "Bearer");
         return next(
             createHttpError(HttpCode.UNAUTHORIZED, "Missing bearer token")
         );
@@ -35,6 +36,10 @@ async function handleUserinfoRequest(
         .limit(1);
 
     if (!accessToken || Date.now() > accessToken.expiresAt) {
+        res.setHeader(
+            "WWW-Authenticate",
+            'Bearer error="invalid_token"'
+        );
         return next(
             createHttpError(HttpCode.UNAUTHORIZED, "Invalid or expired token")
         );
