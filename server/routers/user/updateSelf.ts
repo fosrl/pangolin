@@ -10,7 +10,7 @@ import { fromError } from "zod-validation-error";
 
 const updateSelfBodySchema = z.strictObject({
     name: z.string().trim().min(1).max(255).optional(),
-    username: z.string().trim().min(1).max(255).optional()
+    username: z.string().trim().toLowerCase().min(1).max(255).optional()
 });
 
 export async function updateSelf(

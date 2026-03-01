@@ -171,7 +171,10 @@ export default function ConnectedAppsClient() {
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-3">
-                                        {consent.logoUri ? (
+                                        {consent.logoUri &&
+                                        /^https?:\/\//.test(
+                                            consent.logoUri
+                                        ) ? (
                                             <img
                                                 src={consent.logoUri}
                                                 alt={consent.clientName}

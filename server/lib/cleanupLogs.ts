@@ -3,6 +3,7 @@ import {
     oauthAccessTokens,
     oauthAuthorizationCodes,
     oauthInteractions,
+    oauthRefreshTokens,
     orgs
 } from "@server/db";
 import { cleanUpOldLogs as cleanUpOldAccessLogs } from "#dynamic/lib/logAccessAudit";
@@ -92,6 +93,17 @@ export function initLogCleanupInterval() {
                     .where(lt(oauthAccessTokens.expiresAt, Date.now()));
             } catch (error) {
                 logger.warn("Error clearing expired oauthAccessTokens:", error);
+            }
+
+            try {
+                await db
+                    .delete(oauthRefreshTokens)
+                    .where(lt(oauthRefreshTokens.expiresAt, Date.now()));
+            } catch (error) {
+                logger.warn(
+                    "Error clearing expired oauthRefreshTokens:",
+                    error
+                );
             }
         },
         3 * 60 * 60 * 1000

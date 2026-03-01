@@ -60,8 +60,8 @@ export function parseBasicAuth(
         }
 
         return {
-            clientId: decoded.slice(0, separatorIndex),
-            clientSecret: decoded.slice(separatorIndex + 1)
+            clientId: decodeURIComponent(decoded.slice(0, separatorIndex)),
+            clientSecret: decodeURIComponent(decoded.slice(separatorIndex + 1))
         };
     } catch {
         return null;
