@@ -181,10 +181,16 @@ export default function CreateOAuthClientPage() {
                         </DialogDescription>
                     </DialogHeader>
                     {createdSecret && (
-                        <CopyTextBox
-                            text={`${createdSecret.clientId}.${createdSecret.clientSecret}`}
-                            wrapText
-                        />
+                        <div className="space-y-3">
+                            <div className="space-y-1">
+                                <Label>{t("oauthClientIdHeader")}</Label>
+                                <CopyTextBox text={createdSecret.clientId} wrapText />
+                            </div>
+                            <div className="space-y-1">
+                                <Label>{t("oauthClientSecretLabel")}</Label>
+                                <CopyTextBox text={createdSecret.clientSecret} wrapText />
+                            </div>
+                        </div>
                     )}
                 </DialogContent>
             </Dialog>

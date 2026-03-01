@@ -9,7 +9,13 @@ import {
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
 import { Button } from "@app/components/ui/button";
-import { ArrowRight, ArrowUpDown, MoreHorizontal } from "lucide-react";
+import {
+    ArrowRight,
+    ArrowUpDown,
+    Check,
+    Copy,
+    MoreHorizontal
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -42,6 +48,39 @@ type OAuthClientsTableProps = {
     clients: OAuthClientRow[];
     orgId: string;
 };
+
+function ClientIdCell({ id, truncated }: { id: string; truncated: string }) {
+    const [copied, setCopied] = useState(false);
+    const t = useTranslations();
+
+    const copy = async () => {
+        try {
+            await navigator.clipboard.writeText(id);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            toast({
+                variant: "destructive",
+                title: t("copyTextFailed")
+            });
+        }
+    };
+
+    return (
+        <button
+            onClick={copy}
+            className="inline-flex items-center gap-1.5 font-mono text-xs hover:text-foreground text-muted-foreground transition-colors"
+            title={id}
+        >
+            {truncated}
+            {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+            ) : (
+                <Copy className="h-3 w-3" />
+            )}
+        </button>
+    );
+}
 
 export default function OAuthClientsTable({
     clients,
@@ -146,7 +185,7 @@ export default function OAuthClientsTable({
                     id.length > 14
                         ? `${id.slice(0, 8)}...${id.slice(-4)}`
                         : id;
-                return <span className="font-mono text-xs">{truncated}</span>;
+                return <ClientIdCell id={id} truncated={truncated} />;
             }
         },
         {
@@ -289,10 +328,16 @@ export default function OAuthClientsTable({
                         </DialogDescription>
                     </DialogHeader>
                     {rotatedSecret && (
-                        <CopyTextBox
-                            text={`${rotatedSecret.clientId}.${rotatedSecret.clientSecret}`}
-                            wrapText
-                        />
+                        <div className="space-y-3">
+                            <div className="space-y-1">
+                                <p className="text-sm font-medium">{t("oauthClientIdHeader")}</p>
+                                <CopyTextBox text={rotatedSecret.clientId} wrapText />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-medium">{t("oauthClientSecretLabel")}</p>
+                                <CopyTextBox text={rotatedSecret.clientSecret} wrapText />
+                            </div>
+                        </div>
                     )}
                 </DialogContent>
             </Dialog>

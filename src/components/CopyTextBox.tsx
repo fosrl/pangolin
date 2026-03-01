@@ -55,7 +55,7 @@ export default function CopyTextBox({
                     centered ? "px-16 text-center" : "pl-4 pr-16"
                 } ${
                     wrapText
-                        ? "whitespace-pre-wrap break-words"
+                        ? "whitespace-pre-wrap break-all"
                         : "overflow-x-auto"
                 }`}
             >
