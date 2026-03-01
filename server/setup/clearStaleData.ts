@@ -6,6 +6,7 @@ import {
     oauthAccessTokens,
     oauthAuthorizationCodes,
     oauthInteractions,
+    oauthRefreshTokens,
     passwordResetTokens,
     resourceAccessToken,
     resourceOtp,
@@ -123,5 +124,13 @@ export async function clearStaleData() {
             .where(lt(oauthAccessTokens.expiresAt, new Date().getTime()));
     } catch (e) {
         logger.warn("Error clearing expired oauthAccessTokens:", e);
+    }
+
+    try {
+        await db
+            .delete(oauthRefreshTokens)
+            .where(lt(oauthRefreshTokens.expiresAt, new Date().getTime()));
+    } catch (e) {
+        logger.warn("Error clearing expired oauthRefreshTokens:", e);
     }
 }

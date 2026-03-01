@@ -61,8 +61,21 @@ unauthenticated.get("/", (_, res) => {
     res.status(HttpCode.OK).json({ message: "Healthy" });
 });
 
+const oauthTokenRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 50,
+    keyGenerator: (req) =>
+        `oauthToken:${ipKeyGenerator(req.ip || "")}`,
+    handler: (req, res, next) => {
+        const message = `You can only make ${50} token requests every ${15} minutes. Please try again later.`;
+        return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
+    },
+    store: createStore()
+});
+
 unauthenticated.post(
     "/oauth/token",
+    oauthTokenRateLimit,
     express.urlencoded({ extended: false }),
     oauth.issueToken
 );
@@ -71,6 +84,7 @@ unauthenticated.get("/oauth/userinfo", oauth.getUserinfo);
 unauthenticated.post("/oauth/userinfo", oauth.postUserinfo);
 unauthenticated.post(
     "/oauth/revoke",
+    oauthTokenRateLimit,
     express.urlencoded({ extended: false }),
     oauth.revokeToken
 );

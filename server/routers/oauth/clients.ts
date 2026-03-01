@@ -30,8 +30,8 @@ const clientParamsSchema = z.strictObject({
 const createBodySchema = z.strictObject({
     clientName: z.string().min(1).max(255),
     redirectUris: z.array(z.string().url()).min(1),
-    clientUri: z.string().optional(),
-    logoUri: z.string().optional(),
+    clientUri: z.string().url().optional(),
+    logoUri: z.string().url().optional(),
     scopes: z
         .array(z.enum(["openid", "profile", "email", "groups"]))
         .optional()
@@ -42,9 +42,9 @@ const createBodySchema = z.strictObject({
 
 const updateBodySchema = z.strictObject({
     clientName: z.string().min(1).max(255).optional(),
-    redirectUris: z.array(z.string().min(1)).min(1).optional(),
-    clientUri: z.string().optional(),
-    logoUri: z.string().optional(),
+    redirectUris: z.array(z.string().url()).min(1).optional(),
+    clientUri: z.string().url().optional(),
+    logoUri: z.string().url().optional(),
     scopes: z
         .array(z.enum(["openid", "profile", "email", "groups"]))
         .optional(),

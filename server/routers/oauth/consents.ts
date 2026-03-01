@@ -108,22 +108,24 @@ export async function deleteUserConsent(
             );
         }
 
-        // Revoke all active refresh tokens for this user+client pair
-        await db
-            .update(oauthRefreshTokens)
-            .set({ revokedAt: Date.now() })
-            .where(
-                and(
-                    eq(oauthRefreshTokens.userId, userId),
-                    eq(oauthRefreshTokens.clientId, consent.clientId),
-                    isNull(oauthRefreshTokens.revokedAt)
-                )
-            );
+        await db.transaction(async (trx) => {
+            // Revoke all active refresh tokens for this user+client pair
+            await trx
+                .update(oauthRefreshTokens)
+                .set({ revokedAt: Date.now() })
+                .where(
+                    and(
+                        eq(oauthRefreshTokens.userId, userId),
+                        eq(oauthRefreshTokens.clientId, consent.clientId),
+                        isNull(oauthRefreshTokens.revokedAt)
+                    )
+                );
 
-        // Delete the consent
-        await db
-            .delete(oauthConsents)
-            .where(eq(oauthConsents.consentId, consentId));
+            // Delete the consent
+            await trx
+                .delete(oauthConsents)
+                .where(eq(oauthConsents.consentId, consentId));
+        });
 
         return response(res, {
             data: null,

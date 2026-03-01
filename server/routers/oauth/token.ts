@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { createHash } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import {
     db,
@@ -27,7 +27,11 @@ import logger from "@server/logger";
 
 function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
     const hash = createHash("sha256").update(codeVerifier).digest();
-    return hash.toString("base64url") === codeChallenge;
+    const expected = Buffer.from(codeChallenge, "base64url");
+    if (hash.length !== expected.length) {
+        return false;
+    }
+    return timingSafeEqual(hash, expected);
 }
 
 function isScopeSubset(candidateScope: string, originalScope: string): boolean {
@@ -72,11 +76,13 @@ export async function issueToken(
                 });
             }
 
+            // Atomically consume the auth code to prevent race conditions (TOCTOU).
+            // Per RFC 6749 Section 10.5, a code presented with invalid params
+            // after atomic deletion is correctly invalidated.
             const [authCode] = await db
-                .select()
-                .from(oauthAuthorizationCodes)
+                .delete(oauthAuthorizationCodes)
                 .where(eq(oauthAuthorizationCodes.codeHash, hashToken(code)))
-                .limit(1);
+                .returning();
 
             if (!authCode) {
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
@@ -86,9 +92,6 @@ export async function issueToken(
             }
 
             if (Date.now() > authCode.expiresAt) {
-                await db
-                    .delete(oauthAuthorizationCodes)
-                    .where(eq(oauthAuthorizationCodes.codeId, authCode.codeId));
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_grant",
                     error_description: "Authorization code has expired"
@@ -140,10 +143,6 @@ export async function issueToken(
             const refreshToken = generateRefreshToken();
 
             await db.transaction(async (trx) => {
-                await trx
-                    .delete(oauthAuthorizationCodes)
-                    .where(eq(oauthAuthorizationCodes.codeId, authCode.codeId));
-
                 await trx.insert(oauthAccessTokens).values({
                     accessTokenId: generateIdFromEntropySize(12),
                     tokenHash: hashToken(accessToken),
@@ -295,25 +294,30 @@ export async function issueToken(
                 });
             });
 
-            const claims = await buildIdTokenClaims(
-                existingRefreshToken.userId,
-                existingRefreshToken.clientId,
-                finalScope
-            );
-            const signingKey = await getActiveSigningKey();
-
-            return res.status(HttpCode.OK).json({
+            const responseBody: Record<string, unknown> = {
                 access_token: nextAccessToken,
                 token_type: "Bearer",
                 expires_in: 3600,
                 refresh_token: nextRefreshToken,
-                id_token: signIdToken(
+                scope: finalScope
+            };
+
+            if (parseScopeString(finalScope).includes("openid")) {
+                const claims = await buildIdTokenClaims(
+                    existingRefreshToken.userId,
+                    existingRefreshToken.clientId,
+                    finalScope
+                );
+                const signingKey = await getActiveSigningKey();
+
+                responseBody.id_token = signIdToken(
                     claims,
                     signingKey.privateKeyPem,
                     signingKey.keyId
-                ),
-                scope: finalScope
-            });
+                );
+            }
+
+            return res.status(HttpCode.OK).json(responseBody);
         }
 
         return sendOAuthError(res, HttpCode.BAD_REQUEST, {
