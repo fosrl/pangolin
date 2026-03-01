@@ -29,7 +29,7 @@ const clientParamsSchema = z.strictObject({
 
 const createBodySchema = z.strictObject({
     clientName: z.string().min(1).max(255),
-    redirectUris: z.array(z.string().min(1)).min(1),
+    redirectUris: z.array(z.string().url()).min(1),
     clientUri: z.string().optional(),
     logoUri: z.string().optional(),
     scopes: z

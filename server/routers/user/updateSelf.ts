@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, users } from "@server/db";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -45,6 +45,28 @@ export async function updateSelf(
                     "At least one field is required"
                 )
             );
+        }
+
+        if (username) {
+            const [existing] = await db
+                .select({ userId: users.userId })
+                .from(users)
+                .where(
+                    and(
+                        eq(users.username, username),
+                        ne(users.userId, userId)
+                    )
+                )
+                .limit(1);
+
+            if (existing) {
+                return next(
+                    createHttpError(
+                        HttpCode.CONFLICT,
+                        "Username is already taken"
+                    )
+                );
+            }
         }
 
         await db

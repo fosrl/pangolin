@@ -1,5 +1,11 @@
 import { NextFunction, Request, Response } from "express";
 
+const csrfExemptPaths = new Set([
+    "/api/v1/oauth/token",
+    "/api/v1/oauth/revoke",
+    "/api/v1/oauth/userinfo"
+]);
+
 export function csrfProtectionMiddleware(
     req: Request,
     res: Response,
@@ -12,12 +18,6 @@ export function csrfProtectionMiddleware(
         next();
         return;
     }
-
-    const csrfExemptPaths = new Set([
-        "/api/v1/oauth/token",
-        "/api/v1/oauth/revoke",
-        "/api/v1/oauth/userinfo"
-    ]);
 
     if (csrfExemptPaths.has(req.path)) {
         next();
