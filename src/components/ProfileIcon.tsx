@@ -15,7 +15,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { formatAxiosError } from "@app/lib/api";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
-import { AppWindow, Laptop, LogOut, Moon, Sun, Smartphone, Trash2 } from "lucide-react";
+import { AppWindow, Laptop, LogOut, Moon, Pencil, Sun, Smartphone, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -27,6 +27,7 @@ import SecurityKeyForm from "./SecurityKeyForm";
 import Enable2FaDialog from "./Enable2FaDialog";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import ViewDevicesDialog from "./ViewDevicesDialog";
+import EditProfileDialog from "./EditProfileDialog";
 import SupporterStatus from "./SupporterStatus";
 import { UserType } from "@server/types/UserTypes";
 import LocaleSwitcher from "@app/components/LocaleSwitcher";
@@ -48,6 +49,7 @@ export default function ProfileIcon() {
     const [openSecurityKey, setOpenSecurityKey] = useState(false);
     const [openChangePassword, setOpenChangePassword] = useState(false);
     const [openViewDevices, setOpenViewDevices] = useState(false);
+    const [openEditProfile, setOpenEditProfile] = useState(false);
 
     const t = useTranslations();
 
@@ -92,6 +94,10 @@ export default function ProfileIcon() {
                 open={openViewDevices}
                 setOpen={setOpenViewDevices}
             />
+            <EditProfileDialog
+                open={openEditProfile}
+                setOpen={setOpenEditProfile}
+            />
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -124,6 +130,11 @@ export default function ProfileIcon() {
                             </p>
                         )}
                     </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setOpenEditProfile(true)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        <span>{t("editProfile")}</span>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {user?.type === UserType.Internal && (
                         <>

@@ -2771,5 +2771,14 @@
     "connectedAppDisconnectConfirmTitle": "Disconnect app?",
     "connectedAppDisconnectConfirmDescription": "This will revoke access for {appName}. The app will no longer be able to act on your behalf.",
     "connectedAppDisconnectConfirmWarning": "You will need to re-authorize this app if you want to use it again.",
-    "connectedAppsLoadError": "Failed to load connected apps"
+    "connectedAppsLoadError": "Failed to load connected apps",
+    "editProfile": "Edit Profile",
+    "editProfileDescription": "Update your display name and username.",
+    "profileName": "Display Name",
+    "profileNamePlaceholder": "Enter your name",
+    "profileUsername": "Username",
+    "profileUsernamePlaceholder": "Enter your username",
+    "profileUpdated": "Profile updated",
+    "profileUpdatedDescription": "Your profile has been updated successfully.",
+    "profileUpdateError": "Failed to update profile"
 }
