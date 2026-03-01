@@ -672,17 +672,17 @@ export const apiKeyOrg = pgTable("apiKeyOrg", {
 export const oauthClients = pgTable(
     "oauthClients",
     {
-        clientId: text("clientId").primaryKey(),
-        clientSecretHash: text("clientSecretHash"),
-        lastChars: text("lastChars").notNull().default(""),
-        clientName: text("clientName").notNull(),
-        clientUri: text("clientUri"),
-        logoUri: text("logoUri"),
-        redirectUris: text("redirectUris").notNull(),
-        scopes: text("scopes").notNull().default("openid profile email"),
+        clientId: varchar("clientId").primaryKey(),
+        clientSecretHash: varchar("clientSecretHash"),
+        lastChars: varchar("lastChars").notNull().default(""),
+        clientName: varchar("clientName").notNull(),
+        clientUri: varchar("clientUri"),
+        logoUri: varchar("logoUri"),
+        redirectUris: varchar("redirectUris").notNull(),
+        scopes: varchar("scopes").notNull().default("openid profile email"),
         pkceRequired: boolean("pkceRequired").notNull().default(true),
         enabled: boolean("enabled").notNull().default(true),
-        orgId: text("orgId")
+        orgId: varchar("orgId")
             .notNull()
             .references(() => orgs.orgId, { onDelete: "cascade" }),
         createdAt: bigint("createdAt", { mode: "number" }).notNull(),
@@ -697,20 +697,20 @@ export const oauthClients = pgTable(
 export const oauthInteractions = pgTable(
     "oauthInteractions",
     {
-        interactionId: text("interactionId").primaryKey(),
-        clientId: text("clientId")
+        interactionId: varchar("interactionId").primaryKey(),
+        clientId: varchar("clientId")
             .notNull()
             .references(() => oauthClients.clientId, { onDelete: "cascade" }),
-        userId: text("userId")
+        userId: varchar("userId")
             .notNull()
             .references(() => users.userId, { onDelete: "cascade" }),
-        scope: text("scope").notNull(),
-        state: text("state").notNull(),
-        nonce: text("nonce"),
-        redirectUri: text("redirectUri").notNull(),
-        codeChallenge: text("codeChallenge"),
-        codeChallengeMethod: text("codeChallengeMethod"),
-        responseType: text("responseType").notNull(),
+        scope: varchar("scope").notNull(),
+        state: varchar("state").notNull(),
+        nonce: varchar("nonce"),
+        redirectUri: varchar("redirectUri").notNull(),
+        codeChallenge: varchar("codeChallenge"),
+        codeChallengeMethod: varchar("codeChallengeMethod"),
+        responseType: varchar("responseType").notNull(),
         expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
         createdAt: bigint("createdAt", { mode: "number" }).notNull()
     },
@@ -724,19 +724,19 @@ export const oauthInteractions = pgTable(
 export const oauthAuthorizationCodes = pgTable(
     "oauthAuthorizationCodes",
     {
-        codeId: text("codeId").primaryKey(),
-        codeHash: text("codeHash").notNull(),
-        clientId: text("clientId")
+        codeId: varchar("codeId").primaryKey(),
+        codeHash: varchar("codeHash").notNull(),
+        clientId: varchar("clientId")
             .notNull()
             .references(() => oauthClients.clientId, { onDelete: "cascade" }),
-        userId: text("userId")
+        userId: varchar("userId")
             .notNull()
             .references(() => users.userId, { onDelete: "cascade" }),
-        scope: text("scope").notNull(),
-        redirectUri: text("redirectUri").notNull(),
-        codeChallenge: text("codeChallenge"),
-        codeChallengeMethod: text("codeChallengeMethod"),
-        nonce: text("nonce"),
+        scope: varchar("scope").notNull(),
+        redirectUri: varchar("redirectUri").notNull(),
+        codeChallenge: varchar("codeChallenge"),
+        codeChallengeMethod: varchar("codeChallengeMethod"),
+        nonce: varchar("nonce"),
         expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
         createdAt: bigint("createdAt", { mode: "number" }).notNull()
     },
@@ -751,15 +751,15 @@ export const oauthAuthorizationCodes = pgTable(
 export const oauthAccessTokens = pgTable(
     "oauthAccessTokens",
     {
-        accessTokenId: text("accessTokenId").primaryKey(),
-        tokenHash: text("tokenHash").notNull(),
-        clientId: text("clientId")
+        accessTokenId: varchar("accessTokenId").primaryKey(),
+        tokenHash: varchar("tokenHash").notNull(),
+        clientId: varchar("clientId")
             .notNull()
             .references(() => oauthClients.clientId, { onDelete: "cascade" }),
-        userId: text("userId")
+        userId: varchar("userId")
             .notNull()
             .references(() => users.userId, { onDelete: "cascade" }),
-        scope: text("scope").notNull(),
+        scope: varchar("scope").notNull(),
         expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
         createdAt: bigint("createdAt", { mode: "number" }).notNull()
     },
@@ -774,15 +774,15 @@ export const oauthAccessTokens = pgTable(
 export const oauthRefreshTokens = pgTable(
     "oauthRefreshTokens",
     {
-        refreshTokenId: text("refreshTokenId").primaryKey(),
-        tokenHash: text("tokenHash").notNull(),
-        clientId: text("clientId")
+        refreshTokenId: varchar("refreshTokenId").primaryKey(),
+        tokenHash: varchar("tokenHash").notNull(),
+        clientId: varchar("clientId")
             .notNull()
             .references(() => oauthClients.clientId, { onDelete: "cascade" }),
-        userId: text("userId")
+        userId: varchar("userId")
             .notNull()
             .references(() => users.userId, { onDelete: "cascade" }),
-        scope: text("scope").notNull(),
+        scope: varchar("scope").notNull(),
         expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
         revokedAt: bigint("revokedAt", { mode: "number" }),
         createdAt: bigint("createdAt", { mode: "number" }).notNull()
@@ -799,14 +799,14 @@ export const oauthRefreshTokens = pgTable(
 export const oauthConsents = pgTable(
     "oauthConsents",
     {
-        consentId: text("consentId").primaryKey(),
-        userId: text("userId")
+        consentId: varchar("consentId").primaryKey(),
+        userId: varchar("userId")
             .notNull()
             .references(() => users.userId, { onDelete: "cascade" }),
-        clientId: text("clientId")
+        clientId: varchar("clientId")
             .notNull()
             .references(() => oauthClients.clientId, { onDelete: "cascade" }),
-        scope: text("scope").notNull(),
+        scope: varchar("scope").notNull(),
         createdAt: bigint("createdAt", { mode: "number" }).notNull(),
         updatedAt: bigint("updatedAt", { mode: "number" }).notNull()
     },
@@ -822,10 +822,10 @@ export const oauthConsents = pgTable(
 export const oauthSigningKeys = pgTable(
     "oauthSigningKeys",
     {
-        keyId: text("keyId").primaryKey(),
-        algorithm: text("algorithm").notNull(),
-        publicKeyPem: text("publicKeyPem").notNull(),
-        privateKeyPem: text("privateKeyPem").notNull(),
+        keyId: varchar("keyId").primaryKey(),
+        algorithm: varchar("algorithm").notNull(),
+        publicKeyPem: varchar("publicKeyPem").notNull(),
+        privateKeyPem: varchar("privateKeyPem").notNull(),
         active: boolean("active").notNull().default(true),
         createdAt: bigint("createdAt", { mode: "number" }).notNull()
     },
