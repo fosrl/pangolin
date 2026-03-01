@@ -9,8 +9,8 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 
 const updateSelfBodySchema = z.strictObject({
-    name: z.string().min(1).max(255).optional(),
-    username: z.string().min(1).max(255).optional()
+    name: z.string().trim().min(1).max(255).optional(),
+    username: z.string().trim().min(1).max(255).optional()
 });
 
 export async function updateSelf(

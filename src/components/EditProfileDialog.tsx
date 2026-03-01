@@ -48,8 +48,16 @@ export default function EditProfileDialog({
     async function handleSave() {
         setLoading(true);
         try {
-            await api.patch("/user", { name, username });
-            updateUser({ ...user, name, username });
+            const body: Record<string, string> = {};
+            if (name.trim()) body.name = name.trim();
+            if (username.trim()) body.username = username.trim();
+
+            await api.patch("/user", body);
+            updateUser({
+                ...user,
+                ...(body.name !== undefined && { name: body.name }),
+                ...(body.username !== undefined && { username: body.username })
+            });
             toast({
                 title: t("profileUpdated"),
                 description: t("profileUpdatedDescription")
@@ -114,7 +122,7 @@ export default function EditProfileDialog({
                     <Button
                         onClick={handleSave}
                         loading={loading}
-                        disabled={loading || (!name && !username)}
+                        disabled={loading || (!name.trim() && !username.trim())}
                     >
                         {t("save")}
                     </Button>

@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { and, eq, isNull } from "drizzle-orm";
+import { z } from "zod";
+import { fromError } from "zod-validation-error";
 import {
     db,
     oauthConsents,
@@ -10,6 +12,10 @@ import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
+
+const deleteConsentParamsSchema = z.strictObject({
+    consentId: z.string().min(1)
+});
 
 export async function listUserConsents(
     req: Request,
@@ -72,12 +78,17 @@ export async function deleteUserConsent(
             );
         }
 
-        const { consentId } = req.params;
-        if (!consentId) {
+        const parsedParams = deleteConsentParamsSchema.safeParse(req.params);
+        if (!parsedParams.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, "consentId is required")
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedParams.error).toString()
+                )
             );
         }
+
+        const { consentId } = parsedParams.data;
 
         // Verify consent belongs to this user
         const [consent] = await db
