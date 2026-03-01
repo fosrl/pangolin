@@ -8,6 +8,8 @@ type BaseClaims = {
     email?: string;
     email_verified?: boolean;
     name?: string;
+    given_name?: string;
+    family_name?: string;
     preferred_username?: string;
     groups?: string[];
 };
@@ -38,8 +40,17 @@ async function buildBaseClaims(
     }
 
     if (hasScope(scope, "profile")) {
-        claims.name = user.name || user.username;
+        const fullName = user.name || user.username;
+        claims.name = fullName;
         claims.preferred_username = user.username;
+
+        const nameParts = fullName.trim().split(/\s+/);
+        if (nameParts.length > 1) {
+            claims.given_name = nameParts[0];
+            claims.family_name = nameParts.slice(1).join(" ");
+        } else {
+            claims.given_name = fullName;
+        }
     }
 
     if (hasScope(scope, "groups")) {
@@ -88,6 +99,10 @@ export async function buildIdTokenClaims(
             ? { email_verified: baseClaims.email_verified }
             : {}),
         ...(baseClaims.name ? { name: baseClaims.name } : {}),
+        ...(baseClaims.given_name ? { given_name: baseClaims.given_name } : {}),
+        ...(baseClaims.family_name
+            ? { family_name: baseClaims.family_name }
+            : {}),
         ...(baseClaims.preferred_username
             ? { preferred_username: baseClaims.preferred_username }
             : {}),
@@ -108,6 +123,10 @@ export async function buildUserinfoClaims(
             ? { email_verified: baseClaims.email_verified }
             : {}),
         ...(baseClaims.name ? { name: baseClaims.name } : {}),
+        ...(baseClaims.given_name ? { given_name: baseClaims.given_name } : {}),
+        ...(baseClaims.family_name
+            ? { family_name: baseClaims.family_name }
+            : {}),
         ...(baseClaims.preferred_username
             ? { preferred_username: baseClaims.preferred_username }
             : {}),

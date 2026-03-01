@@ -29,6 +29,8 @@ export function openidConfiguration(_: Request, res: Response): void {
             "exp",
             "iat",
             "name",
+            "given_name",
+            "family_name",
             "email",
             "email_verified",
             "preferred_username",
