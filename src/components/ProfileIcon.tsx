@@ -15,7 +15,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { formatAxiosError } from "@app/lib/api";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
-import { AppWindow, Laptop, LogOut, Moon, Pencil, Sun, Smartphone, Trash2 } from "lucide-react";
+import { AppWindow, Laptop, Moon, Pencil, Sun, Smartphone, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
