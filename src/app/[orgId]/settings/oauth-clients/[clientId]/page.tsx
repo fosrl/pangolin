@@ -5,6 +5,7 @@ import {
     SettingsSection,
     SettingsSectionBody,
     SettingsSectionDescription,
+    SettingsSectionFooter,
     SettingsSectionForm,
     SettingsSectionHeader,
     SettingsSectionTitle
@@ -347,179 +348,161 @@ export default function EditOAuthClientPage() {
                 <SettingsSection>
                     <SettingsSectionHeader>
                         <SettingsSectionTitle>
-                            {t("oauthClientNameLabel")}
-                        </SettingsSectionTitle>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <SettingsSectionForm>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label>
-                                        {t("oauthClientIdHeader")}
-                                    </Label>
-                                    <CopyTextBox text={clientId} />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="client-name">
-                                        {t("oauthClientNameLabel")}
-                                    </Label>
-                                    <Input
-                                        id="client-name"
-                                        value={clientName}
-                                        onChange={(event) =>
-                                            setClientName(event.target.value)
-                                        }
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="client-uri">
-                                        {t("oauthClientHomepageLabel")}
-                                    </Label>
-                                    <Input
-                                        id="client-uri"
-                                        value={clientUri}
-                                        onChange={(event) =>
-                                            setClientUri(event.target.value)
-                                        }
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="logo-uri">
-                                        {t("oauthClientLogoLabel")}
-                                    </Label>
-                                    <Input
-                                        id="logo-uri"
-                                        value={logoUri}
-                                        onChange={(event) =>
-                                            setLogoUri(event.target.value)
-                                        }
-                                    />
-                                </div>
-                            </div>
-                        </SettingsSectionForm>
-                    </SettingsSectionBody>
-                </SettingsSection>
-
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("oauthClientRedirectUrisLabel")}
-                        </SettingsSectionTitle>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <SettingsSectionForm>
-                            <div className="space-y-3">
-                                {redirectUris.map((redirectUri, index) => (
-                                    <div key={index} className="flex gap-2">
-                                        <Input
-                                            value={redirectUri}
-                                            onChange={(event) =>
-                                                updateRedirectUri(
-                                                    index,
-                                                    event.target.value
-                                                )
-                                            }
-                                            placeholder={t(
-                                                "oauthClientRedirectUriPlaceholder"
-                                            )}
-                                        />
-                                        {redirectUris.length > 1 && (
-                                            <Button
-                                                variant="outline"
-                                                onClick={() =>
-                                                    removeRedirectUri(index)
-                                                }
-                                            >
-                                                {t(
-                                                    "oauthClientRemoveRedirectUri"
-                                                )}
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))}
-                                <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                        setRedirectUris((prev) => [
-                                            ...prev,
-                                            ""
-                                        ])
-                                    }
-                                >
-                                    {t("oauthClientAddRedirectUri")}
-                                </Button>
-                            </div>
-                        </SettingsSectionForm>
-                    </SettingsSectionBody>
-                </SettingsSection>
-
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("oauthClientScopesLabel")}
+                            {t("oauthClientEditTitle")}
                         </SettingsSectionTitle>
                         <SettingsSectionDescription>
-                            {t("oauthClientOpenidAlwaysEnabled")}
+                            {t("oauthClientEditDescription")}
                         </SettingsSectionDescription>
                     </SettingsSectionHeader>
                     <SettingsSectionBody>
                         <SettingsSectionForm>
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-2">
-                                    <Checkbox
-                                        checked={scopeProfile}
-                                        onCheckedChange={(value) =>
-                                            setScopeProfile(value === true)
+                            <div className="space-y-2">
+                                <Label>
+                                    {t("oauthClientIdHeader")}
+                                </Label>
+                                <CopyTextBox text={clientId} />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="client-name">
+                                    {t("oauthClientNameLabel")}
+                                </Label>
+                                <Input
+                                    id="client-name"
+                                    value={clientName}
+                                    onChange={(event) =>
+                                        setClientName(event.target.value)
+                                    }
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="client-uri">
+                                    {t("oauthClientHomepageLabel")}
+                                </Label>
+                                <Input
+                                    id="client-uri"
+                                    value={clientUri}
+                                    onChange={(event) =>
+                                        setClientUri(event.target.value)
+                                    }
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="logo-uri">
+                                    {t("oauthClientLogoLabel")}
+                                </Label>
+                                <Input
+                                    id="logo-uri"
+                                    value={logoUri}
+                                    onChange={(event) =>
+                                        setLogoUri(event.target.value)
+                                    }
+                                />
+                            </div>
+
+                            <div className="space-y-2 pt-2">
+                                <Label>
+                                    {t("oauthClientRedirectUrisLabel")}
+                                </Label>
+                                <div className="space-y-3">
+                                    {redirectUris.map((redirectUri, index) => (
+                                        <div key={index} className="flex gap-2">
+                                            <Input
+                                                value={redirectUri}
+                                                onChange={(event) =>
+                                                    updateRedirectUri(
+                                                        index,
+                                                        event.target.value
+                                                    )
+                                                }
+                                                placeholder={t(
+                                                    "oauthClientRedirectUriPlaceholder"
+                                                )}
+                                            />
+                                            {redirectUris.length > 1 && (
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        removeRedirectUri(index)
+                                                    }
+                                                >
+                                                    {t(
+                                                        "oauthClientRemoveRedirectUri"
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            setRedirectUris((prev) => [
+                                                ...prev,
+                                                ""
+                                            ])
                                         }
-                                        id="scope-profile"
-                                    />
-                                    <Label htmlFor="scope-profile">
-                                        {t("oauthClientScopeProfile")}
-                                    </Label>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Checkbox
-                                        checked={scopeEmail}
-                                        onCheckedChange={(value) =>
-                                            setScopeEmail(value === true)
-                                        }
-                                        id="scope-email"
-                                    />
-                                    <Label htmlFor="scope-email">
-                                        {t("oauthClientScopeEmail")}
-                                    </Label>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Checkbox
-                                        checked={scopeGroups}
-                                        onCheckedChange={(value) =>
-                                            setScopeGroups(value === true)
-                                        }
-                                        id="scope-groups"
-                                    />
-                                    <Label htmlFor="scope-groups">
-                                        {t("oauthClientScopeGroups")}
-                                    </Label>
+                                    >
+                                        {t("oauthClientAddRedirectUri")}
+                                    </Button>
                                 </div>
                             </div>
-                        </SettingsSectionForm>
-                    </SettingsSectionBody>
-                </SettingsSection>
 
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("oauthClientOptionsTitle")}
-                        </SettingsSectionTitle>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <SettingsSectionForm>
-                            <div className="space-y-4">
+                            <div className="space-y-2 pt-2">
+                                <Label>
+                                    {t("oauthClientScopesLabel")}
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {t("oauthClientOpenidAlwaysEnabled")}
+                                </p>
+                                <div className="space-y-3 pt-1">
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            checked={scopeProfile}
+                                            onCheckedChange={(value) =>
+                                                setScopeProfile(value === true)
+                                            }
+                                            id="scope-profile"
+                                        />
+                                        <Label htmlFor="scope-profile">
+                                            {t("oauthClientScopeProfile")}
+                                        </Label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            checked={scopeEmail}
+                                            onCheckedChange={(value) =>
+                                                setScopeEmail(value === true)
+                                            }
+                                            id="scope-email"
+                                        />
+                                        <Label htmlFor="scope-email">
+                                            {t("oauthClientScopeEmail")}
+                                        </Label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            checked={scopeGroups}
+                                            onCheckedChange={(value) =>
+                                                setScopeGroups(value === true)
+                                            }
+                                            id="scope-groups"
+                                        />
+                                        <Label htmlFor="scope-groups">
+                                            {t("oauthClientScopeGroups")}
+                                        </Label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 pt-2">
+                                <Label>
+                                    {t("oauthClientOptionsTitle")}
+                                </Label>
                                 <div className="flex items-center justify-between">
-                                    <Label htmlFor="pkce-required">
+                                    <Label htmlFor="pkce-required" className="font-normal">
                                         {t("oauthClientRequirePkceLabel")}
                                     </Label>
                                     <Switch
@@ -530,7 +513,7 @@ export default function EditOAuthClientPage() {
                                 </div>
 
                                 <div className="flex items-center justify-between">
-                                    <Label htmlFor="client-enabled">
+                                    <Label htmlFor="client-enabled" className="font-normal">
                                         {t("oauthClientEnabledLabel")}
                                     </Label>
                                     <Switch
@@ -542,27 +525,40 @@ export default function EditOAuthClientPage() {
                             </div>
                         </SettingsSectionForm>
                     </SettingsSectionBody>
+
+                    <SettingsSectionFooter>
+                        <Button variant="outline" onClick={rotateSecret}>
+                            {t("oauthClientRotateButton")}
+                        </Button>
+                        <Button
+                            onClick={saveClient}
+                            disabled={saving}
+                            loading={saving}
+                        >
+                            {t("saveChanges")}
+                        </Button>
+                    </SettingsSectionFooter>
+                </SettingsSection>
+
+                <SettingsSection>
+                    <SettingsSectionHeader>
+                        <SettingsSectionTitle>
+                            {t("dangerSection")}
+                        </SettingsSectionTitle>
+                        <SettingsSectionDescription>
+                            {t("oauthClientDeleteConfirm")}
+                        </SettingsSectionDescription>
+                    </SettingsSectionHeader>
+                    <SettingsSectionFooter>
+                        <Button
+                            variant="destructive"
+                            onClick={() => setIsDeleteModalOpen(true)}
+                        >
+                            {t("oauthClientDeleteButton")}
+                        </Button>
+                    </SettingsSectionFooter>
                 </SettingsSection>
             </SettingsContainer>
-
-            <div className="flex justify-end space-x-2 mt-8">
-                <Button
-                    variant="destructive"
-                    onClick={() => setIsDeleteModalOpen(true)}
-                >
-                    {t("oauthClientDeleteButton")}
-                </Button>
-                <Button variant="outline" onClick={rotateSecret}>
-                    {t("oauthClientRotateButton")}
-                </Button>
-                <Button
-                    onClick={saveClient}
-                    disabled={saving}
-                    loading={saving}
-                >
-                    {t("saveChanges")}
-                </Button>
-            </div>
         </>
     );
 }
