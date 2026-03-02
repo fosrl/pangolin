@@ -105,7 +105,7 @@ export async function sendBackchannelLogout(
             }
         });
 
-        await Promise.allSettled(promises);
+        await Promise.all(promises);
 
         // Revoke all tokens for this user
         await db
