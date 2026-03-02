@@ -96,14 +96,15 @@ export async function verifyResourceSession(
     try {
         const {
             sessions,
-            host,
             originalRequestURL,
             requestIp,
-            path,
             headers,
             query,
             badgerVersion
         } = parsedBody.data;
+
+
+        const {pathname: path, host} = new URL(originalRequestURL);
 
         // Extract HTTP Basic Auth credentials if present
         const clientHeaderAuth = extractBasicAuth(headers);
