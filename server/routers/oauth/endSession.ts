@@ -5,7 +5,6 @@ import { db, oauthClients } from "@server/db";
 import { getActiveSigningKey } from "@server/lib/oauth/keys";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import logger from "@server/logger";
-import { parseClientRedirectUris } from "./authorize";
 
 export async function handleEndSession(
     req: Request,
@@ -74,9 +73,7 @@ export async function handleEndSession(
                 .limit(1);
 
             if (client) {
-                const registeredUris = parseClientRedirectUris(
-                    client.postLogoutRedirectUris ?? ""
-                );
+                const registeredUris = client.postLogoutRedirectUris ?? [];
 
                 if (registeredUris.includes(postLogoutRedirectUri)) {
                     if (state) {

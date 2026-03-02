@@ -5,6 +5,7 @@ import {
     boolean,
     index,
     integer,
+    json,
     pgTable,
     real,
     serial,
@@ -678,7 +679,7 @@ export const oauthClients = pgTable(
         clientName: varchar("clientName").notNull(),
         clientUri: varchar("clientUri"),
         logoUri: varchar("logoUri"),
-        redirectUris: varchar("redirectUris").notNull(),
+        redirectUris: json("redirectUris").notNull().$type<string[]>(),
         scopes: varchar("scopes").notNull().default("openid profile email"),
         pkceRequired: boolean("pkceRequired").notNull().default(true),
         enabled: boolean("enabled").notNull().default(true),
@@ -686,7 +687,7 @@ export const oauthClients = pgTable(
             .notNull()
             .references(() => orgs.orgId, { onDelete: "cascade" }),
         backchannelLogoutUri: varchar("backchannelLogoutUri"),
-        postLogoutRedirectUris: varchar("postLogoutRedirectUris"),
+        postLogoutRedirectUris: json("postLogoutRedirectUris").$type<string[] | null>(),
         createdAt: bigint("createdAt", { mode: "number" }).notNull(),
         updatedAt: bigint("updatedAt", { mode: "number" }).notNull()
     },
