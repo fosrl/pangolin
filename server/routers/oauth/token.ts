@@ -17,7 +17,12 @@ import {
     signIdToken
 } from "@server/lib/oauth/tokens";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
-import { parseScopeString } from "@server/lib/oauth/scopes";
+import { hasScope, isScopeSubset } from "@server/lib/oauth/scopes";
+import {
+    ACCESS_TOKEN_LIFETIME_MS,
+    ACCESS_TOKEN_LIFETIME_SECONDS,
+    REFRESH_TOKEN_LIFETIME_MS
+} from "@server/lib/oauth/lifetimes";
 import {
     authenticateClient,
     getBodyValue,
@@ -32,13 +37,6 @@ function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
         return false;
     }
     return timingSafeEqual(hash, expected);
-}
-
-function isScopeSubset(candidateScope: string, originalScope: string): boolean {
-    const original = new Set(parseScopeString(originalScope));
-    const candidate = parseScopeString(candidateScope);
-
-    return candidate.every((scope) => original.has(scope));
 }
 
 export async function issueToken(
@@ -149,7 +147,7 @@ export async function issueToken(
                     clientId: authCode.clientId,
                     userId: authCode.userId,
                     scope: authCode.scope,
-                    expiresAt: now + 60 * 60 * 1000,
+                    expiresAt: now + ACCESS_TOKEN_LIFETIME_MS,
                     createdAt: now
                 });
 
@@ -159,19 +157,17 @@ export async function issueToken(
                     clientId: authCode.clientId,
                     userId: authCode.userId,
                     scope: authCode.scope,
-                    expiresAt: now + 30 * 24 * 60 * 60 * 1000,
+                    expiresAt: now + REFRESH_TOKEN_LIFETIME_MS,
                     createdAt: now
                 });
             });
 
-            const includeIdToken = parseScopeString(authCode.scope).includes(
-                "openid"
-            );
+            const includeIdToken = hasScope(authCode.scope, "openid");
 
             const responseBody: Record<string, unknown> = {
                 access_token: accessToken,
                 token_type: "Bearer",
-                expires_in: 3600,
+                expires_in: ACCESS_TOKEN_LIFETIME_SECONDS,
                 refresh_token: refreshToken,
                 scope: authCode.scope
             };
@@ -251,7 +247,7 @@ export async function issueToken(
                     error_description: "Requested scope is not a subset"
                 });
             }
-            if (!parseScopeString(finalScope).includes("openid")) {
+            if (!hasScope(finalScope, "openid")) {
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_scope",
                     error_description: "openid scope is required"
@@ -281,7 +277,7 @@ export async function issueToken(
                     clientId: existingRefreshToken.clientId,
                     userId: existingRefreshToken.userId,
                     scope: finalScope,
-                    expiresAt: now + 60 * 60 * 1000,
+                    expiresAt: now + ACCESS_TOKEN_LIFETIME_MS,
                     createdAt: now
                 });
 
@@ -291,7 +287,7 @@ export async function issueToken(
                     clientId: existingRefreshToken.clientId,
                     userId: existingRefreshToken.userId,
                     scope: finalScope,
-                    expiresAt: now + 30 * 24 * 60 * 60 * 1000,
+                    expiresAt: now + REFRESH_TOKEN_LIFETIME_MS,
                     createdAt: now
                 });
             });
@@ -299,12 +295,12 @@ export async function issueToken(
             const responseBody: Record<string, unknown> = {
                 access_token: nextAccessToken,
                 token_type: "Bearer",
-                expires_in: 3600,
+                expires_in: ACCESS_TOKEN_LIFETIME_SECONDS,
                 refresh_token: nextRefreshToken,
                 scope: finalScope
             };
 
-            if (parseScopeString(finalScope).includes("openid")) {
+            if (hasScope(finalScope, "openid")) {
                 const claims = await buildIdTokenClaims(
                     existingRefreshToken.userId,
                     existingRefreshToken.clientId,
