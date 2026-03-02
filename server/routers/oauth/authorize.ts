@@ -15,9 +15,14 @@ import logger from "@server/logger";
 import response from "@server/lib/response";
 import {
     hasScope,
+    isScopeSubset,
     validateScopes,
     parseScopeString
 } from "@server/lib/oauth/scopes";
+import {
+    AUTH_CODE_LIFETIME_MS,
+    INTERACTION_LIFETIME_MS
+} from "@server/lib/oauth/lifetimes";
 import { generateAuthorizationCode, hashToken } from "@server/lib/oauth/tokens";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
 
@@ -72,13 +77,6 @@ function appendOAuthParams(
     }
 }
 
-function hasAllScopes(consentedScope: string, requestedScope: string): boolean {
-    const consentedScopes = new Set(parseScopeString(consentedScope));
-    const requestedScopes = parseScopeString(requestedScope);
-
-    return requestedScopes.every((scope) => consentedScopes.has(scope));
-}
-
 async function issueAuthorizationCode(args: {
     clientId: string;
     userId: string;
@@ -100,7 +98,7 @@ async function issueAuthorizationCode(args: {
         codeChallenge: args.codeChallenge,
         codeChallengeMethod: args.codeChallengeMethod,
         nonce: args.nonce,
-        expiresAt: Date.now() + 60_000,
+        expiresAt: Date.now() + AUTH_CODE_LIFETIME_MS,
         createdAt: Date.now()
     });
 
@@ -208,7 +206,7 @@ export async function initiateAuthorization(
 
         if (
             existingConsent &&
-            hasAllScopes(existingConsent.scope, grantedScope)
+            isScopeSubset(grantedScope, existingConsent.scope)
         ) {
             const code = await issueAuthorizationCode({
                 clientId: client.clientId,
@@ -249,7 +247,7 @@ export async function initiateAuthorization(
             codeChallenge: body.code_challenge,
             codeChallengeMethod: body.code_challenge_method,
             responseType: body.response_type,
-            expiresAt: Date.now() + 10 * 60 * 1000,
+            expiresAt: Date.now() + INTERACTION_LIFETIME_MS,
             createdAt: Date.now()
         });
 
@@ -417,7 +415,7 @@ export async function handleAuthorizationConsent(
                 codeChallenge: interaction.codeChallenge,
                 codeChallengeMethod: interaction.codeChallengeMethod,
                 nonce: interaction.nonce,
-                expiresAt: now + 60_000,
+                expiresAt: now + AUTH_CODE_LIFETIME_MS,
                 createdAt: now
             });
 

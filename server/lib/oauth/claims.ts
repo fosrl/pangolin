@@ -88,22 +88,9 @@ export async function buildIdTokenClaims(
 
     return {
         iss: getIssuerUrl(),
-        sub: baseClaims.sub,
         aud: clientId,
         ...(nonce ? { nonce } : {}),
-        ...(baseClaims.email ? { email: baseClaims.email } : {}),
-        ...(baseClaims.email_verified !== undefined
-            ? { email_verified: baseClaims.email_verified }
-            : {}),
-        ...(baseClaims.name ? { name: baseClaims.name } : {}),
-        ...(baseClaims.given_name ? { given_name: baseClaims.given_name } : {}),
-        ...(baseClaims.family_name
-            ? { family_name: baseClaims.family_name }
-            : {}),
-        ...(baseClaims.preferred_username
-            ? { preferred_username: baseClaims.preferred_username }
-            : {}),
-        ...(baseClaims.groups ? { groups: baseClaims.groups } : {})
+        ...baseClaims
     };
 }
 
@@ -111,22 +98,5 @@ export async function buildUserinfoClaims(
     userId: string,
     scope: string
 ): Promise<Record<string, unknown>> {
-    const baseClaims = await buildBaseClaims(userId, scope);
-
-    return {
-        sub: baseClaims.sub,
-        ...(baseClaims.email ? { email: baseClaims.email } : {}),
-        ...(baseClaims.email_verified !== undefined
-            ? { email_verified: baseClaims.email_verified }
-            : {}),
-        ...(baseClaims.name ? { name: baseClaims.name } : {}),
-        ...(baseClaims.given_name ? { given_name: baseClaims.given_name } : {}),
-        ...(baseClaims.family_name
-            ? { family_name: baseClaims.family_name }
-            : {}),
-        ...(baseClaims.preferred_username
-            ? { preferred_username: baseClaims.preferred_username }
-            : {}),
-        ...(baseClaims.groups ? { groups: baseClaims.groups } : {})
-    };
+    return buildBaseClaims(userId, scope);
 }

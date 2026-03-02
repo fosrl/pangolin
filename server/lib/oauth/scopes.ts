@@ -17,26 +17,22 @@ export function hasScope(scopeString: string, scope: OAuthScope): boolean {
     return parseScopeString(scopeString).includes(scope);
 }
 
+export function isScopeSubset(candidateScope: string, originalScope: string): boolean {
+    const original = new Set(parseScopeString(originalScope));
+    return parseScopeString(candidateScope).every((scope) => original.has(scope));
+}
+
 export function validateScopes(requested: string, allowed: string): string {
-    const requestedScopes = parseScopeString(requested).filter(isOAuthScope);
     const allowedScopes = new Set(
         parseScopeString(allowed).filter(isOAuthScope)
     );
+    const granted = new Set<string>();
 
-    const granted: string[] = [];
-
-    for (const scope of requestedScopes) {
-        if (scope === "openid") {
-            if (!granted.includes("openid")) {
-                granted.push("openid");
-            }
-            continue;
-        }
-
-        if (allowedScopes.has(scope) && !granted.includes(scope)) {
-            granted.push(scope);
+    for (const scope of parseScopeString(requested).filter(isOAuthScope)) {
+        if (allowedScopes.has(scope)) {
+            granted.add(scope);
         }
     }
 
-    return granted.join(" ");
+    return Array.from(granted).join(" ");
 }
