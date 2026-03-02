@@ -37,6 +37,7 @@ import CopyTextBox from "@app/components/CopyTextBox";
 export type OAuthClientRow = {
     clientId: string;
     clientName: string;
+    logoUri: string | null;
     redirectUris: string[];
     scopes: string;
     enabled: boolean;
@@ -170,6 +171,25 @@ export default function OAuthClientsTable({
                         {t("name")}
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
+                );
+            },
+            cell: ({ row }) => {
+                const { clientName, logoUri } = row.original;
+                return (
+                    <div className="flex items-center gap-2">
+                        {logoUri && /^https?:\/\//.test(logoUri) ? (
+                            <img
+                                src={logoUri}
+                                alt={clientName}
+                                className="w-6 h-6 rounded object-contain shrink-0"
+                            />
+                        ) : (
+                            <div className="w-6 h-6 rounded bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                                {clientName.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <span>{clientName}</span>
+                    </div>
                 );
             }
         },

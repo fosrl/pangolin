@@ -229,8 +229,23 @@ export default function CreateOAuthClientPage() {
 
             <SettingsContainer>
                 <SettingsSection>
-                    <div className="flex items-center justify-between pb-4">
-                        <div />
+                    <div className="flex items-center justify-between pb-4 mb-4">
+                        <div className="flex items-center gap-3">
+                            {logoUri && /^https?:\/\//.test(logoUri) ? (
+                                <img
+                                    src={logoUri}
+                                    alt={clientName}
+                                    className="w-8 h-8 rounded object-contain"
+                                />
+                            ) : (
+                                <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
+                                    {(clientName.charAt(0) || "?").toUpperCase()}
+                                </div>
+                            )}
+                            <span className="font-medium text-lg truncate">
+                                {clientName || t("oauthClientsCreateTitle")}
+                            </span>
+                        </div>
                         <Button
                             variant="ghost"
                             size="sm"

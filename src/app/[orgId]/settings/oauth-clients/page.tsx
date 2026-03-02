@@ -54,6 +54,7 @@ export default async function OAuthClientsPage(props: OAuthClientsPageProps) {
     const rows: OAuthClientRow[] = clients.map((client) => ({
         clientId: client.clientId,
         clientName: client.clientName,
+        logoUri: client.logoUri,
         redirectUris: parseRedirectUris(client.redirectUris),
         scopes: client.scopes,
         enabled: client.enabled,

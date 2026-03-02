@@ -242,19 +242,22 @@ export default function ConsentPage({
 
                     {!loading && !error && interaction && (
                         <>
-                            <div className="space-y-3">
+                            <div className="flex items-start gap-3">
                                 {interaction.logoUri &&
-                                    /^https?:\/\//.test(
-                                        interaction.logoUri
-                                    ) && (
-                                        <img
-                                            src={interaction.logoUri}
-                                            alt={interaction.clientName}
-                                            className="w-10 h-10 rounded"
-                                        />
-                                    )}
-
-                                <div className="space-y-1">
+                                /^https?:\/\//.test(
+                                    interaction.logoUri
+                                ) ? (
+                                    <img
+                                        src={interaction.logoUri}
+                                        alt={interaction.clientName}
+                                        className="w-8 h-8 rounded object-contain shrink-0 mt-0.5"
+                                    />
+                                ) : (
+                                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground shrink-0 mt-0.5">
+                                        {interaction.clientName.charAt(0).toUpperCase()}
+                                    </div>
+                                )}
+                                <div className="space-y-1 min-w-0">
                                     <p className="text-sm">
                                         <strong>
                                             {interaction.clientName}
@@ -269,7 +272,7 @@ export default function ConsentPage({
                                                 href={interaction.clientUri}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="text-xs text-muted-foreground underline"
+                                                className="text-xs text-muted-foreground underline truncate block"
                                             >
                                                 {interaction.clientUri}
                                             </a>
