@@ -34,6 +34,35 @@ export function signIdToken(
     });
 }
 
+export function signLogoutToken(
+    claims: {
+        iss: string;
+        sub: string;
+        aud: string;
+        jti: string;
+    },
+    privateKeyPem: string,
+    kid: string
+): string {
+    return jsonwebtoken.sign(
+        {
+            iss: claims.iss,
+            sub: claims.sub,
+            aud: claims.aud,
+            jti: claims.jti,
+            events: {
+                "http://schemas.openid.net/event/backchannel-logout": {}
+            }
+        },
+        privateKeyPem,
+        {
+            algorithm: "RS256",
+            keyid: kid,
+            expiresIn: 120
+        }
+    );
+}
+
 export function hashToken(token: string): string {
     return encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
 }

@@ -22,6 +22,8 @@ export function openidConfiguration(_: Request, res: Response): void {
             "client_secret_post"
         ],
         code_challenge_methods_supported: ["S256"],
+        backchannel_logout_supported: true,
+        backchannel_logout_session_supported: false,
         claims_supported: [
             "sub",
             "iss",
