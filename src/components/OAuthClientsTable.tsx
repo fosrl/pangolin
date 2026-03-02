@@ -25,14 +25,6 @@ import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useTranslations } from "next-intl";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle
-} from "@app/components/ui/dialog";
-import CopyTextBox from "@app/components/CopyTextBox";
 
 export type OAuthClientRow = {
     clientId: string;
@@ -95,11 +87,6 @@ export default function OAuthClientsTable({
         setRows(clients);
     }, [clients]);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [rotatedSecret, setRotatedSecret] = useState<{
-        clientId: string;
-        clientSecret: string;
-    } | null>(null);
-
     const api = createApiClient(useEnvContext());
     const t = useTranslations();
 
@@ -132,25 +119,6 @@ export default function OAuthClientsTable({
                 variant: "destructive",
                 title: t("oauthClientDeleteErrorTitle"),
                 description: formatAxiosError(e)
-            });
-        }
-    };
-
-    const rotateSecret = async (clientId: string) => {
-        try {
-            const res = await api.post(
-                `/org/${orgId}/oauth-clients/${clientId}/rotate-secret`
-            );
-            setRotatedSecret(res.data.data);
-            toast({
-                title: t("oauthClientRotateSuccessTitle"),
-                description: t("oauthClientRotateSuccessDescription")
-            });
-        } catch (error) {
-            toast({
-                variant: "destructive",
-                title: t("oauthClientRotateErrorTitle"),
-                description: formatAxiosError(error)
             });
         }
     };
@@ -279,11 +247,6 @@ export default function OAuthClientsTable({
                                     </DropdownMenuItem>
                                 </Link>
                                 <DropdownMenuItem
-                                    onClick={() => rotateSecret(r.clientId)}
-                                >
-                                    {t("oauthClientRotateButton")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
                                     onClick={() => {
                                         setSelected(r);
                                         setIsDeleteModalOpen(true);
@@ -329,38 +292,6 @@ export default function OAuthClientsTable({
                     title={t("oauthClientDeleteButton")}
                 />
             )}
-
-            <Dialog
-                open={Boolean(rotatedSecret)}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setRotatedSecret(null);
-                    }
-                }}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {t("oauthClientNewSecretDialogTitle")}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {t("oauthClientNewSecretDialogDescription")}
-                        </DialogDescription>
-                    </DialogHeader>
-                    {rotatedSecret && (
-                        <div className="space-y-3">
-                            <div className="space-y-1">
-                                <p className="text-sm font-medium">{t("oauthClientIdHeader")}</p>
-                                <CopyTextBox text={rotatedSecret.clientId} wrapText />
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-sm font-medium">{t("oauthClientSecretLabel")}</p>
-                                <CopyTextBox text={rotatedSecret.clientSecret} wrapText />
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
 
             <DataTable
                 columns={columns}
