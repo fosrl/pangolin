@@ -53,11 +53,7 @@ export default function EditProfileDialog({
             if (username.trim()) body.username = username.trim();
 
             await api.patch("/user", body);
-            updateUser({
-                ...user,
-                ...(body.name !== undefined && { name: body.name }),
-                ...(body.username !== undefined && { username: body.username })
-            });
+            updateUser({ ...user, ...body });
             toast({
                 title: t("profileUpdated"),
                 description: t("profileUpdatedDescription")

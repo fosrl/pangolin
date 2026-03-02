@@ -71,10 +71,7 @@ export async function updateSelf(
 
         await db
             .update(users)
-            .set({
-                ...(name !== undefined && { name }),
-                ...(username !== undefined && { username })
-            })
+            .set({ name, username })
             .where(eq(users.userId, userId));
 
         return response(res, {
