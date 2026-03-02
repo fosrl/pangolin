@@ -2700,6 +2700,7 @@
     "oauthAuthorizeSubmitFailed": "Failed to submit OAuth consent.",
     "oauthAuthorizeClientRequestAccess": "wants to access your account.",
     "oauthAuthorizeRequestedPermissions": "Requested permissions",
+    "oauthAuthorizeSigningInAs": "Signing in as",
     "oauthAuthorizeUnknownScopeDescription": "Access requested by the application",
     "oauthScopeOpenidDescription": "Authenticate with your Pangolin account",
     "oauthScopeProfileDescription": "Access your basic profile information",
