@@ -125,9 +125,18 @@ export default function ConsentPage({
                     return;
                 }
 
-                const parsedPayload = initiateResponseSchema.safeParse(
-                    await res.json()
-                );
+                const json = await res.json();
+
+                if (!res.ok) {
+                    if (!cancelled) {
+                        setError(
+                            json?.message || t("oauthAuthorizeInitFailed")
+                        );
+                    }
+                    return;
+                }
+
+                const parsedPayload = initiateResponseSchema.safeParse(json);
 
                 if (!parsedPayload.success) {
                     if (!cancelled) {
@@ -137,15 +146,6 @@ export default function ConsentPage({
                 }
 
                 const payload = parsedPayload.data;
-
-                if (!res.ok) {
-                    if (!cancelled) {
-                        setError(
-                            payload.message || t("oauthAuthorizeInitFailed")
-                        );
-                    }
-                    return;
-                }
 
                 if ("redirectTo" in payload.data) {
                     window.location.href = payload.data.redirectTo;
@@ -195,9 +195,15 @@ export default function ConsentPage({
                 })
             });
 
-            const parsedPayload = consentResponseSchema.safeParse(
-                await res.json()
-            );
+            const json = await res.json();
+
+            if (!res.ok) {
+                setError(json?.message || t("oauthAuthorizeConsentFailed"));
+                setConsentLoading(false);
+                return;
+            }
+
+            const parsedPayload = consentResponseSchema.safeParse(json);
 
             if (!parsedPayload.success) {
                 setError(t("oauthAuthorizeInvalidConsentResponse"));
@@ -205,15 +211,7 @@ export default function ConsentPage({
                 return;
             }
 
-            const payload = parsedPayload.data;
-
-            if (!res.ok) {
-                setError(payload.message || t("oauthAuthorizeConsentFailed"));
-                setConsentLoading(false);
-                return;
-            }
-
-            window.location.href = payload.data.redirectTo;
+            window.location.href = parsedPayload.data.data.redirectTo;
         } catch {
             setError(t("oauthAuthorizeSubmitFailed"));
             setConsentLoading(false);
