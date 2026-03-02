@@ -2752,6 +2752,8 @@
     "oauthClientSaveSubmitting": "Saving...",
     "oauthClientCreateButton": "Create OAuth Client",
     "oauthClientRotateButton": "Rotate Secret",
+    "oauthClientRotateConfirmTitle": "Rotate Client Secret",
+    "oauthClientRotateConfirmDescription": "This will invalidate the current secret. Any application using it will stop working until updated with the new secret.",
     "oauthClientDeleteButton": "Delete Client",
     "oauthClientBackButton": "Back",
     "oauthClientSecretLabel": "Client Secret",

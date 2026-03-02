@@ -19,12 +19,15 @@ import { Label } from "@app/components/ui/label";
 import { Checkbox } from "@app/components/ui/checkbox";
 import { Switch } from "@app/components/ui/switch";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle
-} from "@app/components/ui/dialog";
+    Credenza,
+    CredenzaBody,
+    CredenzaClose,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle
+} from "@app/components/Credenza";
 import CopyTextBox from "@app/components/CopyTextBox";
 import { useTranslations } from "next-intl";
 
@@ -164,7 +167,7 @@ export default function CreateOAuthClientPage() {
                 </Button>
             </div>
 
-            <Dialog
+            <Credenza
                 open={Boolean(createdSecret)}
                 onOpenChange={(open) => {
                     if (!open) {
@@ -173,29 +176,38 @@ export default function CreateOAuthClientPage() {
                     }
                 }}
             >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>
                             {t("oauthClientSecretDialogTitle")}
-                        </DialogTitle>
-                        <DialogDescription>
+                        </CredenzaTitle>
+                        <CredenzaDescription>
                             {t("oauthClientSecretDialogDescription")}
-                        </DialogDescription>
-                    </DialogHeader>
-                    {createdSecret && (
-                        <div className="space-y-3">
-                            <div className="space-y-1">
-                                <Label>{t("oauthClientIdHeader")}</Label>
-                                <CopyTextBox text={createdSecret.clientId} wrapText />
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaBody>
+                        {createdSecret && (
+                            <div className="space-y-3">
+                                <div className="space-y-1">
+                                    <Label>{t("oauthClientIdHeader")}</Label>
+                                    <CopyTextBox text={createdSecret.clientId} wrapText />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>{t("oauthClientSecretLabel")}</Label>
+                                    <CopyTextBox text={createdSecret.clientSecret} wrapText />
+                                </div>
                             </div>
-                            <div className="space-y-1">
-                                <Label>{t("oauthClientSecretLabel")}</Label>
-                                <CopyTextBox text={createdSecret.clientSecret} wrapText />
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
+                        )}
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <CredenzaClose asChild>
+                            <Button variant="outline">
+                                {t("close")}
+                            </Button>
+                        </CredenzaClose>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
 
             <SettingsContainer>
                 <SettingsSection>
