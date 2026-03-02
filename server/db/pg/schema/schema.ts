@@ -281,6 +281,7 @@ export const users = pgTable("user", {
     twoFactorSecret: varchar("twoFactorSecret"),
     emailVerified: boolean("emailVerified").notNull().default(false),
     dateCreated: varchar("dateCreated").notNull(),
+    locale: varchar("locale"),
     termsAcceptedTimestamp: varchar("termsAcceptedTimestamp"),
     termsVersion: varchar("termsVersion"),
     serverAdmin: boolean("serverAdmin").notNull().default(false),
