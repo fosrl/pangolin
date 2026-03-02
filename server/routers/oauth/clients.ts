@@ -46,8 +46,8 @@ const createBodySchema = z.strictObject({
 const updateBodySchema = z.strictObject({
     clientName: z.string().min(1).max(255).optional(),
     redirectUris: z.array(z.string().url()).min(1).optional(),
-    clientUri: z.string().url().optional(),
-    logoUri: z.string().url().optional(),
+    clientUri: z.string().url().nullable().optional(),
+    logoUri: z.string().url().nullable().optional(),
     backchannelLogoutUri: z.string().url().nullable().optional(),
     postLogoutRedirectUris: z.array(z.string().url()).nullable().optional(),
     scopes: z
@@ -56,6 +56,23 @@ const updateBodySchema = z.strictObject({
     pkceRequired: z.boolean().optional(),
     enabled: z.boolean().optional()
 });
+
+const publicClientColumns = {
+    clientId: oauthClients.clientId,
+    clientName: oauthClients.clientName,
+    clientUri: oauthClients.clientUri,
+    logoUri: oauthClients.logoUri,
+    backchannelLogoutUri: oauthClients.backchannelLogoutUri,
+    postLogoutRedirectUris: oauthClients.postLogoutRedirectUris,
+    redirectUris: oauthClients.redirectUris,
+    scopes: oauthClients.scopes,
+    pkceRequired: oauthClients.pkceRequired,
+    enabled: oauthClients.enabled,
+    orgId: oauthClients.orgId,
+    createdAt: oauthClients.createdAt,
+    updatedAt: oauthClients.updatedAt,
+    lastChars: oauthClients.lastChars
+};
 
 function normalizeScopes(scopes: string[]): string {
     const set = new Set(scopes);
@@ -152,22 +169,7 @@ export async function listOAuthClients(
         }
 
         const clients = await db
-            .select({
-                clientId: oauthClients.clientId,
-                clientName: oauthClients.clientName,
-                clientUri: oauthClients.clientUri,
-                logoUri: oauthClients.logoUri,
-                backchannelLogoutUri: oauthClients.backchannelLogoutUri,
-                postLogoutRedirectUris: oauthClients.postLogoutRedirectUris,
-                redirectUris: oauthClients.redirectUris,
-                scopes: oauthClients.scopes,
-                pkceRequired: oauthClients.pkceRequired,
-                enabled: oauthClients.enabled,
-                orgId: oauthClients.orgId,
-                createdAt: oauthClients.createdAt,
-                updatedAt: oauthClients.updatedAt,
-                lastChars: oauthClients.lastChars
-            })
+            .select(publicClientColumns)
             .from(oauthClients)
             .where(eq(oauthClients.orgId, parsedParams.data.orgId));
 
@@ -208,22 +210,7 @@ export async function getOAuthClient(
         }
 
         const [client] = await db
-            .select({
-                clientId: oauthClients.clientId,
-                clientName: oauthClients.clientName,
-                clientUri: oauthClients.clientUri,
-                logoUri: oauthClients.logoUri,
-                backchannelLogoutUri: oauthClients.backchannelLogoutUri,
-                postLogoutRedirectUris: oauthClients.postLogoutRedirectUris,
-                redirectUris: oauthClients.redirectUris,
-                scopes: oauthClients.scopes,
-                pkceRequired: oauthClients.pkceRequired,
-                enabled: oauthClients.enabled,
-                orgId: oauthClients.orgId,
-                createdAt: oauthClients.createdAt,
-                updatedAt: oauthClients.updatedAt,
-                lastChars: oauthClients.lastChars
-            })
+            .select(publicClientColumns)
             .from(oauthClients)
             .where(
                 and(
