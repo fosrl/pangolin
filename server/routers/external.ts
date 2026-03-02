@@ -89,7 +89,11 @@ unauthenticated.post(
     oauth.revokeToken
 );
 unauthenticated.get("/oauth/logout", oauth.handleEndSession);
-unauthenticated.post("/oauth/logout", oauth.handleEndSession);
+unauthenticated.post(
+    "/oauth/logout",
+    express.urlencoded({ extended: false }),
+    oauth.handleEndSession
+);
 
 // Authenticated Root routes
 export const authenticated = Router();
