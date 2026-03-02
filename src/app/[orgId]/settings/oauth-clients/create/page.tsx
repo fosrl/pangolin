@@ -268,7 +268,7 @@ export default function CreateOAuthClientPage() {
                             {(showOptional || clientUri.trim()) && (
                                 <div className="space-y-2">
                                     <Label htmlFor="client-uri">
-                                        {t("oauthClientHomepageLabel")} <span className="text-muted-foreground font-normal">(optional)</span>
+                                        {t("oauthClientHomepageLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
                                     </Label>
                                     <Input
                                         id="client-uri"
@@ -283,7 +283,7 @@ export default function CreateOAuthClientPage() {
                             {(showOptional || logoUri.trim()) && (
                                 <div className="space-y-2">
                                     <Label htmlFor="logo-uri">
-                                        {t("oauthClientLogoLabel")} <span className="text-muted-foreground font-normal">(optional)</span>
+                                        {t("oauthClientLogoLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
                                     </Label>
                                     <Input
                                         id="logo-uri"
@@ -298,7 +298,7 @@ export default function CreateOAuthClientPage() {
                             {(showOptional || backchannelLogoutUri.trim()) && (
                                 <div className="space-y-2">
                                     <Label htmlFor="backchannel-logout-uri">
-                                        {t("oauthClientBackchannelLogoutUriLabel")} <span className="text-muted-foreground font-normal">(optional)</span>
+                                        {t("oauthClientBackchannelLogoutUriLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
                                     </Label>
                                     <Input
                                         id="backchannel-logout-uri"
@@ -313,7 +313,7 @@ export default function CreateOAuthClientPage() {
                             {(showOptional || postLogoutRedirectUris.some(u => u.trim())) && (
                                 <div className="space-y-2">
                                     <Label>
-                                        {t("oauthClientPostLogoutRedirectUrisLabel")} <span className="text-muted-foreground font-normal">(optional)</span>
+                                        {t("oauthClientPostLogoutRedirectUrisLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
                                     </Label>
                                     <div className="space-y-3">
                                         {postLogoutRedirectUris.map((uri, index) => (

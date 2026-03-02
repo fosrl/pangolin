@@ -204,6 +204,7 @@
     "resourcePortNumberDescription": "The external port number to proxy requests.",
     "back": "Back",
     "cancel": "Cancel",
+    "optional": "(optional)",
     "resourceConfig": "Configuration Snippets",
     "resourceConfigDescription": "Copy and paste these configuration snippets to set up the TCP/UDP resource",
     "resourceAddEntrypoints": "Traefik: Add Entrypoints",
