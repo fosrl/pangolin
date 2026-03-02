@@ -17,12 +17,13 @@ export default async function migration() {
                 "clientName" text NOT NULL,
                 "clientUri" text,
                 "logoUri" text,
-                "redirectUris" text NOT NULL,
+                "redirectUris" json NOT NULL,
                 "scopes" text DEFAULT 'openid profile email' NOT NULL,
                 "pkceRequired" boolean DEFAULT true NOT NULL,
                 "enabled" boolean DEFAULT true NOT NULL,
                 "orgId" text NOT NULL REFERENCES "orgs"("orgId") ON DELETE cascade,
                 "backchannelLogoutUri" varchar,
+                "postLogoutRedirectUris" json,
                 "createdAt" bigint NOT NULL,
                 "updatedAt" bigint NOT NULL
             );
@@ -38,7 +39,7 @@ export default async function migration() {
             CREATE TABLE IF NOT EXISTS "oauthInteractions" (
                 "interactionId" text PRIMARY KEY NOT NULL,
                 "clientId" text NOT NULL REFERENCES "oauthClients"("clientId") ON DELETE cascade,
-                "userId" text NOT NULL REFERENCES "users"("userId") ON DELETE cascade,
+                "userId" text NOT NULL REFERENCES "user"("id") ON DELETE cascade,
                 "scope" text NOT NULL,
                 "state" text NOT NULL,
                 "nonce" text,
@@ -65,7 +66,7 @@ export default async function migration() {
                 "codeId" text PRIMARY KEY NOT NULL,
                 "codeHash" text NOT NULL,
                 "clientId" text NOT NULL REFERENCES "oauthClients"("clientId") ON DELETE cascade,
-                "userId" text NOT NULL REFERENCES "users"("userId") ON DELETE cascade,
+                "userId" text NOT NULL REFERENCES "user"("id") ON DELETE cascade,
                 "scope" text NOT NULL,
                 "redirectUri" text NOT NULL,
                 "codeChallenge" text,
@@ -93,7 +94,7 @@ export default async function migration() {
                 "accessTokenId" text PRIMARY KEY NOT NULL,
                 "tokenHash" text NOT NULL,
                 "clientId" text NOT NULL REFERENCES "oauthClients"("clientId") ON DELETE cascade,
-                "userId" text NOT NULL REFERENCES "users"("userId") ON DELETE cascade,
+                "userId" text NOT NULL REFERENCES "user"("id") ON DELETE cascade,
                 "scope" text NOT NULL,
                 "expiresAt" bigint NOT NULL,
                 "createdAt" bigint NOT NULL
@@ -117,7 +118,7 @@ export default async function migration() {
                 "refreshTokenId" text PRIMARY KEY NOT NULL,
                 "tokenHash" text NOT NULL,
                 "clientId" text NOT NULL REFERENCES "oauthClients"("clientId") ON DELETE cascade,
-                "userId" text NOT NULL REFERENCES "users"("userId") ON DELETE cascade,
+                "userId" text NOT NULL REFERENCES "user"("id") ON DELETE cascade,
                 "scope" text NOT NULL,
                 "expiresAt" bigint NOT NULL,
                 "revokedAt" bigint,
@@ -143,7 +144,7 @@ export default async function migration() {
         await db.execute(sql`
             CREATE TABLE IF NOT EXISTS "oauthConsents" (
                 "consentId" text PRIMARY KEY NOT NULL,
-                "userId" text NOT NULL REFERENCES "users"("userId") ON DELETE cascade,
+                "userId" text NOT NULL REFERENCES "user"("id") ON DELETE cascade,
                 "clientId" text NOT NULL REFERENCES "oauthClients"("clientId") ON DELETE cascade,
                 "scope" text NOT NULL,
                 "createdAt" bigint NOT NULL,

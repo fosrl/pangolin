@@ -27,6 +27,7 @@ export default async function migration() {
                     'enabled' integer DEFAULT 1 NOT NULL,
                     'orgId' text NOT NULL REFERENCES 'orgs'('orgId') ON DELETE cascade,
                     'backchannelLogoutUri' text,
+                    'postLogoutRedirectUris' text,
                     'createdAt' integer NOT NULL,
                     'updatedAt' integer NOT NULL
                 );
@@ -44,7 +45,7 @@ export default async function migration() {
                 CREATE TABLE IF NOT EXISTS 'oauthInteractions' (
                     'interactionId' text PRIMARY KEY NOT NULL,
                     'clientId' text NOT NULL REFERENCES 'oauthClients'('clientId') ON DELETE cascade,
-                    'userId' text NOT NULL REFERENCES 'users'('userId') ON DELETE cascade,
+                    'userId' text NOT NULL REFERENCES 'user'('id') ON DELETE cascade,
                     'scope' text NOT NULL,
                     'state' text NOT NULL,
                     'nonce' text,
@@ -73,7 +74,7 @@ export default async function migration() {
                     'codeId' text PRIMARY KEY NOT NULL,
                     'codeHash' text NOT NULL,
                     'clientId' text NOT NULL REFERENCES 'oauthClients'('clientId') ON DELETE cascade,
-                    'userId' text NOT NULL REFERENCES 'users'('userId') ON DELETE cascade,
+                    'userId' text NOT NULL REFERENCES 'user'('id') ON DELETE cascade,
                     'scope' text NOT NULL,
                     'redirectUri' text NOT NULL,
                     'codeChallenge' text,
@@ -103,7 +104,7 @@ export default async function migration() {
                     'accessTokenId' text PRIMARY KEY NOT NULL,
                     'tokenHash' text NOT NULL,
                     'clientId' text NOT NULL REFERENCES 'oauthClients'('clientId') ON DELETE cascade,
-                    'userId' text NOT NULL REFERENCES 'users'('userId') ON DELETE cascade,
+                    'userId' text NOT NULL REFERENCES 'user'('id') ON DELETE cascade,
                     'scope' text NOT NULL,
                     'expiresAt' integer NOT NULL,
                     'createdAt' integer NOT NULL
@@ -129,7 +130,7 @@ export default async function migration() {
                     'refreshTokenId' text PRIMARY KEY NOT NULL,
                     'tokenHash' text NOT NULL,
                     'clientId' text NOT NULL REFERENCES 'oauthClients'('clientId') ON DELETE cascade,
-                    'userId' text NOT NULL REFERENCES 'users'('userId') ON DELETE cascade,
+                    'userId' text NOT NULL REFERENCES 'user'('id') ON DELETE cascade,
                     'scope' text NOT NULL,
                     'expiresAt' integer NOT NULL,
                     'revokedAt' integer,
@@ -157,7 +158,7 @@ export default async function migration() {
                 `
                 CREATE TABLE IF NOT EXISTS 'oauthConsents' (
                     'consentId' text PRIMARY KEY NOT NULL,
-                    'userId' text NOT NULL REFERENCES 'users'('userId') ON DELETE cascade,
+                    'userId' text NOT NULL REFERENCES 'user'('id') ON DELETE cascade,
                     'clientId' text NOT NULL REFERENCES 'oauthClients'('clientId') ON DELETE cascade,
                     'scope' text NOT NULL,
                     'createdAt' integer NOT NULL,
