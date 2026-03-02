@@ -47,6 +47,11 @@ type InitiateResponseData =
           clientUri: string | null;
           logoUri: string | null;
           requestedScopes: string[];
+          user: {
+              name: string | null;
+              email: string | null;
+              username: string;
+          };
       };
 
 export function parseClientRedirectUris(redirectUris: string): string[] {
@@ -268,7 +273,12 @@ export async function initiateAuthorization(
                 clientName: client.clientName,
                 clientUri: client.clientUri,
                 logoUri: client.logoUri,
-                requestedScopes: parseScopeString(grantedScope)
+                requestedScopes: parseScopeString(grantedScope),
+                user: {
+                    name: req.user?.name ?? null,
+                    email: req.user?.email ?? null,
+                    username: req.user!.username
+                }
             },
             success: true,
             error: false,

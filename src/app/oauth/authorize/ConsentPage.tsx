@@ -35,7 +35,12 @@ const initiateResponseSchema = z.strictObject({
             clientName: z.string().min(1),
             clientUri: z.string().nullable(),
             logoUri: z.string().nullable(),
-            requestedScopes: z.array(z.string())
+            requestedScopes: z.array(z.string()),
+            user: z.strictObject({
+                name: z.string().nullable(),
+                email: z.string().nullable(),
+                username: z.string()
+            })
         })
     ]),
     success: z.boolean(),
@@ -84,6 +89,11 @@ export default function ConsentPage({
         clientUri: string | null;
         logoUri: string | null;
         requestedScopes: string[];
+        user: {
+            name: string | null;
+            email: string | null;
+            username: string;
+        };
     } | null>(null);
 
     const isMissingRequiredParams = useMemo(() => {
@@ -275,6 +285,20 @@ export default function ConsentPage({
                                             </a>
                                         )}
                                 </div>
+                            </div>
+
+                            <div className="rounded-md border px-4 py-3 text-sm text-muted-foreground overflow-hidden">
+                                <p>
+                                    {t("oauthAuthorizeSigningInAs")}{" "}
+                                    <span className="font-medium text-foreground">
+                                        {interaction.user.name || interaction.user.username}
+                                    </span>
+                                </p>
+                                {interaction.user.email && (
+                                    <p className="truncate">
+                                        {interaction.user.email}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="space-y-2">
