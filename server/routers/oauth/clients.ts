@@ -17,6 +17,7 @@ import HttpCode from "@server/types/HttpCode";
 import logger from "@server/logger";
 import response from "@server/lib/response";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
+import { validScopes } from "@server/lib/oauth/scopes";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().min(1)
@@ -35,7 +36,7 @@ const createBodySchema = z.strictObject({
     backchannelLogoutUri: z.string().url().optional(),
     postLogoutRedirectUris: z.array(z.string().url()).optional(),
     scopes: z
-        .array(z.enum(["openid", "profile", "email", "groups"]))
+        .array(z.enum(validScopes))
         .optional()
         .default(["openid", "profile", "email"]),
     pkceRequired: z.boolean().optional().default(true),
@@ -50,18 +51,17 @@ const updateBodySchema = z.strictObject({
     backchannelLogoutUri: z.string().url().nullable().optional(),
     postLogoutRedirectUris: z.array(z.string().url()).nullable().optional(),
     scopes: z
-        .array(z.enum(["openid", "profile", "email", "groups"]))
+        .array(z.enum(validScopes))
         .optional(),
     pkceRequired: z.boolean().optional(),
     enabled: z.boolean().optional()
 });
 
 function normalizeScopes(scopes: string[]): string {
-    const order = ["openid", "profile", "email", "groups"];
     const set = new Set(scopes);
     set.add("openid");
 
-    return order.filter((scope) => set.has(scope)).join(" ");
+    return validScopes.filter((scope) => set.has(scope)).join(" ");
 }
 
 export async function createOAuthClient(
@@ -104,7 +104,7 @@ export async function createOAuthClient(
             clientUri: body.clientUri,
             logoUri: body.logoUri,
             backchannelLogoutUri: body.backchannelLogoutUri,
-            postLogoutRedirectUris: body.postLogoutRedirectUris ?? undefined,
+            postLogoutRedirectUris: body.postLogoutRedirectUris,
             redirectUris: body.redirectUris,
             scopes: normalizeScopes(body.scopes),
             pkceRequired: body.pkceRequired,

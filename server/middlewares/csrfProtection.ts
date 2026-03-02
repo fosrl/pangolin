@@ -3,7 +3,8 @@ import { NextFunction, Request, Response } from "express";
 const csrfExemptPaths = new Set([
     "/api/v1/oauth/token",
     "/api/v1/oauth/revoke",
-    "/api/v1/oauth/userinfo"
+    "/api/v1/oauth/userinfo",
+    "/api/v1/oauth/logout"
 ]);
 
 export function csrfProtectionMiddleware(

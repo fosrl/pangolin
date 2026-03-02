@@ -15,57 +15,54 @@ function extractBearerToken(req: Request): string | null {
     return authHeader.slice("Bearer ".length).trim();
 }
 
-async function handleUserinfoRequest(
+export async function handleUserinfoRequest(
     req: Request,
     res: Response,
     next: NextFunction
 ): Promise<Response | void> {
-    const token = extractBearerToken(req);
+    try {
+        const token = extractBearerToken(req);
 
-    if (!token) {
-        res.setHeader("WWW-Authenticate", "Bearer");
+        if (!token) {
+            res.setHeader("WWW-Authenticate", "Bearer");
+            return next(
+                createHttpError(HttpCode.UNAUTHORIZED, "Missing bearer token")
+            );
+        }
+
+        const [accessToken] = await db
+            .select()
+            .from(oauthAccessTokens)
+            .where(eq(oauthAccessTokens.tokenHash, hashToken(token)))
+            .limit(1);
+
+        if (!accessToken || Date.now() > accessToken.expiresAt) {
+            res.setHeader(
+                "WWW-Authenticate",
+                'Bearer error="invalid_token"'
+            );
+            return next(
+                createHttpError(
+                    HttpCode.UNAUTHORIZED,
+                    "Invalid or expired token"
+                )
+            );
+        }
+
+        const claims = await buildUserinfoClaims(
+            accessToken.userId,
+            accessToken.scope
+        );
+
+        res.setHeader("Content-Type", "application/json");
+        res.status(HttpCode.OK).json(claims);
+    } catch {
         return next(
-            createHttpError(HttpCode.UNAUTHORIZED, "Missing bearer token")
+            createHttpError(
+                HttpCode.INTERNAL_SERVER_ERROR,
+                "Failed to process userinfo request"
+            )
         );
     }
-
-    const [accessToken] = await db
-        .select()
-        .from(oauthAccessTokens)
-        .where(eq(oauthAccessTokens.tokenHash, hashToken(token)))
-        .limit(1);
-
-    if (!accessToken || Date.now() > accessToken.expiresAt) {
-        res.setHeader(
-            "WWW-Authenticate",
-            'Bearer error="invalid_token"'
-        );
-        return next(
-            createHttpError(HttpCode.UNAUTHORIZED, "Invalid or expired token")
-        );
-    }
-
-    const claims = await buildUserinfoClaims(
-        accessToken.userId,
-        accessToken.scope
-    );
-
-    res.setHeader("Content-Type", "application/json");
-    res.status(HttpCode.OK).json(claims);
 }
 
-export async function getUserinfo(
-    req: Request,
-    res: Response,
-    next: NextFunction
-): Promise<Response | void> {
-    return handleUserinfoRequest(req, res, next);
-}
-
-export async function postUserinfo(
-    req: Request,
-    res: Response,
-    next: NextFunction
-): Promise<Response | void> {
-    return handleUserinfoRequest(req, res, next);
-}

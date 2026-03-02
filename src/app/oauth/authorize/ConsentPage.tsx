@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@app/components/ui/card";
 import LoginCardHeader from "@app/components/LoginCardHeader";
 import { Button } from "@app/components/ui/button";
@@ -91,15 +91,12 @@ export default function ConsentPage({
         };
     } | null>(null);
 
-    const isMissingRequiredParams = useMemo(() => {
-        return (
-            !params.response_type ||
-            !params.client_id ||
-            !params.redirect_uri ||
-            !params.scope ||
-            !params.state
-        );
-    }, [params]);
+    const isMissingRequiredParams =
+        !params.response_type ||
+        !params.client_id ||
+        !params.redirect_uri ||
+        !params.scope ||
+        !params.state;
 
     useEffect(() => {
         if (isMissingRequiredParams) {

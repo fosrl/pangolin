@@ -192,6 +192,8 @@ export async function issueToken(
                 );
             }
 
+            res.setHeader("Cache-Control", "no-store");
+            res.setHeader("Pragma", "no-cache");
             return res.status(HttpCode.OK).json(responseBody);
         }
 
@@ -317,6 +319,8 @@ export async function issueToken(
                 );
             }
 
+            res.setHeader("Cache-Control", "no-store");
+            res.setHeader("Pragma", "no-cache");
             return res.status(HttpCode.OK).json(responseBody);
         }
 

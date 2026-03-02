@@ -80,8 +80,8 @@ unauthenticated.post(
     oauth.issueToken
 );
 unauthenticated.get("/oauth/jwks", oauth.getJwks);
-unauthenticated.get("/oauth/userinfo", oauth.getUserinfo);
-unauthenticated.post("/oauth/userinfo", oauth.postUserinfo);
+unauthenticated.get("/oauth/userinfo", oauth.handleUserinfoRequest);
+unauthenticated.post("/oauth/userinfo", oauth.handleUserinfoRequest);
 unauthenticated.post(
     "/oauth/revoke",
     oauthTokenRateLimit,
