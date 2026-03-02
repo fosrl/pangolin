@@ -38,105 +38,35 @@ export async function revokeToken(
         }
 
         const tokenHash = hashToken(token);
+        const tokenWhere = (table: typeof oauthAccessTokens | typeof oauthRefreshTokens) =>
+            and(
+                eq(table.tokenHash, tokenHash),
+                eq(table.clientId, client.clientId)
+            );
 
         if (tokenTypeHint === "refresh_token") {
-            const [refreshToken] = await db
-                .select()
-                .from(oauthRefreshTokens)
-                .where(
-                    and(
-                        eq(oauthRefreshTokens.tokenHash, tokenHash),
-                        eq(oauthRefreshTokens.clientId, client.clientId)
-                    )
-                )
-                .limit(1);
-
-            if (refreshToken) {
-                await db
-                    .update(oauthRefreshTokens)
-                    .set({ revokedAt: Date.now() })
-                    .where(
-                        eq(
-                            oauthRefreshTokens.refreshTokenId,
-                            refreshToken.refreshTokenId
-                        )
-                    );
-            }
-
+            await db
+                .update(oauthRefreshTokens)
+                .set({ revokedAt: Date.now() })
+                .where(tokenWhere(oauthRefreshTokens));
             return res.status(HttpCode.OK).json({});
         }
 
         if (tokenTypeHint === "access_token") {
-            const [accessToken] = await db
-                .select()
-                .from(oauthAccessTokens)
-                .where(
-                    and(
-                        eq(oauthAccessTokens.tokenHash, tokenHash),
-                        eq(oauthAccessTokens.clientId, client.clientId)
-                    )
-                )
-                .limit(1);
-
-            if (accessToken) {
-                await db
-                    .delete(oauthAccessTokens)
-                    .where(
-                        eq(
-                            oauthAccessTokens.accessTokenId,
-                            accessToken.accessTokenId
-                        )
-                    );
-            }
-
-            return res.status(HttpCode.OK).json({});
-        }
-
-        const [accessToken] = await db
-            .select()
-            .from(oauthAccessTokens)
-            .where(
-                and(
-                    eq(oauthAccessTokens.tokenHash, tokenHash),
-                    eq(oauthAccessTokens.clientId, client.clientId)
-                )
-            )
-            .limit(1);
-
-        if (accessToken) {
             await db
                 .delete(oauthAccessTokens)
-                .where(
-                    eq(
-                        oauthAccessTokens.accessTokenId,
-                        accessToken.accessTokenId
-                    )
-                );
+                .where(tokenWhere(oauthAccessTokens));
             return res.status(HttpCode.OK).json({});
         }
 
-        const [refreshToken] = await db
-            .select()
-            .from(oauthRefreshTokens)
-            .where(
-                and(
-                    eq(oauthRefreshTokens.tokenHash, tokenHash),
-                    eq(oauthRefreshTokens.clientId, client.clientId)
-                )
-            )
-            .limit(1);
-
-        if (refreshToken) {
-            await db
-                .update(oauthRefreshTokens)
-                .set({ revokedAt: Date.now() })
-                .where(
-                    eq(
-                        oauthRefreshTokens.refreshTokenId,
-                        refreshToken.refreshTokenId
-                    )
-                );
-        }
+        // No hint — try access token first, then refresh token
+        await db
+            .delete(oauthAccessTokens)
+            .where(tokenWhere(oauthAccessTokens));
+        await db
+            .update(oauthRefreshTokens)
+            .set({ revokedAt: Date.now() })
+            .where(tokenWhere(oauthRefreshTokens));
 
         return res.status(HttpCode.OK).json({});
     } catch (error) {
