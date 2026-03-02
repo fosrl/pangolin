@@ -104,10 +104,8 @@ export async function createOAuthClient(
             clientUri: body.clientUri,
             logoUri: body.logoUri,
             backchannelLogoutUri: body.backchannelLogoutUri,
-            postLogoutRedirectUris: body.postLogoutRedirectUris
-                ? JSON.stringify(body.postLogoutRedirectUris)
-                : undefined,
-            redirectUris: JSON.stringify(body.redirectUris),
+            postLogoutRedirectUris: body.postLogoutRedirectUris ?? undefined,
+            redirectUris: body.redirectUris,
             scopes: normalizeScopes(body.scopes),
             pkceRequired: body.pkceRequired,
             enabled: body.enabled,
@@ -309,38 +307,17 @@ export async function updateOAuthClient(
         await db
             .update(oauthClients)
             .set({
-                ...(body.clientName ? { clientName: body.clientName } : {}),
-                ...(body.clientUri !== undefined
-                    ? { clientUri: body.clientUri }
-                    : {}),
-                ...(body.logoUri !== undefined
-                    ? { logoUri: body.logoUri }
-                    : {}),
-                ...(body.redirectUris
-                    ? { redirectUris: JSON.stringify(body.redirectUris) }
-                    : {}),
-                ...(body.scopes
-                    ? { scopes: normalizeScopes(body.scopes) }
-                    : {}),
-                ...(body.pkceRequired !== undefined
-                    ? { pkceRequired: body.pkceRequired }
-                    : {}),
-                ...(body.enabled !== undefined
-                    ? { enabled: body.enabled }
-                    : {}),
-                ...(body.backchannelLogoutUri !== undefined
-                    ? { backchannelLogoutUri: body.backchannelLogoutUri }
-                    : {}),
-                ...(body.postLogoutRedirectUris !== undefined
-                    ? {
-                          postLogoutRedirectUris:
-                              body.postLogoutRedirectUris
-                                  ? JSON.stringify(
-                                        body.postLogoutRedirectUris
-                                    )
-                                  : null
-                      }
-                    : {}),
+                clientName: body.clientName,
+                clientUri: body.clientUri,
+                logoUri: body.logoUri,
+                redirectUris: body.redirectUris,
+                scopes: body.scopes
+                    ? normalizeScopes(body.scopes)
+                    : undefined,
+                pkceRequired: body.pkceRequired,
+                enabled: body.enabled,
+                backchannelLogoutUri: body.backchannelLogoutUri,
+                postLogoutRedirectUris: body.postLogoutRedirectUris,
                 updatedAt: Date.now()
             })
             .where(eq(oauthClients.clientId, existingClient.clientId));

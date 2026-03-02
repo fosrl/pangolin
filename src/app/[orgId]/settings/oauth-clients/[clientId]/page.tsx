@@ -34,7 +34,6 @@ import {
 import CopyTextBox from "@app/components/CopyTextBox";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
-import { parseRedirectUris } from "@app/lib/parseRedirectUris";
 
 type OAuthClient = {
     clientId: string;
@@ -42,8 +41,8 @@ type OAuthClient = {
     clientUri: string | null;
     logoUri: string | null;
     backchannelLogoutUri: string | null;
-    postLogoutRedirectUris: string | null;
-    redirectUris: string;
+    postLogoutRedirectUris: string[] | null;
+    redirectUris: string[];
     scopes: string;
     pkceRequired: boolean;
     enabled: boolean;
@@ -146,13 +145,13 @@ export default function EditOAuthClientPage() {
                 setClientUri(client.clientUri || "");
                 setLogoUri(client.logoUri || "");
                 setBackchannelLogoutUri(client.backchannelLogoutUri || "");
-                const parsedPostLogoutUris = parseRedirectUris(client.postLogoutRedirectUris || "");
+                const postLogoutUris = client.postLogoutRedirectUris ?? [];
                 setPostLogoutRedirectUris(
-                    parsedPostLogoutUris.length > 0 ? parsedPostLogoutUris : [""]
+                    postLogoutUris.length > 0 ? postLogoutUris : [""]
                 );
                 setRedirectUris(
-                    parseRedirectUris(client.redirectUris).length > 0
-                        ? parseRedirectUris(client.redirectUris)
+                    client.redirectUris.length > 0
+                        ? client.redirectUris
                         : [""]
                 );
                 setScopeProfile(clientScopes.has("profile"));

@@ -5,14 +5,13 @@ import OAuthClientsTable, {
     OAuthClientRow
 } from "@app/components/OAuthClientsTable";
 import { getTranslations } from "next-intl/server";
-import { parseRedirectUris } from "@app/lib/parseRedirectUris";
 
 type OAuthClientListItem = {
     clientId: string;
     clientName: string;
     clientUri: string | null;
     logoUri: string | null;
-    redirectUris: string;
+    redirectUris: string[];
     scopes: string;
     pkceRequired: boolean;
     enabled: boolean;
@@ -55,7 +54,7 @@ export default async function OAuthClientsPage(props: OAuthClientsPageProps) {
         clientId: client.clientId,
         clientName: client.clientName,
         logoUri: client.logoUri,
-        redirectUris: parseRedirectUris(client.redirectUris),
+        redirectUris: client.redirectUris,
         scopes: client.scopes,
         enabled: client.enabled,
         createdAt: new Date(client.createdAt).toISOString(),

@@ -54,17 +54,6 @@ type InitiateResponseData =
           };
       };
 
-export function parseClientRedirectUris(redirectUris: string): string[] {
-    try {
-        const parsed = JSON.parse(redirectUris);
-        if (!Array.isArray(parsed)) {
-            return [];
-        }
-        return parsed.filter((item) => typeof item === "string");
-    } catch {
-        return [];
-    }
-}
 
 function appendOAuthParams(
     redirectUri: string,
@@ -164,10 +153,7 @@ export async function initiateAuthorization(
             );
         }
 
-        const allowedRedirectUris = parseClientRedirectUris(
-            client.redirectUris
-        );
-        if (!allowedRedirectUris.includes(body.redirect_uri)) {
+        if (!client.redirectUris.includes(body.redirect_uri)) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Invalid redirect_uri")
             );
