@@ -32,13 +32,6 @@ export default async function migration() {
                 );
                 `
             ).run();
-            try {
-                db.prepare(
-                    `ALTER TABLE oauthClients ADD COLUMN backchannelLogoutUri text`
-                ).run();
-            } catch (_e) {
-                // Column may already exist from CREATE TABLE above
-            }
             db.prepare(
                 `CREATE INDEX IF NOT EXISTS 'idx_oauthClients_orgId' ON 'oauthClients' ('orgId');`
             ).run();
