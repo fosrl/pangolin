@@ -123,7 +123,7 @@ export default function EditOAuthClientPage() {
         clientId: string;
         clientSecret: string;
     } | null>(null);
-    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [showOptional, setShowOptional] = useState(false);
     const [isRotateModalOpen, setIsRotateModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -150,9 +150,6 @@ export default function EditOAuthClientPage() {
                 setPostLogoutRedirectUris(
                     parsedPostLogoutUris.length > 0 ? parsedPostLogoutUris : [""]
                 );
-                if (client.clientUri || client.logoUri || client.backchannelLogoutUri || parsedPostLogoutUris.length > 0) {
-                    setShowAdvanced(true);
-                }
                 setRedirectUris(
                     parseRedirectUris(client.redirectUris).length > 0
                         ? parseRedirectUris(client.redirectUris)
@@ -442,11 +439,11 @@ export default function EditOAuthClientPage() {
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setShowAdvanced((prev) => !prev)}
+                            onClick={() => setShowOptional((prev) => !prev)}
                         >
-                            {showAdvanced
-                                ? t("oauthClientHideAdvanced")
-                                : t("oauthClientShowAdvanced")}
+                            {showOptional
+                                ? t("oauthClientHideOptionalFields")
+                                : t("oauthClientShowOptionalFields")}
                         </Button>
                     </div>
                     <SettingsSectionBody>
@@ -471,93 +468,97 @@ export default function EditOAuthClientPage() {
                                 />
                             </div>
 
-                            {showAdvanced && (
-                                <>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="client-uri">
-                                            {t("oauthClientHomepageLabel")}
-                                        </Label>
-                                        <Input
-                                            id="client-uri"
-                                            value={clientUri}
-                                            onChange={(event) =>
-                                                setClientUri(event.target.value)
-                                            }
-                                        />
-                                    </div>
+                            {(showOptional || clientUri.trim()) && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="client-uri">
+                                        {t("oauthClientHomepageLabel")} <span className="text-muted-foreground font-normal">(optional)</span>
+                                    </Label>
+                                    <Input
+                                        id="client-uri"
+                                        value={clientUri}
+                                        onChange={(event) =>
+                                            setClientUri(event.target.value)
+                                        }
+                                    />
+                                </div>
+                            )}
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="logo-uri">
-                                            {t("oauthClientLogoLabel")}
-                                        </Label>
-                                        <Input
-                                            id="logo-uri"
-                                            value={logoUri}
-                                            onChange={(event) =>
-                                                setLogoUri(event.target.value)
-                                            }
-                                        />
-                                    </div>
+                            {(showOptional || logoUri.trim()) && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="logo-uri">
+                                        {t("oauthClientLogoLabel")} <span className="text-muted-foreground font-normal">(optional)</span>
+                                    </Label>
+                                    <Input
+                                        id="logo-uri"
+                                        value={logoUri}
+                                        onChange={(event) =>
+                                            setLogoUri(event.target.value)
+                                        }
+                                    />
+                                </div>
+                            )}
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="backchannel-logout-uri">
-                                            {t("oauthClientBackchannelLogoutUriLabel")}
-                                        </Label>
-                                        <Input
-                                            id="backchannel-logout-uri"
-                                            value={backchannelLogoutUri}
-                                            onChange={(event) =>
-                                                setBackchannelLogoutUri(event.target.value)
-                                            }
-                                        />
-                                    </div>
+                            {(showOptional || backchannelLogoutUri.trim()) && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="backchannel-logout-uri">
+                                        {t("oauthClientBackchannelLogoutUriLabel")} <span className="text-muted-foreground font-normal">(optional)</span>
+                                    </Label>
+                                    <Input
+                                        id="backchannel-logout-uri"
+                                        value={backchannelLogoutUri}
+                                        onChange={(event) =>
+                                            setBackchannelLogoutUri(event.target.value)
+                                        }
+                                    />
+                                </div>
+                            )}
 
-                                    <div className="space-y-2">
-                                        <Label>
-                                            {t("oauthClientPostLogoutRedirectUrisLabel")}
-                                        </Label>
-                                        <div className="space-y-3">
-                                            {postLogoutRedirectUris.map((uri, index) => (
-                                                <div key={index} className="flex gap-2">
-                                                    <Input
-                                                        value={uri}
-                                                        onChange={(event) =>
-                                                            updatePostLogoutRedirectUri(
-                                                                index,
-                                                                event.target.value
-                                                            )
-                                                        }
-                                                        placeholder={t(
-                                                            "oauthClientPostLogoutRedirectUriPlaceholder"
-                                                        )}
-                                                    />
-                                                    {postLogoutRedirectUris.length > 1 && (
-                                                        <Button
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                removePostLogoutRedirectUri(index)
-                                                            }
-                                                        >
-                                                            {t("oauthClientRemovePostLogoutRedirectUri")}
-                                                        </Button>
+                            {(showOptional || postLogoutRedirectUris.some(u => u.trim())) && (
+                                <div className="space-y-2">
+                                    <Label>
+                                        {t("oauthClientPostLogoutRedirectUrisLabel")} <span className="text-muted-foreground font-normal">(optional)</span>
+                                    </Label>
+                                    <div className="space-y-3">
+                                        {postLogoutRedirectUris.map((uri, index) => (
+                                            <div key={index} className="flex gap-2">
+                                                <Input
+                                                    value={uri}
+                                                    onChange={(event) =>
+                                                        updatePostLogoutRedirectUri(
+                                                            index,
+                                                            event.target.value
+                                                        )
+                                                    }
+                                                    placeholder={t(
+                                                        "oauthClientPostLogoutRedirectUriPlaceholder"
                                                     )}
-                                                </div>
-                                            ))}
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() =>
-                                                    setPostLogoutRedirectUris((prev) => [
-                                                        ...prev,
-                                                        ""
-                                                    ])
-                                                }
-                                            >
-                                                {t("oauthClientAddPostLogoutRedirectUri")}
-                                            </Button>
-                                        </div>
+                                                />
+                                                {postLogoutRedirectUris.length > 1 && (
+                                                    <Button
+                                                        variant="outline"
+                                                        onClick={() =>
+                                                            removePostLogoutRedirectUri(index)
+                                                        }
+                                                    >
+                                                        {t("oauthClientRemovePostLogoutRedirectUri")}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ))}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                setPostLogoutRedirectUris((prev) => [
+                                                    ...prev,
+                                                    ""
+                                                ])
+                                            }
+                                        >
+                                            {t("oauthClientAddPostLogoutRedirectUri")}
+                                        </Button>
                                     </div>
-                                </>
+                                </div>
                             )}
 
                             <div className="space-y-2 pt-2">
