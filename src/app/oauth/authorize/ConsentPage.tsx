@@ -311,7 +311,7 @@ export default function ConsentPage({
                                                 >
                                                     <Icon className="size-4 md:size-5 shrink-0 text-muted-foreground" />
                                                     <div className="pl-2">
-                                                        <p className="text-sm font-medium">
+                                                        <p className="text-sm font-medium capitalize">
                                                             {scope}
                                                         </p>
                                                         <p className="text-xs text-muted-foreground">
@@ -332,7 +332,7 @@ export default function ConsentPage({
 
                             <div className="flex gap-2 justify-end">
                                 <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     onClick={() => submitConsent(false)}
                                     disabled={consentLoading}
                                 >
