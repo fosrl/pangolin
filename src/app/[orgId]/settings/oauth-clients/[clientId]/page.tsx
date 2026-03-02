@@ -22,12 +22,15 @@ import { Label } from "@app/components/ui/label";
 import { Checkbox } from "@app/components/ui/checkbox";
 import { Switch } from "@app/components/ui/switch";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle
-} from "@app/components/ui/dialog";
+    Credenza,
+    CredenzaBody,
+    CredenzaClose,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle
+} from "@app/components/Credenza";
 import CopyTextBox from "@app/components/CopyTextBox";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
@@ -119,6 +122,7 @@ export default function EditOAuthClientPage() {
         clientSecret: string;
     } | null>(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [isRotateModalOpen, setIsRotateModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     useEffect(() => {
@@ -306,7 +310,7 @@ export default function EditOAuthClientPage() {
                 </Button>
             </div>
 
-            <Dialog
+            <Credenza
                 open={Boolean(rotatedSecret)}
                 onOpenChange={(open) => {
                     if (!open) {
@@ -314,29 +318,70 @@ export default function EditOAuthClientPage() {
                     }
                 }}
             >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>
                             {t("oauthClientNewSecretDialogTitle")}
-                        </DialogTitle>
-                        <DialogDescription>
+                        </CredenzaTitle>
+                        <CredenzaDescription>
                             {t("oauthClientNewSecretDialogDescription")}
-                        </DialogDescription>
-                    </DialogHeader>
-                    {rotatedSecret && (
-                        <div className="space-y-3">
-                            <div className="space-y-1">
-                                <Label>{t("oauthClientIdHeader")}</Label>
-                                <CopyTextBox text={rotatedSecret.clientId} wrapText />
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaBody>
+                        {rotatedSecret && (
+                            <div className="space-y-3">
+                                <div className="space-y-1">
+                                    <Label>{t("oauthClientIdHeader")}</Label>
+                                    <CopyTextBox text={rotatedSecret.clientId} wrapText />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>{t("oauthClientSecretLabel")}</Label>
+                                    <CopyTextBox text={rotatedSecret.clientSecret} wrapText />
+                                </div>
                             </div>
-                            <div className="space-y-1">
-                                <Label>{t("oauthClientSecretLabel")}</Label>
-                                <CopyTextBox text={rotatedSecret.clientSecret} wrapText />
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
+                        )}
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <CredenzaClose asChild>
+                            <Button variant="outline">
+                                {t("close")}
+                            </Button>
+                        </CredenzaClose>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
+
+            <Credenza
+                open={isRotateModalOpen}
+                onOpenChange={setIsRotateModalOpen}
+            >
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>
+                            {t("oauthClientRotateConfirmTitle")}
+                        </CredenzaTitle>
+                        <CredenzaDescription>
+                            {t("oauthClientRotateConfirmDescription")}
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaFooter>
+                        <CredenzaClose asChild>
+                            <Button variant="outline">
+                                {t("cancel")}
+                            </Button>
+                        </CredenzaClose>
+                        <Button
+                            variant="destructive"
+                            onClick={() => {
+                                setIsRotateModalOpen(false);
+                                rotateSecret();
+                            }}
+                        >
+                            {t("oauthClientRotateButton")}
+                        </Button>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
 
             <ConfirmDeleteDialog
                 open={isDeleteModalOpen}
@@ -556,7 +601,7 @@ export default function EditOAuthClientPage() {
                     </SettingsSectionBody>
 
                     <SettingsSectionFooter>
-                        <Button variant="outline" onClick={rotateSecret}>
+                        <Button variant="outline" onClick={() => setIsRotateModalOpen(true)}>
                             {t("oauthClientRotateButton")}
                         </Button>
                         <Button
