@@ -29,8 +29,7 @@
         "email": "email dev --dir server/emails/templates --port 3005",
         "build:cli": "node esbuild.mjs -e cli/index.ts -o dist/cli.mjs",
         "format:check": "prettier --check .",
-        "format": "prettier --write .",
-        "postinstall": "patch-package"
+        "format": "prettier --write ."
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "8.4.1",
@@ -100,10 +99,8 @@
         "node-cache": "5.1.2",
         "nodemailer": "8.0.1",
         "oslo": "1.2.1",
-        "patch-package": "8.0.1",
         "pg": "8.20.0",
         "posthog-node": "5.28.0",
-        
         "qrcode.react": "4.2.0",
         "react": "19.2.4",
         "react-day-picker": "9.14.0",
