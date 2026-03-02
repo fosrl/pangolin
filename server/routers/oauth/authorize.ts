@@ -49,7 +49,7 @@ type InitiateResponseData =
           requestedScopes: string[];
       };
 
-function parseClientRedirectUris(redirectUris: string): string[] {
+export function parseClientRedirectUris(redirectUris: string): string[] {
     try {
         const parsed = JSON.parse(redirectUris);
         if (!Array.isArray(parsed)) {
