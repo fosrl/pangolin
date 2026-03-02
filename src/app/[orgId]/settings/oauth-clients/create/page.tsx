@@ -57,12 +57,15 @@ export default function CreateOAuthClientPage() {
     const [clientName, setClientName] = useState("");
     const [clientUri, setClientUri] = useState("");
     const [logoUri, setLogoUri] = useState("");
+    const [backchannelLogoutUri, setBackchannelLogoutUri] = useState("");
     const [redirectUris, setRedirectUris] = useState<string[]>([""]);
+
     const [scopeProfile, setScopeProfile] = useState(true);
     const [scopeEmail, setScopeEmail] = useState(true);
     const [scopeGroups, setScopeGroups] = useState(false);
     const [pkceRequired, setPkceRequired] = useState(true);
     const [enabled, setEnabled] = useState(true);
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const [creating, setCreating] = useState(false);
     const [createdSecret, setCreatedSecret] = useState<{
         clientId: string;
@@ -121,6 +124,7 @@ export default function CreateOAuthClientPage() {
                     redirectUris: cleanedRedirectUris,
                     clientUri: clientUri.trim() || undefined,
                     logoUri: logoUri.trim() || undefined,
+                    backchannelLogoutUri: backchannelLogoutUri.trim() || undefined,
                     scopes,
                     pkceRequired,
                     enabled
@@ -195,6 +199,18 @@ export default function CreateOAuthClientPage() {
 
             <SettingsContainer>
                 <SettingsSection>
+                    <div className="flex items-center justify-between pb-4">
+                        <div />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowAdvanced((prev) => !prev)}
+                        >
+                            {showAdvanced
+                                ? t("oauthClientHideAdvanced")
+                                : t("oauthClientShowAdvanced")}
+                        </Button>
+                    </div>
                     <SettingsSectionBody>
                         <SettingsSectionForm>
                             <div className="space-y-2">
@@ -210,31 +226,48 @@ export default function CreateOAuthClientPage() {
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="client-uri">
-                                    {t("oauthClientHomepageLabel")}
-                                </Label>
-                                <Input
-                                    id="client-uri"
-                                    value={clientUri}
-                                    onChange={(event) =>
-                                        setClientUri(event.target.value)
-                                    }
-                                />
-                            </div>
+                            {showAdvanced && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="client-uri">
+                                            {t("oauthClientHomepageLabel")}
+                                        </Label>
+                                        <Input
+                                            id="client-uri"
+                                            value={clientUri}
+                                            onChange={(event) =>
+                                                setClientUri(event.target.value)
+                                            }
+                                        />
+                                    </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="logo-uri">
-                                    {t("oauthClientLogoLabel")}
-                                </Label>
-                                <Input
-                                    id="logo-uri"
-                                    value={logoUri}
-                                    onChange={(event) =>
-                                        setLogoUri(event.target.value)
-                                    }
-                                />
-                            </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="logo-uri">
+                                            {t("oauthClientLogoLabel")}
+                                        </Label>
+                                        <Input
+                                            id="logo-uri"
+                                            value={logoUri}
+                                            onChange={(event) =>
+                                                setLogoUri(event.target.value)
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="backchannel-logout-uri">
+                                            {t("oauthClientBackchannelLogoutUriLabel")}
+                                        </Label>
+                                        <Input
+                                            id="backchannel-logout-uri"
+                                            value={backchannelLogoutUri}
+                                            onChange={(event) =>
+                                                setBackchannelLogoutUri(event.target.value)
+                                            }
+                                        />
+                                    </div>
+                                </>
+                            )}
 
                             <div className="space-y-2 pt-2">
                                 <Label>

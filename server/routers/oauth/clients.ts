@@ -32,6 +32,7 @@ const createBodySchema = z.strictObject({
     redirectUris: z.array(z.string().url()).min(1),
     clientUri: z.string().url().optional(),
     logoUri: z.string().url().optional(),
+    backchannelLogoutUri: z.string().url().optional(),
     scopes: z
         .array(z.enum(["openid", "profile", "email", "groups"]))
         .optional()
@@ -45,6 +46,7 @@ const updateBodySchema = z.strictObject({
     redirectUris: z.array(z.string().url()).min(1).optional(),
     clientUri: z.string().url().optional(),
     logoUri: z.string().url().optional(),
+    backchannelLogoutUri: z.string().url().nullable().optional(),
     scopes: z
         .array(z.enum(["openid", "profile", "email", "groups"]))
         .optional(),
@@ -99,6 +101,7 @@ export async function createOAuthClient(
             clientName: body.clientName,
             clientUri: body.clientUri,
             logoUri: body.logoUri,
+            backchannelLogoutUri: body.backchannelLogoutUri,
             redirectUris: JSON.stringify(body.redirectUris),
             scopes: normalizeScopes(body.scopes),
             pkceRequired: body.pkceRequired,
@@ -151,6 +154,7 @@ export async function listOAuthClients(
                 clientName: oauthClients.clientName,
                 clientUri: oauthClients.clientUri,
                 logoUri: oauthClients.logoUri,
+                backchannelLogoutUri: oauthClients.backchannelLogoutUri,
                 redirectUris: oauthClients.redirectUris,
                 scopes: oauthClients.scopes,
                 pkceRequired: oauthClients.pkceRequired,
@@ -205,6 +209,7 @@ export async function getOAuthClient(
                 clientName: oauthClients.clientName,
                 clientUri: oauthClients.clientUri,
                 logoUri: oauthClients.logoUri,
+                backchannelLogoutUri: oauthClients.backchannelLogoutUri,
                 redirectUris: oauthClients.redirectUris,
                 scopes: oauthClients.scopes,
                 pkceRequired: oauthClients.pkceRequired,
@@ -315,6 +320,9 @@ export async function updateOAuthClient(
                     : {}),
                 ...(body.enabled !== undefined
                     ? { enabled: body.enabled }
+                    : {}),
+                ...(body.backchannelLogoutUri !== undefined
+                    ? { backchannelLogoutUri: body.backchannelLogoutUri }
                     : {}),
                 updatedAt: Date.now()
             })

@@ -9,6 +9,7 @@ import {
 } from "@server/auth/sessions/app";
 import { verifySession } from "@server/auth/sessions/verifySession";
 import config from "@server/lib/config";
+import { sendBackchannelLogout } from "@server/lib/oauth/backchannelLogout";
 
 export async function logout(
     req: Request,
@@ -44,6 +45,14 @@ export async function logout(
         } catch (error) {
             logger.error("Failed to invalidate session", error);
         }
+
+        // Fire-and-forget: notify RPs via back-channel logout
+        sendBackchannelLogout(user.userId).catch((err) => {
+            logger.error("Back-channel logout dispatch error", err);
+        });
+
+        const isSecure = req.protocol === "https";
+        res.setHeader("Set-Cookie", createBlankSessionTokenCookie(isSecure));
 
         return response<null>(res, {
             data: null,

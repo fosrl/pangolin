@@ -38,6 +38,7 @@ type OAuthClient = {
     clientName: string;
     clientUri: string | null;
     logoUri: string | null;
+    backchannelLogoutUri: string | null;
     redirectUris: string;
     scopes: string;
     pkceRequired: boolean;
@@ -106,6 +107,7 @@ export default function EditOAuthClientPage() {
     const [clientName, setClientName] = useState("");
     const [clientUri, setClientUri] = useState("");
     const [logoUri, setLogoUri] = useState("");
+    const [backchannelLogoutUri, setBackchannelLogoutUri] = useState("");
     const [redirectUris, setRedirectUris] = useState<string[]>([""]);
     const [scopeProfile, setScopeProfile] = useState(true);
     const [scopeEmail, setScopeEmail] = useState(true);
@@ -116,6 +118,7 @@ export default function EditOAuthClientPage() {
         clientId: string;
         clientSecret: string;
     } | null>(null);
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     useEffect(() => {
@@ -136,6 +139,10 @@ export default function EditOAuthClientPage() {
                 setClientName(client.clientName);
                 setClientUri(client.clientUri || "");
                 setLogoUri(client.logoUri || "");
+                setBackchannelLogoutUri(client.backchannelLogoutUri || "");
+                if (client.clientUri || client.logoUri || client.backchannelLogoutUri) {
+                    setShowAdvanced(true);
+                }
                 setRedirectUris(
                     parseRedirectUris(client.redirectUris).length > 0
                         ? parseRedirectUris(client.redirectUris)
@@ -210,6 +217,7 @@ export default function EditOAuthClientPage() {
                 redirectUris: cleanedRedirectUris,
                 clientUri: clientUri.trim() || undefined,
                 logoUri: logoUri.trim() || undefined,
+                backchannelLogoutUri: backchannelLogoutUri.trim() || null,
                 scopes,
                 pkceRequired,
                 enabled
@@ -346,6 +354,18 @@ export default function EditOAuthClientPage() {
 
             <SettingsContainer>
                 <SettingsSection>
+                    <div className="flex items-center justify-between pb-4">
+                        <div />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowAdvanced((prev) => !prev)}
+                        >
+                            {showAdvanced
+                                ? t("oauthClientHideAdvanced")
+                                : t("oauthClientShowAdvanced")}
+                        </Button>
+                    </div>
                     <SettingsSectionBody>
                         <SettingsSectionForm>
                             <div className="space-y-2">
@@ -368,31 +388,48 @@ export default function EditOAuthClientPage() {
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="client-uri">
-                                    {t("oauthClientHomepageLabel")}
-                                </Label>
-                                <Input
-                                    id="client-uri"
-                                    value={clientUri}
-                                    onChange={(event) =>
-                                        setClientUri(event.target.value)
-                                    }
-                                />
-                            </div>
+                            {showAdvanced && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="client-uri">
+                                            {t("oauthClientHomepageLabel")}
+                                        </Label>
+                                        <Input
+                                            id="client-uri"
+                                            value={clientUri}
+                                            onChange={(event) =>
+                                                setClientUri(event.target.value)
+                                            }
+                                        />
+                                    </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="logo-uri">
-                                    {t("oauthClientLogoLabel")}
-                                </Label>
-                                <Input
-                                    id="logo-uri"
-                                    value={logoUri}
-                                    onChange={(event) =>
-                                        setLogoUri(event.target.value)
-                                    }
-                                />
-                            </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="logo-uri">
+                                            {t("oauthClientLogoLabel")}
+                                        </Label>
+                                        <Input
+                                            id="logo-uri"
+                                            value={logoUri}
+                                            onChange={(event) =>
+                                                setLogoUri(event.target.value)
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="backchannel-logout-uri">
+                                            {t("oauthClientBackchannelLogoutUriLabel")}
+                                        </Label>
+                                        <Input
+                                            id="backchannel-logout-uri"
+                                            value={backchannelLogoutUri}
+                                            onChange={(event) =>
+                                                setBackchannelLogoutUri(event.target.value)
+                                            }
+                                        />
+                                    </div>
+                                </>
+                            )}
 
                             <div className="space-y-2 pt-2">
                                 <Label>

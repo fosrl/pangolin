@@ -26,11 +26,19 @@ export default async function migration() {
                     'pkceRequired' integer DEFAULT 1 NOT NULL,
                     'enabled' integer DEFAULT 1 NOT NULL,
                     'orgId' text NOT NULL REFERENCES 'orgs'('orgId') ON DELETE cascade,
+                    'backchannelLogoutUri' text,
                     'createdAt' integer NOT NULL,
                     'updatedAt' integer NOT NULL
                 );
                 `
             ).run();
+            try {
+                db.prepare(
+                    `ALTER TABLE oauthClients ADD COLUMN backchannelLogoutUri text`
+                ).run();
+            } catch (_e) {
+                // Column may already exist from CREATE TABLE above
+            }
             db.prepare(
                 `CREATE INDEX IF NOT EXISTS 'idx_oauthClients_orgId' ON 'oauthClients' ('orgId');`
             ).run();
