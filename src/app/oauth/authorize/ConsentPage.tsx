@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle
-} from "@app/components/ui/card";
+import { Card, CardContent } from "@app/components/ui/card";
+import LoginCardHeader from "@app/components/LoginCardHeader";
 import { Button } from "@app/components/ui/button";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { z } from "zod";
@@ -231,13 +226,8 @@ export default function ConsentPage({
     return (
         <div>
             <Card className="w-full">
-                <CardHeader>
-                    <CardTitle>{t("oauthAuthorizeTitle")}</CardTitle>
-                    <CardDescription>
-                        {t("oauthAuthorizeDescription")}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+                <LoginCardHeader subtitle={t("oauthAuthorizeDescription")} />
+                <CardContent className="pt-6 space-y-4">
                     {loading && (
                         <p className="text-sm text-muted-foreground">
                             {t("oauthAuthorizePreparing")}
