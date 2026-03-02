@@ -33,6 +33,7 @@ const createBodySchema = z.strictObject({
     clientUri: z.string().url().optional(),
     logoUri: z.string().url().optional(),
     backchannelLogoutUri: z.string().url().optional(),
+    postLogoutRedirectUris: z.array(z.string().url()).optional(),
     scopes: z
         .array(z.enum(["openid", "profile", "email", "groups"]))
         .optional()
@@ -47,6 +48,7 @@ const updateBodySchema = z.strictObject({
     clientUri: z.string().url().optional(),
     logoUri: z.string().url().optional(),
     backchannelLogoutUri: z.string().url().nullable().optional(),
+    postLogoutRedirectUris: z.array(z.string().url()).nullable().optional(),
     scopes: z
         .array(z.enum(["openid", "profile", "email", "groups"]))
         .optional(),
@@ -102,6 +104,9 @@ export async function createOAuthClient(
             clientUri: body.clientUri,
             logoUri: body.logoUri,
             backchannelLogoutUri: body.backchannelLogoutUri,
+            postLogoutRedirectUris: body.postLogoutRedirectUris
+                ? JSON.stringify(body.postLogoutRedirectUris)
+                : undefined,
             redirectUris: JSON.stringify(body.redirectUris),
             scopes: normalizeScopes(body.scopes),
             pkceRequired: body.pkceRequired,
@@ -155,6 +160,7 @@ export async function listOAuthClients(
                 clientUri: oauthClients.clientUri,
                 logoUri: oauthClients.logoUri,
                 backchannelLogoutUri: oauthClients.backchannelLogoutUri,
+                postLogoutRedirectUris: oauthClients.postLogoutRedirectUris,
                 redirectUris: oauthClients.redirectUris,
                 scopes: oauthClients.scopes,
                 pkceRequired: oauthClients.pkceRequired,
@@ -210,6 +216,7 @@ export async function getOAuthClient(
                 clientUri: oauthClients.clientUri,
                 logoUri: oauthClients.logoUri,
                 backchannelLogoutUri: oauthClients.backchannelLogoutUri,
+                postLogoutRedirectUris: oauthClients.postLogoutRedirectUris,
                 redirectUris: oauthClients.redirectUris,
                 scopes: oauthClients.scopes,
                 pkceRequired: oauthClients.pkceRequired,
@@ -323,6 +330,16 @@ export async function updateOAuthClient(
                     : {}),
                 ...(body.backchannelLogoutUri !== undefined
                     ? { backchannelLogoutUri: body.backchannelLogoutUri }
+                    : {}),
+                ...(body.postLogoutRedirectUris !== undefined
+                    ? {
+                          postLogoutRedirectUris:
+                              body.postLogoutRedirectUris
+                                  ? JSON.stringify(
+                                        body.postLogoutRedirectUris
+                                    )
+                                  : null
+                      }
                     : {}),
                 updatedAt: Date.now()
             })

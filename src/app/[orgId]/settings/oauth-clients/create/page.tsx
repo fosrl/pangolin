@@ -61,6 +61,7 @@ export default function CreateOAuthClientPage() {
     const [clientUri, setClientUri] = useState("");
     const [logoUri, setLogoUri] = useState("");
     const [backchannelLogoutUri, setBackchannelLogoutUri] = useState("");
+    const [postLogoutRedirectUris, setPostLogoutRedirectUris] = useState<string[]>([""]);
     const [redirectUris, setRedirectUris] = useState<string[]>([""]);
 
     const [scopeProfile, setScopeProfile] = useState(true);
@@ -83,6 +84,16 @@ export default function CreateOAuthClientPage() {
 
     function removeRedirectUri(index: number) {
         setRedirectUris((prev) => prev.filter((_, i) => i !== index));
+    }
+
+    function updatePostLogoutRedirectUri(index: number, value: string) {
+        setPostLogoutRedirectUris((prev) =>
+            prev.map((item, i) => (i === index ? value : item))
+        );
+    }
+
+    function removePostLogoutRedirectUri(index: number) {
+        setPostLogoutRedirectUris((prev) => prev.filter((_, i) => i !== index));
     }
 
     async function createClient() {
@@ -120,6 +131,10 @@ export default function CreateOAuthClientPage() {
                 scopes.push("groups");
             }
 
+            const cleanedPostLogoutRedirectUris = postLogoutRedirectUris
+                .map((item) => item.trim())
+                .filter((item) => item.length > 0);
+
             const res = await api.post<CreateResponse>(
                 `/org/${orgId}/oauth-clients`,
                 {
@@ -128,6 +143,9 @@ export default function CreateOAuthClientPage() {
                     clientUri: clientUri.trim() || undefined,
                     logoUri: logoUri.trim() || undefined,
                     backchannelLogoutUri: backchannelLogoutUri.trim() || undefined,
+                    postLogoutRedirectUris: cleanedPostLogoutRedirectUris.length > 0
+                        ? cleanedPostLogoutRedirectUris
+                        : undefined,
                     scopes,
                     pkceRequired,
                     enabled
@@ -277,6 +295,52 @@ export default function CreateOAuthClientPage() {
                                                 setBackchannelLogoutUri(event.target.value)
                                             }
                                         />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>
+                                            {t("oauthClientPostLogoutRedirectUrisLabel")}
+                                        </Label>
+                                        <div className="space-y-3">
+                                            {postLogoutRedirectUris.map((uri, index) => (
+                                                <div key={index} className="flex gap-2">
+                                                    <Input
+                                                        value={uri}
+                                                        onChange={(event) =>
+                                                            updatePostLogoutRedirectUri(
+                                                                index,
+                                                                event.target.value
+                                                            )
+                                                        }
+                                                        placeholder={t(
+                                                            "oauthClientPostLogoutRedirectUriPlaceholder"
+                                                        )}
+                                                    />
+                                                    {postLogoutRedirectUris.length > 1 && (
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() =>
+                                                                removePostLogoutRedirectUri(index)
+                                                            }
+                                                        >
+                                                            {t("oauthClientRemovePostLogoutRedirectUri")}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                    setPostLogoutRedirectUris((prev) => [
+                                                        ...prev,
+                                                        ""
+                                                    ])
+                                                }
+                                            >
+                                                {t("oauthClientAddPostLogoutRedirectUri")}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </>
                             )}

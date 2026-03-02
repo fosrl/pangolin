@@ -12,6 +12,7 @@ export function openidConfiguration(_: Request, res: Response): void {
         userinfo_endpoint: `${issuer}/api/v1/oauth/userinfo`,
         jwks_uri: `${issuer}/api/v1/oauth/jwks`,
         revocation_endpoint: `${issuer}/api/v1/oauth/revoke`,
+        end_session_endpoint: `${issuer}/api/v1/oauth/logout`,
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "refresh_token"],
         subject_types_supported: ["public"],

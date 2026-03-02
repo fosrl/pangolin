@@ -6,3 +6,4 @@ export * from "./userinfo";
 export * from "./revoke";
 export * from "./clients";
 export * from "./consents";
+export * from "./endSession";
