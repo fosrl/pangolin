@@ -27,13 +27,6 @@ export default async function migration() {
                 "updatedAt" bigint NOT NULL
             );
         `);
-        try {
-            await db.execute(
-                sql`ALTER TABLE "oauthClients" ADD COLUMN "backchannelLogoutUri" varchar`
-            );
-        } catch (_e) {
-            // Column may already exist from CREATE TABLE above
-        }
         await db.execute(
             sql`CREATE INDEX IF NOT EXISTS "idx_oauthClients_orgId" ON "oauthClients" ("orgId");`
         );
