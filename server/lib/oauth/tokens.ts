@@ -20,14 +20,7 @@ export function signIdToken(
     privateKeyPem: string,
     kid: string
 ): string {
-    const payload: Record<string, unknown> = {
-        ...claims
-    };
-
-    delete payload.exp;
-    delete payload.iat;
-
-    return jsonwebtoken.sign(payload, privateKeyPem, {
+    return jsonwebtoken.sign(claims, privateKeyPem, {
         algorithm: "RS256",
         keyid: kid,
         expiresIn: "1h"

@@ -8,7 +8,7 @@ import {
     SettingsSectionForm
 } from "@app/components/Settings";
 import SettingsHeaderTitle from "@app/components/SettingsSectionTitle";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
@@ -49,13 +49,7 @@ export default function CreateOAuthClientPage() {
     const router = useRouter();
     const t = useTranslations();
 
-    const orgId = useMemo(() => {
-        const rawOrgId = params.orgId;
-        if (Array.isArray(rawOrgId)) {
-            return rawOrgId[0];
-        }
-        return rawOrgId || "";
-    }, [params.orgId]);
+    const orgId = params.orgId as string;
 
     const [clientName, setClientName] = useState("");
     const [clientUri, setClientUri] = useState("");

@@ -11,7 +11,7 @@ import {
     SettingsSectionTitle
 } from "@app/components/Settings";
 import SettingsHeaderTitle from "@app/components/SettingsSectionTitle";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
@@ -89,21 +89,8 @@ export default function EditOAuthClientPage() {
     const router = useRouter();
     const t = useTranslations();
 
-    const orgId = useMemo(() => {
-        const rawOrgId = params.orgId;
-        if (Array.isArray(rawOrgId)) {
-            return rawOrgId[0];
-        }
-        return rawOrgId || "";
-    }, [params.orgId]);
-
-    const clientId = useMemo(() => {
-        const rawClientId = params.clientId;
-        if (Array.isArray(rawClientId)) {
-            return rawClientId[0];
-        }
-        return rawClientId || "";
-    }, [params.clientId]);
+    const orgId = params.orgId as string;
+    const clientId = params.clientId as string;
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

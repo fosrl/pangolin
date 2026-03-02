@@ -3,12 +3,7 @@ export const validScopes = ["openid", "profile", "email", "groups"] as const;
 export type OAuthScope = (typeof validScopes)[number];
 
 function isOAuthScope(scope: string): scope is OAuthScope {
-    return (
-        scope === "openid" ||
-        scope === "profile" ||
-        scope === "email" ||
-        scope === "groups"
-    );
+    return (validScopes as readonly string[]).includes(scope);
 }
 
 export function parseScopeString(scope: string): string[] {
