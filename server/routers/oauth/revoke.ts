@@ -22,6 +22,9 @@ export async function revokeToken(
         const authResult = await authenticateClient(req);
 
         if (!("client" in authResult)) {
+            if (req.headers.authorization) {
+                res.setHeader("WWW-Authenticate", "Basic");
+            }
             return sendOAuthError(
                 res,
                 authResult.status,

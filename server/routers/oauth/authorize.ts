@@ -240,6 +240,7 @@ export async function initiateAuthorization(
         }
 
         const interactionId = generateIdFromEntropySize(12);
+        const now = Date.now();
 
         await db.insert(oauthInteractions).values({
             interactionId,
@@ -252,8 +253,8 @@ export async function initiateAuthorization(
             codeChallenge: body.code_challenge,
             codeChallengeMethod: body.code_challenge_method,
             responseType: body.response_type,
-            expiresAt: Date.now() + INTERACTION_LIFETIME_MS,
-            createdAt: Date.now()
+            expiresAt: now + INTERACTION_LIFETIME_MS,
+            createdAt: now
         });
 
         return response<InitiateResponseData>(res, {
