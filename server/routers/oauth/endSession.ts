@@ -1,7 +1,12 @@
 import type { Request, Response } from "express";
 import jsonwebtoken from "jsonwebtoken";
-import { eq } from "drizzle-orm";
-import { db, oauthClients } from "@server/db";
+import { and, eq, isNull } from "drizzle-orm";
+import {
+    db,
+    oauthAccessTokens,
+    oauthClients,
+    oauthRefreshTokens
+} from "@server/db";
 import { getActiveSigningKey } from "@server/lib/oauth/keys";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import logger from "@server/logger";
@@ -22,6 +27,7 @@ export async function handleEndSession(
 
         const fallbackUrl = getIssuerUrl();
         let clientId: string | undefined;
+        let userId: string | undefined;
         let clientIdMismatch = false;
 
         if (idTokenHint) {
@@ -48,6 +54,10 @@ export async function handleEndSession(
                             : Array.isArray(decoded.aud)
                               ? decoded.aud[0]
                               : undefined;
+
+                    if ("sub" in decoded && typeof decoded.sub === "string") {
+                        userId = decoded.sub;
+                    }
                 }
 
                 if (clientIdParam && clientId && clientIdParam !== clientId) {
@@ -61,6 +71,30 @@ export async function handleEndSession(
 
         if (!clientId && clientIdParam && !clientIdMismatch) {
             clientId = clientIdParam;
+        }
+
+        if (clientId && userId) {
+            await db.transaction(async (trx) => {
+                await trx
+                    .delete(oauthAccessTokens)
+                    .where(
+                        and(
+                            eq(oauthAccessTokens.userId, userId!),
+                            eq(oauthAccessTokens.clientId, clientId!)
+                        )
+                    );
+
+                await trx
+                    .update(oauthRefreshTokens)
+                    .set({ revokedAt: Date.now() })
+                    .where(
+                        and(
+                            eq(oauthRefreshTokens.userId, userId!),
+                            eq(oauthRefreshTokens.clientId, clientId!),
+                            isNull(oauthRefreshTokens.revokedAt)
+                        )
+                    );
+            });
         }
 
         if (postLogoutRedirectUri && clientId) {
