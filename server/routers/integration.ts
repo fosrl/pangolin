@@ -1069,6 +1069,7 @@ authenticated.post(
     verifyApiKeyOrgAccess,
     verifyLimits,
     verifyApiKeyHasAction(ActionsEnum.createOAuthClient),
+    logActionAudit(ActionsEnum.createOAuthClient),
     oauth.createOAuthClient
 );
 
@@ -1091,6 +1092,7 @@ authenticated.patch(
     verifyApiKeyOrgAccess,
     verifyLimits,
     verifyApiKeyHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
     oauth.updateOAuthClient
 );
 
@@ -1098,6 +1100,7 @@ authenticated.delete(
     "/org/:orgId/oauth-clients/:clientId",
     verifyApiKeyOrgAccess,
     verifyApiKeyHasAction(ActionsEnum.deleteOAuthClient),
+    logActionAudit(ActionsEnum.deleteOAuthClient),
     oauth.deleteOAuthClient
 );
 
@@ -1106,5 +1109,6 @@ authenticated.post(
     verifyApiKeyOrgAccess,
     verifyLimits,
     verifyApiKeyHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
     oauth.rotateOAuthClientSecret
 );
