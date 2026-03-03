@@ -22,7 +22,7 @@ import {
 import CopyTextBox from "@app/components/CopyTextBox";
 import { useTranslations } from "next-intl";
 import { ResponseT } from "@server/types/Response";
-import OAuthClientForm, { type OAuthClientFormData } from "../OAuthClientForm";
+import OAuthClientForm, { type OAuthClientFormData } from "@app/components/OAuthClientForm";
 
 export default function CreateOAuthClientPage() {
     const { env } = useEnvContext();

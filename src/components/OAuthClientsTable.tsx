@@ -26,17 +26,12 @@ import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useTranslations } from "next-intl";
 import ClientAvatar from "@app/components/ClientAvatar";
+import { OAuthClient } from "@app/app/[orgId]/settings/oauth-clients/types";
 
-export type OAuthClientRow = {
-    clientId: string;
-    clientName: string;
-    logoUri: string | null;
-    redirectUris: string[];
-    scopes: string;
-    enabled: boolean;
-    createdAt: string;
-    lastChars: string;
-};
+export type OAuthClientRow = Pick<
+    OAuthClient,
+    "clientId" | "clientName" | "logoUri" | "redirectUris" | "scopes" | "enabled" | "createdAt" | "lastChars"
+>;
 
 type OAuthClientsTableProps = {
     clients: OAuthClientRow[];

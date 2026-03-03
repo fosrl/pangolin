@@ -31,7 +31,7 @@ import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
 import { OAuthClient } from "../types";
 import { ResponseT } from "@server/types/Response";
-import OAuthClientForm, { type OAuthClientFormData } from "../OAuthClientForm";
+import OAuthClientForm, { type OAuthClientFormData } from "@app/components/OAuthClientForm";
 
 function parseScopes(scopeString: string): Set<string> {
     return new Set(
