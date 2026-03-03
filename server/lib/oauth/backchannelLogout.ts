@@ -64,6 +64,14 @@ export async function sendBackchannelLogout(
                 )
             );
 
+        // Revoke all tokens for this user
+        await db
+            .delete(oauthAccessTokens)
+            .where(eq(oauthAccessTokens.userId, userId));
+        await db
+            .delete(oauthRefreshTokens)
+            .where(eq(oauthRefreshTokens.userId, userId));
+
         if (clients.length === 0) {
             return;
         }
@@ -71,7 +79,6 @@ export async function sendBackchannelLogout(
         const signingKey = await getActiveSigningKey();
         const issuer = getIssuerUrl();
 
-        // Send logout tokens to all clients (fire-and-forget)
         const promises = clients.map(async (client) => {
             try {
                 const jti = generateIdFromEntropySize(16);
@@ -108,14 +115,6 @@ export async function sendBackchannelLogout(
         });
 
         await Promise.all(promises);
-
-        // Revoke all tokens for this user
-        await db
-            .delete(oauthAccessTokens)
-            .where(eq(oauthAccessTokens.userId, userId));
-        await db
-            .delete(oauthRefreshTokens)
-            .where(eq(oauthRefreshTokens.userId, userId));
     } catch (err) {
         logger.error(`sendBackchannelLogout failed for user ${userId}: ${err}`);
     }
