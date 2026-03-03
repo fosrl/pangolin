@@ -138,6 +138,7 @@ authenticated.post(
     verifyOrgAccess,
     verifyAdmin,
     verifyUserHasAction(ActionsEnum.createOAuthClient),
+    logActionAudit(ActionsEnum.createOAuthClient),
     oauth.createOAuthClient
 );
 authenticated.get(
@@ -159,6 +160,7 @@ authenticated.patch(
     verifyOrgAccess,
     verifyAdmin,
     verifyUserHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
     oauth.updateOAuthClient
 );
 authenticated.delete(
@@ -166,6 +168,7 @@ authenticated.delete(
     verifyOrgAccess,
     verifyAdmin,
     verifyUserHasAction(ActionsEnum.deleteOAuthClient),
+    logActionAudit(ActionsEnum.deleteOAuthClient),
     oauth.deleteOAuthClient
 );
 authenticated.post(
@@ -173,6 +176,7 @@ authenticated.post(
     verifyOrgAccess,
     verifyAdmin,
     verifyUserHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
     oauth.rotateOAuthClientSecret
 );
 
