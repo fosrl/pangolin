@@ -119,6 +119,9 @@ export async function issueToken(
     try {
         const authResult = await authenticateClient(req);
         if (!("client" in authResult)) {
+            if (req.headers.authorization) {
+                res.setHeader("WWW-Authenticate", "Basic");
+            }
             return sendOAuthError(
                 res,
                 authResult.status,
@@ -230,7 +233,7 @@ export async function issueToken(
                 scope: authCode.scope,
                 userId: authCode.userId,
                 clientId: authCode.clientId,
-                nonce: authCode.nonce || undefined
+                nonce: authCode.nonce ?? undefined
             });
         }
 
