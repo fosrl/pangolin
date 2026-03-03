@@ -1,12 +1,6 @@
 "use client";
 
-import {
-    SettingsContainer,
-    SettingsSection,
-    SettingsSectionBody,
-    SettingsSectionFooter,
-    SettingsSectionForm
-} from "@app/components/Settings";
+import { SettingsContainer } from "@app/components/Settings";
 import SettingsHeaderTitle from "@app/components/SettingsSectionTitle";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -14,10 +8,7 @@ import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { Button } from "@app/components/ui/button";
-import { Input } from "@app/components/ui/input";
 import { Label } from "@app/components/ui/label";
-import { Checkbox } from "@app/components/ui/checkbox";
-import { Switch } from "@app/components/ui/switch";
 import {
     Credenza,
     CredenzaBody,
@@ -30,8 +21,8 @@ import {
 } from "@app/components/Credenza";
 import CopyTextBox from "@app/components/CopyTextBox";
 import { useTranslations } from "next-intl";
-import ClientAvatar from "@app/components/ClientAvatar";
 import { ResponseT } from "@server/types/Response";
+import OAuthClientForm, { type OAuthClientFormData } from "../OAuthClientForm";
 
 export default function CreateOAuthClientPage() {
     const { env } = useEnvContext();
@@ -42,98 +33,29 @@ export default function CreateOAuthClientPage() {
 
     const orgId = params.orgId as string;
 
-    const [clientName, setClientName] = useState("");
-    const [clientUri, setClientUri] = useState("");
-    const [logoUri, setLogoUri] = useState("");
-    const [backchannelLogoutUri, setBackchannelLogoutUri] = useState("");
-    const [postLogoutRedirectUris, setPostLogoutRedirectUris] = useState<string[]>([""]);
-    const [redirectUris, setRedirectUris] = useState<string[]>([""]);
-
-    const [scopeProfile, setScopeProfile] = useState(true);
-    const [scopeEmail, setScopeEmail] = useState(true);
-    const [scopeGroups, setScopeGroups] = useState(false);
-    const [pkceRequired, setPkceRequired] = useState(true);
-    const [enabled, setEnabled] = useState(true);
-    const [showOptional, setShowOptional] = useState(false);
     const [creating, setCreating] = useState(false);
     const [createdSecret, setCreatedSecret] = useState<{
         clientId: string;
         clientSecret: string;
     } | null>(null);
 
-    function updateRedirectUri(index: number, value: string) {
-        setRedirectUris((prev) =>
-            prev.map((item, i) => (i === index ? value : item))
-        );
-    }
-
-    function removeRedirectUri(index: number) {
-        setRedirectUris((prev) => prev.filter((_, i) => i !== index));
-    }
-
-    function updatePostLogoutRedirectUri(index: number, value: string) {
-        setPostLogoutRedirectUris((prev) =>
-            prev.map((item, i) => (i === index ? value : item))
-        );
-    }
-
-    function removePostLogoutRedirectUri(index: number) {
-        setPostLogoutRedirectUris((prev) => prev.filter((_, i) => i !== index));
-    }
-
-    async function createClient() {
-        const cleanedRedirectUris = redirectUris
-            .map((item) => item.trim())
-            .filter((item) => item.length > 0);
-
-        if (!clientName.trim()) {
-            toast({
-                variant: "destructive",
-                title: t("oauthClientNameRequired")
-            });
-            return;
-        }
-
-        if (cleanedRedirectUris.length === 0) {
-            toast({
-                variant: "destructive",
-                title: t("oauthClientRedirectUrisRequired")
-            });
-            return;
-        }
-
+    async function handleCreate(data: OAuthClientFormData) {
         setCreating(true);
-
         try {
-            const scopes = ["openid"];
-            if (scopeProfile) {
-                scopes.push("profile");
-            }
-            if (scopeEmail) {
-                scopes.push("email");
-            }
-            if (scopeGroups) {
-                scopes.push("groups");
-            }
-
-            const cleanedPostLogoutRedirectUris = postLogoutRedirectUris
-                .map((item) => item.trim())
-                .filter((item) => item.length > 0);
-
             const res = await api.post<ResponseT<{ clientId: string; clientSecret: string }>>(
                 `/org/${orgId}/oauth-clients`,
                 {
-                    clientName: clientName.trim(),
-                    redirectUris: cleanedRedirectUris,
-                    clientUri: clientUri.trim() || undefined,
-                    logoUri: logoUri.trim() || undefined,
-                    backchannelLogoutUri: backchannelLogoutUri.trim() || undefined,
-                    postLogoutRedirectUris: cleanedPostLogoutRedirectUris.length > 0
-                        ? cleanedPostLogoutRedirectUris
+                    clientName: data.clientName,
+                    redirectUris: data.redirectUris,
+                    clientUri: data.clientUri || undefined,
+                    logoUri: data.logoUri || undefined,
+                    backchannelLogoutUri: data.backchannelLogoutUri || undefined,
+                    postLogoutRedirectUris: data.postLogoutRedirectUris.length > 0
+                        ? data.postLogoutRedirectUris
                         : undefined,
-                    scopes,
-                    pkceRequired,
-                    enabled
+                    scopes: data.scopes,
+                    pkceRequired: data.pkceRequired,
+                    enabled: data.enabled
                 }
             );
 
@@ -213,257 +135,12 @@ export default function CreateOAuthClientPage() {
             </Credenza>
 
             <SettingsContainer>
-                <SettingsSection>
-                    <div className="flex items-center justify-between pb-4 mb-4">
-                        <div className="flex items-center gap-3">
-                            <ClientAvatar name={clientName} logoUri={logoUri} />
-                            <span className="font-medium text-lg truncate">
-                                {clientName || t("oauthClientsCreateTitle")}
-                            </span>
-                        </div>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowOptional((prev) => !prev)}
-                        >
-                            {showOptional
-                                ? t("oauthClientHideOptionalFields")
-                                : t("oauthClientShowOptionalFields")}
-                        </Button>
-                    </div>
-                    <SettingsSectionBody>
-                        <SettingsSectionForm>
-                            <div className="space-y-2">
-                                <Label htmlFor="client-name">
-                                    {t("oauthClientNameLabel")}
-                                </Label>
-                                <Input
-                                    id="client-name"
-                                    value={clientName}
-                                    onChange={(event) =>
-                                        setClientName(event.target.value)
-                                    }
-                                />
-                            </div>
-
-                            {(showOptional || clientUri.trim()) && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="client-uri">
-                                        {t("oauthClientHomepageLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
-                                    </Label>
-                                    <Input
-                                        id="client-uri"
-                                        value={clientUri}
-                                        onChange={(event) =>
-                                            setClientUri(event.target.value)
-                                        }
-                                    />
-                                </div>
-                            )}
-
-                            {(showOptional || logoUri.trim()) && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="logo-uri">
-                                        {t("oauthClientLogoLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
-                                    </Label>
-                                    <Input
-                                        id="logo-uri"
-                                        value={logoUri}
-                                        onChange={(event) =>
-                                            setLogoUri(event.target.value)
-                                        }
-                                    />
-                                </div>
-                            )}
-
-                            {(showOptional || backchannelLogoutUri.trim()) && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="backchannel-logout-uri">
-                                        {t("oauthClientBackchannelLogoutUriLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
-                                    </Label>
-                                    <Input
-                                        id="backchannel-logout-uri"
-                                        value={backchannelLogoutUri}
-                                        onChange={(event) =>
-                                            setBackchannelLogoutUri(event.target.value)
-                                        }
-                                    />
-                                </div>
-                            )}
-
-                            {(showOptional || postLogoutRedirectUris.some(u => u.trim())) && (
-                                <div className="space-y-2">
-                                    <Label>
-                                        {t("oauthClientPostLogoutRedirectUrisLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
-                                    </Label>
-                                    <div className="space-y-3">
-                                        {postLogoutRedirectUris.map((uri, index) => (
-                                            <div key={index} className="flex gap-2">
-                                                <Input
-                                                    value={uri}
-                                                    onChange={(event) =>
-                                                        updatePostLogoutRedirectUri(
-                                                            index,
-                                                            event.target.value
-                                                        )
-                                                    }
-                                                    placeholder={t(
-                                                        "oauthClientPostLogoutRedirectUriPlaceholder"
-                                                    )}
-                                                />
-                                                {postLogoutRedirectUris.length > 1 && (
-                                                    <Button
-                                                        variant="outline"
-                                                        onClick={() =>
-                                                            removePostLogoutRedirectUri(index)
-                                                        }
-                                                    >
-                                                        {t("oauthClientRemovePostLogoutRedirectUri")}
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        ))}
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                                setPostLogoutRedirectUris((prev) => [
-                                                    ...prev,
-                                                    ""
-                                                ])
-                                            }
-                                        >
-                                            {t("oauthClientAddPostLogoutRedirectUri")}
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="space-y-2 pt-2">
-                                <Label>
-                                    {t("oauthClientRedirectUrisLabel")}
-                                </Label>
-                                <div className="space-y-3">
-                                    {redirectUris.map((redirectUri, index) => (
-                                        <div key={index} className="flex gap-2">
-                                            <Input
-                                                value={redirectUri}
-                                                onChange={(event) =>
-                                                    updateRedirectUri(
-                                                        index,
-                                                        event.target.value
-                                                    )
-                                                }
-                                                placeholder={t(
-                                                    "oauthClientRedirectUriPlaceholder"
-                                                )}
-                                            />
-                                            {redirectUris.length > 1 && (
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        removeRedirectUri(index)
-                                                    }
-                                                >
-                                                    {t(
-                                                        "oauthClientRemoveRedirectUri"
-                                                    )}
-                                                </Button>
-                                            )}
-                                        </div>
-                                    ))}
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                            setRedirectUris((prev) => [
-                                                ...prev,
-                                                ""
-                                            ])
-                                        }
-                                    >
-                                        {t("oauthClientAddRedirectUri")}
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2 pt-2">
-                                <Label>
-                                    {t("oauthClientScopesLabel")}
-                                </Label>
-                                <p className="text-xs text-muted-foreground">
-                                    {t("oauthClientOpenidAlwaysEnabled")}
-                                </p>
-                                <div className="space-y-3 pt-1">
-                                    <div className="flex items-center gap-2">
-                                        <Checkbox
-                                            checked={scopeProfile}
-                                            onCheckedChange={(value) =>
-                                                setScopeProfile(value === true)
-                                            }
-                                            id="scope-profile"
-                                        />
-                                        <Label htmlFor="scope-profile">
-                                            {t("oauthClientScopeProfile")}
-                                        </Label>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Checkbox
-                                            checked={scopeEmail}
-                                            onCheckedChange={(value) =>
-                                                setScopeEmail(value === true)
-                                            }
-                                            id="scope-email"
-                                        />
-                                        <Label htmlFor="scope-email">
-                                            {t("oauthClientScopeEmail")}
-                                        </Label>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Checkbox
-                                            checked={scopeGroups}
-                                            onCheckedChange={(value) =>
-                                                setScopeGroups(value === true)
-                                            }
-                                            id="scope-groups"
-                                        />
-                                        <Label htmlFor="scope-groups">
-                                            {t("oauthClientScopeGroups")}
-                                        </Label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4 pt-2">
-                                <Label>
-                                    {t("oauthClientOptionsTitle")}
-                                </Label>
-                                <div className="flex items-center justify-between">
-                                    <Label htmlFor="pkce-required" className="font-normal">
-                                        {t("oauthClientRequirePkceLabel")}
-                                    </Label>
-                                    <Switch
-                                        id="pkce-required"
-                                        checked={pkceRequired}
-                                        onCheckedChange={setPkceRequired}
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <Label htmlFor="client-enabled" className="font-normal">
-                                        {t("oauthClientEnabledLabel")}
-                                    </Label>
-                                    <Switch
-                                        id="client-enabled"
-                                        checked={enabled}
-                                        onCheckedChange={setEnabled}
-                                    />
-                                </div>
-                            </div>
-                        </SettingsSectionForm>
-                    </SettingsSectionBody>
-
-                    <SettingsSectionFooter>
+                <OAuthClientForm
+                    onSubmit={handleCreate}
+                    submitting={creating}
+                    submitLabel={t("oauthClientCreateButton")}
+                    avatarFallback={t("oauthClientsCreateTitle")}
+                    footerExtra={
                         <Button
                             variant="outline"
                             onClick={() =>
@@ -472,15 +149,8 @@ export default function CreateOAuthClientPage() {
                         >
                             {t("cancel")}
                         </Button>
-                        <Button
-                            onClick={createClient}
-                            disabled={creating}
-                            loading={creating}
-                        >
-                            {t("oauthClientCreateButton")}
-                        </Button>
-                    </SettingsSectionFooter>
-                </SettingsSection>
+                    }
+                />
             </SettingsContainer>
         </>
     );
