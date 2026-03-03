@@ -1,5 +1,5 @@
-import { db, orgs, roles, userOrgs, users } from "@server/db";
-import { eq } from "drizzle-orm";
+import { db, oauthClients, orgs, roles, userOrgs, users } from "@server/db";
+import { and, eq } from "drizzle-orm";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import { hasScope } from "@server/lib/oauth/scopes";
 
@@ -16,6 +16,7 @@ type BaseClaims = {
 
 async function buildBaseClaims(
     userId: string,
+    clientId: string,
     scope: string
 ): Promise<BaseClaims> {
     const [user] = await db
@@ -54,19 +55,32 @@ async function buildBaseClaims(
     }
 
     if (hasScope(scope, "groups")) {
-        const memberships = await db
-            .select({
-                orgName: orgs.name,
-                roleName: roles.name
-            })
-            .from(userOrgs)
-            .innerJoin(orgs, eq(userOrgs.orgId, orgs.orgId))
-            .innerJoin(roles, eq(userOrgs.roleId, roles.roleId))
-            .where(eq(userOrgs.userId, user.userId));
+        const [client] = await db
+            .select({ orgId: oauthClients.orgId })
+            .from(oauthClients)
+            .where(eq(oauthClients.clientId, clientId))
+            .limit(1);
 
-        claims.groups = memberships.map(
-            (membership) => `${membership.orgName}:${membership.roleName}`
-        );
+        if (client) {
+            const memberships = await db
+                .select({
+                    orgName: orgs.name,
+                    roleName: roles.name
+                })
+                .from(userOrgs)
+                .innerJoin(orgs, eq(userOrgs.orgId, orgs.orgId))
+                .innerJoin(roles, eq(userOrgs.roleId, roles.roleId))
+                .where(
+                    and(
+                        eq(userOrgs.userId, user.userId),
+                        eq(userOrgs.orgId, client.orgId)
+                    )
+                );
+
+            claims.groups = memberships.map(
+                (membership) => `${membership.orgName}:${membership.roleName}`
+            );
+        }
     }
 
     return claims;
@@ -78,7 +92,7 @@ export async function buildIdTokenClaims(
     scope: string,
     nonce?: string
 ): Promise<Record<string, unknown>> {
-    const baseClaims = await buildBaseClaims(userId, scope);
+    const baseClaims = await buildBaseClaims(userId, clientId, scope);
 
     return {
         iss: getIssuerUrl(),
@@ -90,7 +104,8 @@ export async function buildIdTokenClaims(
 
 export async function buildUserinfoClaims(
     userId: string,
+    clientId: string,
     scope: string
 ): Promise<Record<string, unknown>> {
-    return buildBaseClaims(userId, scope);
+    return buildBaseClaims(userId, clientId, scope);
 }

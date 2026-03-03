@@ -51,6 +51,7 @@ export async function handleUserinfoRequest(
 
         const claims = await buildUserinfoClaims(
             accessToken.userId,
+            accessToken.clientId,
             accessToken.scope
         );
 
