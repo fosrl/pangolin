@@ -5,7 +5,8 @@ import {
     db,
     oauthAccessTokens,
     oauthAuthorizationCodes,
-    oauthRefreshTokens
+    oauthRefreshTokens,
+    Transaction
 } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { buildIdTokenClaims } from "@server/lib/oauth/claims";
@@ -37,6 +38,78 @@ function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
         return false;
     }
     return timingSafeEqual(hash, expected);
+}
+
+async function insertTokenPair(
+    trx: Transaction,
+    params: {
+        accessToken: string;
+        refreshToken: string;
+        clientId: string;
+        userId: string;
+        scope: string;
+        now: number;
+    }
+) {
+    await trx.insert(oauthAccessTokens).values({
+        accessTokenId: generateIdFromEntropySize(12),
+        tokenHash: hashToken(params.accessToken),
+        clientId: params.clientId,
+        userId: params.userId,
+        scope: params.scope,
+        expiresAt: params.now + ACCESS_TOKEN_LIFETIME_MS,
+        createdAt: params.now
+    });
+
+    await trx.insert(oauthRefreshTokens).values({
+        refreshTokenId: generateIdFromEntropySize(12),
+        tokenHash: hashToken(params.refreshToken),
+        clientId: params.clientId,
+        userId: params.userId,
+        scope: params.scope,
+        expiresAt: params.now + REFRESH_TOKEN_LIFETIME_MS,
+        createdAt: params.now
+    });
+}
+
+async function sendTokenResponse(
+    res: Response,
+    params: {
+        accessToken: string;
+        refreshToken: string;
+        scope: string;
+        userId: string;
+        clientId: string;
+        nonce?: string;
+    }
+): Promise<Response> {
+    const responseBody: Record<string, unknown> = {
+        access_token: params.accessToken,
+        token_type: "Bearer",
+        expires_in: ACCESS_TOKEN_LIFETIME_SECONDS,
+        refresh_token: params.refreshToken,
+        scope: params.scope
+    };
+
+    if (hasScope(params.scope, "openid")) {
+        const claims = await buildIdTokenClaims(
+            params.userId,
+            params.clientId,
+            params.scope,
+            params.nonce
+        );
+        const signingKey = await getActiveSigningKey();
+
+        responseBody.id_token = signIdToken(
+            claims,
+            signingKey.privateKeyPem,
+            signingKey.keyId
+        );
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
+    return res.status(HttpCode.OK).json(responseBody);
 }
 
 export async function issueToken(
@@ -141,56 +214,24 @@ export async function issueToken(
             const refreshToken = generateRefreshToken();
 
             await db.transaction(async (trx) => {
-                await trx.insert(oauthAccessTokens).values({
-                    accessTokenId: generateIdFromEntropySize(12),
-                    tokenHash: hashToken(accessToken),
+                await insertTokenPair(trx, {
+                    accessToken,
+                    refreshToken,
                     clientId: authCode.clientId,
                     userId: authCode.userId,
                     scope: authCode.scope,
-                    expiresAt: now + ACCESS_TOKEN_LIFETIME_MS,
-                    createdAt: now
-                });
-
-                await trx.insert(oauthRefreshTokens).values({
-                    refreshTokenId: generateIdFromEntropySize(12),
-                    tokenHash: hashToken(refreshToken),
-                    clientId: authCode.clientId,
-                    userId: authCode.userId,
-                    scope: authCode.scope,
-                    expiresAt: now + REFRESH_TOKEN_LIFETIME_MS,
-                    createdAt: now
+                    now
                 });
             });
 
-            const includeIdToken = hasScope(authCode.scope, "openid");
-
-            const responseBody: Record<string, unknown> = {
-                access_token: accessToken,
-                token_type: "Bearer",
-                expires_in: ACCESS_TOKEN_LIFETIME_SECONDS,
-                refresh_token: refreshToken,
-                scope: authCode.scope
-            };
-
-            if (includeIdToken) {
-                const claims = await buildIdTokenClaims(
-                    authCode.userId,
-                    authCode.clientId,
-                    authCode.scope,
-                    authCode.nonce || undefined
-                );
-                const signingKey = await getActiveSigningKey();
-
-                responseBody.id_token = signIdToken(
-                    claims,
-                    signingKey.privateKeyPem,
-                    signingKey.keyId
-                );
-            }
-
-            res.setHeader("Cache-Control", "no-store");
-            res.setHeader("Pragma", "no-cache");
-            return res.status(HttpCode.OK).json(responseBody);
+            return sendTokenResponse(res, {
+                accessToken,
+                refreshToken,
+                scope: authCode.scope,
+                userId: authCode.userId,
+                clientId: authCode.clientId,
+                nonce: authCode.nonce || undefined
+            });
         }
 
         if (grantType === "refresh_token") {
@@ -261,9 +302,7 @@ export async function issueToken(
             await db.transaction(async (trx) => {
                 await trx
                     .update(oauthRefreshTokens)
-                    .set({
-                        revokedAt: now
-                    })
+                    .set({ revokedAt: now })
                     .where(
                         eq(
                             oauthRefreshTokens.refreshTokenId,
@@ -271,53 +310,23 @@ export async function issueToken(
                         )
                     );
 
-                await trx.insert(oauthAccessTokens).values({
-                    accessTokenId: generateIdFromEntropySize(12),
-                    tokenHash: hashToken(nextAccessToken),
+                await insertTokenPair(trx, {
+                    accessToken: nextAccessToken,
+                    refreshToken: nextRefreshToken,
                     clientId: existingRefreshToken.clientId,
                     userId: existingRefreshToken.userId,
                     scope: finalScope,
-                    expiresAt: now + ACCESS_TOKEN_LIFETIME_MS,
-                    createdAt: now
-                });
-
-                await trx.insert(oauthRefreshTokens).values({
-                    refreshTokenId: generateIdFromEntropySize(12),
-                    tokenHash: hashToken(nextRefreshToken),
-                    clientId: existingRefreshToken.clientId,
-                    userId: existingRefreshToken.userId,
-                    scope: finalScope,
-                    expiresAt: now + REFRESH_TOKEN_LIFETIME_MS,
-                    createdAt: now
+                    now
                 });
             });
 
-            const responseBody: Record<string, unknown> = {
-                access_token: nextAccessToken,
-                token_type: "Bearer",
-                expires_in: ACCESS_TOKEN_LIFETIME_SECONDS,
-                refresh_token: nextRefreshToken,
-                scope: finalScope
-            };
-
-            if (hasScope(finalScope, "openid")) {
-                const claims = await buildIdTokenClaims(
-                    existingRefreshToken.userId,
-                    existingRefreshToken.clientId,
-                    finalScope
-                );
-                const signingKey = await getActiveSigningKey();
-
-                responseBody.id_token = signIdToken(
-                    claims,
-                    signingKey.privateKeyPem,
-                    signingKey.keyId
-                );
-            }
-
-            res.setHeader("Cache-Control", "no-store");
-            res.setHeader("Pragma", "no-cache");
-            return res.status(HttpCode.OK).json(responseBody);
+            return sendTokenResponse(res, {
+                accessToken: nextAccessToken,
+                refreshToken: nextRefreshToken,
+                scope: finalScope,
+                userId: existingRefreshToken.userId,
+                clientId: existingRefreshToken.clientId
+            });
         }
 
         return sendOAuthError(res, HttpCode.BAD_REQUEST, {
