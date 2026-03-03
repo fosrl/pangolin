@@ -1082,7 +1082,7 @@ authenticated.get(
 authenticated.get(
     "/org/:orgId/oauth-clients/:clientId",
     verifyApiKeyOrgAccess,
-    verifyApiKeyHasAction(ActionsEnum.listOAuthClients),
+    verifyApiKeyHasAction(ActionsEnum.getOAuthClient),
     oauth.getOAuthClient
 );
 

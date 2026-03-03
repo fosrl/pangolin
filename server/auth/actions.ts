@@ -110,6 +110,7 @@ export enum ActionsEnum {
     getApiKey = "getApiKey",
     createOAuthClient = "createOAuthClient",
     listOAuthClients = "listOAuthClients",
+    getOAuthClient = "getOAuthClient",
     updateOAuthClient = "updateOAuthClient",
     deleteOAuthClient = "deleteOAuthClient",
     getCertificate = "getCertificate",
