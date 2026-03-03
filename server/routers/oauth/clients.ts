@@ -366,12 +366,7 @@ export async function deleteOAuthClient(
                 .where(eq(oauthInteractions.clientId, existingClient.clientId));
             await trx
                 .delete(oauthAuthorizationCodes)
-                .where(
-                    eq(
-                        oauthAuthorizationCodes.clientId,
-                        existingClient.clientId
-                    )
-                );
+                .where(eq(oauthAuthorizationCodes.clientId, existingClient.clientId));
             await trx
                 .delete(oauthAccessTokens)
                 .where(eq(oauthAccessTokens.clientId, existingClient.clientId));

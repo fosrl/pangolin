@@ -257,10 +257,7 @@ export async function issueToken(
                 .set({ revokedAt: now })
                 .where(
                     and(
-                        eq(
-                            oauthRefreshTokens.tokenHash,
-                            hashToken(refreshToken)
-                        ),
+                        eq(oauthRefreshTokens.tokenHash, hashToken(refreshToken)),
                         isNull(oauthRefreshTokens.revokedAt)
                     )
                 )

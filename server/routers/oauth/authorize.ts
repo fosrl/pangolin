@@ -332,12 +332,7 @@ export async function handleAuthorizationConsent(
         if (Date.now() > interaction.expiresAt) {
             await db
                 .delete(oauthInteractions)
-                .where(
-                    eq(
-                        oauthInteractions.interactionId,
-                        interaction.interactionId
-                    )
-                );
+                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Interaction expired")
             );
@@ -346,12 +341,7 @@ export async function handleAuthorizationConsent(
         if (!approved) {
             await db
                 .delete(oauthInteractions)
-                .where(
-                    eq(
-                        oauthInteractions.interactionId,
-                        interaction.interactionId
-                    )
-                );
+                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
 
             const redirectTo = appendOAuthParams(interaction.redirectUri, {
                 error: "access_denied",
@@ -427,12 +417,7 @@ export async function handleAuthorizationConsent(
 
             await trx
                 .delete(oauthInteractions)
-                .where(
-                    eq(
-                        oauthInteractions.interactionId,
-                        interaction.interactionId
-                    )
-                );
+                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
         });
 
         const redirectTo = appendOAuthParams(interaction.redirectUri, {
