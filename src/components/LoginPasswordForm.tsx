@@ -20,7 +20,7 @@ import { useTranslations } from "next-intl";
 import { loginProxy } from "@app/actions/server";
 import Link from "next/link";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import { cleanRedirect } from "@app/lib/cleanRedirect";
+import { cleanRedirect, cleanOAuthRedirectOptions } from "@app/lib/cleanRedirect";
 import MfaInputForm from "@app/components/MfaInputForm";
 
 type LoginPasswordFormProps = {
@@ -40,9 +40,7 @@ export default function LoginPasswordForm({
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [mfaRequested, setMfaRequested] = useState(false);
-    const cleanRedirectOptions = redirect?.startsWith("/oauth/authorize")
-        ? { allowAllQueryParams: true as const }
-        : {};
+    const cleanRedirectOptions = cleanOAuthRedirectOptions(redirect);
 
     // Check if identifier is a valid email
     const isEmail = (() => {

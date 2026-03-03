@@ -7,7 +7,7 @@ import SmartLoginForm from "@app/components/SmartLoginForm";
 import DashboardLoginForm from "@app/components/DashboardLoginForm";
 import { Mail } from "lucide-react";
 import { pullEnv } from "@app/lib/pullEnv";
-import { cleanRedirect } from "@app/lib/cleanRedirect";
+import { cleanRedirect, cleanOAuthRedirectOptions } from "@app/lib/cleanRedirect";
 import { getTranslations } from "next-intl/server";
 import { build } from "@server/build";
 import { LoadLoginPageResponse } from "@server/routers/loginPage/types";
@@ -69,11 +69,7 @@ export default async function Page(props: {
     let redirectUrl: string | undefined = undefined;
     if (searchParams.redirect) {
         const requestedRedirect = searchParams.redirect as string;
-        const preserveAllQueryParams =
-            requestedRedirect.startsWith("/oauth/authorize");
-        redirectUrl = cleanRedirect(requestedRedirect, {
-            allowAllQueryParams: preserveAllQueryParams
-        });
+        redirectUrl = cleanRedirect(requestedRedirect, cleanOAuthRedirectOptions(requestedRedirect));
         searchParams.redirect = redirectUrl;
     }
 
