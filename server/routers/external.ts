@@ -61,13 +61,15 @@ unauthenticated.get("/", (_, res) => {
     res.status(HttpCode.OK).json({ message: "Healthy" });
 });
 
+const oauthTokenRateLimitMax = 50;
+const oauthTokenRateLimitWindowMinutes = 15;
 const oauthTokenRateLimit = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 50,
+    windowMs: oauthTokenRateLimitWindowMinutes * 60 * 1000,
+    max: oauthTokenRateLimitMax,
     keyGenerator: (req) =>
         `oauthToken:${ipKeyGenerator(req.ip || "")}`,
     handler: (req, res, next) => {
-        const message = `You can only make ${50} token requests every ${15} minutes. Please try again later.`;
+        const message = `You can only make ${oauthTokenRateLimitMax} token requests every ${oauthTokenRateLimitWindowMinutes} minutes. Please try again later.`;
         return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
     },
     store: createStore()
