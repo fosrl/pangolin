@@ -5,25 +5,11 @@ import OAuthClientsTable, {
     OAuthClientRow
 } from "@app/components/OAuthClientsTable";
 import { getTranslations } from "next-intl/server";
-
-type OAuthClientListItem = {
-    clientId: string;
-    clientName: string;
-    clientUri: string | null;
-    logoUri: string | null;
-    redirectUris: string[];
-    scopes: string;
-    pkceRequired: boolean;
-    enabled: boolean;
-    orgId: string;
-    createdAt: number;
-    updatedAt: number;
-    lastChars: string;
-};
+import { OAuthClient } from "./types";
 
 type ListResponse = {
     data: {
-        clients: OAuthClientListItem[];
+        clients: OAuthClient[];
     };
     success: boolean;
     error: boolean;
@@ -41,7 +27,7 @@ export default async function OAuthClientsPage(props: OAuthClientsPageProps) {
     const params = await props.params;
     const t = await getTranslations();
 
-    let clients: OAuthClientListItem[] = [];
+    let clients: OAuthClient[] = [];
     try {
         const res = await internal.get<ListResponse>(
             `/org/${params.orgId}/oauth-clients`,

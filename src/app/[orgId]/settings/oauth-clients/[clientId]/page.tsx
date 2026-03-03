@@ -35,23 +35,7 @@ import CopyTextBox from "@app/components/CopyTextBox";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
 import ClientAvatar from "@app/components/ClientAvatar";
-
-type OAuthClient = {
-    clientId: string;
-    clientName: string;
-    clientUri: string | null;
-    logoUri: string | null;
-    backchannelLogoutUri: string | null;
-    postLogoutRedirectUris: string[] | null;
-    redirectUris: string[];
-    scopes: string;
-    pkceRequired: boolean;
-    enabled: boolean;
-    orgId: string;
-    createdAt: number;
-    updatedAt: number;
-    lastChars: string;
-};
+import { OAuthClient } from "../types";
 
 type GetClientResponse = {
     data: {
