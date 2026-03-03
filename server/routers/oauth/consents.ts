@@ -6,6 +6,7 @@ import {
     db,
     oauthConsents,
     oauthClients,
+    oauthAccessTokens,
     oauthRefreshTokens
 } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
@@ -109,7 +110,15 @@ export async function deleteUserConsent(
         }
 
         await db.transaction(async (trx) => {
-            // Revoke all active refresh tokens for this user+client pair
+            await trx
+                .delete(oauthAccessTokens)
+                .where(
+                    and(
+                        eq(oauthAccessTokens.userId, userId),
+                        eq(oauthAccessTokens.clientId, consent.clientId)
+                    )
+                );
+
             await trx
                 .update(oauthRefreshTokens)
                 .set({ revokedAt: Date.now() })
@@ -121,7 +130,6 @@ export async function deleteUserConsent(
                     )
                 );
 
-            // Delete the consent
             await trx
                 .delete(oauthConsents)
                 .where(eq(oauthConsents.consentId, consentId));

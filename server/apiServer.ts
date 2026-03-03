@@ -31,8 +31,6 @@ export function createApiServer() {
     const apiServer = express();
     const prefix = `/api/v1`;
 
-    apiServer.get("/.well-known/openid-configuration", openidConfiguration);
-
     const trustProxy = config.getRawConfig().server.trust_proxy;
     if (trustProxy) {
         apiServer.set("trust proxy", trustProxy);
@@ -69,6 +67,8 @@ export function createApiServer() {
         // Use the custom CORS middleware with loginPage support
         apiServer.use(corsWithLoginPageSupport(corsConfig));
     }
+
+    apiServer.get("/.well-known/openid-configuration", openidConfiguration);
 
     if (!dev) {
         apiServer.use(helmet());
