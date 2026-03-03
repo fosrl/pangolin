@@ -22,6 +22,7 @@ export async function handleEndSession(
 
         const fallbackUrl = getIssuerUrl();
         let clientId: string | undefined;
+        let clientIdMismatch = false;
 
         if (idTokenHint) {
             try {
@@ -49,16 +50,16 @@ export async function handleEndSession(
                               : undefined;
                 }
 
-                // Spec: if both provided, they must match
                 if (clientIdParam && clientId && clientIdParam !== clientId) {
                     clientId = undefined;
+                    clientIdMismatch = true;
                 }
             } catch {
                 // Invalid token — fall through to client_id param
             }
         }
 
-        if (!clientId && clientIdParam) {
+        if (!clientId && clientIdParam && !clientIdMismatch) {
             clientId = clientIdParam;
         }
 
