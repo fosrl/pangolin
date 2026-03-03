@@ -4,7 +4,7 @@ import {
     oauthAccessTokens,
     oauthRefreshTokens
 } from "@server/db";
-import { eq, and, or, isNotNull, exists } from "drizzle-orm";
+import { eq, and, or, isNotNull, exists, gt, isNull } from "drizzle-orm";
 import { getActiveSigningKey } from "@server/lib/oauth/keys";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import { signLogoutToken } from "@server/lib/oauth/tokens";
@@ -15,6 +15,8 @@ export async function sendBackchannelLogout(
     userId: string
 ): Promise<void> {
     try {
+        const now = Date.now();
+
         // Find all clients with a backchannelLogoutUri that have active tokens for this user
         const clients = await db
             .select({
@@ -32,14 +34,9 @@ export async function sendBackchannelLogout(
                                 .from(oauthAccessTokens)
                                 .where(
                                     and(
-                                        eq(
-                                            oauthAccessTokens.clientId,
-                                            oauthClients.clientId
-                                        ),
-                                        eq(
-                                            oauthAccessTokens.userId,
-                                            userId
-                                        )
+                                        eq(oauthAccessTokens.clientId, oauthClients.clientId),
+                                        eq(oauthAccessTokens.userId, userId),
+                                        gt(oauthAccessTokens.expiresAt, now)
                                     )
                                 )
                         ),
@@ -49,14 +46,10 @@ export async function sendBackchannelLogout(
                                 .from(oauthRefreshTokens)
                                 .where(
                                     and(
-                                        eq(
-                                            oauthRefreshTokens.clientId,
-                                            oauthClients.clientId
-                                        ),
-                                        eq(
-                                            oauthRefreshTokens.userId,
-                                            userId
-                                        )
+                                        eq(oauthRefreshTokens.clientId, oauthClients.clientId),
+                                        eq(oauthRefreshTokens.userId, userId),
+                                        gt(oauthRefreshTokens.expiresAt, now),
+                                        isNull(oauthRefreshTokens.revokedAt)
                                     )
                                 )
                         )
