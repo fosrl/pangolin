@@ -34,7 +34,7 @@ export default async function OAuthClientsPage(props: OAuthClientsPageProps) {
         redirectUris: client.redirectUris,
         scopes: client.scopes,
         enabled: client.enabled,
-        createdAt: new Date(client.createdAt).toISOString(),
+        createdAt: client.createdAt,
         lastChars: client.lastChars
     }));
 
