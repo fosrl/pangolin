@@ -245,9 +245,13 @@ export async function issueToken(
                 });
             }
 
+            const now = Date.now();
+
+            // Atomically revoke the refresh token to prevent reuse race conditions.
+            // Same pattern as auth code consumption above (DELETE...RETURNING).
             const [existingRefreshToken] = await db
-                .select()
-                .from(oauthRefreshTokens)
+                .update(oauthRefreshTokens)
+                .set({ revokedAt: now })
                 .where(
                     and(
                         eq(
@@ -257,7 +261,7 @@ export async function issueToken(
                         isNull(oauthRefreshTokens.revokedAt)
                     )
                 )
-                .limit(1);
+                .returning();
 
             if (!existingRefreshToken) {
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
@@ -266,7 +270,7 @@ export async function issueToken(
                 });
             }
 
-            if (Date.now() > existingRefreshToken.expiresAt) {
+            if (now > existingRefreshToken.expiresAt) {
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_grant",
                     error_description: "Refresh token has expired"
@@ -295,21 +299,10 @@ export async function issueToken(
                 });
             }
 
-            const now = Date.now();
             const nextAccessToken = generateAccessToken();
             const nextRefreshToken = generateRefreshToken();
 
             await db.transaction(async (trx) => {
-                await trx
-                    .update(oauthRefreshTokens)
-                    .set({ revokedAt: now })
-                    .where(
-                        eq(
-                            oauthRefreshTokens.refreshTokenId,
-                            existingRefreshToken.refreshTokenId
-                        )
-                    );
-
                 await insertTokenPair(trx, {
                     accessToken: nextAccessToken,
                     refreshToken: nextRefreshToken,
