@@ -59,7 +59,7 @@ export default function EditProfileDialog({
                 description: t("profileUpdatedDescription")
             });
             setOpen(false);
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 variant: "destructive",
                 title: t("profileUpdateError"),
