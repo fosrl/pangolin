@@ -4,7 +4,7 @@ import {
     oauthAccessTokens,
     oauthRefreshTokens
 } from "@server/db";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { eq, and, or, isNotNull, exists } from "drizzle-orm";
 import { getActiveSigningKey } from "@server/lib/oauth/keys";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import { signLogoutToken } from "@server/lib/oauth/tokens";
@@ -16,51 +16,53 @@ export async function sendBackchannelLogout(
 ): Promise<void> {
     try {
         // Find all clients with a backchannelLogoutUri that have active tokens for this user
-        const clientsWithTokens = await db
-            .selectDistinct({
+        const clients = await db
+            .select({
                 clientId: oauthClients.clientId,
                 backchannelLogoutUri: oauthClients.backchannelLogoutUri
             })
             .from(oauthClients)
-            .innerJoin(
-                oauthAccessTokens,
+            .where(
                 and(
-                    eq(oauthAccessTokens.clientId, oauthClients.clientId),
-                    eq(oauthAccessTokens.userId, userId)
+                    isNotNull(oauthClients.backchannelLogoutUri),
+                    or(
+                        exists(
+                            db
+                                .select()
+                                .from(oauthAccessTokens)
+                                .where(
+                                    and(
+                                        eq(
+                                            oauthAccessTokens.clientId,
+                                            oauthClients.clientId
+                                        ),
+                                        eq(
+                                            oauthAccessTokens.userId,
+                                            userId
+                                        )
+                                    )
+                                )
+                        ),
+                        exists(
+                            db
+                                .select()
+                                .from(oauthRefreshTokens)
+                                .where(
+                                    and(
+                                        eq(
+                                            oauthRefreshTokens.clientId,
+                                            oauthClients.clientId
+                                        ),
+                                        eq(
+                                            oauthRefreshTokens.userId,
+                                            userId
+                                        )
+                                    )
+                                )
+                        )
+                    )
                 )
-            )
-            .where(isNotNull(oauthClients.backchannelLogoutUri));
-
-        const clientsWithRefresh = await db
-            .selectDistinct({
-                clientId: oauthClients.clientId,
-                backchannelLogoutUri: oauthClients.backchannelLogoutUri
-            })
-            .from(oauthClients)
-            .innerJoin(
-                oauthRefreshTokens,
-                and(
-                    eq(oauthRefreshTokens.clientId, oauthClients.clientId),
-                    eq(oauthRefreshTokens.userId, userId)
-                )
-            )
-            .where(isNotNull(oauthClients.backchannelLogoutUri));
-
-        // Deduplicate by clientId
-        const clientMap = new Map<
-            string,
-            { clientId: string; backchannelLogoutUri: string }
-        >();
-        for (const c of [...clientsWithTokens, ...clientsWithRefresh]) {
-            if (c.backchannelLogoutUri) {
-                clientMap.set(c.clientId, {
-                    clientId: c.clientId,
-                    backchannelLogoutUri: c.backchannelLogoutUri
-                });
-            }
-        }
-
-        const clients = Array.from(clientMap.values());
+            );
 
         if (clients.length === 0) {
             return;
@@ -84,7 +86,7 @@ export async function sendBackchannelLogout(
                     signingKey.keyId
                 );
 
-                const res = await fetch(client.backchannelLogoutUri, {
+                const res = await fetch(client.backchannelLogoutUri!, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
