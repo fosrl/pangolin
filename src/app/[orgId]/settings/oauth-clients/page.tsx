@@ -6,16 +6,7 @@ import OAuthClientsTable, {
 } from "@app/components/OAuthClientsTable";
 import { getTranslations } from "next-intl/server";
 import { OAuthClient } from "./types";
-
-type ListResponse = {
-    data: {
-        clients: OAuthClient[];
-    };
-    success: boolean;
-    error: boolean;
-    message: string;
-    status: number;
-};
+import { ResponseT } from "@server/types/Response";
 
 type OAuthClientsPageProps = {
     params: Promise<{ orgId: string }>;
@@ -29,11 +20,11 @@ export default async function OAuthClientsPage(props: OAuthClientsPageProps) {
 
     let clients: OAuthClient[] = [];
     try {
-        const res = await internal.get<ListResponse>(
+        const res = await internal.get<ResponseT<{ clients: OAuthClient[] }>>(
             `/org/${params.orgId}/oauth-clients`,
             await authCookieHeader()
         );
-        clients = res.data.data.clients || [];
+        clients = res.data.data?.clients || [];
     } catch (e) {}
 
     const rows: OAuthClientRow[] = clients.map((client) => ({

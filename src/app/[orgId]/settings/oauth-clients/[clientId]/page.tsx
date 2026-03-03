@@ -36,27 +36,7 @@ import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
 import ClientAvatar from "@app/components/ClientAvatar";
 import { OAuthClient } from "../types";
-
-type GetClientResponse = {
-    data: {
-        client: OAuthClient;
-    };
-    success: boolean;
-    error: boolean;
-    message: string;
-    status: number;
-};
-
-type RotateSecretResponse = {
-    data: {
-        clientId: string;
-        clientSecret: string;
-    };
-    success: boolean;
-    error: boolean;
-    message: string;
-    status: number;
-};
+import { ResponseT } from "@server/types/Response";
 
 function parseScopes(scopeString: string): Set<string> {
     return new Set(
@@ -107,10 +87,10 @@ export default function EditOAuthClientPage() {
             setLoading(true);
 
             try {
-                const res = await api.get<GetClientResponse>(
+                const res = await api.get<ResponseT<{ client: OAuthClient }>>(
                     `/org/${orgId}/oauth-clients/${clientId}`
                 );
-                const client = res.data.data.client;
+                const client = res.data.data!.client;
                 const clientScopes = parseScopes(client.scopes);
 
                 setClientName(client.clientName);
@@ -235,7 +215,7 @@ export default function EditOAuthClientPage() {
 
     async function rotateSecret() {
         try {
-            const res = await api.post<RotateSecretResponse>(
+            const res = await api.post<ResponseT<{ clientId: string; clientSecret: string }>>(
                 `/org/${orgId}/oauth-clients/${clientId}/rotate-secret`
             );
 

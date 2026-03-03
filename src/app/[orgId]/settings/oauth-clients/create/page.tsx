@@ -31,17 +31,7 @@ import {
 import CopyTextBox from "@app/components/CopyTextBox";
 import { useTranslations } from "next-intl";
 import ClientAvatar from "@app/components/ClientAvatar";
-
-type CreateResponse = {
-    data: {
-        clientId: string;
-        clientSecret: string;
-    };
-    success: boolean;
-    error: boolean;
-    message: string;
-    status: number;
-};
+import { ResponseT } from "@server/types/Response";
 
 export default function CreateOAuthClientPage() {
     const { env } = useEnvContext();
@@ -130,7 +120,7 @@ export default function CreateOAuthClientPage() {
                 .map((item) => item.trim())
                 .filter((item) => item.length > 0);
 
-            const res = await api.post<CreateResponse>(
+            const res = await api.post<ResponseT<{ clientId: string; clientSecret: string }>>(
                 `/org/${orgId}/oauth-clients`,
                 {
                     clientName: clientName.trim(),
