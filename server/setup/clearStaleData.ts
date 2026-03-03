@@ -17,126 +17,99 @@ import {
 import logger from "@server/logger";
 import { lt } from "drizzle-orm";
 
-export async function cleanExpiredOAuthData(now: number) {
+async function runCleanup(
+    name: string,
+    cleanup: () => Promise<void>
+): Promise<void> {
     try {
+        await cleanup();
+    } catch (error) {
+        logger.warn(`Error clearing expired ${name}:`, error);
+    }
+}
+
+export async function cleanExpiredOAuthData(now: number) {
+    await runCleanup("oauthInteractions", async () => {
         await db
             .delete(oauthInteractions)
             .where(lt(oauthInteractions.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired oauthInteractions:", e);
-    }
-
-    try {
+    });
+    await runCleanup("oauthAuthorizationCodes", async () => {
         await db
             .delete(oauthAuthorizationCodes)
             .where(lt(oauthAuthorizationCodes.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired oauthAuthorizationCodes:", e);
-    }
-
-    try {
+    });
+    await runCleanup("oauthAccessTokens", async () => {
         await db
             .delete(oauthAccessTokens)
             .where(lt(oauthAccessTokens.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired oauthAccessTokens:", e);
-    }
-
-    try {
+    });
+    await runCleanup("oauthRefreshTokens", async () => {
         await db
             .delete(oauthRefreshTokens)
             .where(lt(oauthRefreshTokens.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired oauthRefreshTokens:", e);
-    }
+    });
 }
 
 export async function clearStaleData() {
     const now = Date.now();
 
-    try {
+    await runCleanup("sessions", async () => {
         await db
             .delete(sessions)
             .where(lt(sessions.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired sessions:", e);
-    }
-
-    try {
+    });
+    await runCleanup("newtSessions", async () => {
         await db
             .delete(newtSessions)
             .where(lt(newtSessions.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired newtSessions:", e);
-    }
-
-    try {
+    });
+    await runCleanup("emailVerificationCodes", async () => {
         await db
             .delete(emailVerificationCodes)
             .where(lt(emailVerificationCodes.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired emailVerificationCodes:", e);
-    }
-
-    try {
+    });
+    await runCleanup("passwordResetTokens", async () => {
         await db
             .delete(passwordResetTokens)
             .where(lt(passwordResetTokens.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired passwordResetTokens:", e);
-    }
-
-    try {
+    });
+    await runCleanup("userInvites", async () => {
         await db
             .delete(userInvites)
             .where(lt(userInvites.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired userInvites:", e);
-    }
-
-    try {
+    });
+    await runCleanup("resourceAccessToken", async () => {
         await db
             .delete(resourceAccessToken)
             .where(lt(resourceAccessToken.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired resourceAccessToken:", e);
-    }
-
-    try {
+    });
+    await runCleanup("resourceSessions", async () => {
         await db
             .delete(resourceSessions)
             .where(lt(resourceSessions.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired resourceSessions:", e);
-    }
-
-    try {
+    });
+    await runCleanup("resourceOtp", async () => {
         await db
             .delete(resourceOtp)
             .where(lt(resourceOtp.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired resourceOtp:", e);
-    }
+    });
 
     if (build !== "oss") {
-        try {
+        await runCleanup("sessionTransferToken", async () => {
             await db
                 .delete(sessionTransferToken)
                 .where(
                     lt(sessionTransferToken.expiresAt, now)
                 );
-        } catch (e) {
-            logger.warn("Error clearing expired sessionTransferToken:", e);
-        }
+        });
     }
 
-    try {
+    await runCleanup("deviceWebAuthCodes", async () => {
         await db
             .delete(deviceWebAuthCodes)
             .where(lt(deviceWebAuthCodes.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired deviceWebAuthCodes:", e);
-    }
+    });
 
     await cleanExpiredOAuthData(now);
 }
