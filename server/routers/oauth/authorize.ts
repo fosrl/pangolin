@@ -25,6 +25,7 @@ import {
 } from "@server/lib/oauth/lifetimes";
 import { generateAuthorizationCode, hashToken } from "@server/lib/oauth/tokens";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
+import { Transaction } from "@server/db";
 
 const initiateSchema = z.strictObject({
     response_type: z.string(),
@@ -77,18 +78,22 @@ function appendOAuthParams(
     }
 }
 
-async function issueAuthorizationCode(args: {
-    clientId: string;
-    userId: string;
-    scope: string;
-    redirectUri: string;
-    codeChallenge?: string;
-    codeChallengeMethod?: string;
-    nonce?: string;
-}): Promise<string> {
+async function issueAuthorizationCode(
+    args: {
+        clientId: string;
+        userId: string;
+        scope: string;
+        redirectUri: string;
+        codeChallenge?: string | null;
+        codeChallengeMethod?: string | null;
+        nonce?: string | null;
+    },
+    trx: Transaction | typeof db = db
+): Promise<string> {
     const code = generateAuthorizationCode();
+    const now = Date.now();
 
-    await db.insert(oauthAuthorizationCodes).values({
+    await trx.insert(oauthAuthorizationCodes).values({
         codeId: generateIdFromEntropySize(12),
         codeHash: hashToken(code),
         clientId: args.clientId,
@@ -98,8 +103,8 @@ async function issueAuthorizationCode(args: {
         codeChallenge: args.codeChallenge,
         codeChallengeMethod: args.codeChallengeMethod,
         nonce: args.nonce,
-        expiresAt: Date.now() + AUTH_CODE_LIFETIME_MS,
-        createdAt: Date.now()
+        expiresAt: now + AUTH_CODE_LIFETIME_MS,
+        createdAt: now
     });
 
     return code;
