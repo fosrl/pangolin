@@ -9,6 +9,7 @@ import {
 } from "@server/db";
 import { getActiveSigningKey } from "@server/lib/oauth/keys";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
+import { verifySession } from "@server/auth/sessions/verifySession";
 import logger from "@server/logger";
 
 export async function handleEndSession(
@@ -71,6 +72,13 @@ export async function handleEndSession(
 
         if (!clientId && clientIdParam && !clientIdMismatch) {
             clientId = clientIdParam;
+        }
+
+        if (!userId) {
+            const { user } = await verifySession(req);
+            if (user) {
+                userId = user.userId;
+            }
         }
 
         if (clientId && userId) {
