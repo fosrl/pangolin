@@ -76,6 +76,15 @@ const migrations = [
     run: () => Promise<void>;
 }[];
 
+function hasPostgresErrorCode(error: unknown, code: string): boolean {
+    if (!(error instanceof Error)) {
+        return false;
+    }
+
+    const errorCode = Reflect.get(error, "code");
+    return typeof errorCode === "string" && errorCode === code;
+}
+
 await run();
 
 // The pg Pool is created with allowExitOnIdle: false (see poolConfig.ts) so
@@ -182,11 +191,7 @@ async function executeScripts() {
                     `Successfully completed migration ${migration.version}`
                 );
             } catch (e) {
-                if (
-                    e instanceof Error &&
-                    typeof (e as any).code === "string" &&
-                    (e as any).code === "23505"
-                ) {
+                if (hasPostgresErrorCode(e, "23505")) {
                     console.error("Migration has already run! Skipping...");
                     continue; // or return, depending on context
                 }
