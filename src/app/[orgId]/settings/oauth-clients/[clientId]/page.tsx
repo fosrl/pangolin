@@ -34,6 +34,7 @@ import {
 import CopyTextBox from "@app/components/CopyTextBox";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
+import ClientAvatar from "@app/components/ClientAvatar";
 
 type OAuthClient = {
     clientId: string;
@@ -407,17 +408,7 @@ export default function EditOAuthClientPage() {
                 <SettingsSection>
                     <div className="flex items-center justify-between pb-4 mb-4">
                         <div className="flex items-center gap-3">
-                            {logoUri && /^https?:\/\//.test(logoUri) ? (
-                                <img
-                                    src={logoUri}
-                                    alt={clientName}
-                                    className="w-8 h-8 rounded object-contain"
-                                />
-                            ) : (
-                                <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
-                                    {clientName.charAt(0).toUpperCase()}
-                                </div>
-                            )}
+                            <ClientAvatar name={clientName} logoUri={logoUri} />
                             <span className="font-medium text-lg truncate">
                                 {clientName}
                             </span>

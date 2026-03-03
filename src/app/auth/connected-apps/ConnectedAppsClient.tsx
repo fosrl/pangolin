@@ -28,6 +28,7 @@ import { toast } from "@app/hooks/useToast";
 import { ResponseT } from "@server/types/Response";
 import { ArrowLeft, Loader2, Unplug } from "lucide-react";
 import moment from "moment";
+import ClientAvatar from "@app/components/ClientAvatar";
 
 type Consent = {
     consentId: string;
@@ -171,24 +172,11 @@ export default function ConnectedAppsClient() {
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-3">
-                                        {consent.logoUri &&
-                                        /^https?:\/\//.test(
-                                            consent.logoUri
-                                        ) ? (
-                                            <img
-                                                src={consent.logoUri}
-                                                alt={consent.clientName}
-                                                className="h-10 w-10 rounded-md"
-                                            />
-                                        ) : (
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-                                                <span className="text-lg font-semibold text-muted-foreground">
-                                                    {consent.clientName
-                                                        .charAt(0)
-                                                        .toUpperCase()}
-                                                </span>
-                                            </div>
-                                        )}
+                                        <ClientAvatar
+                                            name={consent.clientName}
+                                            logoUri={consent.logoUri}
+                                            size="lg"
+                                        />
                                         <div>
                                             <CardTitle className="text-base">
                                                 {consent.clientName}

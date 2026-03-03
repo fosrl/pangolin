@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
 import { KeyRound, User, Mail, Users, ShieldQuestion } from "lucide-react";
+import ClientAvatar from "@app/components/ClientAvatar";
 
 type OauthAuthorizeParams = {
     response_type?: string;
@@ -238,20 +239,11 @@ export default function ConsentPage({
                     {!loading && !error && interaction && (
                         <>
                             <div className="flex items-start gap-3">
-                                {interaction.logoUri &&
-                                /^https?:\/\//.test(
-                                    interaction.logoUri
-                                ) ? (
-                                    <img
-                                        src={interaction.logoUri}
-                                        alt={interaction.clientName}
-                                        className="w-8 h-8 rounded object-contain shrink-0 mt-0.5"
-                                    />
-                                ) : (
-                                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground shrink-0 mt-0.5">
-                                        {interaction.clientName.charAt(0).toUpperCase()}
-                                    </div>
-                                )}
+                                <ClientAvatar
+                                    name={interaction.clientName}
+                                    logoUri={interaction.logoUri}
+                                    className="shrink-0 mt-0.5"
+                                />
                                 <div className="space-y-1 min-w-0">
                                     <p className="text-sm">
                                         <strong>

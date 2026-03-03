@@ -25,6 +25,7 @@ import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useTranslations } from "next-intl";
+import ClientAvatar from "@app/components/ClientAvatar";
 
 export type OAuthClientRow = {
     clientId: string;
@@ -145,17 +146,7 @@ export default function OAuthClientsTable({
                 const { clientName, logoUri } = row.original;
                 return (
                     <div className="flex items-center gap-2">
-                        {logoUri && /^https?:\/\//.test(logoUri) ? (
-                            <img
-                                src={logoUri}
-                                alt={clientName}
-                                className="w-6 h-6 rounded object-contain shrink-0"
-                            />
-                        ) : (
-                            <div className="w-6 h-6 rounded bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
-                                {clientName.charAt(0).toUpperCase()}
-                            </div>
-                        )}
+                        <ClientAvatar name={clientName} logoUri={logoUri} size="sm" className="shrink-0" />
                         <span>{clientName}</span>
                     </div>
                 );
