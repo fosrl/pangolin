@@ -17,6 +17,40 @@ import {
 import logger from "@server/logger";
 import { lt } from "drizzle-orm";
 
+export async function cleanExpiredOAuthData(now: number) {
+    try {
+        await db
+            .delete(oauthInteractions)
+            .where(lt(oauthInteractions.expiresAt, now));
+    } catch (e) {
+        logger.warn("Error clearing expired oauthInteractions:", e);
+    }
+
+    try {
+        await db
+            .delete(oauthAuthorizationCodes)
+            .where(lt(oauthAuthorizationCodes.expiresAt, now));
+    } catch (e) {
+        logger.warn("Error clearing expired oauthAuthorizationCodes:", e);
+    }
+
+    try {
+        await db
+            .delete(oauthAccessTokens)
+            .where(lt(oauthAccessTokens.expiresAt, now));
+    } catch (e) {
+        logger.warn("Error clearing expired oauthAccessTokens:", e);
+    }
+
+    try {
+        await db
+            .delete(oauthRefreshTokens)
+            .where(lt(oauthRefreshTokens.expiresAt, now));
+    } catch (e) {
+        logger.warn("Error clearing expired oauthRefreshTokens:", e);
+    }
+}
+
 export async function clearStaleData() {
     const now = Date.now();
 
@@ -104,35 +138,5 @@ export async function clearStaleData() {
         logger.warn("Error clearing expired deviceWebAuthCodes:", e);
     }
 
-    try {
-        await db
-            .delete(oauthInteractions)
-            .where(lt(oauthInteractions.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired oauthInteractions:", e);
-    }
-
-    try {
-        await db
-            .delete(oauthAuthorizationCodes)
-            .where(lt(oauthAuthorizationCodes.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired oauthAuthorizationCodes:", e);
-    }
-
-    try {
-        await db
-            .delete(oauthAccessTokens)
-            .where(lt(oauthAccessTokens.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired oauthAccessTokens:", e);
-    }
-
-    try {
-        await db
-            .delete(oauthRefreshTokens)
-            .where(lt(oauthRefreshTokens.expiresAt, now));
-    } catch (e) {
-        logger.warn("Error clearing expired oauthRefreshTokens:", e);
-    }
+    await cleanExpiredOAuthData(now);
 }

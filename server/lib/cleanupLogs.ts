@@ -1,17 +1,10 @@
-import {
-    db,
-    oauthAccessTokens,
-    oauthAuthorizationCodes,
-    oauthInteractions,
-    oauthRefreshTokens,
-    orgs
-} from "@server/db";
+import { db, orgs } from "@server/db";
 import { cleanUpOldLogs as cleanUpOldAccessLogs } from "#dynamic/lib/logAccessAudit";
 import { cleanUpOldLogs as cleanUpOldActionLogs } from "#dynamic/middlewares/logActionAudit";
 import { cleanUpOldLogs as cleanUpOldRequestLogs } from "@server/routers/badger/logRequestAudit";
-import { gt, lt, or } from "drizzle-orm";
+import { gt, or } from "drizzle-orm";
 import { cleanUpOldFingerprintSnapshots } from "@server/routers/olm/fingerprintingUtils";
-import logger from "@server/logger";
+import { cleanExpiredOAuthData } from "@server/setup/clearStaleData";
 
 export function initLogCleanupInterval() {
     return setInterval(
@@ -68,43 +61,7 @@ export function initLogCleanupInterval() {
 
             await cleanUpOldFingerprintSnapshots(365);
 
-            try {
-                await db
-                    .delete(oauthInteractions)
-                    .where(lt(oauthInteractions.expiresAt, Date.now()));
-            } catch (error) {
-                logger.warn("Error clearing expired oauthInteractions:", error);
-            }
-
-            try {
-                await db
-                    .delete(oauthAuthorizationCodes)
-                    .where(lt(oauthAuthorizationCodes.expiresAt, Date.now()));
-            } catch (error) {
-                logger.warn(
-                    "Error clearing expired oauthAuthorizationCodes:",
-                    error
-                );
-            }
-
-            try {
-                await db
-                    .delete(oauthAccessTokens)
-                    .where(lt(oauthAccessTokens.expiresAt, Date.now()));
-            } catch (error) {
-                logger.warn("Error clearing expired oauthAccessTokens:", error);
-            }
-
-            try {
-                await db
-                    .delete(oauthRefreshTokens)
-                    .where(lt(oauthRefreshTokens.expiresAt, Date.now()));
-            } catch (error) {
-                logger.warn(
-                    "Error clearing expired oauthRefreshTokens:",
-                    error
-                );
-            }
+            await cleanExpiredOAuthData(Date.now());
         },
         3 * 60 * 60 * 1000
     ); // every 3 hours
