@@ -17,10 +17,13 @@ import {
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { loginProxy } from "@app/actions/server";
+import { loginProxy, type LoginResponse } from "@app/actions/server";
 import Link from "next/link";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import { cleanRedirect, cleanOAuthRedirectOptions } from "@app/lib/cleanRedirect";
+import {
+    cleanRedirect,
+    cleanOAuthRedirectOptions
+} from "@app/lib/cleanRedirect";
 import MfaInputForm from "@app/components/MfaInputForm";
 import { LAST_USED_IDP_COOKIE_NAME } from "@app/lib/consts";
 import { setClientCookie } from "@app/lib/setClientCookie";
@@ -81,6 +84,66 @@ export default function LoginPasswordForm({
         }
     });
 
+    const redirectAfterLogin = () => {
+        if (redirect) {
+            const safe = cleanRedirect(redirect, cleanRedirectOptions);
+            router.replace(safe);
+            return;
+        }
+
+        router.replace("/");
+    };
+
+    const handleSetupRequirements = (data: LoginResponse): boolean => {
+        if (data.emailVerificationRequired) {
+            if (!isExpectedHost) {
+                setError(
+                    t("emailVerificationRequired", {
+                        dashboardUrl: env.app.dashboardUrl
+                    })
+                );
+                return true;
+            }
+
+            if (redirect) {
+                router.push(`/auth/verify-email?redirect=${redirect}`);
+            } else {
+                router.push("/auth/verify-email");
+            }
+
+            return true;
+        }
+
+        if (data.twoFactorSetupRequired) {
+            if (!isExpectedHost) {
+                setError(
+                    t("twoFactorSetupRequired", {
+                        dashboardUrl: env.app.dashboardUrl
+                    })
+                );
+                return true;
+            }
+
+            const setupUrl = `/auth/2fa/setup?email=${encodeURIComponent(identifier)}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`;
+            router.push(setupUrl);
+            return true;
+        }
+
+        return false;
+    };
+
+    const submitLogin = async (password: string, code?: string) => {
+        return loginProxy(
+            {
+                email: identifier,
+                password,
+                code,
+                resourceGuid: undefined
+            },
+            forceLogin
+        );
+    };
+
     async function onSubmit(values: z.infer<typeof formSchema>) {
         const { password } = values;
         const { code } = mfaForm.getValues();
@@ -95,15 +158,7 @@ export default function LoginPasswordForm({
         setError(null);
 
         try {
-            const response = await loginProxy(
-                {
-                    email: identifier,
-                    password,
-                    code,
-                    resourceGuid: undefined
-                },
-                forceLogin
-            );
+            const response = await submitLogin(password, code);
 
             if (response.error) {
                 setError(response.message);
@@ -113,13 +168,7 @@ export default function LoginPasswordForm({
             const data = response.data;
 
             if (!data) {
-                // Already logged in
-                if (redirect) {
-                    const safe = cleanRedirect(redirect, cleanRedirectOptions);
-                    router.replace(safe);
-                } else {
-                    router.replace("/");
-                }
+                redirectAfterLogin();
                 return;
             }
 
@@ -130,50 +179,16 @@ export default function LoginPasswordForm({
 
             if (data.codeRequested) {
                 setMfaRequested(true);
-                setLoading(false);
                 mfaForm.reset();
                 return;
             }
 
-            if (data.emailVerificationRequired) {
-                if (!isExpectedHost) {
-                    setError(
-                        t("emailVerificationRequired", {
-                            dashboardUrl: env.app.dashboardUrl
-                        })
-                    );
-                    return;
-                }
-                if (redirect) {
-                    router.push(`/auth/verify-email?redirect=${redirect}`);
-                } else {
-                    router.push("/auth/verify-email");
-                }
+            if (handleSetupRequirements(data)) {
                 return;
             }
 
-            if (data.twoFactorSetupRequired) {
-                if (!isExpectedHost) {
-                    setError(
-                        t("twoFactorSetupRequired", {
-                            dashboardUrl: env.app.dashboardUrl
-                        })
-                    );
-                    return;
-                }
-                const setupUrl = `/auth/2fa/setup?email=${encodeURIComponent(identifier)}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`;
-                router.push(setupUrl);
-                return;
-            }
-
-            // Success
-            if (redirect) {
-                const safe = cleanRedirect(redirect, cleanRedirectOptions);
-                router.replace(safe);
-            } else {
-                router.replace("/");
-            }
-        } catch (e: any) {
+            redirectAfterLogin();
+        } catch (e: unknown) {
             console.error(e);
             setError(t("loginError"));
         } finally {
@@ -189,73 +204,37 @@ export default function LoginPasswordForm({
         setError(null);
 
         try {
-            const response = await loginProxy(
-                {
-                    email: identifier,
-                    password,
-                    code,
-                    resourceGuid: undefined
-                },
-                forceLogin
-            );
+            const response = await submitLogin(password, code);
 
             if (response.error) {
                 setError(response.message);
-                setLoading(false);
                 return;
             }
 
             const data = response.data;
 
             if (!data) {
-                if (redirect) {
-                    const safe = cleanRedirect(redirect, cleanRedirectOptions);
-                    router.replace(safe);
-                } else {
-                    router.replace("/");
-                }
+                redirectAfterLogin();
                 return;
             }
 
-            if (data.emailVerificationRequired) {
-                if (!isExpectedHost) {
-                    setError(
-                        t("emailVerificationRequired", {
-                            dashboardUrl: env.app.dashboardUrl
-                        })
-                    );
-                    return;
-                }
-                if (redirect) {
-                    router.push(`/auth/verify-email?redirect=${redirect}`);
-                } else {
-                    router.push("/auth/verify-email");
-                }
+            if (data.useSecurityKey) {
+                setError(t("securityKeyRequired"));
                 return;
             }
 
-            if (data.twoFactorSetupRequired) {
-                if (!isExpectedHost) {
-                    setError(
-                        t("twoFactorSetupRequired", {
-                            dashboardUrl: env.app.dashboardUrl
-                        })
-                    );
-                    return;
-                }
-                const setupUrl = `/auth/2fa/setup?email=${encodeURIComponent(identifier)}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`;
-                router.push(setupUrl);
+            if (data.codeRequested) {
+                mfaForm.reset();
+                setMfaRequested(true);
                 return;
             }
 
-            // Success
-            if (redirect) {
-                const safe = cleanRedirect(redirect, cleanRedirectOptions);
-                router.replace(safe);
-            } else {
-                router.replace("/");
+            if (handleSetupRequirements(data)) {
+                return;
             }
-        } catch (e: any) {
+
+            redirectAfterLogin();
+        } catch (e: unknown) {
             console.error(e);
             setError(t("loginError"));
         } finally {

@@ -60,8 +60,8 @@ export default async function Page(props: {
             if (res && res.status === 200 && res.data.data.fullDomain) {
                 loginPageDomain = res.data.data.fullDomain;
             }
-        } catch (e) {
-            console.debug("No custom login page found for org", orgId);
+        } catch {
+            // Ignore when no custom login page exists for the org.
         }
     }
 

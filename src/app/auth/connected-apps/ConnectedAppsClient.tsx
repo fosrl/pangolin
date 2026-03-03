@@ -60,7 +60,7 @@ export default function ConnectedAppsClient() {
             if (res.data.success && res.data.data) {
                 setConsents(res.data.data);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 variant: "destructive",
                 title: t("connectedAppsLoadError"),
@@ -89,7 +89,7 @@ export default function ConnectedAppsClient() {
                 title: t("connectedAppDisconnected"),
                 description: t("connectedAppDisconnectedDescription")
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast({
                 variant: "destructive",
                 title: t("connectedAppDisconnectError"),
