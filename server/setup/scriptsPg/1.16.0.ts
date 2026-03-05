@@ -116,31 +116,6 @@ export default async function migration() {
             sql`UPDATE "roles" SET "sshSudoMode" = 'full' WHERE "isAdmin" = true;`
         );
 
-        // Add health check latency column used by intelligent DNS scoring
-        if (!(await columnExists("targetHealthCheck", "hcLatencyMs"))) {
-            await db.execute(
-                sql`ALTER TABLE "targetHealthCheck" ADD COLUMN "hcLatencyMs" integer;`
-            );
-        }
-
-        await db.execute(sql`
-            UPDATE "resources"
-            SET "dnsAuthorityRoutingPolicy" = 'failover'
-            WHERE "dnsAuthorityRoutingPolicy" IS NULL
-               OR "dnsAuthorityRoutingPolicy" NOT IN ('failover', 'roundrobin', 'priority', 'intelligent')
-        `);
-
-        await db.execute(sql`
-            ALTER TABLE "resources"
-            DROP CONSTRAINT IF EXISTS "resources_dns_authority_routing_policy_check"
-        `);
-
-        await db.execute(sql`
-            ALTER TABLE "resources"
-            ADD CONSTRAINT "resources_dns_authority_routing_policy_check"
-            CHECK ("dnsAuthorityRoutingPolicy" IN ('failover', 'roundrobin', 'priority', 'intelligent'))
-        `);
-
         await db.execute(sql`COMMIT`);
         console.log("Migrated database");
     } catch (e) {
