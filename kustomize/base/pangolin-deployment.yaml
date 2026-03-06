@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pangolin
+  namespace: pangolin
+  labels:
+    app.kubernetes.io/name: pangolin
+    app.kubernetes.io/component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pangolin
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pangolin
+        app.kubernetes.io/component: server
+    spec:
+      containers:
+      - name: pangolin
+        image: fosrl/pangolin:latest
+        imagePullPolicy: Always
+        ports:
+        - name: api
+          containerPort: 3001
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: false
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/
+            port: api
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 15
+        readinessProbe:
+          httpGet:
+            path: /api/v1/
+            port: api
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: pangolin-config-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pangolin
+  namespace: pangolin
+  labels:
+    app.kubernetes.io/name: pangolin
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  ports:
+  - name: api
+    port: 3001
+    targetPort: api
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: pangolin
+    app.kubernetes.io/component: server
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pangolin-config-pvc
+  namespace: pangolin
+  labels:
+    app.kubernetes.io/name: pangolin
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

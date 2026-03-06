@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gerbil
+  namespace: pangolin
+  labels:
+    app.kubernetes.io/name: pangolin
+    app.kubernetes.io/component: tunnel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pangolin
+      app.kubernetes.io/component: tunnel
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pangolin
+        app.kubernetes.io/component: tunnel
+    spec:
+      containers:
+      - name: gerbil
+        image: fosrl/gerbil:latest
+        imagePullPolicy: Always
+        args:
+        - --reachableAt=http://localhost:3004
+        - --generateAndSaveKeyTo=/var/config/key
+        - --remoteConfig=http://pangolin:3001/api/v1/
+        ports:
+        - name: wireguard
+          containerPort: 51820
+          protocol: UDP
+        - name: wireguard-alt
+          containerPort: 21820
+          protocol: UDP
+        volumeMounts:
+        - name: config
+          mountPath: /var/config
+          readOnly: false
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - SYS_MODULE
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      - name: traefik
+        image: traefik:v3.6
+        imagePullPolicy: IfNotPresent
+        args:
+        - --configFile=/etc/traefik/traefik_config.yml
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        - name: https
+          containerPort: 443
+          protocol: TCP
+        volumeMounts:
+        - name: traefik-config
+          mountPath: /etc/traefik
+          readOnly: true
+        - name: letsencrypt
+          mountPath: /letsencrypt
+          readOnly: false
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: pangolin-config-pvc
+      - name: traefik-config
+        persistentVolumeClaim:
+          claimName: pangolin-config-pvc
+      - name: letsencrypt
+        persistentVolumeClaim:
+          claimName: pangolin-config-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gerbil
+  namespace: pangolin
+  labels:
+    app.kubernetes.io/name: pangolin
+    app.kubernetes.io/component: tunnel
+spec:
+  type: LoadBalancer
+  ports:
+  - name: wireguard
+    port: 51820
+    targetPort: wireguard
+    protocol: UDP
+  - name: wireguard-alt
+    port: 21820
+    targetPort: wireguard-alt
+    protocol: UDP
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: pangolin
+    app.kubernetes.io/component: tunnel
