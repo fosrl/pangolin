@@ -312,6 +312,7 @@ export const users = sqliteTable("user", {
         .notNull()
         .default(false),
     dateCreated: text("dateCreated").notNull(),
+    locale: text("locale"),
     termsAcceptedTimestamp: text("termsAcceptedTimestamp"),
     termsVersion: text("termsVersion"),
     marketingEmailConsent: integer("marketingEmailConsent", {
