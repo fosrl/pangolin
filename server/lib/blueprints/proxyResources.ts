@@ -349,7 +349,7 @@ export async function updateProxyResources(
                     }
                 }
 
-                if (resourceData.auth?.["sso-roles"]) {
+                if (resourceData.auth?.["sso-roles"] && resourceData.auth["sso-roles"].length > 0) {
                     const ssoRoles = resourceData.auth?.["sso-roles"];
                     await syncRoleResources(
                         existingResource.resourceId,
@@ -359,7 +359,7 @@ export async function updateProxyResources(
                     );
                 }
 
-                if (resourceData.auth?.["sso-users"]) {
+                if (resourceData.auth?.["sso-users"] && resourceData.auth["sso-users"].length > 0) {
                     const ssoUsers = resourceData.auth?.["sso-users"];
                     await syncUserResources(
                         existingResource.resourceId,
@@ -767,7 +767,7 @@ export async function updateProxyResources(
                 resourceId: newResource.resourceId
             });
 
-            if (resourceData.auth?.["sso-roles"]) {
+            if (resourceData.auth?.["sso-roles"] && resourceData.auth["sso-roles"].length > 0) {
                 const ssoRoles = resourceData.auth?.["sso-roles"];
                 await syncRoleResources(
                     newResource.resourceId,
@@ -777,7 +777,7 @@ export async function updateProxyResources(
                 );
             }
 
-            if (resourceData.auth?.["sso-users"]) {
+            if (resourceData.auth?.["sso-users"] && resourceData.auth["sso-users"].length > 0) {
                 const ssoUsers = resourceData.auth?.["sso-users"];
                 await syncUserResources(
                     newResource.resourceId,
