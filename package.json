@@ -131,10 +131,10 @@
         "zod-validation-error": "5.0.0"
     },
     "devDependencies": {
-        "@dotenvx/dotenvx": "1.52.0",
+        "@dotenvx/dotenvx": "1.54.1",
         "@esbuild-plugins/tsconfig-paths": "0.1.2",
         "@react-email/preview-server": "5.2.8",
-        "@tailwindcss/postcss": "4.1.18",
+        "@tailwindcss/postcss": "4.2.1",
         "@tanstack/react-query-devtools": "5.91.3",
         "@types/better-sqlite3": "7.6.13",
         "@types/cookie-parser": "1.4.10",
@@ -146,7 +146,7 @@
         "@types/jmespath": "0.15.2",
         "@types/js-yaml": "4.0.9",
         "@types/jsonwebtoken": "9.0.10",
-        "@types/node": "25.2.3",
+        "@types/node": "25.3.5",
         "@types/nodemailer": "7.0.11",
         "@types/nprogress": "0.2.3",
         "@types/pg": "8.16.0",
@@ -167,10 +167,10 @@
         "postcss": "8.5.6",
         "prettier": "3.8.1",
         "react-email": "5.2.8",
-        "tailwindcss": "4.1.18",
+        "tailwindcss": "4.2.1",
         "tsc-alias": "1.8.16",
         "tsx": "4.21.0",
         "typescript": "5.9.3",
-        "typescript-eslint": "8.55.0"
+        "typescript-eslint": "8.56.1"
     }
 }
