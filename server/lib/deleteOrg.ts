@@ -85,9 +85,7 @@ export async function deleteOrgById(
                         deletedNewtIds.push(deletedNewt.newtId);
                         await trx
                             .delete(newtSessions)
-                            .where(
-                                eq(newtSessions.newtId, deletedNewt.newtId)
-                            );
+                            .where(eq(newtSessions.newtId, deletedNewt.newtId));
                     }
                 }
             }
@@ -127,7 +125,7 @@ export async function deleteOrgById(
         const allOrgDomains = await trx
             .select()
             .from(orgDomains)
-            .innerJoin(domains, eq(domains.domainId, orgDomains.domainId))
+            .innerJoin(domains, eq(orgDomains.domainId, domains.domainId))
             .where(
                 and(
                     eq(orgDomains.orgId, orgId),
@@ -136,16 +134,17 @@ export async function deleteOrgById(
             );
         const domainIdsToDelete: string[] = [];
         for (const orgDomain of allOrgDomains) {
-            const domainId = orgDomain.domains.domainId;
+            const domainId = orgDomain.domainId;
             const orgCount = await trx
-                .select({ count: sql<number>`count(*)` })
+                .select({ count: count() })
                 .from(orgDomains)
                 .where(eq(orgDomains.domainId, domainId));
-            if (orgCount[0].count === 1) {
+            if (orgCount[0].count == 1) {
                 domainIdsToDelete.push(domainId);
             }
         }
         if (domainIdsToDelete.length > 0) {
+            // delete the orgDomain
             await trx
                 .delete(domains)
                 .where(inArray(domains.domainId, domainIdsToDelete));
@@ -233,15 +232,13 @@ export function sendTerminationMessages(result: DeleteOrgByIdResult): void {
         );
     }
     for (const olmId of result.olmsToTerminate) {
-        sendTerminateClient(
-            0,
-            OlmErrorCodes.TERMINATED_REKEYED,
-            olmId
-        ).catch((error) => {
-            logger.error(
-                "Failed to send termination message to olm:",
-                error
-            );
-        });
+        sendTerminateClient(0, OlmErrorCodes.TERMINATED_REKEYED, olmId).catch(
+            (error) => {
+                logger.error(
+                    "Failed to send termination message to olm:",
+                    error
+                );
+            }
+        );
     }
 }
