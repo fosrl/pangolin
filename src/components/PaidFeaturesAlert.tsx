@@ -51,6 +51,7 @@ const docsLinkClassName =
 const PANGOLIN_CLOUD_SIGNUP_URL = "https://app.pangolin.net/auth/signup/";
 const ENTERPRISE_DOCS_URL =
     "https://docs.pangolin.net/self-host/enterprise-edition";
+const BOOK_A_DEMO_URL = "https://click.fossorial.io/ep922";
 
 function getTierLinkRenderer(billingHref: string) {
     return function tierLinkRenderer(chunks: React.ReactNode) {
@@ -67,6 +68,22 @@ function getPangolinCloudLinkRenderer() {
         return (
             <Link
                 href={PANGOLIN_CLOUD_SIGNUP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={docsLinkClassName}
+            >
+                {chunks}
+                <ExternalLink className="size-3.5 shrink-0" />
+            </Link>
+        );
+    };
+}
+
+function getBookADemoLinkRenderer() {
+    return function bookADemoLinkRenderer(chunks: React.ReactNode) {
+        return (
+            <Link
+                href={BOOK_A_DEMO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={docsLinkClassName}
@@ -116,6 +133,7 @@ export function PaidFeaturesAlert({ tiers }: Props) {
     const tierLinkRenderer = getTierLinkRenderer(billingHref);
     const pangolinCloudLinkRenderer = getPangolinCloudLinkRenderer();
     const enterpriseDocsLinkRenderer = getDocsLinkRenderer(ENTERPRISE_DOCS_URL);
+    const bookADemoLinkRenderer = getBookADemoLinkRenderer();
 
     if (env.flags.disableEnterpriseFeatures) {
         return null;
@@ -157,7 +175,8 @@ export function PaidFeaturesAlert({ tiers }: Props) {
                                 {t.rich("licenseRequiredToUse", {
                                     enterpriseLicenseLink:
                                         enterpriseDocsLinkRenderer,
-                                    pangolinCloudLink: pangolinCloudLinkRenderer
+                                    pangolinCloudLink: pangolinCloudLinkRenderer,
+                                    bookADemoLink: bookADemoLinkRenderer
                                 })}
                             </span>
                         </div>
@@ -174,7 +193,8 @@ export function PaidFeaturesAlert({ tiers }: Props) {
                                 {t.rich("ossEnterpriseEditionRequired", {
                                     enterpriseEditionLink:
                                         enterpriseDocsLinkRenderer,
-                                    pangolinCloudLink: pangolinCloudLinkRenderer
+                                    pangolinCloudLink: pangolinCloudLinkRenderer,
+                                    bookADemoLink: bookADemoLinkRenderer
                                 })}
                             </span>
                         </div>
