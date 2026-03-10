@@ -134,17 +134,16 @@ export async function deleteOrgById(
             );
         const domainIdsToDelete: string[] = [];
         for (const orgDomain of allOrgDomains) {
-            const domainId = orgDomain.domainId;
-            const orgCount = await trx
+            const domainId = orgDomain.domains.domainId;
+            const [orgCount] = await trx
                 .select({ count: count() })
                 .from(orgDomains)
                 .where(eq(orgDomains.domainId, domainId));
-            if (orgCount[0].count == 1) {
+            if (orgCount.count === 1) {
                 domainIdsToDelete.push(domainId);
             }
         }
         if (domainIdsToDelete.length > 0) {
-            // delete the orgDomain
             await trx
                 .delete(domains)
                 .where(inArray(domains.domainId, domainIdsToDelete));
