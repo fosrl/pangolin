@@ -262,7 +262,7 @@ export async function updateAndGenerateEndpointDestinations(
             if (site.subnet && site.listenPort) {
                 destinations.push({
                     destinationIP: site.subnet.split("/")[0],
-                    destinationPort: site.listenPort
+                    destinationPort: site.listenPort || 1 // this satisfies gerbil for now but should be reevaluated
                 });
             }
         }

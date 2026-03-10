@@ -571,7 +571,7 @@ export async function updateClientSiteDestinations(
                 destinations: [
                     {
                         destinationIP: site.sites.subnet.split("/")[0],
-                        destinationPort: site.sites.listenPort || 0
+                        destinationPort: site.sites.listenPort || 1 // this satisfies gerbil for now but should be reevaluated
                     }
                 ]
             };
@@ -579,7 +579,7 @@ export async function updateClientSiteDestinations(
             // add to the existing destinations
             destinations.destinations.push({
                 destinationIP: site.sites.subnet.split("/")[0],
-                destinationPort: site.sites.listenPort || 0
+                destinationPort: site.sites.listenPort || 1 // this satisfies gerbil for now but should be reevaluated
             });
         }
 

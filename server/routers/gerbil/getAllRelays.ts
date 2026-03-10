@@ -125,7 +125,7 @@ export async function generateRelayMappings(exitNode: ExitNode) {
             // Add site as a destination for this client
             const destination: PeerDestination = {
                 destinationIP: site.subnet.split("/")[0],
-                destinationPort: site.listenPort
+                destinationPort: site.listenPort || 1 // this satisfies gerbil for now but should be reevaluated
             };
 
             // Check if this destination is already in the array to avoid duplicates
@@ -165,7 +165,7 @@ export async function generateRelayMappings(exitNode: ExitNode) {
 
                 const destination: PeerDestination = {
                     destinationIP: peer.subnet.split("/")[0],
-                    destinationPort: peer.listenPort
+                    destinationPort: peer.listenPort || 1 // this satisfies gerbil for now but should be reevaluated
                 };
 
                 // Check for duplicates
