@@ -121,6 +121,9 @@ export async function deleteOrgById(
                     eq(clientSitesAssociationsCache.clientId, client.clientId)
                 );
         }
+
+        await trx.delete(resources).where(eq(resources.orgId, orgId));
+
         const allOrgDomains = await trx
             .select()
             .from(orgDomains)
@@ -147,7 +150,6 @@ export async function deleteOrgById(
                 .delete(domains)
                 .where(inArray(domains.domainId, domainIdsToDelete));
         }
-        await trx.delete(resources).where(eq(resources.orgId, orgId));
 
         await usageService.add(orgId, FeatureId.ORGINIZATIONS, -1, trx); // here we are decreasing the org count BEFORE deleting the org because we need to still be able to get the org to get the billing org inside of here
 
