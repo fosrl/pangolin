@@ -218,10 +218,11 @@ export class TraefikConfigManager {
             return true;
         }
 
-        // Fetch if it's been more than 24 hours (for renewals)
         const dayInMs = 24 * 60 * 60 * 1000;
         const timeSinceLastFetch =
             Date.now() - this.lastCertificateFetch.getTime();
+
+        // Fetch if it's been more than 24 hours (daily routine check)
         if (timeSinceLastFetch > dayInMs) {
             logger.info("Fetching certificates due to 24-hour renewal check");
             return true;
@@ -265,7 +266,7 @@ export class TraefikConfigManager {
             return true;
         }
 
-        // Check if any local certificates are missing or appear to be outdated
+        // Check if any local certificates are missing (needs immediate fetch)
         for (const domain of domainsNeedingCerts) {
             const localState = this.lastLocalCertificateState.get(domain);
             if (!localState || !localState.exists) {
@@ -274,17 +275,55 @@ export class TraefikConfigManager {
                 );
                 return true;
             }
+        }
 
-            // Check if certificate is expiring soon (within 30 days)
-            if (localState.expiresAt) {
-                const nowInSeconds = Math.floor(Date.now() / 1000);
-                const secondsUntilExpiry = localState.expiresAt - nowInSeconds;
-                const daysUntilExpiry = secondsUntilExpiry / (60 * 60 * 24);
-                if (daysUntilExpiry < 30) {
-                    logger.info(
-                        `Fetching certificates due to upcoming expiry for ${domain} (${Math.round(daysUntilExpiry)} days remaining)`
-                    );
-                    return true;
+        // For expiry checks, throttle to every 6 hours to avoid querying the
+        // API/DB on every monitor loop. The certificate-service renews certs
+        // 45 days before expiry, so checking every 6 hours is plenty frequent
+        // to pick up renewed certs promptly.
+        const renewalCheckIntervalMs = 6 * 60 * 60 * 1000; // 6 hours
+        if (timeSinceLastFetch > renewalCheckIntervalMs) {
+            // Check non-wildcard certs for expiry (within 45 days to match
+            // the server-side renewal window in certificate-service)
+            for (const domain of domainsNeedingCerts) {
+                const localState =
+                    this.lastLocalCertificateState.get(domain);
+                if (localState?.expiresAt) {
+                    const nowInSeconds = Math.floor(Date.now() / 1000);
+                    const secondsUntilExpiry =
+                        localState.expiresAt - nowInSeconds;
+                    const daysUntilExpiry =
+                        secondsUntilExpiry / (60 * 60 * 24);
+                    if (daysUntilExpiry < 45) {
+                        logger.info(
+                            `Fetching certificates due to upcoming expiry for ${domain} (${Math.round(daysUntilExpiry)} days remaining)`
+                        );
+                        return true;
+                    }
+                }
+            }
+
+            // Also check wildcard certificates for expiry. These are not
+            // included in domainsNeedingCerts since their subdomains are
+            // filtered out, so we must check them separately.
+            for (const [certDomain, state] of this
+                .lastLocalCertificateState) {
+                if (
+                    state.exists &&
+                    state.wildcard &&
+                    state.expiresAt
+                ) {
+                    const nowInSeconds = Math.floor(Date.now() / 1000);
+                    const secondsUntilExpiry =
+                        state.expiresAt - nowInSeconds;
+                    const daysUntilExpiry =
+                        secondsUntilExpiry / (60 * 60 * 24);
+                    if (daysUntilExpiry < 45) {
+                        logger.info(
+                            `Fetching certificates due to upcoming expiry for wildcard cert ${certDomain} (${Math.round(daysUntilExpiry)} days remaining)`
+                        );
+                        return true;
+                    }
                 }
             }
         }
@@ -358,6 +397,32 @@ export class TraefikConfigManager {
                             logger.debug(
                                 `Domain ${domain} is covered by existing wildcard certificate, skipping fetch`
                             );
+                        }
+                    }
+
+                    // Also include wildcard cert base domains that are
+                    // expiring or expired so they get re-fetched even though
+                    // their subdomains were filtered out above.
+                    for (const [certDomain, state] of this
+                        .lastLocalCertificateState) {
+                        if (
+                            state.exists &&
+                            state.wildcard &&
+                            state.expiresAt
+                        ) {
+                            const nowInSeconds = Math.floor(
+                                Date.now() / 1000
+                            );
+                            const secondsUntilExpiry =
+                                state.expiresAt - nowInSeconds;
+                            const daysUntilExpiry =
+                                secondsUntilExpiry / (60 * 60 * 24);
+                            if (daysUntilExpiry < 45) {
+                                domainsToFetch.add(certDomain);
+                                logger.info(
+                                    `Including expiring wildcard cert domain ${certDomain} in fetch (${Math.round(daysUntilExpiry)} days remaining)`
+                                );
+                            }
                         }
                     }
 
