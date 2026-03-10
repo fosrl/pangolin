@@ -162,7 +162,7 @@
         "drizzle-kit": "0.31.9",
         "esbuild": "0.27.3",
         "esbuild-node-externals": "1.20.1",
-        "eslint": "9.39.2",
+        "eslint": "10.0.3",
         "eslint-config-next": "16.1.6",
         "postcss": "8.5.6",
         "prettier": "3.8.1",
