@@ -132,6 +132,7 @@ export async function deleteOrgById(
                     eq(domains.configManaged, false)
                 )
             );
+        logger.info(`Found ${allOrgDomains.length} domains to delete`);
         const domainIdsToDelete: string[] = [];
         for (const orgDomain of allOrgDomains) {
             const domainId = orgDomain.domains.domainId;
@@ -139,10 +140,12 @@ export async function deleteOrgById(
                 .select({ count: count() })
                 .from(orgDomains)
                 .where(eq(orgDomains.domainId, domainId));
+            logger.info(`Found ${orgCount.count} orgs using domain ${domainId}`);
             if (orgCount.count === 1) {
                 domainIdsToDelete.push(domainId);
             }
         }
+        logger.info(`Found ${domainIdsToDelete.length} domains to delete`);
         if (domainIdsToDelete.length > 0) {
             await trx
                 .delete(domains)
