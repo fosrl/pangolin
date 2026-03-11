@@ -112,7 +112,7 @@ export async function updateHolePunch(
             destinations: destinations
         });
     } catch (error) {
-        // logger.error(error); // FIX THIS
+        logger.error(error);
         return next(
             createHttpError(
                 HttpCode.INTERNAL_SERVER_ERROR,
