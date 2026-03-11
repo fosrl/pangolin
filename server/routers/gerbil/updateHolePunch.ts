@@ -339,10 +339,10 @@ export async function updateAndGenerateEndpointDestinations(
             handleSiteEndpointChange(newt.siteId, updatedSite.endpoint!);
         }
 
-        if (!updatedSite || !updatedSite.subnet) {
-            logger.warn(`Site not found: ${newt.siteId}`);
-            throw new Error("Site not found");
-        }
+        // if (!updatedSite || !updatedSite.subnet) {
+        //     logger.warn(`Site not found: ${newt.siteId}`);
+        //     throw new Error("Site not found");
+        // }
 
         // Find all clients that connect to this site
         // const sitesClientPairs = await db
