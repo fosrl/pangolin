@@ -318,6 +318,15 @@ export const approvals = sqliteTable("approvals", {
         .notNull()
 });
 
+
+export const bannedEmails = sqliteTable("bannedEmails", {
+    email: text("email").primaryKey()
+});
+
+export const bannedIps = sqliteTable("bannedIps", {
+    ip: text("ip").primaryKey()
+});
+
 export type Approval = InferSelectModel<typeof approvals>;
 export type Limit = InferSelectModel<typeof limits>;
 export type Account = InferSelectModel<typeof account>;

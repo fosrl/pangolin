@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { db, users } from "@server/db";
+import { bannedEmails, bannedIps, db, users } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { email, z } from "zod";
 import { fromError } from "zod-validation-error";
@@ -65,6 +65,30 @@ export async function signup(
         marketingEmailConsent,
         skipVerificationEmail
     } = parsedBody.data;
+
+    const [bannedEmail] = await db
+        .select()
+        .from(bannedEmails)
+        .where(eq(bannedEmails.email, email))
+        .limit(1);
+    if (bannedEmail) {
+        return next(
+            createHttpError(HttpCode.FORBIDDEN, "Signup blocked. Do not attempt to continue to use this service.")
+        );
+    }
+
+    if (req.ip) {
+        const [bannedIp] = await db
+            .select()
+            .from(bannedIps)
+            .where(eq(bannedIps.ip, req.ip))
+            .limit(1);
+        if (bannedIp) {
+            return next(
+                createHttpError(HttpCode.FORBIDDEN, "Signup blocked. Do not attempt to continue to use this service.")
+            );
+        }
+    }
 
     const passwordHash = await hashPassword(password);
     const userId = generateId(15);

@@ -328,6 +328,14 @@ export const approvals = pgTable("approvals", {
         .notNull()
 });
 
+export const bannedEmails = pgTable("bannedEmails", {
+    email: varchar("email", { length: 255 }).primaryKey(),
+});
+
+export const bannedIps = pgTable("bannedIps", {
+    ip: varchar("ip", { length: 255 }).primaryKey(),
+});
+
 export type Approval = InferSelectModel<typeof approvals>;
 export type Limit = InferSelectModel<typeof limits>;
 export type Account = InferSelectModel<typeof account>;
