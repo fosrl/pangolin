@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Abilita Approvazioni Dispositivo",
     "approvalsEmptyStateStep2Description": "Modifica un ruolo e abilita l'opzione 'Richiedi l'approvazione del dispositivo'. Gli utenti con questo ruolo avranno bisogno dell'approvazione dell'amministratore per i nuovi dispositivi.",
     "approvalsEmptyStatePreviewDescription": "Anteprima: quando abilitato, le richieste di dispositivo in attesa appariranno qui per la revisione",
-    "approvalsEmptyStateButtonText": "Gestisci Ruoli"
+    "approvalsEmptyStateButtonText": "Gestisci Ruoli",
+    "domainErrorTitle": "We are having trouble verifying your domain"
 }
