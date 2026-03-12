@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Włącz zatwierdzanie urządzenia",
     "approvalsEmptyStateStep2Description": "Edytuj rolę i włącz opcję \"Wymagaj zatwierdzenia urządzenia\". Użytkownicy z tą rolą będą potrzebowali zatwierdzenia administratora dla nowych urządzeń.",
     "approvalsEmptyStatePreviewDescription": "Podgląd: Gdy włączone, oczekujące prośby o sprawdzenie pojawią się tutaj",
-    "approvalsEmptyStateButtonText": "Zarządzaj rolami"
+    "approvalsEmptyStateButtonText": "Zarządzaj rolami",
+    "domainErrorTitle": "We are having trouble verifying your domain"
 }
