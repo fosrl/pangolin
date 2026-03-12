@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Habilitar Aprovações do Dispositivo",
     "approvalsEmptyStateStep2Description": "Editar uma função e habilitar a opção 'Exigir aprovação de dispositivos'. Usuários com essa função precisarão de aprovação de administrador para novos dispositivos.",
     "approvalsEmptyStatePreviewDescription": "Pré-visualização: Quando ativado, solicitações de dispositivo pendentes aparecerão aqui para revisão",
-    "approvalsEmptyStateButtonText": "Gerir Funções"
+    "approvalsEmptyStateButtonText": "Gerir Funções",
+    "domainErrorTitle": "We are having trouble verifying your domain"
 }
