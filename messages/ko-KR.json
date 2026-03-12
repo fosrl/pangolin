@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "장치 승인 활성화",
     "approvalsEmptyStateStep2Description": "역할을 편집하고 '장치 승인 요구' 옵션을 활성화하세요. 이 역할을 가진 사용자는 새 장치에 대해 관리자의 승인이 필요합니다.",
     "approvalsEmptyStatePreviewDescription": "미리 보기: 활성화된 경우, 승인 대기 중인 장치 요청이 검토용으로 여기에 표시됩니다.",
-    "approvalsEmptyStateButtonText": "역할 관리"
+    "approvalsEmptyStateButtonText": "역할 관리",
+    "domainErrorTitle": "We are having trouble verifying your domain"
 }
