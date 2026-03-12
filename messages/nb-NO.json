@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Aktiver enhetsgodkjenninger",
     "approvalsEmptyStateStep2Description": "Rediger en rolle og aktiver alternativet 'Kreve enhetsgodkjenninger'. Brukere med denne rollen vil trenge administratorgodkjenning for nye enheter.",
     "approvalsEmptyStatePreviewDescription": "Forhåndsvisning: Når aktivert, ventende enhets forespørsler vil vises her for vurdering",
-    "approvalsEmptyStateButtonText": "Administrer Roller"
+    "approvalsEmptyStateButtonText": "Administrer Roller",
+    "domainErrorTitle": "We are having trouble verifying your domain"
 }
