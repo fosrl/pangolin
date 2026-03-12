@@ -2342,8 +2342,8 @@
     "logRetentionEndOfFollowingYear": "Fin del año siguiente",
     "actionLogsDescription": "Ver un historial de acciones realizadas en esta organización",
     "accessLogsDescription": "Ver solicitudes de acceso a los recursos de esta organización",
-    "licenseRequiredToUse": "Se requiere una licencia <enterpriseLicenseLink>Enterprise Edition</enterpriseLicenseLink> para utilizar esta función. Esta característica también está disponible en <pangolinCloudLink>Pangolin Cloud</pangolinCloudLink>.",
-    "ossEnterpriseEditionRequired": "La <enterpriseEditionLink>versión Enterprise</enterpriseEditionLink> es necesaria para utilizar esta función. Esta función también está disponible en <pangolinCloudLink>Pangolin Cloud</pangolinCloudLink>.",
+    "licenseRequiredToUse": "An <enterpriseLicenseLink>Enterprise Edition</enterpriseLicenseLink> license or <pangolinCloudLink>Pangolin Cloud</pangolinCloudLink> is required to use this feature. <bookADemoLink>Book a demo or POC trial</bookADemoLink>.",
+    "ossEnterpriseEditionRequired": "The <enterpriseEditionLink>Enterprise Edition</enterpriseEditionLink> is required to use this feature. This feature is also available in <pangolinCloudLink>Pangolin Cloud</pangolinCloudLink>. <bookADemoLink>Book a demo or POC trial</bookADemoLink>.",
     "certResolver": "Resolver certificado",
     "certResolverDescription": "Seleccione la resolución de certificados a utilizar para este recurso.",
     "selectCertResolver": "Seleccionar Resolver Certificado",
@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Habilitar aprobaciones de dispositivo",
     "approvalsEmptyStateStep2Description": "Editar un rol y habilitar la opción 'Requerir aprobaciones de dispositivos'. Los usuarios con este rol necesitarán la aprobación del administrador para nuevos dispositivos.",
     "approvalsEmptyStatePreviewDescription": "Vista previa: Cuando está habilitado, las solicitudes de dispositivo pendientes aparecerán aquí para su revisión",
-    "approvalsEmptyStateButtonText": "Administrar roles"
+    "approvalsEmptyStateButtonText": "Administrar roles",
+    "domainErrorTitle": "We are having trouble verifying your domain"
 }
