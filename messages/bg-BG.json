@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Активирайте одобрения на устройства",
     "approvalsEmptyStateStep2Description": "Редактирайте ролята и активирайте опцията 'Изискване на одобрения за устройства'. Потребители с тази роля ще трябва администраторско одобрение за нови устройства.",
     "approvalsEmptyStatePreviewDescription": "Преглед: Когато е активирано, чакащите заявки за устройства ще се появят тук за преглед",
-    "approvalsEmptyStateButtonText": "Управлявайте роли"
+    "approvalsEmptyStateButtonText": "Управлявайте роли",
+    "domainErrorTitle": "We are having trouble verifying your domain"
 }
