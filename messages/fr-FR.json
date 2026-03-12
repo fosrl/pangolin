@@ -2680,5 +2680,6 @@
     "approvalsEmptyStateStep2Title": "Activer les autorisations de l'appareil",
     "approvalsEmptyStateStep2Description": "Modifier un rôle et activer l'option 'Exiger les autorisations de l'appareil'. Les utilisateurs avec ce rôle auront besoin de l'approbation de l'administrateur pour les nouveaux appareils.",
     "approvalsEmptyStatePreviewDescription": "Aperçu: Lorsque cette option est activée, les demandes de périphérique en attente apparaîtront ici pour vérification",
-    "approvalsEmptyStateButtonText": "Gérer les rôles"
+    "approvalsEmptyStateButtonText": "Gérer les rôles",
+    "domainErrorTitle": "We are having trouble verifying your domain"
 }
