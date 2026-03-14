@@ -2,6 +2,7 @@ import {
     db,
     oauthClients,
     oauthAccessTokens,
+    oauthAuthorizationCodes,
     oauthRefreshTokens
 } from "@server/db";
 import { eq, and, or, isNotNull, exists, gt, isNull } from "drizzle-orm";
@@ -69,6 +70,9 @@ export async function revokeOAuthTokensAndCollectBackchannelClients(
                 )
             );
 
+        await trx
+            .delete(oauthAuthorizationCodes)
+            .where(eq(oauthAuthorizationCodes.userId, userId));
         await trx
             .delete(oauthAccessTokens)
             .where(eq(oauthAccessTokens.userId, userId));
