@@ -31,7 +31,10 @@ import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
 import { OAuthClient } from "../types";
 import { ResponseT } from "@server/types/Response";
-import OAuthClientForm, { type OAuthClientFormData } from "@app/components/OAuthClientForm";
+import { OFFLINE_ACCESS_SCOPE } from "@server/lib/oauth/scopes";
+import OAuthClientForm, {
+    type OAuthClientFormData
+} from "@app/components/OAuthClientForm";
 
 function parseScopes(scopeString: string): Set<string> {
     return new Set(
@@ -98,9 +101,10 @@ export default function EditOAuthClientPage() {
                 clientUri: data.clientUri || null,
                 logoUri: data.logoUri || null,
                 backchannelLogoutUri: data.backchannelLogoutUri || null,
-                postLogoutRedirectUris: data.postLogoutRedirectUris.length > 0
-                    ? data.postLogoutRedirectUris
-                    : null,
+                postLogoutRedirectUris:
+                    data.postLogoutRedirectUris.length > 0
+                        ? data.postLogoutRedirectUris
+                        : null,
                 scopes: data.scopes,
                 pkceRequired: data.pkceRequired,
                 enabled: data.enabled
@@ -123,9 +127,9 @@ export default function EditOAuthClientPage() {
 
     async function rotateSecret() {
         try {
-            const res = await api.post<ResponseT<{ clientId: string; clientSecret: string }>>(
-                `/org/${orgId}/oauth-clients/${clientId}/rotate-secret`
-            );
+            const res = await api.post<
+                ResponseT<{ clientId: string; clientSecret: string }>
+            >(`/org/${orgId}/oauth-clients/${clientId}/rotate-secret`);
 
             setRotatedSecret(res.data.data);
             toast({
@@ -214,20 +218,24 @@ export default function EditOAuthClientPage() {
                             <div className="space-y-3">
                                 <div className="space-y-1">
                                     <Label>{t("oauthClientIdHeader")}</Label>
-                                    <CopyTextBox text={rotatedSecret.clientId} wrapText />
+                                    <CopyTextBox
+                                        text={rotatedSecret.clientId}
+                                        wrapText
+                                    />
                                 </div>
                                 <div className="space-y-1">
                                     <Label>{t("oauthClientSecretLabel")}</Label>
-                                    <CopyTextBox text={rotatedSecret.clientSecret} wrapText />
+                                    <CopyTextBox
+                                        text={rotatedSecret.clientSecret}
+                                        wrapText
+                                    />
                                 </div>
                             </div>
                         )}
                     </CredenzaBody>
                     <CredenzaFooter>
                         <CredenzaClose asChild>
-                            <Button variant="outline">
-                                {t("close")}
-                            </Button>
+                            <Button variant="outline">{t("close")}</Button>
                         </CredenzaClose>
                     </CredenzaFooter>
                 </CredenzaContent>
@@ -248,9 +256,7 @@ export default function EditOAuthClientPage() {
                     </CredenzaHeader>
                     <CredenzaFooter>
                         <CredenzaClose asChild>
-                            <Button variant="outline">
-                                {t("cancel")}
-                            </Button>
+                            <Button variant="outline">{t("cancel")}</Button>
                         </CredenzaClose>
                         <Button
                             variant="destructive"
@@ -286,11 +292,17 @@ export default function EditOAuthClientPage() {
                         clientUri: client.clientUri || "",
                         logoUri: client.logoUri || "",
                         backchannelLogoutUri: client.backchannelLogoutUri || "",
-                        postLogoutRedirectUris: postLogoutUris.length > 0 ? postLogoutUris : [""],
-                        redirectUris: client.redirectUris.length > 0 ? client.redirectUris : [""],
+                        postLogoutRedirectUris:
+                            postLogoutUris.length > 0 ? postLogoutUris : [""],
+                        redirectUris:
+                            client.redirectUris.length > 0
+                                ? client.redirectUris
+                                : [""],
                         scopeProfile: clientScopes.has("profile"),
                         scopeEmail: clientScopes.has("email"),
                         scopeGroups: clientScopes.has("groups"),
+                        scopeOfflineAccess:
+                            clientScopes.has(OFFLINE_ACCESS_SCOPE),
                         pkceRequired: client.pkceRequired,
                         enabled: client.enabled
                     }}
@@ -299,7 +311,10 @@ export default function EditOAuthClientPage() {
                     submitting={saving}
                     submitLabel={t("saveChanges")}
                     footerExtra={
-                        <Button variant="outline" onClick={() => setIsRotateModalOpen(true)}>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsRotateModalOpen(true)}
+                        >
                             {t("oauthClientRotateButton")}
                         </Button>
                     }

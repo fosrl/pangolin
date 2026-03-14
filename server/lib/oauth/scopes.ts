@@ -1,4 +1,12 @@
-export const validScopes = ["openid", "profile", "email", "groups"] as const;
+export const OFFLINE_ACCESS_SCOPE = "offline_access" as const;
+
+export const validScopes = [
+    "openid",
+    "profile",
+    "email",
+    "groups",
+    OFFLINE_ACCESS_SCOPE
+] as const;
 
 export type OAuthScope = (typeof validScopes)[number];
 
@@ -17,9 +25,14 @@ export function hasScope(scopeString: string, scope: OAuthScope): boolean {
     return parseScopeString(scopeString).includes(scope);
 }
 
-export function isScopeSubset(candidateScope: string, originalScope: string): boolean {
+export function isScopeSubset(
+    candidateScope: string,
+    originalScope: string
+): boolean {
     const original = new Set(parseScopeString(originalScope));
-    return parseScopeString(candidateScope).every((scope) => original.has(scope));
+    return parseScopeString(candidateScope).every((scope) =>
+        original.has(scope)
+    );
 }
 
 export function validateScopes(requested: string, allowed: string): string {
