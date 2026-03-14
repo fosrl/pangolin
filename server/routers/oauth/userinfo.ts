@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { eq } from "drizzle-orm";
-import { db, oauthAccessTokens } from "@server/db";
+import { db, oauthAccessTokens, oauthClients } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { hashToken } from "@server/lib/oauth/tokens";
 import { buildUserinfoClaims } from "@server/lib/oauth/claims";
@@ -31,16 +31,27 @@ export async function handleUserinfoRequest(
         }
 
         const [accessToken] = await db
-            .select()
+            .select({
+                userId: oauthAccessTokens.userId,
+                clientId: oauthAccessTokens.clientId,
+                scope: oauthAccessTokens.scope,
+                expiresAt: oauthAccessTokens.expiresAt,
+                clientEnabled: oauthClients.enabled
+            })
             .from(oauthAccessTokens)
+            .innerJoin(
+                oauthClients,
+                eq(oauthAccessTokens.clientId, oauthClients.clientId)
+            )
             .where(eq(oauthAccessTokens.tokenHash, hashToken(token)))
             .limit(1);
 
-        if (!accessToken || Date.now() > accessToken.expiresAt) {
-            res.setHeader(
-                "WWW-Authenticate",
-                'Bearer error="invalid_token"'
-            );
+        if (
+            !accessToken ||
+            Date.now() > accessToken.expiresAt ||
+            !accessToken.clientEnabled
+        ) {
+            res.setHeader("WWW-Authenticate", 'Bearer error="invalid_token"');
             return next(
                 createHttpError(
                     HttpCode.UNAUTHORIZED,
@@ -66,4 +77,3 @@ export async function handleUserinfoRequest(
         );
     }
 }
-
