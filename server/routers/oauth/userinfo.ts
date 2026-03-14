@@ -5,6 +5,7 @@ import { db, oauthAccessTokens, oauthClients } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { hashToken } from "@server/lib/oauth/tokens";
 import { buildUserinfoClaims } from "@server/lib/oauth/claims";
+import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
 
 function extractBearerToken(req: Request): string | null {
     const authHeader = req.headers.authorization;
@@ -50,6 +51,20 @@ export async function handleUserinfoRequest(
             !accessToken ||
             Date.now() > accessToken.expiresAt ||
             !accessToken.clientEnabled
+        ) {
+            res.setHeader("WWW-Authenticate", 'Bearer error="invalid_token"');
+            return next(
+                createHttpError(
+                    HttpCode.UNAUTHORIZED,
+                    "Invalid or expired token"
+                )
+            );
+        }
+        if (
+            !(await userBelongsToClientOrg(
+                accessToken.userId,
+                accessToken.clientId
+            ))
         ) {
             res.setHeader("WWW-Authenticate", 'Bearer error="invalid_token"');
             return next(
