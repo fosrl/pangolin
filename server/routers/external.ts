@@ -66,8 +66,7 @@ const oauthTokenRateLimitWindowMinutes = 15;
 const oauthTokenRateLimit = rateLimit({
     windowMs: oauthTokenRateLimitWindowMinutes * 60 * 1000,
     max: oauthTokenRateLimitMax,
-    keyGenerator: (req) =>
-        `oauthToken:${ipKeyGenerator(req.ip || "")}`,
+    keyGenerator: (req) => `oauthToken:${ipKeyGenerator(req.ip || "")}`,
     handler: (req, res, next) => {
         const message = `You can only make ${oauthTokenRateLimitMax} token requests every ${oauthTokenRateLimitWindowMinutes} minutes. Please try again later.`;
         return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
@@ -90,9 +89,14 @@ unauthenticated.post(
     express.urlencoded({ extended: false }),
     oauth.revokeToken
 );
-unauthenticated.get("/oauth/logout", oauth.handleEndSession);
+unauthenticated.get(
+    "/oauth/logout",
+    oauthTokenRateLimit,
+    oauth.handleEndSession
+);
 unauthenticated.post(
     "/oauth/logout",
+    oauthTokenRateLimit,
     express.urlencoded({ extended: false }),
     oauth.handleEndSession
 );
@@ -108,10 +112,7 @@ authenticated.post(
 );
 
 authenticated.get("/user/oauth/consents", oauth.listUserConsents);
-authenticated.delete(
-    "/user/oauth/consent/:consentId",
-    oauth.deleteUserConsent
-);
+authenticated.delete("/user/oauth/consent/:consentId", oauth.deleteUserConsent);
 
 authenticated.post(
     "/org/:orgId/oauth-clients",
