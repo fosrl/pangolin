@@ -7,7 +7,10 @@ import SmartLoginForm from "@app/components/SmartLoginForm";
 import DashboardLoginForm from "@app/components/DashboardLoginForm";
 import { Mail } from "lucide-react";
 import { pullEnv } from "@app/lib/pullEnv";
-import { cleanRedirect, cleanOAuthRedirectOptions } from "@app/lib/cleanRedirect";
+import {
+    cleanRedirect,
+    cleanOAuthRedirectOptions
+} from "@app/lib/cleanRedirect";
 import { getTranslations } from "next-intl/server";
 import { build } from "@server/build";
 import { LoadLoginPageResponse } from "@server/routers/loginPage/types";
@@ -48,6 +51,16 @@ export default async function Page(props: {
         redirect("/");
     }
 
+    let redirectUrl: string | undefined = undefined;
+    if (typeof searchParams.redirect === "string") {
+        const requestedRedirect = searchParams.redirect;
+        redirectUrl = cleanRedirect(
+            requestedRedirect,
+            cleanOAuthRedirectOptions(requestedRedirect)
+        );
+        searchParams.redirect = redirectUrl;
+    }
+
     // Check for orgId and redirect to org-specific login page if found
     const orgId = searchParams.orgId as string | undefined;
     let loginPageDomain: string | undefined;
@@ -66,23 +79,17 @@ export default async function Page(props: {
     }
 
     if (loginPageDomain) {
-        const redirectUrl = searchParams.redirect as string | undefined;
-
         const scheme = env.app.dashboardUrl.startsWith("https")
             ? "https"
             : "http";
-        let url = `${scheme}://${loginPageDomain}/auth/org`;
-        if (redirectUrl) {
-            url += `?redirect=${redirectUrl}`;
-        }
-        redirect(url);
-    }
+        const url = new URL("/auth/org", `${scheme}://${loginPageDomain}`);
 
-    let redirectUrl: string | undefined = undefined;
-    if (searchParams.redirect) {
-        const requestedRedirect = searchParams.redirect as string;
-        redirectUrl = cleanRedirect(requestedRedirect, cleanOAuthRedirectOptions(requestedRedirect));
-        searchParams.redirect = redirectUrl;
+        const redirectUrl = searchParams.redirect as string | undefined;
+        if (redirectUrl) {
+            url.searchParams.set("redirect", redirectUrl);
+        }
+
+        redirect(url.toString());
     }
 
     const defaultUser = searchParams.user as string | undefined;
