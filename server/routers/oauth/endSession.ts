@@ -8,7 +8,7 @@ import {
     oauthClients,
     oauthRefreshTokens
 } from "@server/db";
-import { getActiveSigningKey } from "@server/lib/oauth/keys";
+import { getActiveSigningPublicKeys } from "@server/lib/oauth/keys";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import {
     createBlankSessionTokenCookie,
@@ -40,16 +40,29 @@ export async function handleEndSession(
 
         if (idTokenHint) {
             try {
-                const signingKey = await getActiveSigningKey();
-                const decoded = jsonwebtoken.verify(
-                    idTokenHint,
-                    signingKey.publicKeyPem,
-                    {
-                        algorithms: ["RS256"],
-                        issuer: getIssuerUrl(),
-                        ignoreExpiration: true
+                const signingKeys = await getActiveSigningPublicKeys();
+                let decoded: string | jsonwebtoken.JwtPayload | undefined;
+
+                for (const signingKey of signingKeys) {
+                    try {
+                        decoded = jsonwebtoken.verify(
+                            idTokenHint,
+                            signingKey.publicKeyPem,
+                            {
+                                algorithms: ["RS256"],
+                                issuer: getIssuerUrl(),
+                                ignoreExpiration: true
+                            }
+                        );
+                        break;
+                    } catch {
+                        continue;
                     }
-                );
+                }
+
+                if (!decoded) {
+                    throw new Error("Invalid id_token_hint");
+                }
 
                 if (
                     typeof decoded === "object" &&
