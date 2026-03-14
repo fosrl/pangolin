@@ -257,7 +257,10 @@ export async function issueToken(
                 .set({ revokedAt: now })
                 .where(
                     and(
-                        eq(oauthRefreshTokens.tokenHash, hashToken(refreshToken)),
+                        eq(
+                            oauthRefreshTokens.tokenHash,
+                            hashToken(refreshToken)
+                        ),
                         isNull(oauthRefreshTokens.revokedAt)
                     )
                 )
@@ -290,6 +293,13 @@ export async function issueToken(
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_scope",
                     error_description: "Requested scope is not a subset"
+                });
+            }
+            if (!isScopeSubset(finalScope, authResult.client.scopes)) {
+                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+                    error: "invalid_scope",
+                    error_description:
+                        "Requested scope is no longer allowed for this client"
                 });
             }
             if (!hasScope(finalScope, "openid")) {
