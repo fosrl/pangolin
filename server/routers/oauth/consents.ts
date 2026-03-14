@@ -7,7 +7,8 @@ import {
     oauthConsents,
     oauthClients,
     oauthAccessTokens,
-    oauthRefreshTokens
+    oauthRefreshTokens,
+    oauthAuthorizationCodes
 } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
@@ -110,6 +111,15 @@ export async function deleteUserConsent(
         }
 
         await db.transaction(async (trx) => {
+            await trx
+                .delete(oauthAuthorizationCodes)
+                .where(
+                    and(
+                        eq(oauthAuthorizationCodes.userId, userId),
+                        eq(oauthAuthorizationCodes.clientId, consent.clientId)
+                    )
+                );
+
             await trx
                 .delete(oauthAccessTokens)
                 .where(

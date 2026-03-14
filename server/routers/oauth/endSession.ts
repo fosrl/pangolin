@@ -4,6 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import {
     db,
     oauthAccessTokens,
+    oauthAuthorizationCodes,
     oauthClients,
     oauthRefreshTokens
 } from "@server/db";
@@ -83,6 +84,15 @@ export async function handleEndSession(
 
         if (hasValidIdTokenHint && clientId && userId) {
             await db.transaction(async (trx) => {
+                await trx
+                    .delete(oauthAuthorizationCodes)
+                    .where(
+                        and(
+                            eq(oauthAuthorizationCodes.userId, userId),
+                            eq(oauthAuthorizationCodes.clientId, clientId)
+                        )
+                    );
+
                 await trx
                     .delete(oauthAccessTokens)
                     .where(
