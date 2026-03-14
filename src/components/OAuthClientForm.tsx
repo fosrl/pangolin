@@ -16,6 +16,7 @@ import { Switch } from "@app/components/ui/switch";
 import CopyTextBox from "@app/components/CopyTextBox";
 import { useTranslations } from "next-intl";
 import ClientAvatar from "@app/components/ClientAvatar";
+import { OFFLINE_ACCESS_SCOPE } from "@server/lib/oauth/scopes";
 
 export type OAuthClientFormData = {
     clientName: string;
@@ -40,6 +41,7 @@ type OAuthClientFormProps = {
         scopeProfile?: boolean;
         scopeEmail?: boolean;
         scopeGroups?: boolean;
+        scopeOfflineAccess?: boolean;
         pkceRequired?: boolean;
         enabled?: boolean;
     };
@@ -62,22 +64,64 @@ export default function OAuthClientForm({
 }: OAuthClientFormProps) {
     const t = useTranslations();
 
-    const [clientName, setClientName] = useState(initialValues?.clientName ?? "");
+    const [clientName, setClientName] = useState(
+        initialValues?.clientName ?? ""
+    );
     const [clientUri, setClientUri] = useState(initialValues?.clientUri ?? "");
     const [logoUri, setLogoUri] = useState(initialValues?.logoUri ?? "");
-    const [backchannelLogoutUri, setBackchannelLogoutUri] = useState(initialValues?.backchannelLogoutUri ?? "");
-    const [postLogoutRedirectUris, setPostLogoutRedirectUris] = useState<string[]>(
-        initialValues?.postLogoutRedirectUris ?? [""]
+    const [backchannelLogoutUri, setBackchannelLogoutUri] = useState(
+        initialValues?.backchannelLogoutUri ?? ""
     );
+    const [postLogoutRedirectUris, setPostLogoutRedirectUris] = useState<
+        string[]
+    >(initialValues?.postLogoutRedirectUris ?? [""]);
     const [redirectUris, setRedirectUris] = useState<string[]>(
         initialValues?.redirectUris ?? [""]
     );
-    const [scopeProfile, setScopeProfile] = useState(initialValues?.scopeProfile ?? true);
-    const [scopeEmail, setScopeEmail] = useState(initialValues?.scopeEmail ?? true);
-    const [scopeGroups, setScopeGroups] = useState(initialValues?.scopeGroups ?? false);
-    const [pkceRequired, setPkceRequired] = useState(initialValues?.pkceRequired ?? true);
+    const [scopeProfile, setScopeProfile] = useState(
+        initialValues?.scopeProfile ?? true
+    );
+    const [scopeEmail, setScopeEmail] = useState(
+        initialValues?.scopeEmail ?? true
+    );
+    const [scopeGroups, setScopeGroups] = useState(
+        initialValues?.scopeGroups ?? false
+    );
+    const [scopeOfflineAccess, setScopeOfflineAccess] = useState(
+        initialValues?.scopeOfflineAccess ?? false
+    );
+    const [pkceRequired, setPkceRequired] = useState(
+        initialValues?.pkceRequired ?? true
+    );
     const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
     const [showOptional, setShowOptional] = useState(false);
+
+    const scopeOptions = [
+        {
+            id: "scope-profile",
+            checked: scopeProfile,
+            setChecked: setScopeProfile,
+            label: t("oauthClientScopeProfile")
+        },
+        {
+            id: "scope-email",
+            checked: scopeEmail,
+            setChecked: setScopeEmail,
+            label: t("oauthClientScopeEmail")
+        },
+        {
+            id: "scope-groups",
+            checked: scopeGroups,
+            setChecked: setScopeGroups,
+            label: t("oauthClientScopeGroups")
+        },
+        {
+            id: "scope-offline-access",
+            checked: scopeOfflineAccess,
+            setChecked: setScopeOfflineAccess,
+            label: OFFLINE_ACCESS_SCOPE
+        }
+    ];
 
     function updateRedirectUri(index: number, value: string) {
         setRedirectUris((prev) =>
@@ -124,6 +168,7 @@ export default function OAuthClientForm({
         if (scopeProfile) scopes.push("profile");
         if (scopeEmail) scopes.push("email");
         if (scopeGroups) scopes.push("groups");
+        if (scopeOfflineAccess) scopes.push(OFFLINE_ACCESS_SCOPE);
 
         const cleanedPostLogoutRedirectUris = postLogoutRedirectUris
             .map((item) => item.trim())
@@ -165,9 +210,7 @@ export default function OAuthClientForm({
                 <SettingsSectionForm>
                     {clientId && (
                         <div className="space-y-2">
-                            <Label>
-                                {t("oauthClientIdHeader")}
-                            </Label>
+                            <Label>{t("oauthClientIdHeader")}</Label>
                             <CopyTextBox text={clientId} />
                         </div>
                     )}
@@ -188,7 +231,10 @@ export default function OAuthClientForm({
                     {(showOptional || clientUri.trim()) && (
                         <div className="space-y-2">
                             <Label htmlFor="client-uri">
-                                {t("oauthClientHomepageLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
+                                {t("oauthClientHomepageLabel")}{" "}
+                                <span className="text-muted-foreground font-normal">
+                                    {t("optional")}
+                                </span>
                             </Label>
                             <Input
                                 id="client-uri"
@@ -203,7 +249,10 @@ export default function OAuthClientForm({
                     {(showOptional || logoUri.trim()) && (
                         <div className="space-y-2">
                             <Label htmlFor="logo-uri">
-                                {t("oauthClientLogoLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
+                                {t("oauthClientLogoLabel")}{" "}
+                                <span className="text-muted-foreground font-normal">
+                                    {t("optional")}
+                                </span>
                             </Label>
                             <Input
                                 id="logo-uri"
@@ -218,7 +267,10 @@ export default function OAuthClientForm({
                     {(showOptional || backchannelLogoutUri.trim()) && (
                         <div className="space-y-2">
                             <Label htmlFor="backchannel-logout-uri">
-                                {t("oauthClientBackchannelLogoutUriLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
+                                {t("oauthClientBackchannelLogoutUriLabel")}{" "}
+                                <span className="text-muted-foreground font-normal">
+                                    {t("optional")}
+                                </span>
                             </Label>
                             <Input
                                 id="backchannel-logout-uri"
@@ -230,10 +282,14 @@ export default function OAuthClientForm({
                         </div>
                     )}
 
-                    {(showOptional || postLogoutRedirectUris.some(u => u.trim())) && (
+                    {(showOptional ||
+                        postLogoutRedirectUris.some((u) => u.trim())) && (
                         <div className="space-y-2">
                             <Label>
-                                {t("oauthClientPostLogoutRedirectUrisLabel")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
+                                {t("oauthClientPostLogoutRedirectUrisLabel")}{" "}
+                                <span className="text-muted-foreground font-normal">
+                                    {t("optional")}
+                                </span>
                             </Label>
                             <div className="space-y-3">
                                 {postLogoutRedirectUris.map((uri, index) => (
@@ -254,10 +310,14 @@ export default function OAuthClientForm({
                                             <Button
                                                 variant="outline"
                                                 onClick={() =>
-                                                    removePostLogoutRedirectUri(index)
+                                                    removePostLogoutRedirectUri(
+                                                        index
+                                                    )
                                                 }
                                             >
-                                                {t("oauthClientRemovePostLogoutRedirectUri")}
+                                                {t(
+                                                    "oauthClientRemovePostLogoutRedirectUri"
+                                                )}
                                             </Button>
                                         )}
                                     </div>
@@ -279,9 +339,7 @@ export default function OAuthClientForm({
                     )}
 
                     <div className="space-y-2 pt-2">
-                        <Label>
-                            {t("oauthClientRedirectUrisLabel")}
-                        </Label>
+                        <Label>{t("oauthClientRedirectUrisLabel")}</Label>
                         <div className="space-y-3">
                             {redirectUris.map((redirectUri, index) => (
                                 <div key={index} className="flex gap-2">
@@ -304,9 +362,7 @@ export default function OAuthClientForm({
                                                 removeRedirectUri(index)
                                             }
                                         >
-                                            {t(
-                                                "oauthClientRemoveRedirectUri"
-                                            )}
+                                            {t("oauthClientRemoveRedirectUri")}
                                         </Button>
                                     )}
                                 </div>
@@ -315,10 +371,7 @@ export default function OAuthClientForm({
                                 variant="outline"
                                 size="sm"
                                 onClick={() =>
-                                    setRedirectUris((prev) => [
-                                        ...prev,
-                                        ""
-                                    ])
+                                    setRedirectUris((prev) => [...prev, ""])
                                 }
                             >
                                 {t("oauthClientAddRedirectUri")}
@@ -327,58 +380,40 @@ export default function OAuthClientForm({
                     </div>
 
                     <div className="space-y-2 pt-2">
-                        <Label>
-                            {t("oauthClientScopesLabel")}
-                        </Label>
+                        <Label>{t("oauthClientScopesLabel")}</Label>
                         <p className="text-xs text-muted-foreground">
                             {t("oauthClientOpenidAlwaysEnabled")}
                         </p>
                         <div className="space-y-3 pt-1">
-                            <div className="flex items-center gap-2">
-                                <Checkbox
-                                    checked={scopeProfile}
-                                    onCheckedChange={(value) =>
-                                        setScopeProfile(value === true)
-                                    }
-                                    id="scope-profile"
-                                />
-                                <Label htmlFor="scope-profile">
-                                    {t("oauthClientScopeProfile")}
-                                </Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Checkbox
-                                    checked={scopeEmail}
-                                    onCheckedChange={(value) =>
-                                        setScopeEmail(value === true)
-                                    }
-                                    id="scope-email"
-                                />
-                                <Label htmlFor="scope-email">
-                                    {t("oauthClientScopeEmail")}
-                                </Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Checkbox
-                                    checked={scopeGroups}
-                                    onCheckedChange={(value) =>
-                                        setScopeGroups(value === true)
-                                    }
-                                    id="scope-groups"
-                                />
-                                <Label htmlFor="scope-groups">
-                                    {t("oauthClientScopeGroups")}
-                                </Label>
-                            </div>
+                            {scopeOptions.map((scopeOption) => (
+                                <div
+                                    key={scopeOption.id}
+                                    className="flex items-center gap-2"
+                                >
+                                    <Checkbox
+                                        checked={scopeOption.checked}
+                                        onCheckedChange={(value) =>
+                                            scopeOption.setChecked(
+                                                value === true
+                                            )
+                                        }
+                                        id={scopeOption.id}
+                                    />
+                                    <Label htmlFor={scopeOption.id}>
+                                        {scopeOption.label}
+                                    </Label>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
                     <div className="space-y-4 pt-2">
-                        <Label>
-                            {t("oauthClientOptionsTitle")}
-                        </Label>
+                        <Label>{t("oauthClientOptionsTitle")}</Label>
                         <div className="flex items-center justify-between">
-                            <Label htmlFor="pkce-required" className="font-normal">
+                            <Label
+                                htmlFor="pkce-required"
+                                className="font-normal"
+                            >
                                 {t("oauthClientRequirePkceLabel")}
                             </Label>
                             <Switch
@@ -389,7 +424,10 @@ export default function OAuthClientForm({
                         </div>
 
                         <div className="flex items-center justify-between">
-                            <Label htmlFor="client-enabled" className="font-normal">
+                            <Label
+                                htmlFor="client-enabled"
+                                className="font-normal"
+                            >
                                 {t("oauthClientEnabledLabel")}
                             </Label>
                             <Switch

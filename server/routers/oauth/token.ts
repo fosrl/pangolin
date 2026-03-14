@@ -18,7 +18,11 @@ import {
     signIdToken
 } from "@server/lib/oauth/tokens";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
-import { hasScope, isScopeSubset } from "@server/lib/oauth/scopes";
+import {
+    hasScope,
+    isScopeSubset,
+    OFFLINE_ACCESS_SCOPE
+} from "@server/lib/oauth/scopes";
 import {
     ACCESS_TOKEN_LIFETIME_MS,
     ACCESS_TOKEN_LIFETIME_SECONDS,
@@ -44,7 +48,7 @@ async function insertTokenPair(
     trx: Transaction,
     params: {
         accessToken: string;
-        refreshToken: string;
+        refreshToken?: string;
         clientId: string;
         userId: string;
         scope: string;
@@ -61,22 +65,24 @@ async function insertTokenPair(
         createdAt: params.now
     });
 
-    await trx.insert(oauthRefreshTokens).values({
-        refreshTokenId: generateIdFromEntropySize(12),
-        tokenHash: hashToken(params.refreshToken),
-        clientId: params.clientId,
-        userId: params.userId,
-        scope: params.scope,
-        expiresAt: params.now + REFRESH_TOKEN_LIFETIME_MS,
-        createdAt: params.now
-    });
+    if (params.refreshToken) {
+        await trx.insert(oauthRefreshTokens).values({
+            refreshTokenId: generateIdFromEntropySize(12),
+            tokenHash: hashToken(params.refreshToken),
+            clientId: params.clientId,
+            userId: params.userId,
+            scope: params.scope,
+            expiresAt: params.now + REFRESH_TOKEN_LIFETIME_MS,
+            createdAt: params.now
+        });
+    }
 }
 
 async function sendTokenResponse(
     res: Response,
     params: {
         accessToken: string;
-        refreshToken: string;
+        refreshToken?: string;
         scope: string;
         userId: string;
         clientId: string;
@@ -87,9 +93,12 @@ async function sendTokenResponse(
         access_token: params.accessToken,
         token_type: "Bearer",
         expires_in: ACCESS_TOKEN_LIFETIME_SECONDS,
-        refresh_token: params.refreshToken,
         scope: params.scope
     };
+
+    if (params.refreshToken) {
+        responseBody.refresh_token = params.refreshToken;
+    }
 
     if (hasScope(params.scope, "openid")) {
         const claims = await buildIdTokenClaims(
@@ -214,7 +223,9 @@ export async function issueToken(
 
             const now = Date.now();
             const accessToken = generateAccessToken();
-            const refreshToken = generateRefreshToken();
+            const refreshToken = hasScope(authCode.scope, OFFLINE_ACCESS_SCOPE)
+                ? generateRefreshToken()
+                : undefined;
 
             await db.transaction(async (trx) => {
                 await insertTokenPair(trx, {
@@ -310,7 +321,9 @@ export async function issueToken(
             }
 
             const nextAccessToken = generateAccessToken();
-            const nextRefreshToken = generateRefreshToken();
+            const nextRefreshToken = hasScope(finalScope, OFFLINE_ACCESS_SCOPE)
+                ? generateRefreshToken()
+                : undefined;
 
             await db.transaction(async (trx) => {
                 await insertTokenPair(trx, {

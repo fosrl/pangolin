@@ -7,8 +7,16 @@ import { Button } from "@app/components/ui/button";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
-import { KeyRound, User, Mail, Users, ShieldQuestion } from "lucide-react";
+import {
+    KeyRound,
+    RefreshCcw,
+    User,
+    Mail,
+    Users,
+    ShieldQuestion
+} from "lucide-react";
 import ClientAvatar from "@app/components/ClientAvatar";
+import { OFFLINE_ACCESS_SCOPE } from "@server/lib/oauth/scopes";
 
 type OauthAuthorizeParams = {
     response_type?: string;
@@ -62,13 +70,16 @@ const scopeDescriptionKeys: Record<string, string> = {
     groups: "oauthScopeGroupsDescription"
 };
 
-const scopeIcons: Record<string, React.ComponentType<{ className?: string }>> =
-    {
-        openid: KeyRound,
-        profile: User,
-        email: Mail,
-        groups: Users
-    };
+const scopeIcons: Record<
+    string,
+    React.ComponentType<{ className?: string }>
+> = {
+    openid: KeyRound,
+    profile: User,
+    email: Mail,
+    groups: Users,
+    [OFFLINE_ACCESS_SCOPE]: RefreshCcw
+};
 
 export default function ConsentPage({
     params
@@ -271,7 +282,8 @@ export default function ConsentPage({
                                 <p>
                                     {t("oauthAuthorizeSigningInAs")}{" "}
                                     <span className="font-medium text-foreground">
-                                        {interaction.user.name || interaction.user.username}
+                                        {interaction.user.name ||
+                                            interaction.user.username}
                                     </span>
                                 </p>
                                 {interaction.user.email && (
