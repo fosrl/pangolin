@@ -762,6 +762,7 @@ export const oauthAccessTokens = pgTable(
     "oauthAccessTokens",
     {
         accessTokenId: varchar("accessTokenId").primaryKey(),
+        grantId: varchar("grantId").notNull(),
         tokenHash: varchar("tokenHash").notNull(),
         clientId: varchar("clientId")
             .notNull()
@@ -776,6 +777,7 @@ export const oauthAccessTokens = pgTable(
     (table) => [
         uniqueIndex("uidx_oauthAccessTokens_tokenHash").on(table.tokenHash),
         index("idx_oauthAccessTokens_expiresAt").on(table.expiresAt),
+        index("idx_oauthAccessTokens_grantId").on(table.grantId),
         index("idx_oauthAccessTokens_clientId").on(table.clientId),
         index("idx_oauthAccessTokens_userId").on(table.userId)
     ]
@@ -785,6 +787,7 @@ export const oauthRefreshTokens = pgTable(
     "oauthRefreshTokens",
     {
         refreshTokenId: varchar("refreshTokenId").primaryKey(),
+        grantId: varchar("grantId").notNull(),
         tokenHash: varchar("tokenHash").notNull(),
         clientId: varchar("clientId")
             .notNull()
@@ -800,6 +803,7 @@ export const oauthRefreshTokens = pgTable(
     (table) => [
         uniqueIndex("uidx_oauthRefreshTokens_tokenHash").on(table.tokenHash),
         index("idx_oauthRefreshTokens_expiresAt").on(table.expiresAt),
+        index("idx_oauthRefreshTokens_grantId").on(table.grantId),
         index("idx_oauthRefreshTokens_clientId").on(table.clientId),
         index("idx_oauthRefreshTokens_userId").on(table.userId),
         index("idx_oauthRefreshTokens_revokedAt").on(table.revokedAt)
