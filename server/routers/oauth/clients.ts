@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import { z } from "zod";
 import { hashPassword } from "@server/auth/password";
@@ -479,15 +479,42 @@ export async function rotateOAuthClientSecret(
         }
 
         const nextClientSecret = generateIdFromEntropySize(32);
+        const now = Date.now();
 
-        await db
-            .update(oauthClients)
-            .set({
-                clientSecretHash: await hashPassword(nextClientSecret),
-                lastChars: nextClientSecret.slice(-4),
-                updatedAt: Date.now()
-            })
-            .where(eq(oauthClients.clientId, existingClient.clientId));
+        await db.transaction(async (trx) => {
+            await trx
+                .update(oauthClients)
+                .set({
+                    clientSecretHash: await hashPassword(nextClientSecret),
+                    lastChars: nextClientSecret.slice(-4),
+                    updatedAt: now
+                })
+                .where(eq(oauthClients.clientId, existingClient.clientId));
+
+            await trx
+                .delete(oauthAuthorizationCodes)
+                .where(
+                    eq(
+                        oauthAuthorizationCodes.clientId,
+                        existingClient.clientId
+                    )
+                );
+            await trx
+                .delete(oauthAccessTokens)
+                .where(eq(oauthAccessTokens.clientId, existingClient.clientId));
+            await trx
+                .update(oauthRefreshTokens)
+                .set({ revokedAt: now })
+                .where(
+                    and(
+                        eq(
+                            oauthRefreshTokens.clientId,
+                            existingClient.clientId
+                        ),
+                        isNull(oauthRefreshTokens.revokedAt)
+                    )
+                );
+        });
 
         return response(res, {
             data: {
