@@ -22,7 +22,9 @@ import {
 import CopyTextBox from "@app/components/CopyTextBox";
 import { useTranslations } from "next-intl";
 import { ResponseT } from "@server/types/Response";
-import OAuthClientForm, { type OAuthClientFormData } from "@app/components/OAuthClientForm";
+import OAuthClientForm, {
+    type OAuthClientFormData
+} from "@app/components/OAuthClientForm";
 
 export default function CreateOAuthClientPage() {
     const { env } = useEnvContext();
@@ -42,22 +44,24 @@ export default function CreateOAuthClientPage() {
     async function handleCreate(data: OAuthClientFormData) {
         setCreating(true);
         try {
-            const res = await api.post<ResponseT<{ clientId: string; clientSecret: string }>>(
-                `/org/${orgId}/oauth-clients`,
-                {
-                    clientName: data.clientName,
-                    redirectUris: data.redirectUris,
-                    clientUri: data.clientUri || undefined,
-                    logoUri: data.logoUri || undefined,
-                    backchannelLogoutUri: data.backchannelLogoutUri || undefined,
-                    postLogoutRedirectUris: data.postLogoutRedirectUris.length > 0
+            const res = await api.post<
+                ResponseT<{ clientId: string; clientSecret: string }>
+            >(`/org/${orgId}/oauth-clients`, {
+                clientName: data.clientName,
+                redirectUris: data.redirectUris,
+                clientUri: data.clientUri || undefined,
+                logoUri: data.logoUri || undefined,
+                backchannelLogoutUri: data.backchannelLogoutUri || undefined,
+                postLogoutRedirectUris:
+                    data.postLogoutRedirectUris.length > 0
                         ? data.postLogoutRedirectUris
                         : undefined,
-                    scopes: data.scopes,
-                    pkceRequired: data.pkceRequired,
-                    enabled: data.enabled
-                }
-            );
+                scopes: data.scopes,
+                pkceRequired: data.pkceRequired,
+                enabled: data.enabled,
+                logoutTerminatesPangolinSession:
+                    data.logoutTerminatesPangolinSession
+            });
 
             setCreatedSecret(res.data.data);
             toast({
@@ -115,20 +119,24 @@ export default function CreateOAuthClientPage() {
                             <div className="space-y-3">
                                 <div className="space-y-1">
                                     <Label>{t("oauthClientIdHeader")}</Label>
-                                    <CopyTextBox text={createdSecret.clientId} wrapText />
+                                    <CopyTextBox
+                                        text={createdSecret.clientId}
+                                        wrapText
+                                    />
                                 </div>
                                 <div className="space-y-1">
                                     <Label>{t("oauthClientSecretLabel")}</Label>
-                                    <CopyTextBox text={createdSecret.clientSecret} wrapText />
+                                    <CopyTextBox
+                                        text={createdSecret.clientSecret}
+                                        wrapText
+                                    />
                                 </div>
                             </div>
                         )}
                     </CredenzaBody>
                     <CredenzaFooter>
                         <CredenzaClose asChild>
-                            <Button variant="outline">
-                                {t("close")}
-                            </Button>
+                            <Button variant="outline">{t("close")}</Button>
                         </CredenzaClose>
                     </CredenzaFooter>
                 </CredenzaContent>

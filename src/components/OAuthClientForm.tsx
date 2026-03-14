@@ -28,6 +28,7 @@ export type OAuthClientFormData = {
     scopes: string[];
     pkceRequired: boolean;
     enabled: boolean;
+    logoutTerminatesPangolinSession: boolean;
 };
 
 type OAuthClientFormProps = {
@@ -44,6 +45,7 @@ type OAuthClientFormProps = {
         scopeOfflineAccess?: boolean;
         pkceRequired?: boolean;
         enabled?: boolean;
+        logoutTerminatesPangolinSession?: boolean;
     };
     clientId?: string;
     onSubmit: (data: OAuthClientFormData) => void;
@@ -94,6 +96,10 @@ export default function OAuthClientForm({
         initialValues?.pkceRequired ?? true
     );
     const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
+    const [
+        logoutTerminatesPangolinSession,
+        setLogoutTerminatesPangolinSession
+    ] = useState(initialValues?.logoutTerminatesPangolinSession ?? false);
     const [showOptional, setShowOptional] = useState(false);
 
     const scopeOptions = [
@@ -183,7 +189,8 @@ export default function OAuthClientForm({
             postLogoutRedirectUris: cleanedPostLogoutRedirectUris,
             scopes,
             pkceRequired,
-            enabled
+            enabled,
+            logoutTerminatesPangolinSession
         });
     }
 
@@ -435,6 +442,29 @@ export default function OAuthClientForm({
                                 checked={enabled}
                                 onCheckedChange={setEnabled}
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-4">
+                                <Label
+                                    htmlFor="logout-terminates-pangolin-session"
+                                    className="font-normal"
+                                >
+                                    RP logout terminates Pangolin session
+                                </Label>
+                                <Switch
+                                    id="logout-terminates-pangolin-session"
+                                    checked={logoutTerminatesPangolinSession}
+                                    onCheckedChange={
+                                        setLogoutTerminatesPangolinSession
+                                    }
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                If enabled, this OAuth client can trigger a full
+                                Pangolin sign-out when it uses the OIDC
+                                end-session endpoint.
+                            </p>
                         </div>
                     </div>
                 </SettingsSectionForm>

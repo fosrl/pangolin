@@ -21,6 +21,7 @@ export default async function migration() {
                 "scopes" text DEFAULT 'openid profile email' NOT NULL,
                 "pkceRequired" boolean DEFAULT true NOT NULL,
                 "enabled" boolean DEFAULT true NOT NULL,
+                "logoutTerminatesPangolinSession" boolean DEFAULT false NOT NULL,
                 "orgId" text NOT NULL REFERENCES "orgs"("orgId") ON DELETE cascade,
                 "backchannelLogoutUri" varchar,
                 "postLogoutRedirectUris" json,

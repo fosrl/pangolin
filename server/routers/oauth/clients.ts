@@ -41,7 +41,8 @@ const createBodySchema = z.strictObject({
         .optional()
         .default(["openid", "profile", "email"]),
     pkceRequired: z.boolean().optional().default(true),
-    enabled: z.boolean().optional().default(true)
+    enabled: z.boolean().optional().default(true),
+    logoutTerminatesPangolinSession: z.boolean().optional().default(false)
 });
 
 const updateBodySchema = z.strictObject({
@@ -53,7 +54,8 @@ const updateBodySchema = z.strictObject({
     postLogoutRedirectUris: z.array(z.string().url()).nullable().optional(),
     scopes: z.array(z.enum(validScopes)).optional(),
     pkceRequired: z.boolean().optional(),
-    enabled: z.boolean().optional()
+    enabled: z.boolean().optional(),
+    logoutTerminatesPangolinSession: z.boolean().optional()
 });
 
 const publicClientColumns = {
@@ -67,6 +69,8 @@ const publicClientColumns = {
     scopes: oauthClients.scopes,
     pkceRequired: oauthClients.pkceRequired,
     enabled: oauthClients.enabled,
+    logoutTerminatesPangolinSession:
+        oauthClients.logoutTerminatesPangolinSession,
     orgId: oauthClients.orgId,
     createdAt: oauthClients.createdAt,
     updatedAt: oauthClients.updatedAt,
@@ -144,6 +148,8 @@ export async function createOAuthClient(
             scopes: normalizeScopes(body.scopes),
             pkceRequired: body.pkceRequired,
             enabled: body.enabled,
+            logoutTerminatesPangolinSession:
+                body.logoutTerminatesPangolinSession,
             orgId,
             createdAt: Date.now(),
             updatedAt: Date.now()
@@ -333,6 +339,8 @@ export async function updateOAuthClient(
                         : undefined,
                     pkceRequired: body.pkceRequired,
                     enabled: body.enabled,
+                    logoutTerminatesPangolinSession:
+                        body.logoutTerminatesPangolinSession,
                     backchannelLogoutUri: body.backchannelLogoutUri,
                     postLogoutRedirectUris: body.postLogoutRedirectUris,
                     updatedAt: Date.now()
