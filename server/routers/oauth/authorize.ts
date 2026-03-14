@@ -8,7 +8,8 @@ import {
     oauthAuthorizationCodes,
     oauthClients,
     oauthConsents,
-    oauthInteractions
+    oauthInteractions,
+    userOrgs
 } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import logger from "@server/logger";
@@ -60,7 +61,6 @@ type InitiateResponseData =
           };
       };
 
-
 function appendOAuthParams(
     redirectUri: string,
     params: Record<string, string>
@@ -76,6 +76,20 @@ function appendOAuthParams(
         const separator = redirectUri.includes("?") ? "&" : "?";
         return `${redirectUri}${separator}${query}`;
     }
+}
+
+async function userBelongsToOrg(
+    userId: string,
+    orgId: string,
+    trx: Transaction | typeof db = db
+): Promise<boolean> {
+    const [membership] = await trx
+        .select({ userId: userOrgs.userId })
+        .from(userOrgs)
+        .where(and(eq(userOrgs.userId, userId), eq(userOrgs.orgId, orgId)))
+        .limit(1);
+
+    return !!membership;
 }
 
 async function issueAuthorizationCode(
@@ -153,6 +167,16 @@ export async function initiateAuthorization(
         if (!client || !client.enabled) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Invalid OAuth client")
+            );
+        }
+
+        const isClientOrgMember = await userBelongsToOrg(userId, client.orgId);
+        if (!isClientOrgMember) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "User does not belong to this OAuth client's organization"
+                )
             );
         }
 
@@ -332,7 +356,12 @@ export async function handleAuthorizationConsent(
         if (Date.now() > interaction.expiresAt) {
             await db
                 .delete(oauthInteractions)
-                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
+                .where(
+                    eq(
+                        oauthInteractions.interactionId,
+                        interaction.interactionId
+                    )
+                );
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Interaction expired")
             );
@@ -341,7 +370,50 @@ export async function handleAuthorizationConsent(
         if (!approved) {
             await db
                 .delete(oauthInteractions)
-                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
+                .where(
+                    eq(
+                        oauthInteractions.interactionId,
+                        interaction.interactionId
+                    )
+                );
+
+            const redirectTo = appendOAuthParams(interaction.redirectUri, {
+                error: "access_denied",
+                state: interaction.state
+            });
+
+            return response<{ redirectTo: string }>(res, {
+                data: {
+                    redirectTo
+                },
+                success: true,
+                error: false,
+                message: "Authorization denied",
+                status: HttpCode.OK
+            });
+        }
+
+        const [client] = await db
+            .select({
+                orgId: oauthClients.orgId
+            })
+            .from(oauthClients)
+            .where(eq(oauthClients.clientId, interaction.clientId))
+            .limit(1);
+
+        const isClientOrgMember =
+            !!client &&
+            (await userBelongsToOrg(interaction.userId, client.orgId));
+
+        if (!isClientOrgMember) {
+            await db
+                .delete(oauthInteractions)
+                .where(
+                    eq(
+                        oauthInteractions.interactionId,
+                        interaction.interactionId
+                    )
+                );
 
             const redirectTo = appendOAuthParams(interaction.redirectUri, {
                 error: "access_denied",
@@ -417,7 +489,12 @@ export async function handleAuthorizationConsent(
 
             await trx
                 .delete(oauthInteractions)
-                .where(eq(oauthInteractions.interactionId, interaction.interactionId));
+                .where(
+                    eq(
+                        oauthInteractions.interactionId,
+                        interaction.interactionId
+                    )
+                );
         });
 
         const redirectTo = appendOAuthParams(interaction.redirectUri, {
