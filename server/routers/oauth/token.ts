@@ -48,6 +48,7 @@ function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
 async function insertTokenPair(
     trx: Transaction,
     params: {
+        grantId: string;
         accessToken: string;
         refreshToken?: string;
         clientId: string;
@@ -58,6 +59,7 @@ async function insertTokenPair(
 ) {
     await trx.insert(oauthAccessTokens).values({
         accessTokenId: generateIdFromEntropySize(12),
+        grantId: params.grantId,
         tokenHash: hashToken(params.accessToken),
         clientId: params.clientId,
         userId: params.userId,
@@ -69,6 +71,7 @@ async function insertTokenPair(
     if (params.refreshToken) {
         await trx.insert(oauthRefreshTokens).values({
             refreshTokenId: generateIdFromEntropySize(12),
+            grantId: params.grantId,
             tokenHash: hashToken(params.refreshToken),
             clientId: params.clientId,
             userId: params.userId,
@@ -224,6 +227,7 @@ export async function issueToken(
             }
 
             const now = Date.now();
+            const grantId = generateIdFromEntropySize(12);
             const accessToken = generateAccessToken();
             const refreshToken = hasScope(authCode.scope, OFFLINE_ACCESS_SCOPE)
                 ? generateRefreshToken()
@@ -231,6 +235,7 @@ export async function issueToken(
 
             await db.transaction(async (trx) => {
                 await insertTokenPair(trx, {
+                    grantId,
                     accessToken,
                     refreshToken,
                     clientId: authCode.clientId,
@@ -338,6 +343,7 @@ export async function issueToken(
 
             await db.transaction(async (trx) => {
                 await insertTokenPair(trx, {
+                    grantId: existingRefreshToken.grantId,
                     accessToken: nextAccessToken,
                     refreshToken: nextRefreshToken,
                     clientId: existingRefreshToken.clientId,

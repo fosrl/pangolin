@@ -103,6 +103,7 @@ export default async function migration() {
                 `
                 CREATE TABLE IF NOT EXISTS 'oauthAccessTokens' (
                     'accessTokenId' text PRIMARY KEY NOT NULL,
+                    'grantId' text NOT NULL,
                     'tokenHash' text NOT NULL,
                     'clientId' text NOT NULL REFERENCES 'oauthClients'('clientId') ON DELETE cascade,
                     'userId' text NOT NULL REFERENCES 'user'('id') ON DELETE cascade,
@@ -119,6 +120,9 @@ export default async function migration() {
                 `CREATE INDEX IF NOT EXISTS 'idx_oauthAccessTokens_expiresAt' ON 'oauthAccessTokens' ('expiresAt');`
             ).run();
             db.prepare(
+                `CREATE INDEX IF NOT EXISTS 'idx_oauthAccessTokens_grantId' ON 'oauthAccessTokens' ('grantId');`
+            ).run();
+            db.prepare(
                 `CREATE INDEX IF NOT EXISTS 'idx_oauthAccessTokens_clientId' ON 'oauthAccessTokens' ('clientId');`
             ).run();
             db.prepare(
@@ -129,6 +133,7 @@ export default async function migration() {
                 `
                 CREATE TABLE IF NOT EXISTS 'oauthRefreshTokens' (
                     'refreshTokenId' text PRIMARY KEY NOT NULL,
+                    'grantId' text NOT NULL,
                     'tokenHash' text NOT NULL,
                     'clientId' text NOT NULL REFERENCES 'oauthClients'('clientId') ON DELETE cascade,
                     'userId' text NOT NULL REFERENCES 'user'('id') ON DELETE cascade,
@@ -144,6 +149,9 @@ export default async function migration() {
             ).run();
             db.prepare(
                 `CREATE INDEX IF NOT EXISTS 'idx_oauthRefreshTokens_expiresAt' ON 'oauthRefreshTokens' ('expiresAt');`
+            ).run();
+            db.prepare(
+                `CREATE INDEX IF NOT EXISTS 'idx_oauthRefreshTokens_grantId' ON 'oauthRefreshTokens' ('grantId');`
             ).run();
             db.prepare(
                 `CREATE INDEX IF NOT EXISTS 'idx_oauthRefreshTokens_clientId' ON 'oauthRefreshTokens' ('clientId');`

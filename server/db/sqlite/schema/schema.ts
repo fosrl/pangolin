@@ -1849,6 +1849,7 @@ export const oauthAccessTokens = sqliteTable(
     "oauthAccessTokens",
     {
         accessTokenId: text("accessTokenId").primaryKey(),
+        grantId: text("grantId").notNull(),
         tokenHash: text("tokenHash").notNull(),
         clientId: text("clientId")
             .notNull()
@@ -1863,6 +1864,7 @@ export const oauthAccessTokens = sqliteTable(
     (table) => [
         uniqueIndex("uidx_oauthAccessTokens_tokenHash").on(table.tokenHash),
         index("idx_oauthAccessTokens_expiresAt").on(table.expiresAt),
+        index("idx_oauthAccessTokens_grantId").on(table.grantId),
         index("idx_oauthAccessTokens_clientId").on(table.clientId),
         index("idx_oauthAccessTokens_userId").on(table.userId)
     ]
@@ -1872,6 +1874,7 @@ export const oauthRefreshTokens = sqliteTable(
     "oauthRefreshTokens",
     {
         refreshTokenId: text("refreshTokenId").primaryKey(),
+        grantId: text("grantId").notNull(),
         tokenHash: text("tokenHash").notNull(),
         clientId: text("clientId")
             .notNull()
@@ -1887,6 +1890,7 @@ export const oauthRefreshTokens = sqliteTable(
     (table) => [
         uniqueIndex("uidx_oauthRefreshTokens_tokenHash").on(table.tokenHash),
         index("idx_oauthRefreshTokens_expiresAt").on(table.expiresAt),
+        index("idx_oauthRefreshTokens_grantId").on(table.grantId),
         index("idx_oauthRefreshTokens_clientId").on(table.clientId),
         index("idx_oauthRefreshTokens_userId").on(table.userId),
         index("idx_oauthRefreshTokens_revokedAt").on(table.revokedAt)
