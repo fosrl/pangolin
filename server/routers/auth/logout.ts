@@ -9,7 +9,10 @@ import {
 } from "@server/auth/sessions/app";
 import { verifySession } from "@server/auth/sessions/verifySession";
 import config from "@server/lib/config";
-import { sendBackchannelLogout } from "@server/lib/oauth/backchannelLogout";
+import {
+    dispatchBackchannelLogout,
+    revokeOAuthTokensAndCollectBackchannelClients
+} from "@server/lib/oauth/backchannelLogout";
 
 export async function logout(
     req: Request,
@@ -46,10 +49,15 @@ export async function logout(
             logger.error("Failed to invalidate session", error);
         }
 
-        // Fire-and-forget: notify RPs via back-channel logout
-        sendBackchannelLogout(user.userId).catch((err) => {
-            logger.error("Back-channel logout dispatch error", err);
-        });
+        const backchannelClients =
+            await revokeOAuthTokensAndCollectBackchannelClients(user.userId);
+
+        // Fire-and-forget: notify RPs after local token revocation completes
+        dispatchBackchannelLogout(user.userId, backchannelClients).catch(
+            (err) => {
+                logger.error("Back-channel logout dispatch error", err);
+            }
+        );
 
         const isSecure = req.protocol === "https";
         res.setHeader("Set-Cookie", createBlankSessionTokenCookie(isSecure));

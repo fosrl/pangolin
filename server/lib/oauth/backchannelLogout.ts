@@ -12,12 +12,19 @@ import { generateIdFromEntropySize } from "@server/auth/sessions/app";
 import logger from "@server/logger";
 import { assertBackchannelLogoutDestinationAllowed } from "@server/lib/oauth/backchannelLogoutSecurity";
 
-export async function sendBackchannelLogout(userId: string): Promise<void> {
-    try {
-        const now = Date.now();
+type BackchannelLogoutClient = {
+    clientId: string;
+    backchannelLogoutUri: string | null;
+};
 
+export async function revokeOAuthTokensAndCollectBackchannelClients(
+    userId: string
+): Promise<BackchannelLogoutClient[]> {
+    const now = Date.now();
+
+    return db.transaction(async (trx) => {
         // Find all clients with a backchannelLogoutUri that have active tokens for this user
-        const clients = await db
+        const clients = await trx
             .select({
                 clientId: oauthClients.clientId,
                 backchannelLogoutUri: oauthClients.backchannelLogoutUri
@@ -28,7 +35,7 @@ export async function sendBackchannelLogout(userId: string): Promise<void> {
                     isNotNull(oauthClients.backchannelLogoutUri),
                     or(
                         exists(
-                            db
+                            trx
                                 .select()
                                 .from(oauthAccessTokens)
                                 .where(
@@ -43,7 +50,7 @@ export async function sendBackchannelLogout(userId: string): Promise<void> {
                                 )
                         ),
                         exists(
-                            db
+                            trx
                                 .select()
                                 .from(oauthRefreshTokens)
                                 .where(
@@ -62,18 +69,26 @@ export async function sendBackchannelLogout(userId: string): Promise<void> {
                 )
             );
 
-        // Revoke all tokens for this user
-        await db
+        await trx
             .delete(oauthAccessTokens)
             .where(eq(oauthAccessTokens.userId, userId));
-        await db
+        await trx
             .delete(oauthRefreshTokens)
             .where(eq(oauthRefreshTokens.userId, userId));
 
-        if (clients.length === 0) {
-            return;
-        }
+        return clients;
+    });
+}
 
+export async function dispatchBackchannelLogout(
+    userId: string,
+    clients: BackchannelLogoutClient[]
+): Promise<void> {
+    if (clients.length === 0) {
+        return;
+    }
+
+    try {
         const signingKey = await getActiveSigningKey();
         const issuer = getIssuerUrl();
 
@@ -124,6 +139,19 @@ export async function sendBackchannelLogout(userId: string): Promise<void> {
         });
 
         await Promise.all(promises);
+    } catch (err) {
+        logger.error(
+            `dispatchBackchannelLogout failed for user ${userId}: ${err}`
+        );
+    }
+}
+
+export async function sendBackchannelLogout(userId: string): Promise<void> {
+    try {
+        const clients =
+            await revokeOAuthTokensAndCollectBackchannelClients(userId);
+
+        await dispatchBackchannelLogout(userId, clients);
     } catch (err) {
         logger.error(`sendBackchannelLogout failed for user ${userId}: ${err}`);
     }
