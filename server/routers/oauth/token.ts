@@ -33,6 +33,7 @@ import {
     getBodyValue,
     sendOAuthError
 } from "@server/lib/oauth/clientAuth";
+import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
 import logger from "@server/logger";
 
 function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
@@ -317,6 +318,18 @@ export async function issueToken(
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_scope",
                     error_description: "openid scope is required"
+                });
+            }
+            if (
+                !(await userBelongsToClientOrg(
+                    existingRefreshToken.userId,
+                    existingRefreshToken.clientId
+                ))
+            ) {
+                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+                    error: "invalid_grant",
+                    error_description:
+                        "User no longer belongs to this client's organization"
                 });
             }
 
