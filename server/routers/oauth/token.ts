@@ -165,7 +165,15 @@ export async function issueToken(
             // after atomic deletion is correctly invalidated.
             const [authCode] = await db
                 .delete(oauthAuthorizationCodes)
-                .where(eq(oauthAuthorizationCodes.codeHash, hashToken(code)))
+                .where(
+                    and(
+                        eq(oauthAuthorizationCodes.codeHash, hashToken(code)),
+                        eq(
+                            oauthAuthorizationCodes.clientId,
+                            authResult.client.clientId
+                        )
+                    )
+                )
                 .returning();
 
             if (!authCode) {
@@ -179,13 +187,6 @@ export async function issueToken(
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_grant",
                     error_description: "Authorization code has expired"
-                });
-            }
-
-            if (authCode.clientId !== authResult.client.clientId) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                    error: "invalid_grant",
-                    error_description: "Authorization code client mismatch"
                 });
             }
 
@@ -273,6 +274,10 @@ export async function issueToken(
                             oauthRefreshTokens.tokenHash,
                             hashToken(refreshToken)
                         ),
+                        eq(
+                            oauthRefreshTokens.clientId,
+                            authResult.client.clientId
+                        ),
                         isNull(oauthRefreshTokens.revokedAt)
                     )
                 )
@@ -289,13 +294,6 @@ export async function issueToken(
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_grant",
                     error_description: "Refresh token has expired"
-                });
-            }
-
-            if (existingRefreshToken.clientId !== authResult.client.clientId) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                    error: "invalid_grant",
-                    error_description: "Refresh token client mismatch"
                 });
             }
 
