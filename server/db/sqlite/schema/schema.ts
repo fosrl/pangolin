@@ -1030,7 +1030,9 @@ export const oauthClients = sqliteTable(
         clientName: text("clientName").notNull(),
         clientUri: text("clientUri"),
         logoUri: text("logoUri"),
-        redirectUris: text("redirectUris", { mode: "json" }).notNull().$type<string[]>(),
+        redirectUris: text("redirectUris", { mode: "json" })
+            .notNull()
+            .$type<string[]>(),
         scopes: text("scopes").notNull().default("openid profile email"),
         pkceRequired: integer("pkceRequired", { mode: "boolean" })
             .notNull()
@@ -1038,11 +1040,19 @@ export const oauthClients = sqliteTable(
         enabled: integer("enabled", { mode: "boolean" })
             .notNull()
             .default(true),
+        logoutTerminatesPangolinSession: integer(
+            "logoutTerminatesPangolinSession",
+            { mode: "boolean" }
+        )
+            .notNull()
+            .default(false),
         orgId: text("orgId")
             .notNull()
             .references(() => orgs.orgId, { onDelete: "cascade" }),
         backchannelLogoutUri: text("backchannelLogoutUri"),
-        postLogoutRedirectUris: text("postLogoutRedirectUris", { mode: "json" }).$type<string[] | null>(),
+        postLogoutRedirectUris: text("postLogoutRedirectUris", {
+            mode: "json"
+        }).$type<string[] | null>(),
         createdAt: integer("createdAt").notNull(),
         updatedAt: integer("updatedAt").notNull()
     },

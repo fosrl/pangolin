@@ -683,11 +683,18 @@ export const oauthClients = pgTable(
         scopes: varchar("scopes").notNull().default("openid profile email"),
         pkceRequired: boolean("pkceRequired").notNull().default(true),
         enabled: boolean("enabled").notNull().default(true),
+        logoutTerminatesPangolinSession: boolean(
+            "logoutTerminatesPangolinSession"
+        )
+            .notNull()
+            .default(false),
         orgId: varchar("orgId")
             .notNull()
             .references(() => orgs.orgId, { onDelete: "cascade" }),
         backchannelLogoutUri: varchar("backchannelLogoutUri"),
-        postLogoutRedirectUris: json("postLogoutRedirectUris").$type<string[] | null>(),
+        postLogoutRedirectUris: json("postLogoutRedirectUris").$type<
+            string[] | null
+        >(),
         createdAt: bigint("createdAt", { mode: "number" }).notNull(),
         updatedAt: bigint("updatedAt", { mode: "number" }).notNull()
     },

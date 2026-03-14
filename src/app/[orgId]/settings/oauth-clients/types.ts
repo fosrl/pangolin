@@ -9,6 +9,7 @@ export type OAuthClient = {
     scopes: string;
     pkceRequired: boolean;
     enabled: boolean;
+    logoutTerminatesPangolinSession: boolean;
     orgId: string;
     createdAt: number;
     updatedAt: number;

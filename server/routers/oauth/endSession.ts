@@ -10,6 +10,11 @@ import {
 } from "@server/db";
 import { getActiveSigningKey } from "@server/lib/oauth/keys";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
+import {
+    createBlankSessionTokenCookie,
+    invalidateSession
+} from "@server/auth/sessions/app";
+import { verifySession } from "@server/auth/sessions/verifySession";
 import logger from "@server/logger";
 
 export async function handleEndSession(
@@ -27,6 +32,7 @@ export async function handleEndSession(
         const state = params.state as string | undefined;
 
         const fallbackUrl = getIssuerUrl();
+        let redirectTarget = fallbackUrl;
         let clientId: string | undefined;
         let userId: string | undefined;
         let clientIdMismatch = false;
@@ -115,32 +121,56 @@ export async function handleEndSession(
             });
         }
 
-        if (postLogoutRedirectUri && clientId) {
+        let clientLogoutTerminatesPangolinSession = false;
+
+        if (clientId) {
             const [client] = await db
                 .select({
-                    postLogoutRedirectUris: oauthClients.postLogoutRedirectUris
+                    postLogoutRedirectUris: oauthClients.postLogoutRedirectUris,
+                    logoutTerminatesPangolinSession:
+                        oauthClients.logoutTerminatesPangolinSession
                 })
                 .from(oauthClients)
                 .where(eq(oauthClients.clientId, clientId))
                 .limit(1);
 
             if (client) {
+                clientLogoutTerminatesPangolinSession =
+                    client.logoutTerminatesPangolinSession;
                 const registeredUris = client.postLogoutRedirectUris ?? [];
 
-                if (registeredUris.includes(postLogoutRedirectUri)) {
+                if (
+                    postLogoutRedirectUri &&
+                    registeredUris.includes(postLogoutRedirectUri)
+                ) {
                     if (state) {
                         const url = new URL(postLogoutRedirectUri);
                         url.searchParams.set("state", state);
-                        res.redirect(url.toString());
+                        redirectTarget = url.toString();
                     } else {
-                        res.redirect(postLogoutRedirectUri);
+                        redirectTarget = postLogoutRedirectUri;
                     }
-                    return;
                 }
             }
         }
 
-        res.redirect(fallbackUrl);
+        if (
+            clientLogoutTerminatesPangolinSession &&
+            hasValidIdTokenHint &&
+            userId
+        ) {
+            const { user, session } = await verifySession(req);
+
+            if (user && session && user.userId === userId) {
+                await invalidateSession(session.sessionId);
+                res.setHeader(
+                    "Set-Cookie",
+                    createBlankSessionTokenCookie(req.protocol === "https")
+                );
+            }
+        }
+
+        res.redirect(redirectTarget);
     } catch (error) {
         logger.error("End session error", error);
         res.redirect(getIssuerUrl());

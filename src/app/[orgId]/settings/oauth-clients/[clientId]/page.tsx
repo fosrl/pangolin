@@ -107,7 +107,9 @@ export default function EditOAuthClientPage() {
                         : null,
                 scopes: data.scopes,
                 pkceRequired: data.pkceRequired,
-                enabled: data.enabled
+                enabled: data.enabled,
+                logoutTerminatesPangolinSession:
+                    data.logoutTerminatesPangolinSession
             });
 
             toast({
@@ -304,7 +306,9 @@ export default function EditOAuthClientPage() {
                         scopeOfflineAccess:
                             clientScopes.has(OFFLINE_ACCESS_SCOPE),
                         pkceRequired: client.pkceRequired,
-                        enabled: client.enabled
+                        enabled: client.enabled,
+                        logoutTerminatesPangolinSession:
+                            client.logoutTerminatesPangolinSession
                     }}
                     clientId={clientId}
                     onSubmit={handleSave}
