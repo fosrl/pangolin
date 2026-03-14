@@ -395,15 +395,41 @@ export async function handleAuthorizationConsent(
 
         const [client] = await db
             .select({
-                orgId: oauthClients.orgId
+                orgId: oauthClients.orgId,
+                enabled: oauthClients.enabled,
+                redirectUris: oauthClients.redirectUris
             })
             .from(oauthClients)
             .where(eq(oauthClients.clientId, interaction.clientId))
             .limit(1);
 
-        const isClientOrgMember =
+        const isClientStateValid =
             !!client &&
-            (await userBelongsToOrg(interaction.userId, client.orgId));
+            client.enabled &&
+            client.redirectUris.includes(interaction.redirectUri);
+
+        if (!isClientStateValid) {
+            await db
+                .delete(oauthInteractions)
+                .where(
+                    eq(
+                        oauthInteractions.interactionId,
+                        interaction.interactionId
+                    )
+                );
+
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "OAuth client configuration changed. Please restart authorization."
+                )
+            );
+        }
+
+        const isClientOrgMember = await userBelongsToOrg(
+            interaction.userId,
+            client.orgId
+        );
 
         if (!isClientOrgMember) {
             await db
