@@ -7,7 +7,10 @@ import SmartLoginForm from "@app/components/SmartLoginForm";
 import DashboardLoginForm from "@app/components/DashboardLoginForm";
 import { Mail } from "lucide-react";
 import { pullEnv } from "@app/lib/pullEnv";
-import { cleanRedirect, cleanOAuthRedirectOptions } from "@app/lib/cleanRedirect";
+import {
+    cleanRedirect,
+    cleanOAuthRedirectOptions
+} from "@app/lib/cleanRedirect";
 import { getTranslations } from "next-intl/server";
 import { build } from "@server/build";
 import { LoadLoginPageResponse } from "@server/routers/loginPage/types";
@@ -39,6 +42,16 @@ export default async function Page(props: {
         redirect("/");
     }
 
+    let redirectUrl: string | undefined = undefined;
+    if (typeof searchParams.redirect === "string") {
+        const requestedRedirect = searchParams.redirect;
+        redirectUrl = cleanRedirect(
+            requestedRedirect,
+            cleanOAuthRedirectOptions(requestedRedirect)
+        );
+        searchParams.redirect = redirectUrl;
+    }
+
     // Check for orgId and redirect to org-specific login page if found
     const orgId = searchParams.orgId as string | undefined;
     let loginPageDomain: string | undefined;
@@ -57,20 +70,13 @@ export default async function Page(props: {
     }
 
     if (loginPageDomain) {
-        const redirectUrl = searchParams.redirect as string | undefined;
-
-        let url = `https://${loginPageDomain}/auth/org`;
         if (redirectUrl) {
-            url += `?redirect=${redirectUrl}`;
+            const url = new URL("/auth/org", `https://${loginPageDomain}`);
+            url.searchParams.set("redirect", redirectUrl);
+            redirect(url.toString());
         }
-        redirect(url);
-    }
 
-    let redirectUrl: string | undefined = undefined;
-    if (searchParams.redirect) {
-        const requestedRedirect = searchParams.redirect as string;
-        redirectUrl = cleanRedirect(requestedRedirect, cleanOAuthRedirectOptions(requestedRedirect));
-        searchParams.redirect = redirectUrl;
+        redirect(new URL("/auth/org", `https://${loginPageDomain}`).toString());
     }
 
     const defaultUser = searchParams.user as string | undefined;
