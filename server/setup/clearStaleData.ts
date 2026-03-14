@@ -15,7 +15,7 @@ import {
     userInvites
 } from "@server/db";
 import logger from "@server/logger";
-import { lt } from "drizzle-orm";
+import { isNotNull, lt, or } from "drizzle-orm";
 
 async function runCleanup(
     name: string,
@@ -47,7 +47,12 @@ export async function cleanExpiredOAuthData(now: number) {
     await runCleanup("oauthRefreshTokens", async () => {
         await db
             .delete(oauthRefreshTokens)
-            .where(lt(oauthRefreshTokens.expiresAt, now));
+            .where(
+                or(
+                    lt(oauthRefreshTokens.expiresAt, now),
+                    isNotNull(oauthRefreshTokens.revokedAt)
+                )
+            );
     });
 }
 
@@ -55,14 +60,10 @@ export async function clearStaleData() {
     const now = Date.now();
 
     await runCleanup("sessions", async () => {
-        await db
-            .delete(sessions)
-            .where(lt(sessions.expiresAt, now));
+        await db.delete(sessions).where(lt(sessions.expiresAt, now));
     });
     await runCleanup("newtSessions", async () => {
-        await db
-            .delete(newtSessions)
-            .where(lt(newtSessions.expiresAt, now));
+        await db.delete(newtSessions).where(lt(newtSessions.expiresAt, now));
     });
     await runCleanup("emailVerificationCodes", async () => {
         await db
@@ -75,9 +76,7 @@ export async function clearStaleData() {
             .where(lt(passwordResetTokens.expiresAt, now));
     });
     await runCleanup("userInvites", async () => {
-        await db
-            .delete(userInvites)
-            .where(lt(userInvites.expiresAt, now));
+        await db.delete(userInvites).where(lt(userInvites.expiresAt, now));
     });
     await runCleanup("resourceAccessToken", async () => {
         await db
@@ -90,18 +89,14 @@ export async function clearStaleData() {
             .where(lt(resourceSessions.expiresAt, now));
     });
     await runCleanup("resourceOtp", async () => {
-        await db
-            .delete(resourceOtp)
-            .where(lt(resourceOtp.expiresAt, now));
+        await db.delete(resourceOtp).where(lt(resourceOtp.expiresAt, now));
     });
 
     if (build !== "oss") {
         await runCleanup("sessionTransferToken", async () => {
             await db
                 .delete(sessionTransferToken)
-                .where(
-                    lt(sessionTransferToken.expiresAt, now)
-                );
+                .where(lt(sessionTransferToken.expiresAt, now));
         });
     }
 
