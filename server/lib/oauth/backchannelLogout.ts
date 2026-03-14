@@ -10,10 +10,9 @@ import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import { signLogoutToken } from "@server/lib/oauth/tokens";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
 import logger from "@server/logger";
+import { assertBackchannelLogoutDestinationAllowed } from "@server/lib/oauth/backchannelLogoutSecurity";
 
-export async function sendBackchannelLogout(
-    userId: string
-): Promise<void> {
+export async function sendBackchannelLogout(userId: string): Promise<void> {
     try {
         const now = Date.now();
 
@@ -34,7 +33,10 @@ export async function sendBackchannelLogout(
                                 .from(oauthAccessTokens)
                                 .where(
                                     and(
-                                        eq(oauthAccessTokens.clientId, oauthClients.clientId),
+                                        eq(
+                                            oauthAccessTokens.clientId,
+                                            oauthClients.clientId
+                                        ),
                                         eq(oauthAccessTokens.userId, userId),
                                         gt(oauthAccessTokens.expiresAt, now)
                                     )
@@ -46,7 +48,10 @@ export async function sendBackchannelLogout(
                                 .from(oauthRefreshTokens)
                                 .where(
                                     and(
-                                        eq(oauthRefreshTokens.clientId, oauthClients.clientId),
+                                        eq(
+                                            oauthRefreshTokens.clientId,
+                                            oauthClients.clientId
+                                        ),
                                         eq(oauthRefreshTokens.userId, userId),
                                         gt(oauthRefreshTokens.expiresAt, now),
                                         isNull(oauthRefreshTokens.revokedAt)
@@ -74,6 +79,10 @@ export async function sendBackchannelLogout(
 
         const promises = clients.map(async (client) => {
             try {
+                if (!client.backchannelLogoutUri) {
+                    return;
+                }
+
                 const jti = generateIdFromEntropySize(16);
                 const logoutToken = signLogoutToken(
                     {
@@ -86,13 +95,20 @@ export async function sendBackchannelLogout(
                     signingKey.keyId
                 );
 
-                const res = await fetch(client.backchannelLogoutUri!, {
+                const logoutUrl =
+                    await assertBackchannelLogoutDestinationAllowed(
+                        client.backchannelLogoutUri
+                    );
+                const res = await fetch(logoutUrl, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
                     },
-                    body: `logout_token=${encodeURIComponent(logoutToken)}`,
-                    signal: AbortSignal.timeout(10000)
+                    body: new URLSearchParams({
+                        logout_token: logoutToken
+                    }).toString(),
+                    signal: AbortSignal.timeout(10000),
+                    redirect: "error"
                 });
 
                 if (!res.ok) {

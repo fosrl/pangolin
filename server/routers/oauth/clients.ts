@@ -18,6 +18,7 @@ import logger from "@server/logger";
 import response from "@server/lib/response";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
 import { validScopes } from "@server/lib/oauth/scopes";
+import { validateBackchannelLogoutUri } from "@server/lib/oauth/backchannelLogoutSecurity";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().min(1)
@@ -50,9 +51,7 @@ const updateBodySchema = z.strictObject({
     logoUri: z.string().url().nullable().optional(),
     backchannelLogoutUri: z.string().url().nullable().optional(),
     postLogoutRedirectUris: z.array(z.string().url()).nullable().optional(),
-    scopes: z
-        .array(z.enum(validScopes))
-        .optional(),
+    scopes: z.array(z.enum(validScopes)).optional(),
     pkceRequired: z.boolean().optional(),
     enabled: z.boolean().optional()
 });
@@ -79,6 +78,16 @@ function normalizeScopes(scopes: string[]): string {
     set.add("openid");
 
     return validScopes.filter((scope) => set.has(scope)).join(" ");
+}
+
+function getBackchannelLogoutValidationError(
+    backchannelLogoutUri: string | null | undefined
+): string | null {
+    if (!backchannelLogoutUri) {
+        return null;
+    }
+
+    return validateBackchannelLogoutUri(backchannelLogoutUri);
 }
 
 export async function createOAuthClient(
@@ -109,6 +118,15 @@ export async function createOAuthClient(
 
         const { orgId } = parsedParams.data;
         const body = parsedBody.data;
+        const backchannelLogoutError = getBackchannelLogoutValidationError(
+            body.backchannelLogoutUri
+        );
+
+        if (backchannelLogoutError) {
+            return next(
+                createHttpError(HttpCode.BAD_REQUEST, backchannelLogoutError)
+            );
+        }
 
         const clientId = generateIdFromEntropySize(25);
         const clientSecret = generateIdFromEntropySize(32);
@@ -290,6 +308,15 @@ export async function updateOAuthClient(
         }
 
         const body = parsedBody.data;
+        const backchannelLogoutError = getBackchannelLogoutValidationError(
+            body.backchannelLogoutUri
+        );
+
+        if (backchannelLogoutError) {
+            return next(
+                createHttpError(HttpCode.BAD_REQUEST, backchannelLogoutError)
+            );
+        }
 
         await db
             .update(oauthClients)
@@ -298,9 +325,7 @@ export async function updateOAuthClient(
                 clientUri: body.clientUri,
                 logoUri: body.logoUri,
                 redirectUris: body.redirectUris,
-                scopes: body.scopes
-                    ? normalizeScopes(body.scopes)
-                    : undefined,
+                scopes: body.scopes ? normalizeScopes(body.scopes) : undefined,
                 pkceRequired: body.pkceRequired,
                 enabled: body.enabled,
                 backchannelLogoutUri: body.backchannelLogoutUri,
@@ -366,7 +391,12 @@ export async function deleteOAuthClient(
                 .where(eq(oauthInteractions.clientId, existingClient.clientId));
             await trx
                 .delete(oauthAuthorizationCodes)
-                .where(eq(oauthAuthorizationCodes.clientId, existingClient.clientId));
+                .where(
+                    eq(
+                        oauthAuthorizationCodes.clientId,
+                        existingClient.clientId
+                    )
+                );
             await trx
                 .delete(oauthAccessTokens)
                 .where(eq(oauthAccessTokens.clientId, existingClient.clientId));
