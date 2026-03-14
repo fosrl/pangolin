@@ -274,6 +274,11 @@ export const configSchema = z
                     .default(21820)
                     .transform(stoi)
                     .pipe(portSchema),
+                tcp_relay_port: portSchema
+                    .optional()
+                    .default(4430)
+                    .transform(stoi)
+                    .pipe(portSchema),
                 base_endpoint: z
                     .string()
                     .optional()
