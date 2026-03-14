@@ -9,7 +9,6 @@ import {
 } from "@server/db";
 import { getActiveSigningKey } from "@server/lib/oauth/keys";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
-import { verifySession } from "@server/auth/sessions/verifySession";
 import logger from "@server/logger";
 
 export async function handleEndSession(
@@ -30,6 +29,7 @@ export async function handleEndSession(
         let clientId: string | undefined;
         let userId: string | undefined;
         let clientIdMismatch = false;
+        let hasValidIdTokenHint = false;
 
         if (idTokenHint) {
             try {
@@ -61,34 +61,34 @@ export async function handleEndSession(
                     }
                 }
 
+                hasValidIdTokenHint = true;
+
                 if (clientIdParam && clientId && clientIdParam !== clientId) {
                     clientId = undefined;
                     clientIdMismatch = true;
                 }
             } catch {
-                // Invalid token — fall through to client_id param
+                // Invalid token hints are ignored.
             }
         }
 
-        if (!clientId && clientIdParam && !clientIdMismatch) {
+        if (
+            hasValidIdTokenHint &&
+            !clientId &&
+            clientIdParam &&
+            !clientIdMismatch
+        ) {
             clientId = clientIdParam;
         }
 
-        if (!userId) {
-            const { user } = await verifySession(req);
-            if (user) {
-                userId = user.userId;
-            }
-        }
-
-        if (clientId && userId) {
+        if (hasValidIdTokenHint && clientId && userId) {
             await db.transaction(async (trx) => {
                 await trx
                     .delete(oauthAccessTokens)
                     .where(
                         and(
-                            eq(oauthAccessTokens.userId, userId!),
-                            eq(oauthAccessTokens.clientId, clientId!)
+                            eq(oauthAccessTokens.userId, userId),
+                            eq(oauthAccessTokens.clientId, clientId)
                         )
                     );
 
@@ -97,8 +97,8 @@ export async function handleEndSession(
                     .set({ revokedAt: Date.now() })
                     .where(
                         and(
-                            eq(oauthRefreshTokens.userId, userId!),
-                            eq(oauthRefreshTokens.clientId, clientId!),
+                            eq(oauthRefreshTokens.userId, userId),
+                            eq(oauthRefreshTokens.clientId, clientId),
                             isNull(oauthRefreshTokens.revokedAt)
                         )
                     );
@@ -108,8 +108,7 @@ export async function handleEndSession(
         if (postLogoutRedirectUri && clientId) {
             const [client] = await db
                 .select({
-                    postLogoutRedirectUris:
-                        oauthClients.postLogoutRedirectUris
+                    postLogoutRedirectUris: oauthClients.postLogoutRedirectUris
                 })
                 .from(oauthClients)
                 .where(eq(oauthClients.clientId, clientId))
