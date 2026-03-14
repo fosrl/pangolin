@@ -15,13 +15,16 @@ function getEncryptionKey(): string {
     return key;
 }
 
-export async function ensureSigningKey(): Promise<void> {
-    const [existingKey] = await db
+async function selectActiveSigningKeys() {
+    return db
         .select()
         .from(oauthSigningKeys)
         .where(eq(oauthSigningKeys.active, true))
-        .orderBy(desc(oauthSigningKeys.createdAt))
-        .limit(1);
+        .orderBy(desc(oauthSigningKeys.createdAt));
+}
+
+export async function ensureSigningKey(): Promise<void> {
+    const [existingKey] = await selectActiveSigningKeys();
 
     if (existingKey) {
         return;
@@ -57,12 +60,7 @@ export async function getActiveSigningKey(): Promise<{
     publicKeyPem: string;
     privateKeyPem: string;
 }> {
-    const [activeKey] = await db
-        .select()
-        .from(oauthSigningKeys)
-        .where(eq(oauthSigningKeys.active, true))
-        .orderBy(desc(oauthSigningKeys.createdAt))
-        .limit(1);
+    const [activeKey] = await selectActiveSigningKeys();
 
     if (!activeKey) {
         throw new Error("No active OAuth signing key found");
@@ -76,12 +74,24 @@ export async function getActiveSigningKey(): Promise<{
     };
 }
 
+export async function getActiveSigningPublicKeys(): Promise<
+    {
+        keyId: string;
+        algorithm: string;
+        publicKeyPem: string;
+    }[]
+> {
+    const activeKeys = await selectActiveSigningKeys();
+
+    return activeKeys.map((key) => ({
+        keyId: key.keyId,
+        algorithm: key.algorithm,
+        publicKeyPem: key.publicKeyPem
+    }));
+}
+
 export async function getJWKS(): Promise<JsonWebKey[]> {
-    const activeKeys = await db
-        .select()
-        .from(oauthSigningKeys)
-        .where(eq(oauthSigningKeys.active, true))
-        .orderBy(desc(oauthSigningKeys.createdAt));
+    const activeKeys = await selectActiveSigningKeys();
 
     return activeKeys.map((key) => {
         const exported = createPublicKey(key.publicKeyPem).export({
