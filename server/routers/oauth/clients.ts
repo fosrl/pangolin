@@ -311,6 +311,8 @@ export async function updateOAuthClient(
         const backchannelLogoutError = getBackchannelLogoutValidationError(
             body.backchannelLogoutUri
         );
+        const isDisablingClient =
+            existingClient.enabled && body.enabled === false;
 
         if (backchannelLogoutError) {
             return next(
@@ -318,21 +320,33 @@ export async function updateOAuthClient(
             );
         }
 
-        await db
-            .update(oauthClients)
-            .set({
-                clientName: body.clientName,
-                clientUri: body.clientUri,
-                logoUri: body.logoUri,
-                redirectUris: body.redirectUris,
-                scopes: body.scopes ? normalizeScopes(body.scopes) : undefined,
-                pkceRequired: body.pkceRequired,
-                enabled: body.enabled,
-                backchannelLogoutUri: body.backchannelLogoutUri,
-                postLogoutRedirectUris: body.postLogoutRedirectUris,
-                updatedAt: Date.now()
-            })
-            .where(eq(oauthClients.clientId, existingClient.clientId));
+        await db.transaction(async (trx) => {
+            await trx
+                .update(oauthClients)
+                .set({
+                    clientName: body.clientName,
+                    clientUri: body.clientUri,
+                    logoUri: body.logoUri,
+                    redirectUris: body.redirectUris,
+                    scopes: body.scopes
+                        ? normalizeScopes(body.scopes)
+                        : undefined,
+                    pkceRequired: body.pkceRequired,
+                    enabled: body.enabled,
+                    backchannelLogoutUri: body.backchannelLogoutUri,
+                    postLogoutRedirectUris: body.postLogoutRedirectUris,
+                    updatedAt: Date.now()
+                })
+                .where(eq(oauthClients.clientId, existingClient.clientId));
+
+            if (isDisablingClient) {
+                await trx
+                    .delete(oauthAccessTokens)
+                    .where(
+                        eq(oauthAccessTokens.clientId, existingClient.clientId)
+                    );
+            }
+        });
 
         return response(res, {
             data: null,
