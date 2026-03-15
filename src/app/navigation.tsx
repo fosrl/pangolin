@@ -204,6 +204,11 @@ export const orgNavSections = (
                         icon: <KeyRound className="size-4 flex-none" />
                     },
                     {
+                        title: "sidebarOAuthClients",
+                        href: "/{orgId}/settings/oauth-clients",
+                        icon: <Combine className="size-4 flex-none" />
+                    },
+                    {
                         title: "sidebarBluePrints",
                         href: "/{orgId}/settings/blueprints",
                         icon: <ReceiptText className="size-4 flex-none" />

@@ -22,6 +22,7 @@ import { stripDuplicateSesions } from "./middlewares/stripDuplicateSessions";
 import { corsWithLoginPageSupport } from "@server/lib/corsWithLoginPage";
 import { hybridRouter } from "#dynamic/routers/hybrid";
 import { billingWebhookHandler } from "#dynamic/routers/billing/webhooks";
+import { openidConfiguration } from "@server/routers/oauth";
 
 const dev = config.isDev;
 const externalPort = config.getRawConfig().server.external_port;
@@ -66,6 +67,8 @@ export function createApiServer() {
         // Use the custom CORS middleware with loginPage support
         apiServer.use(corsWithLoginPageSupport(corsConfig));
     }
+
+    apiServer.get("/.well-known/openid-configuration", openidConfiguration);
 
     if (!dev) {
         apiServer.use(helmet());

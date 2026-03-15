@@ -23,6 +23,7 @@ import { initCleanup } from "#dynamic/cleanup";
 import license from "#dynamic/license/license";
 import { initLogCleanupInterval } from "@server/lib/cleanupLogs";
 import { fetchServerIp } from "@server/lib/serverIpService";
+import { ensureSigningKey } from "@server/lib/oauth/keys";
 
 async function startServers() {
     await setHostMeta();
@@ -33,6 +34,7 @@ async function startServers() {
     await license.check();
 
     await runSetupFunctions();
+    await ensureSigningKey();
 
     await fetchServerIp();
 

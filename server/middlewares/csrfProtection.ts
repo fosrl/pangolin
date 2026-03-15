@@ -1,5 +1,12 @@
 import { NextFunction, Request, Response } from "express";
 
+const csrfExemptPaths = new Set([
+    "/api/v1/oauth/token",
+    "/api/v1/oauth/revoke",
+    "/api/v1/oauth/userinfo",
+    "/api/v1/oauth/logout"
+]);
+
 export function csrfProtectionMiddleware(
     req: Request,
     res: Response,
@@ -9,6 +16,11 @@ export function csrfProtectionMiddleware(
 
     // Skip CSRF check for GET requests as they should be idempotent
     if (req.method === "GET") {
+        next();
+        return;
+    }
+
+    if (csrfExemptPaths.has(req.path)) {
         next();
         return;
     }

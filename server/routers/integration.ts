@@ -12,6 +12,7 @@ import * as apiKeys from "./apiKeys";
 import * as idp from "./idp";
 import * as logs from "./auditLogs";
 import * as siteResource from "./siteResource";
+import * as oauth from "./oauth";
 import {
     verifyApiKey,
     verifyApiKeyOrgAccess,
@@ -1060,4 +1061,54 @@ authenticated.get(
     verifyApiKeyOrgAccess,
     verifyApiKeyHasAction(ActionsEnum.listResources),
     resource.listAllResourceNames
+);
+
+// OAuth client management
+authenticated.post(
+    "/org/:orgId/oauth-clients",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.createOAuthClient),
+    logActionAudit(ActionsEnum.createOAuthClient),
+    oauth.createOAuthClient
+);
+
+authenticated.get(
+    "/org/:orgId/oauth-clients",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.listOAuthClients),
+    oauth.listOAuthClients
+);
+
+authenticated.get(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.getOAuthClient),
+    oauth.getOAuthClient
+);
+
+authenticated.patch(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
+    oauth.updateOAuthClient
+);
+
+authenticated.delete(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteOAuthClient),
+    logActionAudit(ActionsEnum.deleteOAuthClient),
+    oauth.deleteOAuthClient
+);
+
+authenticated.post(
+    "/org/:orgId/oauth-clients/:clientId/rotate-secret",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
+    oauth.rotateOAuthClientSecret
 );

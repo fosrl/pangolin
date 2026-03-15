@@ -4,6 +4,7 @@ import { cleanUpOldLogs as cleanUpOldActionLogs } from "#dynamic/middlewares/log
 import { cleanUpOldLogs as cleanUpOldRequestLogs } from "@server/routers/badger/logRequestAudit";
 import { gt, or } from "drizzle-orm";
 import { cleanUpOldFingerprintSnapshots } from "@server/routers/olm/fingerprintingUtils";
+import { cleanExpiredOAuthData } from "@server/setup/clearStaleData";
 
 export function initLogCleanupInterval() {
     return setInterval(
@@ -59,6 +60,8 @@ export function initLogCleanupInterval() {
             }
 
             await cleanUpOldFingerprintSnapshots(365);
+
+            await cleanExpiredOAuthData(Date.now());
         },
         3 * 60 * 60 * 1000
     ); // every 3 hours

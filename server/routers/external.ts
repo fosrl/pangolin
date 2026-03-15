@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import config from "@server/lib/config";
 import * as site from "./site";
 import * as org from "./org";
@@ -19,6 +19,7 @@ import * as logs from "./auditLogs";
 import * as newt from "./newt";
 import * as olm from "./olm";
 import * as serverInfo from "./serverInfo";
+import * as oauth from "./oauth";
 import HttpCode from "@server/types/HttpCode";
 import {
     verifyAccessTokenAccess,
@@ -42,7 +43,8 @@ import {
     verifyUserIsOrgOwner,
     verifySiteResourceAccess,
     verifyOlmAccess,
-    verifyLimits
+    verifyLimits,
+    verifyAdmin
 } from "@server/middlewares";
 import { ActionsEnum } from "@server/auth/actions";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -59,9 +61,105 @@ unauthenticated.get("/", (_, res) => {
     res.status(HttpCode.OK).json({ message: "Healthy" });
 });
 
+const oauthTokenRateLimitMax = 50;
+const oauthTokenRateLimitWindowMinutes = 15;
+const oauthTokenRateLimit = rateLimit({
+    windowMs: oauthTokenRateLimitWindowMinutes * 60 * 1000,
+    max: oauthTokenRateLimitMax,
+    keyGenerator: (req) => `oauthToken:${ipKeyGenerator(req.ip || "")}`,
+    handler: (req, res, next) => {
+        const message = `You can only make ${oauthTokenRateLimitMax} token requests every ${oauthTokenRateLimitWindowMinutes} minutes. Please try again later.`;
+        return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
+    },
+    store: createStore()
+});
+
+unauthenticated.post(
+    "/oauth/token",
+    oauthTokenRateLimit,
+    express.urlencoded({ extended: false }),
+    oauth.issueToken
+);
+unauthenticated.get("/oauth/jwks", oauth.getJwks);
+unauthenticated.get("/oauth/userinfo", oauth.handleUserinfoRequest);
+unauthenticated.post("/oauth/userinfo", oauth.handleUserinfoRequest);
+unauthenticated.post(
+    "/oauth/revoke",
+    oauthTokenRateLimit,
+    express.urlencoded({ extended: false }),
+    oauth.revokeToken
+);
+unauthenticated.get(
+    "/oauth/logout",
+    oauthTokenRateLimit,
+    oauth.handleEndSession
+);
+unauthenticated.post(
+    "/oauth/logout",
+    oauthTokenRateLimit,
+    express.urlencoded({ extended: false }),
+    oauth.handleEndSession
+);
+
 // Authenticated Root routes
 export const authenticated = Router();
 authenticated.use(verifySessionUserMiddleware);
+
+authenticated.post("/oauth/authorize/initiate", oauth.initiateAuthorization);
+authenticated.post(
+    "/oauth/authorize/consent",
+    oauth.handleAuthorizationConsent
+);
+
+authenticated.get("/user/oauth/consents", oauth.listUserConsents);
+authenticated.delete("/user/oauth/consent/:consentId", oauth.deleteUserConsent);
+
+authenticated.post(
+    "/org/:orgId/oauth-clients",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.createOAuthClient),
+    logActionAudit(ActionsEnum.createOAuthClient),
+    oauth.createOAuthClient
+);
+authenticated.get(
+    "/org/:orgId/oauth-clients",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.listOAuthClients),
+    oauth.listOAuthClients
+);
+authenticated.get(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.getOAuthClient),
+    oauth.getOAuthClient
+);
+authenticated.patch(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
+    oauth.updateOAuthClient
+);
+authenticated.delete(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.deleteOAuthClient),
+    logActionAudit(ActionsEnum.deleteOAuthClient),
+    oauth.deleteOAuthClient
+);
+authenticated.post(
+    "/org/:orgId/oauth-clients/:clientId/rotate-secret",
+    verifyOrgAccess,
+    verifyAdmin,
+    verifyUserHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
+    oauth.rotateOAuthClientSecret
+);
 
 authenticated.get("/pick-org-defaults", org.pickOrgDefaults);
 authenticated.get("/org/checkId", org.checkId);
@@ -793,6 +891,7 @@ unauthenticated.get(
 // );
 
 unauthenticated.get("/user", verifySessionMiddleware, user.getUser);
+unauthenticated.patch("/user", verifySessionMiddleware, user.updateSelf);
 unauthenticated.get("/my-device", verifySessionMiddleware, user.myDevice);
 
 authenticated.get("/users", verifyUserIsServerAdmin, user.adminListUsers);
