@@ -96,6 +96,15 @@ export const sites = pgTable("sites", {
     dockerSocketEnabled: boolean("dockerSocketEnabled").notNull().default(true)
 });
 
+export const resourceGroups = pgTable("resourceGroups", {
+    groupId: serial("groupId").primaryKey(),
+    orgId: varchar("orgId")
+        .references(() => orgs.orgId, { onDelete: "cascade" })
+        .notNull(),
+    name: varchar("name").notNull(),
+    sortOrder: integer("sortOrder").notNull().default(0)
+});
+
 export const resources = pgTable("resources", {
     resourceId: serial("resourceId").primaryKey(),
     resourceGuid: varchar("resourceGuid", { length: 36 })
@@ -145,7 +154,10 @@ export const resources = pgTable("resources", {
     maintenanceTitle: text("maintenanceTitle"),
     maintenanceMessage: text("maintenanceMessage"),
     maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
-    postAuthPath: text("postAuthPath")
+    postAuthPath: text("postAuthPath"),
+    groupId: integer("groupId").references(() => resourceGroups.groupId, {
+        onDelete: "set null"
+    })
 });
 
 export const targets = pgTable("targets", {

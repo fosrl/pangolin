@@ -2,6 +2,8 @@
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import CreateResourceGroupDialog from "@app/components/CreateResourceGroupDialog";
+import MoveResourceToGroupDialog from "@app/components/MoveResourceToGroupDialog";
 import { Button } from "@app/components/ui/button";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
@@ -12,6 +14,7 @@ import {
 } from "@app/components/ui/dropdown-menu";
 import { InfoPopup } from "@app/components/ui/info-popup";
 import { Switch } from "@app/components/ui/switch";
+import { TableCell, TableRow } from "@app/components/ui/table";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
@@ -26,11 +29,14 @@ import {
     ArrowUp10Icon,
     CheckCircle2,
     ChevronDown,
+    ChevronRight,
     ChevronsUpDownIcon,
     Clock,
+    FolderOpen,
     MoreHorizontal,
     ShieldCheck,
     ShieldOff,
+    Trash2,
     XCircle
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -72,7 +78,10 @@ export type ResourceRow = {
     targetHost?: string;
     targetPort?: number;
     targets?: TargetHealth[];
+    groupId: number | null;
 };
+
+type Group = { groupId: number; name: string; sortOrder: number };
 
 function getOverallHealthStatus(
     targets?: TargetHealth[]
@@ -133,13 +142,15 @@ type ProxyResourcesTableProps = {
     orgId: string;
     pagination: PaginationState;
     rowCount: number;
+    groups: Group[];
 };
 
 export default function ProxyResourcesTable({
     resources,
     orgId,
     pagination,
-    rowCount
+    rowCount,
+    groups
 }: ProxyResourcesTableProps) {
     const router = useRouter();
     const {
@@ -156,6 +167,18 @@ export default function ProxyResourcesTable({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedResource, setSelectedResource] =
         useState<ResourceRow | null>();
+
+    const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+    const [moveTarget, setMoveTarget] = useState<ResourceRow | null>(null);
+
+    const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] =
+        useState(false);
+    const [isDeleteGroupModalOpen, setIsDeleteGroupModalOpen] = useState(false);
+    const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+
+    const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(
+        new Set()
+    );
 
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
@@ -192,6 +215,23 @@ export default function ProxyResourcesTable({
             });
     };
 
+    const deleteGroup = (groupId: number) => {
+        api.delete(`/org/${orgId}/resource-group/${groupId}`)
+            .catch((e) => {
+                toast({
+                    variant: "destructive",
+                    title: "Error deleting group",
+                    description: formatAxiosError(e, "Could not delete group")
+                });
+            })
+            .then(() => {
+                startTransition(() => {
+                    router.refresh();
+                    setIsDeleteGroupModalOpen(false);
+                });
+            });
+    };
+
     async function toggleResourceEnabled(val: boolean, resourceId: number) {
         try {
             await api.post<AxiosResponse<UpdateResourceResponse>>(
@@ -213,12 +253,24 @@ export default function ProxyResourcesTable({
         }
     }
 
+    function toggleGroupCollapsed(groupId: number) {
+        setCollapsedGroups((prev) => {
+            const next = new Set(prev);
+            if (next.has(groupId)) {
+                next.delete(groupId);
+            } else {
+                next.add(groupId);
+            }
+            return next;
+        });
+    }
+
     function TargetStatusCell({ targets }: { targets?: TargetHealth[] }) {
         const overallStatus = getOverallHealthStatus(targets);
 
         if (!targets || targets.length === 0) {
             return (
-                <div id="LOOK_FOR_ME" className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <StatusIcon status="unknown" />
                     <span className="text-sm">
                         {t("resourcesTableNoTargets")}
@@ -542,6 +594,14 @@ export default function ProxyResourcesTable({
                                 </Link>
                                 <DropdownMenuItem
                                     onClick={() => {
+                                        setMoveTarget(resourceRow);
+                                        setIsMoveDialogOpen(true);
+                                    }}
+                                >
+                                    Move to group...
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => {
                                         setSelectedResource(resourceRow);
                                         setIsDeleteModalOpen(true);
                                     }}
@@ -610,6 +670,119 @@ export default function ProxyResourcesTable({
         });
     }, 300);
 
+    // Build ordered flat row list for grouped display
+    const sortedGroups = [...groups].sort(
+        (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
+    );
+
+    // IDs of rows that belong to a collapsed group (should be hidden)
+    const collapsedResourceIds = new Set<number>();
+
+    // displayRows: includes sentinel (first) row for each collapsed group,
+    // plus all rows for expanded groups, in order
+    const displayRows: ResourceRow[] = [];
+    if (groups.length > 0) {
+        for (const group of sortedGroups) {
+            const groupResources = resources
+                .filter((r) => r.groupId === group.groupId)
+                .sort((a, b) => a.name.localeCompare(b.name));
+            if (collapsedGroups.has(group.groupId)) {
+                // Add only the first resource as a sentinel to trigger header rendering
+                if (groupResources.length > 0) {
+                    displayRows.push(groupResources[0]);
+                    // Mark the sentinel as collapsed (hidden)
+                    collapsedResourceIds.add(groupResources[0].id);
+                }
+            } else {
+                displayRows.push(...groupResources);
+            }
+        }
+        const ungroupedResources = resources
+            .filter((r) => r.groupId === null)
+            .sort((a, b) => a.name.localeCompare(b.name));
+        if (ungroupedResources.length > 0) {
+            if (collapsedGroups.has(-1)) {
+                displayRows.push(ungroupedResources[0]);
+                collapsedResourceIds.add(ungroupedResources[0].id);
+            } else {
+                displayRows.push(...ungroupedResources);
+            }
+        }
+    }
+
+    function getGroupHeaderBeforeRow(
+        row: ResourceRow,
+        index: number,
+        prevRow: ResourceRow | undefined,
+        colSpan: number
+    ) {
+        if (groups.length === 0) return null;
+
+        const currentGroupId = row.groupId ?? -1;
+        const prevGroupId =
+            prevRow !== undefined ? (prevRow.groupId ?? -1) : null;
+
+        // Only render a header at group boundaries
+        if (currentGroupId === prevGroupId) return null;
+
+        const group: Group | null =
+            row.groupId === null
+                ? resources.some((r) => r.groupId === null)
+                    ? { groupId: -1, name: "Ungrouped", sortOrder: 9999 }
+                    : null
+                : (groups.find((g) => g.groupId === row.groupId) ?? null);
+        if (!group) return null;
+
+        const count = resources.filter((r) =>
+            group.groupId === -1
+                ? r.groupId === null
+                : r.groupId === group.groupId
+        ).length;
+
+        const isCollapsed = collapsedGroups.has(group.groupId);
+
+        return (
+            <TableRow
+                key={`group-header-${group.groupId}`}
+                className="bg-muted/40 hover:bg-muted/40"
+            >
+                <TableCell colSpan={colSpan} className="py-2 px-4">
+                    <div className="flex items-center justify-between">
+                        <button
+                            type="button"
+                            className="flex items-center gap-2 text-sm font-medium"
+                            onClick={() => toggleGroupCollapsed(group.groupId)}
+                        >
+                            {isCollapsed ? (
+                                <ChevronRight className="h-4 w-4" />
+                            ) : (
+                                <ChevronDown className="h-4 w-4" />
+                            )}
+                            <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                            <span>{group.name}</span>
+                            <span className="text-muted-foreground font-normal">
+                                ({count})
+                            </span>
+                        </button>
+                        {group.groupId !== -1 && (
+                            <button
+                                type="button"
+                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                                onClick={() => {
+                                    setSelectedGroup(group);
+                                    setIsDeleteGroupModalOpen(true);
+                                }}
+                            >
+                                <Trash2 className="h-3 w-3" />
+                                Delete group
+                            </button>
+                        )}
+                    </div>
+                </TableCell>
+            </TableRow>
+        );
+    }
+
     return (
         <>
             {selectedResource && (
@@ -632,9 +805,55 @@ export default function ProxyResourcesTable({
                 />
             )}
 
+            {selectedGroup && (
+                <ConfirmDeleteDialog
+                    open={isDeleteGroupModalOpen}
+                    setOpen={(val) => {
+                        setIsDeleteGroupModalOpen(val);
+                        if (!val) setSelectedGroup(null);
+                    }}
+                    dialog={
+                        <div className="space-y-2">
+                            <p>
+                                Are you sure you want to delete the group &quot;
+                                {selectedGroup.name}&quot;?
+                            </p>
+                            <p>
+                                Resources in this group will become ungrouped.
+                                They will not be deleted.
+                            </p>
+                        </div>
+                    }
+                    buttonText="Delete Group"
+                    onConfirm={async () => deleteGroup(selectedGroup.groupId)}
+                    string={selectedGroup.name}
+                    title="Delete Group"
+                />
+            )}
+
+            {moveTarget && (
+                <MoveResourceToGroupDialog
+                    open={isMoveDialogOpen}
+                    setOpen={(val) => {
+                        setIsMoveDialogOpen(val);
+                        if (!val) setMoveTarget(null);
+                    }}
+                    resourceId={moveTarget.id}
+                    resourceName={moveTarget.name}
+                    currentGroupId={moveTarget.groupId}
+                    groups={groups}
+                />
+            )}
+
+            <CreateResourceGroupDialog
+                open={isCreateGroupDialogOpen}
+                setOpen={setIsCreateGroupDialogOpen}
+                orgId={orgId}
+            />
+
             <ControlledDataTable
                 columns={proxyColumns}
-                rows={resources}
+                rows={groups.length === 0 ? resources : displayRows}
                 tableId="proxy-resources"
                 searchPlaceholder={t("resourcesSearch")}
                 pagination={pagination}
@@ -654,6 +873,24 @@ export default function ProxyResourcesTable({
                 columnVisibility={{ niceId: false }}
                 stickyLeftColumn="name"
                 stickyRightColumn="actions"
+                extraToolbarActions={
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsCreateGroupDialogOpen(true)}
+                    >
+                        <FolderOpen className="mr-2 h-4 w-4" />
+                        Create Group
+                    </Button>
+                }
+                getGroupHeaderBeforeRow={
+                    groups.length > 0 ? getGroupHeaderBeforeRow : undefined
+                }
+                getRowClassName={
+                    groups.length > 0
+                        ? (row) =>
+                              collapsedResourceIds.has(row.id) ? "hidden" : ""
+                        : undefined
+                }
             />
         </>
     );

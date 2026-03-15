@@ -6,7 +6,10 @@ import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import OrgProvider from "@app/providers/OrgProvider";
 import type { GetOrgResponse } from "@server/routers/org";
-import type { ListResourcesResponse } from "@server/routers/resource";
+import type {
+    ListResourcesResponse,
+    ListResourceGroupsResponse
+} from "@server/routers/resource";
 import type { ListAllSiteResourcesByOrgResponse } from "@server/routers/siteResource";
 import type { AxiosResponse } from "axios";
 import { getTranslations } from "next-intl/server";
@@ -40,6 +43,14 @@ export default async function ProxyResourcesPage(
         const responseData = res.data.data;
         resources = responseData.resources;
         pagination = responseData.pagination;
+    } catch (e) {}
+
+    let groups: ListResourceGroupsResponse["groups"] = [];
+    try {
+        const res = await internal.get<
+            AxiosResponse<ListResourceGroupsResponse>
+        >(`/org/${params.orgId}/resource-groups`, await authCookieHeader());
+        groups = res.data.data.groups;
     } catch (e) {}
 
     let siteResources: ListAllSiteResourcesByOrgResponse["siteResources"] = [];
@@ -96,7 +107,8 @@ export default async function ProxyResourcesPage(
                 port: target.port,
                 enabled: target.enabled,
                 healthStatus: target.healthStatus
-            }))
+            })),
+            groupId: resource.groupId ?? null
         };
     });
     return (
@@ -117,6 +129,7 @@ export default async function ProxyResourcesPage(
                         pageIndex: pagination.page - 1,
                         pageSize: pagination.pageSize
                     }}
+                    groups={groups}
                 />
             </OrgProvider>
         </>

@@ -1,5 +1,6 @@
 import {
     db,
+    resourceGroups,
     resourceHeaderAuth,
     resourceHeaderAuthExtendedCompatibility,
     resourcePassword,
@@ -132,6 +133,7 @@ export type ResourceWithTargets = {
     domainId: string | null;
     niceId: string;
     headerAuthId: number | null;
+    groupId: number | null;
     targets: Array<{
         targetId: number;
         ip: string;
@@ -181,7 +183,8 @@ function queryResourcesBase() {
             niceId: resources.niceId,
             headerAuthId: resourceHeaderAuth.headerAuthId,
             headerAuthExtendedCompatibilityId:
-                resourceHeaderAuthExtendedCompatibility.headerAuthExtendedCompatibilityId
+                resourceHeaderAuthExtendedCompatibility.headerAuthExtendedCompatibilityId,
+            groupId: resources.groupId
         })
         .from(resources)
         .leftJoin(
@@ -213,7 +216,8 @@ function queryResourcesBase() {
             resourcePassword.passwordId,
             resourcePincode.pincodeId,
             resourceHeaderAuth.headerAuthId,
-            resourceHeaderAuthExtendedCompatibility.headerAuthExtendedCompatibilityId
+            resourceHeaderAuthExtendedCompatibility.headerAuthExtendedCompatibilityId,
+            resources.groupId
         );
 }
 
@@ -477,6 +481,7 @@ export async function listResources(
                     enabled: row.enabled,
                     domainId: row.domainId,
                     headerAuthId: row.headerAuthId,
+                    groupId: row.groupId,
                     targets: []
                 };
                 map.set(row.resourceId, entry);

@@ -31,3 +31,7 @@ export * from "./addUserToResource";
 export * from "./removeUserFromResource";
 export * from "./listAllResourceNames";
 export * from "./removeEmailFromResourceWhitelist";
+export * from "./listResourceGroups";
+export * from "./createResourceGroup";
+export * from "./updateResourceGroup";
+export * from "./deleteResourceGroup";

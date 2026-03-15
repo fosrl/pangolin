@@ -433,6 +433,34 @@ authenticated.get(
 );
 
 authenticated.get(
+    "/org/:orgId/resource-groups",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.listResources),
+    resource.listResourceGroups
+);
+
+authenticated.put(
+    "/org/:orgId/resource-group",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.createResource),
+    resource.createResourceGroup
+);
+
+authenticated.post(
+    "/org/:orgId/resource-group/:groupId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.updateResource),
+    resource.updateResourceGroup
+);
+
+authenticated.delete(
+    "/org/:orgId/resource-group/:groupId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.deleteResource),
+    resource.deleteResourceGroup
+);
+
+authenticated.get(
     "/org/:orgId/user-resources",
     verifyOrgAccess,
     resource.getUserResources

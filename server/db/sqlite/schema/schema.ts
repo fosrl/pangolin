@@ -101,6 +101,15 @@ export const sites = sqliteTable("sites", {
         .default(true)
 });
 
+export const resourceGroups = sqliteTable("resourceGroups", {
+    groupId: integer("groupId").primaryKey({ autoIncrement: true }),
+    orgId: text("orgId")
+        .references(() => orgs.orgId, { onDelete: "cascade" })
+        .notNull(),
+    name: text("name").notNull(),
+    sortOrder: integer("sortOrder").notNull().default(0)
+});
+
 export const resources = sqliteTable("resources", {
     resourceId: integer("resourceId").primaryKey({ autoIncrement: true }),
     resourceGuid: text("resourceGuid", { length: 36 })
@@ -160,7 +169,10 @@ export const resources = sqliteTable("resources", {
     maintenanceTitle: text("maintenanceTitle"),
     maintenanceMessage: text("maintenanceMessage"),
     maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
-    postAuthPath: text("postAuthPath")
+    postAuthPath: text("postAuthPath"),
+    groupId: integer("groupId").references(() => resourceGroups.groupId, {
+        onDelete: "set null"
+    })
 });
 
 export const targets = sqliteTable("targets", {

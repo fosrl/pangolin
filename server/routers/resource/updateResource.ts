@@ -64,7 +64,8 @@ const updateHttpResourceBodySchema = z
         maintenanceTitle: z.string().max(255).nullable().optional(),
         maintenanceMessage: z.string().max(2000).nullable().optional(),
         maintenanceEstimatedTime: z.string().max(100).nullable().optional(),
-        postAuthPath: z.string().nullable().optional()
+        postAuthPath: z.string().nullable().optional(),
+        groupId: z.number().int().positive().nullable().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
@@ -156,7 +157,8 @@ const updateRawResourceBodySchema = z
         stickySession: z.boolean().optional(),
         enabled: z.boolean().optional(),
         proxyProtocol: z.boolean().optional(),
-        proxyProtocolVersion: z.int().min(1).optional()
+        proxyProtocolVersion: z.int().min(1).optional(),
+        groupId: z.number().int().positive().nullable().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"

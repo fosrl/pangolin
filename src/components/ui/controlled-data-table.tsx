@@ -33,7 +33,7 @@ import { useStoredColumnVisibility } from "@app/hooks/useStoredColumnVisibility"
 
 import { Columns, Filter, Plus, RefreshCw, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { Fragment, ReactNode, useMemo, useState } from "react";
 
 // Extended ColumnDef type that includes optional friendlyName for column visibility dropdown
 export type ExtendedColumnDef<TData, TValue = unknown> = ColumnDef<
@@ -82,6 +82,14 @@ type ControlledDataTableProps<TData, TValue> = {
     stickyRightColumn?: string; // Column ID or accessorKey for right sticky column (typically "actions")
     rowCount: number;
     pagination: PaginationState;
+    extraToolbarActions?: ReactNode;
+    getGroupHeaderBeforeRow?: (
+        row: TData,
+        index: number,
+        prevRow: TData | undefined,
+        colSpan: number
+    ) => ReactNode | null;
+    getRowClassName?: (row: TData) => string;
 };
 
 export function ControlledDataTable<TData, TValue>({
@@ -104,7 +112,10 @@ export function ControlledDataTable<TData, TValue>({
     onPaginationChange,
     stickyRightColumn,
     rowCount,
-    isNavigatingToAddPage
+    isNavigatingToAddPage,
+    extraToolbarActions,
+    getGroupHeaderBeforeRow,
+    getRowClassName
 }: ControlledDataTableProps<TData, TValue>) {
     const t = useTranslations();
 
@@ -346,6 +357,9 @@ export function ControlledDataTable<TData, TValue>({
                                 </Button>
                             </div>
                         )}
+                        {extraToolbarActions && (
+                            <div>{extraToolbarActions}</div>
+                        )}
                         {onAdd && addButtonText && (
                             <div>
                                 <Button
@@ -503,52 +517,74 @@ export function ControlledDataTable<TData, TValue>({
                             </TableHeader>
                             <TableBody>
                                 {table.getRowModel().rows?.length ? (
-                                    table.getRowModel().rows.map((row) => (
-                                        <TableRow
-                                            key={row.id}
-                                            data-state={
-                                                row.getIsSelected() &&
-                                                "selected"
-                                            }
-                                        >
-                                            {row
-                                                .getVisibleCells()
-                                                .map((cell) => {
-                                                    const columnId =
-                                                        cell.column.id;
-                                                    const accessorKey = (
-                                                        cell.column
-                                                            .columnDef as any
-                                                    ).accessorKey as
-                                                        | string
-                                                        | undefined;
-                                                    const stickyClasses =
-                                                        getStickyClasses(
-                                                            columnId,
-                                                            accessorKey
-                                                        );
-                                                    const isRightSticky =
-                                                        isStickyColumn(
-                                                            columnId,
-                                                            accessorKey,
-                                                            "right"
-                                                        );
-                                                    return (
-                                                        <TableCell
-                                                            key={cell.id}
-                                                            className={`whitespace-nowrap ${stickyClasses} ${isRightSticky ? "text-right" : ""}`}
-                                                        >
-                                                            {flexRender(
-                                                                cell.column
-                                                                    .columnDef
-                                                                    .cell,
-                                                                cell.getContext()
-                                                            )}
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                        </TableRow>
-                                    ))
+                                    table.getRowModel().rows.map((row, i) => {
+                                        const prevRow =
+                                            i > 0
+                                                ? table.getRowModel().rows[
+                                                      i - 1
+                                                  ]?.original
+                                                : undefined;
+                                        const groupHeader =
+                                            getGroupHeaderBeforeRow?.(
+                                                row.original,
+                                                i,
+                                                prevRow,
+                                                columns.length
+                                            );
+                                        return (
+                                            <Fragment key={row.id}>
+                                                {groupHeader}
+                                                <TableRow
+                                                    data-state={
+                                                        row.getIsSelected() &&
+                                                        "selected"
+                                                    }
+                                                    className={getRowClassName?.(row.original)}
+                                                >
+                                                    {row
+                                                        .getVisibleCells()
+                                                        .map((cell) => {
+                                                            const columnId =
+                                                                cell.column.id;
+                                                            const accessorKey =
+                                                                (
+                                                                    cell.column
+                                                                        .columnDef as any
+                                                                ).accessorKey as
+                                                                    | string
+                                                                    | undefined;
+                                                            const stickyClasses =
+                                                                getStickyClasses(
+                                                                    columnId,
+                                                                    accessorKey
+                                                                );
+                                                            const isRightSticky =
+                                                                isStickyColumn(
+                                                                    columnId,
+                                                                    accessorKey,
+                                                                    "right"
+                                                                );
+                                                            return (
+                                                                <TableCell
+                                                                    key={
+                                                                        cell.id
+                                                                    }
+                                                                    className={`whitespace-nowrap ${stickyClasses} ${isRightSticky ? "text-right" : ""}`}
+                                                                >
+                                                                    {flexRender(
+                                                                        cell
+                                                                            .column
+                                                                            .columnDef
+                                                                            .cell,
+                                                                        cell.getContext()
+                                                                    )}
+                                                                </TableCell>
+                                                            );
+                                                        })}
+                                                </TableRow>
+                                            </Fragment>
+                                        );
+                                    })
                                 ) : (
                                     <TableRow>
                                         <TableCell
