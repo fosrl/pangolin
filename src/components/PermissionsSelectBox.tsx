@@ -126,7 +126,7 @@ function getActionsCategories(root: boolean) {
             [t("actionViewLogs")]: "viewLogs"
         },
 
-        "OAuth Client": {
+        [t("permissionsCategoryOAuthClient")]: {
             [t("actionCreateOAuthClient")]: "createOAuthClient",
             [t("actionListOAuthClients")]: "listOAuthClients",
             [t("actionUpdateOAuthClient")]: "updateOAuthClient",

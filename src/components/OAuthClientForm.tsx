@@ -450,7 +450,9 @@ export default function OAuthClientForm({
                                     htmlFor="logout-terminates-pangolin-session"
                                     className="font-normal"
                                 >
-                                    RP logout terminates Pangolin session
+                                    {t(
+                                        "oauthClientLogoutTerminatesPangolinSessionLabel"
+                                    )}
                                 </Label>
                                 <Switch
                                     id="logout-terminates-pangolin-session"
@@ -461,9 +463,9 @@ export default function OAuthClientForm({
                                 />
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                If enabled, this OAuth client can trigger a full
-                                Pangolin sign-out when it uses the OIDC
-                                end-session endpoint.
+                                {t(
+                                    "oauthClientLogoutTerminatesPangolinSessionDescription"
+                                )}
                             </p>
                         </div>
                     </div>
