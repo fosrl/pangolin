@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Въведете конфигурационния токен от сървърната конзола.",
     "setupTokenRequired": "Необходим е конфигурационен токен",
     "actionUpdateSite": "Актуализиране на сайт",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "Изброяване на позволените роли за сайта",
     "actionCreateResource": "Създаване на ресурс",
     "actionDeleteResource": "Изтриване на ресурс",
