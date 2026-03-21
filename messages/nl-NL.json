@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Voer het setup-token in vanaf de serverconsole.",
     "setupTokenRequired": "Setup-token is vereist",
     "actionUpdateSite": "Site bijwerken",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "Toon toegestane sitenollen",
     "actionCreateResource": "Bron maken",
     "actionDeleteResource": "Document verwijderen",
