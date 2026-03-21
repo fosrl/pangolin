@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Geben Sie das Setup-Token von der Serverkonsole ein.",
     "setupTokenRequired": "Setup-Token ist erforderlich",
     "actionUpdateSite": "Standorte aktualisieren",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "Erlaubte Standort-Rollen auflisten",
     "actionCreateResource": "Ressource erstellen",
     "actionDeleteResource": "Ressource löschen",
