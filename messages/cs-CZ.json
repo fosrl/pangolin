@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Zadejte nastavovací token z konzole serveru.",
     "setupTokenRequired": "Je vyžadován token nastavení",
     "actionUpdateSite": "Aktualizovat stránku",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "Seznam povolených rolí webu",
     "actionCreateResource": "Vytvořit zdroj",
     "actionDeleteResource": "Odstranit dokument",
