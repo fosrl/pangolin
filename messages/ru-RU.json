@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Введите токен настройки из консоли сервера.",
     "setupTokenRequired": "Токен настройки обязателен",
     "actionUpdateSite": "Обновить сайт",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "Список разрешенных ролей сайта",
     "actionCreateResource": "Создать ресурс",
     "actionDeleteResource": "Удалить ресурс",
