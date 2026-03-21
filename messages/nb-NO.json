@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Skriv inn oppsetttoken fra serverkonsollen.",
     "setupTokenRequired": "Oppsetttoken er nødvendig",
     "actionUpdateSite": "Oppdater område",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "List opp tillatte områderoller",
     "actionCreateResource": "Opprett ressurs",
     "actionDeleteResource": "Slett ressurs",
