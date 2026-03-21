@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "서버 콘솔에서 설정 토큰 입력.",
     "setupTokenRequired": "설정 토큰이 필요합니다",
     "actionUpdateSite": "사이트 업데이트",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "허용된 사이트 역할 목록",
     "actionCreateResource": "리소스 생성",
     "actionDeleteResource": "리소스 삭제",
