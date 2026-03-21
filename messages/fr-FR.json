@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Entrez le jeton de configuration depuis la console du serveur.",
     "setupTokenRequired": "Le jeton de configuration est requis.",
     "actionUpdateSite": "Mettre à jour un site",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "Lister les rôles autorisés du site",
     "actionCreateResource": "Créer une ressource",
     "actionDeleteResource": "Supprimer une ressource",
