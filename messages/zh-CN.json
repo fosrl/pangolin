@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "从服务器控制台输入设置令牌。",
     "setupTokenRequired": "需要设置令牌",
     "actionUpdateSite": "更新站点",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "允许站点角色列表",
     "actionCreateResource": "创建资源",
     "actionDeleteResource": "删除资源",
