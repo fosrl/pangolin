@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Sunucu konsolundan kurulum simgesini girin.",
     "setupTokenRequired": "Kurulum simgesi gerekli",
     "actionUpdateSite": "Siteyi Güncelle",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "İzin Verilen Site Rolleri Listele",
     "actionCreateResource": "Kaynak Oluştur",
     "actionDeleteResource": "Kaynağı Sil",
