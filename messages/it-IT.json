@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Inserisci il token di configurazione dalla console del server.",
     "setupTokenRequired": "Il token di configurazione è richiesto",
     "actionUpdateSite": "Aggiorna Sito",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "Elenca Ruoli Sito Consentiti",
     "actionCreateResource": "Crea Risorsa",
     "actionDeleteResource": "Elimina Risorsa",
