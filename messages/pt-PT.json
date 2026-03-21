@@ -1119,6 +1119,7 @@
     "setupTokenDescription": "Digite o token de configuração do console do servidor.",
     "setupTokenRequired": "Token de configuração é necessário",
     "actionUpdateSite": "Atualizar Site",
+    "actionResetSiteBandwidth": "Reset Organization Bandwidth",
     "actionListSiteRoles": "Listar Funções Permitidas do Site",
     "actionCreateResource": "Criar Recurso",
     "actionDeleteResource": "Eliminar Recurso",
