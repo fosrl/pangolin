@@ -728,6 +728,14 @@ function ProxyResourceTargetsForm({
                 )
             );
 
+            if (targets.length === 0 && targetsToRemove.length === 0) {
+                toast({
+                    title: t("targetNoTargets"),
+                    description: t("targetNoTargetsDescription")
+                });
+                return;
+            }
+
             // Save targets
             for (const target of targets) {
                 const data: any = {

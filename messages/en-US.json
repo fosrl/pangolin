@@ -568,6 +568,8 @@
     "targetErrorInvalidPortDescription": "Please enter a valid port number",
     "targetErrorNoSite": "No site selected",
     "targetErrorNoSiteDescription": "Please select a site for the target",
+    "targetNoTargets": "No targets to save",
+    "targetNoTargetsDescription": "Please add at least one target before saving",
     "targetCreated": "Target created",
     "targetCreatedDescription": "Target has been created successfully",
     "targetErrorCreate": "Failed to create target",
