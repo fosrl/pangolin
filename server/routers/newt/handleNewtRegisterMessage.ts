@@ -43,7 +43,7 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
 
     const siteId = newt.siteId;
 
-    const { publicKey, pingResults, newtVersion, backwardsCompatible } =
+    const { publicKey, pingResults, newtVersion, backwardsCompatible, chainId } =
         message.data;
     if (!publicKey) {
         logger.warn("Public key not provided");
@@ -211,7 +211,8 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
                     udp: udpTargets,
                     tcp: tcpTargets
                 },
-                healthCheckTargets: validHealthCheckTargets
+                healthCheckTargets: validHealthCheckTargets,
+                chainId: chainId
             }
         },
         options: {

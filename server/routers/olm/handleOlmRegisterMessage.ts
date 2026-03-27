@@ -41,7 +41,8 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         orgId,
         userToken,
         fingerprint,
-        postures
+        postures,
+        chainId
     } = message.data;
 
     if (!olm.clientId) {
@@ -293,7 +294,8 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
             data: {
                 sites: siteConfigurations,
                 tunnelIP: client.subnet,
-                utilitySubnet: org.utilitySubnet
+                utilitySubnet: org.utilitySubnet,
+                chainId: chainId
             }
         },
         options: {

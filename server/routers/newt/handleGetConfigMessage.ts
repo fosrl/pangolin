@@ -10,7 +10,8 @@ import { canCompress } from "@server/lib/clientVersionChecks";
 
 const inputSchema = z.object({
     publicKey: z.string(),
-    port: z.int().positive()
+    port: z.int().positive(),
+    chainId: z.string()
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -42,7 +43,7 @@ export const handleGetConfigMessage: MessageHandler = async (context) => {
         return;
     }
 
-    const { publicKey, port } = message.data as Input;
+    const { publicKey, port, chainId } = message.data as Input;
     const siteId = newt.siteId;
 
     // Get the current site data
@@ -133,7 +134,8 @@ export const handleGetConfigMessage: MessageHandler = async (context) => {
             data: {
                 ipAddress: site.address,
                 peers,
-                targets
+                targets,
+                chainId: chainId
             }
         },
         options: {
