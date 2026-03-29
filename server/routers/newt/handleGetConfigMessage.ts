@@ -8,14 +8,6 @@ import { sendToExitNode } from "#dynamic/lib/exitNodes";
 import { buildClientConfigurationForNewtClient } from "./buildConfiguration";
 import { canCompress } from "@server/lib/clientVersionChecks";
 
-const inputSchema = z.object({
-    publicKey: z.string(),
-    port: z.int().positive(),
-    chainId: z.string()
-});
-
-type Input = z.infer<typeof inputSchema>;
-
 export const handleGetConfigMessage: MessageHandler = async (context) => {
     const { message, client, sendToClient } = context;
     const newt = client as Newt;
@@ -34,16 +26,7 @@ export const handleGetConfigMessage: MessageHandler = async (context) => {
         return;
     }
 
-    const parsed = inputSchema.safeParse(message.data);
-    if (!parsed.success) {
-        logger.error(
-            "handleGetConfigMessage: Invalid input: " +
-                fromError(parsed.error).toString()
-        );
-        return;
-    }
-
-    const { publicKey, port, chainId } = message.data as Input;
+    const { publicKey, port, chainId } = message.data;
     const siteId = newt.siteId;
 
     // Get the current site data
