@@ -33,7 +33,7 @@ export const handleNewtPingRequestMessage: MessageHandler = async (context) => {
         return;
     }
 
-    const { noCloud } = message.data;
+    const { noCloud, chainId } = message.data;
 
     const exitNodesList = await listExitNodes(
         site.orgId,
@@ -98,7 +98,8 @@ export const handleNewtPingRequestMessage: MessageHandler = async (context) => {
         message: {
             type: "newt/ping/exitNodes",
             data: {
-                exitNodes: filteredExitNodes
+                exitNodes: filteredExitNodes,
+                chainId: chainId
             }
         },
         broadcast: false, // Send to all clients
