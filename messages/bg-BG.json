@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "Колко дълго да се задържат логовете за достъп",
     "logRetentionActionLabel": "Задържане на логове за действия",
     "logRetentionActionDescription": "Колко дълго да се задържат логовете за действия",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "Деактивирано",
     "logRetention3Days": "3 дни",
     "logRetention7Days": "7 дни",
