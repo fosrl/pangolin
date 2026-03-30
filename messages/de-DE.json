@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "Wie lange Zugriffsprotokolle beibehalten werden sollen",
     "logRetentionActionLabel": "Aktionsprotokoll-Speicherung",
     "logRetentionActionDescription": "Dauer des Action-Logs",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "Deaktiviert",
     "logRetention3Days": "3 Tage",
     "logRetention7Days": "7 Tage",
