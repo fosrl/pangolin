@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "Jak dlouho uchovávat přístupové záznamy",
     "logRetentionActionLabel": "Uchovávání protokolu akcí",
     "logRetentionActionDescription": "Jak dlouho uchovávat záznamy akcí",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "Zakázáno",
     "logRetention3Days": "3 dny",
     "logRetention7Days": "7 dní",
