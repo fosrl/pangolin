@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "Hoe lang de toegangslogboeken behouden blijven",
     "logRetentionActionLabel": "Actie log bewaring",
     "logRetentionActionDescription": "Hoe lang de action logs behouden moeten blijven",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "Uitgeschakeld",
     "logRetention3Days": "3 dagen",
     "logRetention7Days": "7 dagen",
