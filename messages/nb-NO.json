@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "Hvor lenge du vil beholde adgangslogger",
     "logRetentionActionLabel": "Handlings logg nytt",
     "logRetentionActionDescription": "Hvor lenge handlingen skal lagres",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "Deaktivert",
     "logRetention3Days": "3 dager",
     "logRetention7Days": "7 dager",
