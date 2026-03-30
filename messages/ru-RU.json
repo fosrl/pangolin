@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "Как долго сохранять журналы доступа",
     "logRetentionActionLabel": "Сохранение журнала действий",
     "logRetentionActionDescription": "Как долго хранить журналы действий",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "Отключено",
     "logRetention3Days": "3 дня",
     "logRetention7Days": "7 дней",
