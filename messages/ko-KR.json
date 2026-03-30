@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "접근 로그를 얼마나 오래 보관할지",
     "logRetentionActionLabel": "작업 로그 보관",
     "logRetentionActionDescription": "작업 로그를 얼마나 오래 보관할지",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "비활성화됨",
     "logRetention3Days": "3 일",
     "logRetention7Days": "7 일",
