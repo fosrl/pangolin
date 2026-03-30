@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "Jak długo zachować dzienniki dostępu",
     "logRetentionActionLabel": "Zachowanie dziennika akcji",
     "logRetentionActionDescription": "Jak długo zachować dzienniki akcji",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "Wyłączone",
     "logRetention3Days": "3 dni",
     "logRetention7Days": "7 dni",
