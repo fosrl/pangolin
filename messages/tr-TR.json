@@ -2398,6 +2398,8 @@
     "logRetentionAccessDescription": "Erişim günlüklerini ne kadar süre tutacağını belirle",
     "logRetentionActionLabel": "Eylem Günlüğü Saklama",
     "logRetentionActionDescription": "Eylem günlüklerini ne kadar süre tutacağını belirle",
+    "logRetentionConnectionLabel": "Connection Log Retention",
+    "logRetentionConnectionDescription": "How long to retain connection logs",
     "logRetentionDisabled": "Devre Dışı",
     "logRetention3Days": "3 gün",
     "logRetention7Days": "7 gün",
