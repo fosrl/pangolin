@@ -33,8 +33,15 @@ export const handleDockerStatusMessage: MessageHandler = async (context) => {
     return;
 };
 
+interface ChunkAccumulator {
+    batchId: string;
+    totalChunks: number;
+    receivedChunks: number;
+    containers: any[];
+}
+
 /**
- * Get the cache key for storing in-progress chunked container data.
+ * Cache key for in-progress chunked container data, scoped by newt and batch.
  */
 function getChunkCacheKey(newtId: string): string {
     return `${newtId}:dockerContainersChunks`;
@@ -80,7 +87,7 @@ export const handleDockerContainersMessage: MessageHandler = async (
     }
 
     logger.info(`Newt ID: ${newt.newtId}, Site ID: ${newt.siteId}`);
-    const { containers, chunkIndex, totalChunks } = message.data;
+    const { containers, chunkIndex, totalChunks, batchId } = message.data;
 
     // Non-chunked message (backward compatible with older newt versions)
     if (totalChunks === undefined || totalChunks <= 1) {
@@ -92,41 +99,71 @@ export const handleDockerContainersMessage: MessageHandler = async (
         return;
     }
 
-    // Chunked message — accumulate chunks in cache then process when complete
+    // Validate chunk metadata
+    if (
+        typeof chunkIndex !== "number" ||
+        typeof totalChunks !== "number" ||
+        chunkIndex < 0 ||
+        chunkIndex >= totalChunks ||
+        totalChunks > 100
+    ) {
+        logger.warn(
+            `Invalid chunk metadata from Newt ${newt.newtId}: chunkIndex=${chunkIndex}, totalChunks=${totalChunks}`
+        );
+        return;
+    }
+
+    if (!batchId || typeof batchId !== "string") {
+        logger.warn(
+            `Missing batchId in chunked message from Newt ${newt.newtId}`
+        );
+        return;
+    }
+
     logger.info(
-        `Received chunk ${chunkIndex + 1}/${totalChunks} for Newt ${newt.newtId} (${containers?.length || 0} containers in this chunk)`
+        `Received chunk ${chunkIndex + 1}/${totalChunks} for Newt ${newt.newtId} batch=${batchId} (${containers?.length || 0} containers)`
     );
 
     const chunkKey = getChunkCacheKey(newt.newtId);
-    const existing =
-        (await cache.get<{ receivedChunks: number; containers: any[] }>(
-            chunkKey
-        )) || { receivedChunks: 0, containers: [] };
+    const existing = await cache.get<ChunkAccumulator>(chunkKey);
 
-    if (chunkIndex === 0) {
-        // First chunk — reset accumulator
-        existing.receivedChunks = 0;
-        existing.containers = [];
+    let accumulator: ChunkAccumulator;
+
+    if (!existing || existing.batchId !== batchId) {
+        // New batch or different batch — start fresh
+        // This handles concurrent sends: the newer batch supersedes the old one
+        if (existing && existing.batchId !== batchId) {
+            logger.info(
+                `New batch ${batchId} supersedes in-progress batch ${existing.batchId} for Newt ${newt.newtId}`
+            );
+        }
+        accumulator = {
+            batchId,
+            totalChunks,
+            receivedChunks: 0,
+            containers: []
+        };
+    } else {
+        accumulator = existing;
     }
 
-    if (containers && containers.length > 0) {
-        existing.containers.push(...containers);
+    if (containers && Array.isArray(containers)) {
+        accumulator.containers.push(...containers);
     }
-    existing.receivedChunks++;
+    accumulator.receivedChunks++;
 
-    if (existing.receivedChunks >= totalChunks) {
-        // All chunks received — process the complete list
+    if (accumulator.receivedChunks >= accumulator.totalChunks) {
         logger.info(
-            `All ${totalChunks} chunks received for Newt ${newt.newtId}, total containers: ${existing.containers.length}`
+            `All ${totalChunks} chunks received for Newt ${newt.newtId} batch=${batchId}, total containers: ${accumulator.containers.length}`
         );
         await cache.del(chunkKey);
         await processContainerList(
             newt.newtId,
             newt.siteId,
-            existing.containers
+            accumulator.containers
         );
     } else {
-        // Store partial data with a TTL so stale chunks don't accumulate forever
-        await cache.set(chunkKey, existing, 120);
+        // Store partial data with a TTL to prevent stale chunks from accumulating
+        await cache.set(chunkKey, accumulator, 120);
     }
 };
