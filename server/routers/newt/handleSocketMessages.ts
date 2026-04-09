@@ -33,6 +33,39 @@ export const handleDockerStatusMessage: MessageHandler = async (context) => {
     return;
 };
 
+/**
+ * Get the cache key for storing in-progress chunked container data.
+ */
+function getChunkCacheKey(newtId: string): string {
+    return `${newtId}:dockerContainersChunks`;
+}
+
+/**
+ * Process a complete container list (either received all at once or after reassembly).
+ */
+async function processContainerList(
+    newtId: string,
+    siteId: number | null,
+    containers: any[]
+) {
+    logger.info(
+        `Docker containers for Newt ${newtId}: ${containers.length}`
+    );
+
+    if (containers.length > 0) {
+        await cache.set(`${newtId}:dockerContainers`, containers, 0);
+    } else {
+        logger.warn(`Newt ${newtId} does not have Docker containers`);
+    }
+
+    if (!siteId) {
+        logger.warn("Newt has no site!");
+        return;
+    }
+
+    await applyNewtDockerBlueprint(siteId, newtId, containers);
+}
+
 export const handleDockerContainersMessage: MessageHandler = async (
     context
 ) => {
@@ -47,22 +80,53 @@ export const handleDockerContainersMessage: MessageHandler = async (
     }
 
     logger.info(`Newt ID: ${newt.newtId}, Site ID: ${newt.siteId}`);
-    const { containers } = message.data;
+    const { containers, chunkIndex, totalChunks } = message.data;
 
-    logger.info(
-        `Docker containers for Newt ${newt.newtId}: ${containers ? containers.length : 0}`
-    );
-
-    if (containers && containers.length > 0) {
-        await cache.set(`${newt.newtId}:dockerContainers`, containers, 0);
-    } else {
-        logger.warn(`Newt ${newt.newtId} does not have Docker containers`);
-    }
-
-    if (!newt.siteId) {
-        logger.warn("Newt has no site!");
+    // Non-chunked message (backward compatible with older newt versions)
+    if (totalChunks === undefined || totalChunks <= 1) {
+        await processContainerList(
+            newt.newtId,
+            newt.siteId,
+            containers || []
+        );
         return;
     }
 
-    await applyNewtDockerBlueprint(newt.siteId, newt.newtId, containers);
+    // Chunked message — accumulate chunks in cache then process when complete
+    logger.info(
+        `Received chunk ${chunkIndex + 1}/${totalChunks} for Newt ${newt.newtId} (${containers?.length || 0} containers in this chunk)`
+    );
+
+    const chunkKey = getChunkCacheKey(newt.newtId);
+    const existing =
+        (await cache.get<{ receivedChunks: number; containers: any[] }>(
+            chunkKey
+        )) || { receivedChunks: 0, containers: [] };
+
+    if (chunkIndex === 0) {
+        // First chunk — reset accumulator
+        existing.receivedChunks = 0;
+        existing.containers = [];
+    }
+
+    if (containers && containers.length > 0) {
+        existing.containers.push(...containers);
+    }
+    existing.receivedChunks++;
+
+    if (existing.receivedChunks >= totalChunks) {
+        // All chunks received — process the complete list
+        logger.info(
+            `All ${totalChunks} chunks received for Newt ${newt.newtId}, total containers: ${existing.containers.length}`
+        );
+        await cache.del(chunkKey);
+        await processContainerList(
+            newt.newtId,
+            newt.siteId,
+            existing.containers
+        );
+    } else {
+        // Store partial data with a TTL so stale chunks don't accumulate forever
+        await cache.set(chunkKey, existing, 120);
+    }
 };
