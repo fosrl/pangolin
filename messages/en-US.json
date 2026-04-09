@@ -2116,6 +2116,7 @@
     "domainPickerFreeProvidedDomain": "Free Provided Domain",
     "domainPickerVerified": "Verified",
     "domainPickerUnverified": "Unverified",
+    "domainPickerManual": "Manual",
     "domainPickerInvalidSubdomainStructure": "This subdomain contains invalid characters or structure. It will be sanitized automatically when you save.",
     "domainPickerError": "Error",
     "domainPickerErrorLoadDomains": "Failed to load organization domains",

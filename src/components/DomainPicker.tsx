@@ -509,9 +509,11 @@ export default function DomainPicker({
                                         <span className="truncate">
                                             {selectedBaseDomain.domain}
                                         </span>
-                                        {selectedBaseDomain.verified && (
-                                            <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                                        )}
+                                        {selectedBaseDomain.verified &&
+                                            selectedBaseDomain.domainType !==
+                                                "wildcard" && (
+                                                <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                                            )}
                                     </div>
                                 ) : (
                                     t("domainPickerSelectBaseDomain")
@@ -574,14 +576,23 @@ export default function DomainPicker({
                                                                     }
                                                                 </span>
                                                                 <span className="text-xs text-muted-foreground">
-                                                                    {orgDomain.type.toUpperCase()}{" "}
-                                                                    •{" "}
-                                                                    {orgDomain.verified
+                                                                    {orgDomain.type ===
+                                                                    "wildcard"
                                                                         ? t(
-                                                                              "domainPickerVerified"
+                                                                              "domainPickerManual"
                                                                           )
-                                                                        : t(
-                                                                              "domainPickerUnverified"
+                                                                        : (
+                                                                              <>
+                                                                                  {orgDomain.type.toUpperCase()}{" "}
+                                                                                  •{" "}
+                                                                                  {orgDomain.verified
+                                                                                      ? t(
+                                                                                            "domainPickerVerified"
+                                                                                        )
+                                                                                      : t(
+                                                                                            "domainPickerUnverified"
+                                                                                        )}
+                                                                              </>
                                                                           )}
                                                                 </span>
                                                             </div>
