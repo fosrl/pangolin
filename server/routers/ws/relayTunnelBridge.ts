@@ -121,7 +121,9 @@ async function resolveGerbilConnectionTarget(olmId: string): Promise<{
 
     return {
         host,
-        port: config.getRawConfig().gerbil.tcp_relay_port,
+        port:
+            config.getRawConfig().gerbil.wss_relay_port ||
+            config.getRawConfig().gerbil.wss_relay_port,
         clientPublicKey: client.pubKey || "",
         reachableAt: exitNode.reachableAt,
         exitNodePublicKey: exitNode.publicKey || ""
