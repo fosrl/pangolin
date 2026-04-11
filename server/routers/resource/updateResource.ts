@@ -271,6 +271,7 @@ export async function updateResource(
 }
 
 async function syncNewtsForResource(resourceId: number) {
+// Finds all unique newts linked to a resource and sends them sync messages in parallel
     const siteNewtPairs = await db
         .select({
             site: sites,
