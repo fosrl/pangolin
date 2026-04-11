@@ -3,11 +3,14 @@ import { z } from "zod";
 import { db, loginPage } from "@server/db";
 import {
     domains,
+    newts,
     Org,
     orgDomains,
     orgs,
     Resource,
-    resources
+    resources,
+    sites,
+    targets
 } from "@server/db";
 import { eq, and, ne } from "drizzle-orm";
 import response from "@server/lib/response";
@@ -25,6 +28,7 @@ import { validateAndConstructDomain } from "@server/lib/domainUtils";
 import { build } from "@server/build";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { sendNewtSyncMessage } from "../newt/sync";
 
 const updateResourceParamsSchema = z.strictObject({
     resourceId: z.string().transform(Number).pipe(z.int().positive())
@@ -266,6 +270,36 @@ export async function updateResource(
     }
 }
 
+async function syncNewtsForResource(resourceId: number) {
+    const siteNewtPairs = await db
+        .select({
+            site: sites,
+            newt: newts
+        })
+        .from(targets)
+        .innerJoin(sites, eq(targets.siteId, sites.siteId))
+        .innerJoin(newts, eq(newts.siteId, sites.siteId))
+        .where(and(eq(targets.resourceId, resourceId), eq(sites.type, "newt")));
+
+    const uniqueNewts = new Map<string, (typeof siteNewtPairs)[number]>();
+    for (const pair of siteNewtPairs) {
+        uniqueNewts.set(pair.newt.newtId, pair);
+    }
+
+    await Promise.all(
+        Array.from(uniqueNewts.values()).map(async ({ newt, site }) => {
+            try {
+                await sendNewtSyncMessage(newt, site);
+            } catch (error) {
+                logger.warn(
+                    `Failed to sync newt ${newt.newtId} after resource update`,
+                    error
+                );
+            }
+        })
+    );
+}
+
 async function updateHttpResource(
     route: {
         req: Request;
@@ -434,6 +468,13 @@ async function updateHttpResource(
         );
     }
 
+    if (
+        typeof updateData.enabled === "boolean" &&
+        updateData.enabled !== resource.enabled
+    ) {
+        await syncNewtsForResource(resource.resourceId);
+    }
+
     return response(res, {
         data: updatedResource[0],
         success: true,
@@ -506,6 +547,13 @@ async function updateRawResource(
                 `Resource with ID ${resource.resourceId} not found`
             )
         );
+    }
+
+    if (
+        typeof updateData.enabled === "boolean" &&
+        updateData.enabled !== resource.enabled
+    ) {
+        await syncNewtsForResource(resource.resourceId);
     }
 
     return response(res, {

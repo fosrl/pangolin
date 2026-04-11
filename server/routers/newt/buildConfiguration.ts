@@ -216,7 +216,13 @@ export async function buildTargetConfigurationForNewtClient(siteId: number) {
             targetHealthCheck,
             eq(targets.targetId, targetHealthCheck.targetId)
         )
-        .where(and(eq(targets.siteId, siteId), eq(targets.enabled, true)));
+        .where(
+            and(
+                eq(targets.siteId, siteId),
+                eq(targets.enabled, true),
+                eq(resources.enabled, true)
+            )
+        );
 
     const { tcpTargets, udpTargets } = allTargets.reduce(
         (acc, target) => {
