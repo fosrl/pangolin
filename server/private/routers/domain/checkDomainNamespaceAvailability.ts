@@ -22,11 +22,15 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { db, domainNamespaces, resources } from "@server/db";
 import { inArray } from "drizzle-orm";
 import { CheckDomainAvailabilityResponse } from "@server/routers/domain/types";
+import { build } from "@server/build";
+import { isSubscribed } from "#private/lib/isSubscribed";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 const paramsSchema = z.strictObject({});
 
 const querySchema = z.strictObject({
-    subdomain: z.string()
+    subdomain: z.string(),
+    // orgId: build === "saas" ? z.string() : z.string().optional() // Required for saas, optional otherwise
 });
 
 registry.registerPath({
@@ -57,6 +61,23 @@ export async function checkDomainNamespaceAvailability(
             );
         }
         const { subdomain } = parsedQuery.data;
+
+        // if (
+        //     build == "saas" &&
+        //     !isSubscribed(orgId!, tierMatrix.domainNamespaces)
+        // ) {
+        //     // return not available
+        //     return response<CheckDomainAvailabilityResponse>(res, {
+        //         data: {
+        //             available: false,
+        //             options: []
+        //         },
+        //         success: true,
+        //         error: false,
+        //         message: "Your current subscription does not support custom domain namespaces. Please upgrade to access this feature.",
+        //         status: HttpCode.OK
+        //     });
+        // }
 
         const namespaces = await db.select().from(domainNamespaces);
         let possibleDomains = namespaces.map((ns) => {

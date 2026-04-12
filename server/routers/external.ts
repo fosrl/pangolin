@@ -441,6 +441,12 @@ authenticated.get(
 );
 
 authenticated.get(
+    "/org/:orgId/user-resource-aliases",
+    verifyOrgAccess,
+    resource.listUserResourceAliases
+);
+
+authenticated.get(
     "/org/:orgId/domains",
     verifyOrgAccess,
     verifyUserHasAction(ActionsEnum.listOrgDomains),

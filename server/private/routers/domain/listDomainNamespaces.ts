@@ -22,6 +22,9 @@ import { eq, sql } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { isSubscribed } from "#private/lib/isSubscribed";
+import { build } from "@server/build";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 const paramsSchema = z.strictObject({});
 
@@ -37,7 +40,8 @@ const querySchema = z.strictObject({
         .optional()
         .default("0")
         .transform(Number)
-        .pipe(z.int().nonnegative())
+        .pipe(z.int().nonnegative()),
+    // orgId: build === "saas" ? z.string() : z.string().optional() // Required for saas, optional otherwise
 });
 
 async function query(limit: number, offset: number) {
@@ -98,6 +102,26 @@ export async function listDomainNamespaces(
                 )
             );
         }
+
+        // if (
+        //     build == "saas" &&
+        //     !isSubscribed(orgId!, tierMatrix.domainNamespaces)
+        // ) {
+        //     return response<ListDomainNamespacesResponse>(res, {
+        //         data: {
+        //             domainNamespaces: [],
+        //             pagination: {
+        //                 total: 0,
+        //                 limit,
+        //                 offset
+        //             }
+        //         },
+        //         success: true,
+        //         error: false,
+        //         message: "No namespaces found. Your current subscription does not support custom domain namespaces. Please upgrade to access this feature.",
+        //         status: HttpCode.OK
+        //     });
+        // }
 
         const domainNamespacesList = await query(limit, offset);
 

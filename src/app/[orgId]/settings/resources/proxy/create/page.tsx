@@ -999,6 +999,7 @@ export default function Page() {
         getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
+        getRowId: (row) => String(row.targetId),
         state: {
             pagination: {
                 pageIndex: 0,

@@ -39,7 +39,11 @@ export default function InviteStatusCard({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [type, setType] = useState<
-        "rejected" | "wrong_user" | "user_does_not_exist" | "not_logged_in" | "user_limit_exceeded"
+        | "rejected"
+        | "wrong_user"
+        | "user_does_not_exist"
+        | "not_logged_in"
+        | "user_limit_exceeded"
     >("rejected");
 
     useEffect(() => {
@@ -90,12 +94,12 @@ export default function InviteStatusCard({
 
             if (!user && type === "user_does_not_exist") {
                 const redirectUrl = email
-                    ? `/auth/signup?redirect=/invite?token=${tokenParam}&email=${encodeURIComponent(email)}`
+                    ? `/auth/signup?redirect=/invite?token=${tokenParam}&email=${email}`
                     : `/auth/signup?redirect=/invite?token=${tokenParam}`;
                 router.push(redirectUrl);
             } else if (!user && type === "not_logged_in") {
                 const redirectUrl = email
-                    ? `/auth/login?redirect=/invite?token=${tokenParam}&email=${encodeURIComponent(email)}`
+                    ? `/auth/login?redirect=/invite?token=${tokenParam}&email=${email}`
                     : `/auth/login?redirect=/invite?token=${tokenParam}`;
                 router.push(redirectUrl);
             } else {
@@ -109,7 +113,7 @@ export default function InviteStatusCard({
     async function goToLogin() {
         await api.post("/auth/logout", {});
         const redirectUrl = email
-            ? `/auth/login?redirect=/invite?token=${tokenParam}&email=${encodeURIComponent(email)}`
+            ? `/auth/login?redirect=/invite?token=${tokenParam}&email=${email}`
             : `/auth/login?redirect=/invite?token=${tokenParam}`;
         router.push(redirectUrl);
     }
@@ -117,7 +121,7 @@ export default function InviteStatusCard({
     async function goToSignup() {
         await api.post("/auth/logout", {});
         const redirectUrl = email
-            ? `/auth/signup?redirect=/invite?token=${tokenParam}&email=${encodeURIComponent(email)}`
+            ? `/auth/signup?redirect=/invite?token=${tokenParam}&email=${email}`
             : `/auth/signup?redirect=/invite?token=${tokenParam}`;
         router.push(redirectUrl);
     }
@@ -157,7 +161,9 @@ export default function InviteStatusCard({
                         Cannot Accept Invite
                     </p>
                     <p className="text-center text-sm">
-                        This organization has reached its user limit. Please contact the organization administrator to upgrade their plan before accepting this invite.
+                        This organization has reached its user limit. Please
+                        contact the organization administrator to upgrade their
+                        plan before accepting this invite.
                     </p>
                 </div>
             );

@@ -1,7 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { orgs, roles, userInviteRoles, userInvites, userOrgs, users } from "@server/db";
+import {
+    orgs,
+    roles,
+    userInviteRoles,
+    userInvites,
+    userOrgs,
+    users
+} from "@server/db";
 import { and, eq, inArray } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -37,8 +44,7 @@ const inviteUserBodySchema = z
         regenerate: z.boolean().optional()
     })
     .refine(
-        (d) =>
-            (d.roleIds != null && d.roleIds.length > 0) || d.roleId != null,
+        (d) => (d.roleIds != null && d.roleIds.length > 0) || d.roleId != null,
         { message: "roleIds or roleId is required", path: ["roleIds"] }
     )
     .transform((data) => ({
@@ -265,7 +271,7 @@ export async function inviteUser(
                     )
                 );
 
-            const inviteLink = `${config.getRawConfig().app.dashboard_url}/invite?token=${inviteId}-${token}&email=${encodeURIComponent(email)}`;
+            const inviteLink = `${config.getRawConfig().app.dashboard_url}/invite?token=${inviteId}-${token}&email=${email}`;
 
             if (doEmail) {
                 await sendEmail(
@@ -314,12 +320,12 @@ export async function inviteUser(
                 expiresAt,
                 tokenHash
             });
-            await trx.insert(userInviteRoles).values(
-                uniqueRoleIds.map((roleId) => ({ inviteId, roleId }))
-            );
+            await trx
+                .insert(userInviteRoles)
+                .values(uniqueRoleIds.map((roleId) => ({ inviteId, roleId })));
         });
 
-        const inviteLink = `${config.getRawConfig().app.dashboard_url}/invite?token=${inviteId}-${token}&email=${encodeURIComponent(email)}`;
+        const inviteLink = `${config.getRawConfig().app.dashboard_url}/invite?token=${inviteId}-${token}&email=${email}`;
 
         if (doEmail) {
             await sendEmail(

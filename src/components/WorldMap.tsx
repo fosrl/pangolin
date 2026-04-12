@@ -164,7 +164,7 @@ const countryClass = cn(
 
 const highlightedCountryClass = cn(
     sharedCountryClass,
-    "stroke-2",
+    "stroke-[3]",
     "fill-[#f4f4f5]",
     "stroke-[#f36117]",
     "dark:fill-[#3f3f46]"
@@ -194,11 +194,20 @@ function drawInteractiveCountries(
     const path = setupProjetionPath();
     const data = parseWorldTopoJsonToGeoJsonFeatures();
     const svg = d3.select(element);
+    const countriesLayer = svg.append("g");
+    const hoverLayer = svg.append("g").style("pointer-events", "none");
+    const hoverPath = hoverLayer
+        .append("path")
+        .datum(null)
+        .attr("class", highlightedCountryClass)
+        .style("display", "none");
 
-    svg.selectAll("path")
+    countriesLayer
+        .selectAll("path")
         .data(data)
         .enter()
         .append("path")
+        .attr("data-country-path", "true")
         .attr("class", countryClass)
         .attr("d", path as never)
 
@@ -209,9 +218,10 @@ function drawInteractiveCountries(
                 y,
                 hoveredCountryAlpha3Code: country.properties.a3
             });
-            // brings country to front
-            this.parentNode?.appendChild(this);
-            d3.select(this).attr("class", highlightedCountryClass);
+            hoverPath
+                .datum(country)
+                .attr("d", path(country) as string)
+                .style("display", null);
         })
 
         .on("mousemove", function (event) {
@@ -221,7 +231,7 @@ function drawInteractiveCountries(
 
         .on("mouseout", function () {
             setTooltip({ x: 0, y: 0, hoveredCountryAlpha3Code: null });
-            d3.select(this).attr("class", countryClass);
+            hoverPath.style("display", "none");
         });
 
     return svg;
@@ -257,7 +267,7 @@ function colorInCountriesWithValues(
     const svg = d3.select(element);
 
     return svg
-        .selectAll("path")
+        .selectAll('path[data-country-path="true"]')
         .style("fill", (countryPath) => {
             const country = getCountryByCountryPath(countryPath);
             if (!country?.count) {

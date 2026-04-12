@@ -22,6 +22,7 @@ export * from "./deleteResourceRule";
 export * from "./listResourceRules";
 export * from "./updateResourceRule";
 export * from "./getUserResources";
+export * from "./listUserResourceAliases";
 export * from "./setResourceHeaderAuth";
 export * from "./addEmailToResourceWhitelist";
 export * from "./removeEmailFromResourceWhitelist";

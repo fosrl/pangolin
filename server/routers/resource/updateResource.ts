@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, loginPage } from "@server/db";
+import { db, domainNamespaces, loginPage } from "@server/db";
 import {
     domains,
     newts,
@@ -29,6 +29,7 @@ import { build } from "@server/build";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { sendNewtSyncMessage } from "../newt/sync";
+import { isSubscribed } from "#dynamic/lib/isSubscribed";
 
 const updateResourceParamsSchema = z.strictObject({
     resourceId: z.string().transform(Number).pipe(z.int().positive())
@@ -124,7 +125,9 @@ const updateHttpResourceBodySchema = z
             if (data.headers) {
                 // HTTP header values must be visible ASCII or horizontal whitespace, no control chars (RFC 7230)
                 const validHeaderValue = /^[\t\x20-\x7E]*$/;
-                return data.headers.every((h) => validHeaderValue.test(h.value));
+                return data.headers.every((h) =>
+                    validHeaderValue.test(h.value)
+                );
             }
             return true;
         },
@@ -271,7 +274,7 @@ export async function updateResource(
 }
 
 async function syncNewtsForResource(resourceId: number) {
-// Finds all unique newts linked to a resource and sends them sync messages in parallel
+    // Finds all unique newts linked to a resource and sends them sync messages in parallel
     const siteNewtPairs = await db
         .select({
             site: sites,
@@ -353,6 +356,34 @@ async function updateHttpResource(
     if (updateData.domainId) {
         const domainId = updateData.domainId;
 
+        if (
+            build == "saas" &&
+            !isSubscribed(resource.orgId, tierMatrix.domainNamespaces)
+        ) {
+            // grandfather in existing users
+            const lastAllowedDate = new Date("2026-04-12");
+            const userCreatedDate = new Date(
+                req.user?.dateCreated || new Date()
+            );
+            if (userCreatedDate > lastAllowedDate) {
+                // check if this domain id is a namespace domain and if so, reject
+                const domain = await db
+                    .select()
+                    .from(domainNamespaces)
+                    .where(eq(domainNamespaces.domainId, domainId))
+                    .limit(1);
+
+                if (domain.length > 0) {
+                    return next(
+                        createHttpError(
+                            HttpCode.BAD_REQUEST,
+                            "Your current subscription does not support custom domain namespaces. Please upgrade to access this feature."
+                        )
+                    );
+                }
+            }
+        }
+
         // Validate domain and construct full domain
         const domainResult = await validateAndConstructDomain(
             domainId,
@@ -401,7 +432,7 @@ async function updateHttpResource(
                     );
                 }
             }
-        
+
             if (build != "oss") {
                 const existingLoginPages = await db
                     .select()

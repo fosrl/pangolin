@@ -19,7 +19,8 @@ export enum TierFeature {
     SshPam = "sshPam",
     FullRbac = "fullRbac",
     SiteProvisioningKeys = "siteProvisioningKeys", // handle downgrade by revoking keys if needed
-    SIEM = "siem" // handle downgrade by disabling SIEM integrations
+    SIEM = "siem", // handle downgrade by disabling SIEM integrations
+    DomainNamespaces = "domainNamespaces" // handle downgrade by removing custom domain namespaces
 }
 
 export const tierMatrix: Record<TierFeature, Tier[]> = {
@@ -56,5 +57,6 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.SshPam]: ["tier1", "tier3", "enterprise"],
     [TierFeature.FullRbac]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.SiteProvisioningKeys]: ["tier3", "enterprise"],
-    [TierFeature.SIEM]: ["enterprise"]
+    [TierFeature.SIEM]: ["enterprise"],
+    [TierFeature.DomainNamespaces]: ["tier1", "tier2", "tier3", "enterprise"]
 };

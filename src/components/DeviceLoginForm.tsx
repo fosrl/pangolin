@@ -319,6 +319,7 @@ export default function DeviceLoginForm({
                                         <div className="flex justify-center">
                                             <InputOTP
                                                 maxLength={9}
+                                                pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
                                                 {...field}
                                                 value={field.value
                                                     .replace(/-/g, "")
