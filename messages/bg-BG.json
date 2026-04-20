@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Това не може да бъде отменено за тази организация.",
     "idpUnassociatedDescription": "Доставчика на самоличност е успешно отвързан от тази организация",
     "idpUnassociateMenu": "Отвързване",
-    "idpDeleteAllOrgsMenu": "Изтриване"
+    "idpDeleteAllOrgsMenu": "Изтриване",
+    "publicIpEndpoint": "Endpoint"
 }
