@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Cela ne peut pas être annulé pour cette organisation.",
     "idpUnassociatedDescription": "Fournisseur d'identités dissocié de cette organisation avec succès",
     "idpUnassociateMenu": "Dissocier",
-    "idpDeleteAllOrgsMenu": "Supprimer"
+    "idpDeleteAllOrgsMenu": "Supprimer",
+    "publicIpEndpoint": "Endpoint"
 }
