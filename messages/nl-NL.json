@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Dit kan niet ongedaan worden gemaakt voor deze organisatie.",
     "idpUnassociatedDescription": "Identiteitsprovider succesvol losgekoppeld van deze organisatie",
     "idpUnassociateMenu": "Ontkoppelen",
-    "idpDeleteAllOrgsMenu": "Verwijderen"
+    "idpDeleteAllOrgsMenu": "Verwijderen",
+    "publicIpEndpoint": "Endpoint"
 }
