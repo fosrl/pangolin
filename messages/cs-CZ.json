@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Toto nelze pro tuto organizaci vrátit.",
     "idpUnassociatedDescription": "Poskytovatel identity byl úspěšně odpojen od této organizace",
     "idpUnassociateMenu": "Odpojit",
-    "idpDeleteAllOrgsMenu": "Odstranit"
+    "idpDeleteAllOrgsMenu": "Odstranit",
+    "publicIpEndpoint": "Endpoint"
 }
