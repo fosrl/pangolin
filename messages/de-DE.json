@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Dies kann für diese Organisation nicht rückgängig gemacht werden.",
     "idpUnassociatedDescription": "Identitätsanbieter erfolgreich von dieser Organisation gelöst",
     "idpUnassociateMenu": "Verknüpfung aufheben",
-    "idpDeleteAllOrgsMenu": "Löschen"
+    "idpDeleteAllOrgsMenu": "Löschen",
+    "publicIpEndpoint": "Endpoint"
 }
