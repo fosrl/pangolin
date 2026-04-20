@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Tego nie można cofnąć dla tej organizacji.",
     "idpUnassociatedDescription": "Dostawca tożsamości pomyślnie odłączony od tej organizacji",
     "idpUnassociateMenu": "Odłącz",
-    "idpDeleteAllOrgsMenu": "Usuń"
+    "idpDeleteAllOrgsMenu": "Usuń",
+    "publicIpEndpoint": "Endpoint"
 }
