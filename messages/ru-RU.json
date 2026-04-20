@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Это не может быть отменено для этой организации.",
     "idpUnassociatedDescription": "Поставщик удостоверений успешно рассоединен с этой организацией",
     "idpUnassociateMenu": "Рассоединить",
-    "idpDeleteAllOrgsMenu": "Удалить"
+    "idpDeleteAllOrgsMenu": "Удалить",
+    "publicIpEndpoint": "Endpoint"
 }
