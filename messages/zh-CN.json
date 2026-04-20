@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "此操作无法对该组织撤销。",
     "idpUnassociatedDescription": "身份提供者已成功从该组织中取消关联",
     "idpUnassociateMenu": "取消关联",
-    "idpDeleteAllOrgsMenu": "删除"
+    "idpDeleteAllOrgsMenu": "删除",
+    "publicIpEndpoint": "Endpoint"
 }
