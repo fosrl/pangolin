@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Esto no se puede deshacer para esta organización.",
     "idpUnassociatedDescription": "Proveedor de identidad desasociado de esta organización con éxito",
     "idpUnassociateMenu": "Desasociar",
-    "idpDeleteAllOrgsMenu": "Eliminar"
+    "idpDeleteAllOrgsMenu": "Eliminar",
+    "publicIpEndpoint": "Endpoint"
 }
