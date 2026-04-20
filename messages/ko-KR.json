@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "이 조직에서 이것은 되돌릴 수 없습니다.",
     "idpUnassociatedDescription": "아이덴티티 공급자가 이 조직에서 성공적으로 연관 해제되었습니다",
     "idpUnassociateMenu": "연관 해제",
-    "idpDeleteAllOrgsMenu": "삭제"
+    "idpDeleteAllOrgsMenu": "삭제",
+    "publicIpEndpoint": "Endpoint"
 }
