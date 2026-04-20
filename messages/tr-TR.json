@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Bu işlem bu kuruluş için geri alınamaz.",
     "idpUnassociatedDescription": "Kimlik sağlayıcı bu kuruluştan başarıyla ayrıldı",
     "idpUnassociateMenu": "İlişkiyi Kes",
-    "idpDeleteAllOrgsMenu": "Sil"
+    "idpDeleteAllOrgsMenu": "Sil",
+    "publicIpEndpoint": "Endpoint"
 }
