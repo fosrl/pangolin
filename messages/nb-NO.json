@@ -2917,5 +2917,6 @@
     "idpUnassociateWarning": "Dette kan ikke angres for denne organisasjonen.",
     "idpUnassociatedDescription": "Identitetsleverandør er vellykket frakoblet fra denne organisasjonen",
     "idpUnassociateMenu": "Frakoble",
-    "idpDeleteAllOrgsMenu": "Slett"
+    "idpDeleteAllOrgsMenu": "Slett",
+    "publicIpEndpoint": "Endpoint"
 }
