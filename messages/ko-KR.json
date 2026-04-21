@@ -2469,7 +2469,7 @@
     "connectionLogs": "Network Logs",
     "connectionLogsDescription": "View network session logs handled by sites in this organization",
     "sidebarLogsConnection": "Network Logs",
-    "sidebarLogsStreaming": "스트리밍",
+    "sidebarLogsStreaming": "Event Streaming",
     "sourceAddress": "소스 주소",
     "destinationAddress": "대상 주소",
     "duration": "지속 시간",
