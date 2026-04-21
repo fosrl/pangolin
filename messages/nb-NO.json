@@ -2469,7 +2469,7 @@
     "connectionLogs": "Network Logs",
     "connectionLogsDescription": "View network session logs handled by sites in this organization",
     "sidebarLogsConnection": "Network Logs",
-    "sidebarLogsStreaming": "Strømming",
+    "sidebarLogsStreaming": "Event Streaming",
     "sourceAddress": "Kilde adresse",
     "destinationAddress": "Måladresse (Automatic Translation)",
     "duration": "Varighet",
