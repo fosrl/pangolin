@@ -2469,7 +2469,7 @@
     "connectionLogs": "Network Logs",
     "connectionLogsDescription": "View network session logs handled by sites in this organization",
     "sidebarLogsConnection": "Network Logs",
-    "sidebarLogsStreaming": "Вещание",
+    "sidebarLogsStreaming": "Event Streaming",
     "sourceAddress": "Адрес источника",
     "destinationAddress": "Адрес назначения",
     "duration": "Продолжительность",
