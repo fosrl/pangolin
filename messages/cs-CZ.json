@@ -2469,7 +2469,7 @@
     "connectionLogs": "Network Logs",
     "connectionLogsDescription": "View network session logs handled by sites in this organization",
     "sidebarLogsConnection": "Network Logs",
-    "sidebarLogsStreaming": "Streamování",
+    "sidebarLogsStreaming": "Event Streaming",
     "sourceAddress": "Zdrojová adresa",
     "destinationAddress": "Cílová adresa",
     "duration": "Doba trvání",
