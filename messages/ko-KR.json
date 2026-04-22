@@ -3139,5 +3139,6 @@
     "idpUnassociateMenu": "연관 해제",
     "idpDeleteAllOrgsMenu": "삭제",
     "publicIpEndpoint": "Endpoint",
-    "lastTriggeredAt": "Last Trigger"
+    "lastTriggeredAt": "Last Trigger",
+    "reject": "Reject"
 }
