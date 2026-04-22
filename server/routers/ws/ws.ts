@@ -21,6 +21,7 @@ import {
     SendMessageOptions
 } from "./types";
 import { validateSessionToken } from "@server/auth/sessions/app";
+import { handleRelayTunnelUpgrade } from "./relayTunnelBridge";
 
 // Subset of TokenPayload for public ws.ts (newt and olm only)
 interface PublicTokenPayload {
@@ -421,6 +422,10 @@ const handleWSUpgrade = (server: HttpServer): void => {
         "upgrade",
         async (request: WebSocketRequest, socket: Socket, head: Buffer) => {
             try {
+                if (await handleRelayTunnelUpgrade(request, socket, head)) {
+                    return;
+                }
+
                 const url = new URL(
                     request.url || "",
                     `http://${request.headers.host}`

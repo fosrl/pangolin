@@ -29,6 +29,13 @@ import logger from "@server/logger";
 import config from "@server/lib/config";
 import { APP_VERSION } from "@server/lib/consts";
 
+function buildRelayEndpointWss() {
+    const dashboardUrl = (
+        config.getRawConfig().app.dashboard_url || "http://localhost:3000"
+    ).replace(/\/$/, "");
+    return `${dashboardUrl.replace(/^http/i, "ws")}/api/v1/relay-tunnel`;
+}
+
 export const olmGetTokenBodySchema = z.object({
     olmId: z.string(),
     secret: z.string().optional(),
@@ -253,6 +260,7 @@ export async function getOlmToken(
                 publicKey: exitNode.publicKey,
                 relayPort: config.getRawConfig().gerbil.clients_start_port,
                 endpoint: exitNode.endpoint,
+                relayEndpointWss: buildRelayEndpointWss(),
                 siteIds: exitNodeIdToSiteIds[exitNode.exitNodeId] ?? []
             };
         });
@@ -261,7 +269,13 @@ export async function getOlmToken(
 
         return response<{
             token: string;
-            exitNodes: { publicKey: string; endpoint: string }[];
+            exitNodes: {
+                publicKey: string;
+                endpoint: string;
+                relayPort: number;
+                relayEndpointWss: string;
+                siteIds: number[];
+            }[];
             serverVersion: string;
         }>(res, {
             data: {

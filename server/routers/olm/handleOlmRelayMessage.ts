@@ -6,6 +6,13 @@ import { updatePeer as newtUpdatePeer } from "../newt/peers";
 import logger from "@server/logger";
 import config from "@server/lib/config";
 
+function buildRelayEndpointWss() {
+    const dashboardUrl = (
+        config.getRawConfig().app.dashboard_url || "http://localhost:3000"
+    ).replace(/\/$/, "");
+    return `${dashboardUrl.replace(/^http/i, "ws")}/api/v1/relay-tunnel`;
+}
+
 export const handleOlmRelayMessage: MessageHandler = async (context) => {
     const { message, client: c, sendToClient } = context;
     const olm = c as Olm;
@@ -91,7 +98,8 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
                 siteId: siteId,
                 relayEndpoint: exitNode.endpoint,
                 relayPort: config.getRawConfig().gerbil.clients_start_port,
-                chainId
+                chainId,
+                relayEndpointWss: buildRelayEndpointWss()
             }
         },
         broadcast: false,

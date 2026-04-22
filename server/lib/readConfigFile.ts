@@ -274,6 +274,11 @@ export const configSchema = z
                     .default(21820)
                     .transform(stoi)
                     .pipe(portSchema),
+                wss_relay_port: portSchema
+                    .optional()
+                    .default(4430)
+                    .transform(stoi)
+                    .pipe(portSchema),
                 base_endpoint: z
                     .string()
                     .optional()
@@ -289,6 +294,10 @@ export const configSchema = z
                     .optional()
                     .default(30)
             })
+            .transform((cfg) => ({
+                ...cfg,
+                wss_relay_port: cfg.wss_relay_port ?? cfg.wss_relay_port ?? 4430
+            }))
             .optional()
             .prefault({}),
         orgs: z
