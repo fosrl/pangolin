@@ -3139,5 +3139,6 @@
     "idpUnassociateMenu": "Рассоединить",
     "idpDeleteAllOrgsMenu": "Удалить",
     "publicIpEndpoint": "Endpoint",
-    "lastTriggeredAt": "Last Trigger"
+    "lastTriggeredAt": "Last Trigger",
+    "reject": "Reject"
 }
