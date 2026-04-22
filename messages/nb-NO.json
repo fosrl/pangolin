@@ -3139,5 +3139,6 @@
     "idpUnassociateMenu": "Frakoble",
     "idpDeleteAllOrgsMenu": "Slett",
     "publicIpEndpoint": "Endpoint",
-    "lastTriggeredAt": "Last Trigger"
+    "lastTriggeredAt": "Last Trigger",
+    "reject": "Reject"
 }
