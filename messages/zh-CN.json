@@ -3139,5 +3139,6 @@
     "idpUnassociateMenu": "取消关联",
     "idpDeleteAllOrgsMenu": "删除",
     "publicIpEndpoint": "Endpoint",
-    "lastTriggeredAt": "Last Trigger"
+    "lastTriggeredAt": "Last Trigger",
+    "reject": "Reject"
 }
