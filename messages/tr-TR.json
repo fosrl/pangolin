@@ -3139,5 +3139,6 @@
     "idpUnassociateMenu": "İlişkiyi Kes",
     "idpDeleteAllOrgsMenu": "Sil",
     "publicIpEndpoint": "Endpoint",
-    "lastTriggeredAt": "Last Trigger"
+    "lastTriggeredAt": "Last Trigger",
+    "reject": "Reject"
 }
