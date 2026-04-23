@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Очаквано време за завършване (по избор).",
     "privateMaintenanceScreenTitle": "Екран за поддръжка",
     "privateMaintenanceScreenMessage": "Този домейн се използва при частен ресурс. Моля, свържете се с клиента на Pangolin, за да получите достъп до този ресурс.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "например, 2 часа, 1 ноември в 17:00.",
     "maintenanceEstimatedTimeDescription": "Кога очаквате поддръжката да бъде завършена?",
     "editDomain": "Редактиране на домейна.",
