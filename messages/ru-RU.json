@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Предполагаемое время завершения (необязательно)",
     "privateMaintenanceScreenTitle": "Экраны частной заглушки",
     "privateMaintenanceScreenMessage": "Этот домен используется на частном ресурсе. Пожалуйста, подключитесь с помощью клиента Pangolin для доступа к этому ресурсу.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "например, 2 часа, 1 ноября в 5:00 вечера",
     "maintenanceEstimatedTimeDescription": "Когда вы ожидаете завершения обслуживания",
     "editDomain": "Редактировать домен",
