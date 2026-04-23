@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Geschätzte Abschlusszeit (Optional)",
     "privateMaintenanceScreenTitle": "Privater Platzhalterschirm",
     "privateMaintenanceScreenMessage": "Diese Domain wird auf einer privaten Ressource verwendet. Bitte verbinden Sie sich mit dem Pangolin-Client, um auf diese Ressource zuzugreifen.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "z.B.: 2 Stunden, Nov 1 um 17:00 Uhr",
     "maintenanceEstimatedTimeDescription": "Wann Sie den Abschluss der Wartung erwarten",
     "editDomain": "Domain bearbeiten",
