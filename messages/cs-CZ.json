@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Odhadovaný čas dokončení (volitelný)",
     "privateMaintenanceScreenTitle": "Soukromá obrazovka údržby",
     "privateMaintenanceScreenMessage": "Tato doména je používána na soukromém zdroji. Prosím, připojte se přes klienta Pangolin pro přístup k tomuto zdroji.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "např. 2 hodiny, 1. listopadu v 17:00",
     "maintenanceEstimatedTimeDescription": "Kdy očekáváte, že údržba bude dokončena",
     "editDomain": "Upravit doménu",
