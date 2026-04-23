@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Geschatte voltooiingstijd (optioneel)",
     "privateMaintenanceScreenTitle": "Privéscherm maintenance screen",
     "privateMaintenanceScreenMessage": "Dit domein wordt gebruikt op een privébron. Verbind met de Pangolin client om toegang te krijgen tot deze bron.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "bijv. 2 uur, 1 nov om 17:00",
     "maintenanceEstimatedTimeDescription": "Wanneer u verwacht dat het onderhoud voltooid is",
     "editDomain": "Domein bewerken",
