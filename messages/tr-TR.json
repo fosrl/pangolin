@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Tahmini Tamamlanma Süresi (İsteğe Bağlı)",
     "privateMaintenanceScreenTitle": "Özel Yer Tutucu Ekran",
     "privateMaintenanceScreenMessage": "Bu alan adı özel bir kaynak üzerinde kullanılmaktadır. Bu kaynağa erişmek için Pangolin istemcisini kullanarak bağlanın.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "ör. 2 saat, 1 Kasım saat 17:00",
     "maintenanceEstimatedTimeDescription": "Bakımın ne zaman tamamlanmasını bekliyorsunuz",
     "editDomain": "Alan Adını Düzenle",
