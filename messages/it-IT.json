@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Tempo di Completamento Stimato (Opzionale)",
     "privateMaintenanceScreenTitle": "Schermo segnaposto privato",
     "privateMaintenanceScreenMessage": "Questo dominio è utilizzato su una risorsa privata. Connettiti usando il client Pangolin per accedere a questa risorsa.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "es. 2 ore, 1 novembre alle 17:00",
     "maintenanceEstimatedTimeDescription": "Quando prevedi che la manutenzione sarà completata",
     "editDomain": "Modifica Dominio",
