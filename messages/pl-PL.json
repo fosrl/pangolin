@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Szacowany czas zakończenia (opcjonalnie)",
     "privateMaintenanceScreenTitle": "Ekraan prywatnego utrzymania",
     "privateMaintenanceScreenMessage": "Ta domena jest wykorzystywana na prywatnym zasobie. Połącz się za pomocą klienta Pangolin, aby uzyskać dostęp do tego zasobu.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "np. 2 godziny, 1 listopad o 17:00",
     "maintenanceEstimatedTimeDescription": "Kiedy oczekujesz zakończenia konserwacji",
     "editDomain": "Edytuj domenę",
