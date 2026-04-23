@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "예상 완료 시간(선택 사항)",
     "privateMaintenanceScreenTitle": "프라이빗 플레이스홀더 화면",
     "privateMaintenanceScreenMessage": "이 도메인은 개인 리소스에서 사용 중입니다. Pangolin 클라이언트를 사용하여 이 리소스에 액세스하세요.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "예: 2시간, 11월 1일 오후 5시",
     "maintenanceEstimatedTimeDescription": "유지보수가 완료될 것으로 예상되는 시간",
     "editDomain": "도메인 수정",
