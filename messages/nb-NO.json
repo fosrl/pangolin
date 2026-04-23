@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Estimert ferdigstillelsestid (Valgfritt)",
     "privateMaintenanceScreenTitle": "Privat plassholder skjerm",
     "privateMaintenanceScreenMessage": "Dette domenet brukes på en privatressurs. Koble til ved å bruke Pangolin-klienten for å få tilgang til denne ressursen.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "f.eks. 2 timer, 1. november kl. 17:00",
     "maintenanceEstimatedTimeDescription": "Når du forventer at vedlikeholdet er ferdigstilt",
     "editDomain": "Rediger domene",
