@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "预计完成时间（可选）",
     "privateMaintenanceScreenTitle": "私有占位符界面",
     "privateMaintenanceScreenMessage": "此域名正在私有资源上使用。请连接 Pangolin 客户端以访问此资源。",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "例如，2小时，11月1日下午5:00",
     "maintenanceEstimatedTimeDescription": "您期望维护完成的时间",
     "editDomain": "编辑域名",
