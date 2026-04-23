@@ -2908,6 +2908,7 @@
     "maintenancePageTimeTitle": "Tiempo estimado de finalización (Opcional)",
     "privateMaintenanceScreenTitle": "Pantalla de marcador de posición privada",
     "privateMaintenanceScreenMessage": "Este dominio se está utilizando en un recurso privado. Conéctese usando el cliente Pangolin para acceder a este recurso.",
+    "privateMaintenanceScreenSteps": "Once connected, if you are still seeing this message your browser's DNS cache may still point to the old address. To fix this: fully close and reopen this tab, or your browser, then navigate back to this page.",
     "maintenanceTime": "Ej., 2 horas, 1 de noviembre a las 5:00 PM",
     "maintenanceEstimatedTimeDescription": "Cuando espera que el mantenimiento esté terminado",
     "editDomain": "Editar dominio",
