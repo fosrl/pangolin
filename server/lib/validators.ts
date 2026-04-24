@@ -16,54 +16,100 @@ export function isValidUrlGlobPattern(pattern: string): boolean {
         return true;
     }
 
-    // Remove leading slash if present
-    pattern = pattern.startsWith("/") ? pattern.slice(1) : pattern;
+    // Split into path and optional query string parts
+    const queryIndex = pattern.indexOf("?");
+    const pathPart = queryIndex !== -1 ? pattern.slice(0, queryIndex) : pattern;
+    const queryPart = queryIndex !== -1 ? pattern.slice(queryIndex + 1) : null;
 
-    // Empty string is not valid
-    if (!pattern) {
+    // Remove leading slash if present
+    const normalizedPath = pathPart.startsWith("/")
+        ? pathPart.slice(1)
+        : pathPart;
+
+    // Path is required — a bare "?foo=bar" with no path is not a valid rule pattern
+    if (!normalizedPath) {
         return false;
     }
 
-    // Split path into segments
-    const segments = pattern.split("/");
+    // Validate path segments
+    if (normalizedPath) {
+        const segments = normalizedPath.split("/");
 
-    // Check each segment
-    for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
+        for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i];
 
-        // Empty segments are not allowed (double slashes), except at the end
-        if (!segment && i !== segments.length - 1) {
-            return false;
-        }
-
-        // Check each character in the segment
-        for (let j = 0; j < segment.length; j++) {
-            const char = segment[j];
-
-            // Check for percent-encoded sequences
-            if (char === "%" && j + 2 < segment.length) {
-                const hex1 = segment[j + 1];
-                const hex2 = segment[j + 2];
-                if (
-                    !/^[0-9A-Fa-f]$/.test(hex1) ||
-                    !/^[0-9A-Fa-f]$/.test(hex2)
-                ) {
-                    return false;
-                }
-                j += 2; // Skip the next two characters
-                continue;
+            // Empty segments are not allowed (double slashes), except at the end
+            if (!segment && i !== segments.length - 1) {
+                return false;
             }
 
-            // Allow:
-            // - unreserved (A-Z a-z 0-9 - . _ ~)
-            // - sub-delims (! $ & ' ( ) * + , ; =)
-            // - @ : for compatibility with some systems
-            if (!/^[A-Za-z0-9\-._~!$&'()*+,;#=@:]$/.test(char)) {
+            if (!isValidPathSegmentChars(segment)) {
                 return false;
             }
         }
     }
 
+    // Validate query string characters if present
+    if (queryPart !== null && queryPart.length > 0) {
+        if (!isValidQueryStringChars(queryPart)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function isValidPathSegmentChars(segment: string): boolean {
+    for (let j = 0; j < segment.length; j++) {
+        const char = segment[j];
+
+        // Check for percent-encoded sequences
+        if (char === "%" && j + 2 < segment.length) {
+            const hex1 = segment[j + 1];
+            const hex2 = segment[j + 2];
+            if (!/^[0-9A-Fa-f]$/.test(hex1) || !/^[0-9A-Fa-f]$/.test(hex2)) {
+                return false;
+            }
+            j += 2;
+            continue;
+        }
+
+        // Allow:
+        // - unreserved (A-Z a-z 0-9 - . _ ~)
+        // - sub-delims (! $ & ' ( ) * + , ; =)
+        // - @ : for compatibility with some systems
+        // - * for glob wildcards
+        if (!/^[A-Za-z0-9\-._~!$&'()*+,;#=@:]$/.test(char)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isValidQueryStringChars(query: string): boolean {
+    for (let j = 0; j < query.length; j++) {
+        const char = query[j];
+
+        // Check for percent-encoded sequences
+        if (char === "%" && j + 2 < query.length) {
+            const hex1 = query[j + 1];
+            const hex2 = query[j + 2];
+            if (!/^[0-9A-Fa-f]$/.test(hex1) || !/^[0-9A-Fa-f]$/.test(hex2)) {
+                return false;
+            }
+            j += 2;
+            continue;
+        }
+
+        // Allow query string characters:
+        // - unreserved (A-Z a-z 0-9 - . _ ~)
+        // - sub-delims (! $ & ' ( ) * + , ; =)
+        // - @ : / ? for query strings
+        // - * for glob wildcards
+        if (!/^[A-Za-z0-9\-._~!$&'()*+,;=@:/?#]$/.test(char)) {
+            return false;
+        }
+    }
     return true;
 }
 

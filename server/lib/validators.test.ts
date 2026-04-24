@@ -236,6 +236,38 @@ function runTests() {
         "Path with isolated percent sign should be invalid"
     );
 
+    // Test query string support
+    assertEquals(
+        isValidUrlGlobPattern("/login?autoLaunch=0"),
+        true,
+        "Path with query string should be valid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("/audiobookshelf/login/?autoLaunch=0"),
+        true,
+        "Path with trailing slash and query string should be valid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("/auth/login?autoLaunch=0"),
+        true,
+        "Path with query param should be valid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("/path?key=value&other=123"),
+        true,
+        "Path with multiple query params should be valid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("/path?key=*"),
+        true,
+        "Path with wildcard query param value should be valid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("?onlyQuery=1"),
+        false,
+        "Query string without path should be invalid"
+    );
+
     console.log("All tests passed!");
 }
 

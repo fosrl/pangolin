@@ -1,5 +1,6 @@
 import { assertEquals } from "@test/assert";
 import { REGIONS } from "@server/db/regions";
+import { isPathAllowed } from "./pathMatching";
 
 function isIpInRegion(
     ipCountryCode: string | undefined,
@@ -31,76 +32,6 @@ function isIpInRegion(
     }
 
     return false;
-}
-
-function isPathAllowed(pattern: string, path: string): boolean {
-    // Normalize and split paths into segments
-    const normalize = (p: string) => p.split("/").filter(Boolean);
-    const patternParts = normalize(pattern);
-    const pathParts = normalize(path);
-
-    // Recursive function to try different wildcard matches
-    function matchSegments(patternIndex: number, pathIndex: number): boolean {
-        const indent = "  ".repeat(pathIndex); // Indent based on recursion depth
-        const currentPatternPart = patternParts[patternIndex];
-        const currentPathPart = pathParts[pathIndex];
-
-        // If we've consumed all pattern parts, we should have consumed all path parts
-        if (patternIndex >= patternParts.length) {
-            const result = pathIndex >= pathParts.length;
-            return result;
-        }
-
-        // If we've consumed all path parts but still have pattern parts
-        if (pathIndex >= pathParts.length) {
-            // The only way this can match is if all remaining pattern parts are wildcards
-            const remainingPattern = patternParts.slice(patternIndex);
-            const result = remainingPattern.every((p) => p === "*");
-            return result;
-        }
-
-        // For full segment wildcards, try consuming different numbers of path segments
-        if (currentPatternPart === "*") {
-            // Try consuming 0 segments (skip the wildcard)
-            if (matchSegments(patternIndex + 1, pathIndex)) {
-                return true;
-            }
-
-            // Try consuming current segment and recursively try rest
-            if (matchSegments(patternIndex, pathIndex + 1)) {
-                return true;
-            }
-
-            return false;
-        }
-
-        // Check for in-segment wildcard (e.g., "prefix*" or "prefix*suffix")
-        if (currentPatternPart.includes("*")) {
-            // Convert the pattern segment to a regex pattern
-            const regexPattern = currentPatternPart
-                .replace(/\*/g, ".*") // Replace * with .* for regex wildcard
-                .replace(/\?/g, "."); // Replace ? with . for single character wildcard if needed
-
-            const regex = new RegExp(`^${regexPattern}$`);
-
-            if (regex.test(currentPathPart)) {
-                return matchSegments(patternIndex + 1, pathIndex + 1);
-            }
-
-            return false;
-        }
-
-        // For regular segments, they must match exactly
-        if (currentPatternPart !== currentPathPart) {
-            return false;
-        }
-
-        // Move to next segments in both pattern and path
-        return matchSegments(patternIndex + 1, pathIndex + 1);
-    }
-
-    const result = matchSegments(0, 0);
-    return result;
 }
 
 function runTests() {
@@ -303,6 +234,77 @@ function runTests() {
         isPathAllowed("/", "/test"),
         false,
         "Root path should not match non-root path"
+    );
+
+    // Query string matching (issue #839)
+    assertEquals(
+        isPathAllowed("/auth/login?autoLaunch=0", "/auth/login", {
+            autoLaunch: "0"
+        }),
+        true,
+        "Exact query param match should be allowed"
+    );
+    assertEquals(
+        isPathAllowed(
+            "/audiobookshelf/login/?autoLaunch=0",
+            "/audiobookshelf/login/",
+            {
+                autoLaunch: "0"
+            }
+        ),
+        true,
+        "Query param with trailing slash path should match"
+    );
+    assertEquals(
+        isPathAllowed("/auth/login?autoLaunch=0", "/auth/login", {
+            autoLaunch: "1"
+        }),
+        false,
+        "Wrong query param value should not match"
+    );
+    assertEquals(
+        isPathAllowed("/auth/login?autoLaunch=0", "/auth/login", {}),
+        false,
+        "Missing query param should not match"
+    );
+    assertEquals(
+        isPathAllowed("/auth/login?autoLaunch=0", "/auth/login", undefined),
+        false,
+        "No query object should not match when param required"
+    );
+    assertEquals(
+        isPathAllowed("/auth/login?autoLaunch=0", "/other/path", {
+            autoLaunch: "0"
+        }),
+        false,
+        "Wrong path should not match even if query matches"
+    );
+    assertEquals(
+        isPathAllowed("/auth/login", "/auth/login", { autoLaunch: "0" }),
+        true,
+        "Pattern without query string matches regardless of request query params"
+    );
+    assertEquals(
+        isPathAllowed("/path?key=*", "/path", { key: "anything" }),
+        true,
+        "Wildcard query param value should match any value"
+    );
+    assertEquals(
+        isPathAllowed("/path?a=1&b=2", "/path", { a: "1", b: "2" }),
+        true,
+        "Multiple query params all present should match"
+    );
+    assertEquals(
+        isPathAllowed("/path?a=1&b=2", "/path", { a: "1" }),
+        false,
+        "Multiple query params with one missing should not match"
+    );
+    assertEquals(
+        isPathAllowed("/*/login?autoLaunch=0", "/audiobookshelf/login", {
+            autoLaunch: "0"
+        }),
+        true,
+        "Path wildcard combined with query param should match"
     );
 
     console.log("All path matching tests passed!");
