@@ -3158,7 +3158,7 @@
     "uptimeNoData": "Keine Daten",
     "uptimeMiniBarDown": "Unten",
     "uptimeSectionTitle": "Betriebszeit",
-    "uptimeSectionDescription": "Verfügbarkeit des Standorts in den letzten {days} Tagen.",
+    "uptimeSectionDescription": "Availability over the last {days} days",
     "uptimeAddAlert": "Warnmeldung hinzufügen",
     "uptimeViewAlerts": "Warnungen anzeigen",
     "uptimeCreateEmailAlert": "E-Mail Alarm erstellen",
