@@ -1947,6 +1947,8 @@
     "httpMethod": "HTTP-metode",
     "selectHttpMethod": "Velg HTTP-metode",
     "domainPickerSubdomainLabel": "Underdomene",
+    "domainPickerWildcard": "Wildcard",
+    "domainPickerWildcardPaidOnly": "Wildcard subdomains are a paid feature. Please upgrade to access this feature.",
     "domainPickerBaseDomainLabel": "Grunndomene",
     "domainPickerSearchDomains": "Søk i domener...",
     "domainPickerNoDomainsFound": "Ingen domener funnet",
@@ -3173,5 +3175,8 @@
     "webhookUrlLabel": "URL",
     "webhookHeaderKeyPlaceholder": "Key",
     "webhookHeaderValuePlaceholder": "Value",
-    "alertLabel": "Alert"
+    "alertLabel": "Alert",
+    "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
+    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarningLink": "Learn more"
 }
