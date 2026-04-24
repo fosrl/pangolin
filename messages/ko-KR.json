@@ -1947,6 +1947,8 @@
     "httpMethod": "HTTP 메소드",
     "selectHttpMethod": "HTTP 메소드 선택",
     "domainPickerSubdomainLabel": "서브도메인",
+    "domainPickerWildcard": "Wildcard",
+    "domainPickerWildcardPaidOnly": "Wildcard subdomains are a paid feature. Please upgrade to access this feature.",
     "domainPickerBaseDomainLabel": "기본 도메인",
     "domainPickerSearchDomains": "도메인 검색...",
     "domainPickerNoDomainsFound": "찾을 수 없는 도메인이 없습니다",
@@ -3173,5 +3175,8 @@
     "webhookUrlLabel": "URL",
     "webhookHeaderKeyPlaceholder": "Key",
     "webhookHeaderValuePlaceholder": "Value",
-    "alertLabel": "Alert"
+    "alertLabel": "Alert",
+    "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
+    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarningLink": "Learn more"
 }
