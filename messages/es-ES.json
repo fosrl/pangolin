@@ -3158,7 +3158,7 @@
     "uptimeNoData": "No data",
     "uptimeMiniBarDown": "Down",
     "uptimeSectionTitle": "Uptime",
-    "uptimeSectionDescription": "Site availability over the last {days} days.",
+    "uptimeSectionDescription": "Availability over the last {days} days",
     "uptimeAddAlert": "Add Alert",
     "uptimeViewAlerts": "View Alerts",
     "uptimeCreateEmailAlert": "Create Email Alert",
