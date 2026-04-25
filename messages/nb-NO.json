@@ -93,6 +93,8 @@
     "siteConfirmCopy": "Jeg har kopiert konfigurasjonen",
     "searchSitesProgress": "Søker i områder...",
     "siteAdd": "Legg til område",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "Installer Newt",
     "siteInstallNewtDescription": "Få Newt til å kjøre på systemet ditt",
     "WgConfiguration": "WireGuard Konfigurasjon",
