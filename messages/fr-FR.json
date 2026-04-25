@@ -93,6 +93,8 @@
     "siteConfirmCopy": "J'ai copié la configuration",
     "searchSitesProgress": "Rechercher des nœuds...",
     "siteAdd": "Ajouter un nœud",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "Installer Newt",
     "siteInstallNewtDescription": "Faites fonctionner Newt sur votre système",
     "WgConfiguration": "Configuration WireGuard",
