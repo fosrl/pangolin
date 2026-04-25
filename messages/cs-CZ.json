@@ -93,6 +93,8 @@
     "siteConfirmCopy": "Konfiguraci jsem zkopíroval",
     "searchSitesProgress": "Hledat lokality...",
     "siteAdd": "Přidat lokalitu",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "Nainstalovat Newt",
     "siteInstallNewtDescription": "Spustit Newt na vašem systému",
     "WgConfiguration": "Konfigurace WireGuard",
