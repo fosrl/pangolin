@@ -93,6 +93,8 @@
     "siteConfirmCopy": "Я скопировал(а) конфигурацию",
     "searchSitesProgress": "Поиск сайтов...",
     "siteAdd": "Добавить сайт",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "Установить Newt",
     "siteInstallNewtDescription": "Запустите Newt в вашей системе",
     "WgConfiguration": "Конфигурация WireGuard",
