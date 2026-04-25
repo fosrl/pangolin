@@ -93,6 +93,8 @@
     "siteConfirmCopy": "Ik heb de configuratie gekopieerd",
     "searchSitesProgress": "Sites zoeken...",
     "siteAdd": "Site toevoegen",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "Installeer Newt",
     "siteInstallNewtDescription": "Laat Newt draaien op uw systeem",
     "WgConfiguration": "WireGuard Configuratie",
