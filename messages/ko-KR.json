@@ -93,6 +93,8 @@
     "siteConfirmCopy": "구성을 복사했습니다.",
     "searchSitesProgress": "사이트 검색...",
     "siteAdd": "사이트 추가",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "Newt 설치",
     "siteInstallNewtDescription": "시스템에서 Newt 실행하기",
     "WgConfiguration": "WireGuard 구성",
