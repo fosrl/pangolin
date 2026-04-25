@@ -93,6 +93,8 @@
     "siteConfirmCopy": "Yapılandırmayı kopyaladım",
     "searchSitesProgress": "Siteleri ara...",
     "siteAdd": "Site Ekle",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "Newt Yükle",
     "siteInstallNewtDescription": "Newt'i sisteminizde çalıştırma",
     "WgConfiguration": "WireGuard Yapılandırması",
