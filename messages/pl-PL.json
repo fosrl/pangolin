@@ -93,6 +93,8 @@
     "siteConfirmCopy": "Skopiowałem konfigurację",
     "searchSitesProgress": "Szukaj witryn...",
     "siteAdd": "Dodaj witrynę",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "Zainstaluj Newt",
     "siteInstallNewtDescription": "Uruchom Newt w swoim systemie",
     "WgConfiguration": "Konfiguracja WireGuard",
