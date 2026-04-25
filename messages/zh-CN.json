@@ -93,6 +93,8 @@
     "siteConfirmCopy": "我已经复制了配置信息",
     "searchSitesProgress": "搜索站点...",
     "siteAdd": "添加站点",
+    "sitesTableViewPublicResources": "View Public Resources",
+    "sitesTableViewPrivateResources": "View Private Resources",
     "siteInstallNewt": "安装 Newt",
     "siteInstallNewtDescription": "在您的系统中运行 Newt",
     "WgConfiguration": "WireGuard 配置",
