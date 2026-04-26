@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "Cree la cuenta de administrador del servidor inicial. Solo puede existir un administrador del servidor. Siempre puede cambiar estas credenciales más tarde.",
     "createAdminAccount": "Crear cuenta de administrador",
     "setupErrorCreateAdmin": "Se produjo un error al crear la cuenta de administrador del servidor.",
-    "certificateStatus": "Estado del certificado",
+    "certificateStatus": "Certificate",
     "loading": "Cargando",
     "loadingAnalytics": "Cargando analíticas",
     "restart": "Reiniciar",
