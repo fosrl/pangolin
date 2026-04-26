@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "İlk sunucu yönetici hesabını oluşturun. Yalnızca bir sunucu yöneticisi olabilir. Bu kimlik bilgilerini daha sonra her zaman değiştirebilirsiniz.",
     "createAdminAccount": "Yönetici Hesabı Oluştur",
     "setupErrorCreateAdmin": "Sunucu yönetici hesabı oluşturulurken bir hata oluştu.",
-    "certificateStatus": "Sertifika Durumu",
+    "certificateStatus": "Certificate",
     "loading": "Yükleniyor",
     "loadingAnalytics": "Analiz Yükleniyor",
     "restart": "Yeniden Başlat",
