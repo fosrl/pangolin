@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "Erstellen Sie das initiale Server-Admin-Konto. Es kann nur einen Server-Admin geben. Sie können diese Anmeldedaten später immer ändern.",
     "createAdminAccount": "Admin-Konto erstellen",
     "setupErrorCreateAdmin": "Beim Erstellen des Server-Admin-Kontos ist ein Fehler aufgetreten.",
-    "certificateStatus": "Zertifikatsstatus",
+    "certificateStatus": "Certificate",
     "loading": "Laden",
     "loadingAnalytics": "Analytik wird geladen",
     "restart": "Neustart",
