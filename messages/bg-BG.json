@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "Създайте администраторски акаунт на сървъра. Може да съществува само един администраторски акаунт. Винаги можете да промените тези данни по-късно.",
     "createAdminAccount": "Създаване на админ акаунт",
     "setupErrorCreateAdmin": "Възникна грешка при създаване на админ акаунт.",
-    "certificateStatus": "Статус на сертификата",
+    "certificateStatus": "Certificate",
     "loading": "Зареждане",
     "loadingAnalytics": "Зареждане на анализи",
     "restart": "Рестарт",
