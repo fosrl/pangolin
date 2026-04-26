@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "Maak het eerste serverbeheeraccount aan. Er kan slechts één serverbeheerder bestaan. U kunt deze inloggegevens later altijd wijzigen.",
     "createAdminAccount": "Maak een beheeraccount aan",
     "setupErrorCreateAdmin": "Er is een fout opgetreden bij het maken van het serverbeheerdersaccount.",
-    "certificateStatus": "Certificaatstatus",
+    "certificateStatus": "Certificate",
     "loading": "Bezig met laden",
     "loadingAnalytics": "Laden van Analytics",
     "restart": "Herstarten",
