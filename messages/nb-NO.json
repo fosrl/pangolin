@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "Opprett den første serveradministratorkontoen. Det kan bare finnes én serveradministrator. Du kan alltid endre denne påloggingsinformasjonen senere.",
     "createAdminAccount": "Opprett administratorkonto",
     "setupErrorCreateAdmin": "En feil oppstod under opprettelsen av serveradministratorkontoen.",
-    "certificateStatus": "Sertifikatstatus",
+    "certificateStatus": "Certificate",
     "loading": "Laster inn",
     "loadingAnalytics": "Laster inn analyser",
     "restart": "Start på nytt",
