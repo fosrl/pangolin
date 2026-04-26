@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "초기 서버 관리자 계정을 생성하세요. 서버 관리자 계정은 하나만 존재할 수 있습니다. 이러한 자격 증명은 나중에 언제든지 변경할 수 있습니다.",
     "createAdminAccount": "관리자 계정 생성",
     "setupErrorCreateAdmin": "서버 관리자 계정을 생성하는 동안 오류가 발생했습니다.",
-    "certificateStatus": "인증서 상태",
+    "certificateStatus": "Certificate",
     "loading": "로딩 중",
     "loadingAnalytics": "분석 로딩 중",
     "restart": "재시작",
