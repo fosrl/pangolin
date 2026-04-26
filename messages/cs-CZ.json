@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "Vytvořte účet správce intial serveru. Pouze jeden správce serveru může existovat. Tyto přihlašovací údaje můžete kdykoliv změnit.",
     "createAdminAccount": "Vytvořit účet správce",
     "setupErrorCreateAdmin": "Došlo k chybě při vytváření účtu správce serveru.",
-    "certificateStatus": "Stav certifikátu",
+    "certificateStatus": "Certificate",
     "loading": "Načítání",
     "loadingAnalytics": "Načítání analytiky",
     "restart": "Restartovat",
