@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "Créer le compte administrateur du serveur initial. Un seul administrateur serveur peut exister. Vous pouvez toujours changer ces informations d'identification plus tard.",
     "createAdminAccount": "Créer un compte administrateur",
     "setupErrorCreateAdmin": "Une erreur s'est produite lors de la création du compte administrateur du serveur.",
-    "certificateStatus": "Statut du certificat",
+    "certificateStatus": "Certificate",
     "loading": "Chargement",
     "loadingAnalytics": "Chargement de l'analyse",
     "restart": "Redémarrer",
