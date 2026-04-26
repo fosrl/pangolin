@@ -1596,7 +1596,7 @@
     "initialSetupDescription": "Utwórz początkowe konto administratora serwera. Może istnieć tylko jeden administrator serwera. Zawsze można zmienić te dane uwierzytelniające.",
     "createAdminAccount": "Utwórz konto administratora",
     "setupErrorCreateAdmin": "Wystąpił błąd podczas tworzenia konta administratora serwera.",
-    "certificateStatus": "Status certyfikatu",
+    "certificateStatus": "Certificate",
     "loading": "Ładowanie",
     "loadingAnalytics": "Ładowanie Analityki",
     "restart": "Uruchom ponownie",
