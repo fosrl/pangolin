@@ -2339,7 +2339,7 @@
     "domainPickerVerified": "Проверено",
     "domainPickerUnverified": "Непроверено",
     "domainPickerManual": "Ръчно",
-    "domainPickerInvalidSubdomainStructure": "Този поддомен съдържа невалидни знаци или структура. Ще бъде автоматично пречистен при запазване.",
+    "domainPickerInvalidSubdomainStructure": "Invalid characters will be sanitized when saved.",
     "domainPickerError": "Грешка",
     "domainPickerErrorLoadDomains": "Неуспешно зареждане на домейни на организацията",
     "domainPickerErrorCheckAvailability": "Неуспешна проверка на наличността на домейни",
@@ -3196,7 +3196,7 @@
     "webhookHeaderValuePlaceholder": "Value",
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
-    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarning": "Wildcard resources may require additional configuration to work properly.",
     "domainPickerWildcardCertWarningLink": "Learn more",
     "health": "Health"
 }
