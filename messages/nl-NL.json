@@ -2339,7 +2339,7 @@
     "domainPickerVerified": "Geverifieerd",
     "domainPickerUnverified": "Ongeverifieerd",
     "domainPickerManual": "Handleiding",
-    "domainPickerInvalidSubdomainStructure": "Dit subdomein bevat ongeldige tekens of structuur. Het zal automatisch worden gesaneerd wanneer u opslaat.",
+    "domainPickerInvalidSubdomainStructure": "Invalid characters will be sanitized when saved.",
     "domainPickerError": "Foutmelding",
     "domainPickerErrorLoadDomains": "Fout bij het laden van organisatiedomeinen",
     "domainPickerErrorCheckAvailability": "Kan domein beschikbaarheid niet controleren",
@@ -3196,7 +3196,7 @@
     "webhookHeaderValuePlaceholder": "Value",
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
-    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarning": "Wildcard resources may require additional configuration to work properly.",
     "domainPickerWildcardCertWarningLink": "Learn more",
     "health": "Health"
 }
