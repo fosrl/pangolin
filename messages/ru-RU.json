@@ -1998,6 +1998,7 @@
     "resourcesTableUnhealthy": "Unhealthy",
     "resourcesTableUnknown": "Неизвестен",
     "resourcesTableNotMonitored": "Не отслеживается",
+    "resourcesTableNoTargets": "No targets",
     "editInternalResourceDialogEditClientResource": "Изменить приватный ресурс",
     "editInternalResourceDialogUpdateResourceProperties": "Обновить настройки ресурса и элементы управления доступом для {resourceName}",
     "editInternalResourceDialogResourceProperties": "Свойства ресурса",
