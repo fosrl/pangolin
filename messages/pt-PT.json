@@ -2339,7 +2339,7 @@
     "domainPickerVerified": "Verificada",
     "domainPickerUnverified": "Não verificado",
     "domainPickerManual": "Manual",
-    "domainPickerInvalidSubdomainStructure": "Este subdomínio contém caracteres ou estrutura inválidos. Ele será eliminado automaticamente quando você salvar.",
+    "domainPickerInvalidSubdomainStructure": "Invalid characters will be sanitized when saved.",
     "domainPickerError": "ERRO",
     "domainPickerErrorLoadDomains": "Falha ao carregar domínios da organização",
     "domainPickerErrorCheckAvailability": "Não foi possível verificar a disponibilidade do domínio",
@@ -3196,7 +3196,7 @@
     "webhookHeaderValuePlaceholder": "Value",
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
-    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarning": "Wildcard resources may require additional configuration to work properly.",
     "domainPickerWildcardCertWarningLink": "Learn more",
     "health": "Health"
 }
