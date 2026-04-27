@@ -1998,6 +1998,7 @@
     "resourcesTableUnhealthy": "Unhealthy",
     "resourcesTableUnknown": "알 수 없음",
     "resourcesTableNotMonitored": "모니터링되지 않음",
+    "resourcesTableNoTargets": "No targets",
     "editInternalResourceDialogEditClientResource": "비공개 리소스 수정",
     "editInternalResourceDialogUpdateResourceProperties": "{resourceName}의 리소스 속성과 대상 구성을 업데이트하세요",
     "editInternalResourceDialogResourceProperties": "리소스 속성",
