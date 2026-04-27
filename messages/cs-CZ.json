@@ -1998,6 +1998,7 @@
     "resourcesTableUnhealthy": "Unhealthy",
     "resourcesTableUnknown": "Neznámý",
     "resourcesTableNotMonitored": "Není sledováno",
+    "resourcesTableNoTargets": "No targets",
     "editInternalResourceDialogEditClientResource": "Upravit soukromý dokument",
     "editInternalResourceDialogUpdateResourceProperties": "Aktualizovat konfiguraci zdroje a ovládací prvky přístupu pro {resourceName}",
     "editInternalResourceDialogResourceProperties": "Vlastnosti zdroje",
