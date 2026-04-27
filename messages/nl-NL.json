@@ -3196,5 +3196,6 @@
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
     "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
-    "domainPickerWildcardCertWarningLink": "Learn more"
+    "domainPickerWildcardCertWarningLink": "Learn more",
+    "health": "Health"
 }
