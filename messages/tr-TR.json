@@ -2884,6 +2884,8 @@
     "editInternalResourceDialogAddClients": "Müşteriler Ekle",
     "editInternalResourceDialogDestinationLabel": "Hedef",
     "editInternalResourceDialogDestinationDescription": "Dahili kaynak için hedef adresi belirtin. Seçilen moda bağlı olarak bu bir ana bilgisayar adı, IP adresi veya CIDR aralığı olabilir. Daha kolay tanımlama için isteğe bağlı olarak dahili bir DNS takma adı ayarlayın.",
+    "internalResourceFormMultiSiteRoutingHelp": "Selecting multiple sites enables resilient routing and failover for high availability.",
+    "internalResourceFormMultiSiteRoutingHelpLearnMore": "Learn more",
     "editInternalResourceDialogPortRestrictionsDescription": "Belirtilen TCP/UDP portlarına erişimi kısıtlayın veya tüm portlara izin/engelleme verin.",
     "createInternalResourceDialogHttpConfiguration": "HTTP yapılandırması",
     "createInternalResourceDialogHttpConfigurationDescription": "HTTP veya HTTPS üzerinden bu kaynağa ulaşmak için istemcilerin kullanacağı alan adını seçin.",
