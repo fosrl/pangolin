@@ -1998,6 +1998,7 @@
     "resourcesTableUnhealthy": "Unhealthy",
     "resourcesTableUnknown": "Desconhecido",
     "resourcesTableNotMonitored": "Não monitorado",
+    "resourcesTableNoTargets": "No targets",
     "editInternalResourceDialogEditClientResource": "Editar Recurso Privado",
     "editInternalResourceDialogUpdateResourceProperties": "Atualizar as configurações de recursos e controles de acesso para {resourceName}",
     "editInternalResourceDialogResourceProperties": "Propriedades do Recurso",
