@@ -1998,6 +1998,7 @@
     "resourcesTableUnhealthy": "Unhealthy",
     "resourcesTableUnknown": "Bilinmiyor",
     "resourcesTableNotMonitored": "İzlenmiyor",
+    "resourcesTableNoTargets": "No targets",
     "editInternalResourceDialogEditClientResource": "Özel Kaynak Düzenleyin",
     "editInternalResourceDialogUpdateResourceProperties": "{resourceName} için kaynak ayarlarını ve erişim kontrollerini güncelleyin",
     "editInternalResourceDialogResourceProperties": "Kaynak Özellikleri",
