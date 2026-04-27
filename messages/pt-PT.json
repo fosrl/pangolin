@@ -2884,6 +2884,8 @@
     "editInternalResourceDialogAddClients": "Adicionar Clientes",
     "editInternalResourceDialogDestinationLabel": "Destino",
     "editInternalResourceDialogDestinationDescription": "Especifique o endereço de destino para o recurso interno. Isso pode ser um nome de host, endereço IP ou intervalo CIDR, dependendo do modo selecionado. Opcionalmente, defina um alias interno de DNS para facilitar a identificação.",
+    "internalResourceFormMultiSiteRoutingHelp": "Selecting multiple sites enables resilient routing and failover for high availability.",
+    "internalResourceFormMultiSiteRoutingHelpLearnMore": "Learn more",
     "editInternalResourceDialogPortRestrictionsDescription": "Restrinja o acesso a portas TCP/UDP específicas ou permita/bloqueie todas as portas.",
     "createInternalResourceDialogHttpConfiguration": "Configuração HTTP",
     "createInternalResourceDialogHttpConfigurationDescription": "Escolha o domínio que os clientes usarão para acessar este recurso via HTTP ou HTTPS.",
