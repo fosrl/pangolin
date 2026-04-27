@@ -2339,7 +2339,7 @@
     "domainPickerVerified": "已验证",
     "domainPickerUnverified": "未验证",
     "domainPickerManual": "手动",
-    "domainPickerInvalidSubdomainStructure": "此子域包含无效的字符或结构。当您保存时，它将被自动清除。",
+    "domainPickerInvalidSubdomainStructure": "Invalid characters will be sanitized when saved.",
     "domainPickerError": "错误",
     "domainPickerErrorLoadDomains": "加载组织域名失败",
     "domainPickerErrorCheckAvailability": "检查域可用性失败",
@@ -3196,7 +3196,7 @@
     "webhookHeaderValuePlaceholder": "Value",
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
-    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarning": "Wildcard resources may require additional configuration to work properly.",
     "domainPickerWildcardCertWarningLink": "Learn more",
     "health": "Health"
 }
