@@ -2339,7 +2339,7 @@
     "domainPickerVerified": "Bekreftet",
     "domainPickerUnverified": "Uverifisert",
     "domainPickerManual": "Manuell",
-    "domainPickerInvalidSubdomainStructure": "Dette underdomenet inneholder ugyldige tegn eller struktur. Det vil automatisk bli utsatt når du lagrer.",
+    "domainPickerInvalidSubdomainStructure": "Invalid characters will be sanitized when saved.",
     "domainPickerError": "Feil",
     "domainPickerErrorLoadDomains": "Kan ikke laste organisasjonens domener",
     "domainPickerErrorCheckAvailability": "Kunne ikke kontrollere domenetilgjengelighet",
@@ -3196,7 +3196,7 @@
     "webhookHeaderValuePlaceholder": "Value",
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
-    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarning": "Wildcard resources may require additional configuration to work properly.",
     "domainPickerWildcardCertWarningLink": "Learn more",
     "health": "Health"
 }
