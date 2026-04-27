@@ -2339,7 +2339,7 @@
     "domainPickerVerified": "Ověřeno",
     "domainPickerUnverified": "Neověřeno",
     "domainPickerManual": "Ruční nastavení",
-    "domainPickerInvalidSubdomainStructure": "Tato subdoména obsahuje neplatné znaky nebo strukturu. Bude automaticky sanitována při uložení.",
+    "domainPickerInvalidSubdomainStructure": "Invalid characters will be sanitized when saved.",
     "domainPickerError": "Chyba",
     "domainPickerErrorLoadDomains": "Nepodařilo se načíst domény organizace",
     "domainPickerErrorCheckAvailability": "Kontrola dostupnosti domény se nezdařila",
@@ -3196,7 +3196,7 @@
     "webhookHeaderValuePlaceholder": "Value",
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
-    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarning": "Wildcard resources may require additional configuration to work properly.",
     "domainPickerWildcardCertWarningLink": "Learn more",
     "health": "Health"
 }
