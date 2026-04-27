@@ -2884,6 +2884,8 @@
     "editInternalResourceDialogAddClients": "Clients hinzufügen",
     "editInternalResourceDialogDestinationLabel": "Ziel",
     "editInternalResourceDialogDestinationDescription": "Geben Sie die Zieladresse für die interne Ressource an. Dies kann ein Hostname, eine IP-Adresse oder ein CIDR-Bereich sein, abhängig vom gewählten Modus. Legen Sie optional einen internen DNS-Alias für eine vereinfachte Identifizierung fest.",
+    "internalResourceFormMultiSiteRoutingHelp": "Selecting multiple sites enables resilient routing and failover for high availability.",
+    "internalResourceFormMultiSiteRoutingHelpLearnMore": "Learn more",
     "editInternalResourceDialogPortRestrictionsDescription": "Den Zugriff auf bestimmte TCP/UDP-Ports beschränken oder alle Ports erlauben/blockieren.",
     "createInternalResourceDialogHttpConfiguration": "HTTP-Konfiguration",
     "createInternalResourceDialogHttpConfigurationDescription": "Wählen Sie die Domain, die Clients verwenden, um über HTTP oder HTTPS auf diese Ressource zuzugreifen.",
