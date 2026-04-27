@@ -1998,6 +1998,7 @@
     "resourcesTableUnhealthy": "Unhealthy",
     "resourcesTableUnknown": "未知的",
     "resourcesTableNotMonitored": "未监视的",
+    "resourcesTableNoTargets": "No targets",
     "editInternalResourceDialogEditClientResource": "编辑私有资源",
     "editInternalResourceDialogUpdateResourceProperties": "更新{resourceName}的资源配置和访问控制。",
     "editInternalResourceDialogResourceProperties": "资源属性",
