@@ -1998,6 +1998,7 @@
     "resourcesTableUnhealthy": "Unhealthy",
     "resourcesTableUnknown": "Ukjent",
     "resourcesTableNotMonitored": "Ikke overvåket",
+    "resourcesTableNoTargets": "No targets",
     "editInternalResourceDialogEditClientResource": "Rediger Private Ressurser",
     "editInternalResourceDialogUpdateResourceProperties": "Oppdater ressurskonfigurasjonen og få tilgangskontroller for {resourceName}",
     "editInternalResourceDialogResourceProperties": "Ressursegenskaper",
