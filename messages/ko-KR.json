@@ -2884,6 +2884,8 @@
     "editInternalResourceDialogAddClients": "클라이언트 추가",
     "editInternalResourceDialogDestinationLabel": "대상지",
     "editInternalResourceDialogDestinationDescription": "내부 리소스의 목적지 주소를 지정하세요. 선택한 모드에 따라 이 주소는 호스트명, IP 주소, 또는 CIDR 범위가 될 수 있습니다. 더욱 쉽게 식별할 수 있도록 내부 DNS 별칭을 설정할 수 있습니다.",
+    "internalResourceFormMultiSiteRoutingHelp": "Selecting multiple sites enables resilient routing and failover for high availability.",
+    "internalResourceFormMultiSiteRoutingHelpLearnMore": "Learn more",
     "editInternalResourceDialogPortRestrictionsDescription": "특정 TCP/UDP 포트에 대한 접근을 제한하거나 모든 포트를 허용/차단하십시오.",
     "createInternalResourceDialogHttpConfiguration": "HTTP 구성",
     "createInternalResourceDialogHttpConfigurationDescription": "이 리소스에 HTTP 또는 HTTPS로 도달하기 위한 도메인을 선택하세요.",
