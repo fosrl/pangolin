@@ -2339,7 +2339,7 @@
     "domainPickerVerified": "Doğrulandı",
     "domainPickerUnverified": "Doğrulanmadı",
     "domainPickerManual": "Manuel",
-    "domainPickerInvalidSubdomainStructure": "Bu alt alan adı geçersiz karakterler veya yapı içeriyor. Kaydettiğinizde otomatik olarak temizlenecektir.",
+    "domainPickerInvalidSubdomainStructure": "Invalid characters will be sanitized when saved.",
     "domainPickerError": "Hata",
     "domainPickerErrorLoadDomains": "Organizasyon alan adları yüklenemedi",
     "domainPickerErrorCheckAvailability": "Alan adı kullanılabilirliği kontrol edilemedi",
@@ -3196,7 +3196,7 @@
     "webhookHeaderValuePlaceholder": "Value",
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
-    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarning": "Wildcard resources may require additional configuration to work properly.",
     "domainPickerWildcardCertWarningLink": "Learn more",
     "health": "Health"
 }
