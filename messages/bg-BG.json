@@ -1998,6 +1998,7 @@
     "resourcesTableUnhealthy": "Unhealthy",
     "resourcesTableUnknown": "Неизвестно",
     "resourcesTableNotMonitored": "Не е наблюдавано",
+    "resourcesTableNoTargets": "No targets",
     "editInternalResourceDialogEditClientResource": "Редактиране на частен ресурс",
     "editInternalResourceDialogUpdateResourceProperties": "Актуализирайте конфигурацията на ресурса и контрола на достъпа за {resourceName}",
     "editInternalResourceDialogResourceProperties": "Свойствата на ресурса",
