@@ -2339,7 +2339,7 @@
     "domainPickerVerified": "검증됨",
     "domainPickerUnverified": "검증되지 않음",
     "domainPickerManual": "수동",
-    "domainPickerInvalidSubdomainStructure": "이 하위 도메인은 잘못된 문자 또는 구조를 포함하고 있습니다. 저장 시 자동으로 정리됩니다.",
+    "domainPickerInvalidSubdomainStructure": "Invalid characters will be sanitized when saved.",
     "domainPickerError": "오류",
     "domainPickerErrorLoadDomains": "조직 도메인 로드 실패",
     "domainPickerErrorCheckAvailability": "도메인 가용성 확인 실패",
@@ -3196,7 +3196,7 @@
     "webhookHeaderValuePlaceholder": "Value",
     "alertLabel": "Alert",
     "domainPickerWildcardSubdomainNotAllowed": "Wildcard subdomains are not allowed.",
-    "domainPickerWildcardCertWarning": "Wildcard certificates must be configured separately in Traefik.",
+    "domainPickerWildcardCertWarning": "Wildcard resources may require additional configuration to work properly.",
     "domainPickerWildcardCertWarningLink": "Learn more",
     "health": "Health"
 }
