@@ -709,7 +709,7 @@ export default function Page() {
 
                    return (
                     <div className="flex items-center justify-center w-full">
-                        {row.original.siteType === "newt" ? (
+                        {row.original.siteType === "newt" || row.original.siteType === "local" ? (
                             <Button
                                 variant="outline"
                                 className="flex items-center gap-2 w-full text-left cursor-pointer"
