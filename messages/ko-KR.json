@@ -673,6 +673,7 @@
     "targetNoOneDescription": "위에 하나 이상의 대상을 추가하면 로드 밸런싱이 활성화됩니다.",
     "targetsSubmit": "대상 저장",
     "addTarget": "대상 추가",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "유효하지 않은 IP 주소",
     "targetErrorInvalidIpDescription": "유효한 IP 주소 또는 호스트 이름을 입력하세요.",
     "targetErrorInvalidPort": "유효하지 않은 포트",
