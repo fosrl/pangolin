@@ -673,6 +673,7 @@
     "targetNoOneDescription": "Å legge til mer enn ett mål ovenfor vil aktivere lastbalansering.",
     "targetsSubmit": "Lagre mål",
     "addTarget": "Legg til mål",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "Ugyldig IP-adresse",
     "targetErrorInvalidIpDescription": "Skriv inn en gyldig IP-adresse eller vertsnavn",
     "targetErrorInvalidPort": "Ugyldig port",
