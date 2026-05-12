@@ -673,6 +673,7 @@
     "targetNoOneDescription": "Das Hinzufügen von mehr als einem Ziel aktiviert den Lastausgleich.",
     "targetsSubmit": "Ziele speichern",
     "addTarget": "Ziel hinzufügen",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "Ungültige IP-Adresse",
     "targetErrorInvalidIpDescription": "Bitte geben Sie eine gültige IP-Adresse oder einen Hostnamen ein",
     "targetErrorInvalidPort": "Ungültiger Port",
