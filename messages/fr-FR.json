@@ -673,6 +673,7 @@
     "targetNoOneDescription": "L'ajout de plus d'une cible ci-dessus activera l'équilibrage de charge.",
     "targetsSubmit": "Enregistrer les cibles",
     "addTarget": "Ajouter une cible",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "Adresse IP invalide",
     "targetErrorInvalidIpDescription": "Veuillez entrer une adresse IP ou un nom d'hôte valide",
     "targetErrorInvalidPort": "Port invalide",
