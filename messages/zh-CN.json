@@ -673,6 +673,7 @@
     "targetNoOneDescription": "在上面添加多个目标将启用负载平衡。",
     "targetsSubmit": "保存目标",
     "addTarget": "添加目标",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "无效的 IP 地址",
     "targetErrorInvalidIpDescription": "请输入有效的IP地址或主机名",
     "targetErrorInvalidPort": "无效的端口",
