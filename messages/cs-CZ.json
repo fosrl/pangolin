@@ -673,6 +673,7 @@
     "targetNoOneDescription": "Přidáním více než jednoho cíle se umožní vyvážení zatížení.",
     "targetsSubmit": "Uložit cíle",
     "addTarget": "Add Target",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "Neplatná IP adresa",
     "targetErrorInvalidIpDescription": "Zadejte prosím platnou IP adresu nebo název hostitele",
     "targetErrorInvalidPort": "Neplatný port",
