@@ -673,6 +673,7 @@
     "targetNoOneDescription": "Yukarıdaki birden fazla hedef ekleyerek yük dengeleme etkinleştirilecektir.",
     "targetsSubmit": "Hedefleri Kaydet",
     "addTarget": "Hedef Ekle",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "Geçersiz IP adresi",
     "targetErrorInvalidIpDescription": "Lütfen geçerli bir IP adresi veya host adı girin",
     "targetErrorInvalidPort": "Geçersiz port",
