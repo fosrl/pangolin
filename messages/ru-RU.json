@@ -673,6 +673,7 @@
     "targetNoOneDescription": "Добавление более одной цели выше включит балансировку нагрузки.",
     "targetsSubmit": "Сохранить цели",
     "addTarget": "Добавить цель",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "Неверный IP-адрес",
     "targetErrorInvalidIpDescription": "Пожалуйста, введите действительный IP адрес или имя хоста",
     "targetErrorInvalidPort": "Неверный порт",
