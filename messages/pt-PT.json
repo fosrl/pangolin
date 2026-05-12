@@ -673,6 +673,7 @@
     "targetNoOneDescription": "Adicionar mais de um alvo acima habilitará o balanceamento de carga.",
     "targetsSubmit": "Guardar Alvos",
     "addTarget": "Adicionar Alvo",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "Endereço IP inválido",
     "targetErrorInvalidIpDescription": "Por favor, insira um endereço IP ou nome de host válido",
     "targetErrorInvalidPort": "Porta inválida",
