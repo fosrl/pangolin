@@ -2668,6 +2668,8 @@
     "validPassword": "Gültiges Passwort",
     "validEmail": "Gültige E-Mail-Adresse",
     "validSSO": "Gültige SSO-Anmeldung",
+    "view": "View",
+    "configManaged": "Config Managed",
     "connectedClient": "Verbundenes Gerät",
     "resourceBlocked": "Ressource blockiert",
     "droppedByRule": "Abgelegt durch Regel",
