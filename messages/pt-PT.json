@@ -2668,6 +2668,8 @@
     "validPassword": "Senha válida",
     "validEmail": "Valid email",
     "validSSO": "Valid SSO",
+    "view": "View",
+    "configManaged": "Config Managed",
     "connectedClient": "Cliente Conectado",
     "resourceBlocked": "Recurso bloqueado",
     "droppedByRule": "Derrubado pela regra",
