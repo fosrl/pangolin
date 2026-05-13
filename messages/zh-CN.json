@@ -2668,6 +2668,8 @@
     "validPassword": "有效密码",
     "validEmail": "Valid email",
     "validSSO": "Valid SSO",
+    "view": "View",
+    "configManaged": "Config Managed",
     "connectedClient": "已连接客户端",
     "resourceBlocked": "资源被阻止",
     "droppedByRule": "被规则删除",
