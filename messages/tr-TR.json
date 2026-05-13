@@ -2668,6 +2668,8 @@
     "validPassword": "Geçerli Şifre",
     "validEmail": "Geçerli E-posta",
     "validSSO": "Geçerli SSO",
+    "view": "View",
+    "configManaged": "Config Managed",
     "connectedClient": "Bağlı İstemci",
     "resourceBlocked": "Kaynak Engellendi",
     "droppedByRule": "Kurallara Göre Çıkartıldı",
