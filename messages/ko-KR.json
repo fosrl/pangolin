@@ -2668,6 +2668,8 @@
     "validPassword": "유효한 비밀번호",
     "validEmail": "유효한 이메일",
     "validSSO": "유효한 SSO",
+    "view": "View",
+    "configManaged": "Config Managed",
     "connectedClient": "연결된 클라이언트",
     "resourceBlocked": "리소스 차단됨",
     "droppedByRule": "룰에 의해 드롭됨",
