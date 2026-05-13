@@ -2668,6 +2668,8 @@
     "validPassword": "Geldig wachtwoord",
     "validEmail": "Valid email",
     "validSSO": "Valid SSO",
+    "view": "View",
+    "configManaged": "Config Managed",
     "connectedClient": "Verbonden Client",
     "resourceBlocked": "Bron geblokkeerd",
     "droppedByRule": "Achtergelaten door regel",
