@@ -26,16 +26,19 @@ export async function convertTargetsIfNessicary(
         throw new Error(`No newt found for id: ${newtId}`);
     }
 
-    // check the semver
-    if (
-        newt.version &&
-        !semver.satisfies(newt.version, NEWT_V2_TARGETS_VERSION)
-    ) {
+    // check the semver - only fall back to V1 for known old versions
+    if (newt.version && semver.valid(newt.version)) {
+        if (!semver.satisfies(newt.version, NEWT_V2_TARGETS_VERSION)) {
+            logger.debug(
+                `Newt version ${newt.version} does not support targets v2, falling back to v1`
+            );
+            targets = convertSubnetProxyTargetsV2ToV1(
+                targets as SubnetProxyTargetV2[]
+            );
+        }
+    } else if (newt.version) {
         logger.debug(
-            `addTargets Newt version ${newt.version} does not support targets v2 falling back`
-        );
-        targets = convertSubnetProxyTargetsV2ToV1(
-            targets as SubnetProxyTargetV2[]
+            `Newt version "${newt.version}" is not valid semver, sending v2 targets`
         );
     }
 
@@ -94,22 +97,21 @@ export async function updateTargets(
         return;
     }
 
-    // check the semver
-    if (
-        newt.version &&
-        !semver.satisfies(newt.version, NEWT_V2_TARGETS_VERSION)
-    ) {
-        logger.debug(
-            `addTargets Newt version ${newt.version} does not support targets v2 falling back`
-        );
-        targets = {
-            oldTargets: convertSubnetProxyTargetsV2ToV1(
-                targets.oldTargets as SubnetProxyTargetV2[]
-            ),
-            newTargets: convertSubnetProxyTargetsV2ToV1(
-                targets.newTargets as SubnetProxyTargetV2[]
-            )
-        };
+    // check the semver - only fall back to V1 for known old versions
+    if (newt.version && semver.valid(newt.version)) {
+        if (!semver.satisfies(newt.version, NEWT_V2_TARGETS_VERSION)) {
+            logger.debug(
+                `Newt version ${newt.version} does not support targets v2, falling back to v1`
+            );
+            targets = {
+                oldTargets: convertSubnetProxyTargetsV2ToV1(
+                    targets.oldTargets as SubnetProxyTargetV2[]
+                ),
+                newTargets: convertSubnetProxyTargetsV2ToV1(
+                    targets.newTargets as SubnetProxyTargetV2[]
+                )
+            };
+        }
     }
 
     await sendToClient(
