@@ -86,6 +86,11 @@ export const OlmErrorCodes = {
     TERMINATED_BLOCKED: {
         code: "TERMINATED_BLOCKED",
         message: "This session was terminated because access was blocked."
+    },
+    STALE_HOLE_PUNCH: {
+        code: "STALE_HOLE_PUNCH",
+        message:
+            "Hole punch is stale. Ensure the server is reachable on the configured UDP port."
     }
 } as const;
 
