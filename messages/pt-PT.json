@@ -1646,6 +1646,7 @@
     "certificateStatus": "Certificado",
     "certificateStatusAutoRefreshHint": "Status atualiza automaticamente.",
     "loading": "Carregando",
+    "loadingEllipsis": "Loading...",
     "loadingAnalytics": "Carregando Analytics",
     "restart": "Reiniciar",
     "domains": "Domínios",
