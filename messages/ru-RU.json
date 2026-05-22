@@ -1646,6 +1646,7 @@
     "certificateStatus": "Сертификат",
     "certificateStatusAutoRefreshHint": "Статус обновляется автоматически.",
     "loading": "Загрузка",
+    "loadingEllipsis": "Loading...",
     "loadingAnalytics": "Загрузка аналитики",
     "restart": "Перезагрузка",
     "domains": "Домены",
