@@ -1646,6 +1646,7 @@
     "certificateStatus": "Sertifika",
     "certificateStatusAutoRefreshHint": "Durum otomatik olarak yenilenir.",
     "loading": "Yükleniyor",
+    "loadingEllipsis": "Loading...",
     "loadingAnalytics": "Analiz Yükleniyor",
     "restart": "Yeniden Başlat",
     "domains": "Alan Adları",
