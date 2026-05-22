@@ -1646,6 +1646,7 @@
     "certificateStatus": "Сертификат",
     "certificateStatusAutoRefreshHint": "Състоянието се опреснява автоматично.",
     "loading": "Зареждане",
+    "loadingEllipsis": "Loading...",
     "loadingAnalytics": "Зареждане на анализи",
     "restart": "Рестарт",
     "domains": "Домейни",
