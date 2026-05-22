@@ -1646,6 +1646,7 @@
     "certificateStatus": "Certificaat",
     "certificateStatusAutoRefreshHint": "Status ververst automatisch.",
     "loading": "Bezig met laden",
+    "loadingEllipsis": "Loading...",
     "loadingAnalytics": "Laden van Analytics",
     "restart": "Herstarten",
     "domains": "Domeinen",
