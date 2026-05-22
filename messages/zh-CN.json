@@ -1646,6 +1646,7 @@
     "certificateStatus": "证书",
     "certificateStatusAutoRefreshHint": "状态自动刷新。",
     "loading": "加载中",
+    "loadingEllipsis": "Loading...",
     "loadingAnalytics": "加载分析",
     "restart": "重启",
     "domains": "域",
