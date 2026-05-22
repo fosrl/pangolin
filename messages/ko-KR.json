@@ -1646,6 +1646,7 @@
     "certificateStatus": "인증서",
     "certificateStatusAutoRefreshHint": "상태가 자동으로 새로 고쳐집니다.",
     "loading": "로딩 중",
+    "loadingEllipsis": "Loading...",
     "loadingAnalytics": "분석 로딩 중",
     "restart": "재시작",
     "domains": "도메인",
