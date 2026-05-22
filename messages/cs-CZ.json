@@ -1646,6 +1646,7 @@
     "certificateStatus": "Certifikát",
     "certificateStatusAutoRefreshHint": "Stav se automaticky obnovuje.",
     "loading": "Načítání",
+    "loadingEllipsis": "Loading...",
     "loadingAnalytics": "Načítání analytiky",
     "restart": "Restartovat",
     "domains": "Domény",
