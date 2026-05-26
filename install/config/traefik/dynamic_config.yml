@@ -20,6 +20,7 @@ http:
       middlewares:
         - redirect-to-https
         - badger
+        - compress
 
     # Next.js router (handles everything except API and WebSocket paths)
     next-router:
@@ -29,6 +30,7 @@ http:
         - websecure
       middlewares:
         - badger
+        - compress
       tls:
         certResolver: letsencrypt
 
@@ -40,6 +42,7 @@ http:
         - websecure
       middlewares:
         - badger
+        - compress
       tls:
         certResolver: letsencrypt
 
@@ -51,6 +54,7 @@ http:
         - websecure
       middlewares:
         - badger
+        - compress
       tls:
         certResolver: letsencrypt
 
