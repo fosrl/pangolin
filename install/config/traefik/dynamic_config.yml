@@ -7,6 +7,8 @@ http:
     redirect-to-https:
       redirectScheme:
         scheme: https
+    compress:
+      compress: {}
 
   routers:
     # HTTP to HTTPS redirect router
