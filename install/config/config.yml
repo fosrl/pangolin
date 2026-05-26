@@ -36,3 +36,8 @@ flags:
     disable_signup_without_invite: true
     disable_user_create_org: false
     allow_raw_resources: true
+
+{{if .IsAdvanced}}
+postgres:
+  connection_string: postgresql://pangolin:{{.IsAdvancedPass}}@postgres:5432/pangolin
+{{end}}

@@ -1,0 +1,6 @@
+{{if .IsAdvanced}}
+redis:
+  host: "redis"
+  port: 6379
+  password: "{{.IsAdvancedPass}}"
+{{end}}

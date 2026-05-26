@@ -1,7 +1,7 @@
 name: pangolin
 services:
   pangolin:
-    image: docker.io/fosrl/pangolin:{{if .IsEnterprise}}ee-postgres-{{end}}{{.PangolinVersion}}
+    image: docker.io/fosrl/pangolin:{{if .IsEnterprise}}ee-{{end}}{{if .IsAdvanced}}postgresql-{{end}}{{.PangolinVersion}}
     container_name: pangolin
     restart: unless-stopped
     deploy:
@@ -10,6 +10,16 @@ services:
           memory: 1g
         reservations:
           memory: 256m
+{{if .IsAdvanced}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - default
+      - backend
+{{end}}
     volumes:
       - ./config:/app/config
     healthcheck:
@@ -60,41 +70,54 @@ services:
       - ./config/letsencrypt:/letsencrypt # Volume to store the Let's Encrypt certificates
       - ./config/traefik/logs:/var/log/traefik # Volume to store Traefik logs
 
-{{if .IsEnterprise}}
+{{if .IsAdvanced}}
   postgres:
     image: postgres:18
     container_name: postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: pangolin
-      POSTGRES_PASSWORD: pangolin
+      POSTGRES_PASSWORD: {{.IsAdvancedPass}}
       POSTGRES_DB: pangolin
     volumes:
-      - ./config/postgres18:/var/lib/postgresql/data
+      - ./postgres18:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U pangolin"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - backend
 
   redis:
-    image: redis/redis:8-trixie
+    image: redis:8-trixie
     container_name: redis
     restart: unless-stopped
-    environment:
-      REDIS_ARGS: "--save 3600 1000 --appendonly yes --requirepass pangolin"  ## Save Redis to disk every hour & Write the logs to disk using AOF
+    command: >
+      redis-server
+      --save 3600 1000
+      --appendonly yes
+      --requirepass {{.IsAdvancedPass}}
     volumes:
-      - ./redis8-data:/data
+      - ./redis8:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "{{.IsAdvancedPass}}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
       start_period: 10s
+    networks:
+      - backend
 {{end}}
 
 networks:
   default:
     driver: bridge
-    name: pangolin
+    name: pangolin_frontend
 {{if .EnableIPv6}}    enable_ipv6: true{{end}}
+{{if .IsAdvanced}}
+  backend:
+    driver: bridge
+    name: pangolin_backend
+    internal: true
+{{end}}
