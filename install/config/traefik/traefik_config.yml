@@ -48,6 +48,8 @@ entryPoints:
       encodedCharacters:
         allowEncodedSlash: true
         allowEncodedQuestionMark: true
+      middlewares:
+        - compress@file
 
 serversTransport:
   insecureSkipVerify: true
