@@ -1,7 +1,7 @@
 name: pangolin
 services:
   pangolin:
-    image: docker.io/fosrl/pangolin:{{if .IsEnterprise}}ee-{{end}}{{.PangolinVersion}}
+    image: docker.io/fosrl/pangolin:{{if .IsEnterprise}}ee-postgres-{{end}}{{.PangolinVersion}}
     container_name: pangolin
     restart: unless-stopped
     deploy:
@@ -59,6 +59,39 @@ services:
       - ./config/traefik:/etc/traefik:ro # Volume to store the Traefik configuration
       - ./config/letsencrypt:/letsencrypt # Volume to store the Let's Encrypt certificates
       - ./config/traefik/logs:/var/log/traefik # Volume to store Traefik logs
+
+{{if .IsEnterprise}}
+  postgres:
+    image: postgres:18
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pangolin
+      POSTGRES_PASSWORD: pangolin
+      POSTGRES_DB: pangolin
+    volumes:
+      - ./config/postgres18:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis/redis:8-trixie
+    container_name: redis
+    restart: unless-stopped
+    environment:
+      REDIS_ARGS: "--save 3600 1000 --appendonly yes --requirepass pangolin"  ## Save Redis to disk every hour & Write the logs to disk using AOF
+    volumes:
+      - ./redis8-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+{{end}}
 
 networks:
   default:
