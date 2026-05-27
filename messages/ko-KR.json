@@ -1164,6 +1164,8 @@
     "siteLabelsDescription": "Manage labels associated with this site.",
     "labelsNotFound": "Labels not found",
     "labelSearch": "Search labels",
+    "accessLabelFilterCount": "{count, plural, one {# label} other {# labels}}",
+    "accessLabelFilterClear": "Clear label filters",
     "selectColor": "Select color",
     "createNewLabel": "Create new org label \"{label}\"",
     "inviteInvalidDescription": "초대 링크가 유효하지 않습니다.",
