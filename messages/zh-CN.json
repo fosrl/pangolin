@@ -1165,6 +1165,7 @@
     "labelsNotFound": "Labels not found",
     "labelSearch": "Search labels",
     "accessLabelFilterCount": "{count, plural, one {# label} other {# labels}}",
+    "labelOverflowCount": "+{count, plural, one {# label} other {# labels}}",
     "accessLabelFilterClear": "Clear label filters",
     "selectColor": "Select color",
     "createNewLabel": "Create new org label \"{label}\"",
