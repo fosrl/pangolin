@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "Uživatel může spustit pouze zadané příkazy s sudo.",
     "sshSudo": "Povolit sudo",
     "sshSudoCommands": "Sudo příkazy",
-    "sshSudoCommandsDescription": "Čárkami oddělený seznam příkazů, které může uživatel spouštět s sudo.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Vytvořit domovský adresář",
     "sshUnixGroups": "Unixové skupiny",
     "sshUnixGroupsDescription": "Čárkou oddělené skupiny Unix přidají uživatele do cílového hostitele.",
