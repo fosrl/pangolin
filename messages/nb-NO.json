@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "Brukeren kan bare kjøre de angitte kommandoene med sudo.",
     "sshSudo": "Tillat sudo",
     "sshSudoCommands": "Sudo kommandoer",
-    "sshSudoCommandsDescription": "Kommaseparert liste med kommandoer brukeren kan kjøre med sudo.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Opprett hjemmappe",
     "sshUnixGroups": "Unix grupper",
     "sshUnixGroupsDescription": "Kommaseparerte Unix grupper for å legge brukeren til på mål-verten.",
