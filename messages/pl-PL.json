@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "Użytkownik może uruchamiać tylko określone polecenia z sudo.",
     "sshSudo": "Zezwól na sudo",
     "sshSudoCommands": "Komendy Sudo",
-    "sshSudoCommandsDescription": "Lista poleceń oddzielonych przecinkami, które użytkownik może uruchamiać z sudo.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Utwórz katalog domowy",
     "sshUnixGroups": "Grupy Unix",
     "sshUnixGroupsDescription": "Oddzielone przecinkami grupy Unix, aby dodać użytkownika do docelowego hosta.",
