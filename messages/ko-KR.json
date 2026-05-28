@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "사용자는 sudo로 지정된 명령만 실행할 수 있습니다.",
     "sshSudo": "Sudo 허용",
     "sshSudoCommands": "Sudo 명령",
-    "sshSudoCommandsDescription": "사용자가 sudo로 실행할 수 있는 명령어의 쉼표로 구분된 목록입니다.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "홈 디렉터리 생성",
     "sshUnixGroups": "유닉스 그룹",
     "sshUnixGroupsDescription": "대상 호스트에서 사용자에게 추가할 유닉스 그룹의 쉼표로 구분된 목록입니다.",
