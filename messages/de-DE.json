@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "Benutzer kann nur die angegebenen Befehle mit sudo ausführen.",
     "sshSudo": "sudo erlauben",
     "sshSudoCommands": "Sudo-Befehle",
-    "sshSudoCommandsDescription": "Kommagetrennte Liste von Befehlen, die der Benutzer mit sudo ausführen darf.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Home-Verzeichnis erstellen",
     "sshUnixGroups": "Unix-Gruppen",
     "sshUnixGroupsDescription": "Durch Komma getrennte Unix-Gruppen, um den Benutzer auf dem Zielhost hinzuzufügen.",
