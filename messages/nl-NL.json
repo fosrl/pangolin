@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "Gebruiker kan alleen de opgegeven commando's uitvoeren met de sudo.",
     "sshSudo": "sudo toestaan",
     "sshSudoCommands": "Sudo Commando's",
-    "sshSudoCommandsDescription": "Komma's gescheiden lijst van commando's waar de gebruiker een sudo mee mag uitvoeren.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Maak Home Directory",
     "sshUnixGroups": "Unix groepen",
     "sshUnixGroupsDescription": "Door komma's gescheiden Unix-groepen om de gebruiker toe te voegen aan de doelhost.",
