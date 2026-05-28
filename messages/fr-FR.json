@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "L'utilisateur ne peut exécuter que les commandes spécifiées avec sudo.",
     "sshSudo": "Autoriser sudo",
     "sshSudoCommands": "Commandes Sudo",
-    "sshSudoCommandsDescription": "Liste des commandes séparées par des virgules que l'utilisateur est autorisé à exécuter avec sudo.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Créer un répertoire personnel",
     "sshUnixGroups": "Groupes Unix",
     "sshUnixGroupsDescription": "Groupes Unix séparés par des virgules pour ajouter l'utilisateur sur l'hôte cible.",
