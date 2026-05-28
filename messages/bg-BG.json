@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "Потребителят може да изпълнява само определени команди с sudo.",
     "sshSudo": "Разреши sudo",
     "sshSudoCommands": "Sudo команди",
-    "sshSudoCommandsDescription": "Списък, разделен със запетаи, с команди, които потребителят е позволено да изпълнява с sudo.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Създай начална директория",
     "sshUnixGroups": "Unix групи",
     "sshUnixGroupsDescription": "Списък, разделен със запетаи, с Unix групи, към които да се добави потребителят на целевия хост.",
