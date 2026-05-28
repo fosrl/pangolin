@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "El usuario sólo puede ejecutar los comandos especificados con sudo.",
     "sshSudo": "Permitir sudo",
     "sshSudoCommands": "Comandos Sudo",
-    "sshSudoCommandsDescription": "Lista separada por comas de comandos que el usuario puede ejecutar con sudo.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Crear directorio principal",
     "sshUnixGroups": "Grupos Unix",
     "sshUnixGroupsDescription": "Grupos Unix separados por comas para agregar el usuario en el host de destino.",
