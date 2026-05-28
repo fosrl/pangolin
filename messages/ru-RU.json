@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "Пользователь может запускать только указанные команды с помощью sudo.",
     "sshSudo": "Разрешить sudo",
     "sshSudoCommands": "Sudo Команды",
-    "sshSudoCommandsDescription": "Список команд, разделенных запятыми, которые пользователю разрешено запускать с помощью sudo.",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "Создать домашний каталог",
     "sshUnixGroups": "Unix группы",
     "sshUnixGroupsDescription": "Группы Unix через запятую, чтобы добавить пользователя на целевой хост.",
