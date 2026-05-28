@@ -1988,7 +1988,7 @@
     "sshSudoModeCommandsDescription": "用户只能用 sudo 运行指定的命令。",
     "sshSudo": "允许Sudo",
     "sshSudoCommands": "Sudo 命令",
-    "sshSudoCommandsDescription": "逗号分隔的用户允许使用 sudo 运行的命令列表。",
+    "sshSudoCommandsDescription": "Comma separated list of commands the user is allowed to run with sudo. Absolute paths must be used.",
     "sshCreateHomeDir": "创建主目录",
     "sshUnixGroups": "Unix 组",
     "sshUnixGroupsDescription": "用逗号分隔了Unix组，将用户添加到目标主机上。",
