@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Det oppsto en feil ved opprettelse av delingslenken",
     "shareCreateDescription": "Alle med denne lenken får tilgang til ressursen",
     "shareTitleOptional": "Tittel (valgfritt)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Utløper om",
     "neverExpire": "Utløper aldri",
     "shareExpireDescription": "Utløpstid er hvor lenge lenken vil være brukbar og gi tilgang til ressursen. Etter denne tiden vil lenken ikke lenger fungere, og brukere som brukte denne lenken vil miste tilgangen til ressursen.",
