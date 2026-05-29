@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Fout opgetreden tijdens het maken van de share link",
     "shareCreateDescription": "Iedereen met deze link heeft toegang tot de pagina",
     "shareTitleOptional": "Titel (optioneel)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Vervalt in",
     "neverExpire": "Nooit verlopen",
     "shareExpireDescription": "Vervaltijd is hoe lang de link bruikbaar is en geeft toegang tot de bron. Na deze tijd zal de link niet meer werken en zullen gebruikers die deze link hebben gebruikt de toegang tot de pagina verliezen.",
