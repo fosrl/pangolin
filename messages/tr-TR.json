@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Paylaşım bağlantısı oluşturulurken bir hata oluştu",
     "shareCreateDescription": "Bu bağlantıya sahip olan herkes kaynağa erişebilir",
     "shareTitleOptional": "Başlık (isteğe bağlı)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Süresi Dolacak",
     "neverExpire": "Hiçbir Zaman Sona Ermez",
     "shareExpireDescription": "Son kullanma süresi, bağlantının kullanılabilir ve kaynağa erişim sağlayacak süresidir. Bu süreden sonra bağlantı çalışmayı durduracak ve bu bağlantıyı kullanan kullanıcılar kaynağa erişimini kaybedecektir.",
