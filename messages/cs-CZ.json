@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Při vytváření odkazu došlo k chybě",
     "shareCreateDescription": "Kdokoliv s tímto odkazem může přistupovat ke zdroji",
     "shareTitleOptional": "Název (volitelné)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Platnost vyprší za",
     "neverExpire": "Nikdy nevyprší",
     "shareExpireDescription": "Doba platnosti určuje, jak dlouho bude odkaz použitelný a bude poskytovat přístup ke zdroji. Po této době odkaz již nebude fungovat a uživatelé kteří tento odkaz používali ztratí přístup ke zdroji.",
