@@ -57,8 +57,10 @@ type Config struct {
 	EnableGeoblocking         bool
 	Secret                    string
 	IsEnterprise              bool
-    IsAdvanced                bool
-	IsAdvancedPass            string
+    IsPostgreSQL              bool
+	IsPostgreSQLPass          string
+    IsRedis                   bool
+	IsRedisPass               string
 }
 
 type SupportedContainer string
@@ -485,11 +487,17 @@ func collectUserInput() Config {
 	// Basic configuration
 	fmt.Println("\n=== Basic Configuration ===")
 
-	config.IsEnterprise = readBoolNoDefault("Do you want to install the Enterprise version of Pangolin? The EE is free for personal use or for businesses making less than 100k USD annually.")
-	config.IsAdvanced = readBool("Do you want to run the PostgreSQL and Redis containers locally? Otherwise, default to the local SQLite database only.", false)
+	config.IsEnterprise = readBool("Do you want to install the Enterprise version of Pangolin? The EE is free for personal use or for businesses making less than 100k USD annually.")
+    if config.IsEnterprise {
+        config.IsRedis = readBool("Do you want to run the Redis containers locally? Required for HA.")
+        if config.IsRedis {
+            config.IsRedisPass = readPassword("Enter a unique password for the Redis service.")
+        }
+    }
 
-	if config.IsAdvanced {
-		config.IsAdvancedPass = readPassword("Enter a unique password for the PostgreSQL/Redis services!")
+    config.IsPostgreSQL = readBool("Do you want to run the PostgreSQL containers locally? Otherwise, default to the local SQLite database only.", false)
+	if config.IsPostgreSQL {
+		config.IsPostgreSQLPass = readPassword("Enter a unique password for the PostgreSQL pangolin user.")
 	}
 
 	config.BaseDomain = readString("Enter your base domain (no subdomain e.g. example.com)", "")
