@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "创建共享链接时出错",
     "shareCreateDescription": "任何具有此链接的人都可以访问资源",
     "shareTitleOptional": "标题 (可选)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "过期时间",
     "neverExpire": "永不过期",
     "shareExpireDescription": "过期时间是链接可以使用并提供对资源的访问时间。 此时间后，链接将不再工作，使用此链接的用户将失去对资源的访问。",
