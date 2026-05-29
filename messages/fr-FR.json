@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Une erreur s'est produite lors de la création du lien partageable",
     "shareCreateDescription": "N'importe qui avec ce lien peut accéder à la ressource",
     "shareTitleOptional": "Titre (facultatif)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Expire dans",
     "neverExpire": "N'expire jamais",
     "shareExpireDescription": "Le délai d'expiration correspond à la période pendant laquelle le lien sera utilisable et permettra d'accéder à la ressource. Passé ce délai, le lien ne fonctionnera plus et les utilisateurs qui l'ont utilisé perdront l'accès à la ressource.",
