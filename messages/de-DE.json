@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Beim Erstellen des Freigabelinks ist ein Fehler aufgetreten",
     "shareCreateDescription": "Jeder mit diesem Link kann auf die Ressource zugreifen",
     "shareTitleOptional": "Titel (optional)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Läuft ab in",
     "neverExpire": "Läuft nie ab",
     "shareExpireDescription": "Ablaufzeit ist, wie lange der Link verwendet werden kann und bietet Zugriff auf die Ressource. Nach dieser Zeit wird der Link nicht mehr funktionieren und Benutzer, die diesen Link benutzt haben, verlieren den Zugriff auf die Ressource.",
