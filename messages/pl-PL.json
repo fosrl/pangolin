@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Wystąpił błąd podczas tworzenia linku udostępniania",
     "shareCreateDescription": "Każdy z tym linkiem może uzyskać dostęp do zasobu",
     "shareTitleOptional": "Tytuł (opcjonalnie)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Wygasa za",
     "neverExpire": "Nigdy nie wygasa",
     "shareExpireDescription": "Czas wygaśnięcia to jak długo link będzie mógł być użyty i zapewni dostęp do zasobu. Po tym czasie link nie będzie już działał, a użytkownicy, którzy użyli tego linku, utracą dostęp do zasobu.",
