@@ -487,7 +487,7 @@ func collectUserInput() Config {
 	// Basic configuration
 	fmt.Println("\n=== Basic Configuration ===")
 
-	config.IsEnterprise = readBool("Do you want to install the Enterprise version of Pangolin? The EE is free for personal use or for businesses making less than 100k USD annually.")
+	config.IsEnterprise = readBoolNoDefault("Do you want to install the Enterprise version of Pangolin? The EE is free for personal use or for businesses making less than 100k USD annually.")
     if config.IsEnterprise {
         config.IsRedis = readBool("Do you want to run the Redis containers locally? Required for HA.")
         if config.IsRedis {
