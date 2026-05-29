@@ -1,7 +1,7 @@
 name: pangolin
 services:
   pangolin:
-    image: docker.io/fosrl/pangolin:{{if .IsEnterprise}}ee-{{end}}{{if .IsAdvanced}}postgresql-{{end}}{{.PangolinVersion}}
+    image: docker.io/fosrl/pangolin:{{if .IsEnterprise}}ee-{{end}}{{if .IsPostgreSQL}}postgresql-{{end}}{{.PangolinVersion}}
     container_name: pangolin
     restart: unless-stopped
     deploy:
@@ -10,12 +10,16 @@ services:
           memory: 1g
         reservations:
           memory: 256m
-{{if .IsAdvanced}}
+{{if or .IsPostgreSQL .IsRedis}}
     depends_on:
+    {{if .IsPostgreSQL}}
       postgres:
         condition: service_healthy
+    {{end}}
+    {{if .IsRedis}}
       redis:
         condition: service_healthy
+    {{end}}
     networks:
       - default
       - backend
@@ -70,14 +74,14 @@ services:
       - ./config/letsencrypt:/letsencrypt # Volume to store the Let's Encrypt certificates
       - ./config/traefik/logs:/var/log/traefik # Volume to store Traefik logs
 
-{{if .IsAdvanced}}
+{{if .IsPostgreSQL}}
   postgres:
     image: postgres:18
     container_name: postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: pangolin
-      POSTGRES_PASSWORD: {{.IsAdvancedPass}}
+      POSTGRES_PASSWORD: {{.IsPostgreSQLPass}}
       POSTGRES_DB: pangolin
     volumes:
       - ./postgres18:/var/lib/postgresql
@@ -88,7 +92,9 @@ services:
       retries: 5
     networks:
       - backend
+{{end}}
 
+{{if .IsRedis}}
   redis:
     image: redis:8-trixie
     container_name: redis
@@ -97,11 +103,11 @@ services:
       redis-server
       --save 3600 1000
       --appendonly yes
-      --requirepass {{.IsAdvancedPass}}
+      --requirepass {{.IsRedisPass}}
     volumes:
       - ./redis8:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "{{.IsAdvancedPass}}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "{{.IsRedisPass}}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -115,7 +121,7 @@ networks:
     driver: bridge
     name: pangolin_frontend
 {{if .EnableIPv6}}    enable_ipv6: true{{end}}
-{{if .IsAdvanced}}
+{{if or .IsPostgreSQL .IsRedis}}
   backend:
     driver: bridge
     name: pangolin_backend
