@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Se ha producido un error al crear el enlace compartido",
     "shareCreateDescription": "Cualquiera con este enlace puede acceder al recurso",
     "shareTitleOptional": "Título (opcional)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Caduca en",
     "neverExpire": "Nunca expirar",
     "shareExpireDescription": "El tiempo de caducidad es cuánto tiempo el enlace será utilizable y proporcionará acceso al recurso. Después de este tiempo, el enlace ya no funcionará, y los usuarios que usaron este enlace perderán el acceso al recurso.",
