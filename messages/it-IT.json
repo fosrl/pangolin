@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "Si è verificato un errore durante la creazione del link di condivisione",
     "shareCreateDescription": "Chiunque con questo link può accedere alla risorsa",
     "shareTitleOptional": "Titolo (facoltativo)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "Scadenza In",
     "neverExpire": "Nessuna scadenza",
     "shareExpireDescription": "Il tempo di scadenza indica per quanto tempo il link sarà utilizzabile e fornirà accesso alla risorsa. Dopo questo tempo, il link non funzionerà più e gli utenti che hanno utilizzato questo link perderanno l'accesso alla risorsa.",
