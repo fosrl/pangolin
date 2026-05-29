@@ -176,6 +176,7 @@
     "shareErrorCreateDescription": "공유 링크를 생성하는 동안 오류가 발생했습니다",
     "shareCreateDescription": "이 링크가 있는 누구나 리소스에 접근할 수 있습니다.",
     "shareTitleOptional": "제목 (선택 사항)",
+    "sharePathOptional": "Path (optional)",
     "expireIn": "만료됨",
     "neverExpire": "만료되지 않음",
     "shareExpireDescription": "만료 시간은 링크가 사용 가능하고 리소스에 접근할 수 있는 기간입니다. 이 시간이 지나면 링크는 더 이상 작동하지 않으며, 이 링크를 사용한 사용자는 리소스에 대한 접근 권한을 잃게 됩니다.",
