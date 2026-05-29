@@ -1,6 +1,6 @@
-{{if .IsAdvanced}}
+{{if .IsRedis}}
 redis:
   host: "redis"
   port: 6379
-  password: "{{.IsAdvancedPass}}"
+  password: "{{.IsRedisPass}}"
 {{end}}
