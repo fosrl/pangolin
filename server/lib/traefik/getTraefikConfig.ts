@@ -469,19 +469,17 @@ export async function getTraefikConfig(
                 };
             }
 
+            // Check if any sites are online
+            // THIS IS SO THAT THERE IS SOME IMMEDIATE FEEDBACK
+            // EVEN IF THE SITES HAVE NOT UPDATED YET FROM THE
+            // RECEIVE BANDWIDTH ENDPOINT.
+
+            // TODO: HOW TO HANDLE ^^^^^^ BETTER
+            const anySitesOnline = targets.some((target) => target.site.online);
+
             config_output.http.services![serviceName] = {
                 loadBalancer: {
                     servers: (() => {
-                        // Check if any sites are online
-                        // THIS IS SO THAT THERE IS SOME IMMEDIATE FEEDBACK
-                        // EVEN IF THE SITES HAVE NOT UPDATED YET FROM THE
-                        // RECEIVE BANDWIDTH ENDPOINT.
-
-                        // TODO: HOW TO HANDLE ^^^^^^ BETTER
-                        const anySitesOnline = targets.some(
-                            (target) => target.site.online
-                        );
-
                         return (
                             targets
                                 .filter((target) => {
@@ -602,14 +600,12 @@ export async function getTraefikConfig(
 
             const ppPrefix = config.getRawConfig().traefik.pp_transport_prefix;
 
+            // Check if any sites are online
+            const anySitesOnline = targets.some((target) => target.site.online);
+
             config_output[protocol].services[serviceName] = {
                 loadBalancer: {
                     servers: (() => {
-                        // Check if any sites are online
-                        const anySitesOnline = targets.some(
-                            (target) => target.site.online
-                        );
-
                         return targets
                             .filter((target) => {
                                 if (!target.enabled) {
