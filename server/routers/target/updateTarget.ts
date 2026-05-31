@@ -217,18 +217,23 @@ export async function updateTarget(
 
             // When health check is disabled, reset hcHealth to "unknown"
             // to prevent previously unhealthy targets from being excluded.
-            // Also when the site is not a newt, set hcHealth to "unknown".
-            // If hcEnabled is being turned on (was false, now true), set to "unhealthy"
-            // so the target must pass a health check before being considered healthy.
+            // Otherwise (newt or local sites that we now poll server-side):
+            // if hcEnabled is being turned on (was false, now true), set to
+            // "unhealthy" so the target must pass a health check before
+            // being considered healthy. For wireguard sites we still force
+            // "unknown" since nothing probes them.
             const hcEnabledTurnedOn =
                 parsedBody.data.hcEnabled === true &&
                 existingHc.hcEnabled === false;
+
+            const siteCanProbe =
+                site.type === "newt" || site.type === "local";
 
             let hcHealthValue: "unknown" | "healthy" | "unhealthy" | undefined;
             if (
                 parsedBody.data.hcEnabled === false ||
                 parsedBody.data.hcEnabled === null ||
-                site.type !== "newt"
+                !siteCanProbe
             ) {
                 hcHealthValue = "unknown";
             } else if (hcEnabledTurnedOn) {

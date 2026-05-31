@@ -23,6 +23,7 @@ import {
     handleOlmServerInitAddPeerHandshake
 } from "../olm";
 import { handleHealthcheckStatusMessage } from "../target";
+import { startLocalHealthChecker } from "../target/localHealthChecker";
 import { handleRoundTripMessage } from "./handleRoundTripMessage";
 import { MessageHandler } from "./types";
 
@@ -55,3 +56,8 @@ if (build != "saas") {
     startOlmOfflineChecker(); // this is to handle the offline check for olms
     startNewtOfflineChecker(); // this is to handle the offline check for newts
 }
+
+// Local sites have no Newt agent to run probes for them, so the server
+// itself polls their healthchecks. Safe to run in every build because it
+// no-ops when there are no enabled local healthchecks.
+startLocalHealthChecker();
