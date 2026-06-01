@@ -3430,5 +3430,7 @@
     "memberPortalShowingResources": "Показва {start}-{end} от {total} ресурси",
     "memberPortalPrevious": "Предишен",
     "memberPortalNext": "Следващ",
-    "httpSettings": "HTTP Settings"
+    "httpSettings": "HTTP Settings",
+    "tcpSettings": "TCP Settings",
+    "udpSettings": "UDP Settings"
 }
