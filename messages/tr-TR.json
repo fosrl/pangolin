@@ -3430,5 +3430,7 @@
     "memberPortalShowingResources": "{total} kaynaktan {start}-{end} gösteriliyor",
     "memberPortalPrevious": "Önceki",
     "memberPortalNext": "Sonraki",
-    "httpSettings": "HTTP Settings"
+    "httpSettings": "HTTP Settings",
+    "tcpSettings": "TCP Settings",
+    "udpSettings": "UDP Settings"
 }
