@@ -3430,5 +3430,7 @@
     "memberPortalShowingResources": "Toont {start}-{end} van {total} bronnen",
     "memberPortalPrevious": "Vorige",
     "memberPortalNext": "Volgende",
-    "httpSettings": "HTTP Settings"
+    "httpSettings": "HTTP Settings",
+    "tcpSettings": "TCP Settings",
+    "udpSettings": "UDP Settings"
 }
