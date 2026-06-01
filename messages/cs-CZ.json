@@ -3430,5 +3430,7 @@
     "memberPortalShowingResources": "Zobrazeny {start}-{end} z {total} zdrojů",
     "memberPortalPrevious": "Předchozí",
     "memberPortalNext": "Následující",
-    "httpSettings": "HTTP Settings"
+    "httpSettings": "HTTP Settings",
+    "tcpSettings": "TCP Settings",
+    "udpSettings": "UDP Settings"
 }
