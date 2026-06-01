@@ -3430,5 +3430,7 @@
     "memberPortalShowingResources": "{start}-{end} 중 {total}개의 리소스를 표시 중",
     "memberPortalPrevious": "이전",
     "memberPortalNext": "다음",
-    "httpSettings": "HTTP Settings"
+    "httpSettings": "HTTP Settings",
+    "tcpSettings": "TCP Settings",
+    "udpSettings": "UDP Settings"
 }
