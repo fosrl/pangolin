@@ -3430,5 +3430,7 @@
     "memberPortalShowingResources": "显示 {start}-{end} 共 {total} 个资源",
     "memberPortalPrevious": "上一页",
     "memberPortalNext": "下一页",
-    "httpSettings": "HTTP Settings"
+    "httpSettings": "HTTP Settings",
+    "tcpSettings": "TCP Settings",
+    "udpSettings": "UDP Settings"
 }
