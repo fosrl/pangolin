@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "Wymagaj zatwierdzenia urządzenia",
     "requireDeviceApprovalDescription": "Użytkownicy o tej roli potrzebują nowych urządzeń zatwierdzonych przez administratora, zanim będą mogli połączyć się i uzyskać dostęp do zasobów.",
     "sshSettings": "Ustawienia SSH",
+    "sshAccess": "SSH Access",
     "rdpSettings": "Ustawienia RDP",
     "vncSettings": "Ustawienia VNC",
     "sshServer": "Serwer SSH",
