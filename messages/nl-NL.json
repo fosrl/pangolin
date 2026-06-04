@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "Vereist goedkeuring van apparaat",
     "requireDeviceApprovalDescription": "Gebruikers met deze rol hebben nieuwe apparaten nodig die door een beheerder zijn goedgekeurd voordat ze verbinding kunnen maken met bronnen en deze kunnen gebruiken.",
     "sshSettings": "SSH-instellingen",
+    "sshAccess": "SSH Access",
     "rdpSettings": "RDP-instellingen",
     "vncSettings": "VNC-instellingen",
     "sshServer": "SSH-server",
