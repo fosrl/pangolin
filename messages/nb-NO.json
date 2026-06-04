@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "Krev enhetsgodkjenning",
     "requireDeviceApprovalDescription": "Brukere med denne rollen trenger nye enheter godkjent av en admin før de kan koble seg og få tilgang til ressurser.",
     "sshSettings": "SSH Innstillinger",
+    "sshAccess": "SSH Access",
     "rdpSettings": "RDP Innstillinger",
     "vncSettings": "VNC Innstillinger",
     "sshServer": "SSH-server",
