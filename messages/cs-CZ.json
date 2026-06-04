@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Opravdu chcete odpojit tohoto poskytovatele identity od této organizace?",
     "idpUnassociateDescription": "Všichni uživatelé spojení s tímto poskytovatelem identity budou odstraněni z této organizace, ale poskytovatel identity zůstane nadále existovat pro ostatní přidružené organizace.",
     "idpUnassociateConfirm": "Potvrdit odpojení poskytovatele identity",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Toto nelze pro tuto organizaci vrátit.",
     "idpUnassociatedDescription": "Poskytovatel identity byl úspěšně odpojen od této organizace",
     "idpUnassociateMenu": "Odpojit",
