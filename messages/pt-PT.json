@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "Exigir aprovação do dispositivo",
     "requireDeviceApprovalDescription": "Usuários com esta função precisam de novos dispositivos aprovados por um administrador antes que eles possam se conectar e acessar recursos.",
     "sshSettings": "Configurações SSH",
+    "sshAccess": "SSH Access",
     "rdpSettings": "Configurações RDP",
     "vncSettings": "Configurações VNC",
     "sshServer": "Servidor SSH",
