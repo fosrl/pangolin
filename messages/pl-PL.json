@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Czy na pewno chcesz odłączyć tego dostawcę tożsamości od tej organizacji?",
     "idpUnassociateDescription": "Wszystkie użytkownicy powiązani z tym dostawcą tożsamości zostaną usunięci z tej organizacji, ale dostawca tożsamości będzie nadal istniał dla innych powiązanych organizacji.",
     "idpUnassociateConfirm": "Potwierdź odłączenie dostawcy tożsamości",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Tego nie można cofnąć dla tej organizacji.",
     "idpUnassociatedDescription": "Dostawca tożsamości pomyślnie odłączony od tej organizacji",
     "idpUnassociateMenu": "Odłącz",
