@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "Cihaz Onaylarını Gerektir",
     "requireDeviceApprovalDescription": "Bu role sahip kullanıcıların yeni cihazlarının bağlanabilmesi ve kaynaklara erişebilmesi için bir yönetici tarafından onaylanması gerekiyor.",
     "sshSettings": "SSH Ayarları",
+    "sshAccess": "SSH Access",
     "rdpSettings": "RDP Ayarları",
     "vncSettings": "VNC Ayarları",
     "sshServer": "SSH Sunucusu",
