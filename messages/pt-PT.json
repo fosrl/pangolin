@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Tem certeza de que deseja desassociar este provedor de identidade desta organização?",
     "idpUnassociateDescription": "Todos os usuários associados a este provedor de identidade serão removidos desta organização, mas o provedor de identidade continuará a existir para outras organizações associadas.",
     "idpUnassociateConfirm": "Confirmar Desassociação do Provedor de Identidade",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Isso não pode ser desfeito para esta organização.",
     "idpUnassociatedDescription": "Provedor de identidade desassociado desta organização com sucesso",
     "idpUnassociateMenu": "Desassociar",
