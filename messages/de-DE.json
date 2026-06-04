@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Sind Sie sicher, dass Sie die Verknüpfung dieses Identitätsanbieters mit dieser Organisation aufheben möchten?",
     "idpUnassociateDescription": "Alle Benutzer, die mit diesem Identitätsanbieter verbunden sind, werden aus dieser Organisation entfernt, aber der Identitätsanbieter bleibt für andere verbundene Organisationen weiterhin bestehen.",
     "idpUnassociateConfirm": "Verknüpfung des Identitätsanbieters aufheben bestätigen",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Dies kann für diese Organisation nicht rückgängig gemacht werden.",
     "idpUnassociatedDescription": "Identitätsanbieter erfolgreich von dieser Organisation gelöst",
     "idpUnassociateMenu": "Verknüpfung aufheben",
