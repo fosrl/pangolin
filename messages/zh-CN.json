@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "需要设备批准",
     "requireDeviceApprovalDescription": "具有此角色的用户需要管理员批准的新设备才能连接和访问资源。",
     "sshSettings": "SSH 设置",
+    "sshAccess": "SSH Access",
     "rdpSettings": "RDP 设置",
     "vncSettings": "VNC 设置",
     "sshServer": "SSH 服务器",
