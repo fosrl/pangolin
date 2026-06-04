@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "장치 승인 요구",
     "requireDeviceApprovalDescription": "이 역할을 가진 사용자는 장치가 연결되기 전에 관리자의 승인이 필요합니다.",
     "sshSettings": "SSH 설정",
+    "sshAccess": "SSH Access",
     "rdpSettings": "RDP 설정",
     "vncSettings": "VNC 설정",
     "sshServer": "SSH 서버",
