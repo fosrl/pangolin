@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "Vyžadovat schválení zařízení",
     "requireDeviceApprovalDescription": "Uživatelé s touto rolí potřebují nová zařízení schválená správcem, než se mohou připojit a přistupovat ke zdrojům.",
     "sshSettings": "Nastavení SSH",
+    "sshAccess": "SSH Access",
     "rdpSettings": "Nastavení RDP",
     "vncSettings": "Nastavení VNC",
     "sshServer": "SSH server",
