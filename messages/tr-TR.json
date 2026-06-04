@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Bu kimlik sağlayıcının bu kuruluştan ilişiğini kesmek istediğinizden emin misiniz?",
     "idpUnassociateDescription": "Bu kimlik sağlayıcı ile ilişkilendirilen tüm kullanıcılar bu kuruluştan kaldırılacaktır, ancak kimlik sağlayıcı diğer ilişkilendirilen kuruluşlar için var olmaya devam edecektir.",
     "idpUnassociateConfirm": "Kimlik Sağlayıcının İlişkisinin Kesilmesini Onayla",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Bu işlem bu kuruluş için geri alınamaz.",
     "idpUnassociatedDescription": "Kimlik sağlayıcı bu kuruluştan başarıyla ayrıldı",
     "idpUnassociateMenu": "İlişkiyi Kes",
