@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Вы уверены, что хотите рассоединить этого поставщика удостоверений с этой организацией?",
     "idpUnassociateDescription": "Все пользователи, связанные с этим поставщиком удостоверений, будут удалены из этой организации, но поставщик удостоверений будет продолжать существовать для других связанных организаций.",
     "idpUnassociateConfirm": "Подтвердите рассоединение поставщика удостоверений",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Это не может быть отменено для этой организации.",
     "idpUnassociatedDescription": "Поставщик удостоверений успешно рассоединен с этой организацией",
     "idpUnassociateMenu": "Рассоединить",
