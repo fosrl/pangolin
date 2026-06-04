@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Er du sikker på at du vil frakoble denne identitetsleverandøren fra denne organisasjonen?",
     "idpUnassociateDescription": "Alle brukere knyttet til denne identitetsleverandøren vil bli fjernet fra denne organisasjonen, men identitetsleverandøren vil fortsatt eksistere for andre tilknyttede organisasjoner.",
     "idpUnassociateConfirm": "Bekreft frakobling av identitetsleverandør",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Dette kan ikke angres for denne organisasjonen.",
     "idpUnassociatedDescription": "Identitetsleverandør er vellykket frakoblet fra denne organisasjonen",
     "idpUnassociateMenu": "Frakoble",
