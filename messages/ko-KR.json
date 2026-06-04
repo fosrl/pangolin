@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "정말로 이 조직에서 이 아이덴티티 공급자의 연관을 해제하시겠습니까?",
     "idpUnassociateDescription": "이 아이덴티티 공급자와 연관된 모든 사용자는 이 조직에서 제거될 것이지만, 아이덴티티 공급자는 다른 연관된 조직에 계속해서 존재할 것입니다.",
     "idpUnassociateConfirm": "아이덴티티 공급자 연관 해제 확인",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "이 조직에서 이것은 되돌릴 수 없습니다.",
     "idpUnassociatedDescription": "아이덴티티 공급자가 이 조직에서 성공적으로 연관 해제되었습니다",
     "idpUnassociateMenu": "연관 해제",
