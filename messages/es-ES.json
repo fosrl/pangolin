@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "Requiere aprobaciones del dispositivo",
     "requireDeviceApprovalDescription": "Los usuarios con este rol necesitan nuevos dispositivos aprobados por un administrador antes de poder conectarse y acceder a los recursos.",
     "sshSettings": "Configuración SSH",
+    "sshAccess": "SSH Access",
     "rdpSettings": "Configuración RDP",
     "vncSettings": "Configuración VNC",
     "sshServer": "Servidor SSH",
