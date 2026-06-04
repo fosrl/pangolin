@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "您确定要将此身份提供者从此组织中取消关联吗？",
     "idpUnassociateDescription": "与此身份提供者关联的所有用户将从该组织中移除，但身份提供者仍会继续存在于关联的其他组织中。",
     "idpUnassociateConfirm": "确认取消关联身份提供者",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "此操作无法对该组织撤销。",
     "idpUnassociatedDescription": "身份提供者已成功从该组织中取消关联",
     "idpUnassociateMenu": "取消关联",
