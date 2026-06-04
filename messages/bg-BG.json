@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Сигурни ли сте, че искате да отвържете този доставчик на самоличност от тази организация?",
     "idpUnassociateDescription": "Всички потребители, свързани с този доставчик на самоличност, ще бъдат премахнати от тази организация, но доставчика на самоличност ще продължи да съществува за други свързани организации.",
     "idpUnassociateConfirm": "Потвърдете отвързване на доставчика на самоличност",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Това не може да бъде отменено за тази организация.",
     "idpUnassociatedDescription": "Доставчика на самоличност е успешно отвързан от тази организация",
     "idpUnassociateMenu": "Отвързване",
