@@ -2046,6 +2046,7 @@
     "requireDeviceApproval": "Gerätegenehmigungen erforderlich",
     "requireDeviceApprovalDescription": "Benutzer mit dieser Rolle benötigen neue Geräte, die von einem Administrator genehmigt wurden, bevor sie sich verbinden und auf Ressourcen zugreifen können.",
     "sshSettings": "SSH-Einstellungen",
+    "sshAccess": "SSH Access",
     "rdpSettings": "RDP-Einstellungen",
     "vncSettings": "VNC-Einstellungen",
     "sshServer": "SSH-Server",
