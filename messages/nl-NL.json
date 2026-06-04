@@ -3346,6 +3346,8 @@
     "idpUnassociateQuestion": "Weet u zeker dat u deze identiteitsprovider van deze organisatie wilt loskoppelen?",
     "idpUnassociateDescription": "Alle gebruikers die aan deze identiteitsprovider zijn gekoppeld, worden uit deze organisatie verwijderd, maar de identiteitsprovider blijft bestaan voor andere gerelateerde organisaties.",
     "idpUnassociateConfirm": "Bevestig ontkoppelen identiteitsprovider",
+    "idpConfirmDeleteAndRemoveMeFromOrg": "DELETE AND REMOVE ME FROM ORG",
+    "idpUnassociateAndRemoveMeFromOrg": "UNASSOCIATE AND REMOVE ME FROM ORG",
     "idpUnassociateWarning": "Dit kan niet ongedaan worden gemaakt voor deze organisatie.",
     "idpUnassociatedDescription": "Identiteitsprovider succesvol losgekoppeld van deze organisatie",
     "idpUnassociateMenu": "Ontkoppelen",
