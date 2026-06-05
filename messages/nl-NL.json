@@ -1647,7 +1647,7 @@
     "standaloneHcFilterResourceIdFallback": "Bron {id}",
     "blueprints": "Blauwdrukken",
     "blueprintsLog": "Log Blueprints",
-    "blueprintsDescription": "Bekijk eerdere blueprint-toepassingen en hun resultaten",
+    "blueprintsDescription": "View past blueprint applications and their results or apply a new blueprint",
     "blueprintAdd": "Blauwdruk toevoegen",
     "blueprintGoBack": "Bekijk alle Blauwdrukken",
     "blueprintCreate": "Creëer blauwdruk",
