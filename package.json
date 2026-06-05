@@ -33,9 +33,9 @@
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "8.5.0",
+        "@aws-sdk/client-s3": "3.1056.0",
         "@devolutions/iron-remote-desktop": "https://static.pangolin.net/packages/devolutions-iron-remote-desktop-0.0.0.tgz",
         "@devolutions/iron-remote-desktop-rdp": "https://static.pangolin.net/packages/devolutions-iron-remote-desktop-rdp-0.0.0.tgz",
-        "@aws-sdk/client-s3": "3.1056.0",
         "@headlessui/react": "2.2.10",
         "@hookform/resolvers": "5.4.0",
         "@monaco-editor/react": "4.7.0",
@@ -151,7 +151,7 @@
         "@types/jmespath": "0.15.2",
         "@types/js-yaml": "4.0.9",
         "@types/jsonwebtoken": "9.0.10",
-        "@types/node": "25.9.1",
+        "@types/node": "^25.9.1",
         "@types/nodemailer": "8.0.0",
         "@types/nprogress": "0.2.3",
         "@types/pg": "8.20.0",
@@ -175,7 +175,7 @@
         "tailwindcss": "4.3.0",
         "tsc-alias": "1.8.17",
         "tsx": "4.22.3",
-        "typescript": "6.0.3",
+        "typescript": "^6.0.3",
         "typescript-eslint": "8.60.0"
     },
     "overrides": {

@@ -790,7 +790,9 @@ async function updateRawResource(
             .returning();
     });
 
-    if (!updatedResource) {
+    const finalResource = updatedResource as unknown as Resource | null;
+
+    if (!finalResource) {
         return next(
             createHttpError(
                 HttpCode.NOT_FOUND,
@@ -799,22 +801,22 @@ async function updateRawResource(
         );
     }
 
-    if (updatedResource.dnsAuthorityEnabled) {
-        await updateDNSAuthorityForResource(updatedResource.resourceId);
-        if (updatedResource.domainId) {
-            await updateDNSAuthorityForDomain(updatedResource.domainId);
+    if (finalResource.dnsAuthorityEnabled) {
+        await updateDNSAuthorityForResource(finalResource.resourceId);
+        if (finalResource.domainId) {
+            await updateDNSAuthorityForDomain(finalResource.domainId);
         }
         if (
-            updatedResource.sso ||
-            updatedResource.blockAccess ||
-            updatedResource.emailWhitelistEnabled
+            finalResource.sso ||
+            finalResource.blockAccess ||
+            finalResource.emailWhitelistEnabled
         ) {
-            await updateAuthProxyForResource(updatedResource.resourceId);
+            await updateAuthProxyForResource(finalResource.resourceId);
         }
     }
 
     return response(res, {
-        data: updatedResource,
+        data: finalResource,
         success: true,
         error: false,
         message: "Non-http Resource updated successfully",
