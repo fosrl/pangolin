@@ -1647,7 +1647,7 @@
     "standaloneHcFilterResourceIdFallback": "Recurso {id}",
     "blueprints": "Diagramas",
     "blueprintsLog": "Registo dos Blueprint",
-    "blueprintsDescription": "Ver aplicações de blueprint passadas e seus resultados",
+    "blueprintsDescription": "View past blueprint applications and their results or apply a new blueprint",
     "blueprintAdd": "Adicionar Diagrama",
     "blueprintGoBack": "Ver todos os Diagramas",
     "blueprintCreate": "Criar Diagrama",
