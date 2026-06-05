@@ -1647,7 +1647,7 @@
     "standaloneHcFilterResourceIdFallback": "Ressurs {id}",
     "blueprints": "Tegninger",
     "blueprintsLog": "Blåkopieringslogg",
-    "blueprintsDescription": "Vis tidligere applikasjoner av blåkopier og deres resultater",
+    "blueprintsDescription": "View past blueprint applications and their results or apply a new blueprint",
     "blueprintAdd": "Legg til blåkopi",
     "blueprintGoBack": "Se alle blåkopier",
     "blueprintCreate": "Opprette mal",
