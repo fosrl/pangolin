@@ -117,7 +117,6 @@ export async function buildAuthProxyConfig(
             blockAccess: resources.blockAccess,
             emailWhitelistEnabled: resources.emailWhitelistEnabled,
             ssl: resources.ssl,
-            http: resources.http,
             dnsAuthorityEnabled: resources.dnsAuthorityEnabled,
             stickySession: resources.stickySession,
             tlsServerName: resources.tlsServerName,
