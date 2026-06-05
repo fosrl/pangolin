@@ -1647,7 +1647,7 @@
     "standaloneHcFilterResourceIdFallback": "리소스 {id}",
     "blueprints": "청사진",
     "blueprintsLog": "블루프린트 로그",
-    "blueprintsDescription": "과거 블루프린트 적용 및 결과 보기",
+    "blueprintsDescription": "View past blueprint applications and their results or apply a new blueprint",
     "blueprintAdd": "청사진 추가",
     "blueprintGoBack": "모든 청사진 보기",
     "blueprintCreate": "청사진 생성",
