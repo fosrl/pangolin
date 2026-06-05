@@ -1647,7 +1647,7 @@
     "standaloneHcFilterResourceIdFallback": "Ressource {id}",
     "blueprints": "Blaupausen",
     "blueprintsLog": "Blaupausen-Protokoll",
-    "blueprintsDescription": "Frühere Blaupausen-Anwendungen und deren Ergebnisse ansehen",
+    "blueprintsDescription": "View past blueprint applications and their results or apply a new blueprint",
     "blueprintAdd": "Blueprint hinzufügen",
     "blueprintGoBack": "Alle Blueprints ansehen",
     "blueprintCreate": "Blueprint erstellen",
