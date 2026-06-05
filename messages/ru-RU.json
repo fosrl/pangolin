@@ -1647,7 +1647,7 @@
     "standaloneHcFilterResourceIdFallback": "Ресурс {id}",
     "blueprints": "Чертежи",
     "blueprintsLog": "Журнал чертежей",
-    "blueprintsDescription": "Просмотр прошлых применений чертежа и их результатов",
+    "blueprintsDescription": "View past blueprint applications and their results or apply a new blueprint",
     "blueprintAdd": "Добавить чертёж",
     "blueprintGoBack": "Посмотреть все чертежи",
     "blueprintCreate": "Создать чертёж",
