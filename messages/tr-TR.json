@@ -1647,7 +1647,7 @@
     "standaloneHcFilterResourceIdFallback": "Kaynak {id}",
     "blueprints": "Planlar",
     "blueprintsLog": "Şablonlar Günlüğü",
-    "blueprintsDescription": "Geçmiş şablon uygulamalarını ve sonuçlarını görüntüleyin",
+    "blueprintsDescription": "View past blueprint applications and their results or apply a new blueprint",
     "blueprintAdd": "Plan Ekle",
     "blueprintGoBack": "Tüm Planları Gör",
     "blueprintCreate": "Plan Oluştur",
