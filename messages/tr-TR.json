@@ -3465,6 +3465,7 @@
     "sshTerminalError": "Error: {error}",
     "sshConnectionClosedCode": "Connection closed (code {code})",
     "sshPrivateKeyPlaceholder": "-----BEGIN OPENSSH PRIVATE KEY-----",
+    "sshPrivateKeyRequired": "Private key is required",
     "vncTitle": "VNC",
     "vncSignInDescription": "Enter your VNC password to connect",
     "vncPasswordOptional": "Password (optional)",
