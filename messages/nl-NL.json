@@ -3549,7 +3549,7 @@
     "sshPrivateKeyDisclaimer": "Uw privésleutel wordt niet opgeslagen of zichtbaar gemaakt voor Pangolin. U kunt ook gebruik maken van kortlopende certificaten voor naadloze authenticatie met uw bestaande Pangolin-identiteit.",
     "sshLearnMore": "Meer informatie",
     "sshPrivateKeyFile": "Bestand met privésleutel",
-    "sshAuthenticate": "Authenticeren",
+    "sshAuthenticate": "Connect",
     "sshTerminate": "Beëindigen",
     "sshPoweredBy": "Aangeboden door",
     "sshErrorNoTarget": "Geen doelwit gespecificeerd",
