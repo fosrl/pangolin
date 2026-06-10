@@ -3549,7 +3549,7 @@
     "sshPrivateKeyDisclaimer": "Váš soukromý klíč není ukládán ani viditelný pro Pangolin. Alternativně můžete použít krátkodobé certifikáty pro bezproblémové ověřování pomocí vaší stávající identity Pangolin.",
     "sshLearnMore": "Přečtěte si více",
     "sshPrivateKeyFile": "Soubor soukromého klíče",
-    "sshAuthenticate": "Ověřit",
+    "sshAuthenticate": "Connect",
     "sshTerminate": "Ukončit",
     "sshPoweredBy": "Vytváří",
     "sshErrorNoTarget": "Cíl nebyl určen",
