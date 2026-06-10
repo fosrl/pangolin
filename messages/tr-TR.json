@@ -3549,7 +3549,7 @@
     "sshPrivateKeyDisclaimer": "Özel anahtarınız Pangolin'de saklanmaz veya görünmez. Alternatif olarak, mevcut Pangolin kimliğinizle sorunsuz kimlik doğrulama için kısa ömürlü sertifikalar kullanabilirsiniz.",
     "sshLearnMore": "Daha fazla bilgi",
     "sshPrivateKeyFile": "Özel Anahtar Dosyası",
-    "sshAuthenticate": "Kimlik Doğrulama",
+    "sshAuthenticate": "Connect",
     "sshTerminate": "Sonlandır",
     "sshPoweredBy": "Tarafından sağlanmaktadır",
     "sshErrorNoTarget": "Belirtilen hedef yok",
