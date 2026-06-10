@@ -3542,7 +3542,7 @@
     "sshConnecting": "Připojení…",
     "sshInitializing": "Inicializace…",
     "sshSignInTitle": "Přihlášení do SSH",
-    "sshSignInDescription": "Zadejte své SSH přihlašovací údaje",
+    "sshSignInDescription": "Enter your SSH credentials to connect",
     "sshPasswordTab": "Heslo",
     "sshPrivateKeyTab": "Soukromý klíč",
     "sshPrivateKeyField": "Soukromý klíč",
