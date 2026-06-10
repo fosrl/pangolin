@@ -3542,7 +3542,7 @@
     "sshConnecting": "Свързване…",
     "sshInitializing": "Инициализиране…",
     "sshSignInTitle": "Вход в SSH",
-    "sshSignInDescription": "Въведете данните за SSH",
+    "sshSignInDescription": "Enter your SSH credentials to connect",
     "sshPasswordTab": "Парола",
     "sshPrivateKeyTab": "Частен ключ",
     "sshPrivateKeyField": "Частен ключ",
