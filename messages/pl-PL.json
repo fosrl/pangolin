@@ -3542,7 +3542,7 @@
     "sshConnecting": "Łączenie…",
     "sshInitializing": "Inicjalizacja…",
     "sshSignInTitle": "Zaloguj się do SSH",
-    "sshSignInDescription": "Wprowadź swoje poświadczenia SSH",
+    "sshSignInDescription": "Enter your SSH credentials to connect",
     "sshPasswordTab": "Hasło",
     "sshPrivateKeyTab": "Klucz prywatny",
     "sshPrivateKeyField": "Klucz prywatny",
