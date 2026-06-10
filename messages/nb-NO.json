@@ -3549,7 +3549,7 @@
     "sshPrivateKeyDisclaimer": "Din private nøkkel er ikke lagret eller synlig for Pangolin. Alternativt kan du bruke kortevaliderte sertifikater for sømløs autentisering ved å bruke din eksisterende Pangolin-identitet.",
     "sshLearnMore": "Lær mer",
     "sshPrivateKeyFile": "Privat Nøkkelfil",
-    "sshAuthenticate": "Autentiser",
+    "sshAuthenticate": "Connect",
     "sshTerminate": "Avslutt",
     "sshPoweredBy": "Drevet av",
     "sshErrorNoTarget": "Ingen mål spesifisert",
