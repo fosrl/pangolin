@@ -3549,7 +3549,7 @@
     "sshPrivateKeyDisclaimer": "Ваш закрытый ключ не хранится и не виден для Pangolin. Вместо этого вы можете использовать краткосрочные сертификаты для бесшовной аутентификации с использованием вашей текущей идентификации Pangolin.",
     "sshLearnMore": "Узнать больше",
     "sshPrivateKeyFile": "Файл закрытого ключа",
-    "sshAuthenticate": "Аутентификация",
+    "sshAuthenticate": "Connect",
     "sshTerminate": "Завершить",
     "sshPoweredBy": "Разработано",
     "sshErrorNoTarget": "Цель не указана",
