@@ -3549,7 +3549,7 @@
     "sshPrivateKeyDisclaimer": "您的私钥不会被 Pangolin 存储或显示。或者，您可以使用短期证书，使用您现有的 Pangolin 身份无缝认证。",
     "sshLearnMore": "了解更多",
     "sshPrivateKeyFile": "私钥文件",
-    "sshAuthenticate": "验证",
+    "sshAuthenticate": "Connect",
     "sshTerminate": "终止",
     "sshPoweredBy": "支持者",
     "sshErrorNoTarget": "未指定目标",
