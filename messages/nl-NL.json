@@ -3542,7 +3542,7 @@
     "sshConnecting": "Verbinding maken…",
     "sshInitializing": "Initialiseren…",
     "sshSignInTitle": "Meld u aan bij SSH",
-    "sshSignInDescription": "Voer uw SSH-referenties in",
+    "sshSignInDescription": "Enter your SSH credentials to connect",
     "sshPasswordTab": "Wachtwoord",
     "sshPrivateKeyTab": "Privésleutel",
     "sshPrivateKeyField": "Privésleutel",
