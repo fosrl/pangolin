@@ -3549,7 +3549,7 @@
     "sshPrivateKeyDisclaimer": "Twój klucz prywatny nie jest przechowywany ani widoczny dla Pangolin. Alternatywnie, możesz używać certyfikatów krótkoterminowych do bezproblemowego uwierzytelniania za pomocą Twojej istniejącej tożsamości Pangolin.",
     "sshLearnMore": "Dowiedz się więcej",
     "sshPrivateKeyFile": "Plik klucza prywatnego",
-    "sshAuthenticate": "Uwierzytelnij",
+    "sshAuthenticate": "Connect",
     "sshTerminate": "Zakończ",
     "sshPoweredBy": "Obsługiwane przez",
     "sshErrorNoTarget": "Nie określono celu",
