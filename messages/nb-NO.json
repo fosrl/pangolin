@@ -3542,7 +3542,7 @@
     "sshConnecting": "Kobler til…",
     "sshInitializing": "Initialiserer…",
     "sshSignInTitle": "Logg inn på SSH",
-    "sshSignInDescription": "Oppgi dine SSH-legitimasjoner",
+    "sshSignInDescription": "Enter your SSH credentials to connect",
     "sshPasswordTab": "Passord",
     "sshPrivateKeyTab": "Privat Nøkkel",
     "sshPrivateKeyField": "Privat Nøkkel",
