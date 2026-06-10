@@ -3542,7 +3542,7 @@
     "sshConnecting": "正在连接…",
     "sshInitializing": "初始化中…",
     "sshSignInTitle": "登录 SSH",
-    "sshSignInDescription": "输入您的 SSH 凭据",
+    "sshSignInDescription": "Enter your SSH credentials to connect",
     "sshPasswordTab": "密码",
     "sshPrivateKeyTab": "私钥",
     "sshPrivateKeyField": "私钥",
