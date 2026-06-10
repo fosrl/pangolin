@@ -3542,7 +3542,7 @@
     "sshConnecting": "연결 중…",
     "sshInitializing": "초기화 중…",
     "sshSignInTitle": "SSH에 로그인",
-    "sshSignInDescription": "SSH 자격 증명을 입력하세요",
+    "sshSignInDescription": "Enter your SSH credentials to connect",
     "sshPasswordTab": "비밀번호",
     "sshPrivateKeyTab": "개인 키",
     "sshPrivateKeyField": "개인 키",
