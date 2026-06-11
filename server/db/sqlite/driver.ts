@@ -1,6 +1,5 @@
 import { drizzle as DrizzleSqlite } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
-import type BetterSqlite3 from "better-sqlite3";
 import * as schema from "./schema/schema";
 import path from "path";
 import fs from "fs";
@@ -12,64 +11,31 @@ export const exists = checkFileExists(location);
 
 bootstrapVolume();
 
-/**
- * Wraps better-sqlite3 Statement to call `finalize()` immediately after
- * execution, freeing native sqlite3_stmt memory deterministically instead
- * of waiting for GC. Fixes steady off-heap growth under load (#2120).
- * WARNING: Finalizes after first execution — incompatible with drizzle's
- * reusable .prepare() builders. No such usage exists in this codebase.
- */
-function autoFinalizeStatement(
-    stmt: BetterSqlite3.Statement
-): BetterSqlite3.Statement {
-    const wrapExec = <T extends (...args: any[]) => any>(fn: T): T => {
-        return function (this: any, ...args: any[]) {
-            try {
-                return fn.apply(this, args);
-            } finally {
-                try {
-                    // finalize() exists on the native Statement at runtime but
-                    // is missing from @types/better-sqlite3.
-                    (stmt as any).finalize();
-                } catch {
-                    // Already finalized — harmless
-                }
-            }
-        } as unknown as T;
-    };
-
-    stmt.run = wrapExec(stmt.run);
-    stmt.get = wrapExec(stmt.get);
-    stmt.all = wrapExec(stmt.all);
-
-    return stmt;
-}
-
 function createDb() {
     const sqlite = new Database(location);
 
     if (process.env.ENABLE_SQLITE_WAL_MODE == "true") {
         // Enable WAL mode — allows concurrent readers + single writer, preventing
         // contention across subsystems (verifySession, Traefik, audit, ping).
+        // NOTE: journal_mode persists in the DB file once set; unsetting this
+        // env var does NOT revert an existing WAL database.
         sqlite.pragma("journal_mode = WAL");
         // NORMAL sync mode: safe with WAL, reduces write lock hold time.
         sqlite.pragma("synchronous = NORMAL");
     }
 
-    // Wait up to 5s on SQLITE_BUSY instead of failing — prevents audit log
-    // retry loops that accumulate memory.
-    sqlite.pragma("busy_timeout = 5000");
+    // No busy_timeout pragma: better-sqlite3 already arms
+    // sqlite3_busy_timeout(db, 5000) via its default `timeout` option
+    // (lib/database.js), so an explicit pragma is redundant.
 
     // Intentionally NOT setting cache_size or mmap_size: a large page cache plus
     // a multi-hundred-MB mmap region inflate RSS and cause page-cache thrashing
     // on small (~1 GB) instances. Leave SQLite on its conservative defaults.
 
-    // Wrap prepare() so every drizzle-orm statement is auto-finalized after
-    // first use, preventing sqlite3_stmt accumulation between GC cycles.
-    const originalPrepare = sqlite.prepare.bind(sqlite);
-    (sqlite as any).prepare = function autoFinalizePrepare(source: string) {
-        return autoFinalizeStatement(originalPrepare(source));
-    };
+    // Intentionally NOT wrapping prepare()/statements: better-sqlite3 finalizes
+    // sqlite3_stmt in the Statement destructor at GC, and drizzle-orm prepares a
+    // fresh statement per query (no statement cache), so statements cannot
+    // accumulate. better-sqlite3 11.x exposes no Statement.finalize() at all.
 
     return DrizzleSqlite(sqlite, {
         schema
