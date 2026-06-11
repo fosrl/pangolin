@@ -984,7 +984,7 @@
     "sharedPolicy": "Shared Policy",
     "sharedPolicyNoneDescription": "This resource has its own policy.",
     "resourceSharedPolicyOwnDescription": "This resource has its own authentication and access rules controls.",
-    "resourceSharedPolicyInheritedDescription": "This resource inherits authentication and access rules controls from <policyLink>{policyName}</policyLink>.",
+    "resourceSharedPolicyInheritedDescription": "This resource inherits from <policyLink>{policyName}</policyLink>.",
     "resourceSharedPolicyAuthenticationNotice": "This resource is using a shared policy. Some authentication settings can be edited on this resource to add to the policy. To change the underlying policy, you must edit to <policyLink>{policyName}</policyLink>.",
     "resourceSharedPolicyRulesNotice": "This resource is using a shared policy. Some access rules can be edited on this resource. To change the underlying policy, you must edit <policyLink>{policyName}</policyLink>.",
     "resourceUsersRoles": "Contrôles d'accès",
