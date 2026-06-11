@@ -214,6 +214,7 @@
     "resourceErrorDelte": "Fout bij verwijderen document",
     "resourcePoliciesBannerTitle": "Re-use Authentication and Access Rules",
     "resourcePoliciesBannerDescription": "Shared resource policies let you define authentication methods and access rules once, then attach them to multiple public resources. When you update a policy, every linked resource inherits the change automatically.",
+    "resourcePoliciesBannerButtonText": "Learn More",
     "resourcePoliciesTitle": "Manage Public Resource Policies",
     "resourcePoliciesAttachedResourcesColumnTitle": "Resources",
     "resourcePoliciesAttachedResources": "{count} bron(nen)",
