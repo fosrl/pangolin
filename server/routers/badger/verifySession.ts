@@ -71,6 +71,7 @@ type BasicUserData = {
     email: string | null;
     name: string | null;
     role: string | null;
+    groups?: string;
 };
 
 export type VerifyUserResponse = {
@@ -988,7 +989,8 @@ async function isUserAllowedToAccessResource(
             username: user.username,
             email: user.email,
             name: user.name,
-            role: userOrgRoles.map((r) => r.roleName).join(", ")
+            role: userOrgRoles.map((r) => r.roleName).join(", "),
+            groups: userOrgRoles.map((r) => r.roleName).join(",")
         };
     }
 
@@ -1003,7 +1005,8 @@ async function isUserAllowedToAccessResource(
             username: user.username,
             email: user.email,
             name: user.name,
-            role: userOrgRoles.map((r) => r.roleName).join(", ")
+            role: userOrgRoles.map((r) => r.roleName).join(", "),
+            groups: userOrgRoles.map((r) => r.roleName).join(",")
         };
     }
 
