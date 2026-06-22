@@ -23,6 +23,7 @@ import { hashPassword } from "@server/auth/password";
 import { isValidCIDR, isValidIP, isValidUrlGlobPattern } from "../validators";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "../billing/tierMatrix";
+import privateConfig from "@server/private/lib/config";
 
 export type ResourcePoliciesResults = {
     resourcePolicyId: number;
@@ -74,19 +75,35 @@ export async function updateResourcePolicies(
             const [provider] = await trx
                 .select()
                 .from(idp)
-                .innerJoin(idpOrg, eq(idpOrg.idpId, idp.idpId))
-                .where(
-                    and(
-                        eq(idp.idpId, policyData["auto-login-idp"]),
-                        eq(idpOrg.orgId, orgId)
-                    )
-                )
+                .where(eq(idp.idpId, policyData["auto-login-idp"]))
                 .limit(1);
 
             if (!provider) {
                 throw new Error(
-                    `Identity provider not found for policy '${policyNiceId}' in this organization`
+                    `Identity provider not found for policy '${policyNiceId}'`
                 );
+            }
+
+            if (
+                privateConfig.getRawPrivateConfig().app
+                    .identity_provider_mode === "org"
+            ) {
+                const [providerOrg] = await trx
+                    .select()
+                    .from(idpOrg)
+                    .where(
+                        and(
+                            eq(idpOrg.idpId, policyData["auto-login-idp"]),
+                            eq(idpOrg.orgId, orgId)
+                        )
+                    )
+                    .limit(1);
+
+                if (!providerOrg) {
+                    throw new Error(
+                        `Identity provider not found for policy '${policyNiceId}' in this organization`
+                    );
+                }
             }
         }
 

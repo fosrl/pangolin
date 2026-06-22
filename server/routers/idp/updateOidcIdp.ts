@@ -12,6 +12,7 @@ import { idp, idpOidcConfig } from "@server/db";
 import { eq } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
+import privateConfig from "@server/private/lib/config";
 
 const paramsSchema = z
     .object({
@@ -42,7 +43,6 @@ export type UpdateIdpResponse = {
 const UpdateIdpResponseDataSchema = z.object({
     idpId: z.number()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -115,7 +115,10 @@ export async function updateOidcIdp(
             variant
         } = parsedBody.data;
 
-        if (process.env.IDENTITY_PROVIDER_MODE === "org") {
+        if (
+            privateConfig.getRawPrivateConfig().app.identity_provider_mode ===
+            "org"
+        ) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,

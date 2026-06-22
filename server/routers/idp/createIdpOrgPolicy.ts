@@ -11,6 +11,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import config from "@server/lib/config";
 import { eq, and } from "drizzle-orm";
 import { idp, idpOrg } from "@server/db";
+import privateConfig from "@server/private/lib/config";
 
 const paramsSchema = z.strictObject({
     idpId: z.coerce.number<number>(),
@@ -24,7 +25,6 @@ const bodySchema = z.strictObject({
 
 export type CreateIdpOrgPolicyResponse = {};
 const CreateIdpOrgPolicyResponseDataSchema = z.object({});
-
 
 registry.registerPath({
     method: "put",
@@ -46,7 +46,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(CreateIdpOrgPolicyResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        CreateIdpOrgPolicyResponseDataSchema
+                    )
                 }
             }
         }
@@ -82,7 +84,10 @@ export async function createIdpOrgPolicy(
         const { idpId, orgId } = parsedParams.data;
         const { roleMapping, orgMapping } = parsedBody.data;
 
-        if (process.env.IDENTITY_PROVIDER_MODE === "org") {
+        if (
+            privateConfig.getRawPrivateConfig().app.identity_provider_mode ===
+            "org"
+        ) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,

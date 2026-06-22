@@ -12,6 +12,7 @@ import { idp, idpOidcConfig, idpOrg, orgs } from "@server/db";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
+import privateConfig from "@server/private/lib/config";
 
 const paramsSchema = z.strictObject({});
 
@@ -38,7 +39,6 @@ const CreateIdpResponseDataSchema = z.object({
     idpId: z.number(),
     redirectUrl: z.string()
 });
-
 
 registry.registerPath({
     method: "put",
@@ -98,7 +98,8 @@ export async function createOidcIdp(
         } = parsedBody.data;
 
         if (
-            process.env.IDENTITY_PROVIDER_MODE === "org"
+            privateConfig.getRawPrivateConfig().app.identity_provider_mode ===
+            "org"
         ) {
             return next(
                 createHttpError(

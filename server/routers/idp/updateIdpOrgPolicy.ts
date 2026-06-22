@@ -10,6 +10,7 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { eq, and } from "drizzle-orm";
 import { idp, idpOrg } from "@server/db";
+import privateConfig from "@server/private/lib/config";
 
 const paramsSchema = z.strictObject({
     idpId: z.coerce.number<number>(),
@@ -23,7 +24,6 @@ const bodySchema = z.strictObject({
 
 export type UpdateIdpOrgPolicyResponse = {};
 const UpdateIdpOrgPolicyResponseDataSchema = z.object({});
-
 
 registry.registerPath({
     method: "post",
@@ -45,7 +45,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateIdpOrgPolicyResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateIdpOrgPolicyResponseDataSchema
+                    )
                 }
             }
         }
@@ -81,7 +83,10 @@ export async function updateIdpOrgPolicy(
         const { idpId, orgId } = parsedParams.data;
         const { roleMapping, orgMapping } = parsedBody.data;
 
-        if (process.env.IDENTITY_PROVIDER_MODE === "org") {
+        if (
+            privateConfig.getRawPrivateConfig().app.identity_provider_mode ===
+            "org"
+        ) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,

@@ -18,6 +18,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import privateConfig from "@server/private/lib/config";
 
 const setResourcePolicyAcccessControlBodySchema = z.strictObject({
     sso: z.boolean(),
@@ -107,19 +108,41 @@ export async function setResourcePolicyAccessControl(
             const [provider] = await db
                 .select()
                 .from(idp)
-                .innerJoin(idpOrg, eq(idpOrg.idpId, idp.idpId))
-                .where(
-                    and(eq(idp.idpId, idpId), eq(idpOrg.orgId, policy.orgId))
-                )
+                .where(eq(idp.idpId, idpId))
                 .limit(1);
 
             if (!provider) {
                 return next(
                     createHttpError(
                         HttpCode.INTERNAL_SERVER_ERROR,
-                        "Identity provider not found in this organization"
+                        "Identity provider not found"
                     )
                 );
+            }
+
+            if (
+                privateConfig.getRawPrivateConfig().app
+                    .identity_provider_mode === "org"
+            ) {
+                const [providerOrg] = await db
+                    .select()
+                    .from(idpOrg)
+                    .where(
+                        and(
+                            eq(idpOrg.idpId, idpId),
+                            eq(idpOrg.orgId, policy.orgId)
+                        )
+                    )
+                    .limit(1);
+
+                if (!providerOrg) {
+                    return next(
+                        createHttpError(
+                            HttpCode.INTERNAL_SERVER_ERROR,
+                            "Identity provider not found in this organization"
+                        )
+                    );
+                }
             }
         }
 

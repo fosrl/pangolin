@@ -38,6 +38,7 @@ import {
 } from "@server/lib/validators";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import privateConfig from "@server/private/lib/config";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, inArray, type InferInsertModel } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -207,17 +208,41 @@ export async function createResourcePolicy(
             const [provider] = await db
                 .select()
                 .from(idp)
-                .innerJoin(idpOrg, eq(idpOrg.idpId, idp.idpId))
-                .where(and(eq(idp.idpId, skipToIdpId), eq(idpOrg.orgId, orgId)))
+                .where(eq(idp.idpId, skipToIdpId))
                 .limit(1);
 
             if (!provider) {
                 return next(
                     createHttpError(
                         HttpCode.INTERNAL_SERVER_ERROR,
-                        "Identity provider not found in this organization"
+                        "Identity provider not found"
                     )
                 );
+            }
+
+            if (
+                privateConfig.getRawPrivateConfig().app
+                    .identity_provider_mode === "org"
+            ) {
+                const [providerOrg] = await db
+                    .select()
+                    .from(idpOrg)
+                    .where(
+                        and(
+                            eq(idpOrg.idpId, skipToIdpId),
+                            eq(idpOrg.orgId, orgId)
+                        )
+                    )
+                    .limit(1);
+
+                if (!providerOrg) {
+                    return next(
+                        createHttpError(
+                            HttpCode.INTERNAL_SERVER_ERROR,
+                            "Identity provider not found in this organization"
+                        )
+                    );
+                }
             }
         }
 
