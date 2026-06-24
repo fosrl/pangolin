@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "사이트 네트워크의 자원 IP 주소입니다.",
     "createInternalResourceDialogAlias": "별칭",
     "createInternalResourceDialogAliasDescription": "이 리소스에 대한 선택적 내부 DNS 별칭입니다.",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "HTTP 리소스에 스킴이 필요합니다",
     "internalResourceHttpPortRequired": "HTTP 리소스에 목적지 포트가 필요합니다",
     "siteConfiguration": "설정",
