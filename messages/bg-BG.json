@@ -1638,7 +1638,7 @@
     "alertingActionType": "Тип на действието",
     "alertingNotifyUsers": "Потребители",
     "alertingNotifyRoles": "Роли",
-    "alertingNotifyEmails": "Имейл адреси",
+    "alertingNotifyEmails": "Email Addresses",
     "alertingEmailPlaceholder": "Добавете имейл и натиснете Enter",
     "alertingWebhookMethod": "HTTP метод",
     "alertingWebhookSecret": "Секрет за подписване (по избор)",
