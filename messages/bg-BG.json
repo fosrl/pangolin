@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "CIDR диапазонът на ресурса в мрежата на сайта.",
     "createInternalResourceDialogAlias": "Псевдоним",
     "createInternalResourceDialogAliasDescription": "По избор вътрешен DNS псевдоним за този ресурс.",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "Методът е задължителен за HTTP ресурси",
     "internalResourceHttpPortRequired": "Портът към целта е задължителен за HTTP ресурси",
     "siteConfiguration": "Конфигурация",
