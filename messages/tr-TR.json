@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "Site ağındaki kaynağın CIDR aralığı.",
     "createInternalResourceDialogAlias": "Takma Ad",
     "createInternalResourceDialogAliasDescription": "Bu kaynak için isteğe bağlı dahili DNS takma adı.",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "HTTP kaynakları için şema gereklidir",
     "internalResourceHttpPortRequired": "HTTP kaynakları için hedef bağlantı noktası gereklidir",
     "siteConfiguration": "Yapılandırma",
