@@ -1638,7 +1638,7 @@
     "alertingActionType": "작업 유형",
     "alertingNotifyUsers": "사용자들",
     "alertingNotifyRoles": "역할들",
-    "alertingNotifyEmails": "이메일 주소들",
+    "alertingNotifyEmails": "Email Addresses",
     "alertingEmailPlaceholder": "이메일 추가 후 Enter 키를 누르세요",
     "alertingWebhookMethod": "HTTP 메소드",
     "alertingWebhookSecret": "서명 비밀 (선택 사항)",
