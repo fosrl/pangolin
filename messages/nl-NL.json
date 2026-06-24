@@ -1638,7 +1638,7 @@
     "alertingActionType": "Actietype",
     "alertingNotifyUsers": "Gebruikers",
     "alertingNotifyRoles": "Rollen",
-    "alertingNotifyEmails": "E-mailadressen",
+    "alertingNotifyEmails": "Email Addresses",
     "alertingEmailPlaceholder": "Voeg e-mail toe en druk op Enter",
     "alertingWebhookMethod": "HTTP-methode",
     "alertingWebhookSecret": "Ondertekengeheim (optioneel)",
