@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "El rango CIDR del recurso en la red del sitio.",
     "createInternalResourceDialogAlias": "Alias",
     "createInternalResourceDialogAliasDescription": "Un alias DNS interno opcional para este recurso.",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "Se requiere el método para recursos HTTP",
     "internalResourceHttpPortRequired": "Se requiere el puerto de destino para recursos HTTP",
     "siteConfiguration": "Configuración",
