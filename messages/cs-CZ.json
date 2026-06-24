@@ -1638,7 +1638,7 @@
     "alertingActionType": "Typ akce",
     "alertingNotifyUsers": "Uživatelé",
     "alertingNotifyRoles": "Role",
-    "alertingNotifyEmails": "Emailové adresy",
+    "alertingNotifyEmails": "Email Addresses",
     "alertingEmailPlaceholder": "Přidejte e-mail a stiskněte Enter",
     "alertingWebhookMethod": "HTTP metoda",
     "alertingWebhookSecret": "Přihlašovací tajemství (volitelné)",
