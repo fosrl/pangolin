@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "Rozsah zdrojů CIDR v síti webu.",
     "createInternalResourceDialogAlias": "Alias",
     "createInternalResourceDialogAliasDescription": "Volitelný interní DNS alias pro tento dokument.",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "HTTP metoda je vyžadována pro HTTP zdroje",
     "internalResourceHttpPortRequired": "Přípoječný port je nutný pro HTTP zdroj",
     "siteConfiguration": "Konfigurace",
