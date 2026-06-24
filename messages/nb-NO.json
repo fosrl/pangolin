@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "CIDR-rekkevidden til ressursen på nettstedets nettverk.",
     "createInternalResourceDialogAlias": "Alias",
     "createInternalResourceDialogAliasDescription": "Et valgfritt internt DNS-alias for denne ressursen.",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "Skjema er påkrevd for HTTP-ressurser",
     "internalResourceHttpPortRequired": "Destinasjonsport er nødvendig for HTTP-ressurser",
     "siteConfiguration": "Konfigurasjon",
