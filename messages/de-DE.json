@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "Der CIDR-Bereich der Ressource im Netzwerk der Website.",
     "createInternalResourceDialogAlias": "Alias",
     "createInternalResourceDialogAliasDescription": "Ein optionaler interner DNS-Alias für diese Ressource.",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "Schema ist für HTTP-Ressourcen erforderlich",
     "internalResourceHttpPortRequired": "Zielport ist für HTTP-Ressourcen erforderlich",
     "siteConfiguration": "Konfiguration",
