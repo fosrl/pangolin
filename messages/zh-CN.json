@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "站点网络上资源的 CIDR 范围。",
     "createInternalResourceDialogAlias": "Alias",
     "createInternalResourceDialogAliasDescription": "此资源可选的内部DNS别名。",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "HTTP 资源需要方案",
     "internalResourceHttpPortRequired": "HTTP 资源需要目的端口",
     "siteConfiguration": "配置",
