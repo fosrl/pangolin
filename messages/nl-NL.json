@@ -2338,6 +2338,7 @@
     "createInternalResourceDialogDestinationCidrDescription": "Het CIDR-bereik van het document op het netwerk van de site.",
     "createInternalResourceDialogAlias": "Alias",
     "createInternalResourceDialogAliasDescription": "Een optionele interne DNS-alias voor dit document.",
+    "internalResourceAliasLocalWarning": "Aliases ending in .local can cause resolution issues due to mDNS on some networks.",
     "internalResourceDownstreamSchemeRequired": "Schema is vereist voor HTTP-bronnen",
     "internalResourceHttpPortRequired": "Bestemmingspoort is vereist voor HTTP-bronnen",
     "siteConfiguration": "Configuratie",
