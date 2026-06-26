@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { MessageCircle, CheckCircle2 } from "lucide-react";
+import { BookOpen, CheckCircle2, MessageCircle } from "lucide-react";
 import { useUserContext } from "@app/hooks/useUserContext";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
@@ -33,6 +33,9 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
+
+const DOCS_HREF = "https://docs.pangolin.net/";
 
 type SupportFormValues = {
     subject: string;
@@ -147,9 +150,20 @@ export function SidebarSupportButton({
                     </PopoverTrigger>
                 )}
                 <PopoverContent className="w-80" align="start">
-                    <p className="text-sm text-muted-foreground">
-                        {t("supportNotAvailableDescription")}
-                    </p>
+                    <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                            {t("supportNotAvailableDescription")}
+                        </p>
+                        <Link
+                            href={DOCS_HREF}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                        >
+                            <BookOpen className="h-4 w-4" />
+                            Documentation
+                        </Link>
+                    </div>
                 </PopoverContent>
             </Popover>
         );
@@ -205,6 +219,15 @@ export function SidebarSupportButton({
                         <p className="text-sm text-muted-foreground text-center">
                             {t("supportWillContact")}
                         </p>
+                        <Link
+                            href={DOCS_HREF}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                        >
+                            <BookOpen className="h-4 w-4" />
+                            Documentation
+                        </Link>
                     </div>
                 ) : (
                     <Form {...form}>
@@ -263,6 +286,18 @@ export function SidebarSupportButton({
                                     </FormItem>
                                 )}
                             />
+
+                            <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                                <Link
+                                    href={DOCS_HREF}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-primary hover:underline"
+                                >
+                                    <BookOpen className="h-4 w-4" />
+                                    Documentation
+                                </Link>
+                            </div>
 
                             <div className="flex justify-end gap-2">
                                 <Button

@@ -18,7 +18,13 @@ import { approvalQueries } from "@app/lib/queries";
 import { build } from "@server/build";
 import { useQuery } from "@tanstack/react-query";
 import { ListUserOrgsResponse } from "@server/routers/org";
-import { ArrowRight, ExternalLink, PanelRightOpen, Server } from "lucide-react";
+import {
+    ArrowRight,
+    BookOpen,
+    ExternalLink,
+    PanelRightOpen,
+    Server
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -42,6 +48,8 @@ interface LayoutSidebarProps {
     defaultSidebarCollapsed: boolean;
     hasCookiePreference: boolean;
 }
+
+const DOCS_HREF = "https://docs.pangolin.net/";
 
 export function LayoutSidebar({
     orgId,
@@ -264,9 +272,42 @@ export function LayoutSidebar({
                         />
                     </div>
                 )}
+                {isSidebarCollapsed && (
+                    <div className="px-4">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Link
+                                        href={DOCS_HREF}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent/50"
+                                        aria-label="Open documentation"
+                                    >
+                                        <BookOpen className="h-4 w-4" />
+                                    </Link>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" sideOffset={8}>
+                                    <p>Documentation</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                )}
 
                 {!isSidebarCollapsed && (
                     <div className="px-4 space-y-2 pb-4">
+                        <div className="text-xs text-muted-foreground text-left">
+                            <Link
+                                href={DOCS_HREF}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-start gap-1"
+                            >
+                                Documentation
+                                <ExternalLink size={12} />
+                            </Link>
+                        </div>
                         {loadFooterLinks() ? (
                             <>
                                 {loadFooterLinks()!.map((link, index) => (
