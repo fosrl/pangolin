@@ -9,12 +9,25 @@
 
 import { spawnSync } from "node:child_process";
 import { globSync } from "node:fs";
+import { build } from "@server/build";
 
 const EXCLUDED_DIRS = ["node_modules", "dist", ".next", "init"];
 
-const testFiles = globSync("**/*.test.ts", {
-    exclude: (path) => EXCLUDED_DIRS.some((dir) => path.split(/[\\/]/).includes(dir))
-}).sort();
+// server/private holds commercial-licensed code. Its tests run only in the
+// enterprise and saas builds, not in the OSS build.
+function isExcluded(file: string): boolean {
+    const normalized = file.replace(/\\/g, "/");
+    const segments = normalized.split("/");
+    if (EXCLUDED_DIRS.some((dir) => segments.includes(dir))) {
+        return true;
+    }
+    if (build === "oss" && normalized.startsWith("server/private/")) {
+        return true;
+    }
+    return false;
+}
+
+const testFiles = globSync("**/*.test.ts", { exclude: isExcluded }).sort();
 
 if (testFiles.length === 0) {
     console.error("No *.test.ts files found.");
