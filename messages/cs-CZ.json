@@ -2389,7 +2389,7 @@
     "remoteExitNodeId": "ID",
     "remoteExitNodeSecretKey": "Tajný klíč",
     "remoteExitNodeNetworkingTitle": "Network Settings",
-    "remoteExitNodeNetworkingDescription": "Configure how this remote exit node routes traffic and which sites prefer to connect through it.",
+    "remoteExitNodeNetworkingDescription": "Configure how this remote exit node routes traffic and which sites prefer to connect through it. Advanced features to be used with backhaul networking configurations.",
     "remoteExitNodeNetworkingSave": "Save Settings",
     "remoteExitNodeNetworkingSaveSuccessTitle": "Network settings saved",
     "remoteExitNodeNetworkingSaveSuccessDescription": "Network settings have been updated successfully.",
