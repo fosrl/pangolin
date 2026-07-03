@@ -14,8 +14,6 @@
 import { hashPassword } from "@server/auth/password";
 import {
     db,
-    idp,
-    idpOrg,
     orgs,
     resourcePolicies,
     resourcePolicyHeaderAuth,
@@ -31,6 +29,7 @@ import {
     type ResourcePolicy
 } from "@server/db";
 import { getUniqueResourcePolicyName } from "@server/db/names";
+import { canOrgUseIdp } from "@server/lib/idp/canOrgUseIdp";
 import response from "@server/lib/response";
 import {
     getResourceRuleValueValidationError,
@@ -204,14 +203,7 @@ export async function createResourcePolicy(
 
         // Check if Identity provider in `skipToIdpId` exists
         if (skipToIdpId) {
-            const [provider] = await db
-                .select()
-                .from(idp)
-                .innerJoin(idpOrg, eq(idpOrg.idpId, idp.idpId))
-                .where(and(eq(idp.idpId, skipToIdpId), eq(idpOrg.orgId, orgId)))
-                .limit(1);
-
-            if (!provider) {
+            if (!(await canOrgUseIdp(skipToIdpId, orgId))) {
                 return next(
                     createHttpError(
                         HttpCode.INTERNAL_SERVER_ERROR,
