@@ -11,7 +11,7 @@ import { fromError } from "zod-validation-error";
 
 const removeUserResourceSchema = z.strictObject({
     userId: z.string(),
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
 export async function removeUserResource(

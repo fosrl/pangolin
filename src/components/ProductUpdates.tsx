@@ -8,6 +8,7 @@ import {
     type ProductUpdate,
     productUpdatesQueries
 } from "@app/lib/queries";
+import { build } from "@server/build";
 import { useQueries } from "@tanstack/react-query";
 import {
     ArrowRight,
@@ -39,22 +40,42 @@ export default function ProductUpdates({
 }) {
     const { env } = useEnvContext();
 
+    const productUpdatesEnabled = env.app.notifications.product_updates;
+    const versionCheckEnabled =
+        env.app.notifications.new_releases && build !== "saas";
+
     const data = useQueries({
         queries: [
-            productUpdatesQueries.list(
-                env.app.notifications.product_updates,
-                env.app.version
-            ),
+            productUpdatesQueries.list(productUpdatesEnabled, env.app.version),
             productUpdatesQueries.latestVersion(
                 env.app.notifications.new_releases
             )
         ],
         combine(result) {
-            if (result[0].isLoading || result[1].isLoading) return null;
-            return {
-                updates: result[0].data?.data ?? [],
-                latestVersion: result[1].data
-            };
+            const [updatesQuery, versionQuery] = result;
+
+            const updatesSettled =
+                !productUpdatesEnabled ||
+                updatesQuery.isFetched ||
+                updatesQuery.isError;
+            const versionSettled =
+                !versionCheckEnabled ||
+                versionQuery.isFetched ||
+                versionQuery.isError;
+
+            if (!updatesSettled || !versionSettled) return null;
+
+            const updates = updatesQuery.isError
+                ? []
+                : Array.isArray(updatesQuery.data?.data)
+                  ? updatesQuery.data.data
+                  : [];
+
+            const latestVersion = versionQuery.isError
+                ? undefined
+                : versionQuery.data;
+
+            return { updates, latestVersion };
         }
     });
     const t = useTranslations();
@@ -76,19 +97,30 @@ export default function ProductUpdates({
 
     if (!data) return null;
 
-    const latestVersion = data?.latestVersion?.data?.pangolin.latestVersion;
+    const versionResponse = data.latestVersion?.data;
+    const latestVersion = versionResponse?.pangolin?.latestVersion;
     const currentVersion = env.app.version;
 
-    const showNewVersionPopup = Boolean(
+    let showNewVersionPopup = false;
+    if (
         latestVersion &&
-            valid(latestVersion) &&
-            valid(currentVersion) &&
-            ignoredVersionUpdate !== latestVersion &&
-            gt(latestVersion, currentVersion)
-    );
+        valid(latestVersion) &&
+        valid(currentVersion) &&
+        ignoredVersionUpdate !== latestVersion
+    ) {
+        try {
+            showNewVersionPopup = gt(latestVersion, currentVersion);
+        } catch {
+            showNewVersionPopup = false;
+        }
+    }
+
+    const readUpdateIds = Array.isArray(productUpdatesRead)
+        ? productUpdatesRead
+        : [];
 
     const filteredUpdates = data.updates.filter(
-        (update) => !productUpdatesRead.includes(update.id)
+        (update) => !readUpdateIds.includes(update.id)
     );
 
     if (filteredUpdates.length === 0 && !showNewVersionPopup) {
@@ -133,17 +165,14 @@ export default function ProductUpdates({
                             show={filteredUpdates.length > 0}
                             onDimissAll={() =>
                                 setProductUpdatesRead([
-                                    ...productUpdatesRead,
+                                    ...readUpdateIds,
                                     ...filteredUpdates.map(
                                         (update) => update.id
                                     )
                                 ])
                             }
                             onDimiss={(id) =>
-                                setProductUpdatesRead([
-                                    ...productUpdatesRead,
-                                    id
-                                ])
+                                setProductUpdatesRead([...readUpdateIds, id])
                             }
                         />
                     </div>
@@ -151,11 +180,9 @@ export default function ProductUpdates({
             </div>
 
             <NewVersionAvailable
-                version={data.latestVersion?.data}
+                version={versionResponse}
                 onDimiss={() => {
-                    setIgnoredVersionUpdate(
-                        data.latestVersion?.data?.pangolin.latestVersion ?? null
-                    );
+                    setIgnoredVersionUpdate(latestVersion ?? null);
                 }}
                 show={showNewVersionPopup}
             />
@@ -345,6 +372,10 @@ function NewVersionAvailable({
             requestAnimationFrame(() => setOpen(true));
         }
     }, [show]);
+
+    if (!version?.pangolin?.latestVersion) {
+        return null;
+    }
 
     return (
         <Transition show={open}>

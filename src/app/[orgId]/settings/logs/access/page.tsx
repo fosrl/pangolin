@@ -11,7 +11,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { ArrowUpRight, Key, User } from "lucide-react";
 import Link from "next/link";
-import { ColumnFilter } from "@app/components/ColumnFilter";
+import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { build } from "@server/build";
 import { getSevenDaysAgo } from "@app/lib/getSevenDaysAgo";
@@ -233,7 +233,7 @@ export default function GeneralPage() {
         {
             accessorKey: "timestamp",
             header: () => {
-                return t("timestamp");
+                return <span className="px-2">{t("timestamp")}</span>;
             },
             cell: ({ row }) => {
                 return (
@@ -249,19 +249,19 @@ export default function GeneralPage() {
             accessorKey: "action",
             header: () => {
                 return (
-                    <div className="flex items-center gap-2">
-                        <span>{t("action")}</span>
-                        <ColumnFilter
+                    <div className="flex items-center gap-2 px-2">
+                        <ColumnFilterButton
                             options={[
                                 { value: "true", label: "Allowed" },
                                 { value: "false", label: "Denied" }
                             ]}
+                            label={t("action")}
                             selectedValue={filters.action}
                             onValueChange={(value) =>
                                 handleFilterChange("action", value)
                             }
-                            searchPlaceholder="Search..."
-                            emptyMessage="None found"
+                            searchPlaceholder={t("searchPlaceholder")}
+                            emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
                 );
@@ -276,27 +276,27 @@ export default function GeneralPage() {
         },
         {
             accessorKey: "ip",
-            header: () => t("ip")
+            header: () => <span className="px-2">{t("ip")}</span>
         },
         {
             accessorKey: "location",
             header: () => {
                 return (
-                    <div className="flex items-center gap-2">
-                        <span>{t("location")}</span>
-                        <ColumnFilter
+                    <div className="flex items-center gap-2 px-2">
+                        <ColumnFilterButton
                             options={filterAttributes.locations.map(
                                 (location) => ({
                                     value: location,
                                     label: location
                                 })
                             )}
+                            label={t("location")}
                             selectedValue={filters.location}
                             onValueChange={(value) =>
                                 handleFilterChange("location", value)
                             }
-                            searchPlaceholder="Search..."
-                            emptyMessage="None found"
+                            searchPlaceholder={t("searchPlaceholder")}
+                            emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
                 );
@@ -321,19 +321,19 @@ export default function GeneralPage() {
             accessorKey: "resourceName",
             header: () => {
                 return (
-                    <div className="flex items-center gap-2">
-                        <span>{t("resource")}</span>
-                        <ColumnFilter
+                    <div className="flex items-center gap-2 px-2">
+                        <ColumnFilterButton
                             options={filterAttributes.resources.map((res) => ({
                                 value: res.id.toString(),
                                 label: res.name || "Unnamed Resource"
                             }))}
+                            label={t("resource")}
                             selectedValue={filters.resourceId}
                             onValueChange={(value) =>
                                 handleFilterChange("resourceId", value)
                             }
-                            searchPlaceholder="Search..."
-                            emptyMessage="None found"
+                            searchPlaceholder={t("searchPlaceholder")}
+                            emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
                 );
@@ -342,9 +342,9 @@ export default function GeneralPage() {
                 return (
                     <Link
                         href={
-                            row.original.type === "ssh"
-                                ? `/${row.original.orgId}/settings/resources/client?query=${row.original.resourceNiceId}`
-                                : `/${row.original.orgId}/settings/resources/proxy/${row.original.resourceNiceId}`
+                            row.original.siteResourceId != null
+                                ? `/${row.original.orgId}/settings/resources/private?query=${row.original.resourceNiceId}`
+                                : `/${row.original.orgId}/settings/resources/public/${row.original.resourceNiceId}`
                         }
                     >
                         <Button variant="outline" size="sm">
@@ -359,9 +359,8 @@ export default function GeneralPage() {
             accessorKey: "type",
             header: () => {
                 return (
-                    <div className="flex items-center gap-2">
-                        <span>{t("type")}</span>
-                        <ColumnFilter
+                    <div className="flex items-center gap-2 px-2">
+                        <ColumnFilterButton
                             options={[
                                 { value: "password", label: "Password" },
                                 { value: "pincode", label: "Pincode" },
@@ -370,22 +369,27 @@ export default function GeneralPage() {
                                     value: "whitelistedEmail",
                                     label: "Whitelisted Email"
                                 },
-                                { value: "ssh", label: "SSH" }
+                                { value: "ssh", label: "SSH" },
+                                { value: "rdp", label: "RDP" },
+                                { value: "vnc", label: "VNC" }
                             ]}
+                            label={t("type")}
                             selectedValue={filters.type}
                             onValueChange={(value) =>
                                 handleFilterChange("type", value)
                             }
-                            searchPlaceholder="Search..."
-                            emptyMessage="None found"
+                            searchPlaceholder={t("searchPlaceholder")}
+                            emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
                 );
             },
             cell: ({ row }) => {
                 const typeLabel =
-                    row.original.type === "ssh"
-                        ? "SSH"
+                    row.original.type === "ssh" ||
+                    row.original.type === "rdp" ||
+                    row.original.type === "vnc"
+                        ? row.original.type.toUpperCase()
                         : row.original.type.charAt(0).toUpperCase() +
                           row.original.type.slice(1);
                 return <span>{typeLabel || "-"}</span>;
@@ -395,19 +399,19 @@ export default function GeneralPage() {
             accessorKey: "actor",
             header: () => {
                 return (
-                    <div className="flex items-center gap-2">
-                        <span>{t("actor")}</span>
-                        <ColumnFilter
+                    <div className="flex items-center gap-2 px-2">
+                        <ColumnFilterButton
                             options={filterAttributes.actors.map((actor) => ({
                                 value: actor,
                                 label: actor
                             }))}
+                            label={t("actor")}
                             selectedValue={filters.actor}
                             onValueChange={(value) =>
                                 handleFilterChange("actor", value)
                             }
-                            searchPlaceholder="Search..."
-                            emptyMessage="None found"
+                            searchPlaceholder={t("searchPlaceholder")}
+                            emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
                 );
@@ -433,7 +437,7 @@ export default function GeneralPage() {
         },
         {
             accessorKey: "actorId",
-            header: () => t("actorId"),
+            header: () => <span className="px-2">{t("actorId")}</span>,
             cell: ({ row }) => (
                 <span className="flex items-center gap-1">
                     {row.original.actorId || "-"}
@@ -513,7 +517,15 @@ export default function GeneralPage() {
 
 function generateSampleAccessLogs(): QueryAccessAuditLogResponse["log"] {
     const locations = ["US", "DE", "GB", "FR", "JP", "CA", "AU"];
-    const types = ["password", "pincode", "login", "whitelistedEmail", "ssh"];
+    const types = [
+        "password",
+        "pincode",
+        "login",
+        "whitelistedEmail",
+        "ssh",
+        "rdp",
+        "vnc"
+    ];
     const actors = [
         "alice@example.com",
         "bob@example.com",
@@ -538,6 +550,7 @@ function generateSampleAccessLogs(): QueryAccessAuditLogResponse["log"] {
             actor,
             actorId: actor ? `user-${i}` : null,
             resourceId: Math.floor(Math.random() * 5) + 1,
+            siteResourceId: null,
             resourceNiceId: `resource-${(i % 3) + 1}`,
             resourceName: `Resource ${(i % 3) + 1}`,
             ip: `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,

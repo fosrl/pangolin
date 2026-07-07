@@ -16,9 +16,9 @@ export const metadata: Metadata = {
 export default async function MaintenanceScreen() {
     const t = await getTranslations();
 
-    let title = t("privateMaintenanceScreenTitle");
-    let message = t("privateMaintenanceScreenMessage");
-    let steps = t("privateMaintenanceScreenSteps");
+    const title = t("privateMaintenanceScreenTitle");
+    const message = t("privateMaintenanceScreenMessage");
+    const steps = t("privateMaintenanceScreenSteps");
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4">

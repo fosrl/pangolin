@@ -13,6 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db, targetHealthCheck, newts, sites } from "@server/db";
 import { eq } from "drizzle-orm";
 import response from "@server/lib/response";
@@ -28,30 +29,47 @@ const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
 });
 
-const bodySchema = z.strictObject({
-    name: z.string().nonempty(),
-    siteId: z.number().int().positive(),
-    hcEnabled: z.boolean().default(false),
-    hcMode: z.string().default("http"),
-    hcHostname: z.string().optional(),
-    hcPort: z.number().int().min(1).max(65535).optional(),
-    hcPath: z.string().optional(),
-    hcScheme: z.string().optional(),
-    hcMethod: z.string().default("GET"),
-    hcInterval: z.number().int().positive().default(30),
-    hcUnhealthyInterval: z.number().int().positive().default(30),
-    hcTimeout: z.number().int().positive().default(1),
-    hcHeaders: z.string().optional().nullable(),
-    hcFollowRedirects: z.boolean().default(true),
-    hcStatus: z.number().int().optional().nullable(),
-    hcTlsServerName: z.string().optional(),
-    hcHealthyThreshold: z.number().int().positive().default(1),
-    hcUnhealthyThreshold: z.number().int().positive().default(1)
-});
+const bodySchema = z
+    .strictObject({
+        name: z.string().nonempty(),
+        siteId: z.number().int().positive(),
+        hcEnabled: z.boolean().default(false),
+        hcMode: z.string().default("http"),
+        hcHostname: z.string().optional(),
+        hcPort: z.number().int().min(1).max(65535).optional(),
+        hcPath: z.string().optional(),
+        hcScheme: z.string().optional(),
+        hcMethod: z.string().default("GET"),
+        hcInterval: z.number().int().positive().default(30),
+        hcUnhealthyInterval: z.number().int().positive().default(30),
+        hcTimeout: z.number().int().positive().default(1),
+        hcHeaders: z.string().optional().nullable(),
+        hcFollowRedirects: z.boolean().default(true),
+        hcStatus: z.number().int().optional().nullable(),
+        hcTlsServerName: z.string().optional(),
+        hcHealthyThreshold: z.number().int().positive().default(1),
+        hcUnhealthyThreshold: z.number().int().positive().default(1)
+    })
+    .superRefine((data, ctx) => {
+        const hcHostnameMissing =
+            data.hcHostname === undefined ||
+            data.hcHostname.trim().length === 0;
+
+        if (data.hcEnabled === true && hcHostnameMissing) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["hcHostname"],
+                message: "hcHostname is required when hcEnabled is true"
+            });
+        }
+    });
 
 export type CreateHealthCheckResponse = {
     targetHealthCheckId: number;
 };
+const CreateHealthCheckResponseDataSchema = z.object({
+    targetHealthCheckId: z.number()
+});
 
 registry.registerPath({
     method: "put",
@@ -68,7 +86,18 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        CreateHealthCheckResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
 });
 
 export async function createHealthCheck(

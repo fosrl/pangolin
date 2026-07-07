@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { resourceRules, resources } from "@server/db";
+import { resourceRules, resourcePolicyRules, resources } from "@server/db";
 import { eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -11,8 +11,8 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 
 const deleteResourceRuleSchema = z.strictObject({
-    ruleId: z.string().transform(Number).pipe(z.int().positive()),
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    ruleId: z.coerce.number().int().positive(),
+    resourceId: z.coerce.number().int().positive()
 });
 
 registry.registerPath({
@@ -23,7 +23,22 @@ registry.registerPath({
     request: {
         params: deleteResourceRuleSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function deleteResourceRule(
@@ -43,6 +58,48 @@ export async function deleteResourceRule(
         }
 
         const { ruleId } = parsedParams.data;
+
+        // Look up resource to determine which table to use
+        const { resourceId } = parsedParams.data;
+        const [resource] = await db
+            .select()
+            .from(resources)
+            .where(eq(resources.resourceId, resourceId))
+            .limit(1);
+
+        if (!resource) {
+            return next(
+                createHttpError(HttpCode.NOT_FOUND, "Resource not found")
+            );
+        }
+
+        const isInlinePolicy =
+            resource.resourcePolicyId === null &&
+            resource.defaultResourcePolicyId !== null;
+
+        if (isInlinePolicy) {
+            const [deletedRule] = await db
+                .delete(resourcePolicyRules)
+                .where(eq(resourcePolicyRules.ruleId, ruleId))
+                .returning();
+
+            if (!deletedRule) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Resource rule with ID ${ruleId} not found`
+                    )
+                );
+            }
+
+            return response(res, {
+                data: null,
+                success: true,
+                error: false,
+                message: "Resource rule deleted successfully",
+                status: HttpCode.OK
+            });
+        }
 
         // Delete the rule and return the deleted record
         const [deletedRule] = await db

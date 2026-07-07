@@ -1,5 +1,6 @@
 import { assertEquals } from "@test/assert";
 import { REGIONS } from "@server/db/regions";
+import { isPathAllowed } from "@server/lib/pathMatch";
 
 function isIpInRegion(
     ipCountryCode: string | undefined,
@@ -31,76 +32,6 @@ function isIpInRegion(
     }
 
     return false;
-}
-
-function isPathAllowed(pattern: string, path: string): boolean {
-    // Normalize and split paths into segments
-    const normalize = (p: string) => p.split("/").filter(Boolean);
-    const patternParts = normalize(pattern);
-    const pathParts = normalize(path);
-
-    // Recursive function to try different wildcard matches
-    function matchSegments(patternIndex: number, pathIndex: number): boolean {
-        const indent = "  ".repeat(pathIndex); // Indent based on recursion depth
-        const currentPatternPart = patternParts[patternIndex];
-        const currentPathPart = pathParts[pathIndex];
-
-        // If we've consumed all pattern parts, we should have consumed all path parts
-        if (patternIndex >= patternParts.length) {
-            const result = pathIndex >= pathParts.length;
-            return result;
-        }
-
-        // If we've consumed all path parts but still have pattern parts
-        if (pathIndex >= pathParts.length) {
-            // The only way this can match is if all remaining pattern parts are wildcards
-            const remainingPattern = patternParts.slice(patternIndex);
-            const result = remainingPattern.every((p) => p === "*");
-            return result;
-        }
-
-        // For full segment wildcards, try consuming different numbers of path segments
-        if (currentPatternPart === "*") {
-            // Try consuming 0 segments (skip the wildcard)
-            if (matchSegments(patternIndex + 1, pathIndex)) {
-                return true;
-            }
-
-            // Try consuming current segment and recursively try rest
-            if (matchSegments(patternIndex, pathIndex + 1)) {
-                return true;
-            }
-
-            return false;
-        }
-
-        // Check for in-segment wildcard (e.g., "prefix*" or "prefix*suffix")
-        if (currentPatternPart.includes("*")) {
-            // Convert the pattern segment to a regex pattern
-            const regexPattern = currentPatternPart
-                .replace(/\*/g, ".*") // Replace * with .* for regex wildcard
-                .replace(/\?/g, "."); // Replace ? with . for single character wildcard if needed
-
-            const regex = new RegExp(`^${regexPattern}$`);
-
-            if (regex.test(currentPathPart)) {
-                return matchSegments(patternIndex + 1, pathIndex + 1);
-            }
-
-            return false;
-        }
-
-        // For regular segments, they must match exactly
-        if (currentPatternPart !== currentPathPart) {
-            return false;
-        }
-
-        // Move to next segments in both pattern and path
-        return matchSegments(patternIndex + 1, pathIndex + 1);
-    }
-
-    const result = matchSegments(0, 0);
-    return result;
 }
 
 function runTests() {
@@ -308,6 +239,121 @@ function runTests() {
     console.log("All path matching tests passed!");
 }
 
+function runSpecialCharacterTests() {
+    console.log("\nRunning special character tests...");
+
+    let threw = false;
+    try {
+        isPathAllowed("(api*", "anything");
+        isPathAllowed("a(b*", "a(bc");
+        isPathAllowed("c[d*", "c[de");
+        isPathAllowed("x{2}*", "x{2}y");
+        isPathAllowed("a|b*", "a|bc");
+        isPathAllowed("back\\slash*", "back\\slashed");
+    } catch (e) {
+        threw = true;
+        console.error(
+            "Patterns accepted by isValidUrlGlobPattern crashed the matcher:",
+            e instanceof Error ? e.message : e
+        );
+    }
+    assertEquals(
+        threw,
+        false,
+        "Patterns with regex metacharacters must not throw"
+    );
+
+    assertEquals(
+        isPathAllowed("(api*", "(api-v1"),
+        true,
+        "Parenthesis should be treated as a literal character"
+    );
+    assertEquals(
+        isPathAllowed("(api*", "xapi-v1"),
+        false,
+        "Parenthesis should not match other characters"
+    );
+    assertEquals(
+        isPathAllowed("a(b)*", "a(b)c"),
+        true,
+        "Parentheses pair should be treated as literal characters"
+    );
+
+    assertEquals(
+        isPathAllowed("*.png", "image.png"),
+        true,
+        "Dot should match a literal dot"
+    );
+    assertEquals(
+        isPathAllowed("*.png", "imageXpng"),
+        false,
+        "Dot should not act as a regex wildcard"
+    );
+    assertEquals(
+        isPathAllowed("v1.0*", "v1.0.1"),
+        true,
+        "Version-like literal should match itself"
+    );
+    assertEquals(
+        isPathAllowed("v1.0*", "v1x0-beta"),
+        false,
+        "Version-like literal should not match arbitrary characters"
+    );
+
+    assertEquals(
+        isPathAllowed("a+b*", "a+bc"),
+        true,
+        "Plus should be treated as a literal character"
+    );
+    assertEquals(
+        isPathAllowed("a+b*", "aaabc"),
+        false,
+        "Plus should not act as a regex quantifier"
+    );
+
+    assertEquals(
+        isPathAllowed("$ref*", "$refs"),
+        true,
+        "Dollar sign should be treated as a literal character"
+    );
+    assertEquals(
+        isPathAllowed("price$*", "price$100"),
+        true,
+        "Dollar sign mid-pattern should be treated as a literal character"
+    );
+
+    assertEquals(
+        isPathAllowed("^start*", "^started"),
+        true,
+        "Caret should be treated as a literal character"
+    );
+
+    assertEquals(
+        isPathAllowed("a|b*", "a|bc"),
+        true,
+        "Pipe should be treated as a literal character"
+    );
+    assertEquals(
+        isPathAllowed("a|b*", "a"),
+        false,
+        "Pipe should not act as regex alternation"
+    );
+
+    assertEquals(
+        isPathAllowed("file?*", "fileX"),
+        true,
+        "Question mark should still act as a single-character wildcard"
+    );
+
+    assertEquals(
+        isPathAllowed("api/*", "api/" + "x/".repeat(50)),
+        true,
+        "Deeply nested paths should still match"
+    );
+
+    console.log("All special character tests passed!");
+}
+
 function runRegionTests() {
     console.log("\nRunning isIpInRegion tests...");
 
@@ -367,6 +413,7 @@ function runRegionTests() {
 // Run all tests
 try {
     runTests();
+    runSpecialCharacterTests();
     runRegionTests();
     console.log("\n✅ All tests passed!");
 } catch (error) {

@@ -18,6 +18,7 @@ import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyRemoteExitNodeAccess(
     req: Request,
@@ -25,15 +26,24 @@ export async function verifyRemoteExitNodeAccess(
     next: NextFunction
 ) {
     const userId = req.user!.userId; // Assuming you have user information in the request
-    const orgId = req.params.orgId;
+    const orgId = getFirstString(req.params.orgId);
     const remoteExitNodeId =
-        req.params.remoteExitNodeId ||
-        req.body.remoteExitNodeId ||
-        req.query.remoteExitNodeId;
+        getFirstString(req.params.remoteExitNodeId) ||
+        getFirstString(req.body?.remoteExitNodeId) ||
+        getFirstString(req.query?.remoteExitNodeId);
 
     if (!userId) {
         return next(
             createHttpError(HttpCode.UNAUTHORIZED, "User not authenticated")
+        );
+    }
+
+    if (!orgId || !remoteExitNodeId) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "Invalid organization or remote exit node ID"
+            )
         );
     }
 

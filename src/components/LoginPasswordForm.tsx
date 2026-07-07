@@ -265,6 +265,7 @@ export default function LoginPasswordForm({
                 }}
                 error={error}
                 loading={loading}
+                username={identifier}
             />
         );
     }

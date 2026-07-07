@@ -2,7 +2,14 @@ import { PostHog } from "posthog-node";
 import config from "./config";
 import { getHostMeta } from "./hostMeta";
 import logger from "@server/logger";
-import { alertRules, apiKeys, blueprints, db, roles, siteResources } from "@server/db";
+import {
+    alertRules,
+    apiKeys,
+    blueprints,
+    db,
+    roles,
+    siteResources
+} from "@server/db";
 import { sites, users, orgs, resources, clients, idp } from "@server/db";
 import { eq, count, notInArray, and, isNotNull, isNull } from "drizzle-orm";
 import { APP_VERSION } from "./consts";
@@ -143,8 +150,7 @@ class TelemetryClient {
                 .select({
                     name: resources.name,
                     sso: resources.sso,
-                    protocol: resources.protocol,
-                    http: resources.http
+                    mode: resources.mode
                 })
                 .from(resources);
 
@@ -175,6 +181,7 @@ class TelemetryClient {
             let numPrivResourceHosts = 0;
             let numPrivResourceCidr = 0;
             let numPrivResourceHttp = 0;
+            let numPrivResourceSsh = 0;
             for (const res of allPrivateResources) {
                 if (res.mode === "host") {
                     numPrivResourceHosts += 1;
@@ -182,6 +189,8 @@ class TelemetryClient {
                     numPrivResourceCidr += 1;
                 } else if (res.mode === "http") {
                     numPrivResourceHttp += 1;
+                } else if (res.mode === "ssh") {
+                    numPrivResourceSsh += 1;
                 }
 
                 if (res.alias) {
@@ -201,6 +210,7 @@ class TelemetryClient {
                 numPrivateResourceHosts: numPrivResourceHosts,
                 numPrivateResourceCidr: numPrivResourceCidr,
                 numPrivateResourceHttp: numPrivResourceHttp,
+                numPrivateResourceSsh: numPrivResourceSsh,
                 numAlertRules: numAlertRules.count,
                 numUserDevices: userDevicesCount.count,
                 numMachineClients: machineClients.count,
@@ -311,7 +321,7 @@ class TelemetryClient {
                         (r) => r.sso
                     ).length,
                     num_resources_non_http: stats.resources.filter(
-                        (r) => !r.http
+                        (r) => r.mode !== "http"
                     ).length,
                     num_newt_sites: stats.sites.filter((s) => s.type === "newt")
                         .length,

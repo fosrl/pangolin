@@ -76,12 +76,32 @@ export interface SendMessageOptions {
     compress?: boolean;
 }
 
-// Redis message type for cross-node communication
-export interface RedisMessage {
-    type: "direct" | "broadcast";
-    targetClientId?: string;
-    excludeClientId?: string;
+export interface BatchSendMessage {
+    clientId: string;
     message: WSMessage;
-    fromNodeId: string;
     options?: SendMessageOptions;
 }
+
+// Redis message types for cross-node communication
+export type RedisMessage =
+    | {
+          type: "direct";
+          targetClientId: string;
+          message: WSMessage;
+          fromNodeId: string;
+      }
+    | {
+          type: "direct-batch";
+          messages: {
+              targetClientId: string;
+              message: WSMessage;
+          }[];
+          fromNodeId: string;
+      }
+    | {
+          type: "broadcast";
+          excludeClientId?: string;
+          message: WSMessage;
+          fromNodeId: string;
+          options?: SendMessageOptions;
+      };

@@ -795,10 +795,13 @@ export const COUNTRIES = [
         name: "Serbia",
         code: "RS"
     },
-    {
-        name: "Serbia and Montenegro",
-        code: "CS"
-    },
+    // Removed as this is a deprecated ISO country code, not supported anymore
+    // Also the individual flags for Serbia & Montenegro are already included in the list
+    // more details: https://en.wikipedia.org/wiki/ISO_3166-2:CS
+    // {
+    //     name: "Serbia and Montenegro",
+    //     code: "CS"
+    // },
     {
         name: "Seychelles",
         code: "SC"

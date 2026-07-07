@@ -28,7 +28,7 @@ export default async function MaintenanceScreen() {
 
     try {
         const headersList = await headers();
-        const host = headersList.get("host") || "";
+        const host = headersList.get("p-host") || headersList.get("host") || "";
         const hostname = host.split(":")[0];
 
         const res = await priv.get<AxiosResponse<GetMaintenanceInfoResponse>>(

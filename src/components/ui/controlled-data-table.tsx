@@ -351,10 +351,6 @@ export function ControlledDataTable<TData, TValue>({
                                                     dataTableFilterDropdownContentClassName
                                                 }
                                             >
-                                                <DropdownMenuLabel>
-                                                    {filter.label}
-                                                </DropdownMenuLabel>
-                                                <DropdownMenuSeparator />
                                                 {filter.options.map(
                                                     (option) => {
                                                         const isChecked =
@@ -484,13 +480,6 @@ export function ControlledDataTable<TData, TValue>({
                                                                     align="end"
                                                                     className="w-48"
                                                                 >
-                                                                    <DropdownMenuLabel>
-                                                                        {t(
-                                                                            "toggleColumns"
-                                                                        ) ||
-                                                                            "Toggle columns"}
-                                                                    </DropdownMenuLabel>
-                                                                    <DropdownMenuSeparator />
                                                                     {table
                                                                         .getAllColumns()
                                                                         .filter(

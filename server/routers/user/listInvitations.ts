@@ -66,7 +66,10 @@ async function queryInvitations(
         .from(userInviteRoles)
         .innerJoin(roles, eq(userInviteRoles.roleId, roles.roleId))
         .where(
-            and(eq(roles.orgId, orgId), inArray(userInviteRoles.inviteId, inviteIds))
+            and(
+                eq(roles.orgId, orgId),
+                inArray(userInviteRoles.inviteId, inviteIds)
+            )
         );
 
     const rolesByInvite = new Map<
@@ -101,7 +104,22 @@ registry.registerPath({
         params: listInvitationsParamsSchema,
         query: listInvitationsQuerySchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function listInvitations(

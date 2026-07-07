@@ -9,7 +9,7 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { eq } from "drizzle-orm";
 
-const querySchema = z.object({
+const querySchema = z.strictObject({
     limit: z
         .string()
         .optional()

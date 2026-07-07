@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 
 const addRoleActionParamSchema = z.strictObject({
-    roleId: z.string().transform(Number).pipe(z.int().positive())
+    roleId: z.coerce.number().int().positive()
 });
 
 const addRoleActionSchema = z.strictObject({

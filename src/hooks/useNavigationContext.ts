@@ -1,5 +1,5 @@
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useCallback, useMemo, useTransition } from "react";
 
 export function useNavigationContext() {
     const router = useRouter();
@@ -7,29 +7,38 @@ export function useNavigationContext() {
     const path = usePathname();
     const [isNavigating, startTransition] = useTransition();
 
-    function navigate({
-        searchParams: params,
-        pathname = path,
-        replace = false
-    }: {
-        pathname?: string;
-        searchParams?: URLSearchParams;
-        replace?: boolean;
-    }) {
-        startTransition(() => {
-            const fullPath = pathname + (params ? `?${params.toString()}` : "");
+    const navigate = useCallback(
+        function ({
+            searchParams: params,
+            pathname = path,
+            replace = false
+        }: {
+            pathname?: string;
+            searchParams?: URLSearchParams;
+            replace?: boolean;
+        }) {
+            startTransition(() => {
+                const fullPath =
+                    pathname + (params ? `?${params.toString()}` : "");
 
-            if (replace) {
-                router.replace(fullPath);
-            } else {
-                router.push(fullPath);
-            }
-        });
-    }
+                if (replace) {
+                    router.replace(fullPath);
+                } else {
+                    router.push(fullPath);
+                }
+            });
+        },
+        [router]
+    );
+
+    const writableSearchParams = useMemo(
+        () => new URLSearchParams(searchParams),
+        [searchParams]
+    );
 
     return {
         pathname: path,
-        searchParams: new URLSearchParams(searchParams), // we want the search params to be writeable
+        searchParams: writableSearchParams,
         navigate,
         isNavigating
     };

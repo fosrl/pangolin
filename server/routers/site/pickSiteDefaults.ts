@@ -15,6 +15,7 @@ import config from "@server/lib/config";
 import { OpenAPITags, registry } from "@server/openApi";
 import { fromError } from "zod-validation-error";
 import { z } from "zod";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { listExitNodes } from "#dynamic/lib/exitNodes";
 
 export type PickSiteDefaultsResponse = {
@@ -29,6 +30,19 @@ export type PickSiteDefaultsResponse = {
     newtSecret: string;
     clientAddress?: string;
 };
+const PickSiteDefaultsResponseDataSchema = z.object({
+    exitNodeId: z.number(),
+    address: z.string(),
+    publicKey: z.string(),
+    name: z.string(),
+    listenPort: z.number(),
+    endpoint: z.string(),
+    subnet: z.string(),
+    newtId: z.string(),
+    newtSecret: z.string(),
+    clientAddress: z.string().optional()
+});
+
 
 registry.registerPath({
     method: "get",
@@ -41,7 +55,16 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(PickSiteDefaultsResponseDataSchema)
+                }
+            }
+        }
+    }
 });
 
 const pickSiteDefaultsSchema = z.strictObject({
@@ -119,7 +142,9 @@ export async function pickSiteDefaults(
             );
         }
 
-        const newClientAddress = await getNextAvailableClientSubnet(orgId);
+        const { value: newClientAddress, release: releaseSubnetLock } =
+            await getNextAvailableClientSubnet(orgId);
+        await releaseSubnetLock(); // release immediately — this endpoint only previews the next available value
         if (!newClientAddress) {
             return next(
                 createHttpError(

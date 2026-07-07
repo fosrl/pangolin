@@ -253,7 +253,22 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 registry.registerPath({
@@ -266,7 +281,22 @@ registry.registerPath({
             clientId: z.number()
         })
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function getClient(
@@ -310,18 +340,18 @@ export async function getClient(
         // Build fingerprint data if available
         const fingerprintData = client.currentFingerprint
             ? {
-                username: client.currentFingerprint.username || null,
-                hostname: client.currentFingerprint.hostname || null,
-                platform: client.currentFingerprint.platform || null,
-                osVersion: client.currentFingerprint.osVersion || null,
-                kernelVersion:
-                    client.currentFingerprint.kernelVersion || null,
-                arch: client.currentFingerprint.arch || null,
-                deviceModel: client.currentFingerprint.deviceModel || null,
-                serialNumber: client.currentFingerprint.serialNumber || null,
-                firstSeen: client.currentFingerprint.firstSeen || null,
-                lastSeen: client.currentFingerprint.lastSeen || null
-            }
+                  username: client.currentFingerprint.username || null,
+                  hostname: client.currentFingerprint.hostname || null,
+                  platform: client.currentFingerprint.platform || null,
+                  osVersion: client.currentFingerprint.osVersion || null,
+                  kernelVersion:
+                      client.currentFingerprint.kernelVersion || null,
+                  arch: client.currentFingerprint.arch || null,
+                  deviceModel: client.currentFingerprint.deviceModel || null,
+                  serialNumber: client.currentFingerprint.serialNumber || null,
+                  firstSeen: client.currentFingerprint.firstSeen || null,
+                  lastSeen: client.currentFingerprint.lastSeen || null
+              }
             : null;
 
         // Build posture data if available (platform-specific)

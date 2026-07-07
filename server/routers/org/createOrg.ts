@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db } from "@server/db";
+import { db, primaryDb } from "@server/db";
 import { and, count, eq } from "drizzle-orm";
 import {
     domains,
@@ -27,7 +27,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { isValidCIDR } from "@server/lib/validators";
 import { createCustomer } from "#dynamic/lib/billing";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId, limitsService, freeLimitSet } from "@server/lib/billing";
+import { LimitId, limitsService, freeLimitSet } from "@server/lib/billing";
 import { build } from "@server/build";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import { doCidrsOverlap } from "@server/lib/ip";
@@ -74,7 +74,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function createOrg(
@@ -187,7 +202,7 @@ export async function createOrg(
         if (build == "saas" && billingOrgIdForNewOrg) {
             const usage = await usageService.getUsage(
                 billingOrgIdForNewOrg,
-                FeatureId.ORGINIZATIONS
+                LimitId.ORGANIZATIONS
             );
             if (!usage) {
                 return next(
@@ -199,7 +214,7 @@ export async function createOrg(
             }
             const rejectOrgs = await usageService.checkLimitSet(
                 billingOrgIdForNewOrg,
-                FeatureId.ORGINIZATIONS,
+                LimitId.ORGANIZATIONS,
                 {
                     ...usage,
                     instantaneousValue: (usage.instantaneousValue || 0) + 1
@@ -218,6 +233,7 @@ export async function createOrg(
         let error = "";
         let org: Org | null = null;
         let numOrgs: number | null = null;
+        let ownerUserId: string | null = null;
 
         await db.transaction(async (trx) => {
             const allDomains = await trx
@@ -311,7 +327,6 @@ export async function createOrg(
                 );
             }
 
-            let ownerUserId: string | null = null;
             if (req.user) {
                 await trx.insert(userOrgs).values({
                     userId: req.user!.userId,
@@ -367,8 +382,6 @@ export async function createOrg(
                 }))
             );
 
-            await calculateUserClientsForOrgs(ownerUserId, trx);
-
             if (billingOrgIdForNewOrg) {
                 const [numOrgsResult] = await trx
                     .select({ count: count() })
@@ -380,6 +393,14 @@ export async function createOrg(
                 numOrgs = 1; // we only have one org if there is no billing org found out
             }
         });
+
+        if (ownerUserId) {
+            calculateUserClientsForOrgs(ownerUserId).catch((e) => {
+                logger.error(
+                    `Failed to calculate user clients after creating org ${orgId} for user ${ownerUserId}: ${e}`
+                );
+            });
+        }
 
         if (!org) {
             return next(
@@ -400,7 +421,7 @@ export async function createOrg(
             if (customerId) {
                 await usageService.updateCount(
                     orgId,
-                    FeatureId.USERS,
+                    LimitId.USERS,
                     1,
                     customerId
                 ); // Only 1 because we are creating the org
@@ -410,7 +431,7 @@ export async function createOrg(
         if (numOrgs) {
             usageService.updateCount(
                 billingOrgIdForNewOrg || orgId,
-                FeatureId.ORGINIZATIONS,
+                LimitId.ORGANIZATIONS,
                 numOrgs
             );
         }

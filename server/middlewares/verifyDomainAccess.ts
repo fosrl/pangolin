@@ -6,6 +6,7 @@ import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyDomainAccess(
     req: Request,
@@ -14,9 +15,8 @@ export async function verifyDomainAccess(
 ) {
     try {
         const userId = req.user!.userId;
-        const domainId =
-            req.params.domainId;
-        const orgId = req.params.orgId;
+        const domainId = getFirstString(req.params.domainId);
+        const orgId = getFirstString(req.params.orgId);
 
         if (!userId) {
             return next(
@@ -62,10 +62,7 @@ export async function verifyDomainAccess(
                 .select()
                 .from(userOrgs)
                 .where(
-                    and(
-                        eq(userOrgs.userId, userId),
-                        eq(userOrgs.orgId, orgId)
-                    )
+                    and(eq(userOrgs.userId, userId), eq(userOrgs.orgId, orgId))
                 )
                 .limit(1);
             req.userOrg = userOrgRole[0];
@@ -91,8 +88,7 @@ export async function verifyDomainAccess(
                 return next(
                     createHttpError(
                         HttpCode.FORBIDDEN,
-                        "Failed organization access policy check: " +
-                            (policyCheck.error || "Unknown error")
+                        "" + (policyCheck.error || "Unknown error")
                     )
                 );
             }

@@ -21,6 +21,49 @@ import {
 } from "@server/lib/checkOrgAccessPolicy";
 import { UserType } from "@server/types/UserTypes";
 
+function formatMaxSessionLengthRequirement(
+    maxSessionLengthHours: number
+): string {
+    if (maxSessionLengthHours < 24) {
+        return `This organization requires you to log in every ${maxSessionLengthHours} hours.`;
+    }
+
+    const maxDays = Math.round(maxSessionLengthHours / 24);
+    return `This organization requires you to log in every ${maxDays} days.`;
+}
+
+function buildOrgAccessPolicyError(
+    policies: CheckOrgAccessPolicyResult["policies"]
+): string | undefined {
+    if (!policies) {
+        return undefined;
+    }
+
+    const errors: string[] = [];
+
+    if (policies.requiredTwoFactor === false) {
+        errors.push(
+            "This organization requires two-factor authentication. Enable two-factor authentication on your account to continue."
+        );
+    }
+
+    if (policies.maxSessionLength?.compliant === false) {
+        errors.push(
+            `Your session has expired. ${formatMaxSessionLengthRequirement(
+                policies.maxSessionLength.maxSessionLengthHours
+            )}`
+        );
+    }
+
+    if (policies.passwordAge?.compliant === false) {
+        errors.push(
+            `Your password has expired. This organization requires you to change your password every ${policies.passwordAge.maxPasswordAgeDays} days.`
+        );
+    }
+
+    return errors.length > 0 ? errors.join(" ") : undefined;
+}
+
 export function enforceResourceSessionLength(
     resourceSession: ResourceSession,
     org: Org
@@ -36,13 +79,17 @@ export function enforceResourceSessionLength(
             if (sessionAgeMs > maxSessionLengthMs) {
                 return {
                     valid: false,
-                    error: `Resource session has expired due to organization policy (max session length: ${maxSessionLengthHours} hours)`
+                    error: `Your resource session has expired. ${formatMaxSessionLengthRequirement(
+                        maxSessionLengthHours
+                    )}`
                 };
             }
         } else {
             return {
                 valid: false,
-                error: `Resource session is invalid due to organization policy (max session length: ${maxSessionLengthHours} hours)`
+                error: `Your resource session is invalid. ${formatMaxSessionLengthRequirement(
+                    maxSessionLengthHours
+                )}`
             };
         }
     }
@@ -60,14 +107,20 @@ export async function checkOrgAccessPolicy(
     if (!orgId) {
         return {
             allowed: false,
-            error: "Organization ID is required"
+            error: "Unable to verify organization access. Organization information is missing."
         };
     }
     if (!userId) {
-        return { allowed: false, error: "User ID is required" };
+        return {
+            allowed: false,
+            error: "Unable to verify organization access. User information is missing."
+        };
     }
     if (!sessionId) {
-        return { allowed: false, error: "Session ID is required" };
+        return {
+            allowed: false,
+            error: "Your session is invalid. Please log in again."
+        };
     }
 
     if (build === "enterprise") {
@@ -89,7 +142,10 @@ export async function checkOrgAccessPolicy(
             .where(eq(orgs.orgId, orgId));
         props.org = orgQuery;
         if (!props.org) {
-            return { allowed: false, error: "Organization not found" };
+            return {
+                allowed: false,
+                error: "This organization could not be found."
+            };
         }
     }
 
@@ -100,7 +156,10 @@ export async function checkOrgAccessPolicy(
             .where(eq(users.userId, userId));
         props.user = userQuery;
         if (!props.user) {
-            return { allowed: false, error: "User not found" };
+            return {
+                allowed: false,
+                error: "Your account could not be found."
+            };
         }
     }
 
@@ -111,14 +170,17 @@ export async function checkOrgAccessPolicy(
             .where(eq(sessions.sessionId, sessionId));
         props.session = sessionQuery;
         if (!props.session) {
-            return { allowed: false, error: "Session not found" };
+            return {
+                allowed: false,
+                error: "Your session has expired. Please log in again."
+            };
         }
     }
 
     if (props.session.userId !== props.user.userId) {
         return {
             allowed: false,
-            error: "Session does not belong to the user"
+            error: "Your session is invalid. Please log in again."
         };
     }
 
@@ -187,8 +249,14 @@ export async function checkOrgAccessPolicy(
         allowed = false;
     }
 
+    const policyError = buildOrgAccessPolicyError(policies);
+
     return {
         allowed,
-        policies
+        policies,
+        error: allowed
+            ? undefined
+            : (policyError ??
+              "You do not meet this organization's security requirements.")
     };
 }

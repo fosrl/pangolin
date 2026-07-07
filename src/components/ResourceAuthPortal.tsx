@@ -41,9 +41,10 @@ import {
 } from "@app/actions/server";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
-import Link from "next/link";
 import BrandingLogo from "@app/components/BrandingLogo";
-import { useSupporterStatusContext } from "@app/hooks/useSupporterStatusContext";
+import BrandedAuthSurface from "@app/components/BrandedAuthSurface";
+import PoweredByPangolin from "@app/components/PoweredByPangolin";
+import AuthPageFooterNotices from "@app/components/AuthPageFooterNotices";
 import { useTranslations } from "next-intl";
 import { build } from "@server/build";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
@@ -122,8 +123,6 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
     const [otpState, setOtpState] = useState<"idle" | "otp_sent">("idle");
 
     const { env } = useEnvContext();
-
-    const { supporterStatus } = useSupporterStatusContext();
 
     function getDefaultSelectedMethod() {
         if (props.methods.sso) {
@@ -301,6 +300,7 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
         let isAllowed = false;
         try {
             const response = await resourceAccessProxy(props.resource.id);
+            console.log("response", response);
             if (response.error) {
                 setAccessDenied(true);
             } else {
@@ -366,57 +366,20 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
         : 100;
 
     return (
-        <div
-            style={{
-                // @ts-expect-error CSS variable
-                "--primary": isUnlocked() ? props.branding?.primaryColor : null
-            }}
-        >
+        <BrandedAuthSurface primaryColor={props.branding?.primaryColor}>
             {!accessDenied ? (
                 <div>
-                    {isUnlocked() && build === "enterprise" ? (
-                        !env.branding.resourceAuthPage?.hidePoweredBy &&
-                        !env.branding.hidePoweredBy && (
-                            <div className="text-center mb-2">
-                                <span className="text-sm text-muted-foreground">
-                                    {t("poweredBy")}{" "}
-                                    <Link
-                                        href="https://pangolin.net/"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="underline"
-                                    >
-                                        {env.branding.appName || "Pangolin"}
-                                    </Link>
-                                </span>
-                            </div>
-                        )
-                    ) : (
-                        <div className="text-center mb-2">
-                            <span className="text-sm text-muted-foreground">
-                                {t("poweredBy")}{" "}
-                                <Link
-                                    href="https://pangolin.net/"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="underline"
-                                >
-                                    Pangolin
-                                </Link>
-                            </span>
-                        </div>
-                    )}
+                    <PoweredByPangolin />
                     <Card>
                         <CardHeader>
                             {isUnlocked() &&
                                 build !== "oss" &&
-                                (env.branding?.resourceAuthPage?.showLogo ||
-                                    props.branding) && (
+                                props.branding?.logoUrl && (
                                     <div className="flex flex-row items-center justify-center mb-3">
                                         <BrandingLogo
                                             height={logoHeight}
                                             width={logoWidth}
-                                            logoPath={props.branding?.logoUrl}
+                                            logoPath={props.branding.logoUrl}
                                         />
                                     </div>
                                 )}
@@ -763,33 +726,11 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
                             </Tabs>
                         </CardContent>
                     </Card>
-                    {supporterStatus?.visible && (
-                        <div className="text-center mt-2">
-                            <span className="text-sm text-muted-foreground opacity-50">
-                                {t("noSupportKey")}
-                            </span>
-                        </div>
-                    )}
-                    {build === "enterprise" && !isUnlocked() ? (
-                        <div className="text-center mt-2">
-                            <span className="text-sm font-medium text-muted-foreground">
-                                {t("instanceIsUnlicensed")}
-                            </span>
-                        </div>
-                    ) : null}
-                    {build === "enterprise" &&
-                    isUnlocked() &&
-                    licenseStatus?.tier === "personal" ? (
-                        <div className="text-center mt-2">
-                            <span className="text-sm font-medium text-muted-foreground">
-                                {t("loginPageLicenseWatermark")}
-                            </span>
-                        </div>
-                    ) : null}
+                    <AuthPageFooterNotices />
                 </div>
             ) : (
                 <ResourceAccessDenied />
             )}
-        </div>
+        </BrandedAuthSurface>
     );
 }

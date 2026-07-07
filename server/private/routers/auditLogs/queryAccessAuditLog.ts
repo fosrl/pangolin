@@ -11,11 +11,18 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { accessAuditLog, logsDb, resources, siteResources, db, primaryDb } from "@server/db";
+import {
+    accessAuditLog,
+    logsDb,
+    resources,
+    siteResources,
+    db,
+    primaryDb
+} from "@server/db";
 import { registry } from "@server/openApi";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
-import { eq, gt, lt, and, count, desc, inArray, isNull } from "drizzle-orm";
+import { eq, gt, lt, and, count, desc, inArray, isNull, or } from "drizzle-orm";
 import { OpenAPITags } from "@server/openApi";
 import { z } from "zod";
 import createHttpError from "http-errors";
@@ -93,13 +100,30 @@ export const queryAccessAuditLogsCombined = queryAccessAuditLogsQuery.merge(
 );
 type Q = z.infer<typeof queryAccessAuditLogsCombined>;
 
+function sortNamedFilterOptions<T extends { id: number; name: string | null }>(
+    items: T[]
+): T[] {
+    return [...items].sort((a, b) => {
+        const nameA = a.name ?? "";
+        const nameB = b.name ?? "";
+
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+
+        return a.id - b.id;
+    });
+}
+
 function getWhere(data: Q) {
     return and(
         gt(accessAuditLog.timestamp, data.timeStart),
         lt(accessAuditLog.timestamp, data.timeEnd),
         eq(accessAuditLog.orgId, data.orgId),
         data.resourceId
-            ? eq(accessAuditLog.resourceId, data.resourceId)
+            ? or(
+                  eq(accessAuditLog.resourceId, data.resourceId),
+                  eq(accessAuditLog.siteResourceId, data.resourceId)
+              )
             : undefined,
         data.actor ? eq(accessAuditLog.actor, data.actor) : undefined,
         data.actorType
@@ -136,21 +160,30 @@ export function queryAccess(data: Q) {
         .orderBy(desc(accessAuditLog.timestamp), desc(accessAuditLog.id));
 }
 
-async function enrichWithResourceDetails(logs: Awaited<ReturnType<typeof queryAccess>>) {
+async function enrichWithResourceDetails(
+    logs: Awaited<ReturnType<typeof queryAccess>>
+) {
     const resourceIds = logs
-        .map(log => log.resourceId)
+        .map((log) => log.resourceId)
         .filter((id): id is number => id !== null && id !== undefined);
 
     const siteResourceIds = logs
-        .filter(log => log.resourceId == null && log.siteResourceId != null)
-        .map(log => log.siteResourceId)
+        .filter((log) => log.resourceId == null && log.siteResourceId != null)
+        .map((log) => log.siteResourceId)
         .filter((id): id is number => id !== null && id !== undefined);
 
     if (resourceIds.length === 0 && siteResourceIds.length === 0) {
-        return logs.map(log => ({ ...log, resourceName: null, resourceNiceId: null }));
+        return logs.map((log) => ({
+            ...log,
+            resourceName: null,
+            resourceNiceId: null
+        }));
     }
 
-    const resourceMap = new Map<number, { name: string | null; niceId: string | null }>();
+    const resourceMap = new Map<
+        number,
+        { name: string | null; niceId: string | null }
+    >();
 
     if (resourceIds.length > 0) {
         const resourceDetails = await primaryDb
@@ -167,7 +200,10 @@ async function enrichWithResourceDetails(logs: Awaited<ReturnType<typeof queryAc
         }
     }
 
-    const siteResourceMap = new Map<number, { name: string | null; niceId: string | null }>();
+    const siteResourceMap = new Map<
+        number,
+        { name: string | null; niceId: string | null }
+    >();
 
     if (siteResourceIds.length > 0) {
         const siteResourceDetails = await primaryDb
@@ -180,12 +216,15 @@ async function enrichWithResourceDetails(logs: Awaited<ReturnType<typeof queryAc
             .where(inArray(siteResources.siteResourceId, siteResourceIds));
 
         for (const r of siteResourceDetails) {
-            siteResourceMap.set(r.siteResourceId, { name: r.name, niceId: r.niceId });
+            siteResourceMap.set(r.siteResourceId, {
+                name: r.name,
+                niceId: r.niceId
+            });
         }
     }
 
     // Enrich logs with resource details
-    return logs.map(log => {
+    return logs.map((log) => {
         if (log.resourceId != null) {
             const details = resourceMap.get(log.resourceId);
             return {
@@ -197,7 +236,6 @@ async function enrichWithResourceDetails(logs: Awaited<ReturnType<typeof queryAc
             const details = siteResourceMap.get(log.siteResourceId);
             return {
                 ...log,
-                resourceId: log.siteResourceId,
                 resourceName: details?.name ?? null,
                 resourceNiceId: details?.niceId ?? null
             };
@@ -259,11 +297,11 @@ async function queryUniqueFilterAttributes(
 
     // Fetch resource names from main database for the unique resource IDs
     const resourceIds = uniqueResources
-        .map(row => row.id)
+        .map((row) => row.id)
         .filter((id): id is number => id !== null);
 
     const siteResourceIds = uniqueSiteResources
-        .map(row => row.id)
+        .map((row) => row.id)
         .filter((id): id is number => id !== null);
 
     let resourcesWithNames: Array<{ id: number; name: string | null }> = [];
@@ -279,7 +317,7 @@ async function queryUniqueFilterAttributes(
 
         resourcesWithNames = [
             ...resourcesWithNames,
-            ...resourceDetails.map(r => ({
+            ...resourceDetails.map((r) => ({
                 id: r.resourceId,
                 name: r.name
             }))
@@ -297,7 +335,7 @@ async function queryUniqueFilterAttributes(
 
         resourcesWithNames = [
             ...resourcesWithNames,
-            ...siteResourceDetails.map(r => ({
+            ...siteResourceDetails.map((r) => ({
                 id: r.siteResourceId,
                 name: r.name
             }))
@@ -308,7 +346,7 @@ async function queryUniqueFilterAttributes(
         actors: uniqueActors
             .map((row) => row.actor)
             .filter((actor): actor is string => actor !== null),
-        resources: resourcesWithNames,
+        resources: sortNamedFilterOptions(resourcesWithNames),
         locations: uniqueLocations
             .map((row) => row.locations)
             .filter((location): location is string => location !== null)
@@ -324,7 +362,22 @@ registry.registerPath({
         query: queryAccessAuditLogsQuery,
         params: queryAccessAuditLogsParams
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function queryAccessAuditLogs(

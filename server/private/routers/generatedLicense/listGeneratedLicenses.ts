@@ -16,6 +16,7 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { response as sendResponse } from "@server/lib/response";
+import { getFirstString } from "@server/lib/requestParams";
 import privateConfig from "#private/lib/config";
 import {
     GeneratedLicenseKey,
@@ -55,7 +56,7 @@ export async function listSaasLicenseKeys(
     next: NextFunction
 ): Promise<any> {
     try {
-        const { orgId } = req.params;
+        const orgId = getFirstString(req.params.orgId);
 
         if (!orgId) {
             return next(

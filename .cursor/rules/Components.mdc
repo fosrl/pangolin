@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+When creating UI for popup dialogs or modals, use the Credenza componennt. This component is mobile responsive and works on desktop and wraps the dialog component and sheet into one.

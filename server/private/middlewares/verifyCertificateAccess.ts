@@ -19,6 +19,7 @@ import { eq, and } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import logger from "@server/logger";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyCertificateAccess(
     req: Request,
@@ -27,11 +28,43 @@ export async function verifyCertificateAccess(
 ) {
     try {
         // Assume user/org access is already verified
-        const orgId = req.params.orgId;
-        const certId =
-            req.params.certId || req.body?.certId || req.query?.certId;
-        let domainId =
-            req.params.domainId || req.body?.domainId || req.query?.domainId;
+        const orgId = getFirstString(req.params.orgId);
+
+        const certIdFromParams = getFirstString(req.params?.certId);
+        const certIdFromBody = getFirstString(req.body?.certId);
+
+        if (
+            certIdFromParams &&
+            certIdFromBody &&
+            certIdFromParams !== certIdFromBody
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Certificate ID provided in both URL and body with different values"
+                )
+            );
+        }
+
+        const certId = certIdFromParams || certIdFromBody;
+
+        const domainIdFromParams = getFirstString(req.params?.domainId);
+        const domainIdFromBody = getFirstString(req.body?.domainId);
+
+        if (
+            domainIdFromParams &&
+            domainIdFromBody &&
+            domainIdFromParams !== domainIdFromBody
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Domain ID provided in both URL and body with different values"
+                )
+            );
+        }
+
+        let domainId = domainIdFromParams || domainIdFromBody;
 
         if (!orgId) {
             return next(
@@ -65,7 +98,7 @@ export async function verifyCertificateAccess(
                 );
             }
 
-            domainId = cert.domainId;
+            domainId = cert.domainId ?? undefined;
             if (!domainId) {
                 return next(
                     createHttpError(

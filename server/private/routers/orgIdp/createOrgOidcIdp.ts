@@ -63,7 +63,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function createOrgOidcIdp(
@@ -112,7 +127,8 @@ export async function createOrgOidcIdp(
 
         let { autoProvision } = parsedBody.data;
 
-        if (build == "saas") { // this is not paywalled with a ee license because this whole endpoint is restricted
+        if (build == "saas") {
+            // this is not paywalled with a ee license because this whole endpoint is restricted
             const subscribed = await isSubscribed(
                 orgId,
                 tierMatrix.deviceApprovals

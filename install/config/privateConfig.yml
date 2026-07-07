@@ -1,0 +1,4 @@
+{{if .IsRedis}}redis:
+  host: "redis"
+  port: 6379
+  password: "{{.IsRedisPass}}"{{end}}

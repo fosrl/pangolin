@@ -3,7 +3,7 @@
 import ResourceContext from "@app/contexts/resourceContext";
 import { GetResourceAuthInfoResponse } from "@server/routers/resource";
 import { GetResourceResponse } from "@server/routers/resource/getResource";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 interface ResourceProviderProps {
@@ -22,6 +22,11 @@ export function ResourceProvider({
 
     const [authInfo, setAuthInfo] =
         useState<GetResourceAuthInfoResponse>(serverAuthInfo);
+
+    useEffect(() => {
+        setResource(serverResource);
+        setAuthInfo(serverAuthInfo);
+    }, [serverResource, serverAuthInfo]);
 
     const t = useTranslations();
 

@@ -12,7 +12,7 @@
  */
 
 import logger from "@server/logger";
-import redisManager from "#private/lib/redis";
+import { regionalRedisManager as redisManager } from "#private/lib/redis";
 import { build } from "@server/build";
 
 // Rate limiting configuration
@@ -152,10 +152,9 @@ export class RateLimitService {
             );
 
             // Set TTL using the client directly - this prevents the key from persisting forever
-            if (redisManager.getClient()) {
-                await redisManager
-                    .getClient()
-                    .expire(globalKey, RATE_LIMIT_WINDOW + 10);
+            const writeClient = redisManager.getClient();
+            if (writeClient) {
+                await writeClient.expire(globalKey, RATE_LIMIT_WINDOW + 10);
             }
 
             // Update tracking
@@ -204,10 +203,12 @@ export class RateLimitService {
             );
 
             // Set TTL using the client directly - this prevents the key from persisting forever
-            if (redisManager.getClient()) {
-                await redisManager
-                    .getClient()
-                    .expire(messageTypeKey, RATE_LIMIT_WINDOW + 10);
+            const writeClient = redisManager.getClient();
+            if (writeClient) {
+                await writeClient.expire(
+                    messageTypeKey,
+                    RATE_LIMIT_WINDOW + 10
+                );
             }
 
             // Update tracking
@@ -487,16 +488,13 @@ export class RateLimitService {
             await redisManager.del(globalKey);
 
             // Get all message type keys for this client and delete them
-            const client = redisManager.getClient();
-            if (client) {
-                const messageTypeKeys = await client.keys(
-                    `ratelimit:${clientId}:*`
+            const messageTypeKeys = await redisManager.keys(
+                `ratelimit:${clientId}:*`
+            );
+            if (messageTypeKeys.length > 0) {
+                await Promise.all(
+                    messageTypeKeys.map((key) => redisManager.del(key))
                 );
-                if (messageTypeKeys.length > 0) {
-                    await Promise.all(
-                        messageTypeKeys.map((key) => redisManager.del(key))
-                    );
-                }
             }
         }
     }

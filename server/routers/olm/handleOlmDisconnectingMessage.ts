@@ -6,7 +6,9 @@ import logger from "@server/logger";
 /**
  * Handles disconnecting messages from clients to show disconnected in the ui
  */
-export const handleOlmDisconnectingMessage: MessageHandler = async (context) => {
+export const handleOlmDisconnectingMessage: MessageHandler = async (
+    context
+) => {
     const { message, client: c, sendToClient } = context;
     const olm = c as Olm;
 
@@ -29,6 +31,6 @@ export const handleOlmDisconnectingMessage: MessageHandler = async (context) => 
             })
             .where(eq(clients.clientId, olm.clientId));
     } catch (error) {
-        logger.error("Error handling disconnecting message", { error });
+        logger.error("Error handling client disconnecting message", error);
     }
 };

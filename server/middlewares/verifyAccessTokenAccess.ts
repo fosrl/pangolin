@@ -7,6 +7,7 @@ import HttpCode from "@server/types/HttpCode";
 import { canUserAccessResource } from "@server/auth/canUserAccessResource";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyAccessTokenAccess(
     req: Request,
@@ -14,11 +15,17 @@ export async function verifyAccessTokenAccess(
     next: NextFunction
 ) {
     const userId = req.user!.userId;
-    const accessTokenId = req.params.accessTokenId;
+    const accessTokenId = getFirstString(req.params.accessTokenId);
 
     if (!userId) {
         return next(
             createHttpError(HttpCode.UNAUTHORIZED, "User not authenticated")
+        );
+    }
+
+    if (!accessTokenId) {
+        return next(
+            createHttpError(HttpCode.BAD_REQUEST, "Invalid access token ID")
         );
     }
 
@@ -87,7 +94,7 @@ export async function verifyAccessTokenAccess(
         }
 
         if (!req.userOrg) {
-            next(
+            return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,
                     "User does not have access to this organization"
@@ -112,8 +119,7 @@ export async function verifyAccessTokenAccess(
                 return next(
                     createHttpError(
                         HttpCode.FORBIDDEN,
-                        "Failed organization access policy check: " +
-                            (policyCheck.error || "Unknown error")
+                        "" + (policyCheck.error || "Unknown error")
                     )
                 );
             }

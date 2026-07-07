@@ -29,7 +29,7 @@ import { tierMatrix } from "@server/lib/billing/tierMatrix";
 const paramsSchema = z.strictObject({});
 
 const querySchema = z.strictObject({
-    subdomain: z.string(),
+    subdomain: z.string()
     // orgId: build === "saas" ? z.string() : z.string().optional() // Required for saas, optional otherwise
 });
 
@@ -42,7 +42,22 @@ registry.registerPath({
         params: paramsSchema,
         query: querySchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function checkDomainNamespaceAvailability(

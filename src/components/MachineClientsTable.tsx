@@ -11,10 +11,10 @@ import {
 } from "@app/components/ui/dropdown-menu";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
+import { useOptimisticLabels } from "@app/hooks/useOptimisticLabels";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import { cn } from "@app/lib/cn";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { PaginationState } from "@tanstack/react-table";
@@ -24,26 +24,25 @@ import {
     ArrowUp10Icon,
     ChevronsUpDownIcon,
     CircleSlash,
-    MoreHorizontal,
+    MoreHorizontal
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-    startTransition,
-    useMemo,
-    useState,
-    useTransition
-} from "react";
+import { startTransition, useMemo, useState, useTransition } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import z from "zod";
 import { ColumnFilterButton } from "./ColumnFilterButton";
-import { type SelectedLabel } from "./labels-selector";
-import { TableLabelsCell } from "./TableLabelsCell";
+import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
+import { LabelsTableCell } from "./LabelsTableCell";
 import { Badge } from "./ui/badge";
 import { ControlledDataTable } from "./ui/controlled-data-table";
-import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
-import { useLocalLabels } from "@app/hooks/useLocalLabels";
+import {
+    productUpdatesQueries,
+    type LatestVersionResponse
+} from "@app/lib/queries";
+import { useQuery } from "@tanstack/react-query";
+import semver from "semver";
+import { InfoPopup } from "./ui/info-popup";
 
 export type ClientRow = {
     id: number;
@@ -105,12 +104,15 @@ export default function MachineClientsTable({
 
     const { isPaidUser } = usePaidStatus();
     const isLabelFeatureEnabled = isPaidUser(tierMatrix.labels);
+    const data = useQuery(productUpdatesQueries.latestVersion(true));
+
+    const latestPlatformVersions = data.data?.data;
 
     const defaultMachineColumnVisibility = {
         subnet: false,
         userId: false,
         niceId: false,
-        labels: false
+        labels: true
     };
 
     const refreshData = () => {
@@ -379,6 +381,37 @@ export default function MachineClientsTable({
                 cell: ({ row }) => {
                     const originalRow = row.original;
 
+                    const agentVersionMap: Record<string, string> = {
+                        "Pangolin Windows": "windows",
+                        "Pangolin Android": "android",
+                        "Pangolin iOS": "ios",
+                        "Pangolin iPadOS": "ios",
+                        "Pangolin macOS": "mac",
+                        "Pangolin CLI": "cli",
+                        "Olm CLI": "olm"
+                    };
+
+                    let updateAvailable = false;
+
+                    if (
+                        originalRow.olmVersion &&
+                        originalRow.agent &&
+                        latestPlatformVersions
+                    ) {
+                        const agent = agentVersionMap[
+                            originalRow.agent
+                        ] as keyof LatestVersionResponse;
+
+                        if (agent in latestPlatformVersions) {
+                            const agentVersion = latestPlatformVersions[agent];
+
+                            updateAvailable = semver.lt(
+                                originalRow.olmVersion,
+                                agentVersion.latestVersion
+                            );
+                        }
+                    }
+
                     return (
                         <div className="flex items-center space-x-1">
                             {originalRow.agent && originalRow.olmVersion ? (
@@ -390,9 +423,9 @@ export default function MachineClientsTable({
                             ) : (
                                 "-"
                             )}
-                            {/*originalRow.olmUpdateAvailable && (
-                                <InfoPopup info={t("olmUpdateAvailableInfo")} />
-                            )*/}
+                            {updateAvailable && (
+                                <InfoPopup info={t("updateAvailableInfo")} />
+                            )}
                         </div>
                     );
                 }
@@ -612,51 +645,19 @@ function MachineClientLabelCell({
     client,
     orgId
 }: MachineClientLabelCellProps) {
-    const t = useTranslations();
-    const api = createApiClient(useEnvContext());
-    const [localLabels, setLocalLabels] = useLocalLabels(client.labels, client.id);
-
-    function toggleClientLabel(
-        label: SelectedLabel,
-        action: "attach" | "detach"
-    ) {
-        const previousLabels = localLabels;
-
-        void (async () => {
-            try {
-                if (action === "attach") {
-                    setLocalLabels([...previousLabels, label]);
-                    await api.put(
-                        `/org/${orgId}/label/${label.labelId}/attach`,
-                        { clientId: client.id }
-                    );
-                } else {
-                    setLocalLabels(
-                        previousLabels.filter(
-                            (lb) => lb.labelId !== label.labelId
-                        )
-                    );
-                    await api.put(
-                        `/org/${orgId}/label/${label.labelId}/detach`,
-                        { clientId: client.id }
-                    );
-                }
-            } catch (e) {
-                setLocalLabels(previousLabels);
-                toast({
-                    title: t("error"),
-                    description: formatAxiosError(e, t("errorOccurred")),
-                    variant: "destructive"
-                });
-            }
-        })();
-    }
+    const { localLabels, refresh, toggleLabel } = useOptimisticLabels({
+        serverLabels: client.labels,
+        orgId,
+        entityId: client.id,
+        entityIdField: "clientId"
+    });
 
     return (
-        <TableLabelsCell
+        <LabelsTableCell
             orgId={orgId}
-            localLabels={localLabels}
-            toggleLabel={toggleClientLabel}
+            selectedLabels={localLabels}
+            onToggleLabel={toggleLabel}
+            onClosePopover={() => startTransition(refresh)}
         />
     );
 }

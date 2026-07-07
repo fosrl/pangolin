@@ -18,15 +18,20 @@ import {
 import { pickPort } from "./helpers";
 import { isTargetValid } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
+import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
 
 const updateTargetParamsSchema = z.strictObject({
-    targetId: z.string().transform(Number).pipe(z.int().positive())
+    targetId: z.coerce.number().int().positive()
 });
 
 const updateTargetBodySchema = z
     .strictObject({
         siteId: z.int().positive(),
         ip: z.string().refine(isTargetValid),
+        mode: z
+            .enum(["http", "tcp", "udp", "ssh", "rdp", "vnc"])
+            .optional()
+            .nullable(),
         method: z.string().min(1).max(10).optional().nullable(),
         port: z.int().min(1).max(65535).optional(),
         enabled: z.boolean().optional(),
@@ -80,7 +85,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function updateTarget(
@@ -168,7 +188,41 @@ export async function updateTarget(
             );
         }
 
+        const [existingHc] = await db
+            .select()
+            .from(targetHealthCheck)
+            .where(eq(targetHealthCheck.targetId, targetId))
+            .limit(1);
+
+        if (!existingHc) {
+            return next(
+                createHttpError(
+                    HttpCode.NOT_FOUND,
+                    `Health check for target with ID ${targetId} not found`
+                )
+            );
+        }
+
+        const nextHcEnabled = parsedBody.data.hcEnabled ?? existingHc.hcEnabled;
+        const nextHcHostname =
+            parsedBody.data.hcHostname !== undefined
+                ? parsedBody.data.hcHostname
+                : existingHc.hcHostname;
+        const hcHostnameMissing =
+            !nextHcHostname || nextHcHostname.trim().length === 0;
+
+        if (nextHcEnabled && hcHostnameMissing) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "hcHostname is required when hcEnabled is true"
+                )
+            );
+        }
+
         const pathMatchTypeRemoved = parsedBody.data.pathMatchType === null;
+        const nextMode =
+            parsedBody.data.mode === null ? undefined : parsedBody.data.mode;
 
         let updatedTarget: any;
         let updatedHc: any;
@@ -178,6 +232,7 @@ export async function updateTarget(
                 .set({
                     siteId: parsedBody.data.siteId,
                     ip: parsedBody.data.ip,
+                    mode: nextMode,
                     method: parsedBody.data.method,
                     port: parsedBody.data.port,
                     internalPort,
@@ -194,21 +249,6 @@ export async function updateTarget(
                 })
                 .where(eq(targets.targetId, targetId))
                 .returning();
-
-            const [existingHc] = await trx
-                .select()
-                .from(targetHealthCheck)
-                .where(eq(targetHealthCheck.targetId, targetId))
-                .limit(1);
-
-            if (!existingHc) {
-                return next(
-                    createHttpError(
-                        HttpCode.NOT_FOUND,
-                        `Health check for target with ID ${targetId} not found`
-                    )
-                );
-            }
 
             let hcHeaders = null;
             if (parsedBody.data.hcHeaders) {
@@ -328,13 +368,21 @@ export async function updateTarget(
                     .where(eq(newts.siteId, site.siteId))
                     .limit(1);
 
-                await addTargets(
-                    newt.newtId,
-                    [updatedTarget],
-                    [updatedHc],
-                    resource.protocol,
-                    newt.version
-                );
+                if (["http", "tcp", "udp"].includes(updatedTarget.mode)) {
+                    await addTargets(
+                        newt.newtId,
+                        [updatedTarget],
+                        [updatedHc],
+                        resource.mode === "udp" ? "udp" : "tcp",
+                        newt.version
+                    );
+                } else if (["ssh", "rdp", "vnc"].includes(updatedTarget.mode)) {
+                    await sendBrowserGatewayTargets(
+                        newt.newtId,
+                        [updatedTarget],
+                        newt.version
+                    );
+                }
             }
         }
 

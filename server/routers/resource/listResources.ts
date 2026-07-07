@@ -1,11 +1,15 @@
 import {
+    alias,
     db,
     labels,
     resourceHeaderAuth,
-    resourceHeaderAuthExtendedCompatibility,
     resourceLabels,
     resourcePassword,
     resourcePincode,
+    resourcePolicies,
+    resourcePolicyHeaderAuth,
+    resourcePolicyPassword,
+    resourcePolicyPincode,
     resources,
     roleResources,
     sites,
@@ -44,7 +48,7 @@ const listResourcesParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
-const listResourcesSchema = z.object({
+const listResourcesSchema = z.strictObject({
     pageSize: z.coerce
         .number<string>() // for prettier formatting
         .int()
@@ -119,6 +123,16 @@ const listResourcesSchema = z.object({
             description:
                 "Filter resources based on health status of their targets. `healthy` means all targets are healthy. `degraded` means at least one target is unhealthy, but not all are unhealthy. `offline` means all targets are unhealthy. `unknown` means all targets have unknown health status."
         }),
+    protocol: z
+        .enum(["http", "https", "tcp", "udp", "ssh", "rdp", "vnc"])
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "string",
+            enum: ["http", "https", "tcp", "udp", "ssh", "rdp", "vnc"],
+            description:
+                "Filter resources by protocol. `http` and `https` match HTTP resources without and with SSL respectively."
+        }),
     siteId: z.coerce.number<string>().int().positive().optional().openapi({
         type: "integer",
         description:
@@ -156,8 +170,6 @@ export type ResourceWithTargets = {
     sso: boolean;
     pincodeId: number | null;
     whitelist: boolean;
-    http: boolean;
-    protocol: string;
     proxyPort: number | null;
     enabled: boolean;
     domainId: string | null;
@@ -165,6 +177,7 @@ export type ResourceWithTargets = {
     headerAuthId: number | null;
     wildcard: boolean;
     health: string | null;
+    mode: string | null;
     targets: Array<{
         targetId: number;
         ip: string;
@@ -183,46 +196,173 @@ export type ResourceWithTargets = {
 };
 
 function queryResourcesBase() {
+    const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
+    const defaultPolicy = alias(resourcePolicies, "defaultPolicy");
+    const sharedPolicyPincode = alias(
+        resourcePolicyPincode,
+        "sharedPolicyPincode"
+    );
+    const defaultPolicyPincode = alias(
+        resourcePolicyPincode,
+        "defaultPolicyPincode"
+    );
+    const sharedPolicyPassword = alias(
+        resourcePolicyPassword,
+        "sharedPolicyPassword"
+    );
+    const defaultPolicyPassword = alias(
+        resourcePolicyPassword,
+        "defaultPolicyPassword"
+    );
+    const sharedPolicyHeaderAuth = alias(
+        resourcePolicyHeaderAuth,
+        "sharedPolicyHeaderAuth"
+    );
+    const defaultPolicyHeaderAuth = alias(
+        resourcePolicyHeaderAuth,
+        "defaultPolicyHeaderAuth"
+    );
+
+    const effectivePasswordId = sql<number | null>`
+        COALESCE(
+            CASE
+                WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicyPassword.passwordId}
+                ELSE ${defaultPolicyPassword.passwordId}
+            END,
+            ${resourcePassword.passwordId}
+        )
+    `;
+    const effectivePincodeId = sql<number | null>`
+        COALESCE(
+            CASE
+                WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicyPincode.pincodeId}
+                ELSE ${defaultPolicyPincode.pincodeId}
+            END,
+            ${resourcePincode.pincodeId}
+        )
+    `;
+    const effectiveHeaderAuthId = sql<number | null>`
+        COALESCE(
+            CASE
+                WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicyHeaderAuth.headerAuthId}
+                ELSE ${defaultPolicyHeaderAuth.headerAuthId}
+            END,
+            ${resourceHeaderAuth.headerAuthId}
+        )
+    `;
+    const effectiveSso = sql<boolean>`
+        COALESCE(
+            CASE
+                WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicy.sso}
+                ELSE ${defaultPolicy.sso}
+            END,
+            false
+        )
+    `;
+    const effectiveWhitelist = sql<boolean>`
+        COALESCE(
+            CASE
+                WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicy.emailWhitelistEnabled}
+                ELSE ${defaultPolicy.emailWhitelistEnabled}
+            END,
+            false
+        )
+    `;
+    const effectiveHeaderAuthExtendedCompatibility = sql<boolean>`
+        COALESCE(
+            CASE
+                WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicyHeaderAuth.extendedCompatibility}
+                ELSE ${defaultPolicyHeaderAuth.extendedCompatibility}
+            END,
+            false
+        )
+    `;
+
     return db
         .select({
             resourceId: resources.resourceId,
             name: resources.name,
             ssl: resources.ssl,
             fullDomain: resources.fullDomain,
-            passwordId: resourcePassword.passwordId,
-            sso: resources.sso,
-            pincodeId: resourcePincode.pincodeId,
-            whitelist: resources.emailWhitelistEnabled,
-            http: resources.http,
-            protocol: resources.protocol,
+            passwordId: effectivePasswordId,
+            sso: effectiveSso,
+            pincodeId: effectivePincodeId,
+            whitelist: effectiveWhitelist,
             proxyPort: resources.proxyPort,
             enabled: resources.enabled,
             domainId: resources.domainId,
             niceId: resources.niceId,
             wildcard: resources.wildcard,
-            headerAuthId: resourceHeaderAuth.headerAuthId,
-            headerAuthExtendedCompatibilityId:
-                resourceHeaderAuthExtendedCompatibility.headerAuthExtendedCompatibilityId,
-            health: resources.health
+            mode: resources.mode,
+            health: resources.health,
+            headerAuthId: effectiveHeaderAuthId,
+            headerAuthExtendedCompatibility:
+                effectiveHeaderAuthExtendedCompatibility
         })
         .from(resources)
         .leftJoin(
-            resourcePassword,
-            eq(resourcePassword.resourceId, resources.resourceId)
-        )
-        .leftJoin(
             resourcePincode,
             eq(resourcePincode.resourceId, resources.resourceId)
+        )
+        .leftJoin(
+            resourcePassword,
+            eq(resourcePassword.resourceId, resources.resourceId)
         )
         .leftJoin(
             resourceHeaderAuth,
             eq(resourceHeaderAuth.resourceId, resources.resourceId)
         )
         .leftJoin(
-            resourceHeaderAuthExtendedCompatibility,
+            sharedPolicy,
+            eq(sharedPolicy.resourcePolicyId, resources.resourcePolicyId)
+        )
+        .leftJoin(
+            sharedPolicyPincode,
             eq(
-                resourceHeaderAuthExtendedCompatibility.resourceId,
-                resources.resourceId
+                sharedPolicyPincode.resourcePolicyId,
+                sharedPolicy.resourcePolicyId
+            )
+        )
+        .leftJoin(
+            sharedPolicyPassword,
+            eq(
+                sharedPolicyPassword.resourcePolicyId,
+                sharedPolicy.resourcePolicyId
+            )
+        )
+        .leftJoin(
+            sharedPolicyHeaderAuth,
+            eq(
+                sharedPolicyHeaderAuth.resourcePolicyId,
+                sharedPolicy.resourcePolicyId
+            )
+        )
+        .leftJoin(
+            defaultPolicy,
+            eq(
+                defaultPolicy.resourcePolicyId,
+                resources.defaultResourcePolicyId
+            )
+        )
+        .leftJoin(
+            defaultPolicyPincode,
+            eq(
+                defaultPolicyPincode.resourcePolicyId,
+                defaultPolicy.resourcePolicyId
+            )
+        )
+        .leftJoin(
+            defaultPolicyPassword,
+            eq(
+                defaultPolicyPassword.resourcePolicyId,
+                defaultPolicy.resourcePolicyId
+            )
+        )
+        .leftJoin(
+            defaultPolicyHeaderAuth,
+            eq(
+                defaultPolicyHeaderAuth.resourcePolicyId,
+                defaultPolicy.resourcePolicyId
             )
         )
         .leftJoin(targets, eq(targets.resourceId, resources.resourceId))
@@ -232,10 +372,23 @@ function queryResourcesBase() {
         )
         .groupBy(
             resources.resourceId,
-            resourcePassword.passwordId,
             resourcePincode.pincodeId,
+            resourcePassword.passwordId,
             resourceHeaderAuth.headerAuthId,
-            resourceHeaderAuthExtendedCompatibility.headerAuthExtendedCompatibilityId
+            sharedPolicy.resourcePolicyId,
+            sharedPolicy.sso,
+            sharedPolicy.emailWhitelistEnabled,
+            sharedPolicyPincode.pincodeId,
+            sharedPolicyPassword.passwordId,
+            sharedPolicyHeaderAuth.headerAuthId,
+            sharedPolicyHeaderAuth.extendedCompatibility,
+            defaultPolicy.resourcePolicyId,
+            defaultPolicy.sso,
+            defaultPolicy.emailWhitelistEnabled,
+            defaultPolicyPincode.pincodeId,
+            defaultPolicyPassword.passwordId,
+            defaultPolicyHeaderAuth.headerAuthId,
+            defaultPolicyHeaderAuth.extendedCompatibility
         );
 }
 
@@ -254,7 +407,22 @@ registry.registerPath({
         }),
         query: listResourcesSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function listResources(
@@ -279,6 +447,7 @@ export async function listResources(
             enabled,
             query,
             healthStatus,
+            protocol,
             sort_by,
             order,
             siteId,
@@ -362,28 +531,110 @@ export async function listResources(
         }
 
         if (typeof authState !== "undefined") {
+            const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
+            const defaultPolicy = alias(resourcePolicies, "defaultPolicy");
+            const sharedPolicyPincode = alias(
+                resourcePolicyPincode,
+                "sharedPolicyPincode"
+            );
+            const defaultPolicyPincode = alias(
+                resourcePolicyPincode,
+                "defaultPolicyPincode"
+            );
+            const sharedPolicyPassword = alias(
+                resourcePolicyPassword,
+                "sharedPolicyPassword"
+            );
+            const defaultPolicyPassword = alias(
+                resourcePolicyPassword,
+                "defaultPolicyPassword"
+            );
+            const sharedPolicyHeaderAuth = alias(
+                resourcePolicyHeaderAuth,
+                "sharedPolicyHeaderAuth"
+            );
+            const defaultPolicyHeaderAuth = alias(
+                resourcePolicyHeaderAuth,
+                "defaultPolicyHeaderAuth"
+            );
+
+            const effectiveSso = sql<boolean>`
+                COALESCE(
+                    CASE
+                        WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicy.sso}
+                        ELSE ${defaultPolicy.sso}
+                    END,
+                    false
+                )
+            `;
+            const effectiveWhitelist = sql<boolean>`
+                COALESCE(
+                    CASE
+                        WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicy.emailWhitelistEnabled}
+                        ELSE ${defaultPolicy.emailWhitelistEnabled}
+                    END,
+                    false
+                )
+            `;
+            const effectiveHeaderAuthId = sql<number | null>`
+                COALESCE(
+                    CASE
+                        WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicyHeaderAuth.headerAuthId}
+                        ELSE ${defaultPolicyHeaderAuth.headerAuthId}
+                    END,
+                    ${resourceHeaderAuth.headerAuthId}
+                )
+            `;
+            const effectivePincodeId = sql<number | null>`
+                COALESCE(
+                    CASE
+                        WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicyPincode.pincodeId}
+                        ELSE ${defaultPolicyPincode.pincodeId}
+                    END,
+                    ${resourcePincode.pincodeId}
+                )
+            `;
+            const effectivePasswordId = sql<number | null>`
+                COALESCE(
+                    CASE
+                        WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicyPassword.passwordId}
+                        ELSE ${defaultPolicyPassword.passwordId}
+                    END,
+                    ${resourcePassword.passwordId}
+                )
+            `;
+            const browserGatewayModes = ["http", "ssh", "rdp", "vnc"];
+
             switch (authState) {
                 case "none":
-                    conditions.push(eq(resources.http, false));
+                    conditions.push(
+                        or(eq(resources.mode, "tcp"), eq(resources.mode, "udp"))
+                    );
                     break;
                 case "protected":
                     conditions.push(
-                        or(
-                            eq(resources.sso, true),
-                            eq(resources.emailWhitelistEnabled, true),
-                            not(isNull(resourceHeaderAuth.headerAuthId)),
-                            not(isNull(resourcePincode.pincodeId)),
-                            not(isNull(resourcePassword.passwordId))
+                        and(
+                            inArray(resources.mode, browserGatewayModes),
+                            or(
+                                effectiveSso,
+                                effectiveWhitelist,
+                                not(isNull(effectiveHeaderAuthId)),
+                                not(isNull(effectivePincodeId)),
+                                not(isNull(effectivePasswordId))
+                            )
                         )
                     );
                     break;
                 case "not_protected":
                     conditions.push(
-                        not(eq(resources.sso, true)),
-                        not(eq(resources.emailWhitelistEnabled, true)),
-                        isNull(resourceHeaderAuth.headerAuthId),
-                        isNull(resourcePincode.pincodeId),
-                        isNull(resourcePassword.passwordId)
+                        and(
+                            inArray(resources.mode, browserGatewayModes),
+                            not(effectiveSso),
+                            not(effectiveWhitelist),
+                            isNull(effectiveHeaderAuthId),
+                            isNull(effectivePincodeId),
+                            isNull(effectivePasswordId)
+                        )
                     );
                     break;
             }
@@ -392,13 +643,37 @@ export async function listResources(
         if (typeof healthStatus !== "undefined") {
             conditions.push(eq(resources.health, healthStatus));
         }
+
+        if (typeof protocol !== "undefined") {
+            switch (protocol) {
+                case "http":
+                    conditions.push(
+                        and(
+                            eq(resources.mode, "http"),
+                            eq(resources.ssl, false)
+                        )
+                    );
+                    break;
+                case "https":
+                    conditions.push(
+                        and(eq(resources.mode, "http"), eq(resources.ssl, true))
+                    );
+                    break;
+                default:
+                    conditions.push(eq(resources.mode, protocol));
+                    break;
+            }
+        }
+
         if (siteId != null) {
             const resourcesWithSite = db
                 .select({ resourceId: targets.resourceId })
                 .from(targets)
                 .innerJoin(sites, eq(targets.siteId, sites.siteId))
                 .where(and(eq(sites.orgId, orgId), eq(sites.siteId, siteId)));
-            conditions.push(inArray(resources.resourceId, resourcesWithSite));
+            conditions.push(
+                or(inArray(resources.resourceId, resourcesWithSite))
+            );
         }
 
         if (isLabelFeatureEnabled && labelFilter && labelFilter.length > 0) {
@@ -533,13 +808,12 @@ export async function listResources(
                     ssl: row.ssl,
                     fullDomain: row.fullDomain,
                     passwordId: row.passwordId,
-                    sso: row.sso,
+                    sso: row.sso ?? false,
                     pincodeId: row.pincodeId,
-                    whitelist: row.whitelist,
-                    http: row.http,
-                    protocol: row.protocol,
+                    whitelist: row.whitelist ?? false,
                     proxyPort: row.proxyPort,
                     wildcard: row.wildcard,
+                    mode: row.mode,
                     enabled: row.enabled,
                     domainId: row.domainId,
                     headerAuthId: row.headerAuthId,

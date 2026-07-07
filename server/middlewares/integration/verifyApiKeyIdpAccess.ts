@@ -4,6 +4,7 @@ import { idp, idpOrg, apiKeyOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyApiKeyIdpAccess(
     req: Request,
@@ -12,8 +13,12 @@ export async function verifyApiKeyIdpAccess(
 ) {
     try {
         const apiKey = req.apiKey;
-        const idpId = req.params.idpId || req.body.idpId || req.query.idpId;
-        const orgId = req.params.orgId;
+        const idpIdRaw =
+            getFirstString(req.params.idpId) ||
+            getFirstString(req.body.idpId) ||
+            getFirstString(req.query.idpId);
+        const idpId = Number.parseInt(idpIdRaw ?? "", 10);
+        const orgId = getFirstString(req.params.orgId);
 
         if (!apiKey) {
             return next(
@@ -27,7 +32,7 @@ export async function verifyApiKeyIdpAccess(
             );
         }
 
-        if (!idpId) {
+        if (Number.isNaN(idpId)) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Invalid IDP ID")
             );

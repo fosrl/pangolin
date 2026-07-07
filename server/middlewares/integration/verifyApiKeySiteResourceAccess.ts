@@ -4,6 +4,7 @@ import { siteResources, apiKeyOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyApiKeySiteResourceAccess(
     req: Request,
@@ -12,7 +13,8 @@ export async function verifyApiKeySiteResourceAccess(
 ) {
     try {
         const apiKey = req.apiKey;
-        const siteResourceId = parseInt(req.params.siteResourceId);
+        const siteResourceIdRaw = getFirstString(req.params.siteResourceId);
+        const siteResourceId = Number.parseInt(siteResourceIdRaw ?? "", 10);
 
         if (!apiKey) {
             return next(
@@ -20,7 +22,7 @@ export async function verifyApiKeySiteResourceAccess(
             );
         }
 
-        if (!siteResourceId) {
+        if (Number.isNaN(siteResourceId)) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,

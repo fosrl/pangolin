@@ -14,9 +14,10 @@ import {
 import { Button } from "@app/components/ui/button";
 import Link from "next/link";
 import { replacePlaceholder } from "@app/lib/replacePlaceholder";
+import PoweredByPangolin from "@app/components/PoweredByPangolin";
+import BrandedAuthSurface from "@app/components/BrandedAuthSurface";
 import { getTranslations } from "next-intl/server";
 import { pullEnv } from "@app/lib/pullEnv";
-import { build } from "@server/build";
 
 type OrgLoginPageProps = {
     loginPage: LoadLoginPageResponse | undefined;
@@ -52,22 +53,8 @@ export default async function OrgLoginPage({
     const env = pullEnv();
     const t = await getTranslations();
     return (
-        <div>
-            {build !== "enterprise" || !env.branding.hidePoweredBy ? (
-                <div className="text-center mb-2">
-                    <span className="text-sm text-muted-foreground">
-                        {t("poweredBy")}{" "}
-                        <Link
-                            href="https://pangolin.net/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline"
-                        >
-                            {env.branding.appName || "Pangolin"}
-                        </Link>
-                    </span>
-                </div>
-            ) : null}
+        <BrandedAuthSurface primaryColor={branding?.primaryColor ?? null}>
+            <PoweredByPangolin />
             <Card className="w-full max-w-md">
                 <CardHeader>
                     {branding?.logoUrl && (
@@ -127,6 +114,6 @@ export default async function OrgLoginPage({
                     {t("loginBack")}
                 </Link>
             </p>
-        </div>
+        </BrandedAuthSurface>
     );
 }

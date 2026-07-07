@@ -16,14 +16,16 @@ import { useOrgContext } from "@app/hooks/useOrgContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import type {
-    CreateRoleBody,
-    CreateRoleResponse
-} from "@server/routers/role";
+import type { CreateRoleBody, CreateRoleResponse } from "@server/routers/role";
 import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
-import { RoleForm, type RoleFormValues } from "./RoleForm";
+import {
+    parseSudoCommands,
+    parseUnixGroups,
+    RoleForm,
+    type RoleFormValues
+} from "./RoleForm";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 type CreateRoleFormProps = {
@@ -50,29 +52,22 @@ export default function CreateRoleForm({
             requireDeviceApproval: values.requireDeviceApproval,
             allowSsh: values.allowSsh
         };
-        if (isPaidUser(tierMatrix.sshPam)) {
+        if (isPaidUser(tierMatrix.advancedPrivateResources)) {
             payload.sshSudoMode = values.sshSudoMode;
             payload.sshCreateHomeDir = values.sshCreateHomeDir;
             payload.sshSudoCommands =
                 values.sshSudoMode === "commands" &&
                 values.sshSudoCommands?.trim()
-                    ? values.sshSudoCommands
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean)
+                    ? parseSudoCommands(values.sshSudoCommands)
                     : [];
             if (values.sshUnixGroups?.trim()) {
-                payload.sshUnixGroups = values.sshUnixGroups
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
+                payload.sshUnixGroups = parseUnixGroups(values.sshUnixGroups);
             }
         }
         const res = await api
-            .put<AxiosResponse<CreateRoleResponse>>(
-                `/org/${org?.org.orgId}/role`,
-                payload
-            )
+            .put<
+                AxiosResponse<CreateRoleResponse>
+            >(`/org/${org?.org.orgId}/role`, payload)
             .catch((e) => {
                 toast({
                     variant: "destructive",

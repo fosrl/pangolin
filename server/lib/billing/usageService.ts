@@ -9,10 +9,10 @@ import {
     Transaction,
     orgs
 } from "@server/db";
-import { FeatureId, getFeatureMeterId } from "./features";
+import { LimitId, getFeatureMeterId } from "./features";
 import logger from "@server/logger";
 import { build } from "@server/build";
-import cache from "#dynamic/lib/cache";
+import { regionalCache as cache } from "#dynamic/lib/cache";
 
 export function noop() {
     if (build !== "saas") {
@@ -22,7 +22,6 @@ export function noop() {
 }
 
 export class UsageService {
-
     constructor() {
         if (noop()) {
             return;
@@ -38,7 +37,7 @@ export class UsageService {
 
     public async add(
         orgId: string,
-        featureId: FeatureId,
+        featureId: LimitId,
         value: number,
         transaction: any = null
     ): Promise<Usage | null> {
@@ -57,7 +56,10 @@ export class UsageService {
             try {
                 let usage;
                 if (transaction) {
-                    const orgIdToUse = await this.getBillingOrg(orgId, transaction);
+                    const orgIdToUse = await this.getBillingOrg(
+                        orgId,
+                        transaction
+                    );
                     usage = await this.internalAddUsage(
                         orgIdToUse,
                         featureId,
@@ -112,7 +114,7 @@ export class UsageService {
 
     private async internalAddUsage(
         orgId: string, // here the orgId is the billing org already resolved by getBillingOrg in updateCount
-        featureId: FeatureId,
+        featureId: LimitId,
         value: number,
         trx: Transaction
     ): Promise<Usage> {
@@ -161,7 +163,7 @@ export class UsageService {
 
     async updateCount(
         orgId: string,
-        featureId: FeatureId,
+        featureId: LimitId,
         value?: number,
         customerId?: string
     ): Promise<void> {
@@ -225,7 +227,7 @@ export class UsageService {
 
     private async getCustomerId(
         orgId: string,
-        featureId: FeatureId
+        featureId: LimitId
     ): Promise<string | null> {
         const orgIdToUse = await this.getBillingOrg(orgId);
 
@@ -267,18 +269,19 @@ export class UsageService {
 
     public async getUsage(
         orgId: string,
-        featureId: FeatureId,
+        featureId: LimitId,
         trx: Transaction | typeof db = db
     ): Promise<Usage | null> {
         if (noop()) {
             return null;
         }
 
-        const orgIdToUse = await this.getBillingOrg(orgId, trx);
-
-        const usageId = `${orgIdToUse}-${featureId}`;
-
+        let orgIdToUse = orgId;
         try {
+            orgIdToUse = await this.getBillingOrg(orgId, trx);
+
+            const usageId = `${orgIdToUse}-${featureId}`;
+
             const [result] = await trx
                 .select()
                 .from(usage)
@@ -338,8 +341,12 @@ export class UsageService {
                 `Failed to get usage for ${orgIdToUse}/${featureId}:`,
                 error
             );
-            throw error;
+            if (process.env.NODE_ENV !== "development") {
+                throw error;
+            }
         }
+
+        return null;
     }
 
     public async getBillingOrg(
@@ -374,7 +381,7 @@ export class UsageService {
 
     public async checkLimitSet(
         orgId: string,
-        featureId?: FeatureId,
+        featureId?: LimitId,
         usage?: Usage,
         trx: Transaction | typeof db = db
     ): Promise<boolean> {
@@ -382,13 +389,13 @@ export class UsageService {
             return false;
         }
 
-        const orgIdToUse = await this.getBillingOrg(orgId, trx);
-
         // This method should check the current usage against the limits set for the organization
         // and kick out all of the sites on the org
         let hasExceededLimits = false;
-
+        let orgIdToUse = orgId;
         try {
+            orgIdToUse = await this.getBillingOrg(orgId, trx);
+
             let orgLimits: Limit[] = [];
             if (featureId) {
                 // Get all limits set for this organization
@@ -422,7 +429,7 @@ export class UsageService {
                 } else {
                     currentUsage = await this.getUsage(
                         orgIdToUse,
-                        limit.featureId as FeatureId,
+                        limit.featureId as LimitId,
                         trx
                     );
                 }

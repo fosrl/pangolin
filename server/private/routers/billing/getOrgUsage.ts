@@ -24,7 +24,7 @@ import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { Limit, limits, Usage, usage } from "@server/db";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
+import { LimitId } from "@server/lib/billing";
 import { GetOrgUsageResponse } from "@server/routers/billing/types";
 
 const getOrgSchema = z.strictObject({
@@ -39,7 +39,22 @@ const getOrgSchema = z.strictObject({
 //     request: {
 //         params: getOrgSchema
 //     },
-//     responses: {}
+// responses: {
+// 200: {
+// description: "Successful response",
+// content: {
+// "application/json": {
+// schema: z.object({
+// data: z.record(z.string(), z.any()).nullable(),
+// success: z.boolean(),
+// error: z.boolean(),
+// message: z.string(),
+// status: z.number()
+// })
+// }
+// }
+// }
+// }
 // });
 
 export async function getOrgUsage(
@@ -78,16 +93,28 @@ export async function getOrgUsage(
         // Get usage for org
         const usageData = [];
 
-        const sites = await usageService.getUsage(orgId, FeatureId.SITES);
-        const users = await usageService.getUsage(orgId, FeatureId.USERS);
-        const domains = await usageService.getUsage(orgId, FeatureId.DOMAINS);
+        const sites = await usageService.getUsage(orgId, LimitId.SITES);
+        const users = await usageService.getUsage(orgId, LimitId.USERS);
+        const domains = await usageService.getUsage(orgId, LimitId.DOMAINS);
         const remoteExitNodes = await usageService.getUsage(
             orgId,
-            FeatureId.REMOTE_EXIT_NODES
+            LimitId.REMOTE_EXIT_NODES
         );
         const organizations = await usageService.getUsage(
             orgId,
-            FeatureId.ORGINIZATIONS
+            LimitId.ORGANIZATIONS
+        );
+        const publicResources = await usageService.getUsage(
+            orgId,
+            LimitId.PUBLIC_RESOURCES
+        );
+        const privateResources = await usageService.getUsage(
+            orgId,
+            LimitId.PRIVATE_RESOURCES
+        );
+        const machineClients = await usageService.getUsage(
+            orgId,
+            LimitId.MACHINE_CLIENTS
         );
         // const egressData = await usageService.getUsage(
         //     orgId,
@@ -111,6 +138,15 @@ export async function getOrgUsage(
         }
         if (organizations) {
             usageData.push(organizations);
+        }
+        if (publicResources) {
+            usageData.push(publicResources);
+        }
+        if (privateResources) {
+            usageData.push(privateResources);
+        }
+        if (machineClients) {
+            usageData.push(machineClients);
         }
 
         const orgLimits = await db

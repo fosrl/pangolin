@@ -188,6 +188,9 @@ export async function exchangeSession(
                 userSessionId: requestSession.userSessionId,
                 whitelistId: requestSession.whitelistId,
                 accessTokenId: requestSession.accessTokenId,
+                policyPasswordId: requestSession.policyPasswordId,
+                policyPincodeId: requestSession.policyPincodeId,
+                policyWhitelistId: requestSession.policyWhitelistId,
                 doNotExtend: false,
                 expiresAt: expires,
                 sessionLength: RESOURCE_SESSION_COOKIE_EXPIRES

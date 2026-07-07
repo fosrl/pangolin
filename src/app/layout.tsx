@@ -68,15 +68,15 @@ export default async function RootLayout({
     const env = pullEnv();
     const locale = await getLocale();
 
-    const supporterData = {
-        visible: true
-    } as any;
+    // const supporterData = {
+    //     visible: true
+    // } as any;
 
-    const res = await priv.get<AxiosResponse<IsSupporterKeyVisibleResponse>>(
-        "supporter-key/visible"
-    );
-    supporterData.visible = res.data.data.visible;
-    supporterData.tier = res.data.data.tier;
+    // const res = await priv.get<AxiosResponse<IsSupporterKeyVisibleResponse>>(
+    //     "supporter-key/visible"
+    // );
+    // supporterData.visible = res.data.data.visible;
+    // supporterData.tier = res.data.data.tier;
 
     let licenseStatus: GetLicenseStatusResponse;
     if (build === "enterprise") {
@@ -127,20 +127,20 @@ export default async function RootLayout({
                                     <LicenseStatusProvider
                                         licenseStatus={licenseStatus}
                                     >
-                                        <SupportStatusProvider
+                                        {/* <SupportStatusProvider
                                             supporterStatus={supporterData}
-                                        >
-                                            {/* Main content */}
-                                            <div className="h-full flex flex-col">
-                                                <div className="flex-1 overflow-auto">
-                                                    <SplashImage>
-                                                        <LicenseViolation />
-                                                        {children}
-                                                    </SplashImage>
+                                        > */}
+                                        {/* Main content */}
+                                        <div className="h-full flex flex-col">
+                                            <div className="flex-1 overflow-auto">
+                                                <SplashImage>
                                                     <LicenseViolation />
-                                                </div>
+                                                    {children}
+                                                </SplashImage>
+                                                <LicenseViolation />
                                             </div>
-                                        </SupportStatusProvider>
+                                        </div>
+                                        {/* </SupportStatusProvider> */}
                                     </LicenseStatusProvider>
                                     <Toaster />
                                 </TanstackQueryProvider>

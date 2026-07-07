@@ -9,6 +9,7 @@ import { eq, sql } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 
 const querySchema = z.strictObject({
     limit: z
@@ -54,6 +55,25 @@ export type ListIdpsResponse = {
     };
 };
 
+const ListIdpsResponseDataSchema = z.object({
+    idps: z.array(
+        z.object({
+            idpId: z.number(),
+            name: z.string(),
+            type: z.string(),
+            variant: z.string().nullable(),
+            orgCount: z.number(),
+            autoProvision: z.boolean().nullable(),
+            tags: z.string().nullable()
+        })
+    ),
+    pagination: z.object({
+        total: z.number(),
+        limit: z.number(),
+        offset: z.number()
+    })
+});
+
 registry.registerPath({
     method: "get",
     path: "/idp",
@@ -62,7 +82,16 @@ registry.registerPath({
     request: {
         query: querySchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(ListIdpsResponseDataSchema)
+                }
+            }
+        }
+    }
 });
 
 export async function listIdps(

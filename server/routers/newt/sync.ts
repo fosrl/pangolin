@@ -9,9 +9,13 @@ import {
 import { canCompress } from "@server/lib/clientVersionChecks";
 
 export async function sendNewtSyncMessage(newt: Newt, site: Site) {
-    const { tcpTargets, udpTargets, validHealthCheckTargets } =
-        await buildTargetConfigurationForNewtClient(site.siteId);
-
+    const {
+        tcpTargets,
+        udpTargets,
+        validHealthCheckTargets,
+        browserGatewayTargets,
+        remoteExitNodeSubnets
+    } = await buildTargetConfigurationForNewtClient(site.siteId);
     let exitNode: ExitNode | undefined;
     if (site.exitNodeId) {
         [exitNode] = await db
@@ -24,7 +28,6 @@ export async function sendNewtSyncMessage(newt: Newt, site: Site) {
         site,
         exitNode
     );
-
     await sendToClient(
         newt.newtId,
         {
@@ -36,7 +39,9 @@ export async function sendNewtSyncMessage(newt: Newt, site: Site) {
                 },
                 healthCheckTargets: validHealthCheckTargets,
                 peers: peers,
-                clientTargets: targets
+                clientTargets: targets,
+                browserGatewayTargets: browserGatewayTargets,
+                remoteExitNodeSubnets: remoteExitNodeSubnets
             }
         },
         {

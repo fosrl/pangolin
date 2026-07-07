@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db } from "@server/db";
 import {
     orgs,
@@ -24,7 +25,7 @@ import SendInviteLink from "@server/emails/templates/SendInviteLink";
 import { OpenAPITags, registry } from "@server/openApi";
 import { UserType } from "@server/types/UserTypes";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
+import { LimitId } from "@server/lib/billing";
 import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
 import cache from "#dynamic/lib/cache";
@@ -67,6 +68,10 @@ export type InviteUserResponse = {
     inviteLink: string;
     expiresAt: number;
 };
+const InviteUserResponseDataSchema = z.object({
+    inviteLink: z.string(),
+    expiresAt: z.number()
+});
 
 registry.registerPath({
     method: "post",
@@ -83,7 +88,18 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        InviteUserResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
 });
 
 export async function inviteUser(
@@ -166,7 +182,7 @@ export async function inviteUser(
         }
 
         if (build == "saas") {
-            const usage = await usageService.getUsage(orgId, FeatureId.USERS);
+            const usage = await usageService.getUsage(orgId, LimitId.USERS);
             if (!usage) {
                 return next(
                     createHttpError(
@@ -177,7 +193,7 @@ export async function inviteUser(
             }
             const rejectUsers = await usageService.checkLimitSet(
                 orgId,
-                FeatureId.USERS,
+                LimitId.USERS,
                 {
                     ...usage,
                     instantaneousValue: (usage.instantaneousValue || 0) + 1

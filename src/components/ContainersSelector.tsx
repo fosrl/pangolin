@@ -130,7 +130,7 @@ const DockerContainersTable: FC<{
         useState(true);
     const [hideStoppedContainers, setHideStoppedContainers] = useState(false);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-        labels: false
+        labels: true
     });
 
     const t = useTranslations();

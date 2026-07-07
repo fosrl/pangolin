@@ -1,10 +1,17 @@
 import { verify } from "@node-rs/argon2";
 import { generateSessionToken } from "@server/auth/sessions/app";
 import { db } from "@server/db";
-import { orgs, resourcePassword, resources } from "@server/db";
+import {
+    orgs,
+    resourcePassword,
+    resourcePolicies,
+    resourcePolicyPassword,
+    resources
+} from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
 import { eq } from "drizzle-orm";
+import { alias } from "@server/db";
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
@@ -20,7 +27,7 @@ export const authWithPasswordBodySchema = z.strictObject({
 });
 
 export const authWithPasswordParamsSchema = z.strictObject({
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
 export type AuthWithPasswordResponse = {
@@ -58,20 +65,64 @@ export async function authWithPassword(
     const { password } = parsedBody.data;
 
     try {
+        const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
+        const defaultPolicy = alias(resourcePolicies, "defaultPolicy");
+        const sharedPolicyPassword = alias(
+            resourcePolicyPassword,
+            "sharedPolicyPassword"
+        );
+        const defaultPolicyPassword = alias(
+            resourcePolicyPassword,
+            "defaultPolicyPassword"
+        );
+
         const [result] = await db
             .select()
             .from(resources)
+            .leftJoin(orgs, eq(orgs.orgId, resources.orgId))
+            .leftJoin(
+                sharedPolicy,
+                eq(sharedPolicy.resourcePolicyId, resources.resourcePolicyId)
+            )
+            .leftJoin(
+                sharedPolicyPassword,
+                eq(
+                    sharedPolicyPassword.resourcePolicyId,
+                    sharedPolicy.resourcePolicyId
+                )
+            )
+            .leftJoin(
+                defaultPolicy,
+                eq(
+                    defaultPolicy.resourcePolicyId,
+                    resources.defaultResourcePolicyId
+                )
+            )
+            .leftJoin(
+                defaultPolicyPassword,
+                eq(
+                    defaultPolicyPassword.resourcePolicyId,
+                    defaultPolicy.resourcePolicyId
+                )
+            )
             .leftJoin(
                 resourcePassword,
                 eq(resourcePassword.resourceId, resources.resourceId)
             )
-            .leftJoin(orgs, eq(orgs.orgId, resources.orgId))
             .where(eq(resources.resourceId, resourceId))
             .limit(1);
 
         const resource = result?.resources;
         const org = result?.orgs;
-        const definedPassword = result?.resourcePassword;
+
+        // Shared policy takes precedence, then default (inline) policy, then resource-level
+        const policyPassword =
+            result?.sharedPolicyPassword ??
+            result?.defaultPolicyPassword ??
+            null;
+        const definedPassword =
+            policyPassword ?? result?.resourcePassword ?? null;
+        const isPolicyPassword = !!policyPassword;
 
         if (!org) {
             return next(
@@ -89,10 +140,7 @@ export async function authWithPassword(
             return next(
                 createHttpError(
                     HttpCode.UNAUTHORIZED,
-                    createHttpError(
-                        HttpCode.BAD_REQUEST,
-                        "Resource has no password protection"
-                    )
+                    "Resource has no password protection"
                 )
             );
         }
@@ -126,7 +174,10 @@ export async function authWithPassword(
         await createResourceSession({
             resourceId,
             token,
-            passwordId: definedPassword.passwordId,
+            passwordId: isPolicyPassword ? null : definedPassword.passwordId,
+            policyPasswordId: isPolicyPassword
+                ? definedPassword.passwordId
+                : null,
             isRequestToken: true,
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,

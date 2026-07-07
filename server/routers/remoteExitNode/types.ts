@@ -43,3 +43,37 @@ export type GetRemoteExitNodeResponse = {
     online: boolean;
     type: string | null;
 };
+
+export type ListRemoteExitNodeResourcesResponse = {
+    resources: {
+        remoteExitNodeResourceId: number;
+        remoteExitNodeId: string;
+        destination: string;
+    }[];
+};
+
+export type SetRemoteExitNodeResourcesResponse = {
+    resources: {
+        remoteExitNodeResourceId: number;
+        remoteExitNodeId: string;
+        destination: string;
+    }[];
+};
+
+export type ListRemoteExitNodePreferenceLabelsResponse = {
+    labels: {
+        remoteExitNodePreferenceLabelId: number;
+        labelId: number;
+        name: string;
+        color: string;
+    }[];
+};
+
+export type SetRemoteExitNodePreferenceLabelsResponse = {
+    labels: {
+        remoteExitNodePreferenceLabelId: number;
+        labelId: number;
+        name: string;
+        color: string;
+    }[];
+};

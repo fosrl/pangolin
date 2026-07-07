@@ -13,6 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db, idpOrg } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -54,6 +55,10 @@ const bodySchema = z.strictObject({
 export type UpdateOrgIdpResponse = {
     idpId: number;
 };
+const UpdateOrgIdpResponseDataSchema = z.object({
+    idpId: z.number()
+});
+
 
 registry.registerPath({
     method: "post",
@@ -70,7 +75,16 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(UpdateOrgIdpResponseDataSchema)
+                }
+            }
+        }
+    }
 });
 
 export async function updateOrgOidcIdp(

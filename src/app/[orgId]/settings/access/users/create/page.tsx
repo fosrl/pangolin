@@ -13,7 +13,7 @@ import { StrategyOption, StrategySelect } from "@app/components/StrategySelect";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import { Button } from "@app/components/ui/button";
 import { useParams, useRouter } from "next/navigation";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import {
     Form,
     FormControl,
@@ -205,23 +205,7 @@ export default function Page() {
         }
     });
 
-    useEffect(() => {
-        if (selectedOption === "internal") {
-            setSendEmail(env.email.emailEnabled);
-            internalForm.reset();
-            setInviteLink(null);
-            setExpiresInDays(1);
-        } else if (selectedOption && selectedOption !== "internal") {
-            googleAzureForm.reset();
-            genericOidcForm.reset();
-        }
-    }, [
-        selectedOption,
-        env.email.emailEnabled,
-        internalForm,
-        googleAzureForm,
-        genericOidcForm
-    ]);
+    const prevSelectedOptionRef = useRef(selectedOption);
 
     useEffect(() => {
         if (!selectedOption) {
@@ -315,19 +299,10 @@ export default function Page() {
         onSubmitInternal,
         null
     );
-    const [, submitGoogleAzureAction, isSubmittingGoogleAzure] = useActionState(
-        onSubmitGoogleAzure,
-        null
-    );
-    const [, submitGenericOidcAction, isSubmittingGenericOidc] = useActionState(
-        onSubmitGenericOidc,
-        null
-    );
+    const [isSubmittingExternal, setIsSubmittingExternal] = useState(false);
 
     const loading =
-        isSubmittingInternal ||
-        isSubmittingGoogleAzure ||
-        isSubmittingGenericOidc;
+        isSubmittingInternal || isSubmittingExternal;
 
     async function onSubmitInternal() {
         const isValid = await internalForm.trigger();
@@ -378,16 +353,15 @@ export default function Page() {
         }
     }
 
-    async function onSubmitGoogleAzure() {
-        const isValid = await googleAzureForm.trigger();
-        if (!isValid) return;
-
-        const values = googleAzureForm.getValues();
-
+    async function onSubmitGoogleAzure(
+        values: z.infer<typeof googleAzureFormSchema>
+    ) {
         const selectedUserOption = userOptions.find(
             (opt) => opt.id === selectedOption
         );
         if (!selectedUserOption?.idpId) return;
+
+        setIsSubmittingExternal(true);
 
         const roleIds = values.roles.map((r) => parseInt(r.id, 10));
 
@@ -419,18 +393,19 @@ export default function Page() {
             });
             router.push(`/${orgId}/settings/access/users`);
         }
+
+        setIsSubmittingExternal(false);
     }
 
-    async function onSubmitGenericOidc() {
-        const isValid = await genericOidcForm.trigger();
-        if (!isValid) return;
-
-        const values = genericOidcForm.getValues();
-
+    async function onSubmitGenericOidc(
+        values: z.infer<typeof genericOidcFormSchema>
+    ) {
         const selectedUserOption = userOptions.find(
             (opt) => opt.id === selectedOption
         );
         if (!selectedUserOption?.idpId) return;
+
+        setIsSubmittingExternal(true);
 
         const roleIds = values.roles.map((r) => parseInt(r.id, 10));
 
@@ -461,6 +436,27 @@ export default function Page() {
                 description: t("userCreatedDescription")
             });
             router.push(`/${orgId}/settings/access/users`);
+        }
+
+        setIsSubmittingExternal(false);
+    }
+
+    function handleUserTypeChange(value: string) {
+        if (prevSelectedOptionRef.current === value) {
+            return;
+        }
+
+        prevSelectedOptionRef.current = value;
+        setSelectedOption(value);
+
+        if (value === "internal") {
+            setSendEmail(env.email.emailEnabled);
+            internalForm.reset();
+            setInviteLink(null);
+            setExpiresInDays(1);
+        } else {
+            googleAzureForm.reset();
+            genericOidcForm.reset();
         }
     }
 
@@ -496,16 +492,8 @@ export default function Page() {
                             <SettingsSectionBody>
                                 <StrategySelect
                                     options={userOptions}
-                                    defaultValue={selectedOption || undefined}
-                                    onChange={(value) => {
-                                        setSelectedOption(value);
-                                        if (value === "internal") {
-                                            internalForm.reset();
-                                        } else {
-                                            googleAzureForm.reset();
-                                            genericOidcForm.reset();
-                                        }
-                                    }}
+                                    value={selectedOption}
+                                    onChange={handleUserTypeChange}
                                     cols={3}
                                 />
                             </SettingsSectionBody>
@@ -714,9 +702,9 @@ export default function Page() {
                                         })() && (
                                             <Form {...googleAzureForm}>
                                                 <form
-                                                    action={
-                                                        submitGoogleAzureAction
-                                                    }
+                                                    onSubmit={googleAzureForm.handleSubmit(
+                                                        onSubmitGoogleAzure
+                                                    )}
                                                     className="space-y-4"
                                                     id="create-user-form"
                                                 >
@@ -797,9 +785,9 @@ export default function Page() {
                                         })() && (
                                             <Form {...genericOidcForm}>
                                                 <form
-                                                    action={
-                                                        submitGenericOidcAction
-                                                    }
+                                                    onSubmit={genericOidcForm.handleSubmit(
+                                                        onSubmitGenericOidc
+                                                    )}
                                                     className="space-y-4"
                                                     id="create-user-form"
                                                 >

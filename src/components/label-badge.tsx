@@ -3,7 +3,7 @@ import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 const labelBadgeClassName =
-    "inline-flex h-auto items-center gap-1 rounded-full border border-input bg-background py-0 pl-1.5 pr-2 text-sm shadow-xs";
+    "inline-flex h-auto items-center gap-1 rounded-full border border-input bg-background py-0 pl-1.5 pr-2 text-sm";
 
 export type LabelBadgeProps = {
     name: string;

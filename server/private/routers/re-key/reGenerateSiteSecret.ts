@@ -27,7 +27,7 @@ import { getAllowedIps } from "@server/routers/target/helpers";
 import { disconnectClient, sendToClient } from "#private/routers/ws";
 
 const updateSiteParamsSchema = z.strictObject({
-    siteId: z.string().transform(Number).pipe(z.int().positive())
+    siteId: z.coerce.number().int().positive()
 });
 
 const updateSiteBodySchema = z.strictObject({

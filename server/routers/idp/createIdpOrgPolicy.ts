@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -22,6 +23,8 @@ const bodySchema = z.strictObject({
 });
 
 export type CreateIdpOrgPolicyResponse = {};
+const CreateIdpOrgPolicyResponseDataSchema = z.object({});
+
 
 registry.registerPath({
     method: "put",
@@ -38,7 +41,16 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(CreateIdpOrgPolicyResponseDataSchema)
+                }
+            }
+        }
+    }
 });
 
 export async function createIdpOrgPolicy(

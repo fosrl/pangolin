@@ -1,29 +1,17 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import {
-    db,
-    orgs,
-    resources,
-    siteResources,
-    sites,
-    UserOrg,
-    userSiteResources,
-    primaryDb
-} from "@server/db";
-import { userOrgs, userResources, users, userSites } from "@server/db";
-import { and, count, eq, exists, inArray } from "drizzle-orm";
+import { db, orgs } from "@server/db";
+import { userOrgs } from "@server/db";
+import { and, eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
-import { build } from "@server/build";
-import { UserType } from "@server/types/UserTypes";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import { removeUserFromOrg } from "@server/lib/userOrg";
+import { isOrgRebuildRateLimited } from "@server/lib/rebuildClientAssociations";
 
 const removeUserSchema = z.strictObject({
     userId: z.string(),
@@ -38,7 +26,22 @@ registry.registerPath({
     request: {
         params: removeUserSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function removeUserOrg(
@@ -78,6 +81,15 @@ export async function removeUserOrg(
             );
         }
 
+        if (await isOrgRebuildRateLimited(orgId)) {
+            return next(
+                createHttpError(
+                    HttpCode.TOO_MANY_REQUESTS,
+                    "Too many concurrent rebuild operations for this organization. Please retry after a moment."
+                )
+            );
+        }
+
         const [org] = await db
             .select()
             .from(orgs)
@@ -94,7 +106,7 @@ export async function removeUserOrg(
             await removeUserFromOrg(org, userId, trx);
         });
 
-        calculateUserClientsForOrgs(userId, primaryDb).catch((e) => {
+        calculateUserClientsForOrgs(userId).catch((e) => {
             logger.error(
                 `Failed to calculate user clients after removing user ${userId} from org ${orgId}: ${e}`
             );

@@ -5,12 +5,15 @@ import { cn } from "@app/lib/cn";
 export function InfoSections({
     children,
     cols,
-    columnSizing = "content"
+    columnSizing = "content",
+    layout = "default"
 }: {
     children: React.ReactNode;
     cols?: number;
     /** content (default): fixed gap, columns hug content, left-aligned; fill: equal-width columns across the row */
     columnSizing?: "fill" | "content";
+    /** panel: 2 columns until xl for narrow containers such as side panels */
+    layout?: "default" | "panel";
 }) {
     const n = cols || 1;
     const track =
@@ -19,9 +22,14 @@ export function InfoSections({
     return (
         <div
             className={cn(
-                "grid w-full min-w-0 grid-cols-2 md:grid-cols-(--columns) md:space-x-16 gap-4 md:items-start",
+                "grid w-full min-w-0 gap-4",
+                layout === "panel"
+                    ? "grid-cols-2 xl:grid-cols-(--columns) xl:items-start xl:space-x-16"
+                    : "grid-cols-2 md:grid-cols-(--columns) md:items-start md:space-x-16",
                 columnSizing === "content" &&
-                    "md:justify-items-start md:justify-start"
+                    (layout === "panel"
+                        ? "xl:justify-items-start xl:justify-start"
+                        : "md:justify-items-start md:justify-start")
             )}
             style={{
                 // @ts-expect-error dynamic props don't work with tailwind, but we can set the

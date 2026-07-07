@@ -145,7 +145,7 @@ export default function ShareLinksTable({
                 const r = row.original;
                 return (
                     <Link
-                        href={`/${orgId}/settings/resources/proxy/${r.resourceNiceId}`}
+                        href={`/${orgId}/settings/resources/public/${r.resourceNiceId}`}
                     >
                         <Button variant="outline" size="sm">
                             {r.resourceName}
@@ -328,9 +328,7 @@ export default function ShareLinksTable({
                     onConfirm={async () =>
                         deleteSharelink(selectedLink.accessTokenId)
                     }
-                    string={
-                        selectedLink.title || selectedLink.resourceName
-                    }
+                    string={selectedLink.title || selectedLink.resourceName}
                     title={t("shareDelete")}
                 />
             )}

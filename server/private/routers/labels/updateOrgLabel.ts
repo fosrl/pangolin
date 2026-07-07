@@ -16,7 +16,7 @@ import response from "@server/lib/response";
 import logger from "@server/logger";
 import type { CreateOrEditLabelResponse } from "@server/routers/labels/types";
 import HttpCode from "@server/types/HttpCode";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
@@ -73,6 +73,29 @@ export async function updateOrgLabel(
         }
 
         const { name, color } = parsedBody.data;
+
+        if (name && name.toLowerCase() !== existing.name.toLowerCase()) {
+            const [duplicateLabel] = await db
+                .select({ labelId: labels.labelId })
+                .from(labels)
+                .where(
+                    and(
+                        eq(labels.orgId, orgId),
+                        ne(labels.labelId, labelId),
+                        sql`LOWER(${labels.name}) = ${name.toLowerCase()}`
+                    )
+                )
+                .limit(1);
+
+            if (duplicateLabel) {
+                return next(
+                    createHttpError(
+                        HttpCode.CONFLICT,
+                        "A label with this name already exists"
+                    )
+                );
+            }
+        }
 
         const [label] = await db
             .update(labels)

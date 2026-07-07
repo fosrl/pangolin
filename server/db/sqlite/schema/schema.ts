@@ -20,8 +20,10 @@ export const domains = sqliteTable("domains", {
     failed: integer("failed", { mode: "boolean" }).notNull().default(false),
     tries: integer("tries").notNull().default(0),
     certResolver: text("certResolver"),
+    customCertResolver: text("customCertResolver"),
     preferWildcardCert: integer("preferWildcardCert", { mode: "boolean" }),
-    errorMessage: text("errorMessage")
+    errorMessage: text("errorMessage"),
+    lastCheckedAt: integer("lastCheckedAt")
 });
 
 export const dnsRecords = sqliteTable("dnsRecords", {
@@ -62,7 +64,13 @@ export const orgs = sqliteTable("orgs", {
     sshCaPrivateKey: text("sshCaPrivateKey"), // Encrypted SSH CA private key (PEM format)
     sshCaPublicKey: text("sshCaPublicKey"), // SSH CA public key (OpenSSH format)
     isBillingOrg: integer("isBillingOrg", { mode: "boolean" }),
-    billingOrgId: text("billingOrgId")
+    billingOrgId: text("billingOrgId"),
+    settingsEnableGlobalNewtAutoUpdate: integer(
+        "settingsEnableGlobalNewtAutoUpdate",
+        { mode: "boolean" }
+    )
+        .notNull()
+        .default(false)
 });
 
 export const userDomains = sqliteTable("userDomains", {
@@ -116,11 +124,29 @@ export const sites = sqliteTable("sites", {
     dockerSocketEnabled: integer("dockerSocketEnabled", { mode: "boolean" })
         .notNull()
         .default(true),
+    autoUpdateEnabled: integer("autoUpdateEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    autoUpdateOverrideOrg: integer("autoUpdateOverrideOrg", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
     status: text("status").$type<"pending" | "approved">().default("approved")
 });
 
 export const resources = sqliteTable("resources", {
     resourceId: integer("resourceId").primaryKey({ autoIncrement: true }),
+    resourcePolicyId: integer("resourcePolicyId").references(
+        () => resourcePolicies.resourcePolicyId,
+        { onDelete: "set null" }
+    ),
+    defaultResourcePolicyId: integer("defaultResourcePolicyId").references(
+        () => resourcePolicies.resourcePolicyId,
+        {
+            onDelete: "restrict"
+        }
+    ),
     resourceGuid: text("resourceGuid", { length: 36 })
         .unique()
         .notNull()
@@ -141,16 +167,12 @@ export const resources = sqliteTable("resources", {
     blockAccess: integer("blockAccess", { mode: "boolean" })
         .notNull()
         .default(false),
-    sso: integer("sso", { mode: "boolean" }).notNull().default(true),
-    http: integer("http", { mode: "boolean" }).notNull().default(true),
-    protocol: text("protocol").notNull(),
     proxyPort: integer("proxyPort"),
-    emailWhitelistEnabled: integer("emailWhitelistEnabled", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    applyRules: integer("applyRules", { mode: "boolean" })
-        .notNull()
-        .default(false),
+    sso: integer("sso", { mode: "boolean" }),
+    emailWhitelistEnabled: integer("emailWhitelistEnabled", {
+        mode: "boolean"
+    }),
+    applyRules: integer("applyRules", { mode: "boolean" }),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     stickySession: integer("stickySession", { mode: "boolean" })
         .notNull()
@@ -167,7 +189,6 @@ export const resources = sqliteTable("resources", {
         .notNull()
         .default(false),
     proxyProtocolVersion: integer("proxyProtocolVersion").default(1),
-
     maintenanceModeEnabled: integer("maintenanceModeEnabled", {
         mode: "boolean"
     })
@@ -181,7 +202,15 @@ export const resources = sqliteTable("resources", {
     maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
     postAuthPath: text("postAuthPath"),
     health: text("health").default("unknown"), // "healthy", "unhealthy", "unknown"
-    wildcard: integer("wildcard", { mode: "boolean" }).notNull().default(false)
+    wildcard: integer("wildcard", { mode: "boolean" }).notNull().default(false),
+    mode: text("mode").default("http").notNull(), // rdp, ssh, http, vnc
+    pamMode: text("pamMode")
+        .$type<"passthrough" | "push">()
+        .default("passthrough"),
+    authDaemonMode: text("authDaemonMode")
+        .$type<"site" | "remote" | "native">()
+        .default("site"),
+    authDaemonPort: integer("authDaemonPort").default(22123)
 });
 
 export const labels = sqliteTable("labels", {
@@ -193,6 +222,23 @@ export const labels = sqliteTable("labels", {
             onDelete: "cascade"
         })
         .notNull()
+});
+
+export const launcherViews = sqliteTable("launcherViews", {
+    viewId: integer("viewId").primaryKey({ autoIncrement: true }),
+    orgId: text("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    userId: text("userId").references(() => users.userId, {
+        onDelete: "cascade"
+    }),
+    name: text("name").notNull(),
+    config: text("config").notNull(),
+    isDefault: integer("isDefault", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    createdAt: text("createdAt").notNull(),
+    updatedAt: text("updatedAt").notNull()
 });
 
 export const siteLabels = sqliteTable(
@@ -294,7 +340,12 @@ export const targets = sqliteTable("targets", {
     pathMatchType: text("pathMatchType"), // exact, prefix, regex
     rewritePath: text("rewritePath"), // if set, rewrites the path to this value before sending to the target
     rewritePathType: text("rewritePathType"), // exact, prefix, regex, stripPrefix
-    priority: integer("priority").notNull().default(100)
+    priority: integer("priority").notNull().default(100),
+    mode: text("mode")
+        .$type<"http" | "tcp" | "udp" | "ssh" | "rdp" | "vnc">()
+        .notNull()
+        .default("http"),
+    authToken: text("authToken")
 });
 
 export const targetHealthCheck = sqliteTable("targetHealthCheck", {
@@ -373,11 +424,11 @@ export const siteResources = sqliteTable("siteResources", {
     niceId: text("niceId").notNull(),
     name: text("name").notNull(),
     ssl: integer("ssl", { mode: "boolean" }).notNull().default(false),
-    mode: text("mode").$type<"host" | "cidr" | "http">().notNull(), // "host" | "cidr" | "http"
+    mode: text("mode").$type<"host" | "cidr" | "http" | "ssh">().notNull(), // "host" | "cidr" | "http"
     scheme: text("scheme").$type<"http" | "https">(), // only for when we are doing https or http mode
     proxyPort: integer("proxyPort"), // only for port mode
     destinationPort: integer("destinationPort"), // only for port mode
-    destination: text("destination").notNull(), // ip, cidr, hostname
+    destination: text("destination"), // ip, cidr, hostname
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     alias: text("alias"),
     aliasAddress: text("aliasAddress"),
@@ -387,8 +438,11 @@ export const siteResources = sqliteTable("siteResources", {
         .notNull()
         .default(false),
     authDaemonPort: integer("authDaemonPort").default(22123),
+    pamMode: text("pamMode")
+        .$type<"passthrough" | "push">()
+        .default("passthrough"),
     authDaemonMode: text("authDaemonMode")
-        .$type<"site" | "remote">()
+        .$type<"site" | "remote" | "native">()
         .default("site"),
     domainId: text("domainId").references(() => domains.domainId, {
         onDelete: "set null"
@@ -1001,6 +1055,47 @@ export const resourceHeaderAuth = sqliteTable("resourceHeaderAuth", {
     headerAuthHash: text("headerAuthHash").notNull()
 });
 
+export const resourcePolicyPincode = sqliteTable("resourcePolicyPincode", {
+    pincodeId: integer("pincodeId").primaryKey({ autoIncrement: true }),
+    pincodeHash: text("pincodeHash").notNull(),
+    digitLength: integer("digitLength").notNull(),
+    resourcePolicyId: integer("resourcePolicyId")
+        .notNull()
+        .references(() => resourcePolicies.resourcePolicyId, {
+            onDelete: "cascade"
+        })
+});
+
+export const resourcePolicyPassword = sqliteTable("resourcePolicyPassword", {
+    passwordId: integer("passwordId").primaryKey({ autoIncrement: true }),
+    passwordHash: text("passwordHash").notNull(),
+    resourcePolicyId: integer("resourcePolicyId")
+        .notNull()
+        .references(() => resourcePolicies.resourcePolicyId, {
+            onDelete: "cascade"
+        })
+});
+
+export const resourcePolicyHeaderAuth = sqliteTable(
+    "resourcePolicyHeaderAuth",
+    {
+        headerAuthId: integer("headerAuthId").primaryKey({
+            autoIncrement: true
+        }),
+        headerAuthHash: text("headerAuthHash").notNull(),
+        extendedCompatibility: integer("extendedCompatibility", {
+            mode: "boolean"
+        })
+            .notNull()
+            .default(true),
+        resourcePolicyId: integer("resourcePolicyId")
+            .notNull()
+            .references(() => resourcePolicies.resourcePolicyId, {
+                onDelete: "cascade"
+            })
+    }
+);
+
 export const resourceHeaderAuthExtendedCompatibility = sqliteTable(
     "resourceHeaderAuthExtendedCompatibility",
     {
@@ -1029,6 +1124,7 @@ export const resourceAccessToken = sqliteTable("resourceAccessToken", {
     resourceId: integer("resourceId")
         .notNull()
         .references(() => resources.resourceId, { onDelete: "cascade" }),
+    path: text("path"),
     tokenHash: text("tokenHash").notNull(),
     sessionLength: integer("sessionLength").notNull(),
     expiresAt: integer("expiresAt"),
@@ -1075,6 +1171,24 @@ export const resourceSessions = sqliteTable("resourceSessions", {
             onDelete: "cascade"
         }
     ),
+    policyPasswordId: integer("policyPasswordId").references(
+        () => resourcePolicyPassword.passwordId,
+        {
+            onDelete: "cascade"
+        }
+    ),
+    policyPincodeId: integer("policyPincodeId").references(
+        () => resourcePolicyPincode.pincodeId,
+        {
+            onDelete: "cascade"
+        }
+    ),
+    policyWhitelistId: integer("policyWhitelistId").references(
+        () => resourcePolicyWhiteList.whitelistId,
+        {
+            onDelete: "cascade"
+        }
+    ),
     issuedAt: integer("issuedAt")
 });
 
@@ -1113,6 +1227,79 @@ export const resourceRules = sqliteTable("resourceRules", {
     action: text("action").notNull(), // ACCEPT, DROP, PASS
     match: text("match").notNull(), // CIDR, PATH, IP
     value: text("value").notNull()
+});
+
+export const rolePolicies = sqliteTable("rolePolicies", {
+    roleId: integer("roleId")
+        .notNull()
+        .references(() => roles.roleId, { onDelete: "cascade" }),
+    resourcePolicyId: integer("resourcePolicyId")
+        .notNull()
+        .references(() => resourcePolicies.resourcePolicyId, {
+            onDelete: "cascade"
+        })
+});
+
+export const userPolicies = sqliteTable("userPolicies", {
+    userId: text("userId")
+        .notNull()
+        .references(() => users.userId, { onDelete: "cascade" }),
+    resourcePolicyId: integer("resourcePolicyId")
+        .notNull()
+        .references(() => resourcePolicies.resourcePolicyId, {
+            onDelete: "cascade"
+        })
+});
+
+export const resourcePolicyWhiteList = sqliteTable("resourcePolicyWhitelist", {
+    whitelistId: integer("id").primaryKey({ autoIncrement: true }),
+    email: text("email").notNull(),
+    resourcePolicyId: integer("resourcePolicyId")
+        .notNull()
+        .references(() => resourcePolicies.resourcePolicyId, {
+            onDelete: "cascade"
+        })
+});
+
+export const resourcePolicyRules = sqliteTable("resourcePolicyRules", {
+    ruleId: integer("ruleId").primaryKey({ autoIncrement: true }),
+    resourcePolicyId: integer("resourcePolicyId")
+        .notNull()
+        .references(() => resourcePolicies.resourcePolicyId, {
+            onDelete: "cascade"
+        }),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    priority: integer("priority").notNull(),
+    action: text("action").$type<"ACCEPT" | "DROP" | "PASS">().notNull(),
+    match: text("match")
+        .$type<"CIDR" | "PATH" | "IP" | "COUNTRY" | "ASN" | "REGION">()
+        .notNull(),
+    value: text("value").notNull()
+});
+
+export const resourcePolicies = sqliteTable("resourcePolicies", {
+    resourcePolicyId: integer("resourcePolicyId").primaryKey(),
+    sso: integer("sso", { mode: "boolean" }).notNull().default(true),
+    applyRules: integer("applyRules", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    scope: text("scope")
+        .$type<"global" | "resource">()
+        .notNull()
+        .default("global"),
+    emailWhitelistEnabled: integer("emailWhitelistEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    niceId: text("niceId").notNull(),
+    idpId: integer("idpId").references(() => idp.idpId, {
+        onDelete: "set null"
+    }),
+    name: text("name").notNull(),
+    orgId: text("orgId")
+        .references(() => orgs.orgId, {
+            onDelete: "cascade"
+        })
+        .notNull()
 });
 
 export const supporterKey = sqliteTable("supporterKey", {
@@ -1382,3 +1569,16 @@ export type RoundTripMessageTracker = InferSelectModel<
 >;
 export type StatusHistory = InferSelectModel<typeof statusHistory>;
 export type Label = InferSelectModel<typeof labels>;
+export type LauncherView = InferSelectModel<typeof launcherViews>;
+export type ResourcePolicy = InferSelectModel<typeof resourcePolicies>;
+export type ResourcePolicyPincode = InferSelectModel<
+    typeof resourcePolicyPincode
+>;
+export type ResourcePolicyPassword = InferSelectModel<
+    typeof resourcePolicyPassword
+>;
+export type ResourcePolicyHeaderAuth = InferSelectModel<
+    typeof resourcePolicyHeaderAuth
+>;
+export type RolePolicy = InferSelectModel<typeof rolePolicies>;
+export type UserPolicy = InferSelectModel<typeof userPolicies>;

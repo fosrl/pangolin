@@ -17,7 +17,7 @@ import { certificates, db } from "@server/db";
 import { and, eq, isNotNull, or, inArray, sql } from "drizzle-orm";
 import { decrypt } from "@server/lib/crypto";
 import logger from "@server/logger";
-import cache from "#private/lib/cache";
+import { regionalCache as cache } from "#private/lib/cache";
 import { build } from "@server/build";
 
 // Define the return type for clarity and type safety
@@ -36,8 +36,6 @@ export async function getValidCertificatesForDomains(
     domains: Set<string>,
     useCache: boolean = true
 ): Promise<Array<CertificateResult>> {
-
-
     const finalResults: CertificateResult[] = [];
     const domainsToQuery = new Set<string>();
 
@@ -49,7 +47,26 @@ export async function getValidCertificatesForDomains(
             if (cachedCert) {
                 finalResults.push(cachedCert); // Valid cache hit
             } else {
-                domainsToQuery.add(domain); // Cache miss or expired
+                // Also check for a wildcard cache entry covering this domain's parent
+                const parts = domain.split(".");
+                let wildcardHit = false;
+                if (parts.length > 1) {
+                    const parentDomain = parts.slice(1).join(".");
+                    const wildcardCacheKey = `cert:*.${parentDomain}`;
+                    const cachedWildcard =
+                        await cache.get<CertificateResult>(wildcardCacheKey);
+                    if (cachedWildcard) {
+                        // Re-stamp queriedDomain so callers see the originally requested domain
+                        finalResults.push({
+                            ...cachedWildcard,
+                            queriedDomain: domain
+                        });
+                        wildcardHit = true;
+                    }
+                }
+                if (!wildcardHit) {
+                    domainsToQuery.add(domain); // Cache miss or expired
+                }
             }
         }
     } else {
@@ -59,7 +76,10 @@ export async function getValidCertificatesForDomains(
 
     // 2. If all domains were resolved from the cache, return early
     if (domainsToQuery.size === 0) {
-        const decryptedResults = decryptFinalResults(finalResults, config.getRawConfig().server.secret!);
+        const decryptedResults = decryptFinalResults(
+            finalResults,
+            config.getRawConfig().server.secret!
+        );
         return decryptedResults;
     }
 
@@ -78,7 +98,8 @@ export async function getValidCertificatesForDomains(
     const parentDomainsArray = Array.from(parentDomainsToQuery);
 
     // Build wildcard variants: for each parent domain "example.com", also query "*.example.com"
-    const wildcardPrefixedArray = build != "saas" ? parentDomainsArray.map((d) => `*.${d}`) : [];
+    const wildcardPrefixedArray =
+        build != "saas" ? parentDomainsArray.map((d) => `*.${d}`) : [];
 
     // 4. Build and execute a single, efficient Drizzle query
     // This query fetches all potential exact and wildcard matches in one database round-trip.
@@ -172,11 +193,24 @@ export async function getValidCertificatesForDomains(
             if (useCache) {
                 const cacheKey = `cert:${domain}`;
                 await cache.set(cacheKey, resultCert, 180);
+
+                // Also cache wildcard certs under a pattern key so other subdomains
+                // can find them without a DB round-trip
+                if (resultCert.wildcard) {
+                    const normalizedCertDomain = normalizeWildcardDomain(
+                        resultCert.domain
+                    );
+                    const wildcardCacheKey = `cert:*.${normalizedCertDomain}`;
+                    await cache.set(wildcardCacheKey, resultCert, 180);
+                }
             }
         }
     }
 
-    const decryptedResults = decryptFinalResults(finalResults, config.getRawConfig().server.secret!);
+    const decryptedResults = decryptFinalResults(
+        finalResults,
+        config.getRawConfig().server.secret!
+    );
     return decryptedResults;
 }
 

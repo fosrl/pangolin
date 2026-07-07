@@ -40,7 +40,8 @@ const updateOrgBodySchema = z
         settingsLogRetentionDaysConnection: z
             .number()
             .min(build === "saas" ? 0 : -1)
-            .optional()
+            .optional(),
+        settingsEnableGlobalNewtAutoUpdate: z.boolean().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
@@ -61,7 +62,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function updateOrg(
@@ -118,6 +134,15 @@ export async function updateOrg(
         if (!hasPasswordExpirationFeature) {
             parsedBody.data.passwordExpiryDays = undefined;
         }
+
+        const hasNewtAutoUpdateFeature = await isLicensedOrSubscribed(
+            orgId,
+            tierMatrix[TierFeature.NewtAutoUpdate]
+        );
+        if (!hasNewtAutoUpdateFeature) {
+            parsedBody.data.settingsEnableGlobalNewtAutoUpdate = false; // force it off
+        }
+
         if (build == "saas") {
             const { tier } = await getOrgTierData(orgId);
 
@@ -136,8 +161,10 @@ export async function updateOrg(
 
             if (maxRetentionDays !== null) {
                 if (
-                    parsedBody.data.settingsLogRetentionDaysRequest !== undefined &&
-                    parsedBody.data.settingsLogRetentionDaysRequest > maxRetentionDays
+                    parsedBody.data.settingsLogRetentionDaysRequest !==
+                        undefined &&
+                    parsedBody.data.settingsLogRetentionDaysRequest >
+                        maxRetentionDays
                 ) {
                     return next(
                         createHttpError(
@@ -147,8 +174,10 @@ export async function updateOrg(
                     );
                 }
                 if (
-                    parsedBody.data.settingsLogRetentionDaysAccess !== undefined &&
-                    parsedBody.data.settingsLogRetentionDaysAccess > maxRetentionDays
+                    parsedBody.data.settingsLogRetentionDaysAccess !==
+                        undefined &&
+                    parsedBody.data.settingsLogRetentionDaysAccess >
+                        maxRetentionDays
                 ) {
                     return next(
                         createHttpError(
@@ -158,8 +187,10 @@ export async function updateOrg(
                     );
                 }
                 if (
-                    parsedBody.data.settingsLogRetentionDaysAction !== undefined &&
-                    parsedBody.data.settingsLogRetentionDaysAction > maxRetentionDays
+                    parsedBody.data.settingsLogRetentionDaysAction !==
+                        undefined &&
+                    parsedBody.data.settingsLogRetentionDaysAction >
+                        maxRetentionDays
                 ) {
                     return next(
                         createHttpError(
@@ -169,8 +200,10 @@ export async function updateOrg(
                     );
                 }
                 if (
-                    parsedBody.data.settingsLogRetentionDaysConnection !== undefined &&
-                    parsedBody.data.settingsLogRetentionDaysConnection > maxRetentionDays
+                    parsedBody.data.settingsLogRetentionDaysConnection !==
+                        undefined &&
+                    parsedBody.data.settingsLogRetentionDaysConnection >
+                        maxRetentionDays
                 ) {
                     return next(
                         createHttpError(
@@ -196,7 +229,9 @@ export async function updateOrg(
                 settingsLogRetentionDaysAction:
                     parsedBody.data.settingsLogRetentionDaysAction,
                 settingsLogRetentionDaysConnection:
-                    parsedBody.data.settingsLogRetentionDaysConnection
+                    parsedBody.data.settingsLogRetentionDaysConnection,
+                settingsEnableGlobalNewtAutoUpdate:
+                    parsedBody.data.settingsEnableGlobalNewtAutoUpdate
             })
             .where(eq(orgs.orgId, orgId))
             .returning();

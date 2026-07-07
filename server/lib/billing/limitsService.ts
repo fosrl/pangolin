@@ -1,7 +1,7 @@
 import { db, limits } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import { LimitSet } from "./limitSet";
-import { FeatureId } from "./features";
+import { LimitId } from "./features";
 import logger from "@server/logger";
 
 class LimitService {
@@ -38,7 +38,7 @@ class LimitService {
 
     async getOrgLimit(
         orgId: string,
-        featureId: FeatureId
+        featureId: LimitId
     ): Promise<number | null> {
         const limitId = `${orgId}-${featureId}`;
         const [limit] = await db

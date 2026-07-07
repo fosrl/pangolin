@@ -20,7 +20,7 @@ import { getOrgTierData } from "#dynamic/lib/billing";
 import { deleteOrgById, sendTerminationMessages } from "@server/lib/deleteOrg";
 import { UserType } from "@server/types/UserTypes";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
+import { LimitId } from "@server/lib/billing";
 
 const deleteMyAccountBody = z.strictObject({
     password: z.string().optional(),
@@ -220,11 +220,11 @@ export async function deleteMyAccount(
             await trx.delete(users).where(eq(users.userId, userId));
             // loop through the other orgs and decrement the count
             for (const userOrg of otherOrgsTheUserWasIn) {
-                await usageService.add(userOrg.orgId, FeatureId.USERS, -1, trx);
+                await usageService.add(userOrg.orgId, LimitId.USERS, -1, trx);
             }
         });
 
-        calculateUserClientsForOrgs(userId, primaryDb).catch((e) => {
+        calculateUserClientsForOrgs(userId).catch((e) => {
             logger.error(
                 `Failed to calculate user clients after deleting account for user ${userId}: ${e}`
             );

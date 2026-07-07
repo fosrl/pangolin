@@ -6,7 +6,7 @@ import type { CreateOrEditLabelResponse } from "@server/routers/labels/types";
 import { useQuery } from "@tanstack/react-query";
 import type { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { useDebounce } from "use-debounce";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -36,8 +36,22 @@ export type LabelsSelectorProps = {
     orgId: string;
     selectedLabels: SelectedLabel[];
     toggleLabel: (newlabel: SelectedLabel, action: "detach" | "attach") => void;
-    onClose?: () => void;
 };
+
+export function formatLabelsSelectorLabel(
+    selectedLabels: SelectedLabel[],
+    t: (key: string, values?: { count: number }) => string
+): string {
+    if (selectedLabels.length === 0) {
+        return t("selectLabels");
+    }
+    if (selectedLabels.length === 1) {
+        return selectedLabels[0]!.name;
+    }
+    return t("labelsSelectorLabelsCount", {
+        count: selectedLabels.length
+    });
+}
 
 export const LABEL_COLORS = {
     red: "#ff6467",
@@ -52,8 +66,7 @@ export const LABEL_COLORS = {
 export function LabelsSelector({
     orgId,
     selectedLabels,
-    toggleLabel,
-    onClose
+    toggleLabel
 }: LabelsSelectorProps) {
     const t = useTranslations();
     const [labelSearchQuery, setlabelsSearchQuery] = useState("");
@@ -90,6 +103,11 @@ export function LabelsSelector({
         colorValues[Math.floor(Math.random() * colorValues.length)];
 
     const [, action, isPending] = useActionState(createLabel, null);
+    const createFormRef = useRef<HTMLFormElement>(null);
+
+    const trimmedQuery = labelSearchQuery.trim();
+    const canCreateLabel =
+        trimmedQuery.length > 0 && labelsShown.length === 0 && !isPending;
 
     async function createLabel(_: any, formData: FormData) {
         const name = formData.get("name")?.toString();
@@ -109,12 +127,20 @@ export function LabelsSelector({
                 },
                 "attach"
             );
-        } catch (e) {
-            toast({
-                title: t("error"),
-                description: formatAxiosError(e, t("errorOccurred")),
-                variant: "destructive"
-            });
+        } catch (e: any) {
+            if (e.response?.status === 409) {
+                toast({
+                    title: t("labelDuplicateError"),
+                    description: t("labelDuplicateErrorDescription"),
+                    variant: "destructive"
+                });
+            } else {
+                toast({
+                    title: t("error"),
+                    description: formatAxiosError(e, t("errorOccurred")),
+                    variant: "destructive"
+                });
+            }
         }
         setlabelsSearchQuery("");
     }
@@ -122,21 +148,28 @@ export function LabelsSelector({
     return (
         <Command shouldFilter={false}>
             <CommandInput
-                placeholder={t("labelSearch")}
+                placeholder={t("labelSearchOrCreate")}
                 value={labelSearchQuery}
                 onValueChange={setlabelsSearchQuery}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" && canCreateLabel) {
+                        e.preventDefault();
+                        createFormRef.current?.requestSubmit();
+                    }
+                }}
             />
             <CommandList>
-                <CommandEmpty className="px-3 break-all wrap-anywhere text-wrap">
+                <CommandEmpty className="px-3 py-6 text-center text-wrap">
                     {labelSearchQuery.trim().length > 0 ? (
                         <div className="flex flex-col gap-2 items-center">
-                            <span className="max-w-34">
+                            <span className="max-w-34 break-words">
                                 {t("createNewLabel", {
                                     label: labelSearchQuery.trim()
                                 })}
                             </span>
 
                             <form
+                                ref={createFormRef}
                                 action={action}
                                 className="flex items-center gap-2"
                             >
@@ -147,7 +180,7 @@ export function LabelsSelector({
                                 />
 
                                 <Select defaultValue={randomColor} name="color">
-                                    <SelectTrigger className="w-18 [&_[data-name]]:hidden [&_[svg]]:hidden!">
+                                    <SelectTrigger className="w-auto min-w-24">
                                         <SelectValue
                                             placeholder={t("selectColor")}
                                         />
@@ -161,14 +194,17 @@ export function LabelsSelector({
                                                     className="flex items-center gap-2"
                                                 >
                                                     <div
-                                                        className="size-4 rounded-full bg-(--color) flex-none"
+                                                        className="size-2 rounded-full bg-(--color) flex-none"
                                                         style={{
                                                             // @ts-expect-error css color
                                                             "--color": value
                                                         }}
                                                     />
                                                     <span data-name>
-                                                        {color}
+                                                        {color
+                                                            .charAt(0)
+                                                            .toUpperCase() +
+                                                            color.slice(1)}
                                                     </span>
                                                 </SelectItem>
                                             )
@@ -178,7 +214,6 @@ export function LabelsSelector({
 
                                 <Button
                                     variant="outline"
-                                    size="sm"
                                     loading={isPending}
                                     type="submit"
                                 >
@@ -187,7 +222,14 @@ export function LabelsSelector({
                             </form>
                         </div>
                     ) : (
-                        t("labelsNotFound")
+                        <div className="flex flex-col gap-1 items-center">
+                            <span className="text-muted-foreground">
+                                {t("labelsNotFound")}
+                            </span>
+                            <span className="text-sm">
+                                {t("labelsEmptyCreateHint")}
+                            </span>
+                        </div>
                     )}
                 </CommandEmpty>
                 <CommandGroup>
@@ -202,7 +244,6 @@ export function LabelsSelector({
                                         ? "detach"
                                         : "attach"
                                 );
-                                onClose?.();
                             }}
                         >
                             <Checkbox

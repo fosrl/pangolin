@@ -11,9 +11,10 @@ import { fromError } from "zod-validation-error";
 import { removeTargets } from "../newt/targets";
 import { OpenAPITags, registry } from "@server/openApi";
 import { targetHealthCheck } from "@server/db";
+import { removeBrowserGatewayTarget } from "@server/routers/newt/targets";
 
 const deleteTargetSchema = z.strictObject({
-    targetId: z.string().transform(Number).pipe(z.int().positive())
+    targetId: z.coerce.number().int().positive()
 });
 
 registry.registerPath({
@@ -24,7 +25,22 @@ registry.registerPath({
     request: {
         params: deleteTargetSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function deleteTarget(
@@ -121,14 +137,22 @@ export async function deleteTarget(
                     .where(eq(newts.siteId, site.siteId))
                     .limit(1);
 
-                await removeTargets(
-                    newt.newtId,
-                    // [deletedTarget],
-                    [], // deleting the target from newt causes issues because we cant unbind the port. this needs to be fixed in newt before we can do this
-                    [deletedHealthCheck],
-                    resource.protocol,
-                    newt.version
-                );
+                if (["http", "tcp", "udp"].includes(deletedTarget.mode)) {
+                    await removeTargets(
+                        newt.newtId,
+                        // [deletedTarget],
+                        [], // deleting the target from newt causes issues because we cant unbind the port. this needs to be fixed in newt before we can do this
+                        [deletedHealthCheck],
+                        resource.mode === "udp" ? "udp" : "tcp",
+                        newt.version
+                    );
+                } else if (["ssh", "rdp", "vnc"].includes(deletedTarget.mode)) {
+                    await removeBrowserGatewayTarget(
+                        newt.newtId,
+                        deletedTarget.targetId,
+                        newt.version
+                    );
+                }
             }
         }
 

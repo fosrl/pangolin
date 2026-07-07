@@ -13,7 +13,7 @@ import { sendTerminateClient } from "./terminate";
 import { OlmErrorCodes } from "../olm/error";
 
 const blockClientSchema = z.strictObject({
-    clientId: z.string().transform(Number).pipe(z.int().positive())
+    clientId: z.coerce.number().int().positive()
 });
 
 registry.registerPath({
@@ -24,7 +24,22 @@ registry.registerPath({
     request: {
         params: blockClientSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function blockClient(
@@ -79,7 +94,11 @@ export async function blockClient(
 
             // Send terminate signal if there's an associated OLM and it's connected
             if (client.olmId && client.online) {
-                await sendTerminateClient(client.clientId, OlmErrorCodes.TERMINATED_BLOCKED, client.olmId);
+                await sendTerminateClient(
+                    client.clientId,
+                    OlmErrorCodes.TERMINATED_BLOCKED,
+                    client.olmId
+                );
             }
         });
 

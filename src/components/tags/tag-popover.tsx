@@ -1,10 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Popover,
     PopoverAnchor,
     PopoverContent,
     PopoverTrigger
 } from "../ui/popover";
+import React, {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState
+} from "react";
 import { TagInputStyleClassesProps, type Tag as TagType } from "./tag-input";
 import { TagList, TagListProps } from "./tag-list";
 import { Button } from "../ui/button";
@@ -47,7 +53,7 @@ export const TagPopover: React.FC<TagPopoverProps> = ({
 
     const t = useTranslations();
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const handleResize = () => {
             if (triggerContainerRef.current) {
                 setPopoverWidth(triggerContainerRef.current.offsetWidth);

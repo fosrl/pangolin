@@ -1,6 +1,8 @@
 import SiteProvider from "@app/providers/SiteProvider";
+import OrgProvider from "@app/providers/OrgProvider";
 import { internal } from "@app/lib/api";
 import { GetSiteResponse } from "@server/routers/site";
+import { GetOrgResponse } from "@server/routers/org";
 import { AxiosResponse } from "axios";
 import { redirect } from "next/navigation";
 import { authCookieHeader } from "@app/lib/api/cookies";
@@ -35,6 +37,17 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
         redirect(`/${params.orgId}/settings/sites`);
     }
 
+    let org = null;
+    try {
+        const res = await internal.get<AxiosResponse<GetOrgResponse>>(
+            `/org/${params.orgId}`,
+            await authCookieHeader()
+        );
+        org = res.data.data;
+    } catch {
+        redirect(`/${params.orgId}/settings/sites`);
+    }
+
     const t = await getTranslations();
 
     const navItems = [
@@ -64,10 +77,14 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
             />
 
             <SiteProvider site={site}>
-                <div className="space-y-4">
-                    <SiteInfoCard />
-                    <HorizontalTabs items={navItems}>{children}</HorizontalTabs>
-                </div>
+                <OrgProvider org={org}>
+                    <div className="space-y-4">
+                        <SiteInfoCard />
+                        <HorizontalTabs items={navItems}>
+                            {children}
+                        </HorizontalTabs>
+                    </div>
+                </OrgProvider>
             </SiteProvider>
         </>
     );

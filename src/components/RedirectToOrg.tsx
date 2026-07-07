@@ -6,20 +6,29 @@ import { getInternalRedirectTarget } from "@app/lib/internalRedirect";
 
 type RedirectToOrgProps = {
     targetOrgId: string;
+    isAdminOrOwner?: boolean;
 };
 
-export default function RedirectToOrg({ targetOrgId }: RedirectToOrgProps) {
+export default function RedirectToOrg({
+    targetOrgId,
+    isAdminOrOwner = false
+}: RedirectToOrgProps) {
     const router = useRouter();
 
     useEffect(() => {
         try {
             const target =
-                getInternalRedirectTarget(targetOrgId) ?? `/${targetOrgId}`;
+                getInternalRedirectTarget(targetOrgId) ??
+                (isAdminOrOwner
+                    ? `/${targetOrgId}/settings`
+                    : `/${targetOrgId}`);
             router.replace(target);
         } catch {
-            router.replace(`/${targetOrgId}`);
+            router.replace(
+                isAdminOrOwner ? `/${targetOrgId}/settings` : `/${targetOrgId}`
+            );
         }
-    }, [targetOrgId, router]);
+    }, [targetOrgId, isAdminOrOwner, router]);
 
     return null;
 }

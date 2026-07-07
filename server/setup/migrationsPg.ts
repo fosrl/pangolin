@@ -25,6 +25,7 @@ import m16 from "./scriptsPg/1.17.0";
 import m17 from "./scriptsPg/1.18.0";
 import m18 from "./scriptsPg/1.18.3";
 import m19 from "./scriptsPg/1.18.4";
+import m20 from "./scriptsPg/1.19.0";
 
 // THIS CANNOT IMPORT ANYTHING FROM THE SERVER
 // EXCEPT FOR THE DATABASE AND THE SCHEMA
@@ -49,7 +50,8 @@ const migrations = [
     { version: "1.17.0", run: m16 },
     { version: "1.18.0", run: m17 },
     { version: "1.18.3", run: m18 },
-    { version: "1.18.4", run: m19 }
+    { version: "1.18.4", run: m19 },
+    { version: "1.19.0", run: m20 }
     // Add new migrations here as they are created
 ] as {
     version: string;
@@ -128,7 +130,7 @@ async function executeScripts() {
         console.log(`Starting migrations from version ${startVersion}`);
 
         const migrationsToRun = migrations.filter((migration) =>
-            semver.gt(migration.version, startVersion)
+            shouldRunMigration(migration.version, startVersion)
         );
 
         console.log(
@@ -178,4 +180,24 @@ async function executeScripts() {
         console.error("Migration process failed:", error);
         throw error;
     }
+}
+
+function shouldRunMigration(migrationVersion: string, currentVersion: string) {
+    const migration = semver.parse(migrationVersion);
+    const current = semver.parse(currentVersion);
+
+    // Treat x.y.z-rc.* as equivalent to x.y.z so restarts on RC builds do not re-run the same migration.
+    if (
+        migration &&
+        current &&
+        migration.prerelease.length === 0 &&
+        current.prerelease[0] === "rc" &&
+        migration.major === current.major &&
+        migration.minor === current.minor &&
+        migration.patch === current.patch
+    ) {
+        return false;
+    }
+
+    return semver.gt(migrationVersion, currentVersion);
 }

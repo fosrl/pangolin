@@ -1,7 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { resources, resourceWhitelist } from "@server/db";
+import {
+    resources,
+    resourceWhitelist,
+    resourcePolicies,
+    resourcePolicyWhiteList
+} from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -24,7 +29,7 @@ const setResourceWhitelistBodySchema = z.strictObject({
 });
 
 const setResourceWhitelistParamsSchema = z.strictObject({
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
 registry.registerPath({
@@ -43,7 +48,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function setResourceWhitelist(
@@ -89,57 +109,135 @@ export async function setResourceWhitelist(
             );
         }
 
-        if (!resource.emailWhitelistEnabled) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "Email whitelist is not enabled for this resource"
-                )
-            );
-        }
+        const isInlinePolicy =
+            resource.resourcePolicyId === null &&
+            resource.defaultResourcePolicyId !== null;
 
-        const whitelist = await db
-            .select()
-            .from(resourceWhitelist)
-            .where(eq(resourceWhitelist.resourceId, resourceId));
+        if (isInlinePolicy) {
+            const policyId = resource.defaultResourcePolicyId!;
 
-        await db.transaction(async (trx) => {
-            // diff the emails
-            const existingEmails = whitelist.map((w) => w.email);
+            const [policy] = await db
+                .select()
+                .from(resourcePolicies)
+                .where(eq(resourcePolicies.resourcePolicyId, policyId));
 
-            const emailsToAdd = emails.filter(
-                (e) => !existingEmails.includes(e)
-            );
-            const emailsToRemove = existingEmails.filter(
-                (e) => !emails.includes(e)
-            );
+            if (!policy) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "Resource policy not found"
+                    )
+                );
+            }
 
-            for (const email of emailsToAdd) {
-                await trx.insert(resourceWhitelist).values({
-                    email,
-                    resourceId
+            if (!policy.emailWhitelistEnabled) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Email whitelist is not enabled for this resource"
+                    )
+                );
+            }
+
+            const existingPolicyWhitelist = await db
+                .select()
+                .from(resourcePolicyWhiteList)
+                .where(eq(resourcePolicyWhiteList.resourcePolicyId, policyId));
+
+            await db.transaction(async (trx) => {
+                const existingEmails = existingPolicyWhitelist.map(
+                    (w) => w.email
+                );
+
+                const emailsToAdd = emails.filter(
+                    (e) => !existingEmails.includes(e)
+                );
+                const emailsToRemove = existingEmails.filter(
+                    (e) => !emails.includes(e)
+                );
+
+                for (const email of emailsToAdd) {
+                    await trx.insert(resourcePolicyWhiteList).values({
+                        email,
+                        resourcePolicyId: policyId
+                    });
+                }
+
+                for (const email of emailsToRemove) {
+                    await trx
+                        .delete(resourcePolicyWhiteList)
+                        .where(
+                            and(
+                                eq(
+                                    resourcePolicyWhiteList.resourcePolicyId,
+                                    policyId
+                                ),
+                                eq(resourcePolicyWhiteList.email, email)
+                            )
+                        );
+                }
+
+                return response(res, {
+                    data: {},
+                    success: true,
+                    error: false,
+                    message: "Whitelist set for resource successfully",
+                    status: HttpCode.CREATED
                 });
-            }
-
-            for (const email of emailsToRemove) {
-                await trx
-                    .delete(resourceWhitelist)
-                    .where(
-                        and(
-                            eq(resourceWhitelist.resourceId, resourceId),
-                            eq(resourceWhitelist.email, email)
-                        )
-                    );
-            }
-
-            return response(res, {
-                data: {},
-                success: true,
-                error: false,
-                message: "Whitelist set for resource successfully",
-                status: HttpCode.CREATED
             });
-        });
+        } else {
+            if (!resource.emailWhitelistEnabled) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Email whitelist is not enabled for this resource"
+                    )
+                );
+            }
+
+            const whitelist = await db
+                .select()
+                .from(resourceWhitelist)
+                .where(eq(resourceWhitelist.resourceId, resourceId));
+
+            await db.transaction(async (trx) => {
+                // diff the emails
+                const existingEmails = whitelist.map((w) => w.email);
+
+                const emailsToAdd = emails.filter(
+                    (e) => !existingEmails.includes(e)
+                );
+                const emailsToRemove = existingEmails.filter(
+                    (e) => !emails.includes(e)
+                );
+
+                for (const email of emailsToAdd) {
+                    await trx.insert(resourceWhitelist).values({
+                        email,
+                        resourceId
+                    });
+                }
+
+                for (const email of emailsToRemove) {
+                    await trx
+                        .delete(resourceWhitelist)
+                        .where(
+                            and(
+                                eq(resourceWhitelist.resourceId, resourceId),
+                                eq(resourceWhitelist.email, email)
+                            )
+                        );
+                }
+
+                return response(res, {
+                    data: {},
+                    success: true,
+                    error: false,
+                    message: "Whitelist set for resource successfully",
+                    status: HttpCode.CREATED
+                });
+            });
+        }
     } catch (error) {
         logger.error(error);
         return next(

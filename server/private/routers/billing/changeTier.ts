@@ -25,7 +25,7 @@ import {
     getTier1FeaturePriceSet,
     getTier3FeaturePriceSet,
     getTier2FeaturePriceSet,
-    FeatureId,
+    LimitId,
     type FeaturePriceSet
 } from "@server/lib/billing";
 import { getLineItems } from "@server/lib/billing/getLineItems";
@@ -214,7 +214,7 @@ export async function changeTier(
                     }
 
                     // Map to the corresponding feature in the new tier
-                    const newPriceId = targetPriceSet[FeatureId.USERS];
+                    const newPriceId = targetPriceSet[LimitId.USERS];
 
                     if (newPriceId) {
                         return {

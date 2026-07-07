@@ -40,7 +40,7 @@ const listUserDevicesParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
-const listUserDevicesSchema = z.object({
+const listUserDevicesSchema = z.strictObject({
     pageSize: z.coerce
         .number<string>() // for prettier formatting
         .int()
@@ -213,7 +213,22 @@ registry.registerPath({
         query: listUserDevicesSchema,
         params: listUserDevicesParamsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function listUserDevices(
@@ -404,31 +419,6 @@ export async function listUserDevices(
                 return OlmWithUpdate;
             }
         );
-
-        // REMOVING THIS BECAUSE WE HAVE DIFFERENT TYPES OF CLIENTS NOW
-        // // Try to get the latest version, but don't block if it fails
-        // try {
-        //     const latestOlmVersion = await getLatestOlmVersion();
-
-        //     if (latestOlmVersion) {
-        //         olmsWithUpdates.forEach((client) => {
-        //             try {
-        //                 client.olmUpdateAvailable = semver.lt(
-        //                     client.olmVersion ? client.olmVersion : "",
-        //                     latestOlmVersion
-        //                 );
-        //             } catch (error) {
-        //                 client.olmUpdateAvailable = false;
-        //             }
-        //         });
-        //     }
-        // } catch (error) {
-        //     // Log the error but don't let it block the response
-        //     logger.warn(
-        //         "Failed to check for OLM updates, continuing without update info:",
-        //         error
-        //     );
-        // }
 
         return response<ListUserDevicesResponse>(res, {
             data: {

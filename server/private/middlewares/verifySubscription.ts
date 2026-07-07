@@ -65,6 +65,7 @@ export function verifyValidSubscription(tiers: Tier[]) {
 
             return next();
         } catch (e) {
+            console.error(e);
             return next(
                 createHttpError(
                     HttpCode.INTERNAL_SERVER_ERROR,

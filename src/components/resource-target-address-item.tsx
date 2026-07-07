@@ -1,15 +1,12 @@
 import { cn } from "@app/lib/cn";
 import type { DockerState } from "@app/lib/docker";
 import { parseHostTarget } from "@app/lib/parseHostTarget";
-import { orgQueries } from "@app/lib/queries";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import type { ListSitesResponse } from "@server/routers/site";
 import { type ListTargetsResponse } from "@server/routers/target";
 import type { ArrayElement } from "@server/types/ArrayElement";
-import { useQuery } from "@tanstack/react-query";
-import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ContainersSelector } from "./ContainersSelector";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -28,23 +25,21 @@ export type LocalTarget = Omit<
     "protocol"
 >;
 
-export type ResourceTargetAddressItemProps = {
+export type ResourceTargetSiteItemProps = {
     getDockerStateForSite: (siteId: number) => DockerState;
     updateTarget: (targetId: number, data: Partial<LocalTarget>) => void;
     orgId: string;
     proxyTarget: LocalTarget;
-    isHttp: boolean;
     refreshContainersForSite: (siteId: number) => void;
 };
 
-export function ResourceTargetAddressItem({
+export function ResourceTargetSiteItem({
     orgId,
     getDockerStateForSite,
     updateTarget,
     proxyTarget,
-    isHttp,
     refreshContainersForSite
-}: ResourceTargetAddressItemProps) {
+}: ResourceTargetSiteItemProps) {
     const t = useTranslations();
 
     const [selectedSite, setSelectedSite] = useState<Pick<
@@ -77,61 +72,77 @@ export function ResourceTargetAddressItem({
     };
 
     return (
+        <div
+            className="flex w-full min-w-0 items-center h-9 border border-input rounded-md"
+            key={proxyTarget.targetId}
+        >
+            {selectedSite && selectedSite.type === "newt" && (
+                <ContainersSelector
+                    site={selectedSite}
+                    containers={
+                        getDockerStateForSite(selectedSite.siteId).containers
+                    }
+                    isAvailable={
+                        getDockerStateForSite(selectedSite.siteId).isAvailable
+                    }
+                    onContainerSelect={handleContainerSelectForTarget}
+                    onRefresh={() =>
+                        refreshContainersForSite(selectedSite.siteId)
+                    }
+                />
+            )}
+
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        role="combobox"
+                        className={cn(
+                            "h-9 min-w-0 flex-1 justify-between px-3 rounded-none hover:bg-transparent",
+                            !proxyTarget.siteId && "text-muted-foreground"
+                        )}
+                    >
+                        <span className="truncate">
+                            {proxyTarget.siteId
+                                ? selectedSite?.name
+                                : t("siteSelect")}
+                        </span>
+                        <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0">
+                    <SitesSelector
+                        orgId={orgId}
+                        selectedSite={selectedSite}
+                        onSelectSite={(site) => {
+                            updateTarget(proxyTarget.targetId, {
+                                siteId: site.siteId,
+                                siteType: site.type,
+                                siteName: site.name
+                            });
+                            setSelectedSite(site);
+                        }}
+                    />
+                </PopoverContent>
+            </Popover>
+        </div>
+    );
+}
+
+export type ResourceTargetAddressItemProps = {
+    updateTarget: (targetId: number, data: Partial<LocalTarget>) => void;
+    proxyTarget: LocalTarget;
+    isHttp: boolean;
+};
+
+export function ResourceTargetAddressItem({
+    updateTarget,
+    proxyTarget,
+    isHttp
+}: ResourceTargetAddressItemProps) {
+    return (
         <div className="flex items-center w-full" key={proxyTarget.targetId}>
             <div className="flex items-center w-full justify-start py-0 space-x-2 px-0 cursor-default border border-input rounded-md">
-                {selectedSite && selectedSite.type === "newt" && (
-                    <ContainersSelector
-                        site={selectedSite}
-                        containers={
-                            getDockerStateForSite(selectedSite.siteId)
-                                .containers
-                        }
-                        isAvailable={
-                            getDockerStateForSite(selectedSite.siteId)
-                                .isAvailable
-                        }
-                        onContainerSelect={handleContainerSelectForTarget}
-                        onRefresh={() =>
-                            refreshContainersForSite(selectedSite.siteId)
-                        }
-                    />
-                )}
-
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            role="combobox"
-                            className={cn(
-                                "w-45 justify-between text-sm border-r pr-4 rounded-none h-8 hover:bg-transparent",
-                                "",
-                                !proxyTarget.siteId && "text-muted-foreground"
-                            )}
-                        >
-                            <span className="truncate max-w-37.5">
-                                {proxyTarget.siteId
-                                    ? selectedSite?.name
-                                    : t("siteSelect")}
-                            </span>
-                            <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="p-0">
-                        <SitesSelector
-                            orgId={orgId}
-                            selectedSite={selectedSite}
-                            onSelectSite={(site) => {
-                                updateTarget(proxyTarget.targetId, {
-                                    siteId: site.siteId,
-                                    siteType: site.type,
-                                    siteName: site.name
-                                });
-                                setSelectedSite(site);
-                            }}
-                        />
-                    </PopoverContent>
-                </Popover>
-
                 {isHttp && (
                     <Select
                         defaultValue={proxyTarget.method ?? "http"}
@@ -142,7 +153,7 @@ export function ResourceTargetAddressItem({
                             })
                         }
                     >
-                        <SelectTrigger className="h-8 px-2 w-17.5 border-none bg-transparent shadow-none data-[state=open]:bg-transparent rounded-none">
+                        <SelectTrigger className="h-9 w-17.5 border-none bg-transparent shadow-none data-[state=open]:bg-transparent rounded-none mr-0 pr-0">
                             {proxyTarget.method || "http"}
                         </SelectTrigger>
                         <SelectContent>
@@ -154,7 +165,7 @@ export function ResourceTargetAddressItem({
                 )}
 
                 {isHttp && (
-                    <div className="flex items-center justify-center px-2 h-9">
+                    <div className="flex items-center justify-center h-9 mr-0 pl-1">
                         {"://"}
                     </div>
                 )}
@@ -162,7 +173,7 @@ export function ResourceTargetAddressItem({
                 <Input
                     defaultValue={proxyTarget.ip}
                     placeholder="Host"
-                    className="flex-1 min-w-30 px-2 border-none placeholder-gray-400 rounded-xs"
+                    className="flex-1 min-w-30 border-none placeholder-gray-400 rounded-xs"
                     onBlur={(e) => {
                         const input = e.target.value.trim();
                         const hasProtocol = /^(https?|h2c):\/\//.test(input);
@@ -195,7 +206,7 @@ export function ResourceTargetAddressItem({
                         }
                     }}
                 />
-                <div className="flex items-center justify-center px-2 h-9">
+                <div className="flex items-center justify-center h-9 mr-0">
                     {":"}
                 </div>
                 <Input

@@ -38,7 +38,8 @@ export const handleNewtPingRequestMessage: MessageHandler = async (context) => {
     const exitNodesList = await listExitNodes(
         site.orgId,
         true,
-        noCloud || false
+        noCloud || false,
+        newt.siteId
     ); // filter for only the online ones
 
     let lastExitNodeId = null;

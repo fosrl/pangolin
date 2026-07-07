@@ -4,6 +4,7 @@ import { apiKeys, apiKeyOrg } from "@server/db";
 import { and, eq, or } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyApiKeyApiKeyAccess(
     req: Request,
@@ -14,8 +15,10 @@ export async function verifyApiKeyApiKeyAccess(
         const { apiKey: callerApiKey } = req;
 
         const apiKeyId =
-            req.params.apiKeyId || req.body.apiKeyId || req.query.apiKeyId;
-        const orgId = req.params.orgId;
+            getFirstString(req.params.apiKeyId) ||
+            getFirstString(req.body.apiKeyId) ||
+            getFirstString(req.query.apiKeyId);
+        const orgId = getFirstString(req.params.orgId);
 
         if (!callerApiKey) {
             return next(

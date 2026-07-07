@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -11,13 +12,14 @@ import { and, eq, inArray } from "drizzle-orm";
 import { idp, idpOidcConfig, roles, userOrgs, users } from "@server/db";
 import { generateId } from "@server/auth/sessions/app";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
+import { LimitId } from "@server/lib/billing";
 import { build } from "@server/build";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
 import { assignUserToOrg } from "@server/lib/userOrg";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { isOrgRebuildRateLimited } from "@server/lib/rebuildClientAssociations";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -53,6 +55,7 @@ const bodySchema = z
     }));
 
 export type CreateOrgUserResponse = {};
+const CreateOrgUserResponseDataSchema = z.object({});
 
 registry.registerPath({
     method: "put",
@@ -69,7 +72,18 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        CreateOrgUserResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
 });
 
 export async function createOrgUser(
@@ -109,7 +123,7 @@ export async function createOrgUser(
         } = parsedBody.data;
 
         if (build == "saas") {
-            const usage = await usageService.getUsage(orgId, FeatureId.USERS);
+            const usage = await usageService.getUsage(orgId, LimitId.USERS);
             if (!usage) {
                 return next(
                     createHttpError(
@@ -121,7 +135,7 @@ export async function createOrgUser(
             const rejectUsers = await usageService.checkLimitSet(
                 orgId,
 
-                FeatureId.USERS,
+                LimitId.USERS,
                 {
                     ...usage,
                     instantaneousValue: (usage.instantaneousValue || 0) + 1
@@ -212,6 +226,15 @@ export async function createOrgUser(
                     createHttpError(
                         HttpCode.NOT_FOUND,
                         "Organization not found"
+                    )
+                );
+            }
+
+            if (await isOrgRebuildRateLimited(org.orgId)) {
+                return next(
+                    createHttpError(
+                        HttpCode.TOO_MANY_REQUESTS,
+                        "Too many concurrent rebuild operations for this organization. Please retry after a moment."
                     )
                 );
             }
@@ -314,13 +337,11 @@ export async function createOrgUser(
             });
 
             if (userIdForClients) {
-                calculateUserClientsForOrgs(userIdForClients, primaryDb).catch(
-                    (e) => {
-                        logger.error(
-                            `Failed to calculate user clients after creating org user: ${e}`
-                        );
-                    }
-                );
+                calculateUserClientsForOrgs(userIdForClients).catch((e) => {
+                    logger.error(
+                        `Failed to calculate user clients after creating org user: ${e}`
+                    );
+                });
             }
         } else {
             return next(

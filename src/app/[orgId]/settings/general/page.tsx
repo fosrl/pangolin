@@ -38,11 +38,18 @@ import { useUserContext } from "@app/hooks/useUserContext";
 import { useTranslations } from "next-intl";
 import { build } from "@server/build";
 import type { OrgContextType } from "@app/contexts/orgContext";
+import { SwitchInput } from "@app/components/SwitchInput";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { ExternalLink } from "lucide-react";
+import { env } from "process";
 
 // Schema for general organization settings
 const GeneralFormSchema = z.object({
     name: z.string(),
-    subnet: z.string().optional()
+    subnet: z.string().optional(),
+    settingsEnableGlobalNewtAutoUpdate: z.boolean().optional()
 });
 
 export default function GeneralPage() {
@@ -159,21 +166,29 @@ function DeleteForm({ org }: SectionFormProps) {
 
 function GeneralSectionForm({ org }: SectionFormProps) {
     const { updateOrg } = useOrgContext();
+    const { env } = useEnvContext();
     const form = useForm({
         resolver: zodResolver(
             GeneralFormSchema.pick({
                 name: true,
-                subnet: true
+                subnet: true,
+                settingsEnableGlobalNewtAutoUpdate: true
             })
         ),
         defaultValues: {
             name: org.name,
-            subnet: org.subnet || "" // Add default value for subnet
+            subnet: org.subnet || "",
+            settingsEnableGlobalNewtAutoUpdate:
+                org.settingsEnableGlobalNewtAutoUpdate ?? false
         },
         mode: "onChange"
     });
     const t = useTranslations();
     const router = useRouter();
+    const { isPaidUser } = usePaidStatus();
+    const hasAutoUpdateFeature = isPaidUser(
+        tierMatrix[TierFeature.NewtAutoUpdate]
+    );
 
     const [, formAction, loadingSave] = useActionState(performSave, null);
     const api = createApiClient(useEnvContext());
@@ -186,7 +201,9 @@ function GeneralSectionForm({ org }: SectionFormProps) {
 
         try {
             const reqData = {
-                name: data.name
+                name: data.name,
+                settingsEnableGlobalNewtAutoUpdate:
+                    data.settingsEnableGlobalNewtAutoUpdate
             } as any;
 
             // Update organization
@@ -194,13 +211,16 @@ function GeneralSectionForm({ org }: SectionFormProps) {
 
             // Update the org context to reflect the change in the info card
             updateOrg({
-                name: data.name
+                name: data.name,
+                settingsEnableGlobalNewtAutoUpdate:
+                    data.settingsEnableGlobalNewtAutoUpdate
             });
 
             toast({
                 title: t("orgUpdated"),
                 description: t("orgUpdatedDescription")
             });
+
             router.refresh();
         } catch (e) {
             toast({
@@ -243,6 +263,46 @@ function GeneralSectionForm({ org }: SectionFormProps) {
                                     </FormItem>
                                 )}
                             />
+
+                            <PaidFeaturesAlert
+                                tiers={tierMatrix.newtAutoUpdate}
+                            />
+                            {!env.flags.disableEnterpriseFeatures && (
+                                <FormField
+                                    control={form.control}
+                                    name="settingsEnableGlobalNewtAutoUpdate"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl>
+                                                <SwitchInput
+                                                    id="settings-enable-global-newt-auto-update"
+                                                    label={t("newtAutoUpdate")}
+                                                    checked={field.value}
+                                                    onCheckedChange={
+                                                        field.onChange
+                                                    }
+                                                    disabled={
+                                                        !hasAutoUpdateFeature
+                                                    }
+                                                />
+                                            </FormControl>
+                                            <FormDescription>
+                                                {t("newtAutoUpdateDescription")}{" "}
+                                                <a
+                                                    href="https://docs.pangolin.net/manage/sites/auto-update"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-primary hover:underline inline-flex items-center gap-1"
+                                                >
+                                                    {t("learnMore")}
+                                                    <ExternalLink className="size-3.5 shrink-0" />
+                                                </a>
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
                         </form>
                     </Form>
                 </SettingsSectionForm>

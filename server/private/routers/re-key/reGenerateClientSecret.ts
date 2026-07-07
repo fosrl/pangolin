@@ -28,7 +28,7 @@ import { OlmErrorCodes, sendOlmError } from "@server/routers/olm/error";
 import { sendTerminateClient } from "@server/routers/client/terminate";
 
 const reGenerateSecretParamsSchema = z.strictObject({
-    clientId: z.string().transform(Number).pipe(z.int().positive())
+    clientId: z.coerce.number().int().positive()
 });
 
 const reGenerateSecretBodySchema = z.strictObject({

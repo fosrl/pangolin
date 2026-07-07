@@ -1,15 +1,19 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, domainNamespaces, loginPage } from "@server/db";
+import { build } from "@server/build";
 import {
-    domains,
-    orgDomains,
+    db,
+    loginPage,
     orgs,
     Resource,
     resources,
+    resourcePolicies,
     roleResources,
+    rolePolicies,
     roles,
-    userResources
+    userPolicies,
+    userResources,
+    domainNamespaces
 } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -20,27 +24,77 @@ import logger from "@server/logger";
 import { subdomainSchema, wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import { OpenAPITags, registry } from "@server/openApi";
-import { build } from "@server/build";
 import { createCertificate } from "#dynamic/routers/certificates/createCertificate";
-import { getUniqueResourceName } from "@server/db/names";
-import { validateAndConstructDomain, checkWildcardDomainConflict } from "@server/lib/domainUtils";
+import {
+    validateAndConstructDomain,
+    checkWildcardDomainConflict
+} from "@server/lib/domainUtils";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
+import {
+    getUniqueResourceName,
+    getUniqueResourcePolicyName
+} from "@server/db/names";
+import { usageService } from "@server/lib/billing/usageService";
+import { LimitId } from "@server/lib/billing";
 
 const createResourceParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
+function resolveModeFromLegacyFields(data: {
+    mode?: "http" | "ssh" | "rdp" | "vnc" | "tcp" | "udp";
+    http?: boolean;
+    protocol?: "tcp" | "udp";
+}): {
+    mode?: "http" | "ssh" | "rdp" | "vnc" | "tcp" | "udp";
+    error?: string;
+} {
+    if (data.mode) {
+        return { mode: data.mode };
+    }
+
+    if (typeof data.http === "boolean" && data.protocol) {
+        if (data.http && data.protocol === "tcp") {
+            return { mode: "http" };
+        }
+        if (!data.http && data.protocol === "tcp") {
+            return { mode: "tcp" };
+        }
+        if (!data.http && data.protocol === "udp") {
+            return { mode: "udp" };
+        }
+        return {
+            error: "Invalid deprecated http/protocol combination"
+        };
+    }
+
+    return { mode: undefined };
+}
+
 const createHttpResourceSchema = z
     .strictObject({
         name: z.string().min(1).max(255),
         subdomain: z.string().nullable().optional(),
-        http: z.boolean(),
-        protocol: z.enum(["tcp", "udp"]),
+        http: z.boolean().optional().openapi({
+            deprecated: true,
+            description:
+                "Deprecated. Use `mode` instead. Legacy compatibility only."
+        }),
+        protocol: z.enum(["tcp", "udp"]).optional().openapi({
+            deprecated: true,
+            description:
+                "Deprecated. Use `mode` instead. Legacy compatibility only."
+        }),
         domainId: z.string(),
         stickySession: z.boolean().optional(),
-        postAuthPath: z.string().nullable().optional()
+        postAuthPath: z.string().nullable().optional(),
+        mode: z.enum(["http", "ssh", "rdp", "vnc", "tcp", "udp"]).optional(),
+        // SSH Settings
+        pamMode: z.enum(["passthrough", "push"]).optional(),
+        authDaemonPort: z.int().positive().optional(),
+        authDaemonMode: z.enum(["site", "remote", "native"]).optional()
     })
     .refine(
         (data) => {
@@ -60,13 +114,27 @@ const createHttpResourceSchema = z
 const createRawResourceSchema = z
     .strictObject({
         name: z.string().min(1).max(255),
-        http: z.boolean(),
-        protocol: z.enum(["tcp", "udp"]),
+        http: z.boolean().optional().openapi({
+            deprecated: true,
+            description:
+                "Deprecated. Use `mode` instead. Legacy compatibility only."
+        }),
+        protocol: z.enum(["tcp", "udp"]).optional().openapi({
+            deprecated: true,
+            description:
+                "Deprecated. Use `mode` instead. Legacy compatibility only."
+        }),
+        mode: z.enum(["tcp", "udp"]).optional(),
         proxyPort: z.int().min(1).max(65535)
         // enableProxy: z.boolean().default(true) // always true now
     })
     .refine(
         (data) => {
+            const resolved = resolveModeFromLegacyFields(data);
+            if (resolved.error || !resolved.mode) {
+                return false;
+            }
+
             if (!config.getRawConfig().flags?.allow_raw_resources) {
                 if (data.proxyPort !== undefined) {
                     return false;
@@ -96,7 +164,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function createResource(
@@ -143,17 +226,50 @@ export async function createResource(
             );
         }
 
-        if (typeof req.body.http !== "boolean") {
+        const resolvedMode = resolveModeFromLegacyFields(req.body);
+        if (resolvedMode.error) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, "http field is required")
+                createHttpError(HttpCode.BAD_REQUEST, resolvedMode.error)
             );
         }
 
-        const { http } = req.body;
+        if (resolvedMode.mode) {
+            req.body.mode = resolvedMode.mode;
+        }
 
-        if (http) {
-            return await createHttpResource({ req, res, next }, { orgId });
-        } else {
+        if (build == "saas") {
+            const usage = await usageService.getUsage(
+                orgId,
+                LimitId.PUBLIC_RESOURCES
+            );
+            if (!usage) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "No usage data found for this organization"
+                    )
+                );
+            }
+            const rejectResource = await usageService.checkLimitSet(
+                orgId,
+
+                LimitId.PUBLIC_RESOURCES,
+                {
+                    ...usage,
+                    instantaneousValue: (usage.instantaneousValue || 0) + 1
+                } // We need to add one to know if we are violating the limit
+            );
+            if (rejectResource) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Public resource limit exceeded. Please upgrade your plan."
+                    )
+                );
+            }
+        }
+
+        if (typeof req.body.proxyPort === "number") {
             if (
                 !config.getRawConfig().flags?.allow_raw_resources &&
                 build == "oss"
@@ -166,6 +282,17 @@ export async function createResource(
                 );
             }
             return await createRawResource({ req, res, next }, { orgId });
+        }
+
+        if (req.body.mode) {
+            return await createHttpResource({ req, res, next }, { orgId });
+        } else {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "mode is required when deprecated fields are not provided"
+                )
+            );
         }
     } catch (error) {
         logger.error(error);
@@ -198,7 +325,15 @@ async function createHttpResource(
         );
     }
 
-    const { name, domainId, postAuthPath } = parsedBody.data;
+    const {
+        name,
+        domainId,
+        postAuthPath,
+        mode,
+        authDaemonPort,
+        authDaemonMode,
+        pamMode
+    } = parsedBody.data;
     const subdomain = parsedBody.data.subdomain;
     const stickySession = parsedBody.data.stickySession;
 
@@ -239,6 +374,21 @@ async function createHttpResource(
                 );
             }
         }
+    }
+
+    if (
+        ["ssh", "rdp", "vnc"].includes(mode!) &&
+        !isLicensedOrSubscribed(
+            orgId!,
+            tierMatrix[TierFeature.AdvancedPublicResources]
+        )
+    ) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "Your current subscription does not support browser gateway resources. Please upgrade to access this feature."
+            )
+        );
     }
 
     // Validate domain and construct full domain
@@ -311,28 +461,10 @@ async function createHttpResource(
     let resource: Resource | undefined;
 
     const niceId = await getUniqueResourceName(orgId);
+    const policyNiceId = await getUniqueResourcePolicyName(orgId);
 
     await db.transaction(async (trx) => {
-        const newResource = await trx
-            .insert(resources)
-            .values({
-                niceId,
-                fullDomain,
-                domainId,
-                orgId,
-                name,
-                subdomain: finalSubdomain,
-                http: true,
-                protocol: "tcp",
-                ssl: true,
-                stickySession: stickySession,
-                postAuthPath: postAuthPath,
-                wildcard,
-                health: "unknown"
-            })
-            .returning();
-
-        const adminRole = await db
+        const adminRole = await trx
             .select()
             .from(roles)
             .where(and(eq(roles.isAdmin, true), eq(roles.orgId, orgId)))
@@ -343,6 +475,53 @@ async function createHttpResource(
                 createHttpError(HttpCode.NOT_FOUND, `Admin role not found`)
             );
         }
+
+        const [defaultPolicy] = await trx
+            .insert(resourcePolicies)
+            .values({
+                niceId: policyNiceId,
+                orgId,
+                name: `default policy for ${niceId}`,
+                sso: true,
+                scope: "resource"
+            })
+            .returning();
+
+        // make this policy visible by the admin role
+        await trx.insert(rolePolicies).values({
+            roleId: adminRole[0].roleId,
+            resourcePolicyId: defaultPolicy.resourcePolicyId
+        });
+
+        // make this policy visible by the current user
+        if (req.user && !req.userOrgRoleIds?.includes(adminRole[0].roleId)) {
+            await trx.insert(userPolicies).values({
+                userId: req.user?.userId!,
+                resourcePolicyId: defaultPolicy.resourcePolicyId
+            });
+        }
+
+        const newResource = await trx
+            .insert(resources)
+            .values({
+                niceId,
+                fullDomain,
+                domainId,
+                orgId,
+                name,
+                subdomain: finalSubdomain,
+                mode: mode,
+                pamMode: pamMode,
+                authDaemonMode: authDaemonMode,
+                authDaemonPort: authDaemonPort,
+                ssl: true,
+                stickySession: stickySession,
+                postAuthPath: postAuthPath,
+                wildcard,
+                health: "unknown",
+                defaultResourcePolicyId: defaultPolicy.resourcePolicyId
+            })
+            .returning();
 
         await trx.insert(roleResources).values({
             roleId: adminRole[0].roleId,
@@ -358,6 +537,8 @@ async function createHttpResource(
         }
 
         resource = newResource[0];
+
+        await usageService.add(orgId, LimitId.PUBLIC_RESOURCES, 1, trx);
     });
 
     if (!resource) {
@@ -369,7 +550,7 @@ async function createHttpResource(
         );
     }
 
-    if (build != "oss") {
+    if (build !== "oss") {
         await createCertificate(domainId, fullDomain, db);
     }
 
@@ -405,27 +586,25 @@ async function createRawResource(
         );
     }
 
-    const { name, http, protocol, proxyPort } = parsedBody.data;
+    const { name, proxyPort } = parsedBody.data;
+    const resolvedMode = resolveModeFromLegacyFields(parsedBody.data);
+    if (resolvedMode.error || !resolvedMode.mode) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                resolvedMode.error ||
+                    "mode is required when deprecated fields are not provided"
+            )
+        );
+    }
 
     let resource: Resource | undefined;
 
     const niceId = await getUniqueResourceName(orgId);
+    const policyNiceId = await getUniqueResourcePolicyName(orgId);
 
     await db.transaction(async (trx) => {
-        const newResource = await trx
-            .insert(resources)
-            .values({
-                niceId,
-                orgId,
-                name,
-                http,
-                protocol,
-                proxyPort
-                // enableProxy
-            })
-            .returning();
-
-        const adminRole = await db
+        const adminRole = await trx
             .select()
             .from(roles)
             .where(and(eq(roles.isAdmin, true), eq(roles.orgId, orgId)))
@@ -436,6 +615,43 @@ async function createRawResource(
                 createHttpError(HttpCode.NOT_FOUND, `Admin role not found`)
             );
         }
+
+        const [defaultPolicy] = await trx
+            .insert(resourcePolicies)
+            .values({
+                niceId: policyNiceId,
+                orgId,
+                name: `default policy for ${niceId}`,
+                sso: true,
+                scope: "resource"
+            })
+            .returning();
+
+        // make this policy visible by the admin role
+        await trx.insert(rolePolicies).values({
+            roleId: adminRole[0].roleId,
+            resourcePolicyId: defaultPolicy.resourcePolicyId
+        });
+
+        // make this policy visible by the current user
+        if (req.user && !req.userOrgRoleIds?.includes(adminRole[0].roleId)) {
+            await trx.insert(userPolicies).values({
+                userId: req.user?.userId!,
+                resourcePolicyId: defaultPolicy.resourcePolicyId
+            });
+        }
+
+        const newResource = await trx
+            .insert(resources)
+            .values({
+                niceId,
+                orgId,
+                name,
+                mode: resolvedMode.mode,
+                proxyPort,
+                defaultResourcePolicyId: defaultPolicy.resourcePolicyId
+            })
+            .returning();
 
         await trx.insert(roleResources).values({
             roleId: adminRole[0].roleId,
@@ -451,6 +667,8 @@ async function createRawResource(
         }
 
         resource = newResource[0];
+
+        await usageService.add(orgId, LimitId.PUBLIC_RESOURCES, 1, trx);
     });
 
     if (!resource) {

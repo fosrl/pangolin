@@ -17,7 +17,7 @@ import { subdomainSchema } from "@server/lib/schemas";
 import { generateId } from "@server/auth/sessions/app";
 import { eq, and } from "drizzle-orm";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
+import { LimitId } from "@server/lib/billing";
 import { isSecondLevelDomain, isValidDomain } from "@server/lib/validators";
 import { build } from "@server/build";
 import config from "@server/lib/config";
@@ -120,7 +120,7 @@ export async function createOrgDomain(
         }
 
         if (build == "saas") {
-            const usage = await usageService.getUsage(orgId, FeatureId.DOMAINS);
+            const usage = await usageService.getUsage(orgId, LimitId.DOMAINS);
             if (!usage) {
                 return next(
                     createHttpError(
@@ -132,7 +132,7 @@ export async function createOrgDomain(
             const rejectDomains = await usageService.checkLimitSet(
                 orgId,
 
-                FeatureId.DOMAINS,
+                LimitId.DOMAINS,
                 {
                     ...usage,
                     instantaneousValue: (usage.instantaneousValue || 0) + 1
@@ -346,7 +346,7 @@ export async function createOrgDomain(
                 await trx.insert(dnsRecords).values(recordsToInsert);
             }
 
-            await usageService.add(orgId, FeatureId.DOMAINS, 1, trx);
+            await usageService.add(orgId, LimitId.DOMAINS, 1, trx);
         });
 
         if (!returned) {

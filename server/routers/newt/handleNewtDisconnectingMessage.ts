@@ -19,7 +19,7 @@ export const handleNewtDisconnectingMessage: MessageHandler = async (
     }
 
     if (!newt.siteId) {
-        logger.warn("Newt has no client ID!");
+        logger.warn("Newt has no site ID!");
         return;
     }
 
@@ -34,6 +34,12 @@ export const handleNewtDisconnectingMessage: MessageHandler = async (
                 .where(eq(sites.siteId, newt.siteId!))
                 .returning();
 
+            if (!site) {
+                throw new Error(
+                    `Could not find site ${newt.siteId} to update disconnection from disconnect message`
+                );
+            }
+
             await fireSiteOfflineAlert(
                 site.orgId,
                 site.siteId,
@@ -43,6 +49,6 @@ export const handleNewtDisconnectingMessage: MessageHandler = async (
             );
         });
     } catch (error) {
-        logger.error("Error handling disconnecting message", { error });
+        logger.error("Error handling site disconnecting message", error);
     }
 };

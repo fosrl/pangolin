@@ -9,6 +9,7 @@ import {
     InfoSectionTitle
 } from "@app/components/InfoSection";
 import { useTranslations } from "next-intl";
+import { countryCodeToFlagEmoji } from "@app/lib/countryCodeToFlagEmoji";
 
 type SiteInfoCardProps = {};
 
@@ -52,7 +53,11 @@ export default function SiteInfoCard({}: SiteInfoCardProps) {
         <InfoSection>
             <InfoSectionTitle>{t("publicIpEndpoint")}</InfoSectionTitle>
             <InfoSectionContent>
-                {formatPublicEndpoint(site.endpoint)}
+                {formatPublicEndpoint(site.endpoint)}&nbsp;
+                <span>
+                    {site.countryCode &&
+                        countryCodeToFlagEmoji(site.countryCode)}
+                </span>
             </InfoSectionContent>
         </InfoSection>
     ) : null;

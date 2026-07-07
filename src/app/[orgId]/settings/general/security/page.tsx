@@ -224,23 +224,39 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
                                                 <SelectContent>
                                                     {LOG_RETENTION_OPTIONS.filter(
                                                         (option) => {
-                                                            if (build != "saas") {
+                                                            if (
+                                                                build != "saas"
+                                                            ) {
                                                                 return true;
                                                             }
 
                                                             let maxDays: number;
 
-                                                            if (!subscriptionTier) {
+                                                            if (
+                                                                !subscriptionTier
+                                                            ) {
                                                                 // No tier
                                                                 maxDays = 3;
-                                                            } else if (subscriptionTier == "enterprise") {
+                                                            } else if (
+                                                                subscriptionTier ==
+                                                                "enterprise"
+                                                            ) {
                                                                 // Enterprise - no limit
                                                                 return true;
-                                                            } else if (subscriptionTier == "tier3") {
+                                                            } else if (
+                                                                subscriptionTier ==
+                                                                "tier3"
+                                                            ) {
                                                                 maxDays = 90;
-                                                            } else if (subscriptionTier == "tier2") {
+                                                            } else if (
+                                                                subscriptionTier ==
+                                                                "tier2"
+                                                            ) {
                                                                 maxDays = 30;
-                                                            } else if (subscriptionTier == "tier1") {
+                                                            } else if (
+                                                                subscriptionTier ==
+                                                                "tier1"
+                                                            ) {
                                                                 maxDays = 7;
                                                             } else {
                                                                 // Default to most restrictive
@@ -249,7 +265,12 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
 
                                                             // Filter out options that exceed the max
                                                             // Special values: -1 (forever) and 9001 (end of year) should be filtered
-                                                            if (option.value < 0 || option.value > maxDays) {
+                                                            if (
+                                                                option.value <
+                                                                    0 ||
+                                                                option.value >
+                                                                    maxDays
+                                                            ) {
                                                                 return false;
                                                             }
 
@@ -322,24 +343,43 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {LOG_RETENTION_OPTIONS.filter(
-                                                                    (option) => {
-                                                                        if (build != "saas") {
+                                                                    (
+                                                                        option
+                                                                    ) => {
+                                                                        if (
+                                                                            build !=
+                                                                            "saas"
+                                                                        ) {
                                                                             return true;
                                                                         }
 
                                                                         let maxDays: number;
 
-                                                                        if (!subscriptionTier) {
+                                                                        if (
+                                                                            !subscriptionTier
+                                                                        ) {
                                                                             // No tier
                                                                             maxDays = 3;
-                                                                        } else if (subscriptionTier == "enterprise") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "enterprise"
+                                                                        ) {
                                                                             // Enterprise - no limit
                                                                             return true;
-                                                                        } else if (subscriptionTier == "tier3") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier3"
+                                                                        ) {
                                                                             maxDays = 90;
-                                                                        } else if (subscriptionTier == "tier2") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier2"
+                                                                        ) {
                                                                             maxDays = 30;
-                                                                        } else if (subscriptionTier == "tier1") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier1"
+                                                                        ) {
                                                                             maxDays = 7;
                                                                         } else {
                                                                             // Default to most restrictive
@@ -348,7 +388,12 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
 
                                                                         // Filter out options that exceed the max
                                                                         // Special values: -1 (forever) and 9001 (end of year) should be filtered
-                                                                        if (option.value < 0 || option.value > maxDays) {
+                                                                        if (
+                                                                            option.value <
+                                                                                0 ||
+                                                                            option.value >
+                                                                                maxDays
+                                                                        ) {
                                                                             return false;
                                                                         }
 
@@ -423,24 +468,43 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {LOG_RETENTION_OPTIONS.filter(
-                                                                    (option) => {
-                                                                        if (build != "saas") {
+                                                                    (
+                                                                        option
+                                                                    ) => {
+                                                                        if (
+                                                                            build !=
+                                                                            "saas"
+                                                                        ) {
                                                                             return true;
                                                                         }
 
                                                                         let maxDays: number;
 
-                                                                        if (!subscriptionTier) {
+                                                                        if (
+                                                                            !subscriptionTier
+                                                                        ) {
                                                                             // No tier
                                                                             maxDays = 3;
-                                                                        } else if (subscriptionTier == "enterprise") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "enterprise"
+                                                                        ) {
                                                                             // Enterprise - no limit
                                                                             return true;
-                                                                        } else if (subscriptionTier == "tier3") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier3"
+                                                                        ) {
                                                                             maxDays = 90;
-                                                                        } else if (subscriptionTier == "tier2") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier2"
+                                                                        ) {
                                                                             maxDays = 30;
-                                                                        } else if (subscriptionTier == "tier1") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier1"
+                                                                        ) {
                                                                             maxDays = 7;
                                                                         } else {
                                                                             // Default to most restrictive
@@ -449,7 +513,12 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
 
                                                                         // Filter out options that exceed the max
                                                                         // Special values: -1 (forever) and 9001 (end of year) should be filtered
-                                                                        if (option.value < 0 || option.value > maxDays) {
+                                                                        if (
+                                                                            option.value <
+                                                                                0 ||
+                                                                            option.value >
+                                                                                maxDays
+                                                                        ) {
                                                                             return false;
                                                                         }
 
@@ -524,24 +593,43 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {LOG_RETENTION_OPTIONS.filter(
-                                                                    (option) => {
-                                                                        if (build != "saas") {
+                                                                    (
+                                                                        option
+                                                                    ) => {
+                                                                        if (
+                                                                            build !=
+                                                                            "saas"
+                                                                        ) {
                                                                             return true;
                                                                         }
 
                                                                         let maxDays: number;
 
-                                                                        if (!subscriptionTier) {
+                                                                        if (
+                                                                            !subscriptionTier
+                                                                        ) {
                                                                             // No tier
                                                                             maxDays = 3;
-                                                                        } else if (subscriptionTier == "enterprise") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "enterprise"
+                                                                        ) {
                                                                             // Enterprise - no limit
                                                                             return true;
-                                                                        } else if (subscriptionTier == "tier3") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier3"
+                                                                        ) {
                                                                             maxDays = 90;
-                                                                        } else if (subscriptionTier == "tier2") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier2"
+                                                                        ) {
                                                                             maxDays = 30;
-                                                                        } else if (subscriptionTier == "tier1") {
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier1"
+                                                                        ) {
                                                                             maxDays = 7;
                                                                         } else {
                                                                             // Default to most restrictive
@@ -550,7 +638,12 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
 
                                                                         // Filter out options that exceed the max
                                                                         // Special values: -1 (forever) and 9001 (end of year) should be filtered
-                                                                        if (option.value < 0 || option.value > maxDays) {
+                                                                        if (
+                                                                            option.value <
+                                                                                0 ||
+                                                                            option.value >
+                                                                                maxDays
+                                                                        ) {
                                                                             return false;
                                                                         }
 

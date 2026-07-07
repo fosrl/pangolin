@@ -24,7 +24,7 @@ import type { NextFunction, Request, Response } from "express";
 
 const paramsSchema = z.strictObject({
     orgId: z.string(),
-    approvalId: z.string().transform(Number).pipe(z.int().positive())
+    approvalId: z.coerce.number().int().positive()
 });
 
 const bodySchema = z.strictObject({

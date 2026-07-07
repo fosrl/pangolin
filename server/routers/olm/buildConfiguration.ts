@@ -161,7 +161,7 @@ export async function buildSiteConfigurationForOlmClient(
         }
 
         if (!site.subnet) {
-            logger.warn(`Site ${site.siteId} has no subnet, skipping`);
+            logger.debug(`Site ${site.siteId} has no subnet, skipping`);
             continue;
         }
 

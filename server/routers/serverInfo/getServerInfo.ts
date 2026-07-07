@@ -3,7 +3,6 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { response as sendResponse } from "@server/lib/response";
-import config from "@server/lib/config";
 import { build } from "@server/build";
 import { APP_VERSION } from "@server/lib/consts";
 import license from "#dynamic/license/license";
@@ -22,9 +21,6 @@ export async function getServerInfo(
     next: NextFunction
 ): Promise<any> {
     try {
-        const supporterData = config.getSupporterData();
-        const supporterStatusValid = supporterData?.valid || false;
-
         let enterpriseLicenseValid = false;
         let enterpriseLicenseType: string | null = null;
 
@@ -41,7 +37,7 @@ export async function getServerInfo(
         return sendResponse<GetServerInfoResponse>(res, {
             data: {
                 version: APP_VERSION,
-                supporterStatusValid,
+                supporterStatusValid: true,
                 build,
                 enterpriseLicenseValid,
                 enterpriseLicenseType

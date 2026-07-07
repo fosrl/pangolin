@@ -87,7 +87,7 @@ function createDb() {
 
 export const db = createDb();
 export default db;
-export const primaryDb = db.$primary as typeof db; // is this typeof a problem - techincally they are different types
+export const primaryDb = db.$primary as typeof db; // is this typeof a problem - technically they are different types
 export type Transaction = Parameters<
     Parameters<(typeof db)["transaction"]>[0]
 >[0];

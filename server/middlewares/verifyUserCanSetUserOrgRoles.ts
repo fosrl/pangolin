@@ -38,7 +38,7 @@ export function verifyUserCanSetUserOrgRoles() {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,
-                    "User does not have permission perform this action"
+                    "User does not have permission to set user organization roles"
                 )
             );
         } catch (error) {

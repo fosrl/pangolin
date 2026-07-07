@@ -1,4 +1,8 @@
 import { sendToClient } from "#dynamic/routers/ws";
+import config from "@server/lib/config";
+
+const udpPort = config.getRawConfig().gerbil.clients_start_port;
+
 // Error codes for registration failures
 export const OlmErrorCodes = {
     OLM_NOT_FOUND: {
@@ -86,6 +90,10 @@ export const OlmErrorCodes = {
     TERMINATED_BLOCKED: {
         code: "TERMINATED_BLOCKED",
         message: "This session was terminated because access was blocked."
+    },
+    HOLEPUNCH_MISSING: {
+        code: "HOLEPUNCH_MISSING",
+        message: `Unable to coordinate client P2P connection. Please ensure your client can reach the server on UDP port ${udpPort} and try registering again.`
     }
 } as const;
 

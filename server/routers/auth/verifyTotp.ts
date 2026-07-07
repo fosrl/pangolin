@@ -15,6 +15,10 @@ import TwoFactorAuthNotification from "@server/emails/templates/TwoFactorAuthNot
 import config from "@server/lib/config";
 import { UserType } from "@server/types/UserTypes";
 import { generateBackupCodes } from "@server/lib/totp";
+import {
+    invalidateAllSessions,
+    invalidateAllSessionsExceptCurrent
+} from "@server/auth/sessions/app";
 import { verifySession } from "@server/auth/sessions/verifySession";
 import { unauthorized } from "@server/auth/unauthorizedResponse";
 
@@ -166,6 +170,15 @@ export async function verifyTotp(
                     "Invalid two-factor authentication code"
                 )
             );
+        }
+
+        if (existingSession) {
+            await invalidateAllSessionsExceptCurrent(
+                user.userId,
+                existingSession.sessionId
+            );
+        } else {
+            await invalidateAllSessions(user.userId);
         }
 
         sendEmail(

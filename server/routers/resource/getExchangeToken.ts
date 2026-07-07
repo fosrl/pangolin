@@ -17,7 +17,7 @@ import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 
 const getExchangeTokenParams = z.strictObject({
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
 export type GetExchangeTokenResponse = {
@@ -80,8 +80,7 @@ export async function getExchangeToken(
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,
-                    "Failed organization access policy check: " +
-                        (hasAccess.error || "Unknown error")
+                    "" + (hasAccess.error || "Unknown error")
                 )
             );
         }

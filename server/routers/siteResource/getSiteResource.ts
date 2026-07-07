@@ -21,11 +21,7 @@ const getSiteResourceParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
-async function query(
-    siteResourceId?: number,
-    niceId?: string,
-    orgId?: string
-) {
+async function query(siteResourceId?: number, niceId?: string, orgId?: string) {
     if (siteResourceId && orgId) {
         const [siteResource] = await db
             .select()
@@ -69,7 +65,22 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 registry.registerPath({
@@ -83,7 +94,22 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function getSiteResource(

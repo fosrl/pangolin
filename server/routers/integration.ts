@@ -2,6 +2,7 @@ import * as site from "./site";
 import * as org from "./org";
 import * as blueprints from "./blueprints";
 import * as resource from "./resource";
+import * as policy from "./policy";
 import * as domain from "./domain";
 import * as target from "./target";
 import * as user from "./user";
@@ -16,7 +17,6 @@ import {
     verifyApiKey,
     verifyApiKeyOrgAccess,
     verifyApiKeyHasAction,
-    verifyApiKeyCanSetUserOrgRoles,
     verifyApiKeySiteAccess,
     verifyApiKeyResourceAccess,
     verifyApiKeyTargetAccess,
@@ -29,7 +29,9 @@ import {
     verifyApiKeySiteResourceAccess,
     verifyApiKeySetResourceClients,
     verifyLimits,
-    verifyApiKeyDomainAccess
+    verifyApiKeyDomainAccess,
+    verifyApiKeyResourcePolicyAccess,
+    verifyUserHasAction
 } from "@server/middlewares";
 import HttpCode from "@server/types/HttpCode";
 import { Router } from "express";
@@ -157,6 +159,7 @@ authenticated.get(
     verifyApiKeyOrgAccess,
     resource.getUserResources
 );
+
 // Site Resource endpoints
 authenticated.put(
     "/org/:orgId/site-resource",
@@ -459,6 +462,20 @@ authenticated.get(
     resource.getResource
 );
 
+authenticated.get(
+    "/resource-policy/:resourcePolicyId",
+    verifyApiKeyResourcePolicyAccess,
+    verifyApiKeyHasAction(ActionsEnum.getResourcePolicy),
+    policy.getResourcePolicy
+);
+
+authenticated.get(
+    "/resource/:resourceId/policies",
+    verifyApiKeyResourceAccess,
+    verifyApiKeyHasAction(ActionsEnum.getResourcePolicy),
+    resource.getResourcePolicies
+);
+
 authenticated.post(
     "/resource/:resourceId",
     verifyApiKeyResourceAccess,
@@ -466,6 +483,13 @@ authenticated.post(
     verifyApiKeyHasAction(ActionsEnum.updateResource),
     logActionAudit(ActionsEnum.updateResource),
     resource.updateResource
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId",
+    verifyApiKeyResourcePolicyAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateResourcePolicy),
+    policy.updateResourcePolicy
 );
 
 authenticated.delete(
@@ -617,6 +641,63 @@ authenticated.post(
     verifyApiKeyHasAction(ActionsEnum.setResourceUsers),
     logActionAudit(ActionsEnum.setResourceUsers),
     resource.setResourceUsers
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/access-control",
+    verifyApiKeyResourcePolicyAccess,
+    verifyApiKeyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setResourcePolicyUsers),
+    verifyUserHasAction(ActionsEnum.setResourcePolicyRoles),
+    logActionAudit(ActionsEnum.setResourcePolicyUsers),
+    logActionAudit(ActionsEnum.setResourcePolicyRoles),
+    policy.setResourcePolicyAccessControl
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/password",
+    verifyApiKeyResourcePolicyAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.setResourcePolicyPassword),
+    logActionAudit(ActionsEnum.setResourcePolicyPassword),
+    policy.setResourcePolicyPassword
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/pincode",
+    verifyApiKeyResourcePolicyAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.setResourcePolicyPincode),
+    logActionAudit(ActionsEnum.setResourcePolicyPincode),
+    policy.setResourcePolicyPincode
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/header-auth",
+    verifyApiKeyResourcePolicyAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.setResourcePolicyHeaderAuth),
+    logActionAudit(ActionsEnum.setResourcePolicyHeaderAuth),
+    policy.setResourcePolicyHeaderAuth
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/whitelist",
+    verifyApiKeyResourcePolicyAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.setResourcePolicyWhitelist),
+    logActionAudit(ActionsEnum.setResourcePolicyWhitelist),
+    policy.setResourcePolicyWhitelist
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/rules",
+    verifyApiKeyResourcePolicyAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.setResourcePolicyRules),
+    logActionAudit(ActionsEnum.setResourcePolicyRules),
+    policy.setResourcePolicyRules
 );
 
 authenticated.post(
@@ -891,6 +972,13 @@ authenticated.get(
     verifyApiKeyIsRoot,
     verifyApiKeyHasAction(ActionsEnum.getIdp),
     idp.getIdp
+);
+
+authenticated.delete(
+    "/idp/:idpId",
+    verifyApiKeyIsRoot,
+    verifyApiKeyHasAction(ActionsEnum.deleteIdp),
+    idp.deleteIdp
 );
 
 authenticated.put(

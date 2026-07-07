@@ -10,12 +10,15 @@ import { formatAxiosError } from "@app/lib/api";
 import { AxiosResponse } from "axios";
 import {
     SettingsContainer,
+    SettingsFormCell,
+    SettingsFormGrid,
     SettingsSection,
     SettingsSectionHeader,
     SettingsSectionTitle,
     SettingsSectionDescription,
     SettingsSectionBody,
-    SettingsSectionFooter
+    SettingsSectionFooter,
+    SettingsSectionForm
 } from "@app/components/Settings";
 import {
     InfoSection,
@@ -55,7 +58,7 @@ import {
     tier2LimitSet,
     tier3LimitSet
 } from "@server/lib/billing/limitSet";
-import { FeatureId } from "@server/lib/billing/features";
+import { LimitId } from "@server/lib/billing/features";
 import TrialBillingBanner from "@app/components/TrialBillingBanner";
 
 // Plan tier definitions matching the mockup
@@ -155,42 +158,60 @@ const tierLimits: Record<
         domains: number;
         remoteNodes: number;
         organizations: number;
+        publicResources: number;
+        privateResources: number;
+        machineClients: number;
     }
 > = {
     basic: {
-        users: freeLimitSet[FeatureId.USERS]?.value ?? 0,
-        sites: freeLimitSet[FeatureId.SITES]?.value ?? 0,
-        domains: freeLimitSet[FeatureId.DOMAINS]?.value ?? 0,
-        remoteNodes: freeLimitSet[FeatureId.REMOTE_EXIT_NODES]?.value ?? 0,
-        organizations: freeLimitSet[FeatureId.ORGINIZATIONS]?.value ?? 0
+        users: freeLimitSet[LimitId.USERS]?.value ?? 0,
+        sites: freeLimitSet[LimitId.SITES]?.value ?? 0,
+        domains: freeLimitSet[LimitId.DOMAINS]?.value ?? 0,
+        remoteNodes: freeLimitSet[LimitId.REMOTE_EXIT_NODES]?.value ?? 0,
+        organizations: freeLimitSet[LimitId.ORGANIZATIONS]?.value ?? 0,
+        publicResources: freeLimitSet[LimitId.PUBLIC_RESOURCES]?.value ?? 0,
+        privateResources: freeLimitSet[LimitId.PRIVATE_RESOURCES]?.value ?? 0,
+        machineClients: freeLimitSet[LimitId.MACHINE_CLIENTS]?.value ?? 0
     },
     tier1: {
-        users: tier1LimitSet[FeatureId.USERS]?.value ?? 0,
-        sites: tier1LimitSet[FeatureId.SITES]?.value ?? 0,
-        domains: tier1LimitSet[FeatureId.DOMAINS]?.value ?? 0,
-        remoteNodes: tier1LimitSet[FeatureId.REMOTE_EXIT_NODES]?.value ?? 0,
-        organizations: tier1LimitSet[FeatureId.ORGINIZATIONS]?.value ?? 0
+        users: tier1LimitSet[LimitId.USERS]?.value ?? 0,
+        sites: tier1LimitSet[LimitId.SITES]?.value ?? 0,
+        domains: tier1LimitSet[LimitId.DOMAINS]?.value ?? 0,
+        remoteNodes: tier1LimitSet[LimitId.REMOTE_EXIT_NODES]?.value ?? 0,
+        organizations: tier1LimitSet[LimitId.ORGANIZATIONS]?.value ?? 0,
+        publicResources: tier1LimitSet[LimitId.PUBLIC_RESOURCES]?.value ?? 0,
+        privateResources: tier1LimitSet[LimitId.PRIVATE_RESOURCES]?.value ?? 0,
+        machineClients: tier1LimitSet[LimitId.MACHINE_CLIENTS]?.value ?? 0
     },
     tier2: {
-        users: tier2LimitSet[FeatureId.USERS]?.value ?? 0,
-        sites: tier2LimitSet[FeatureId.SITES]?.value ?? 0,
-        domains: tier2LimitSet[FeatureId.DOMAINS]?.value ?? 0,
-        remoteNodes: tier2LimitSet[FeatureId.REMOTE_EXIT_NODES]?.value ?? 0,
-        organizations: tier2LimitSet[FeatureId.ORGINIZATIONS]?.value ?? 0
+        users: tier2LimitSet[LimitId.USERS]?.value ?? 0,
+        sites: tier2LimitSet[LimitId.SITES]?.value ?? 0,
+        domains: tier2LimitSet[LimitId.DOMAINS]?.value ?? 0,
+        remoteNodes: tier2LimitSet[LimitId.REMOTE_EXIT_NODES]?.value ?? 0,
+        organizations: tier2LimitSet[LimitId.ORGANIZATIONS]?.value ?? 0,
+        publicResources: tier2LimitSet[LimitId.PUBLIC_RESOURCES]?.value ?? 0,
+        privateResources: tier2LimitSet[LimitId.PRIVATE_RESOURCES]?.value ?? 0,
+        machineClients: tier2LimitSet[LimitId.MACHINE_CLIENTS]?.value ?? 0
     },
     tier3: {
-        users: tier3LimitSet[FeatureId.USERS]?.value ?? 0,
-        sites: tier3LimitSet[FeatureId.SITES]?.value ?? 0,
-        domains: tier3LimitSet[FeatureId.DOMAINS]?.value ?? 0,
-        remoteNodes: tier3LimitSet[FeatureId.REMOTE_EXIT_NODES]?.value ?? 0,
-        organizations: tier3LimitSet[FeatureId.ORGINIZATIONS]?.value ?? 0
+        users: tier3LimitSet[LimitId.USERS]?.value ?? 0,
+        sites: tier3LimitSet[LimitId.SITES]?.value ?? 0,
+        domains: tier3LimitSet[LimitId.DOMAINS]?.value ?? 0,
+        remoteNodes: tier3LimitSet[LimitId.REMOTE_EXIT_NODES]?.value ?? 0,
+        organizations: tier3LimitSet[LimitId.ORGANIZATIONS]?.value ?? 0,
+        publicResources: tier3LimitSet[LimitId.PUBLIC_RESOURCES]?.value ?? 0,
+        privateResources: tier3LimitSet[LimitId.PRIVATE_RESOURCES]?.value ?? 0,
+        machineClients: tier3LimitSet[LimitId.MACHINE_CLIENTS]?.value ?? 0
     },
     enterprise: {
         users: 0, // Custom for enterprise
         sites: 0, // Custom for enterprise
         domains: 0, // Custom for enterprise
         remoteNodes: 0, // Custom for enterprise
-        organizations: 0 // Custom for enterprise
+        organizations: 0, // Custom for enterprise
+        publicResources: 0, // Custom for enterprise
+        privateResources: 0, // Custom for enterprise
+        machineClients: 0 // Custom for enterprise
     }
 };
 
@@ -231,6 +252,9 @@ export default function BillingPage() {
     const DOMAINS = "domains";
     const REMOTE_EXIT_NODES = "remoteExitNodes";
     const ORGINIZATIONS = "organizations";
+    const PUBLIC_RESOURCES = "publicResources";
+    const PRIVATE_RESOURCES = "privateResources";
+    const MACHINE_CLIENTS = "machineClients";
 
     // Confirmation dialog state
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -266,7 +290,13 @@ export default function BillingPage() {
                     setHasSubscription(
                         tierSub.subscription.status === "active"
                     );
-                    setIsTrial(tierSub.subscription.expiresAt != null);
+                    // expiresAt is only meaningful while the trial hasn't
+                    // actually run out yet; a stale row with a past
+                    // expiresAt should no longer be treated as a live trial
+                    const expiresAt = tierSub.subscription.expiresAt;
+                    setIsTrial(
+                        expiresAt != null && expiresAt * 1000 > Date.now()
+                    );
                 }
 
                 // Find license subscription
@@ -794,6 +824,45 @@ export default function BillingPage() {
             });
         }
 
+        // Check public resources
+        const publicResourcesUsage = getUsageValue(PUBLIC_RESOURCES);
+        if (
+            limits.publicResources > 0 &&
+            publicResourcesUsage > limits.publicResources
+        ) {
+            violations.push({
+                feature: "Public Resources",
+                currentUsage: publicResourcesUsage,
+                newLimit: limits.publicResources
+            });
+        }
+
+        // Check private resources
+        const privateResourcesUsage = getUsageValue(PRIVATE_RESOURCES);
+        if (
+            limits.privateResources > 0 &&
+            privateResourcesUsage > limits.privateResources
+        ) {
+            violations.push({
+                feature: "Private Resources",
+                currentUsage: privateResourcesUsage,
+                newLimit: limits.privateResources
+            });
+        }
+
+        // Check machine clients
+        const machineClientsUsage = getUsageValue(MACHINE_CLIENTS);
+        if (
+            limits.machineClients > 0 &&
+            machineClientsUsage > limits.machineClients
+        ) {
+            violations.push({
+                feature: "Machine Clients",
+                currentUsage: machineClientsUsage,
+                newLimit: limits.machineClients
+            });
+        }
+
         return violations;
     };
 
@@ -994,21 +1063,23 @@ export default function BillingPage() {
                     </SettingsSectionDescription>
                 </SettingsSectionHeader>
                 <SettingsSectionBody>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         {/* Current Usage */}
-                        <div className="border rounded-lg p-4">
+                        <div className="border rounded-lg p-4 md:col-span-1">
                             <div className="text-sm text-muted-foreground mb-2">
                                 {t("billingCurrentUsage") || "Current Usage"}
                             </div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-semibold">
-                                    {getUserCount()}
-                                </span>
-                                <span className="text-lg">
-                                    {t("billingUsers") || "Users"}
-                                </span>
+                            <div className="flex flex-col items-start gap-1">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-3xl font-semibold">
+                                        {getUserCount()}
+                                    </span>
+                                    <span className="text-lg">
+                                        {t("billingUsers") || "Users"}
+                                    </span>
+                                </div>
                                 {hasSubscription && getPricePerUser() > 0 && (
-                                    <div className="text-sm text-muted-foreground mt-1">
+                                    <div className="text-sm text-muted-foreground">
                                         x ${getPricePerUser()} / month = $
                                         {getUserCount() * getPricePerUser()} /
                                         month
@@ -1018,11 +1089,11 @@ export default function BillingPage() {
                         </div>
 
                         {/* Maximum Limits */}
-                        <div className="border rounded-lg p-4">
+                        <div className="border rounded-lg p-4 md:col-span-3">
                             <div className="text-sm text-muted-foreground mb-3">
                                 {t("billingMaximumLimits") || "Maximum Limits"}
                             </div>
-                            <InfoSections cols={5}>
+                            <InfoSections cols={8}>
                                 <InfoSection>
                                     <InfoSectionTitle className="flex items-center gap-1 text-xs">
                                         {t("billingUsers") || "Users"}
@@ -1305,6 +1376,168 @@ export default function BillingPage() {
                                         )}
                                     </InfoSectionContent>
                                 </InfoSection>
+                                <InfoSection>
+                                    <InfoSectionTitle className="flex items-center gap-1 text-xs">
+                                        {t("billingPublicResources") ||
+                                            "Public Resources"}
+                                    </InfoSectionTitle>
+                                    <InfoSectionContent className="text-sm">
+                                        {isOverLimit(PUBLIC_RESOURCES) ? (
+                                            <Tooltip>
+                                                <TooltipTrigger className="flex items-center gap-1">
+                                                    <AlertTriangle className="h-3 w-3 text-orange-400" />
+                                                    <span
+                                                        className={cn(
+                                                            "text-orange-600 dark:text-orange-400 font-medium"
+                                                        )}
+                                                    >
+                                                        {getLimitValue(
+                                                            PUBLIC_RESOURCES
+                                                        ) ??
+                                                            t(
+                                                                "billingUnlimited"
+                                                            ) ??
+                                                            "∞"}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>
+                                                        {t(
+                                                            "billingUsageExceedsLimit",
+                                                            {
+                                                                current:
+                                                                    getUsageValue(
+                                                                        PUBLIC_RESOURCES
+                                                                    ),
+                                                                limit:
+                                                                    getLimitValue(
+                                                                        PUBLIC_RESOURCES
+                                                                    ) ?? 0
+                                                            }
+                                                        ) ||
+                                                            `Current usage (${getUsageValue(PUBLIC_RESOURCES)}) exceeds limit (${getLimitValue(PUBLIC_RESOURCES)})`}
+                                                    </p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        ) : (
+                                            <>
+                                                {getLimitValue(
+                                                    PUBLIC_RESOURCES
+                                                ) ??
+                                                    t("billingUnlimited") ??
+                                                    "∞"}
+                                            </>
+                                        )}
+                                    </InfoSectionContent>
+                                </InfoSection>
+                                <InfoSection>
+                                    <InfoSectionTitle className="flex items-center gap-1 text-xs">
+                                        {t("billingPrivateResources") ||
+                                            "Private Resources"}
+                                    </InfoSectionTitle>
+                                    <InfoSectionContent className="text-sm">
+                                        {isOverLimit(PRIVATE_RESOURCES) ? (
+                                            <Tooltip>
+                                                <TooltipTrigger className="flex items-center gap-1">
+                                                    <AlertTriangle className="h-3 w-3 text-orange-400" />
+                                                    <span
+                                                        className={cn(
+                                                            "text-orange-600 dark:text-orange-400 font-medium"
+                                                        )}
+                                                    >
+                                                        {getLimitValue(
+                                                            PRIVATE_RESOURCES
+                                                        ) ??
+                                                            t(
+                                                                "billingUnlimited"
+                                                            ) ??
+                                                            "∞"}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>
+                                                        {t(
+                                                            "billingUsageExceedsLimit",
+                                                            {
+                                                                current:
+                                                                    getUsageValue(
+                                                                        PRIVATE_RESOURCES
+                                                                    ),
+                                                                limit:
+                                                                    getLimitValue(
+                                                                        PRIVATE_RESOURCES
+                                                                    ) ?? 0
+                                                            }
+                                                        ) ||
+                                                            `Current usage (${getUsageValue(PRIVATE_RESOURCES)}) exceeds limit (${getLimitValue(PRIVATE_RESOURCES)})`}
+                                                    </p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        ) : (
+                                            <>
+                                                {getLimitValue(
+                                                    PRIVATE_RESOURCES
+                                                ) ??
+                                                    t("billingUnlimited") ??
+                                                    "∞"}
+                                            </>
+                                        )}
+                                    </InfoSectionContent>
+                                </InfoSection>
+                                <InfoSection>
+                                    <InfoSectionTitle className="flex items-center gap-1 text-xs">
+                                        {t("billingMachineClients") ||
+                                            "Machine Clients"}
+                                    </InfoSectionTitle>
+                                    <InfoSectionContent className="text-sm">
+                                        {isOverLimit(MACHINE_CLIENTS) ? (
+                                            <Tooltip>
+                                                <TooltipTrigger className="flex items-center gap-1">
+                                                    <AlertTriangle className="h-3 w-3 text-orange-400" />
+                                                    <span
+                                                        className={cn(
+                                                            "text-orange-600 dark:text-orange-400 font-medium"
+                                                        )}
+                                                    >
+                                                        {getLimitValue(
+                                                            MACHINE_CLIENTS
+                                                        ) ??
+                                                            t(
+                                                                "billingUnlimited"
+                                                            ) ??
+                                                            "∞"}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>
+                                                        {t(
+                                                            "billingUsageExceedsLimit",
+                                                            {
+                                                                current:
+                                                                    getUsageValue(
+                                                                        MACHINE_CLIENTS
+                                                                    ),
+                                                                limit:
+                                                                    getLimitValue(
+                                                                        MACHINE_CLIENTS
+                                                                    ) ?? 0
+                                                            }
+                                                        ) ||
+                                                            `Current usage (${getUsageValue(MACHINE_CLIENTS)}) exceeds limit (${getLimitValue(MACHINE_CLIENTS)})`}
+                                                    </p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        ) : (
+                                            <>
+                                                {getLimitValue(
+                                                    MACHINE_CLIENTS
+                                                ) ??
+                                                    t("billingUnlimited") ??
+                                                    "∞"}
+                                            </>
+                                        )}
+                                    </InfoSectionContent>
+                                </InfoSection>
                             </InfoSections>
                         </div>
                     </div>
@@ -1324,36 +1557,46 @@ export default function BillingPage() {
                         </SettingsSectionDescription>
                     </SettingsSectionHeader>
                     <SettingsSectionBody>
-                        <div className="w-full md:w-1/2">
-                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border rounded-lg p-4">
-                                <div>
-                                    <div className="text-sm text-muted-foreground mb-1">
-                                        {t("billingCurrentKeys") ||
-                                            "Current Keys"}
+                        <SettingsSectionForm variant="half">
+                            <SettingsFormGrid>
+                                <SettingsFormCell span="full">
+                                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border rounded-lg p-4">
+                                        <div>
+                                            <div className="text-sm text-muted-foreground mb-1">
+                                                {t("billingCurrentKeys") ||
+                                                    "Current Keys"}
+                                            </div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-semibold">
+                                                    {getLicenseKeyCount()}
+                                                </span>
+                                                <span className="text-lg">
+                                                    {getLicenseKeyCount() === 1
+                                                        ? "key"
+                                                        : "keys"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleModifySubscription}
+                                            disabled={isLoading}
+                                            loading={isLoading}
+                                        >
+                                            <CreditCard className="mr-2 h-4 w-4" />
+                                            {t("billingModifyCurrentPlan") ||
+                                                "Modify Current Plan"}
+                                        </Button>
+                                        <p className="text-sm text-muted-foreground mt-2">
+                                            {t(
+                                                "billingManageLicenseSubscriptionDescription"
+                                            ) ||
+                                                "Manage your subscription for paid self-hosted license keys and download invoices."}
+                                        </p>
                                     </div>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-semibold">
-                                            {getLicenseKeyCount()}
-                                        </span>
-                                        <span className="text-lg">
-                                            {getLicenseKeyCount() === 1
-                                                ? "key"
-                                                : "keys"}
-                                        </span>
-                                    </div>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    onClick={handleModifySubscription}
-                                    disabled={isLoading}
-                                    loading={isLoading}
-                                >
-                                    <CreditCard className="mr-2 h-4 w-4" />
-                                    {t("billingModifyCurrentPlan") ||
-                                        "Modify Current Plan"}
-                                </Button>
-                            </div>
-                        </div>
+                                </SettingsFormCell>
+                            </SettingsFormGrid>
+                        </SettingsSectionForm>
                     </SettingsSectionBody>
                 </SettingsSection>
             )}
@@ -1492,6 +1735,45 @@ export default function BillingPage() {
                                                     }{" "}
                                                     {t("billingRemoteNodes") ||
                                                         "Remote Nodes"}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                                                <span>
+                                                    {
+                                                        tierLimits[
+                                                            pendingTier.tier
+                                                        ].publicResources
+                                                    }{" "}
+                                                    {t(
+                                                        "billingPublicResources"
+                                                    ) || "Public Resources"}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                                                <span>
+                                                    {
+                                                        tierLimits[
+                                                            pendingTier.tier
+                                                        ].privateResources
+                                                    }{" "}
+                                                    {t(
+                                                        "billingPrivateResources"
+                                                    ) || "Private Resources"}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                                                <span>
+                                                    {
+                                                        tierLimits[
+                                                            pendingTier.tier
+                                                        ].machineClients
+                                                    }{" "}
+                                                    {t(
+                                                        "billingMachineClients"
+                                                    ) || "Machine Clients"}
                                                 </span>
                                             </div>
                                         </div>

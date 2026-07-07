@@ -13,6 +13,7 @@ import { Layout } from "@app/components/Layout";
 import { adminNavSections } from "../navigation";
 import { pullEnv } from "@app/lib/pullEnv";
 import SubscriptionStatusProvider from "@app/providers/SubscriptionStatusProvider";
+import { build } from "@server/build";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,11 @@ interface LayoutProps {
 export default async function AdminLayout(props: LayoutProps) {
     const getUser = cache(verifySession);
     const user = await getUser();
+
+    // Disable the admin page on saas
+    if (build == "saas") {
+        redirect(`/`);
+    }
 
     const env = pullEnv();
 

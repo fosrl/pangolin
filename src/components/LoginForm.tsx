@@ -345,6 +345,7 @@ export default function LoginForm({
                     error={error}
                     loading={loading}
                     formId="form"
+                    username={form.getValues("email")}
                 />
             )}
 

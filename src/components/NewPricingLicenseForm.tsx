@@ -389,7 +389,7 @@ export default function NewPricingLicenseForm({
                                                         {part}
                                                         {index === 0 && (
                                                             <a
-                                                                href="https://pangolin.net/fcl.html"
+                                                                href="https://pangolin.net/fcl"
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-primary hover:underline"
@@ -548,7 +548,7 @@ export default function NewPricingLicenseForm({
                                                                             "signUpTerms.IAgreeToThe"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/terms-of-service.html"
+                                                                            href="https://pangolin.net/tos"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -561,7 +561,7 @@ export default function NewPricingLicenseForm({
                                                                             "signUpTerms.and"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/privacy-policy.html"
+                                                                            href="https://pangolin.net/privacy"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -601,12 +601,12 @@ export default function NewPricingLicenseForm({
                                                                             "generateLicenseKeyForm.form.complianceConfirmation"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/fcl.html"
+                                                                            href="https://pangolin.net/fcl"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
                                                                         >
-                                                                            https://pangolin.net/fcl.html
+                                                                            https://pangolin.net/fcl
                                                                         </a>
                                                                     </div>
                                                                 </FormLabel>
@@ -799,7 +799,7 @@ export default function NewPricingLicenseForm({
                                                                             "signUpTerms.IAgreeToThe"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/terms-of-service.html"
+                                                                            href="https://pangolin.net/tos"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -812,7 +812,7 @@ export default function NewPricingLicenseForm({
                                                                             "signUpTerms.and"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/privacy-policy.html"
+                                                                            href="https://pangolin.net/privacy"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -852,12 +852,12 @@ export default function NewPricingLicenseForm({
                                                                             "generateLicenseKeyForm.form.complianceConfirmation"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/fcl.html"
+                                                                            href="https://pangolin.net/fcl"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
                                                                         >
-                                                                            https://pangolin.net/fcl.html
+                                                                            https://pangolin.net/fcl
                                                                         </a>
                                                                     </div>
                                                                 </FormLabel>

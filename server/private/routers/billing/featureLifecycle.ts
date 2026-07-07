@@ -308,8 +308,8 @@ async function disableFeature(
                 await disableAutoProvisioning(orgId);
                 break;
 
-            case TierFeature.SshPam:
-                await disableSshPam(orgId);
+            case TierFeature.AdvancedPrivateResources:
+                await disableAdvancedPrivateResources(orgId);
                 break;
 
             case TierFeature.FullRbac:
@@ -357,10 +357,11 @@ async function disableDeviceApprovals(orgId: string): Promise<void> {
     logger.info(`Disabled device approvals on all roles for org ${orgId}`);
 }
 
-async function disableSshPam(orgId: string): Promise<void> {
-    logger.info(
-        `Disabled SSH PAM options on all roles and site resources for org ${orgId}`
-    );
+async function disableAdvancedPrivateResources(orgId: string): Promise<void> {
+    // TODO: implement logic to disable advanced private resourcs like ssh and ssh pam
+    // logger.info(
+    //     `Disabled advanced private resources on all roles and site resources for org ${orgId}`
+    // );
 }
 
 async function disableFullRbac(orgId: string): Promise<void> {

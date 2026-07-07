@@ -22,7 +22,8 @@ server:
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
         allowed_headers: ["X-CSRF-Token", "Content-Type"]
         credentials: false
-    {{if .EnableGeoblocking}}maxmind_db_path: "./config/GeoLite2-Country.mmdb"{{end}}
+    {{if .EnableMaxMind}}maxmind_db_path: "./config/GeoLite2-Country.mmdb"{{end}}
+    {{if .EnableMaxMind}}maxmind_asn_path: "./config/GeoLite2-ASN.mmdb"{{end}}
 {{if .EnableEmail}}
 email:
     smtp_host: "{{.EmailSMTPHost}}"
@@ -36,3 +37,6 @@ flags:
     disable_signup_without_invite: true
     disable_user_create_org: false
     allow_raw_resources: true
+
+{{if .IsPostgreSQL}}postgres:
+    connection_string: postgresql://pangolin:{{.IsPostgreSQLPass}}@postgres:5432/pangolin{{end}}

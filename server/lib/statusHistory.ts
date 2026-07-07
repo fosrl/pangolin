@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db, logsDb, statusHistory } from "@server/db";
-import { and, eq, gte, asc } from "drizzle-orm";
+import { and, eq, gte, lt, asc, desc } from "drizzle-orm";
 import { regionalCache as cache } from "#dynamic/lib/cache";
 
 const STATUS_HISTORY_CACHE_TTL = 60; // seconds
@@ -42,7 +42,29 @@ export async function getCachedStatusHistory(
         )
         .orderBy(asc(statusHistory.timestamp));
 
-    const { buckets, totalDowntime } = computeBuckets(events, days);
+    // Fetch the last known state before the window so that entities that
+    // haven't changed status recently still show the correct status rather
+    // than appearing as "no_data".
+    const [lastKnownEvent] = await logsDb
+        .select()
+        .from(statusHistory)
+        .where(
+            and(
+                eq(statusHistory.entityType, entityType),
+                eq(statusHistory.entityId, entityId),
+                lt(statusHistory.timestamp, startSec)
+            )
+        )
+        .orderBy(desc(statusHistory.timestamp))
+        .limit(1);
+
+    const priorStatus = lastKnownEvent?.status ?? null;
+
+    const { buckets, totalDowntime } = computeBuckets(
+        events,
+        days,
+        priorStatus
+    );
     const totalWindow = days * 86400;
     const overallUptime =
         totalWindow > 0
@@ -110,7 +132,8 @@ export function computeBuckets(
         timestamp: number;
         id: number;
     }[],
-    days: number
+    days: number,
+    priorStatus: string | null = null
 ): { buckets: StatusHistoryDayBucket[]; totalDowntime: number } {
     const nowSec = Math.floor(Date.now() / 1000);
 
@@ -136,7 +159,10 @@ export function computeBuckets(
             .filter((e) => e.timestamp < dayStartSec)
             .at(-1);
 
-        const currentStatus = lastBeforeDay?.status ?? null;
+        // Fall back to the last known state before the entire query window
+        // so that entities that haven't generated events recently still show
+        // as their actual status rather than "no_data".
+        const currentStatus = lastBeforeDay?.status ?? priorStatus ?? null;
 
         const windows: { start: number; end: number | null; status: string }[] =
             [];

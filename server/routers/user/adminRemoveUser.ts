@@ -55,7 +55,7 @@ export async function adminRemoveUser(
             await trx.delete(users).where(eq(users.userId, userId));
         });
 
-        calculateUserClientsForOrgs(userId, primaryDb).catch((e) => {
+        calculateUserClientsForOrgs(userId).catch((e) => {
             logger.error(
                 `Failed to calculate user clients after removing user ${userId}: ${e}`
             );

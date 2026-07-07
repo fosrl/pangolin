@@ -25,11 +25,15 @@ export function StrategySelect<TValue extends string>({
     value: controlledValue,
     defaultValue,
     onChange,
-    cols
+    cols = 1
 }: StrategySelectProps<TValue>) {
-    const [uncontrolledSelected, setUncontrolledSelected] = useState<TValue | undefined>(defaultValue);
+    const [uncontrolledSelected, setUncontrolledSelected] = useState<
+        TValue | undefined
+    >(defaultValue);
     const isControlled = controlledValue !== undefined;
-    const selected = isControlled ? (controlledValue ?? undefined) : uncontrolledSelected;
+    const selected = isControlled
+        ? (controlledValue ?? undefined)
+        : uncontrolledSelected;
 
     return (
         <RadioGroup
@@ -39,7 +43,11 @@ export function StrategySelect<TValue extends string>({
                 if (!isControlled) setUncontrolledSelected(typedValue);
                 onChange?.(typedValue);
             }}
-            className={`grid md:grid-cols-${cols ? cols : 1} gap-4`}
+            style={{
+                // @ts-expect-error
+                "--cols": `repeat(${cols}, 1fr)`
+            }}
+            className="grid md:grid-cols-(--cols) gap-4"
         >
             {options.map((option: StrategyOption<TValue>) => (
                 <label

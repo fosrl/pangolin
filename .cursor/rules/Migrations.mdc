@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Don't write or edit migrations in `server/setup` unless specificall instructed to do so.

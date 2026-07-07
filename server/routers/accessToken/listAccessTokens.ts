@@ -30,7 +30,7 @@ const listAccessTokensParamsSchema = z
         error: "Either resourceId or orgId must be provided, but not both"
     });
 
-const listAccessTokensSchema = z.object({
+const listAccessTokensSchema = z.strictObject({
     limit: z
         .string()
         .optional()
@@ -129,7 +129,22 @@ registry.registerPath({
         }),
         query: listAccessTokensSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 registry.registerPath({
@@ -143,7 +158,22 @@ registry.registerPath({
         }),
         query: listAccessTokensSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function listAccessTokens(

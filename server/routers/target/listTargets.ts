@@ -11,10 +11,10 @@ import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
 
 const listTargetsParamsSchema = z.strictObject({
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
-const listTargetsSchema = z.object({
+const listTargetsSchema = z.strictObject({
     limit: z
         .string()
         .optional()
@@ -34,6 +34,7 @@ function queryTargets(resourceId: number) {
         .select({
             targetId: targets.targetId,
             ip: targets.ip,
+            mode: targets.mode,
             method: targets.method,
             port: targets.port,
             enabled: targets.enabled,
@@ -96,7 +97,22 @@ registry.registerPath({
         params: listTargetsParamsSchema,
         query: listTargetsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function listTargets(

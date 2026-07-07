@@ -1,5 +1,5 @@
 "use client";
-import { ColumnFilter } from "@app/components/ColumnFilter";
+import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { LogDataTable } from "@app/components/LogDataTable";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
@@ -219,9 +219,7 @@ export default function GeneralPage() {
     const columns: ColumnDef<any>[] = [
         {
             accessorKey: "timestamp",
-            header: () => {
-                return t("timestamp");
-            },
+            header: () => <span className="px-2">{t("timestamp")}</span>,
             cell: ({ row }) => {
                 return (
                     <div className="whitespace-nowrap">
@@ -236,16 +234,16 @@ export default function GeneralPage() {
             accessorKey: "action",
             header: () => {
                 return (
-                    <div className="flex items-center gap-2">
-                        <span>{t("action")}</span>
-                        <ColumnFilter
+                    <div className="flex items-center gap-2 px-2">
+                        <ColumnFilterButton
                             options={[]}
+                            label={t("action")}
                             selectedValue={filters.action}
                             onValueChange={(value) =>
                                 handleFilterChange("action", value)
                             }
-                            searchPlaceholder="Search..."
-                            emptyMessage="None found"
+                            searchPlaceholder={t("searchPlaceholder")}
+                            emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
                 );
@@ -263,19 +261,19 @@ export default function GeneralPage() {
             accessorKey: "actor",
             header: () => {
                 return (
-                    <div className="flex items-center gap-2">
-                        <span>{t("actor")}</span>
-                        <ColumnFilter
+                    <div className="flex items-center gap-2 px-2">
+                        <ColumnFilterButton
                             options={filterAttributes.actors.map((actor) => ({
                                 value: actor,
                                 label: actor
                             }))}
+                            label={t("actor")}
                             selectedValue={filters.actor}
                             onValueChange={(value) =>
                                 handleFilterChange("actor", value)
                             }
-                            searchPlaceholder="Search..."
-                            emptyMessage="None found"
+                            searchPlaceholder={t("searchPlaceholder")}
+                            emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
                 );
@@ -295,9 +293,7 @@ export default function GeneralPage() {
         },
         {
             accessorKey: "actorId",
-            header: () => {
-                return t("actorId");
-            },
+            header: () => <span className="px-2">{t("actorId")}</span>,
             cell: ({ row }) => {
                 return (
                     <span className="flex items-center gap-1">

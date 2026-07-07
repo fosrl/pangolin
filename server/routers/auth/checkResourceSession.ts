@@ -9,7 +9,7 @@ import logger from "@server/logger";
 
 export const params = z.strictObject({
     token: z.string(),
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
 export type CheckResourceSessionParams = z.infer<typeof params>;

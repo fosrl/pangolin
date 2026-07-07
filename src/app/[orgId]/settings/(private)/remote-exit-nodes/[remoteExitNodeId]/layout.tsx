@@ -37,6 +37,10 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
         {
             title: t("credentials"),
             href: "/{orgId}/settings/remote-exit-nodes/{remoteExitNodeId}/credentials"
+        },
+        {
+            title: "Networking",
+            href: "/{orgId}/settings/remote-exit-nodes/{remoteExitNodeId}/networking"
         }
     ];
 

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, resources } from "@server/db";
-import { userResources } from "@server/db";
+import { userResources, userPolicies } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -28,7 +28,8 @@ const addUserToResourceParamsSchema = z
 registry.registerPath({
     method: "post",
     path: "/resource/{resourceId}/users/add",
-    description: "Add a single user to a resource.",
+    description:
+        "Add a single user to a resource. When the resource has an inline policy defined (no shared resource policy assigned), the user is added to the inline policy instead of directly to the resource.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.User],
     request: {
         params: addUserToResourceParamsSchema,
@@ -40,7 +41,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function addUserToResource(
@@ -88,30 +104,63 @@ export async function addUserToResource(
             );
         }
 
-        // Check if user already exists in resource
-        const existingEntry = await db
-            .select()
-            .from(userResources)
-            .where(
-                and(
-                    eq(userResources.resourceId, resourceId),
-                    eq(userResources.userId, userId)
-                )
-            );
+        const isInlinePolicy =
+            resource.resourcePolicyId === null &&
+            resource.defaultResourcePolicyId !== null;
 
-        if (existingEntry.length > 0) {
-            return next(
-                createHttpError(
-                    HttpCode.CONFLICT,
-                    "User already assigned to resource"
-                )
-            );
+        if (isInlinePolicy) {
+            const policyId = resource.defaultResourcePolicyId!;
+
+            // Check if user already exists in the inline policy
+            const existingEntry = await db
+                .select()
+                .from(userPolicies)
+                .where(
+                    and(
+                        eq(userPolicies.resourcePolicyId, policyId),
+                        eq(userPolicies.userId, userId)
+                    )
+                );
+
+            if (existingEntry.length > 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.CONFLICT,
+                        "User already assigned to resource"
+                    )
+                );
+            }
+
+            await db.insert(userPolicies).values({
+                userId,
+                resourcePolicyId: policyId
+            });
+        } else {
+            // Check if user already exists in resource
+            const existingEntry = await db
+                .select()
+                .from(userResources)
+                .where(
+                    and(
+                        eq(userResources.resourceId, resourceId),
+                        eq(userResources.userId, userId)
+                    )
+                );
+
+            if (existingEntry.length > 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.CONFLICT,
+                        "User already assigned to resource"
+                    )
+                );
+            }
+
+            await db.insert(userResources).values({
+                userId,
+                resourceId
+            });
         }
-
-        await db.insert(userResources).values({
-            userId,
-            resourceId
-        });
 
         return response(res, {
             data: {},

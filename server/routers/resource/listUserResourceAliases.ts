@@ -5,9 +5,13 @@ import {
     userSiteResources,
     roleSiteResources,
     userOrgRoles,
-    userOrgs
+    userOrgs,
+    labels,
+    siteResourceLabels
 } from "@server/db";
-import { and, eq, inArray, asc, isNotNull, ne } from "drizzle-orm";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { and, eq, inArray, asc, isNotNull, ne, or } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
@@ -15,25 +19,44 @@ import logger from "@server/logger";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import type { PaginatedResponse } from "@server/types/Pagination";
-import { OpenAPITags, registry } from "@server/openApi";
-import { localCache } from "#dynamic/lib/cache";
+import { regionalCache as cache } from "#dynamic/lib/cache";
 
 const USER_RESOURCE_ALIASES_CACHE_TTL_SEC = 60;
+
+const labelFilterQuerySchema = z
+    .preprocess((val) => {
+        if (val === undefined || val === null || val === "") {
+            return undefined;
+        }
+        if (Array.isArray(val)) {
+            return val;
+        }
+        if (typeof val === "string") {
+            return val.split(",");
+        }
+        return undefined;
+    }, z.array(z.string()))
+    .optional()
+    .catch([]);
 
 function userResourceAliasesCacheKey(
     orgId: string,
     userId: string,
     page: number,
-    pageSize: number
+    pageSize: number,
+    includeLabels: boolean,
+    labelFilter: string[]
 ) {
-    return `userResourceAliases:${orgId}:${userId}:${page}:${pageSize}`;
+    const labelsKey =
+        labelFilter.length > 0 ? labelFilter.slice().sort().join(",") : "all";
+    return `userResourceAliases:${orgId}:${userId}:${page}:${pageSize}:${includeLabels ? "labels" : "plain"}:${labelsKey}`;
 }
 
 const listUserResourceAliasesParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
-const listUserResourceAliasesQuerySchema = z.object({
+const listUserResourceAliasesQuerySchema = z.strictObject({
     pageSize: z.coerce
         .number<string>()
         .int()
@@ -57,27 +80,34 @@ const listUserResourceAliasesQuerySchema = z.object({
             type: "integer",
             default: 1,
             description: "Page number to retrieve"
-        })
+        }),
+    includeLabels: z
+        .enum(["true", "false"])
+        .optional()
+        .default("false")
+        .transform((val) => val === "true")
+        .openapi({
+            type: "boolean",
+            default: false,
+            description:
+                "When true, include label names for each alias in the items field"
+        }),
+    labels: labelFilterQuerySchema.openapi({
+        type: "array",
+        description:
+            "Filter by resource labels. A resource matches when it has any of the given labels (OR)."
+    })
 });
+
+export type UserResourceAliasItem = {
+    alias: string;
+    labels: string[];
+};
 
 export type ListUserResourceAliasesResponse = PaginatedResponse<{
     aliases: string[];
+    items?: UserResourceAliasItem[];
 }>;
-
-// registry.registerPath({
-//     method: "get",
-//     path: "/org/{orgId}/user-resource-aliases",
-//     description:
-//         "List private (host-mode) site resource aliases the authenticated user can access in the organization, paginated.",
-//     tags: [OpenAPITags.PrivateResource],
-//     request: {
-//         params: z.object({
-//             orgId: z.string()
-//         }),
-//         query: listUserResourceAliasesQuerySchema
-//     },
-//     responses: {}
-// });
 
 export async function listUserResourceAliases(
     req: Request,
@@ -96,7 +126,12 @@ export async function listUserResourceAliases(
                 )
             );
         }
-        const { page, pageSize } = parsedQuery.data;
+        const {
+            page,
+            pageSize,
+            includeLabels,
+            labels: labelFilter
+        } = parsedQuery.data;
 
         const parsedParams = listUserResourceAliasesParamsSchema.safeParse(
             req.params
@@ -135,10 +170,12 @@ export async function listUserResourceAliases(
             orgId,
             userId,
             page,
-            pageSize
+            pageSize,
+            includeLabels,
+            labelFilter ?? []
         );
         const cachedData: ListUserResourceAliasesResponse | undefined =
-            localCache.get(cacheKey);
+            await cache.get(cacheKey);
 
         if (cachedData) {
             return response<ListUserResourceAliasesResponse>(res, {
@@ -190,13 +227,18 @@ export async function listUserResourceAliases(
         if (accessibleSiteResourceIds.length === 0) {
             const data: ListUserResourceAliasesResponse = {
                 aliases: [],
+                ...(includeLabels ? { items: [] } : {}),
                 pagination: {
                     total: 0,
                     pageSize,
                     page
                 }
             };
-            localCache.set(cacheKey, data, USER_RESOURCE_ALIASES_CACHE_TTL_SEC);
+            await cache.set(
+                cacheKey,
+                data,
+                USER_RESOURCE_ALIASES_CACHE_TTL_SEC
+            );
             return response<ListUserResourceAliasesResponse>(res, {
                 data,
                 success: true,
@@ -206,18 +248,44 @@ export async function listUserResourceAliases(
             });
         }
 
-        const whereClause = and(
+        const isLabelFeatureEnabled = await isLicensedOrSubscribed(
+            orgId,
+            tierMatrix.labels
+        );
+
+        const whereConditions = [
             eq(siteResources.orgId, orgId),
             eq(siteResources.enabled, true),
-            eq(siteResources.mode, "host"),
+            or(eq(siteResources.mode, "host"), eq(siteResources.mode, "ssh")),
             isNotNull(siteResources.alias),
             ne(siteResources.alias, ""),
             inArray(siteResources.siteResourceId, accessibleSiteResourceIds)
-        );
+        ];
+
+        if (isLabelFeatureEnabled && labelFilter && labelFilter.length > 0) {
+            whereConditions.push(
+                inArray(
+                    siteResources.siteResourceId,
+                    db
+                        .select({ id: siteResourceLabels.siteResourceId })
+                        .from(siteResourceLabels)
+                        .innerJoin(
+                            labels,
+                            eq(labels.labelId, siteResourceLabels.labelId)
+                        )
+                        .where(inArray(labels.name, labelFilter))
+                )
+            );
+        }
+
+        const whereClause = and(...whereConditions);
 
         const baseSelect = () =>
             db
-                .select({ alias: siteResources.alias })
+                .select({
+                    alias: siteResources.alias,
+                    siteResourceId: siteResources.siteResourceId
+                })
                 .from(siteResources)
                 .where(whereClause);
 
@@ -233,15 +301,53 @@ export async function listUserResourceAliases(
 
         const aliases = rows.map((r) => r.alias as string);
 
+        let items: UserResourceAliasItem[] | undefined;
+        if (includeLabels) {
+            const siteResourceIdList = rows.map((r) => r.siteResourceId);
+
+            let labelsForSiteResources: Array<{
+                name: string;
+                siteResourceId: number;
+            }> = [];
+
+            if (isLabelFeatureEnabled && siteResourceIdList.length > 0) {
+                labelsForSiteResources = await db
+                    .select({
+                        name: labels.name,
+                        siteResourceId: siteResourceLabels.siteResourceId
+                    })
+                    .from(labels)
+                    .innerJoin(
+                        siteResourceLabels,
+                        eq(siteResourceLabels.labelId, labels.labelId)
+                    )
+                    .where(
+                        inArray(
+                            siteResourceLabels.siteResourceId,
+                            siteResourceIdList
+                        )
+                    )
+                    .orderBy(asc(siteResourceLabels.siteResourceLabelId));
+            }
+
+            items = rows.map((row) => ({
+                alias: row.alias as string,
+                labels: labelsForSiteResources
+                    .filter((l) => l.siteResourceId === row.siteResourceId)
+                    .map((l) => l.name)
+            }));
+        }
+
         const data: ListUserResourceAliasesResponse = {
             aliases,
+            ...(items !== undefined ? { items } : {}),
             pagination: {
                 total: totalCount,
                 pageSize,
                 page
             }
         };
-        localCache.set(cacheKey, data, USER_RESOURCE_ALIASES_CACHE_TTL_SEC);
+        await cache.set(cacheKey, data, USER_RESOURCE_ALIASES_CACHE_TTL_SEC);
 
         return response<ListUserResourceAliasesResponse>(res, {
             data,

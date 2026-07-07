@@ -17,12 +17,12 @@ import { eq, and, inArray } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
 import {
     rebuildClientAssociationsFromClient,
-    rebuildClientAssociationsFromSiteResource
+    isOrgRebuildRateLimited
 } from "@server/lib/rebuildClientAssociations";
 
 const batchAddClientToSiteResourcesParamsSchema = z
     .object({
-        clientId: z.string().transform(Number).pipe(z.number().int().positive())
+        clientId: z.coerce.number().int().positive()
     })
     .strict();
 
@@ -49,7 +49,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function batchAddClientToSiteResources(
@@ -174,6 +189,15 @@ export async function batchAddClientToSiteResources(
             );
         }
 
+        if (await isOrgRebuildRateLimited(client.orgId)) {
+            return next(
+                createHttpError(
+                    HttpCode.TOO_MANY_REQUESTS,
+                    "Too many concurrent rebuild operations for this organization. Please retry after a moment."
+                )
+            );
+        }
+
         if (client.userId !== null) {
             return next(
                 createHttpError(
@@ -223,7 +247,7 @@ export async function batchAddClientToSiteResources(
             }
         });
 
-        rebuildClientAssociationsFromClient(client, primaryDb).catch((e) => {
+        rebuildClientAssociationsFromClient(client).catch((e) => {
             logger.error(
                 `Failed to rebuild client associations after batch adding site resources for client ${clientId}: ${e}`
             );

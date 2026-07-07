@@ -9,11 +9,13 @@ const PLACEHOLDER_ROW_COUNT = 5;
 type DataTableEmptyStateProps = {
     colSpan: number;
     action?: ReactNode;
+    message?: string;
 };
 
 export function DataTableEmptyState({
     colSpan,
-    action
+    action,
+    message
 }: DataTableEmptyStateProps) {
     const t = useTranslations();
     return (
@@ -32,7 +34,7 @@ export function DataTableEmptyState({
                     </div>
                     <div className="relative flex min-h-[11rem] w-full flex-col items-center justify-center gap-4 px-4 py-8">
                         <p className="text-sm text-muted-foreground">
-                            {t("noResults")}
+                            {message ?? t("noResults")}
                         </p>
                         {action}
                     </div>

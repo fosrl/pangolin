@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { resourcePincode } from "@server/db";
+import { resourcePincode, resourcePolicyPincode, resources } from "@server/db";
 import { eq } from "drizzle-orm";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -14,7 +14,7 @@ import { hashPassword } from "@server/auth/password";
 import { OpenAPITags, registry } from "@server/openApi";
 
 const setResourceAuthMethodsParamsSchema = z.object({
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
 const setResourceAuthMethodsBodySchema = z.strictObject({
@@ -40,7 +40,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function setResourcePincode(
@@ -74,17 +89,51 @@ export async function setResourcePincode(
         const { resourceId } = parsedParams.data;
         const { pincode } = parsedBody.data;
 
+        const [resource] = await db
+            .select()
+            .from(resources)
+            .where(eq(resources.resourceId, resourceId))
+            .limit(1);
+
+        if (!resource) {
+            return next(
+                createHttpError(HttpCode.NOT_FOUND, "Resource not found")
+            );
+        }
+
+        const isInlinePolicy =
+            resource.resourcePolicyId === null &&
+            resource.defaultResourcePolicyId !== null;
+
         await db.transaction(async (trx) => {
-            await trx
-                .delete(resourcePincode)
-                .where(eq(resourcePincode.resourceId, resourceId));
-
-            if (pincode) {
-                const pincodeHash = await hashPassword(pincode);
-
+            if (isInlinePolicy) {
+                const policyId = resource.defaultResourcePolicyId!;
                 await trx
-                    .insert(resourcePincode)
-                    .values({ resourceId, pincodeHash, digitLength: 6 });
+                    .delete(resourcePolicyPincode)
+                    .where(
+                        eq(resourcePolicyPincode.resourcePolicyId, policyId)
+                    );
+
+                if (pincode) {
+                    const pincodeHash = await hashPassword(pincode);
+                    await trx.insert(resourcePolicyPincode).values({
+                        resourcePolicyId: policyId,
+                        pincodeHash,
+                        digitLength: 6
+                    });
+                }
+            } else {
+                await trx
+                    .delete(resourcePincode)
+                    .where(eq(resourcePincode.resourceId, resourceId));
+
+                if (pincode) {
+                    const pincodeHash = await hashPassword(pincode);
+
+                    await trx
+                        .insert(resourcePincode)
+                        .values({ resourceId, pincodeHash, digitLength: 6 });
+                }
             }
         });
 

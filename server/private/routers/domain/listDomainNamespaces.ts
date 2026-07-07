@@ -25,6 +25,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { build } from "@server/build";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 
 const paramsSchema = z.strictObject({});
 
@@ -65,6 +66,20 @@ export type ListDomainNamespacesResponse = {
     pagination: { total: number; limit: number; offset: number };
 };
 
+const ListDomainNamespacesResponseDataSchema = z.object({
+    domainNamespaces: z.array(
+        z.object({
+            domainNamespaceId: z.string(),
+            domainId: z.string()
+        })
+    ),
+    pagination: z.object({
+        total: z.number(),
+        limit: z.number(),
+        offset: z.number()
+    })
+});
+
 registry.registerPath({
     method: "get",
     path: "/domains/namepaces",
@@ -73,7 +88,18 @@ registry.registerPath({
     request: {
         query: querySchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        ListDomainNamespacesResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
 });
 
 export async function listDomainNamespaces(

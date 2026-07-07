@@ -48,7 +48,7 @@ export default async function BluePrintsPage(props: BluePrintsPageProps) {
     return (
         <OrgProvider org={org}>
             <SettingsSectionTitle
-                title={t("blueprints")}
+                title={t("blueprintsLog")}
                 description={t("blueprintsDescription")}
             />
             <BlueprintsTable blueprints={blueprints} orgId={params.orgId} />

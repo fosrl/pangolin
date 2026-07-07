@@ -11,7 +11,7 @@ import { fromError } from "zod-validation-error";
 
 const addUserSiteSchema = z.strictObject({
     userId: z.string(),
-    siteId: z.string().transform(Number).pipe(z.int().positive())
+    siteId: z.coerce.number().int().positive()
 });
 
 export async function addUserSite(

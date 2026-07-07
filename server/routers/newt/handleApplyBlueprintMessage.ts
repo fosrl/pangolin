@@ -50,7 +50,7 @@ export const handleApplyBlueprintMessage: MessageHandler = async (context) => {
             source: "NEWT"
         });
     } catch (error) {
-        logger.error(`Failed to update database from config: ${error}`);
+        logger.debug(`Failed to update database from config: ${error}`);
         return {
             message: {
                 type: "newt/blueprint/results",

@@ -2,7 +2,7 @@ import { drizzle as DrizzlePostgres } from "drizzle-orm/node-postgres";
 import { readConfigFile } from "@server/lib/readConfigFile";
 import { withReplicas } from "drizzle-orm/pg-core";
 import { build } from "@server/build";
-import { db as mainDb, primaryDb as mainPrimaryDb } from "./driver";
+import { db as mainDb } from "./driver";
 import { createPool } from "./poolConfig";
 
 function createLogsDb() {
@@ -63,8 +63,7 @@ function createLogsDb() {
             })
         );
     } else {
-        const maxReplicaConnections =
-            poolConfig?.max_replica_connections || 20;
+        const maxReplicaConnections = poolConfig?.max_replica_connections || 20;
         for (const conn of replicaConnections) {
             const replicaPool = createPool(
                 conn.connection_string,

@@ -2,28 +2,20 @@
 
 import { Button } from "@app/components/ui/button";
 import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList
-} from "@app/components/ui/command";
-import {
     Popover,
     PopoverContent,
     PopoverTrigger
 } from "@app/components/ui/popover";
 import { cn } from "@app/lib/cn";
 import { dataTableFilterPopoverContentClassName } from "@app/lib/dataTableFilterPopover";
-import { CheckIcon, Funnel } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
 import { orgQueries } from "@app/lib/queries";
 import { useQuery } from "@tanstack/react-query";
-import { useDebounce } from "use-debounce";
+import { Funnel } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { LabelBadge } from "./label-badge";
 import { LabelOverflowBadge } from "./label-overflow-badge";
+import { LabelsFilterSelector } from "./LabelsFilterSelector";
 import { LABEL_COLORS } from "./labels-selector";
 
 function areSelectionsEqual(a: string[], b: string[]) {
@@ -53,13 +45,9 @@ export function LabelColumnFilterButton({
     const [draftValues, setDraftValues] = useState<string[]>(selectedValues);
     const t = useTranslations();
 
-    const [labelSearchQuery, setlabelsSearchQuery] = useState("");
-    const [debouncedQuery] = useDebounce(labelSearchQuery, 150);
-
     const { data: labels = [] } = useQuery(
         orgQueries.labels({
             orgId,
-            query: debouncedQuery,
             perPage: 500
         })
     );
@@ -151,55 +139,17 @@ export function LabelColumnFilterButton({
                     className={dataTableFilterPopoverContentClassName}
                     align="start"
                 >
-                    <Command shouldFilter={false}>
-                        <CommandInput
-                            placeholder={t("labelSearch")}
-                            value={labelSearchQuery}
-                            onValueChange={setlabelsSearchQuery}
-                        />
-                        <CommandList>
-                            <CommandEmpty>{t("labelsNotFound")}</CommandEmpty>
-                            <CommandGroup>
-                                {draftValues.length > 0 && (
-                                    <CommandItem
-                                        onSelect={() => {
-                                            setDraftValues([]);
-                                        }}
-                                        className="text-muted-foreground"
-                                    >
-                                        {t("accessLabelFilterClear")}
-                                    </CommandItem>
-                                )}
-                                {labels.map((label) => (
-                                    <CommandItem
-                                        key={label.name}
-                                        value={label.name}
-                                        onSelect={() => {
-                                            toggle(label.name);
-                                        }}
-                                        className="flex items-center gap-2"
-                                    >
-                                        <CheckIcon
-                                            className={cn(
-                                                "mr-2 h-4 w-4",
-                                                draftSet.has(label.name)
-                                                    ? "opacity-100"
-                                                    : "opacity-0"
-                                            )}
-                                        />
-                                        <div
-                                            className="size-2 rounded-full bg-(--color) flex-none"
-                                            style={{
-                                                // @ts-expect-error css color
-                                                "--color": label.color
-                                            }}
-                                        />
-                                        {label.name}
-                                    </CommandItem>
-                                ))}
-                            </CommandGroup>
-                        </CommandList>
-                    </Command>
+                    <LabelsFilterSelector
+                        orgId={orgId}
+                        isSelected={(label) => draftSet.has(label.name)}
+                        onToggle={(label) => {
+                            toggle(label.name);
+                        }}
+                        showClear={draftValues.length > 0}
+                        onClear={() => {
+                            setDraftValues([]);
+                        }}
+                    />
                 </PopoverContent>
             </Popover>
         </div>

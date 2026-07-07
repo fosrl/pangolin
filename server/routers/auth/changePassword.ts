@@ -10,9 +10,8 @@ import { hashPassword, verifyPassword } from "@server/auth/password";
 import { verifyTotpCode } from "@server/auth/totp";
 import logger from "@server/logger";
 import { unauthorized } from "@server/auth/unauthorizedResponse";
-import { invalidateAllSessions } from "@server/auth/sessions/app";
-import { sessions, resourceSessions } from "@server/db";
-import { and, eq, ne, inArray } from "drizzle-orm";
+import { invalidateAllSessionsExceptCurrent } from "@server/auth/sessions/app";
+import { eq } from "drizzle-orm";
 import { passwordSchema } from "@server/auth/passwordSchema";
 import { UserType } from "@server/types/UserTypes";
 import { sendEmail } from "@server/emails";
@@ -30,48 +29,6 @@ export type ChangePasswordBody = z.infer<typeof changePasswordBody>;
 export type ChangePasswordResponse = {
     codeRequested?: boolean;
 };
-
-async function invalidateAllSessionsExceptCurrent(
-    userId: string,
-    currentSessionId: string
-): Promise<void> {
-    try {
-        await db.transaction(async (trx) => {
-            // Get all user sessions except the current one
-            const userSessions = await trx
-                .select()
-                .from(sessions)
-                .where(
-                    and(
-                        eq(sessions.userId, userId),
-                        ne(sessions.sessionId, currentSessionId)
-                    )
-                );
-
-            // Delete resource sessions for the sessions we're invalidating
-            if (userSessions.length > 0) {
-                await trx.delete(resourceSessions).where(
-                    inArray(
-                        resourceSessions.userSessionId,
-                        userSessions.map((s) => s.sessionId)
-                    )
-                );
-            }
-
-            // Delete the user sessions (except current)
-            await trx
-                .delete(sessions)
-                .where(
-                    and(
-                        eq(sessions.userId, userId),
-                        ne(sessions.sessionId, currentSessionId)
-                    )
-                );
-        });
-    } catch (e) {
-        logger.error("Failed to invalidate user sessions except current", e);
-    }
-}
 
 export async function changePassword(
     req: Request,

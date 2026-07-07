@@ -11,11 +11,11 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 
 const deleteRoleSchema = z.strictObject({
-    roleId: z.string().transform(Number).pipe(z.int().positive())
+    roleId: z.coerce.number().int().positive()
 });
 
-const deelteRoleBodySchema = z.strictObject({
-    roleId: z.string().transform(Number).pipe(z.int().positive())
+const deleteRoleBodySchema = z.strictObject({
+    roleId: z.coerce.number().int().positive()
 });
 
 registry.registerPath({
@@ -28,12 +28,27 @@ registry.registerPath({
         body: {
             content: {
                 "application/json": {
-                    schema: deelteRoleBodySchema
+                    schema: deleteRoleBodySchema
                 }
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function deleteRole(
@@ -52,7 +67,7 @@ export async function deleteRole(
             );
         }
 
-        const parsedBody = deelteRoleBodySchema.safeParse(req.body);
+        const parsedBody = deleteRoleBodySchema.safeParse(req.body);
         if (!parsedBody.success) {
             return next(
                 createHttpError(

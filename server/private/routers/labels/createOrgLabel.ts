@@ -22,7 +22,7 @@ import response from "@server/lib/response";
 import logger from "@server/logger";
 import type { CreateOrEditLabelResponse } from "@server/routers/labels/types";
 import HttpCode from "@server/types/HttpCode";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
@@ -105,6 +105,26 @@ export async function createOrgLabel(
                     )
                 );
             }
+        }
+
+        const [existingLabel] = await db
+            .select({ labelId: labels.labelId })
+            .from(labels)
+            .where(
+                and(
+                    eq(labels.orgId, orgId),
+                    sql`LOWER(${labels.name}) = ${name.toLowerCase()}`
+                )
+            )
+            .limit(1);
+
+        if (existingLabel) {
+            return next(
+                createHttpError(
+                    HttpCode.CONFLICT,
+                    "A label with this name already exists"
+                )
+            );
         }
 
         const label = await db.transaction(async (tx) => {

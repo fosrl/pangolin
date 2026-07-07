@@ -1,14 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import {
-    users,
-    userOrgs,
-    orgs,
-    idpOrg,
-    idp,
-    idpOidcConfig
-} from "@server/db";
+import { users, userOrgs, orgs, idpOrg, idp, idpOidcConfig } from "@server/db";
 import { eq, or, sql, and, isNotNull, inArray } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -51,7 +44,22 @@ export type LookupUserResponse = {
 //     request: {
 //         body: lookupBodySchema
 //     },
-//     responses: {}
+// responses: {
+// 200: {
+// description: "Successful response",
+// content: {
+// "application/json": {
+// schema: z.object({
+// data: z.record(z.string(), z.any()).nullable(),
+// success: z.boolean(),
+// error: z.boolean(),
+// message: z.string(),
+// status: z.number()
+// })
+// }
+// }
+// }
+// }
 // });
 
 export async function lookupUser(
@@ -154,46 +162,54 @@ export async function lookupUser(
             );
 
             // Deduplicate orgs (user might have multiple memberships in same org)
-            const uniqueOrgs = new Map<string, typeof userOrgMemberships[0]>();
+            const uniqueOrgs = new Map<
+                string,
+                (typeof userOrgMemberships)[0]
+            >();
             for (const membership of userOrgMemberships) {
                 if (!uniqueOrgs.has(membership.orgId)) {
                     uniqueOrgs.set(membership.orgId, membership);
                 }
             }
 
-            const orgsData = Array.from(uniqueOrgs.values()).map((membership) => {
-                // Get IdPs for this org where the user (with the exact identifier) is authenticated via that IdP
-                // Only show IdPs where the user's idpId matches
-                // Internal users don't have an idpId, so they won't see any IdPs
-                const orgIdpsList = orgIdps
-                    .filter((idp) => {
-                        if (idp.orgId !== membership.orgId) {
+            const orgsData = Array.from(uniqueOrgs.values()).map(
+                (membership) => {
+                    // Get IdPs for this org where the user (with the exact identifier) is authenticated via that IdP
+                    // Only show IdPs where the user's idpId matches
+                    // Internal users don't have an idpId, so they won't see any IdPs
+                    const orgIdpsList = orgIdps
+                        .filter((idp) => {
+                            if (idp.orgId !== membership.orgId) {
+                                return false;
+                            }
+                            // Only show IdPs where the user (with exact identifier) is authenticated via that IdP
+                            // This means user.idpId must match idp.idpId
+                            if (
+                                user.idpId !== null &&
+                                user.idpId === idp.idpId
+                            ) {
+                                return true;
+                            }
                             return false;
-                        }
-                        // Only show IdPs where the user (with exact identifier) is authenticated via that IdP
-                        // This means user.idpId must match idp.idpId
-                        if (user.idpId !== null && user.idpId === idp.idpId) {
-                            return true;
-                        }
-                        return false;
-                    })
-                    .map((idp) => ({
-                        idpId: idp.idpId,
-                        name: idp.idpName,
-                        variant: idp.variant
-                    }));
+                        })
+                        .map((idp) => ({
+                            idpId: idp.idpId,
+                            name: idp.idpName,
+                            variant: idp.variant
+                        }));
 
-                // Check if user has internal auth for this org
-                // User has internal auth if they have an internal account type
-                const orgHasInternalAuth = hasInternalAuth;
+                    // Check if user has internal auth for this org
+                    // User has internal auth if they have an internal account type
+                    const orgHasInternalAuth = hasInternalAuth;
 
-                return {
-                    orgId: membership.orgId,
-                    orgName: membership.orgName,
-                    idps: orgIdpsList,
-                    hasInternalAuth: orgHasInternalAuth
-                };
-            });
+                    return {
+                        orgId: membership.orgId,
+                        orgName: membership.orgName,
+                        idps: orgIdpsList,
+                        hasInternalAuth: orgHasInternalAuth
+                    };
+                }
+            );
 
             accounts.push({
                 userId: user.userId,

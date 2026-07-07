@@ -25,6 +25,7 @@ import { UserType } from "@server/types/UserTypes";
 import { verifyPassword } from "@server/auth/password";
 import { unauthorized } from "@server/auth/unauthorizedResponse";
 import { verifyTotpCode } from "@server/auth/totp";
+import { getFirstString } from "@server/lib/requestParams";
 
 // The RP ID is the domain name of your application
 const rpID = (() => {
@@ -406,7 +407,12 @@ export async function deleteSecurityKey(
     res: Response,
     next: NextFunction
 ): Promise<any> {
-    const { credentialId: encodedCredentialId } = req.params;
+    const encodedCredentialId = getFirstString(req.params.credentialId);
+    if (!encodedCredentialId) {
+        return next(
+            createHttpError(HttpCode.BAD_REQUEST, "Invalid credential ID")
+        );
+    }
     const credentialId = decodeURIComponent(encodedCredentialId);
     const user = req.user as User;
 

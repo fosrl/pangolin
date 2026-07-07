@@ -22,7 +22,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
+import { LimitId } from "@server/lib/billing";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().min(1),
@@ -117,7 +117,7 @@ export async function deleteRemoteExitNode(
                 if (orgsInBillingDomainThatTheNodeIsStillIn.length === 0) {
                     await usageService.add(
                         orgId,
-                        FeatureId.REMOTE_EXIT_NODES,
+                        LimitId.REMOTE_EXIT_NODES,
                         -1,
                         trx
                     );

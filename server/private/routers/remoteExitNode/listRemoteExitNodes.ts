@@ -22,7 +22,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { ListRemoteExitNodesResponse } from "@server/routers/remoteExitNode/types";
-import cache from "#private/lib/cache";
+import { regionalCache as cache } from "#private/lib/cache";
 import semver from "semver";
 
 let stalePangolinNodeVersion: string | null = null;

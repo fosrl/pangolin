@@ -1,14 +1,10 @@
 "use client";
 
-import Image from "next/image";
-import { Separator } from "@app/components/ui/separator";
-import { useSupporterStatusContext } from "@app/hooks/useSupporterStatusContext";
+// THIS IS DEPRECATED AND IS NO LONGER SHOWED TO THE USER WITH THE DISCONTINUATION
+// OF THE SUPPORTER PROGRAM. IT MAY BE REMOVED IN A FUTURE UPDATE.
+
+// import { useSupporterStatusContext } from "@app/hooks/useSupporterStatusContext";
 import { useState, useTransition } from "react";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger
-} from "@app/components/ui/popover";
 import {
     Tooltip,
     TooltipContent,
@@ -44,7 +40,6 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { AxiosResponse } from "axios";
 import { ValidateSupporterKeyResponse } from "@server/routers/supporterKey";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
     Card,
     CardContent,
@@ -63,134 +58,134 @@ interface SupporterStatusProps {
 export default function SupporterStatus({
     isCollapsed = false
 }: SupporterStatusProps) {
-    const { supporterStatus, updateSupporterStatus } =
-        useSupporterStatusContext();
-    const [supportOpen, setSupportOpen] = useState(false);
-    const [keyOpen, setKeyOpen] = useState(false);
-    const [purchaseOptionsOpen, setPurchaseOptionsOpen] = useState(false);
+    // const { supporterStatus, updateSupporterStatus } =
+    //     useSupporterStatusContext();
+    // const [supportOpen, setSupportOpen] = useState(false);
+    // const [keyOpen, setKeyOpen] = useState(false);
+    // const [purchaseOptionsOpen, setPurchaseOptionsOpen] = useState(false);
 
-    const { env } = useEnvContext();
-    const api = createApiClient({ env });
-    const t = useTranslations();
+    // const { env } = useEnvContext();
+    // const api = createApiClient({ env });
+    // const t = useTranslations();
 
-    const formSchema = z.object({
-        githubUsername: z.string().nonempty({
-            error: "GitHub username is required"
-        }),
-        key: z.string().nonempty({
-            error: "Supporter key is required"
-        })
-    });
+    // const formSchema = z.object({
+    //     githubUsername: z.string().nonempty({
+    //         error: "GitHub username is required"
+    //     }),
+    //     key: z.string().nonempty({
+    //         error: "Supporter key is required"
+    //     })
+    // });
 
-    const form = useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            githubUsername: "",
-            key: ""
-        }
-    });
+    // const form = useForm({
+    //     resolver: zodResolver(formSchema),
+    //     defaultValues: {
+    //         githubUsername: "",
+    //         key: ""
+    //     }
+    // });
 
-    async function hide() {
-        await api.post("/supporter-key/hide");
+    // async function hide() {
+    //     await api.post("/supporter-key/hide");
 
-        updateSupporterStatus({
-            visible: false
-        });
-    }
+    //     updateSupporterStatus({
+    //         visible: false
+    //     });
+    // }
 
-    async function onSubmit(values: z.infer<typeof formSchema>) {
-        try {
-            const res = await api.post<
-                AxiosResponse<ValidateSupporterKeyResponse>
-            >("/supporter-key/validate", {
-                githubUsername: values.githubUsername,
-                key: values.key
-            });
+    // async function onSubmit(values: z.infer<typeof formSchema>) {
+    //     try {
+    //         const res = await api.post<
+    //             AxiosResponse<ValidateSupporterKeyResponse>
+    //         >("/supporter-key/validate", {
+    //             githubUsername: values.githubUsername,
+    //             key: values.key
+    //         });
 
-            const data = res.data.data;
+    //         const data = res.data.data;
 
-            if (!data || !data.valid) {
-                toast({
-                    variant: "destructive",
-                    title: t("supportKeyInvalid"),
-                    description: t("supportKeyInvalidDescription")
-                });
-                return;
-            }
+    //         if (!data || !data.valid) {
+    //             toast({
+    //                 variant: "destructive",
+    //                 title: t("supportKeyInvalid"),
+    //                 description: t("supportKeyInvalidDescription")
+    //             });
+    //             return;
+    //         }
 
-            // Trigger the toast
-            toast({
-                variant: "default",
-                title: t("supportKeyValid"),
-                description: t("supportKeyValidDescription")
-            });
+    //         // Trigger the toast
+    //         toast({
+    //             variant: "default",
+    //             title: t("supportKeyValid"),
+    //             description: t("supportKeyValidDescription")
+    //         });
 
-            // Fireworks-style confetti
-            const duration = 5 * 1000; // 5 seconds
-            const animationEnd = Date.now() + duration;
-            const defaults = {
-                startVelocity: 30,
-                spread: 360,
-                ticks: 60,
-                zIndex: 0,
-                colors: ["#FFA500", "#FF4500", "#FFD700"] // Orange hues
-            };
+    //         // Fireworks-style confetti
+    //         const duration = 5 * 1000; // 5 seconds
+    //         const animationEnd = Date.now() + duration;
+    //         const defaults = {
+    //             startVelocity: 30,
+    //             spread: 360,
+    //             ticks: 60,
+    //             zIndex: 0,
+    //             colors: ["#FFA500", "#FF4500", "#FFD700"] // Orange hues
+    //         };
 
-            function randomInRange(min: number, max: number) {
-                return Math.random() * (max - min) + min;
-            }
+    //         function randomInRange(min: number, max: number) {
+    //             return Math.random() * (max - min) + min;
+    //         }
 
-            const interval = setInterval(() => {
-                const timeLeft = animationEnd - Date.now();
+    //         const interval = setInterval(() => {
+    //             const timeLeft = animationEnd - Date.now();
 
-                if (timeLeft <= 0) {
-                    clearInterval(interval);
-                    return;
-                }
+    //             if (timeLeft <= 0) {
+    //                 clearInterval(interval);
+    //                 return;
+    //             }
 
-                const particleCount = 50 * (timeLeft / duration);
+    //             const particleCount = 50 * (timeLeft / duration);
 
-                // Launch confetti from two random horizontal positions
-                confetti({
-                    ...defaults,
-                    particleCount,
-                    origin: {
-                        x: randomInRange(0.1, 0.3),
-                        y: Math.random() - 0.2
-                    }
-                });
-                confetti({
-                    ...defaults,
-                    particleCount,
-                    origin: {
-                        x: randomInRange(0.7, 0.9),
-                        y: Math.random() - 0.2
-                    }
-                });
-            }, 250);
+    //             // Launch confetti from two random horizontal positions
+    //             confetti({
+    //                 ...defaults,
+    //                 particleCount,
+    //                 origin: {
+    //                     x: randomInRange(0.1, 0.3),
+    //                     y: Math.random() - 0.2
+    //                 }
+    //             });
+    //             confetti({
+    //                 ...defaults,
+    //                 particleCount,
+    //                 origin: {
+    //                     x: randomInRange(0.7, 0.9),
+    //                     y: Math.random() - 0.2
+    //                 }
+    //             });
+    //         }, 250);
 
-            setPurchaseOptionsOpen(false);
-            setKeyOpen(false);
+    //         setPurchaseOptionsOpen(false);
+    //         setKeyOpen(false);
 
-            updateSupporterStatus({
-                visible: false
-            });
-        } catch (error) {
-            toast({
-                variant: "destructive",
-                title: t("error"),
-                description: formatAxiosError(
-                    error,
-                    t("supportKeyErrorValidationDescription")
-                )
-            });
-            return;
-        }
-    }
+    //         updateSupporterStatus({
+    //             visible: false
+    //         });
+    //     } catch (error) {
+    //         toast({
+    //             variant: "destructive",
+    //             title: t("error"),
+    //             description: formatAxiosError(
+    //                 error,
+    //                 t("supportKeyErrorValidationDescription")
+    //             )
+    //         });
+    //         return;
+    //     }
+    // }
 
     return (
         <>
-            <Credenza
+            {/* <Credenza
                 open={purchaseOptionsOpen}
                 onOpenChange={(val) => {
                     setPurchaseOptionsOpen(val);
@@ -228,7 +223,10 @@ export default function SupporterStatus({
 
                         <div className="my-4 p-4 border border-blue-500/50 bg-blue-500/10 rounded-lg">
                             <p className="text-sm">
-                                <strong>Business & Enterprise Users:</strong> For larger organizations or teams requiring advanced features, consider our self-serve enterprise license and Enterprise Edition.{" "}
+                                <strong>Business & Enterprise Users:</strong>{" "}
+                                For larger organizations or teams requiring
+                                advanced features, consider our self-serve
+                                enterprise license and Enterprise Edition.{" "}
                                 <Link
                                     href="https://pangolin.net/pricing#Self-Hosted"
                                     target="_blank"
@@ -471,7 +469,7 @@ export default function SupporterStatus({
                         {t("supportKeyBuy")}
                     </Button>
                 )
-            ) : null}
+            ) : null} */}
         </>
     );
 }

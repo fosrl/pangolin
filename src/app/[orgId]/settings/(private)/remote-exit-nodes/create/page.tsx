@@ -35,8 +35,6 @@ import { toast } from "@app/hooks/useToast";
 import { AxiosResponse } from "axios";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
-import { InfoIcon } from "lucide-react";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import { StrategySelect } from "@app/components/StrategySelect";
 

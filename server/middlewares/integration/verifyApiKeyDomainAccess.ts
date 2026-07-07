@@ -3,6 +3,7 @@ import { db, domains, orgDomains, apiKeyOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyApiKeyDomainAccess(
     req: Request,
@@ -12,8 +13,10 @@ export async function verifyApiKeyDomainAccess(
     try {
         const apiKey = req.apiKey;
         const domainId =
-            req.params.domainId || req.body.domainId || req.query.domainId;
-        const orgId = req.params.orgId;
+            getFirstString(req.params.domainId) ||
+            getFirstString(req.body.domainId) ||
+            getFirstString(req.query.domainId);
+        const orgId = getFirstString(req.params.orgId);
 
         if (!apiKey) {
             return next(
@@ -24,6 +27,12 @@ export async function verifyApiKeyDomainAccess(
         if (!domainId) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Invalid domain ID")
+            );
+        }
+
+        if (!orgId) {
+            return next(
+                createHttpError(HttpCode.BAD_REQUEST, "Invalid organization ID")
             );
         }
 

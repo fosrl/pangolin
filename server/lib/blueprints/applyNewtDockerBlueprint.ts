@@ -1,9 +1,55 @@
 import { sendToClient } from "#dynamic/routers/ws";
 import { processContainerLabels } from "./parseDockerContainers";
 import { applyBlueprint } from "./applyBlueprint";
+import { PrivateResourceSchema, PublicResourceSchema } from "./types";
 import { db, sites } from "@server/db";
 import { eq } from "drizzle-orm";
 import logger from "@server/logger";
+
+type BlueprintResult = ReturnType<typeof processContainerLabels>;
+
+function filterInvalidResources(blueprint: BlueprintResult): {
+    skippedCount: number;
+    skippedKeys: string[];
+} {
+    const skippedKeys: string[] = [];
+
+    for (const section of ["proxy-resources", "public-resources"] as const) {
+        const resources = blueprint[section];
+        for (const [key, value] of Object.entries(resources)) {
+            const result = PublicResourceSchema.safeParse(value);
+            if (!result.success) {
+                const errors = result.error.issues
+                    .map((i) => `${i.path.join(".")}: ${i.message}`)
+                    .join("; ");
+                logger.warn(
+                    `Skipping invalid Docker ${section} "${key}": ${errors}`
+                );
+                delete resources[key];
+                skippedKeys.push(`${section}.${key}`);
+            }
+        }
+    }
+
+    for (const section of ["client-resources", "private-resources"] as const) {
+        const resources = blueprint[section];
+        for (const [key, value] of Object.entries(resources)) {
+            const result = PrivateResourceSchema.safeParse(value);
+            if (!result.success) {
+                const errors = result.error.issues
+                    .map((i) => `${i.path.join(".")}: ${i.message}`)
+                    .join("; ");
+                logger.warn(
+                    `Skipping invalid Docker ${section} "${key}": ${errors}`
+                );
+                delete resources[key];
+                skippedKeys.push(`${section}.${key}`);
+            }
+        }
+    }
+
+    return { skippedCount: skippedKeys.length, skippedKeys };
+}
 
 export async function applyNewtDockerBlueprint(
     siteId: number,
@@ -21,17 +67,27 @@ export async function applyNewtDockerBlueprint(
         return;
     }
 
-    // logger.debug(`Applying Docker blueprint to site: ${siteId}`);
-    // logger.debug(`Containers: ${JSON.stringify(containers, null, 2)}`);
+    let skippedCount = 0;
+    let skippedKeys: string[] = [];
 
     try {
-        const blueprint = processContainerLabels(containers);
+        // Some Newt clients can report null/undefined containers when Docker
+        // labels are unavailable. Treat that as an empty blueprint payload.
+        const safeContainers = Array.isArray(containers) ? containers : [];
+        const blueprint = processContainerLabels(safeContainers);
 
-        logger.debug(`Received Docker blueprint: ${JSON.stringify(blueprint)}`);
+        logger.debug(
+            `Received Docker blueprint with ${Object.keys(blueprint["proxy-resources"]).length} proxy, ${Object.keys(blueprint["client-resources"]).length} client resource(s)`
+        );
 
-        // make sure this is not an empty object
-        if (isEmptyObject(blueprint)) {
-            return;
+        const filterResult = filterInvalidResources(blueprint);
+        skippedCount = filterResult.skippedCount;
+        skippedKeys = filterResult.skippedKeys;
+
+        if (skippedCount > 0) {
+            logger.warn(
+                `Filtered ${skippedCount} invalid resource(s) from Docker blueprint: ${skippedKeys.join(", ")}`
+            );
         }
 
         if (
@@ -40,6 +96,15 @@ export async function applyNewtDockerBlueprint(
             isEmptyObject(blueprint["public-resources"]) &&
             isEmptyObject(blueprint["private-resources"])
         ) {
+            if (skippedCount > 0) {
+                await sendToClient(newtId, {
+                    type: "newt/blueprint/results",
+                    data: {
+                        success: false,
+                        message: `All resources were invalid and skipped: ${skippedKeys.join(", ")}`
+                    }
+                });
+            }
             return;
         }
 
@@ -51,7 +116,7 @@ export async function applyNewtDockerBlueprint(
             source: "NEWT"
         });
     } catch (error) {
-        logger.error(`Failed to update database from config: ${error}`);
+        logger.debug(`Failed to update database from config: ${error}`);
         await sendToClient(newtId, {
             type: "newt/blueprint/results",
             data: {
@@ -66,7 +131,10 @@ export async function applyNewtDockerBlueprint(
         type: "newt/blueprint/results",
         data: {
             success: true,
-            message: "Config updated successfully"
+            message:
+                skippedCount > 0
+                    ? `Config updated successfully. Skipped ${skippedCount} invalid resource(s): ${skippedKeys.join(", ")}`
+                    : "Config updated successfully"
         }
     });
 }

@@ -25,7 +25,7 @@ import { getUniqueSiteName } from "@server/db/names";
 import moment from "moment";
 import { build } from "@server/build";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
+import { LimitId } from "@server/lib/billing";
 import { INSPECT_MAX_BYTES } from "buffer";
 import { getNextAvailableClientSubnet } from "@server/lib/ip";
 
@@ -169,7 +169,7 @@ export async function registerNewt(
 
         // SaaS billing check
         if (build == "saas") {
-            const usage = await usageService.getUsage(orgId, FeatureId.SITES);
+            const usage = await usageService.getUsage(orgId, LimitId.SITES);
             if (!usage) {
                 return next(
                     createHttpError(
@@ -180,7 +180,7 @@ export async function registerNewt(
             }
             const rejectSites = await usageService.checkLimitSet(
                 orgId,
-                FeatureId.SITES,
+                LimitId.SITES,
                 {
                     ...usage,
                     instantaneousValue: (usage.instantaneousValue || 0) + 1
@@ -203,84 +203,82 @@ export async function registerNewt(
 
         let newSiteId: number | undefined;
 
-        await db.transaction(async (trx) => {
-            const newClientAddress = await getNextAvailableClientSubnet(orgId);
-            if (!newClientAddress) {
-                return next(
-                    createHttpError(
-                        HttpCode.INTERNAL_SERVER_ERROR,
-                        "No available subnet found"
-                    )
-                );
-            }
+        const { value: newClientAddress, release: releaseSubnetLock } =
+            await getNextAvailableClientSubnet(orgId);
+        try {
+            await db.transaction(async (trx) => {
+                let clientAddress = newClientAddress.split("/")[0];
+                clientAddress = `${clientAddress}/${org.subnet!.split("/")[1]}`; // we want the block size of the whole org
 
-            let clientAddress = newClientAddress.split("/")[0];
-            clientAddress = `${clientAddress}/${org.subnet!.split("/")[1]}`; // we want the block size of the whole org
+                // Create the site (type "newt", name = niceId)
+                const [newSite] = await trx
+                    .insert(sites)
+                    .values({
+                        orgId,
+                        name: name || niceId,
+                        niceId,
+                        address: clientAddress,
+                        type: "newt",
+                        dockerSocketEnabled: true,
+                        status: keyRecord.approveNewSites
+                            ? "approved"
+                            : "pending"
+                    })
+                    .returning();
 
-            // Create the site (type "newt", name = niceId)
-            const [newSite] = await trx
-                .insert(sites)
-                .values({
-                    orgId,
-                    name: name || niceId,
-                    niceId,
-                    address: clientAddress,
-                    type: "newt",
-                    dockerSocketEnabled: true,
-                    status: keyRecord.approveNewSites ? "approved" : "pending"
-                })
-                .returning();
+                await logsDb.insert(statusHistory).values({
+                    entityType: "site",
+                    entityId: newSite.siteId,
+                    orgId: orgId,
+                    status: "offline",
+                    timestamp: Math.floor(Date.now() / 1000)
+                });
 
-            await logsDb.insert(statusHistory).values({
-                entityType: "site",
-                entityId: newSite.siteId,
-                orgId: orgId,
-                status: "offline",
-                timestamp: Math.floor(Date.now() / 1000)
+                newSiteId = newSite.siteId;
+
+                // Grant admin role access to the new site
+                const [adminRole] = await trx
+                    .select()
+                    .from(roles)
+                    .where(and(eq(roles.isAdmin, true), eq(roles.orgId, orgId)))
+                    .limit(1);
+
+                if (!adminRole) {
+                    throw new Error(`Admin role not found for org ${orgId}`);
+                }
+
+                await trx.insert(roleSites).values({
+                    roleId: adminRole.roleId,
+                    siteId: newSite.siteId
+                });
+
+                // Create the newt for this site
+                await trx.insert(newts).values({
+                    newtId,
+                    secretHash,
+                    siteId: newSite.siteId,
+                    dateCreated: moment().toISOString()
+                });
+
+                // Consume the provisioning key - cascade removes siteProvisioningKeyOrg
+                await trx
+                    .update(siteProvisioningKeys)
+                    .set({
+                        lastUsed: moment().toISOString(),
+                        numUsed: sql`${siteProvisioningKeys.numUsed} + 1`
+                    })
+                    .where(
+                        eq(
+                            siteProvisioningKeys.siteProvisioningKeyId,
+                            provisioningKeyId
+                        )
+                    );
+
+                await usageService.add(orgId, LimitId.SITES, 1, trx);
             });
-
-            newSiteId = newSite.siteId;
-
-            // Grant admin role access to the new site
-            const [adminRole] = await trx
-                .select()
-                .from(roles)
-                .where(and(eq(roles.isAdmin, true), eq(roles.orgId, orgId)))
-                .limit(1);
-
-            if (!adminRole) {
-                throw new Error(`Admin role not found for org ${orgId}`);
-            }
-
-            await trx.insert(roleSites).values({
-                roleId: adminRole.roleId,
-                siteId: newSite.siteId
-            });
-
-            // Create the newt for this site
-            await trx.insert(newts).values({
-                newtId,
-                secretHash,
-                siteId: newSite.siteId,
-                dateCreated: moment().toISOString()
-            });
-
-            // Consume the provisioning key - cascade removes siteProvisioningKeyOrg
-            await trx
-                .update(siteProvisioningKeys)
-                .set({
-                    lastUsed: moment().toISOString(),
-                    numUsed: sql`${siteProvisioningKeys.numUsed} + 1`
-                })
-                .where(
-                    eq(
-                        siteProvisioningKeys.siteProvisioningKeyId,
-                        provisioningKeyId
-                    )
-                );
-
-            await usageService.add(orgId, FeatureId.SITES, 1, trx);
-        });
+        } finally {
+            await releaseSubnetLock();
+        }
 
         logger.info(
             `Provisioned new site (ID: ${newSiteId}) and newt (ID: ${newtId}) for org ${orgId} via provisioning key ${provisioningKeyId}`

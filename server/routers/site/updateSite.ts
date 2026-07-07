@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db } from "@server/db";
+import { db, Site } from "@server/db";
 import { sites } from "@server/db";
 import { eq, and, ne } from "drizzle-orm";
 import response from "@server/lib/response";
@@ -9,10 +9,11 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { isValidCIDR } from "@server/lib/validators";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
 
 const updateSiteParamsSchema = z.strictObject({
-    siteId: z.string().transform(Number).pipe(z.int().positive())
+    siteId: z.coerce.number().int().positive()
 });
 
 const updateSiteBodySchema = z
@@ -21,18 +22,8 @@ const updateSiteBodySchema = z
         niceId: z.string().min(1).max(255).optional(),
         dockerSocketEnabled: z.boolean().optional(),
         status: z.enum(["pending", "approved"]).optional(),
-        // remoteSubnets: z.string().optional()
-        // subdomain: z
-        //     .string()
-        //     .min(1)
-        //     .max(255)
-        //     .transform((val) => val.toLowerCase())
-        //     .optional()
-        // pubKey: z.string().optional(),
-        // subnet: z.string().optional(),
-        // exitNode: z.number().int().positive().optional(),
-        // megabytesIn: z.number().int().nonnegative().optional(),
-        // megabytesOut: z.number().int().nonnegative().optional(),
+        autoUpdateEnabled: z.boolean().optional(),
+        autoUpdateOverrideOrg: z.boolean().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
@@ -53,7 +44,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function updateSite(
@@ -85,9 +91,24 @@ export async function updateSite(
         const { siteId } = parsedParams.data;
         const updateData = parsedBody.data;
 
+        const [existingSite] = await db
+            .select()
+            .from(sites)
+            .where(eq(sites.siteId, siteId))
+            .limit(1);
+
+        if (!existingSite) {
+            return next(
+                createHttpError(
+                    HttpCode.NOT_FOUND,
+                    `Site with ID ${siteId} not found`
+                )
+            );
+        }
+
         // if niceId is provided, check if it's already in use by another site
         if (updateData.niceId) {
-            const [existingSite] = await db
+            const [existingSiteNiceIdOverlap] = await db
                 .select()
                 .from(sites)
                 .where(
@@ -99,7 +120,7 @@ export async function updateSite(
                 )
                 .limit(1);
 
-            if (existingSite) {
+            if (existingSiteNiceIdOverlap) {
                 return next(
                     createHttpError(
                         HttpCode.CONFLICT,
@@ -107,6 +128,15 @@ export async function updateSite(
                     )
                 );
             }
+        }
+
+        const hasNewtAutoUpdateFeature = await isLicensedOrSubscribed(
+            existingSite.orgId,
+            tierMatrix[TierFeature.NewtAutoUpdate]
+        );
+        if (!hasNewtAutoUpdateFeature) {
+            parsedBody.data.autoUpdateEnabled = false; // force it off
+            parsedBody.data.autoUpdateOverrideOrg = false; // force it off
         }
 
         // // if remoteSubnets is provided, ensure it's a valid comma-separated list of cidrs

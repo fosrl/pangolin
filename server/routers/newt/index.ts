@@ -1,5 +1,6 @@
 export * from "./createNewt";
 export * from "./getNewtToken";
+export * from "./getNewtVersion";
 export * from "./handleNewtRegisterMessage";
 export * from "./handleReceiveBandwidthMessage";
 export * from "./handleNewtGetConfigMessage";

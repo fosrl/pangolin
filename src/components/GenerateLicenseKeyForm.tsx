@@ -422,7 +422,7 @@ export default function GenerateLicenseKeyForm({
                                                     {part}
                                                     {index === 0 && (
                                                         <a
-                                                            href="https://pangolin.net/fcl.html"
+                                                            href="https://pangolin.net/fcl"
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="text-primary hover:underline"
@@ -601,7 +601,7 @@ export default function GenerateLicenseKeyForm({
                                                                             "signUpTerms.IAgreeToThe"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/terms-of-service.html"
+                                                                            href="https://pangolin.net/tos"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -614,7 +614,7 @@ export default function GenerateLicenseKeyForm({
                                                                             "signUpTerms.and"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/privacy-policy.html"
+                                                                            href="https://pangolin.net/privacy"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -658,12 +658,12 @@ export default function GenerateLicenseKeyForm({
                                                                         license
                                                                         details:{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/fcl.html"
+                                                                            href="https://pangolin.net/fcl"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
                                                                         >
-                                                                            https://pangolin.net/fcl.html
+                                                                            https://pangolin.net/fcl
                                                                         </a>
                                                                     </div>
                                                                 </FormLabel>
@@ -987,7 +987,7 @@ export default function GenerateLicenseKeyForm({
                                                                             "signUpTerms.IAgreeToThe"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/terms-of-service.html"
+                                                                            href="https://pangolin.net/tos"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -1000,7 +1000,7 @@ export default function GenerateLicenseKeyForm({
                                                                             "signUpTerms.and"
                                                                         )}{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/privacy-policy.html"
+                                                                            href="https://pangolin.net/privacy"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
@@ -1044,12 +1044,12 @@ export default function GenerateLicenseKeyForm({
                                                                         license
                                                                         details:{" "}
                                                                         <a
-                                                                            href="https://pangolin.net/fcl.html"
+                                                                            href="https://pangolin.net/fcl"
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="text-primary hover:underline"
                                                                         >
-                                                                            https://pangolin.net/fcl.html
+                                                                            https://pangolin.net/fcl
                                                                         </a>
                                                                     </div>
                                                                 </FormLabel>

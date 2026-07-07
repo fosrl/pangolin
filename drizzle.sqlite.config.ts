@@ -1,4 +1,4 @@
-import { APP_PATH } from "@server/lib/consts";
+import { APP_PATH } from "./server/lib/consts";
 import { defineConfig } from "drizzle-kit";
 import path from "path";
 

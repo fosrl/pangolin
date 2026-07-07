@@ -8,7 +8,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { and, eq } from "drizzle-orm";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing";
+import { LimitId } from "@server/lib/billing";
 
 const paramsSchema = z.strictObject({
     domainId: z.string(),
@@ -77,7 +77,7 @@ export async function deleteAccountDomain(
 
             await trx.delete(domains).where(eq(domains.domainId, domainId));
 
-            await usageService.add(orgId, FeatureId.DOMAINS, -1, trx);
+            await usageService.add(orgId, LimitId.DOMAINS, -1, trx);
         });
 
         return response<DeleteAccountDomainResponse>(res, {

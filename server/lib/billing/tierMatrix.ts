@@ -16,20 +16,22 @@ export enum TierFeature {
     SessionDurationPolicies = "sessionDurationPolicies", // handle downgrade by setting to default duration
     PasswordExpirationPolicies = "passwordExpirationPolicies", // handle downgrade by setting to default duration
     AutoProvisioning = "autoProvisioning", // handle downgrade by disabling auto provisioning
-    SshPam = "sshPam",
     FullRbac = "fullRbac",
     SiteProvisioningKeys = "siteProvisioningKeys", // handle downgrade by revoking keys if needed
     SIEM = "siem", // handle downgrade by disabling SIEM integrations
-    HTTPPrivateResources = "httpPrivateResources", // handle downgrade by disabling HTTP private resources
     DomainNamespaces = "domainNamespaces", // handle downgrade by removing custom domain namespaces
     StandaloneHealthChecks = "standaloneHealthChecks",
     AlertingRules = "alertingRules",
     WildcardSubdomain = "wildcardSubdomain",
-    Labels = "labels"
+    Labels = "labels",
+    NewtAutoUpdate = "newtAutoUpdate",
+    ResourcePolicies = "resourcePolicies",
+    AdvancedPublicResources = "advancedPublicResources",
+    AdvancedPrivateResources = "advancedPrivateResources"
 }
 
 export const tierMatrix: Record<TierFeature, Tier[]> = {
-    [TierFeature.Labels]: ["tier2", "tier3", "enterprise"],
+    [TierFeature.Labels]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.OrgOidc]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.LoginPageDomain]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.DeviceApprovals]: ["tier1", "tier3", "enterprise"],
@@ -60,13 +62,15 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
         "enterprise"
     ],
     [TierFeature.AutoProvisioning]: ["tier1", "tier3", "enterprise"],
-    [TierFeature.SshPam]: ["tier1", "tier3", "enterprise"],
     [TierFeature.FullRbac]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.SiteProvisioningKeys]: ["tier3", "enterprise"],
     [TierFeature.SIEM]: ["enterprise"],
-    [TierFeature.HTTPPrivateResources]: ["tier3", "enterprise"],
     [TierFeature.DomainNamespaces]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.StandaloneHealthChecks]: ["tier3", "enterprise"],
     [TierFeature.AlertingRules]: ["tier3", "enterprise"],
-    [TierFeature.WildcardSubdomain]: ["tier1", "tier2", "tier3", "enterprise"]
+    [TierFeature.WildcardSubdomain]: ["tier1", "tier2", "tier3", "enterprise"],
+    [TierFeature.NewtAutoUpdate]: ["tier1", "tier2", "tier3", "enterprise"],
+    [TierFeature.ResourcePolicies]: ["tier3", "enterprise"],
+    [TierFeature.AdvancedPublicResources]: ["tier3", "enterprise"],
+    [TierFeature.AdvancedPrivateResources]: ["tier3", "enterprise"]
 };

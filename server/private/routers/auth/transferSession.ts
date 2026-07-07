@@ -17,8 +17,7 @@ import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
-import { sessions, sessionTransferToken } from "@server/db";
-import { db } from "@server/db";
+import { db, safeRead, sessions, sessionTransferToken } from "@server/db";
 import { eq } from "drizzle-orm";
 import { response } from "@server/lib/response";
 import { encodeHexLowerCase } from "@oslojs/encoding";
@@ -57,15 +56,19 @@ export async function transferSession(
             sha256(new TextEncoder().encode(token))
         );
 
-        const [existing] = await db
-            .select()
-            .from(sessionTransferToken)
-            .where(eq(sessionTransferToken.token, tokenRaw))
-            .innerJoin(
-                sessions,
-                eq(sessions.sessionId, sessionTransferToken.sessionId)
-            )
-            .limit(1);
+        const result = await safeRead((db) =>
+            db
+                .select()
+                .from(sessionTransferToken)
+                .where(eq(sessionTransferToken.token, tokenRaw))
+                .innerJoin(
+                    sessions,
+                    eq(sessions.sessionId, sessionTransferToken.sessionId)
+                )
+                .limit(1)
+        );
+
+        const [existing] = result;
 
         if (!existing) {
             return next(

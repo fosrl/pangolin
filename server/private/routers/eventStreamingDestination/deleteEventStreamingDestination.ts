@@ -33,12 +33,28 @@ const paramsSchema = z
 registry.registerPath({
     method: "delete",
     path: "/org/{orgId}/event-streaming-destination/{destinationId}",
-    description: "Delete an event streaming destination for a specific organization.",
+    description:
+        "Delete an event streaming destination for a specific organization.",
     tags: [OpenAPITags.Org],
     request: {
         params: paramsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function deleteEventStreamingDestination(

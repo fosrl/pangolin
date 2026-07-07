@@ -1,9 +1,9 @@
 import { Layout } from "@app/components/Layout";
-import MemberResourcesPortal from "@app/components/MemberResourcesPortal";
+import ResourceLauncher from "@app/components/resource-launcher/ResourceLauncher";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
+import { fetchLauncherPageData } from "@app/lib/launcherServerData";
 import { verifySession } from "@app/lib/auth/verifySession";
-import { pullEnv } from "@app/lib/pullEnv";
 import UserProvider from "@app/providers/UserProvider";
 import { ListUserOrgsResponse } from "@server/routers/org";
 import { GetOrgOverviewResponse } from "@server/routers/org/getOrgOverview";
@@ -13,12 +13,14 @@ import { cache } from "react";
 
 type OrgPageProps = {
     params: Promise<{ orgId: string }>;
+    searchParams: Promise<Record<string, string>>;
 };
+
+export const dynamic = "force-dynamic";
 
 export default async function OrgPage(props: OrgPageProps) {
     const params = await props.params;
     const orgId = params.orgId;
-    const env = pullEnv();
 
     if (!orgId) {
         redirect(`/`);
@@ -40,12 +42,6 @@ export default async function OrgPage(props: OrgPageProps) {
         overview = res.data.data;
     } catch (e) {}
 
-    // If user is admin or owner, redirect to settings
-    if (overview?.isAdmin || overview?.isOwner) {
-        redirect(`/${orgId}/settings`);
-    }
-
-    // For non-admin users, show the member resources portal
     let orgs: ListUserOrgsResponse["orgs"] = [];
     try {
         const getOrgs = cache(async () =>
@@ -60,10 +56,41 @@ export default async function OrgPage(props: OrgPageProps) {
         }
     } catch (e) {}
 
+    const isAdminOrOwner = Boolean(overview?.isAdmin || overview?.isOwner);
+
+    const searchParams = new URLSearchParams(await props.searchParams);
+    const launcherData = overview
+        ? await fetchLauncherPageData(
+              orgId,
+              searchParams,
+              await authCookieHeader()
+          )
+        : null;
+
     return (
         <UserProvider user={user}>
-            <Layout orgId={orgId} navItems={[]} orgs={orgs}>
-                {overview && <MemberResourcesPortal orgId={orgId} />}
+            <Layout
+                orgId={orgId}
+                orgs={orgs}
+                navItems={[]}
+                showSidebar={false}
+                launcherMode
+                showViewAsAdmin={isAdminOrOwner}
+            >
+                {overview && launcherData ? (
+                    <ResourceLauncher
+                        orgId={orgId}
+                        isAdmin={isAdminOrOwner}
+                        views={launcherData.views}
+                        defaultViewOverrides={launcherData.defaultViewOverrides}
+                        activeViewId={launcherData.activeViewId}
+                        config={launcherData.config}
+                        savedConfig={launcherData.savedConfig}
+                        scale={launcherData.scale}
+                        groups={launcherData.groups}
+                        groupsPagination={launcherData.groupsPagination}
+                    />
+                ) : null}
             </Layout>
         </UserProvider>
     );

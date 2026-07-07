@@ -3,8 +3,12 @@ import { db, orgs } from "@server/db";
 import { actions, roles, roleActions } from "@server/db";
 import { eq, inArray } from "drizzle-orm";
 import logger from "@server/logger";
+import { build } from "@server/build";
 
 export async function ensureActions() {
+    if (build == "saas") {
+        return;
+    }
     await db.transaction(async (trx) => {
         const actionIds = Object.values(ActionsEnum);
         const existingActions = await trx.select().from(actions).execute();

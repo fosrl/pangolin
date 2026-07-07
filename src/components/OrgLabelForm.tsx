@@ -35,9 +35,14 @@ export type LabelFormData = z.infer<typeof labelFormSchema>;
 export type OrgLabelFormProps = {
     onSubmit: (data: LabelFormData) => void;
     defaultValue?: LabelFormData;
+    disabled?: boolean;
 };
 
-export function OrgLabelForm({ onSubmit, defaultValue }: OrgLabelFormProps) {
+export function OrgLabelForm({
+    onSubmit,
+    defaultValue,
+    disabled = false
+}: OrgLabelFormProps) {
     const t = useTranslations();
 
     const colorValues = Object.values(LABEL_COLORS);
@@ -70,9 +75,7 @@ export function OrgLabelForm({ onSubmit, defaultValue }: OrgLabelFormProps) {
                         <FormItem>
                             <FormLabel>{t("labelNameField")}</FormLabel>
                             <FormControl>
-                                <Input
-                                    {...field}
-                                />
+                                <Input {...field} disabled={disabled} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -88,6 +91,7 @@ export function OrgLabelForm({ onSubmit, defaultValue }: OrgLabelFormProps) {
                             <Select
                                 onValueChange={field.onChange}
                                 value={field.value}
+                                disabled={disabled}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue
@@ -110,7 +114,9 @@ export function OrgLabelForm({ onSubmit, defaultValue }: OrgLabelFormProps) {
                                                     }}
                                                 />
                                                 <span data-name>
-                                                    {color.charAt(0).toUpperCase() +
+                                                    {color
+                                                        .charAt(0)
+                                                        .toUpperCase() +
                                                         color.slice(1)}
                                                 </span>
                                             </SelectItem>

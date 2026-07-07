@@ -17,8 +17,14 @@ import * as orgIdp from "#private/routers/orgIdp";
 import * as billing from "#private/routers/billing";
 import * as license from "#private/routers/license";
 import * as resource from "#private/routers/resource";
+import * as ssh from "#private/routers/ssh";
+import * as ws from "@server/routers/ws";
+import * as browserTarget from "#private/routers/browserGatewayTarget";
 
-import { verifySessionUserMiddleware } from "@server/middlewares";
+import {
+    verifySessionUserMiddleware,
+    verifyUserFromResourceSessionMiddleware
+} from "@server/middlewares";
 
 import { internalRouter as ir } from "@server/routers/internal";
 
@@ -40,3 +46,17 @@ internalRouter.post(
 internalRouter.get(`/license/status`, license.getLicenseStatus);
 
 internalRouter.get("/maintenance/info", resource.getMaintenanceInfo);
+
+internalRouter.post(
+    "/org/:orgId/ssh/sign-key",
+    verifyUserFromResourceSessionMiddleware,
+    ssh.signSshKey
+);
+
+internalRouter.get(
+    "/ws/round-trip-message/:messageId",
+    verifyUserFromResourceSessionMiddleware,
+    ws.checkRoundTripMessage
+);
+
+internalRouter.get("/resource/browser-target", browserTarget.getBrowserTarget);

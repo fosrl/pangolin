@@ -24,6 +24,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { eq, sql } from "drizzle-orm";
 import { decrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -67,6 +68,31 @@ export type ListEventStreamingDestinationsResponse = {
     };
 };
 
+const ListEventStreamingDestinationsResponseDataSchema = z.object({
+    destinations: z.array(
+        z.object({
+            destinationId: z.number(),
+            orgId: z.string(),
+            type: z.string(),
+            config: z.string(),
+            enabled: z.boolean(),
+            lastError: z.string().nullable(),
+            lastErrorAt: z.number().nullable(),
+            createdAt: z.number(),
+            updatedAt: z.number(),
+            sendConnectionLogs: z.boolean(),
+            sendRequestLogs: z.boolean(),
+            sendActionLogs: z.boolean(),
+            sendAccessLogs: z.boolean()
+        })
+    ),
+    pagination: z.object({
+        total: z.number(),
+        limit: z.number(),
+        offset: z.number()
+    })
+});
+
 async function query(orgId: string, limit: number, offset: number) {
     const res = await db
         .select()
@@ -88,7 +114,18 @@ registry.registerPath({
         query: querySchema,
         params: paramsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        ListEventStreamingDestinationsResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
 });
 
 export async function listEventStreamingDestinations(

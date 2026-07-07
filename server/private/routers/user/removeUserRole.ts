@@ -27,7 +27,7 @@ import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAs
 
 const removeUserRoleParamsSchema = z.strictObject({
     userId: z.string(),
-    roleId: z.string().transform(stoi).pipe(z.number())
+    roleId: z.coerce.number()
 });
 
 registry.registerPath({
@@ -39,7 +39,22 @@ registry.registerPath({
     request: {
         params: removeUserRoleParamsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function removeUserRole(
@@ -155,13 +170,11 @@ export async function removeUserRole(
         });
 
         for (const orgClient of orgClientsToRebuild) {
-            rebuildClientAssociationsFromClient(orgClient, primaryDb).catch(
-                (e) => {
-                    logger.error(
-                        `Failed to rebuild client associations for client ${orgClient.clientId} after removing role: ${e}`
-                    );
-                }
-            );
+            rebuildClientAssociationsFromClient(orgClient).catch((e) => {
+                logger.error(
+                    `Failed to rebuild client associations for client ${orgClient.clientId} after removing role: ${e}`
+                );
+            });
         }
 
         return response(res, {

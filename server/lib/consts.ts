@@ -2,7 +2,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // This is a placeholder value replaced by the build process
-export const APP_VERSION = "1.18.4";
+export const APP_VERSION = "1.19.0";
 
 export const __FILENAME = fileURLToPath(import.meta.url);
 export const __DIRNAME = path.dirname(__FILENAME);

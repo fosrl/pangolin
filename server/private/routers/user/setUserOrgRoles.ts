@@ -21,7 +21,10 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
-import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
+import {
+    rebuildClientAssociationsFromClient,
+    isOrgRebuildRateLimited
+} from "@server/lib/rebuildClientAssociations";
 
 const setUserOrgRolesParamsSchema = z.strictObject({
     orgId: z.string(),
@@ -83,6 +86,15 @@ export async function setUserOrgRoles(
                 createHttpError(
                     HttpCode.NOT_FOUND,
                     "User not found in this organization"
+                )
+            );
+        }
+
+        if (await isOrgRebuildRateLimited(orgId)) {
+            return next(
+                createHttpError(
+                    HttpCode.TOO_MANY_REQUESTS,
+                    "Too many concurrent rebuild operations for this organization. Please retry after a moment."
                 )
             );
         }
@@ -150,13 +162,11 @@ export async function setUserOrgRoles(
         });
 
         for (const orgClient of orgClientsToRebuild) {
-            rebuildClientAssociationsFromClient(orgClient, primaryDb).catch(
-                (e) => {
-                    logger.error(
-                        `Failed to rebuild client associations for client ${orgClient.clientId} after setting roles: ${e}`
-                    );
-                }
-            );
+            rebuildClientAssociationsFromClient(orgClient).catch((e) => {
+                logger.error(
+                    `Failed to rebuild client associations for client ${orgClient.clientId} after setting roles: ${e}`
+                );
+            });
         }
 
         return response(res, {

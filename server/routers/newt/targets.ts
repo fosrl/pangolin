@@ -2,6 +2,8 @@ import { Target, TargetHealthCheck } from "@server/db";
 import { sendToClient } from "#dynamic/routers/ws";
 import logger from "@server/logger";
 import { canCompress } from "@server/lib/clientVersionChecks";
+import { decrypt } from "@server/lib/crypto";
+import config from "@server/lib/config";
 
 export async function addTargets(
     newtId: string,
@@ -234,6 +236,62 @@ export async function removeTargets(
             type: `newt/healthcheck/remove`,
             data: {
                 ids: healthCheckTargets
+            }
+        },
+        { incrementConfigVersion: true, compress: canCompress(version, "newt") }
+    );
+}
+
+export async function sendBrowserGatewayTargets(
+    newtId: string,
+    targets: Target[],
+    version?: string | null
+) {
+    if (targets.length === 0) return;
+
+    // filter out the ones without auth tokens
+    const filteredTargets = targets.filter((t) => t.authToken);
+    if (filteredTargets.length === 0) return;
+
+    const payload = filteredTargets.map((t) => {
+        const decryptAuthToken = decrypt(
+            t.authToken!,
+            config.getRawConfig().server.secret!
+        );
+        return {
+            id: t.targetId,
+            resourceId: t.resourceId,
+            siteId: t.siteId,
+            type: t.mode,
+            destination: t.ip,
+            destinationPort: t.port,
+            authToken: decryptAuthToken
+        };
+    });
+
+    await sendToClient(
+        newtId,
+        {
+            type: "newt/browsergateway/add",
+            data: {
+                targets: payload
+            }
+        },
+        { incrementConfigVersion: true, compress: canCompress(version, "newt") }
+    );
+}
+
+export async function removeBrowserGatewayTarget(
+    newtId: string,
+    browserGatewayTargetId: number,
+    version?: string | null
+) {
+    await sendToClient(
+        newtId,
+        {
+            type: "newt/browsergateway/remove",
+            data: {
+                ids: [browserGatewayTargetId]
             }
         },
         { incrementConfigVersion: true, compress: canCompress(version, "newt") }

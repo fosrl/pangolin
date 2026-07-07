@@ -9,12 +9,17 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
+import {
+    rebuildClientAssociationsFromClient,
+    isOrgRebuildRateLimited
+} from "@server/lib/rebuildClientAssociations";
 import { sendTerminateClient } from "./terminate";
 import { OlmErrorCodes } from "../olm/error";
+import { LimitId } from "@server/lib/billing/features";
+import { usageService } from "@server/lib/billing/usageService";
 
 const deleteClientSchema = z.strictObject({
-    clientId: z.string().transform(Number).pipe(z.int().positive())
+    clientId: z.coerce.number().int().positive()
 });
 
 registry.registerPath({
@@ -25,7 +30,22 @@ registry.registerPath({
     request: {
         params: deleteClientSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function deleteClient(
@@ -61,6 +81,15 @@ export async function deleteClient(
             );
         }
 
+        if (await isOrgRebuildRateLimited(client.orgId)) {
+            return next(
+                createHttpError(
+                    HttpCode.TOO_MANY_REQUESTS,
+                    "Too many concurrent rebuild operations for this organization. Please retry after a moment."
+                )
+            );
+        }
+
         // Only allow deletion of machine clients (clients without userId)
         if (client.userId) {
             return next(
@@ -91,16 +120,21 @@ export async function deleteClient(
             if (!client.userId && client.olmId) {
                 await trx.delete(olms).where(eq(olms.olmId, client.olmId));
             }
+
+            await usageService.add(
+                deletedClient.orgId,
+                LimitId.MACHINE_CLIENTS,
+                -1,
+                trx
+            );
         });
 
         if (deletedClient) {
-            rebuildClientAssociationsFromClient(deletedClient, primaryDb).catch(
-                (e) => {
-                    logger.error(
-                        `Failed to rebuild client associations after deleting client ${clientId}: ${e}`
-                    );
-                }
-            );
+            rebuildClientAssociationsFromClient(deletedClient).catch((e) => {
+                logger.error(
+                    `Failed to rebuild client associations after deleting client ${clientId}: ${e}`
+                );
+            });
             if (olm) {
                 sendTerminateClient(
                     deletedClient.clientId,

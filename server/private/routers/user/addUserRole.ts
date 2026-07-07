@@ -23,11 +23,14 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
+import {
+    rebuildClientAssociationsFromClient,
+    isOrgRebuildRateLimited
+} from "@server/lib/rebuildClientAssociations";
 
 const addUserRoleParamsSchema = z.strictObject({
     userId: z.string(),
-    roleId: z.string().transform(stoi).pipe(z.number())
+    roleId: z.coerce.number()
 });
 
 registry.registerPath({
@@ -38,7 +41,22 @@ registry.registerPath({
     request: {
         params: addUserRoleParamsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function addUserRole(
@@ -113,6 +131,15 @@ export async function addUserRole(
             );
         }
 
+        if (await isOrgRebuildRateLimited(role.orgId)) {
+            return next(
+                createHttpError(
+                    HttpCode.TOO_MANY_REQUESTS,
+                    "Too many concurrent rebuild operations for this organization. Please retry after a moment."
+                )
+            );
+        }
+
         let newUserRole: {
             userId: string;
             orgId: string;
@@ -148,13 +175,11 @@ export async function addUserRole(
         });
 
         for (const orgClient of orgClientsToRebuild) {
-            rebuildClientAssociationsFromClient(orgClient, primaryDb).catch(
-                (e) => {
-                    logger.error(
-                        `Failed to rebuild client associations for client ${orgClient.clientId} after adding role: ${e}`
-                    );
-                }
-            );
+            rebuildClientAssociationsFromClient(orgClient).catch((e) => {
+                logger.error(
+                    `Failed to rebuild client associations for client ${orgClient.clientId} after adding role: ${e}`
+                );
+            });
         }
 
         return response(res, {

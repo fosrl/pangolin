@@ -221,10 +221,18 @@ async function handleResource(
         )
         .where(eq(targets.resourceId, resource.resourceId));
 
+    const monitoredTargets = otherTargets.filter(
+        (t) => t.hcHealth !== "unknown"
+    );
+
     let health = "healthy";
-    const allUnknown = otherTargets.every((t) => t.hcHealth === "unknown");
-    const allHealthy = otherTargets.every((t) => t.hcHealth === "healthy");
-    const allUnhealthy = otherTargets.every((t) => t.hcHealth === "unhealthy");
+    const allUnknown = monitoredTargets.length === 0;
+    const allHealthy = monitoredTargets.every(
+        (t) => t.hcHealth === "healthy"
+    );
+    const allUnhealthy = monitoredTargets.every(
+        (t) => t.hcHealth === "unhealthy"
+    );
 
     if (allUnknown) {
         logger.debug(

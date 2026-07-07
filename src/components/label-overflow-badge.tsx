@@ -9,7 +9,7 @@ export type LabelOverflowItem = {
 };
 
 const labelOverflowBadgeClassName =
-    "inline-flex h-auto shrink-0 items-center gap-1.5 rounded-full border border-input bg-background py-0 pl-1.5 pr-2 text-sm shadow-xs";
+    "inline-flex h-auto shrink-0 items-center gap-1.5 rounded-full border border-input bg-background py-0 pl-1.5 pr-2 text-sm";
 
 export type LabelOverflowBadgeProps = {
     labels: LabelOverflowItem[];

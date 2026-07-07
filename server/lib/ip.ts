@@ -327,127 +327,145 @@ export function doCidrsOverlap(cidr1: string, cidr2: string): boolean {
 export async function getNextAvailableClientSubnet(
     orgId: string,
     transaction: Transaction | typeof db = db
-): Promise<string> {
-    return await lockManager.withLock(
-        `client-subnet-allocation:${orgId}`,
-        async () => {
-            const [org] = await transaction
-                .select()
-                .from(orgs)
-                .where(eq(orgs.orgId, orgId));
+): Promise<{ value: string; release: () => Promise<void> }> {
+    const lockKey = `client-subnet-allocation:${orgId}`;
+    const acquired = await lockManager.acquireLockWithRetry(lockKey, 6000);
+    if (!acquired) {
+        throw new Error(`Failed to acquire lock: ${lockKey}`);
+    }
+    const release = () => lockManager.releaseLock(lockKey, acquired);
 
-            if (!org) {
-                throw new Error(`Organization with ID ${orgId} not found`);
-            }
+    try {
+        const [org] = await transaction
+            .select()
+            .from(orgs)
+            .where(eq(orgs.orgId, orgId));
 
-            if (!org.subnet) {
-                throw new Error(
-                    `Organization with ID ${orgId} has no subnet defined`
-                );
-            }
-
-            const existingAddressesSites = await transaction
-                .select({
-                    address: sites.address
-                })
-                .from(sites)
-                .where(and(isNotNull(sites.address), eq(sites.orgId, orgId)));
-
-            const existingAddressesClients = await transaction
-                .select({
-                    address: clients.subnet
-                })
-                .from(clients)
-                .where(
-                    and(isNotNull(clients.subnet), eq(clients.orgId, orgId))
-                );
-
-            const addresses = [
-                ...existingAddressesSites.map(
-                    (site) => `${site.address?.split("/")[0]}/32`
-                ), // we are overriding the 32 so that we pick individual addresses in the subnet of the org for the site and the client even though they are stored with the /block_size of the org
-                ...existingAddressesClients.map(
-                    (client) => `${client.address.split("/")}/32`
-                )
-            ].filter((address) => address !== null) as string[];
-
-            const subnet = findNextAvailableCidr(addresses, 32, org.subnet); // pick the sites address in the org
-            if (!subnet) {
-                throw new Error("No available subnets remaining in space");
-            }
-
-            return subnet;
+        if (!org) {
+            throw new Error(`Organization with ID ${orgId} not found`);
         }
-    );
+
+        if (!org.subnet) {
+            throw new Error(
+                `Organization with ID ${orgId} has no subnet defined`
+            );
+        }
+
+        const existingAddressesSites = await transaction
+            .select({
+                address: sites.address
+            })
+            .from(sites)
+            .where(and(isNotNull(sites.address), eq(sites.orgId, orgId)));
+
+        const existingAddressesClients = await transaction
+            .select({
+                address: clients.subnet
+            })
+            .from(clients)
+            .where(and(isNotNull(clients.subnet), eq(clients.orgId, orgId)));
+
+        const addresses = [
+            ...existingAddressesSites.map(
+                (site) => `${site.address?.split("/")[0]}/32`
+            ), // we are overriding the 32 so that we pick individual addresses in the subnet of the org for the site and the client even though they are stored with the /block_size of the org
+            ...existingAddressesClients.map(
+                (client) => `${client.address.split("/")[0]}/32`
+            )
+        ].filter((address) => address !== null) as string[];
+
+        const subnet = findNextAvailableCidr(addresses, 32, org.subnet); // pick the sites address in the org
+        if (!subnet) {
+            throw new Error("No available subnets remaining in space");
+        }
+
+        return { value: subnet, release };
+    } catch (e) {
+        await release();
+        throw e;
+    }
 }
 
 export async function getNextAvailableAliasAddress(
     orgId: string,
     trx: Transaction | typeof db = db
-): Promise<string> {
-    return await lockManager.withLock(
-        `alias-address-allocation:${orgId}`,
-        async () => {
-            const [org] = await trx
-                .select()
-                .from(orgs)
-                .where(eq(orgs.orgId, orgId));
+): Promise<{ value: string; release: () => Promise<void> }> {
+    const lockKey = `alias-address-allocation:${orgId}`;
+    const acquired = await lockManager.acquireLockWithRetry(lockKey, 6000);
+    if (!acquired) {
+        throw new Error(`Failed to acquire lock: ${lockKey}`);
+    }
+    const release = () => lockManager.releaseLock(lockKey, acquired);
 
-            if (!org) {
-                throw new Error(`Organization with ID ${orgId} not found`);
-            }
+    try {
+        const [org] = await trx
+            .select()
+            .from(orgs)
+            .where(eq(orgs.orgId, orgId));
 
-            if (!org.subnet) {
-                throw new Error(
-                    `Organization with ID ${orgId} has no subnet defined`
-                );
-            }
-
-            if (!org.utilitySubnet) {
-                throw new Error(
-                    `Organization with ID ${orgId} has no utility subnet defined`
-                );
-            }
-
-            const existingAddresses = await trx
-                .select({
-                    aliasAddress: siteResources.aliasAddress
-                })
-                .from(siteResources)
-                .where(
-                    and(
-                        isNotNull(siteResources.aliasAddress),
-                        eq(siteResources.orgId, orgId)
-                    )
-                );
-
-            const addresses = [
-                ...existingAddresses.map(
-                    (site) => `${site.aliasAddress?.split("/")[0]}/32`
-                ),
-                // reserve a /29 for the dns server and other stuff
-                `${org.utilitySubnet.split("/")[0]}/29`
-            ].filter((address) => address !== null) as string[];
-
-            let subnet = findNextAvailableCidr(
-                addresses,
-                32,
-                org.utilitySubnet
-            );
-            if (!subnet) {
-                throw new Error("No available subnets remaining in space");
-            }
-
-            // remove the cidr
-            subnet = subnet.split("/")[0];
-
-            return subnet;
+        if (!org) {
+            throw new Error(`Organization with ID ${orgId} not found`);
         }
-    );
+
+        if (!org.subnet) {
+            throw new Error(
+                `Organization with ID ${orgId} has no subnet defined`
+            );
+        }
+
+        if (!org.utilitySubnet) {
+            throw new Error(
+                `Organization with ID ${orgId} has no utility subnet defined`
+            );
+        }
+
+        const existingAddresses = await trx
+            .select({
+                aliasAddress: siteResources.aliasAddress
+            })
+            .from(siteResources)
+            .where(
+                and(
+                    isNotNull(siteResources.aliasAddress),
+                    eq(siteResources.orgId, orgId)
+                )
+            );
+
+        const addresses = [
+            ...existingAddresses.map(
+                (site) => `${site.aliasAddress?.split("/")[0]}/32`
+            ),
+            // reserve a /29 for the dns server and other stuff
+            `${org.utilitySubnet.split("/")[0]}/29`
+        ].filter((address) => address !== null) as string[];
+
+        let subnet = findNextAvailableCidr(addresses, 32, org.utilitySubnet);
+        if (!subnet) {
+            throw new Error("No available subnets remaining in space");
+        }
+
+        // remove the cidr
+        subnet = subnet.split("/")[0];
+
+        return { value: subnet, release };
+    } catch (e) {
+        await release();
+        throw e;
+    }
 }
 
-export async function getNextAvailableOrgSubnet(): Promise<string> {
-    return await lockManager.withLock("org-subnet-allocation", async () => {
+export async function getNextAvailableOrgSubnet(): Promise<{
+    value: string;
+    release: () => Promise<void>;
+}> {
+    const lockKey = "org-subnet-allocation";
+    const acquired = await lockManager.acquireLockWithRetry(lockKey, 6000);
+    if (!acquired) {
+        throw new Error(`Failed to acquire lock: ${lockKey}`);
+    }
+    const release = () => lockManager.releaseLock(lockKey, acquired);
+
+    try {
         const existingAddresses = await db
             .select({
                 subnet: orgs.subnet
@@ -466,8 +484,11 @@ export async function getNextAvailableOrgSubnet(): Promise<string> {
             throw new Error("No available subnets remaining in space");
         }
 
-        return subnet;
-    });
+        return { value: subnet, release };
+    } catch (e) {
+        await release();
+        throw e;
+    }
 }
 
 export function generateRemoteSubnets(
@@ -475,13 +496,15 @@ export function generateRemoteSubnets(
 ): string[] {
     const remoteSubnets = allSiteResources
         .filter((sr) => {
+            if (!sr.destination) return false;
+
             if (sr.mode === "cidr") {
                 // check if its a valid CIDR using zod
                 const cidrSchema = z.union([z.cidrv4(), z.cidrv6()]);
                 const parseResult = cidrSchema.safeParse(sr.destination);
                 return parseResult.success;
             }
-            if (sr.mode === "host") {
+            if (sr.mode === "host" || sr.mode === "ssh") {
                 // check if its a valid IP using zod
                 const ipSchema = z.union([z.ipv4(), z.ipv6()]);
                 const parseResult = ipSchema.safeParse(sr.destination);
@@ -491,12 +514,12 @@ export function generateRemoteSubnets(
         })
         .map((sr) => {
             if (sr.mode === "cidr") return sr.destination;
-            if (sr.mode === "host") {
+            if (sr.mode === "host" || sr.mode === "ssh") {
                 return `${sr.destination}/32`;
             }
             return ""; // This should never be reached due to filtering, but satisfies TypeScript
         })
-        .filter((subnet) => subnet !== ""); // Remove empty strings just to be safe
+        .filter((subnet): subnet is string => subnet !== "" && subnet !== null); // Remove invalid values just to be safe
     // remove duplicates
     return Array.from(new Set(remoteSubnets));
 }
@@ -508,7 +531,7 @@ export function generateAliasConfig(allSiteResources: SiteResource[]): Alias[] {
         .filter(
             (sr) =>
                 sr.aliasAddress &&
-                ((sr.alias && sr.mode == "host") ||
+                ((sr.alias && (sr.mode == "host" || sr.mode == "ssh")) ||
                     (sr.fullDomain && sr.mode == "http"))
         )
         .map((sr) => ({
@@ -554,6 +577,10 @@ export function generateSubnetProxyTargets(
             continue;
         }
 
+        if (!siteResource.destination) {
+            continue;
+        }
+
         const clientPrefix = `${clientSite.subnet.split("/")[0]}/32`;
         const portRange = [
             ...parsePortRangeString(siteResource.tcpPortRangeString, "tcp"),
@@ -561,7 +588,7 @@ export function generateSubnetProxyTargets(
         ];
         const disableIcmp = siteResource.disableIcmp ?? false;
 
-        if (siteResource.mode == "host") {
+        if (siteResource.mode == "host" || siteResource.mode == "ssh") {
             let destination = siteResource.destination;
             // check if this is a valid ip
             const ipSchema = z.union([z.ipv4(), z.ipv6()]);
@@ -581,7 +608,7 @@ export function generateSubnetProxyTargets(
                 targets.push({
                     sourcePrefix: clientPrefix,
                     destPrefix: `${siteResource.aliasAddress}/32`,
-                    rewriteTo: destination,
+                    rewriteTo: destination!,
                     portRange,
                     disableIcmp
                 });
@@ -589,7 +616,7 @@ export function generateSubnetProxyTargets(
         } else if (siteResource.mode == "cidr") {
             targets.push({
                 sourcePrefix: clientPrefix,
-                destPrefix: siteResource.destination,
+                destPrefix: siteResource.destination!,
                 portRange,
                 disableIcmp
             });
@@ -642,7 +669,12 @@ export async function generateSubnetProxyTargetV2(
         return;
     }
 
-    let targets: SubnetProxyTargetV2[] = [];
+    if (!siteResource.destination) {
+        // ssh can have no destination
+        return;
+    }
+
+    const targets: SubnetProxyTargetV2[] = [];
 
     const portRange = [
         ...parsePortRangeString(siteResource.tcpPortRangeString, "tcp"),
@@ -650,7 +682,7 @@ export async function generateSubnetProxyTargetV2(
     ];
     const disableIcmp = siteResource.disableIcmp ?? false;
 
-    if (siteResource.mode == "host") {
+    if (siteResource.mode == "host" || siteResource.mode == "ssh") {
         let destination = siteResource.destination;
         // check if this is a valid ip
         const ipSchema = z.union([z.ipv4(), z.ipv6()]);
@@ -671,7 +703,7 @@ export async function generateSubnetProxyTargetV2(
             targets.push({
                 sourcePrefixes: [],
                 destPrefix: `${siteResource.aliasAddress}/32`,
-                rewriteTo: destination,
+                rewriteTo: destination!,
                 portRange,
                 disableIcmp,
                 resourceId: siteResource.siteResourceId
@@ -680,7 +712,7 @@ export async function generateSubnetProxyTargetV2(
     } else if (siteResource.mode == "cidr") {
         targets.push({
             sourcePrefixes: [],
-            destPrefix: siteResource.destination,
+            destPrefix: siteResource.destination!,
             portRange,
             disableIcmp,
             resourceId: siteResource.siteResourceId
@@ -738,7 +770,7 @@ export async function generateSubnetProxyTargetV2(
             protocol: siteResource.ssl ? "https" : "http",
             httpTargets: [
                 {
-                    destAddr: siteResource.destination,
+                    destAddr: siteResource.destination!,
                     destPort: siteResource.destinationPort,
                     scheme: siteResource.scheme
                 }
@@ -873,7 +905,13 @@ export const portRangeStringSchema = z
             message:
                 'Port range must be "*" for all ports, or a comma-separated list of ports and ranges (e.g., "80,443,8000-9000"). Ports must be between 1 and 65535, and ranges must have start <= end.'
         }
-    );
+    )
+    .openapi({
+        type: "string",
+        description:
+            'Port range string. Use "*" for all ports, a comma-separated list of ports, or ranges (e.g., "80,443,8000-9000"). Ports must be between 1 and 65535.',
+        example: "80,443,8000-9000"
+    });
 
 /**
  * Parses a port range string into an array of port range objects

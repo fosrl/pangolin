@@ -26,7 +26,7 @@ import {
 } from "@server/db";
 import { eq } from "drizzle-orm";
 import { db } from "@server/db";
-import { recordPing } from "@server/routers/newt/pingAccumulator";
+import { recordSitePing } from "@server/routers/newt/pingAccumulator";
 import { validateNewtSessionToken } from "@server/auth/sessions/newt";
 import { validateOlmSessionToken } from "@server/auth/sessions/olm";
 import logger from "@server/logger";
@@ -38,6 +38,7 @@ import { messageHandlers } from "@server/routers/ws/messageHandlers";
 import { messageHandlers as privateMessageHandlers } from "#private/routers/ws/messageHandlers";
 import {
     AuthenticatedWebSocket,
+    BatchSendMessage,
     ClientType,
     WSMessage,
     TokenPayload,
@@ -187,6 +188,8 @@ const wss: WebSocketServer = new WebSocketServer({ noServer: true });
 // Generate unique node ID for this instance
 const NODE_ID = uuidv4();
 const REDIS_CHANNEL = "websocket_messages";
+const REDIS_DIRECT_BATCH_SIZE = 250;
+const REDIS_DIRECT_FLUSH_INTERVAL_MS = 10;
 
 // Client tracking map (local to this node)
 const connectedClients: Map<string, AuthenticatedWebSocket[]> = new Map();
@@ -197,6 +200,15 @@ const clientConfigVersions: Map<string, number> = new Map();
 // Recovery tracking
 let isRedisRecoveryInProgress = false;
 
+interface RedisDirectBatchEntry {
+    targetClientId: string;
+    message: WSMessage;
+    resolve: () => void;
+}
+
+let pendingRedisDirectMessages: RedisDirectBatchEntry[] = [];
+let redisDirectFlushTimer: NodeJS.Timeout | null = null;
+
 // Helper to get map key
 const getClientMapKey = (clientId: string) => clientId;
 
@@ -206,6 +218,78 @@ const getNodeConnectionsKey = (nodeId: string, clientId: string) =>
     `ws:node:${nodeId}:${clientId}`;
 const getConfigVersionKey = (clientId: string) =>
     `ws:configVersion:${clientId}`;
+
+const clearRedisDirectFlushTimer = (): void => {
+    if (redisDirectFlushTimer) {
+        clearTimeout(redisDirectFlushTimer);
+        redisDirectFlushTimer = null;
+    }
+};
+
+const publishDirectBatch = async (
+    entries: RedisDirectBatchEntry[]
+): Promise<void> => {
+    const redisMessage: RedisMessage = {
+        type: "direct-batch",
+        messages: entries.map((entry) => ({
+            targetClientId: entry.targetClientId,
+            message: entry.message
+        })),
+        fromNodeId: NODE_ID
+    };
+
+    await redisManager.publish(REDIS_CHANNEL, JSON.stringify(redisMessage));
+};
+
+const flushPendingRedisDirectMessages = async (): Promise<void> => {
+    clearRedisDirectFlushTimer();
+
+    if (pendingRedisDirectMessages.length === 0) {
+        return;
+    }
+
+    const entries = pendingRedisDirectMessages;
+    pendingRedisDirectMessages = [];
+
+    if (!redisManager.isRedisEnabled()) {
+        entries.forEach((entry) => entry.resolve());
+        return;
+    }
+
+    for (let i = 0; i < entries.length; i += REDIS_DIRECT_BATCH_SIZE) {
+        const batch = entries.slice(i, i + REDIS_DIRECT_BATCH_SIZE);
+        try {
+            await publishDirectBatch(batch);
+        } catch (error) {
+            logger.error(
+                "Failed to send batched direct messages via Redis, messages may be lost:",
+                error
+            );
+        } finally {
+            batch.forEach((entry) => entry.resolve());
+        }
+    }
+};
+
+const enqueueRedisDirectMessage = async (
+    targetClientId: string,
+    message: WSMessage
+): Promise<void> => {
+    await new Promise<void>((resolve) => {
+        pendingRedisDirectMessages.push({ targetClientId, message, resolve });
+
+        if (pendingRedisDirectMessages.length >= REDIS_DIRECT_BATCH_SIZE) {
+            void flushPendingRedisDirectMessages();
+            return;
+        }
+
+        if (!redisDirectFlushTimer) {
+            redisDirectFlushTimer = setTimeout(() => {
+                void flushPendingRedisDirectMessages();
+            }, REDIS_DIRECT_FLUSH_INTERVAL_MS);
+        }
+    });
+};
 
 // Initialize Redis subscription for cross-node messaging
 const initializeRedisSubscription = async (): Promise<void> => {
@@ -227,7 +311,16 @@ const initializeRedisSubscription = async (): Promise<void> => {
                     // Send to specific client on this node
                     await sendToClientLocal(
                         redisMessage.targetClientId,
-                        redisMessage.message
+                        redisMessage.message,
+                        {},
+                        redisMessage.message.configVersion
+                    );
+                } else if (
+                    redisMessage.type === "direct-batch" &&
+                    redisMessage.messages
+                ) {
+                    await sendRedisDirectBatchToLocalClients(
+                        redisMessage.messages
                     );
                 } else if (redisMessage.type === "broadcast") {
                     // Broadcast to all clients on this node except excluded
@@ -503,7 +596,8 @@ const incrementClientConfigVersion = async (
 const sendToClientLocal = async (
     clientId: string,
     message: WSMessage,
-    options: SendMessageOptions = {}
+    options: SendMessageOptions = {},
+    preResolvedConfigVersion?: number
 ): Promise<boolean> => {
     const mapKey = getClientMapKey(clientId);
     const clients = connectedClients.get(mapKey);
@@ -512,7 +606,8 @@ const sendToClientLocal = async (
     }
 
     // Handle config version
-    const configVersion = await getClientConfigVersion(clientId);
+    const configVersion =
+        preResolvedConfigVersion ?? (await getClientConfigVersion(clientId));
 
     // Add config version to message
     const messageWithVersion = {
@@ -522,13 +617,13 @@ const sendToClientLocal = async (
 
     const messageString = JSON.stringify(messageWithVersion);
     if (options.compress) {
-        logger.debug(
-            `Message size before compression: ${messageString.length} bytes`
-        );
+        // logger.debug(
+        //     `Message size before compression: ${messageString.length} bytes`
+        // );
         const compressed = zlib.gzipSync(Buffer.from(messageString, "utf8"));
-        logger.debug(
-            `Message size after compression: ${compressed.length} bytes`
-        );
+        // logger.debug(
+        //     `Message size after compression: ${compressed.length} bytes`
+        // );
         clients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(compressed);
@@ -545,43 +640,71 @@ const sendToClientLocal = async (
     return true;
 };
 
+const sendRedisDirectBatchToLocalClients = async (
+    entries: { targetClientId: string; message: WSMessage }[]
+): Promise<void> => {
+    const jobs = entries.map((entry) =>
+        sendToClientLocal(
+            entry.targetClientId,
+            entry.message,
+            {},
+            entry.message.configVersion
+        )
+    );
+    await Promise.all(jobs);
+};
+
 const broadcastToAllExceptLocal = async (
     message: WSMessage,
     excludeClientId?: string,
     options: SendMessageOptions = {}
 ): Promise<void> => {
-    for (const [mapKey, clients] of connectedClients.entries()) {
-        const [type, id] = mapKey.split(":");
-        const clientId = mapKey; // mapKey is the clientId
-        if (!(excludeClientId && clientId === excludeClientId)) {
-            // Handle config version per client
-            let configVersion = await getClientConfigVersion(clientId);
-            if (options.incrementConfigVersion) {
-                configVersion = await incrementClientConfigVersion(clientId);
-            }
+    const sendPlans = await Promise.all(
+        Array.from(connectedClients.entries()).map(
+            async ([mapKey, clients]) => {
+                const clientId = mapKey; // mapKey is the clientId
+                if (excludeClientId && clientId === excludeClientId) {
+                    return null;
+                }
 
-            // Add config version to message
-            const messageWithVersion = {
-                ...message,
-                configVersion
-            };
+                let configVersion = await getClientConfigVersion(clientId);
+                if (options.incrementConfigVersion) {
+                    configVersion =
+                        await incrementClientConfigVersion(clientId);
+                }
 
-            if (options.compress) {
-                const compressed = zlib.gzipSync(
-                    Buffer.from(JSON.stringify(messageWithVersion), "utf8")
-                );
-                clients.forEach((client) => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(compressed);
+                return {
+                    clients,
+                    messageWithVersion: {
+                        ...message,
+                        configVersion
                     }
-                });
-            } else {
-                clients.forEach((client) => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(messageWithVersion));
-                    }
-                });
+                };
             }
+        )
+    );
+
+    for (const plan of sendPlans) {
+        if (!plan) {
+            continue;
+        }
+
+        if (options.compress) {
+            const compressed = zlib.gzipSync(
+                Buffer.from(JSON.stringify(plan.messageWithVersion), "utf8")
+            );
+            plan.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(compressed);
+                }
+            });
+        } else {
+            const messageString = JSON.stringify(plan.messageWithVersion);
+            plan.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(messageString);
+                }
+            });
         }
     }
 };
@@ -602,28 +725,23 @@ const sendToClient = async (
     );
 
     // Try to send locally first
-    const localSent = await sendToClientLocal(clientId, message, options);
+    const localSent = await sendToClientLocal(
+        clientId,
+        message,
+        options,
+        configVersion
+    );
 
     // Only send via Redis if the client is not connected locally and Redis is enabled
     if (!localSent && redisManager.isRedisEnabled()) {
         try {
-            const redisMessage: RedisMessage = {
-                type: "direct",
-                targetClientId: clientId,
-                message: {
-                    ...message,
-                    configVersion
-                },
-                fromNodeId: NODE_ID
-            };
-
-            await redisManager.publish(
-                REDIS_CHANNEL,
-                JSON.stringify(redisMessage)
-            );
+            await enqueueRedisDirectMessage(clientId, {
+                ...message,
+                configVersion
+            });
         } catch (error) {
             logger.error(
-                "Failed to send message via Redis, message may be lost:",
+                "Failed to queue batched direct message for Redis delivery, message may be lost:",
                 error
             );
             // Continue execution - local delivery already attempted
@@ -636,6 +754,95 @@ const sendToClient = async (
     }
 
     return localSent;
+};
+
+const sendToClientsBatch = async (
+    entries: BatchSendMessage[]
+): Promise<void> => {
+    if (entries.length === 0) {
+        return;
+    }
+
+    const remoteEntries: { targetClientId: string; message: WSMessage }[] = [];
+    const clientsWithIncrement = new Set(
+        entries
+            .filter((entry) => !!entry.options?.incrementConfigVersion)
+            .map((entry) => entry.clientId)
+    );
+    const nonIncrementOnlyClientIds = Array.from(
+        new Set(
+            entries
+                .map((entry) => entry.clientId)
+                .filter((clientId) => !clientsWithIncrement.has(clientId))
+        )
+    );
+    const stableConfigVersionByClient = new Map<string, number | undefined>(
+        await Promise.all(
+            nonIncrementOnlyClientIds.map(
+                async (clientId) =>
+                    [clientId, await getClientConfigVersion(clientId)] as const
+            )
+        )
+    );
+
+    for (const entry of entries) {
+        const options = entry.options || {};
+        const { clientId, message } = entry;
+
+        const configVersion = options.incrementConfigVersion
+            ? await incrementClientConfigVersion(clientId)
+            : stableConfigVersionByClient.get(clientId);
+
+        logger.debug(
+            `sendToClientsBatch: Message type ${message.type} queued for clientId ${clientId} (new configVersion: ${configVersion})`
+        );
+
+        const localSent = await sendToClientLocal(
+            clientId,
+            message,
+            options,
+            configVersion
+        );
+
+        if (!localSent && redisManager.isRedisEnabled()) {
+            remoteEntries.push({
+                targetClientId: clientId,
+                message: {
+                    ...message,
+                    configVersion
+                }
+            });
+        } else if (!localSent && !redisManager.isRedisEnabled()) {
+            logger.debug(
+                `Could not deliver batch message to ${clientId} - not connected locally and Redis unavailable`
+            );
+        }
+    }
+
+    if (!redisManager.isRedisEnabled() || remoteEntries.length === 0) {
+        return;
+    }
+
+    for (let i = 0; i < remoteEntries.length; i += REDIS_DIRECT_BATCH_SIZE) {
+        const messages = remoteEntries.slice(i, i + REDIS_DIRECT_BATCH_SIZE);
+        try {
+            const redisMessage: RedisMessage = {
+                type: "direct-batch",
+                messages,
+                fromNodeId: NODE_ID
+            };
+
+            await redisManager.publish(
+                REDIS_CHANNEL,
+                JSON.stringify(redisMessage)
+            );
+        } catch (error) {
+            logger.error(
+                "Failed to send explicit direct batch via Redis, messages may be lost:",
+                error
+            );
+        }
+    }
 };
 
 const broadcastToAllExcept = async (
@@ -856,7 +1063,7 @@ const setupConnection = async (
             // pending pings in a single batched UPDATE every ~10s, which
             // prevents connection pool exhaustion under load (especially
             // with cross-region latency to the database).
-            recordPing(newtClient.siteId);
+            recordSitePing(newtClient.siteId);
         });
     }
 
@@ -1109,6 +1316,8 @@ const disconnectClient = async (clientId: string): Promise<boolean> => {
 // Cleanup function for graceful shutdown
 const cleanup = async (): Promise<void> => {
     try {
+        await flushPendingRedisDirectMessages();
+
         // Close all WebSocket connections
         connectedClients.forEach((clients) => {
             clients.forEach((client) => {
@@ -1139,6 +1348,7 @@ export {
     router,
     handleWSUpgrade,
     sendToClient,
+    sendToClientsBatch,
     broadcastToAllExcept,
     connectedClients,
     hasActiveConnections,

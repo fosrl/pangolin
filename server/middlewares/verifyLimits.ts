@@ -3,6 +3,7 @@ import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { usageService } from "@server/lib/billing/usageService";
 import { build } from "@server/build";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyLimits(
     req: Request,
@@ -13,7 +14,10 @@ export async function verifyLimits(
         return next();
     }
 
-    const orgId = req.userOrgId || req.apiKeyOrg?.orgId || req.params.orgId;
+    const orgId =
+        req.userOrgId ||
+        req.apiKeyOrg?.orgId ||
+        getFirstString(req.params.orgId);
 
     if (!orgId) {
         return next(); // its fine if we silently fail here because this is not critical to operation or security and its better user experience if we dont fail

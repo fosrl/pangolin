@@ -4,6 +4,7 @@ import { Button } from "@app/components/ui/button";
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -112,6 +113,7 @@ export default function CreateShareLinkForm({
         resourceId: z.number({ message: t("shareErrorSelectResource") }),
         resourceName: z.string(),
         resourceUrl: z.string(),
+        path: z.string().optional(),
         timeUnit: z.string(),
         timeValue: z.coerce.number<number>().int().positive().min(1),
         title: z.string().optional()
@@ -172,7 +174,8 @@ export default function CreateShareLinkForm({
                             resource:
                                 values.resourceName ||
                                 "Resource" + values.resourceId
-                        })
+                        }),
+                    path: values.path
                 }
             )
             .catch((e) => {
@@ -267,11 +270,11 @@ export default function CreateShareLinkForm({
                                                         </PopoverTrigger>
                                                         <PopoverContent className="p-0">
                                                             <ResourceSelector
-                                                                                excludeWildcard
-                                                                                orgId={
-                                                                                    org.org
-                                                                                        .orgId
-                                                                                }
+                                                                excludeWildcard
+                                                                orgId={
+                                                                    org.org
+                                                                        .orgId
+                                                                }
                                                                 selectedResource={
                                                                     selectedResource
                                                                 }
@@ -315,6 +318,27 @@ export default function CreateShareLinkForm({
                                                     <FormControl>
                                                         <Input {...field} />
                                                     </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="path"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t("sharePathOptional")}
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Input {...field} />
+                                                    </FormControl>
+                                                    <FormDescription>
+                                                        {t(
+                                                            "sharePathDescription"
+                                                        )}
+                                                    </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}

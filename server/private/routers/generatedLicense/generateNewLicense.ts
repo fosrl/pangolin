@@ -16,40 +16,44 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { response as sendResponse } from "@server/lib/response";
+import { getFirstString } from "@server/lib/requestParams";
 import privateConfig from "#private/lib/config";
 import { GenerateNewLicenseResponse } from "@server/routers/generatedLicense/types";
 
 export interface CreateNewLicenseResponse {
-  data: Data
-  success: boolean
-  error: boolean
-  message: string
-  status: number
+    data: Data;
+    success: boolean;
+    error: boolean;
+    message: string;
+    status: number;
 }
 
 export interface Data {
-  licenseKey: LicenseKey
+    licenseKey: LicenseKey;
 }
 
 export interface LicenseKey {
-  id: number
-  instanceName: any
-  instanceId: string
-  licenseKey: string
-  tier: string
-  type: string
-  quantity: number
-  quantity_2: number
-  isValid: boolean
-  updatedAt: string
-  createdAt: string
-  expiresAt: string
-  paidFor: boolean
-  orgId: string
-  metadata: string
+    id: number;
+    instanceName: any;
+    instanceId: string;
+    licenseKey: string;
+    tier: string;
+    type: string;
+    quantity: number;
+    quantity_2: number;
+    isValid: boolean;
+    updatedAt: string;
+    createdAt: string;
+    expiresAt: string;
+    paidFor: boolean;
+    orgId: string;
+    metadata: string;
 }
 
-export async function createNewLicense(orgId: string, licenseData: any): Promise<CreateNewLicenseResponse> {
+export async function createNewLicense(
+    orgId: string,
+    licenseData: any
+): Promise<CreateNewLicenseResponse> {
     try {
         const response = await fetch(
             `${privateConfig.getRawPrivateConfig().server.fossorial_api}/api/v1/license-internal/enterprise/${orgId}/create`, // this says enterprise but it does both
@@ -80,7 +84,7 @@ export async function generateNewLicense(
     next: NextFunction
 ): Promise<any> {
     try {
-        const { orgId } = req.params;
+        const orgId = getFirstString(req.params.orgId);
 
         if (!orgId) {
             return next(

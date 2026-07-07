@@ -41,7 +41,7 @@ const listClientsParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
-const listClientsSchema = z.object({
+const listClientsSchema = z.strictObject({
     pageSize: z.coerce
         .number<string>() // for prettier formatting
         .int()
@@ -212,7 +212,22 @@ registry.registerPath({
         query: listClientsSchema,
         params: listClientsParamsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function listClients(

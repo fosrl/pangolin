@@ -4,6 +4,7 @@ import { userOrgs } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyUserIsOrgOwner(
     req: Request,
@@ -11,7 +12,7 @@ export async function verifyUserIsOrgOwner(
     next: NextFunction
 ) {
     const userId = req.user!.userId;
-    const orgId = req.params.orgId;
+    const orgId = getFirstString(req.params.orgId);
 
     if (!userId) {
         return next(

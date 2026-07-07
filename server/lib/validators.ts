@@ -1,5 +1,7 @@
 import z from "zod";
 import ipaddr from "ipaddr.js";
+import { COUNTRIES } from "@server/db/countries";
+import { isValidRegionId } from "@server/db/regions";
 
 export function isValidCIDR(cidr: string): boolean {
     return (
@@ -65,6 +67,48 @@ export function isValidUrlGlobPattern(pattern: string): boolean {
     }
 
     return true;
+}
+
+export const RESOURCE_RULE_MATCH_TYPES = [
+    "CIDR",
+    "IP",
+    "PATH",
+    "COUNTRY",
+    "ASN",
+    "REGION"
+] as const;
+
+export type ResourceRuleMatchType = (typeof RESOURCE_RULE_MATCH_TYPES)[number];
+
+export function getResourceRuleValueValidationError(
+    match: ResourceRuleMatchType,
+    value: string
+): string | null {
+    switch (match) {
+        case "CIDR":
+            return isValidCIDR(value) ? null : "Invalid CIDR provided";
+        case "IP":
+            return isValidIP(value) ? null : "Invalid IP provided";
+        case "PATH":
+            return isValidUrlGlobPattern(value)
+                ? null
+                : "Invalid URL glob pattern provided";
+        case "REGION":
+            return isValidRegionId(value) ? null : "Invalid region ID provided";
+        case "COUNTRY":
+            return COUNTRIES.some((country) => country.code === value)
+                ? null
+                : "Invalid country code provided";
+        case "ASN":
+            const normalizedValue = value.trim().toUpperCase();
+            return /^AS\d+$/.test(normalizedValue) ||
+                normalizedValue === "ALL" ||
+                normalizedValue === "AS0"
+                ? null
+                : "Invalid ASN provided";
+        default:
+            return "Invalid rule match type provided";
+    }
 }
 
 export function isUrlValid(url: string | undefined) {

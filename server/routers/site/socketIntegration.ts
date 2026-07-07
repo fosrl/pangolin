@@ -44,7 +44,7 @@ export interface Container {
 }
 
 const siteIdParamsSchema = z.strictObject({
-    siteId: z.string().transform(stoi).pipe(z.int().positive())
+    siteId: z.coerce.number().int().positive()
 });
 
 const DockerStatusSchema = z.strictObject({

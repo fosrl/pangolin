@@ -14,7 +14,7 @@ import {
 } from "@server/db";
 import { eq } from "drizzle-orm";
 import { db } from "@server/db";
-import { recordPing } from "@server/routers/newt/pingAccumulator";
+import { recordSitePing } from "@server/routers/newt/pingAccumulator";
 import { validateNewtSessionToken } from "@server/auth/sessions/newt";
 import { validateOlmSessionToken } from "@server/auth/sessions/olm";
 import { messageHandlers } from "./messageHandlers";
@@ -26,7 +26,8 @@ import {
     WebSocketRequest,
     WSMessage,
     AuthenticatedWebSocket,
-    SendMessageOptions
+    SendMessageOptions,
+    BatchSendMessage
 } from "./types";
 import { validateSessionToken } from "@server/auth/sessions/app";
 
@@ -210,6 +211,20 @@ const sendToClient = async (
     );
 
     return localSent;
+};
+
+const sendToClientsBatch = async (
+    entries: BatchSendMessage[]
+): Promise<void> => {
+    if (entries.length === 0) {
+        return;
+    }
+
+    await Promise.all(
+        entries.map((entry) =>
+            sendToClient(entry.clientId, entry.message, entry.options)
+        )
+    );
 };
 
 const broadcastToAllExcept = async (
@@ -409,7 +424,7 @@ const setupConnection = async (
             // pending pings in a single batched UPDATE every ~10s, which
             // prevents connection pool exhaustion under load (especially
             // with cross-region latency to the database).
-            recordPing(newtClient.siteId);
+            recordSitePing(newtClient.siteId);
         });
     }
 
@@ -552,6 +567,7 @@ export {
     router,
     handleWSUpgrade,
     sendToClient,
+    sendToClientsBatch,
     broadcastToAllExcept,
     connectedClients,
     hasActiveConnections,

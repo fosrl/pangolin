@@ -16,6 +16,7 @@ import { MessageHandler } from "@server/routers/ws";
 import { RemoteExitNode } from "@server/db";
 import { eq } from "drizzle-orm";
 import logger from "@server/logger";
+import { scheduleExitNodeReconnect } from "./exitNodeReconnectScheduler";
 
 /**
  * Handles ping messages from clients and responds with pong
@@ -37,6 +38,13 @@ export const handleRemoteExitNodePingMessage: MessageHandler = async (
     }
 
     try {
+        // Fetch the current state before updating so we can detect the offline→online transition
+        const [currentExitNode] = await db
+            .select({ online: exitNodes.online, reachableAt: exitNodes.reachableAt })
+            .from(exitNodes)
+            .where(eq(exitNodes.exitNodeId, remoteExitNode.exitNodeId))
+            .limit(1);
+
         // Update the exit node's last ping timestamp
         await db
             .update(exitNodes)
@@ -45,6 +53,16 @@ export const handleRemoteExitNodePingMessage: MessageHandler = async (
                 online: true
             })
             .where(eq(exitNodes.exitNodeId, remoteExitNode.exitNodeId));
+
+        // If the exit node was offline and is now coming online, schedule newt reconnects
+        if (currentExitNode && !currentExitNode.online && currentExitNode.reachableAt) {
+            scheduleExitNodeReconnect(
+                remoteExitNode.exitNodeId,
+                currentExitNode.reachableAt
+            ).catch((error) => {
+                logger.error("Failed to schedule exit node reconnect", { error });
+            });
+        }
     } catch (error) {
         logger.error("Error handling ping message", { error });
     }

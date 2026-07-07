@@ -9,6 +9,7 @@ import { eq, sql } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 
 const listDomainsParamsSchema = z.strictObject({
     orgId: z.string()
@@ -56,6 +57,28 @@ export type ListDomainsResponse = {
     pagination: { total: number; limit: number; offset: number };
 };
 
+const ListDomainsResponseDataSchema = z.object({
+    domains: z.array(
+        z.object({
+            domainId: z.string(),
+            baseDomain: z.string(),
+            verified: z.boolean(),
+            type: z.string().nullable(),
+            failed: z.boolean(),
+            tries: z.number(),
+            configManaged: z.boolean(),
+            certResolver: z.string().nullable(),
+            preferWildcardCert: z.boolean().nullable(),
+            errorMessage: z.string().nullable()
+        })
+    ),
+    pagination: z.object({
+        total: z.number(),
+        limit: z.number(),
+        offset: z.number()
+    })
+});
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/domains",
@@ -67,7 +90,16 @@ registry.registerPath({
         }),
         query: listDomainsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(ListDomainsResponseDataSchema)
+                }
+            }
+        }
+    }
 });
 
 export async function listDomains(

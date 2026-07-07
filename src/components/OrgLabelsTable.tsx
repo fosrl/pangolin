@@ -12,14 +12,7 @@ import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { type PaginationState } from "@tanstack/react-table";
-import {
-    ArrowDown01Icon,
-    ArrowUp10Icon,
-    ChevronsUpDownIcon,
-    MoreHorizontal,
-    PencilIcon,
-    PencilLineIcon
-} from "lucide-react";
+import { ArrowRight, MoreHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { useActionState, useMemo, useState, useTransition } from "react";
@@ -109,7 +102,7 @@ export default function OrgLabelsTable({
                 cell: ({ row }) => (
                     <div className="flex items-center gap-1.5 group">
                         <div
-                            className="size-2.5 rounded-full bg-(--color) flex-none"
+                            className="size-2 rounded-full bg-(--color) flex-none"
                             style={{
                                 // @ts-expect-error css color
                                 "--color": row.original.color
@@ -125,34 +118,40 @@ export default function OrgLabelsTable({
                 enableHiding: false,
                 header: () => <span className="p-3"></span>,
                 cell: ({ row }) => (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">{t("openMenu")}</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onClick={() => {
-                                    setSelectedLabel(row.original);
-                                    setIsEditModalOpen(true);
-                                }}
-                            >
-                                {t("edit")}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => {
-                                    setSelectedLabel(row.original);
-                                    setIsDeleteModalOpen(true);
-                                }}
-                            >
-                                <span className="text-red-500">
-                                    {t("delete")}
-                                </span>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-2 justify-end">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <span className="sr-only">
+                                        {t("openMenu")}
+                                    </span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        setSelectedLabel(row.original);
+                                        setIsDeleteModalOpen(true);
+                                    }}
+                                >
+                                    <span className="text-red-500">
+                                        {t("delete")}
+                                    </span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setSelectedLabel(row.original);
+                                setIsEditModalOpen(true);
+                            }}
+                        >
+                            {t("edit")}
+                            <ArrowRight className="ml-2 w-4 h-4" />
+                        </Button>
+                    </div>
                 )
             }
         ],

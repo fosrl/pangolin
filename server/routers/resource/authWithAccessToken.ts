@@ -167,7 +167,12 @@ export async function authWithAccessToken(
 
         let redirectUrl = `${resource.ssl ? "https" : "http"}://${resource.fullDomain}`;
         const postAuthPath = normalizePostAuthPath(resource.postAuthPath);
-        if (postAuthPath) {
+        if (tokenItem.path) {
+            // add the path from the access token to the redirect URL, ensuring there is exactly one slash between the domain and the path
+            redirectUrl =
+                redirectUrl.replace(/\/?$/, "/") +
+                tokenItem.path.replace(/^\/?/, "");
+        } else if (postAuthPath) {
             redirectUrl = redirectUrl + postAuthPath;
         }
 

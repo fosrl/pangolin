@@ -19,7 +19,7 @@ export default function OrgInfoCard({}: OrgInfoCardProps) {
     return (
         <Alert>
             <AlertDescription>
-                <InfoSections cols={3}>
+                <InfoSections cols={4}>
                     <InfoSection>
                         <InfoSectionTitle>{t("name")}</InfoSectionTitle>
                         <InfoSectionContent>{org.org.name}</InfoSectionContent>
@@ -32,6 +32,14 @@ export default function OrgInfoCard({}: OrgInfoCardProps) {
                         <InfoSectionTitle>{t("subnet")}</InfoSectionTitle>
                         <InfoSectionContent>
                             {org.org.subnet || t("none")}
+                        </InfoSectionContent>
+                    </InfoSection>
+                    <InfoSection>
+                        <InfoSectionTitle>
+                            {t("utilitySubnet")}
+                        </InfoSectionTitle>
+                        <InfoSectionContent>
+                            {org.org.utilitySubnet || t("none")}
                         </InfoSectionContent>
                     </InfoSection>
                 </InfoSections>

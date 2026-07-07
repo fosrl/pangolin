@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+When creating forms, use React form for validation and use Zod schemas.

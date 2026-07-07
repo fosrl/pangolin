@@ -1,16 +1,16 @@
 export type SiteResourceDestinationInput = {
-    mode: "host" | "cidr" | "http";
-    destination: string;
-    httpHttpsPort: number | null;
+    mode: "host" | "cidr" | "http" | "ssh";
+    destination: string | null;
+    destinationPort: number | null;
     scheme: "http" | "https" | null;
 };
 
 export function resolveHttpHttpsDisplayPort(
     mode: "http",
-    httpHttpsPort: number | null
+    destinationPort: number | null
 ): number {
-    if (httpHttpsPort != null) {
-        return httpHttpsPort;
+    if (destinationPort != null) {
+        return destinationPort;
     }
     return 80;
 }
@@ -18,11 +18,14 @@ export function resolveHttpHttpsDisplayPort(
 export function formatSiteResourceDestinationDisplay(
     row: SiteResourceDestinationInput
 ): string {
-    const { mode, destination, httpHttpsPort, scheme } = row;
+    if (!row.destination) {
+        return "";
+    }
+    const { mode, destination, destinationPort, scheme } = row;
     if (mode !== "http") {
         return destination;
     }
-    const port = resolveHttpHttpsDisplayPort(mode, httpHttpsPort);
+    const port = resolveHttpHttpsDisplayPort(mode, destinationPort);
     const downstreamScheme = scheme ?? "http";
     const hostPart =
         destination.includes(":") && !destination.startsWith("[")

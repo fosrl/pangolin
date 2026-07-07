@@ -3,29 +3,43 @@ import {
     newts,
     blueprints,
     Blueprint,
-    Site,
     siteResources,
     roleSiteResources,
     userSiteResources,
     clientSiteResources
 } from "@server/db";
-import { Config, ConfigSchema } from "./types";
-import { ProxyResourcesResults, updateProxyResources } from "./proxyResources";
+import { Config, ConfigSchema, isTargetsOnlyResource } from "./types";
+import {
+    PublicResourcesResults,
+    updatePublicResources
+} from "./publicResources";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { sites } from "@server/db";
 import { eq, and, isNotNull } from "drizzle-orm";
-import { addTargets as addProxyTargets } from "@server/routers/newt/targets";
-import { addTargets as addClientTargets } from "@server/routers/client/targets";
+import {
+    addTargets as addProxyTargets,
+    sendBrowserGatewayTargets
+} from "@server/routers/newt/targets";
 import {
     ClientResourcesResults,
-    updateClientResources
-} from "./clientResources";
+    updatePrivateResources
+} from "./privateResources";
+import { updateResourcePolicies } from "./resourcePolicies";
 import { BlueprintSource } from "@server/routers/blueprints/types";
 import { stringify as stringifyYaml } from "yaml";
-import { faker } from "@faker-js/faker";
-import { handleMessagingForUpdatedSiteResource } from "@server/routers/siteResource";
-import { rebuildClientAssociationsFromSiteResource } from "../rebuildClientAssociations";
+import { generateName } from "@server/db/names";
+import {
+    handleMessagingForUpdatedSiteResource,
+    rebuildClientAssociationsFromSiteResource,
+    waitForSiteResourceRebuildIdle
+} from "../rebuildClientAssociations";
+import { build } from "@server/build";
+import HttpCode from "@server/types/HttpCode";
+import createHttpError from "http-errors";
+import next from "next";
+import { LimitId } from "../billing";
+import { usageService } from "../billing/usageService";
 
 type ApplyBlueprintArgs = {
     orgId: string;
@@ -42,40 +56,39 @@ export async function applyBlueprint({
     name,
     source = "API"
 }: ApplyBlueprintArgs): Promise<Blueprint> {
-    // Validate the input data
-    const validationResult = ConfigSchema.safeParse(configData);
-    if (!validationResult.success) {
-        throw new Error(fromError(validationResult.error).toString());
-    }
-
-    const config: Config = validationResult.data;
     let blueprintSucceeded: boolean = false;
-    let blueprintMessage: string;
+    let blueprintMessage = "";
     let error: any | null = null;
 
     try {
-        let proxyResourcesResults: ProxyResourcesResults = [];
-        let clientResourcesResults: ClientResourcesResults = [];
-        await db.transaction(async (trx) => {
-            proxyResourcesResults = await updateProxyResources(
-                orgId,
-                config,
-                trx,
-                siteId
-            );
-            clientResourcesResults = await updateClientResources(
-                orgId,
-                config,
-                trx,
-                siteId
-            );
+        const validationResult = ConfigSchema.safeParse(configData);
+        if (!validationResult.success) {
+            throw new Error(fromError(validationResult.error).toString());
+        }
 
-            logger.debug(
-                `Successfully updated proxy resources for org ${orgId}: ${JSON.stringify(proxyResourcesResults)}`
+        const config: Config = validationResult.data;
+
+        let publicResourcesResults: PublicResourcesResults = [];
+        let privateResourcesResults: ClientResourcesResults = [];
+
+        await db.transaction(async (trx) => {
+            await updateResourcePolicies(orgId, config, trx);
+
+            publicResourcesResults = await updatePublicResources(
+                orgId,
+                config,
+                trx,
+                siteId
+            );
+            privateResourcesResults = await updatePrivateResources(
+                orgId,
+                config,
+                trx,
+                siteId
             );
 
             // We need to update the targets on the newts from the successfully updated information
-            for (const result of proxyResourcesResults) {
+            for (const result of publicResourcesResults) {
                 for (const target of result.targetsToUpdate) {
                     const [site] = await trx
                         .select()
@@ -102,178 +115,63 @@ export async function applyBlueprint({
                                 (hc) => hc.targetId === target.targetId
                             );
 
-                        await addProxyTargets(
-                            site.newt.newtId,
-                            [target],
-                            matchingHealthcheck ? [matchingHealthcheck] : [],
-                            result.proxyResource.protocol,
-                            site.newt.version
-                        );
+                        if (["http", "tcp", "udp"].includes(target.mode)) {
+                            await addProxyTargets(
+                                site.newt.newtId,
+                                [target],
+                                matchingHealthcheck
+                                    ? [matchingHealthcheck]
+                                    : [],
+                                result.proxyResource.mode === "udp"
+                                    ? "udp"
+                                    : "tcp",
+                                site.newt.version
+                            );
+                        } else if (
+                            ["ssh", "rdp", "vnc"].includes(target.mode)
+                        ) {
+                            await sendBrowserGatewayTargets(
+                                site.newt.newtId,
+                                [target],
+                                site.newt.version
+                            );
+                        }
                     }
                 }
             }
 
             logger.debug(
-                `Successfully updated client resources for org ${orgId}: ${JSON.stringify(clientResourcesResults)}`
+                `Successfully updated public resources for org ${orgId}: ${JSON.stringify(publicResourcesResults)}`
             );
 
             // We need to update the targets on the newts from the successfully updated information
-            for (const result of clientResourcesResults) {
-                if (
-                    result.oldSiteResource &&
-                    JSON.stringify(result.newSites?.sort()) !==
-                        JSON.stringify(result.oldSites?.sort())
-                ) {
-                    // query existing associations
-                    const existingRoleIds = await trx
-                        .select()
-                        .from(roleSiteResources)
-                        .where(
-                            eq(
-                                roleSiteResources.siteResourceId,
-                                result.oldSiteResource.siteResourceId
-                            )
+            for (const result of privateResourcesResults) {
+                rebuildClientAssociationsFromSiteResource(
+                    result.newSiteResource
+                )
+                    .then(() =>
+                        waitForSiteResourceRebuildIdle(
+                            result.newSiteResource.siteResourceId
                         )
-                        .then((rows) => rows.map((row) => row.roleId));
-
-                    const existingUserIds = await trx
-                        .select()
-                        .from(userSiteResources)
-                        .where(
-                            eq(
-                                userSiteResources.siteResourceId,
-                                result.oldSiteResource.siteResourceId
-                            )
+                    )
+                    .then(() =>
+                        handleMessagingForUpdatedSiteResource(
+                            result.oldSiteResource,
+                            result.newSiteResource,
+                            result.oldSites.map((s) => s.siteId),
+                            result.newSites.map((s) => s.siteId)
                         )
-                        .then((rows) => rows.map((row) => row.userId));
-
-                    const existingClientIds = await trx
-                        .select()
-                        .from(clientSiteResources)
-                        .where(
-                            eq(
-                                clientSiteResources.siteResourceId,
-                                result.oldSiteResource.siteResourceId
-                            )
-                        )
-                        .then((rows) => rows.map((row) => row.clientId));
-
-                    // delete the existing site resource
-                    await trx
-                        .delete(siteResources)
-                        .where(
-                            and(
-                                eq(
-                                    siteResources.siteResourceId,
-                                    result.oldSiteResource.siteResourceId
-                                )
-                            )
+                    )
+                    .catch((e) => {
+                        logger.error(
+                            `Failed to rebuild and handle messaging for site resource ${result.newSiteResource.siteResourceId}. Error: ${e}`
                         );
-
-                    await rebuildClientAssociationsFromSiteResource(
-                        result.oldSiteResource,
-                        trx
-                    );
-
-                    const [insertedSiteResource] = await trx
-                        .insert(siteResources)
-                        .values({
-                            ...result.newSiteResource
-                        })
-                        .returning();
-
-                    // wait some time to allow for messages to be handled
-                    await new Promise((resolve) => setTimeout(resolve, 750));
-
-                    //////////////////// update the associations ////////////////////
-
-                    if (existingRoleIds.length > 0) {
-                        await trx.insert(roleSiteResources).values(
-                            existingRoleIds.map((roleId) => ({
-                                roleId,
-                                siteResourceId:
-                                    insertedSiteResource!.siteResourceId
-                            }))
-                        );
-                    }
-
-                    if (existingUserIds.length > 0) {
-                        await trx.insert(userSiteResources).values(
-                            existingUserIds.map((userId) => ({
-                                userId,
-                                siteResourceId:
-                                    insertedSiteResource!.siteResourceId
-                            }))
-                        );
-                    }
-
-                    if (existingClientIds.length > 0) {
-                        await trx.insert(clientSiteResources).values(
-                            existingClientIds.map((clientId) => ({
-                                clientId,
-                                siteResourceId:
-                                    insertedSiteResource!.siteResourceId
-                            }))
-                        );
-                    }
-
-                    await rebuildClientAssociationsFromSiteResource(
-                        insertedSiteResource,
-                        trx
-                    );
-                } else {
-                    let good = true;
-                    for (const newSite of result.newSites) {
-                        const [site] = await trx
-                            .select()
-                            .from(sites)
-                            .innerJoin(newts, eq(sites.siteId, newts.siteId))
-                            .where(
-                                and(
-                                    eq(sites.siteId, newSite.siteId),
-                                    eq(sites.orgId, orgId),
-                                    eq(sites.type, "newt"),
-                                    isNotNull(sites.pubKey)
-                                )
-                            )
-                            .limit(1);
-
-                        if (!site) {
-                            logger.debug(
-                                `No newt sites found for client resource ${result.newSiteResource.siteResourceId}, skipping target update`
-                            );
-                            good = false;
-                            break;
-                        }
-
-                        logger.debug(
-                            `Updating client resource ${result.newSiteResource.siteResourceId} on site ${newSite.siteId}`
-                        );
-                    }
-
-                    if (!good) {
-                        continue;
-                    }
-
-                    await handleMessagingForUpdatedSiteResource(
-                        result.oldSiteResource,
-                        result.newSiteResource,
-                        result.newSites.map((site) => ({
-                            siteId: site.siteId,
-                            orgId: result.newSiteResource.orgId
-                        })),
-                        trx
-                    );
-                }
-
-                // await addClientTargets(
-                //     site.newt.newtId,
-                //     result.resource.destination,
-                //     result.resource.destinationPort,
-                //     result.resource.protocol,
-                //     result.resource.proxyPort
-                // );
+                    });
             }
+
+            logger.debug(
+                `Successfully updated private resources for org ${orgId}: ${JSON.stringify(privateResourcesResults)}`
+            );
         });
 
         blueprintSucceeded = true;
@@ -281,7 +179,9 @@ export async function applyBlueprint({
     } catch (err) {
         blueprintSucceeded = false;
         blueprintMessage = `Blueprint applied with errors: ${err}`;
-        logger.error(blueprintMessage);
+        logger.debug(
+            `Org ${orgId} blueprint apply issues: ${blueprintMessage}`
+        );
         error = err;
     }
 
@@ -291,9 +191,7 @@ export async function applyBlueprint({
             .insert(blueprints)
             .values({
                 orgId,
-                name:
-                    name ??
-                    `${faker.word.adjective()}-${faker.word.adjective()}-${faker.word.noun()}`,
+                name: name ?? generateName(),
                 contents: stringifyYaml(configData),
                 createdAt: Math.floor(Date.now() / 1000),
                 succeeded: blueprintSucceeded,

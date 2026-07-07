@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, resources } from "@server/db";
-import { roleResources, roles } from "@server/db";
+import { roleResources, roles, rolePolicies } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -40,7 +40,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function removeRoleFromResource(
@@ -115,34 +130,70 @@ export async function removeRoleFromResource(
             );
         }
 
-        // Check if role exists in resource
-        const existingEntry = await db
-            .select()
-            .from(roleResources)
-            .where(
-                and(
-                    eq(roleResources.resourceId, resourceId),
-                    eq(roleResources.roleId, roleId)
-                )
-            );
+        const isInlinePolicy =
+            resource.resourcePolicyId === null &&
+            resource.defaultResourcePolicyId !== null;
 
-        if (existingEntry.length === 0) {
-            return next(
-                createHttpError(
-                    HttpCode.NOT_FOUND,
-                    "Role not found in resource"
-                )
-            );
+        if (isInlinePolicy) {
+            const policyId = resource.defaultResourcePolicyId!;
+
+            const existingEntry = await db
+                .select()
+                .from(rolePolicies)
+                .where(
+                    and(
+                        eq(rolePolicies.resourcePolicyId, policyId),
+                        eq(rolePolicies.roleId, roleId)
+                    )
+                );
+
+            if (existingEntry.length === 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "Role not found in resource"
+                    )
+                );
+            }
+
+            await db
+                .delete(rolePolicies)
+                .where(
+                    and(
+                        eq(rolePolicies.resourcePolicyId, policyId),
+                        eq(rolePolicies.roleId, roleId)
+                    )
+                );
+        } else {
+            // Check if role exists in resource
+            const existingEntry = await db
+                .select()
+                .from(roleResources)
+                .where(
+                    and(
+                        eq(roleResources.resourceId, resourceId),
+                        eq(roleResources.roleId, roleId)
+                    )
+                );
+
+            if (existingEntry.length === 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "Role not found in resource"
+                    )
+                );
+            }
+
+            await db
+                .delete(roleResources)
+                .where(
+                    and(
+                        eq(roleResources.resourceId, resourceId),
+                        eq(roleResources.roleId, roleId)
+                    )
+                );
         }
-
-        await db
-            .delete(roleResources)
-            .where(
-                and(
-                    eq(roleResources.resourceId, resourceId),
-                    eq(roleResources.roleId, roleId)
-                )
-            );
 
         return response(res, {
             data: {},

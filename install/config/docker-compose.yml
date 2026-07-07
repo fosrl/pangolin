@@ -1,15 +1,23 @@
 name: pangolin
 services:
   pangolin:
-    image: docker.io/fosrl/pangolin:{{if .IsEnterprise}}ee-{{end}}{{.PangolinVersion}}
+    image: docker.io/fosrl/pangolin:{{if .IsEnterprise}}ee-{{end}}{{if .IsPostgreSQL}}postgresql-{{end}}{{.PangolinVersion}}
     container_name: pangolin
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 2g
         reservations:
-          memory: 256m
+          memory: 512m
+    {{if or .IsPostgreSQL .IsRedis}}depends_on:
+      {{if .IsPostgreSQL}}postgres:
+          condition: service_healthy{{end}}
+      {{if .IsRedis}}redis:
+          condition: service_healthy{{end}}
+    networks:
+      - default
+      - backend{{end}}
     volumes:
       - ./config:/app/config
     healthcheck:
@@ -17,8 +25,8 @@ services:
       interval: "10s"
       timeout: "10s"
       retries: 15
-{{if .InstallGerbil}}
-  gerbil:
+
+  {{if .InstallGerbil}}gerbil:
     image: docker.io/fosrl/gerbil:{{.GerbilVersion}}
     container_name: gerbil
     restart: unless-stopped
@@ -39,17 +47,16 @@ services:
       - 21820:21820/udp
       - 443:443
       - 443:443/udp # For http3 QUIC if desired
-      - 80:80
-{{end}}
+      - 80:80{{end}}
+
   traefik:
     image: docker.io/traefik:v3.6
     container_name: traefik
     restart: unless-stopped
-{{if .InstallGerbil}}    network_mode: service:gerbil # Ports appear on the gerbil service{{end}}{{if not .InstallGerbil}}
+    {{if .InstallGerbil}}network_mode: service:gerbil # Ports appear on the gerbil service{{end}}{{if not .InstallGerbil}}
     ports:
       - 443:443
-      - 80:80
-{{end}}
+      - 80:80{{end}}
     depends_on:
       pangolin:
         condition: service_healthy
@@ -60,8 +67,50 @@ services:
       - ./config/letsencrypt:/letsencrypt # Volume to store the Let's Encrypt certificates
       - ./config/traefik/logs:/var/log/traefik # Volume to store Traefik logs
 
+  {{if .IsPostgreSQL}}postgres:
+    image: postgres:18
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pangolin
+      POSTGRES_PASSWORD: {{.IsPostgreSQLPass}}
+      POSTGRES_DB: pangolin
+    volumes:
+      - ./postgres18:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pangolin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend{{end}}
+
+  {{if .IsRedis}}redis:
+    image: redis:8-trixie
+    container_name: redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --save 3600 1000
+      --appendonly yes
+      --requirepass {{.IsRedisPass}}
+    volumes:
+      - ./redis8:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "{{.IsRedisPass}}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - backend{{end}}
+
 networks:
   default:
     driver: bridge
-    name: pangolin
+    name: pangolin_frontend
 {{if .EnableIPv6}}    enable_ipv6: true{{end}}
+{{if or .IsPostgreSQL .IsRedis}}  backend:
+    driver: bridge
+    name: pangolin_backend
+    internal: true{{end}}

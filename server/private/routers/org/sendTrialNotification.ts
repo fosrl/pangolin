@@ -215,7 +215,7 @@ export async function sendTrialNotification(
 
         if (resetLimits) {
             // this will only fire if they have not upgraded yet because when upgrading we delete the trial
-            await handleSubscriptionLifesycle(orgId, "cancled");
+            await handleSubscriptionLifesycle(orgId, "canceled");
             logger.debug(
                 `Trial ended for org ${orgId}, limits reset to free tier`
             );

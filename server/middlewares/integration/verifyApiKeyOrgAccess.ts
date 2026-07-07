@@ -4,6 +4,7 @@ import { apiKeyOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyApiKeyOrgAccess(
     req: Request,
@@ -12,7 +13,7 @@ export async function verifyApiKeyOrgAccess(
 ) {
     try {
         const apiKeyId = req.apiKey?.apiKeyId;
-        const orgId = req.params.orgId;
+        const orgId = getFirstString(req.params.orgId);
 
         if (!apiKeyId) {
             return next(
@@ -45,7 +46,7 @@ export async function verifyApiKeyOrgAccess(
         }
 
         if (!req.apiKeyOrg) {
-            next(
+            return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,
                     "Key does not have access to this organization"

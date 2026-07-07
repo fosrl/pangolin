@@ -27,11 +27,12 @@ import { OpenAPITags, registry } from "@server/openApi";
 export const generateAccessTokenBodySchema = z.strictObject({
     validForSeconds: z.int().positive().optional(), // seconds
     title: z.string().optional(),
+    path: z.string().optional(),
     description: z.string().optional()
 });
 
 export const generateAccssTokenParamsSchema = z.strictObject({
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
 export type GenerateAccessTokenResponse = Omit<
@@ -54,7 +55,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function generateAccessToken(
@@ -85,7 +101,7 @@ export async function generateAccessToken(
     }
 
     const { resourceId } = parsedParams.data;
-    const { validForSeconds, title, description } = parsedBody.data;
+    const { validForSeconds, title, path, description } = parsedBody.data;
 
     const [resource] = await db
         .select()
@@ -121,6 +137,7 @@ export async function generateAccessToken(
                 expiresAt: expiresAt || null,
                 sessionLength: sessionLength,
                 title: title || null,
+                path: path || null,
                 description: description || null,
                 createdAt: new Date().getTime()
             })
@@ -131,6 +148,7 @@ export async function generateAccessToken(
                 expiresAt: resourceAccessToken.expiresAt,
                 sessionLength: resourceAccessToken.sessionLength,
                 title: resourceAccessToken.title,
+                path: resourceAccessToken.path,
                 description: resourceAccessToken.description,
                 createdAt: resourceAccessToken.createdAt
             })

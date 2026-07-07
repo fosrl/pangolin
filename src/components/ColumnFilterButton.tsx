@@ -17,6 +17,7 @@ import { CheckIcon, ChevronDownIcon, Funnel } from "lucide-react";
 import { cn } from "@app/lib/cn";
 import { dataTableFilterPopoverContentClassName } from "@app/lib/dataTableFilterPopover";
 import { Badge } from "./ui/badge";
+import { useTranslations } from "next-intl";
 
 interface FilterOption {
     value: string;
@@ -27,7 +28,6 @@ interface ColumnFilterButtonProps {
     options: FilterOption[];
     selectedValue?: string;
     onValueChange: (value: string | undefined) => void;
-    placeholder?: string;
     searchPlaceholder?: string;
     emptyMessage?: string;
     className?: string;
@@ -38,7 +38,6 @@ export function ColumnFilterButton({
     options,
     selectedValue,
     onValueChange,
-    placeholder,
     searchPlaceholder = "Search...",
     emptyMessage = "No options found",
     className,
@@ -49,6 +48,8 @@ export function ColumnFilterButton({
     const selectedOption = options.find(
         (option) => option.value === selectedValue
     );
+
+    const t = useTranslations();
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -94,7 +95,7 @@ export function ColumnFilterButton({
                                     }}
                                     className="text-muted-foreground"
                                 >
-                                    Clear filter
+                                    {t("accessFilterClear")}
                                 </CommandItem>
                             )}
                             {options.map((option) => (
@@ -109,6 +110,7 @@ export function ColumnFilterButton({
                                         );
                                         setOpen(false);
                                     }}
+                                    className="break-all"
                                 >
                                     <CheckIcon
                                         className={cn(

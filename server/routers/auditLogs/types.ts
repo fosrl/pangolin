@@ -68,6 +68,7 @@ export type QueryAccessAuditLogResponse = {
         actorType: string | null;
         actorId: string | null;
         resourceId: number | null;
+        siteResourceId: number | null;
         resourceName: string | null;
         resourceNiceId: string | null;
         ip: string | null;

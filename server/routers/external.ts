@@ -3,6 +3,7 @@ import config from "@server/lib/config";
 import * as site from "./site";
 import * as org from "./org";
 import * as resource from "./resource";
+import * as policy from "./policy";
 import * as domain from "./domain";
 import * as target from "./target";
 import * as user from "./user";
@@ -16,6 +17,7 @@ import * as idp from "./idp";
 import * as blueprints from "./blueprints";
 import * as apiKeys from "./apiKeys";
 import * as logs from "./auditLogs";
+import * as launcher from "./launcher";
 import * as newt from "./newt";
 import * as olm from "./olm";
 import * as serverInfo from "./serverInfo";
@@ -42,7 +44,8 @@ import {
     verifyUserIsOrgOwner,
     verifySiteResourceAccess,
     verifyOlmAccess,
-    verifyLimits
+    verifyLimits,
+    verifyResourcePolicyAccess
 } from "@server/middlewares";
 import { ActionsEnum } from "@server/auth/actions";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -102,7 +105,6 @@ authenticated.put(
     logActionAudit(ActionsEnum.createSite),
     site.createSite
 );
-
 
 authenticated.get(
     "/org/:orgId/sites",
@@ -253,6 +255,14 @@ authenticated.delete(
     site.deleteSite
 );
 
+authenticated.post(
+    "/site/:siteId/restart",
+    verifySiteAccess,
+    verifyUserHasAction(ActionsEnum.restartSite),
+    logActionAudit(ActionsEnum.restartSite),
+    site.restartSite
+);
+
 // TODO: BREAK OUT THESE ACTIONS SO THEY ARE NOT ALL "getSite"
 authenticated.get(
     "/site/:siteId/docker/status",
@@ -315,6 +325,14 @@ authenticated.get(
     verifyOrgAccess,
     verifyUserHasAction(ActionsEnum.listSiteResources),
     siteResource.listAllSiteResourcesByOrg
+);
+
+authenticated.get(
+    "/org/:orgId/site-resource/:siteResourceId",
+    verifyOrgAccess,
+    verifySiteResourceAccess,
+    verifyUserHasAction(ActionsEnum.getSiteResource),
+    siteResource.getSiteResource
 );
 
 authenticated.get(
@@ -455,6 +473,78 @@ authenticated.get(
 );
 
 authenticated.get(
+    "/org/:orgId/launcher/groups",
+    verifyOrgAccess,
+    launcher.listLauncherGroups
+);
+
+authenticated.get(
+    "/org/:orgId/launcher/scale",
+    verifyOrgAccess,
+    launcher.listLauncherScale
+);
+
+authenticated.get(
+    "/org/:orgId/launcher/resources",
+    verifyOrgAccess,
+    launcher.listLauncherResources
+);
+
+authenticated.get(
+    "/org/:orgId/launcher/sites",
+    verifyOrgAccess,
+    launcher.listLauncherSites
+);
+
+authenticated.get(
+    "/org/:orgId/launcher/labels",
+    verifyOrgAccess,
+    launcher.listLauncherLabels
+);
+
+authenticated.get(
+    "/org/:orgId/launcher/views",
+    verifyOrgAccess,
+    launcher.listLauncherViews
+);
+
+authenticated.post(
+    "/org/:orgId/launcher/invalidate-cache",
+    verifyOrgAccess,
+    launcher.invalidateLauncherCache
+);
+
+authenticated.post(
+    "/org/:orgId/launcher/views",
+    verifyOrgAccess,
+    launcher.createLauncherView
+);
+
+authenticated.put(
+    "/org/:orgId/launcher/views/:viewId",
+    verifyOrgAccess,
+    launcher.updateLauncherView
+);
+
+authenticated.put(
+    "/org/:orgId/launcher/default-view",
+    verifyOrgAccess,
+    launcher.upsertLauncherDefaultView
+);
+
+authenticated.delete(
+    "/org/:orgId/launcher/default-view",
+    verifyOrgAccess,
+    launcher.deleteLauncherDefaultView
+);
+
+authenticated.delete(
+    "/org/:orgId/launcher/views/:viewId",
+    verifyOrgAccess,
+    launcher.deleteLauncherView
+);
+
+authenticated.get(
     "/org/:orgId/user-resource-aliases",
     verifyOrgAccess,
     resource.listUserResourceAliases
@@ -540,6 +630,7 @@ authenticated.get(
     verifyUserHasAction(ActionsEnum.getResource),
     resource.getResource
 );
+
 authenticated.post(
     "/resource/:resourceId",
     verifyResourceAccess,
@@ -559,6 +650,7 @@ authenticated.delete(
 authenticated.put(
     "/resource/:resourceId/target",
     verifyResourceAccess,
+    verifySiteAccess,
     verifyLimits,
     verifyUserHasAction(ActionsEnum.createTarget),
     logActionAudit(ActionsEnum.createTarget),
@@ -610,6 +702,7 @@ authenticated.get(
 authenticated.post(
     "/target/:targetId",
     verifyTargetAccess,
+    verifySiteAccess,
     verifyLimits,
     verifyUserHasAction(ActionsEnum.updateTarget),
     logActionAudit(ActionsEnum.updateTarget),
@@ -646,6 +739,36 @@ authenticated.post(
     logActionAudit(ActionsEnum.updateRole),
     role.updateRole
 );
+
+authenticated.get(
+    "/org/:orgId/resource-policy/:niceId",
+    verifyOrgAccess,
+    verifyResourcePolicyAccess,
+    verifyUserHasAction(ActionsEnum.getResourcePolicy),
+    policy.getResourcePolicy
+);
+
+authenticated.get(
+    "/resource/:resourceId/policies",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.getResourcePolicy),
+    resource.getResourcePolicies
+);
+
+authenticated.get(
+    "/resource-policy/:resourcePolicyId",
+    verifyResourcePolicyAccess,
+    verifyUserHasAction(ActionsEnum.getResourcePolicy),
+    policy.getResourcePolicy
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId",
+    verifyResourcePolicyAccess,
+    verifyUserHasAction(ActionsEnum.updateResourcePolicy),
+    policy.updateResourcePolicy
+);
+
 // authenticated.get(
 //     "/role/:roleId",
 //     verifyRoleAccess,
@@ -695,6 +818,59 @@ authenticated.post(
     verifyUserHasAction(ActionsEnum.setResourceUsers),
     logActionAudit(ActionsEnum.setResourceUsers),
     resource.setResourceUsers
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/access-control",
+    verifyResourcePolicyAccess,
+    verifyUserHasAction(ActionsEnum.setResourcePolicyUsers),
+    logActionAudit(ActionsEnum.setResourcePolicyUsers),
+    policy.setResourcePolicyAccessControl
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/password",
+    verifyResourcePolicyAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setResourcePolicyPassword),
+    logActionAudit(ActionsEnum.setResourcePolicyPassword),
+    policy.setResourcePolicyPassword
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/pincode",
+    verifyResourcePolicyAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setResourcePolicyPincode),
+    logActionAudit(ActionsEnum.setResourcePolicyPincode),
+    policy.setResourcePolicyPincode
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/header-auth",
+    verifyResourcePolicyAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setResourcePolicyHeaderAuth),
+    logActionAudit(ActionsEnum.setResourcePolicyHeaderAuth),
+    policy.setResourcePolicyHeaderAuth
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/whitelist",
+    verifyResourcePolicyAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setResourcePolicyWhitelist),
+    logActionAudit(ActionsEnum.setResourcePolicyWhitelist),
+    policy.setResourcePolicyWhitelist
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/rules",
+    verifyResourcePolicyAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setResourcePolicyRules),
+    logActionAudit(ActionsEnum.setResourcePolicyRules),
+    policy.setResourcePolicyRules
 );
 
 authenticated.post(
@@ -823,19 +999,6 @@ unauthenticated.post(
 );
 unauthenticated.get("/my-device", verifySessionMiddleware, user.myDevice);
 
-authenticated.get("/users", verifyUserIsServerAdmin, user.adminListUsers);
-authenticated.get("/user/:userId", verifyUserIsServerAdmin, user.adminGetUser);
-authenticated.post(
-    "/user/:userId/generate-password-reset-code",
-    verifyUserIsServerAdmin,
-    user.adminGeneratePasswordResetCode
-);
-authenticated.delete(
-    "/user/:userId",
-    verifyUserIsServerAdmin,
-    user.adminRemoveUser
-);
-
 authenticated.put(
     "/org/:orgId/user",
     verifyOrgAccess,
@@ -857,12 +1020,6 @@ authenticated.post(
 
 authenticated.get("/org/:orgId/user/:userId", verifyOrgAccess, user.getOrgUser);
 authenticated.get("/org/:orgId/user/:userId/check", org.checkOrgUserAccess);
-
-authenticated.post(
-    "/user/:userId/2fa",
-    verifyUserIsServerAdmin,
-    user.updateUser2FA
-);
 
 authenticated.get(
     "/org/:orgId/users",
@@ -946,85 +1103,112 @@ authenticated.post(
     olm.recoverOlmWithFingerprint
 );
 
-authenticated.put(
-    "/idp/oidc",
-    verifyUserIsServerAdmin,
-    // verifyUserHasAction(ActionsEnum.createIdp),
-    idp.createOidcIdp
-);
+if (build !== "saas") {
+    authenticated.put(
+        "/idp/oidc",
+        verifyUserIsServerAdmin,
+        // verifyUserHasAction(ActionsEnum.createIdp),
+        idp.createOidcIdp
+    );
 
-authenticated.post(
-    "/idp/:idpId/oidc",
-    verifyUserIsServerAdmin,
-    idp.updateOidcIdp
-);
+    authenticated.post(
+        "/idp/:idpId/oidc",
+        verifyUserIsServerAdmin,
+        idp.updateOidcIdp
+    );
 
-authenticated.delete("/idp/:idpId", verifyUserIsServerAdmin, idp.deleteIdp);
+    authenticated.delete("/idp/:idpId", verifyUserIsServerAdmin, idp.deleteIdp);
 
-authenticated.get("/idp/:idpId", verifyUserIsServerAdmin, idp.getIdp);
+    authenticated.get("/idp/:idpId", verifyUserIsServerAdmin, idp.getIdp);
 
-authenticated.put(
-    "/idp/:idpId/org/:orgId",
-    verifyUserIsServerAdmin,
-    idp.createIdpOrgPolicy
-);
+    authenticated.put(
+        "/idp/:idpId/org/:orgId",
+        verifyUserIsServerAdmin,
+        idp.createIdpOrgPolicy
+    );
 
-authenticated.post(
-    "/idp/:idpId/org/:orgId",
-    verifyUserIsServerAdmin,
-    idp.updateIdpOrgPolicy
-);
+    authenticated.post(
+        "/idp/:idpId/org/:orgId",
+        verifyUserIsServerAdmin,
+        idp.updateIdpOrgPolicy
+    );
 
-authenticated.delete(
-    "/idp/:idpId/org/:orgId",
-    verifyUserIsServerAdmin,
-    idp.deleteIdpOrgPolicy
-);
+    authenticated.delete(
+        "/idp/:idpId/org/:orgId",
+        verifyUserIsServerAdmin,
+        idp.deleteIdpOrgPolicy
+    );
 
-authenticated.get(
-    "/idp/:idpId/org",
-    verifyUserIsServerAdmin,
-    idp.listIdpOrgPolicies
-);
+    authenticated.get(
+        "/idp/:idpId/org",
+        verifyUserIsServerAdmin,
+        idp.listIdpOrgPolicies
+    );
+
+    authenticated.get(
+        `/api-key/:apiKeyId`,
+        verifyUserIsServerAdmin,
+        apiKeys.getApiKey
+    );
+
+    authenticated.put(
+        `/api-key`,
+        verifyUserIsServerAdmin,
+        apiKeys.createRootApiKey
+    );
+
+    authenticated.delete(
+        `/api-key/:apiKeyId`,
+        verifyUserIsServerAdmin,
+        apiKeys.deleteApiKey
+    );
+
+    authenticated.get(
+        `/api-keys`,
+        verifyUserIsServerAdmin,
+        apiKeys.listRootApiKeys
+    );
+
+    authenticated.get(
+        `/api-key/:apiKeyId/actions`,
+        verifyUserIsServerAdmin,
+        apiKeys.listApiKeyActions
+    );
+
+    authenticated.post(
+        `/api-key/:apiKeyId/actions`,
+        verifyUserIsServerAdmin,
+        apiKeys.setApiKeyActions
+    );
+
+    authenticated.get("/users", verifyUserIsServerAdmin, user.adminListUsers);
+
+    authenticated.get(
+        "/user/:userId",
+        verifyUserIsServerAdmin,
+        user.adminGetUser
+    );
+
+    authenticated.post(
+        "/user/:userId/generate-password-reset-code",
+        verifyUserIsServerAdmin,
+        user.adminGeneratePasswordResetCode
+    );
+
+    authenticated.delete(
+        "/user/:userId",
+        verifyUserIsServerAdmin,
+        user.adminRemoveUser
+    );
+
+    authenticated.post(
+        "/user/:userId/2fa",
+        verifyUserIsServerAdmin,
+        user.updateUser2FA
+    );
+}
 
 authenticated.get("/idp", idp.listIdps); // anyone can see this; it's just a list of idp names and ids
-authenticated.get("/idp/:idpId", verifyUserIsServerAdmin, idp.getIdp);
-
-authenticated.get(
-    `/api-key/:apiKeyId`,
-    verifyUserIsServerAdmin,
-    apiKeys.getApiKey
-);
-
-authenticated.put(
-    `/api-key`,
-    verifyUserIsServerAdmin,
-    apiKeys.createRootApiKey
-);
-
-authenticated.delete(
-    `/api-key/:apiKeyId`,
-    verifyUserIsServerAdmin,
-    apiKeys.deleteApiKey
-);
-
-authenticated.get(
-    `/api-keys`,
-    verifyUserIsServerAdmin,
-    apiKeys.listRootApiKeys
-);
-
-authenticated.get(
-    `/api-key/:apiKeyId/actions`,
-    verifyUserIsServerAdmin,
-    apiKeys.listApiKeyActions
-);
-
-authenticated.post(
-    `/api-key/:apiKeyId/actions`,
-    verifyUserIsServerAdmin,
-    apiKeys.setApiKeyActions
-);
 
 authenticated.get(
     `/org/:orgId/api-keys`,
@@ -1156,7 +1340,8 @@ export const authRouter = Router();
 unauthenticated.use("/auth", authRouter);
 authRouter.use(
     rateLimit({
-        windowMs: config.getRawConfig().rate_limits.auth.window_minutes,
+        windowMs:
+            config.getRawConfig().rate_limits.auth.window_minutes * 60 * 1000,
         max: config.getRawConfig().rate_limits.auth.max_requests,
         keyGenerator: (req) =>
             `authRouterGlobal:${ipKeyGenerator(req.ip || "")}:${req.path}`,
@@ -1232,6 +1417,22 @@ authRouter.post(
 );
 
 authRouter.post(
+    "/newt/version",
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 60,
+        keyGenerator: (req) =>
+            `newtVersion:${req.body.newtId || ipKeyGenerator(req.ip || "")}`,
+        handler: (req, res, next) => {
+            const message = `You can only check the Newt version ${60} times every ${15} minutes. Please try again later.`;
+            return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
+        },
+        store: createStore()
+    }),
+    newt.getNewtVersion
+);
+
+authRouter.post(
     "/newt/register",
     rateLimit({
         windowMs: 15 * 60 * 1000,
@@ -1252,7 +1453,7 @@ authRouter.post(
         windowMs: 15 * 60 * 1000,
         max: 900,
         keyGenerator: (req) =>
-            `olmGetToken:${req.body.newtId || ipKeyGenerator(req.ip || "")}`,
+            `olmGetToken:${req.body.olmId || ipKeyGenerator(req.ip || "")}`,
         handler: (req, res, next) => {
             const message = `You can only request an Olm token ${900} times every ${15} minutes. Please try again later.`;
             return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));

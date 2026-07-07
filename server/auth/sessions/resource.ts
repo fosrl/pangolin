@@ -19,6 +19,9 @@ export async function createResourceSession(opts: {
     userSessionId?: string | null;
     whitelistId?: number | null;
     accessTokenId?: string | null;
+    policyPasswordId?: number | null;
+    policyPincodeId?: number | null;
+    policyWhitelistId?: number | null;
     doNotExtend?: boolean;
     expiresAt?: number | null;
     sessionLength?: number | null;
@@ -28,7 +31,10 @@ export async function createResourceSession(opts: {
         !opts.pincodeId &&
         !opts.whitelistId &&
         !opts.accessTokenId &&
-        !opts.userSessionId
+        !opts.userSessionId &&
+        !opts.policyPasswordId &&
+        !opts.policyPincodeId &&
+        !opts.policyWhitelistId
     ) {
         throw new Error("Auth method must be provided");
     }
@@ -49,6 +55,9 @@ export async function createResourceSession(opts: {
         whitelistId: opts.whitelistId || null,
         doNotExtend: opts.doNotExtend || false,
         accessTokenId: opts.accessTokenId || null,
+        policyPasswordId: opts.policyPasswordId || null,
+        policyPincodeId: opts.policyPincodeId || null,
+        policyWhitelistId: opts.policyWhitelistId || null,
         isRequestToken: opts.isRequestToken || false,
         userSessionId: opts.userSessionId || null,
         issuedAt: new Date().getTime()

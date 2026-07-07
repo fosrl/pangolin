@@ -26,11 +26,12 @@ export type Selectedsite = Pick<
 type SiteOnlineStatusProps = {
     type: Selectedsite["type"];
     online: Selectedsite["online"];
-    t: (key: "online" | "offline") => string;
 };
 
 /** Dot-only indicator matching `SitesTable` colors (newt/wireguard only; nothing for local or missing status). */
-export function SiteOnlineStatus({ type, online, t }: SiteOnlineStatusProps) {
+export function SiteOnlineStatus({ type, online }: SiteOnlineStatusProps) {
+    const t = useTranslations();
+
     if (type !== "newt" && type !== "wireguard") {
         return null;
     }
@@ -128,7 +129,6 @@ export function SitesSelector({
                                     <SiteOnlineStatus
                                         type={site.type}
                                         online={site.online}
-                                        t={t}
                                     />
                                 )}
                             </div>

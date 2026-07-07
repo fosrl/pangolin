@@ -1,18 +1,21 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, idpOidcConfig } from "@server/db";
-import {
-    idp,
-    idpOrg,
-    roles,
-    userOrgRoles,
-    userOrgs,
-    users
-} from "@server/db";
+import { idp, idpOrg, roles, userOrgRoles, userOrgs, users } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
-import { and, asc, desc, eq, exists, inArray, like, or, sql } from "drizzle-orm";
+import {
+    and,
+    asc,
+    desc,
+    eq,
+    exists,
+    inArray,
+    like,
+    or,
+    sql
+} from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
@@ -70,18 +73,23 @@ const listUsersSchema = z.strictObject({
             description: "Sort order"
         }),
     idp_id: z
-        .preprocess((val) => {
-            if (val === undefined || val === null || val === "") {
+        .preprocess(
+            (val) => {
+                if (val === undefined || val === null || val === "") {
+                    return undefined;
+                }
+                if (val === "internal") {
+                    return "internal";
+                }
+                if (typeof val === "string" && /^\d+$/.test(val)) {
+                    return parseInt(val, 10);
+                }
                 return undefined;
-            }
-            if (val === "internal") {
-                return "internal";
-            }
-            if (typeof val === "string" && /^\d+$/.test(val)) {
-                return parseInt(val, 10);
-            }
-            return undefined;
-        }, z.union([z.literal("internal"), z.number().int().positive()]).optional())
+            },
+            z
+                .union([z.literal("internal"), z.number().int().positive()])
+                .optional()
+        )
         .openapi({
             description:
                 'Filter by identity provider id, or "internal" for internal users'
@@ -150,7 +158,22 @@ registry.registerPath({
         params: listUsersParamsSchema,
         query: listUsersSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function listUsers(
@@ -188,9 +211,7 @@ export async function listUsers(
             const idpOk = await db
                 .select({ one: sql`1` })
                 .from(idpOrg)
-                .where(
-                    and(eq(idpOrg.orgId, orgId), eq(idpOrg.idpId, idp_id))
-                )
+                .where(and(eq(idpOrg.orgId, orgId), eq(idpOrg.idpId, idp_id)))
                 .limit(1);
             if (idpOk.length === 0) {
                 return next(

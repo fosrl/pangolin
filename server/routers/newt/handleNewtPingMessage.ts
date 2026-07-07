@@ -5,7 +5,20 @@ import { Newt } from "@server/db";
 import { eq } from "drizzle-orm";
 import logger from "@server/logger";
 import { sendNewtSyncMessage } from "./sync";
-import { recordPing } from "./pingAccumulator";
+import semver from "semver";
+import { recordSitePing } from "./pingAccumulator";
+
+const NEWT_SUPPORTS_SYNC_VERSION = ">=1.14.0";
+const PONG = {
+    message: {
+        type: "pong",
+        data: {
+            timestamp: new Date().toISOString()
+        }
+    },
+    broadcast: false,
+    excludeSender: false
+};
 
 /**
  * Handles ping messages from newt clients.
@@ -35,7 +48,15 @@ export const handleNewtPingMessage: MessageHandler = async (context) => {
     // batched UPDATE instead of one query per ping. This prevents
     // connection pool exhaustion under load, especially with
     // cross-region latency to the database.
-    recordPing(newt.siteId);
+    recordSitePing(newt.siteId);
+
+    if (
+        newt.version &&
+        !semver.satisfies(newt.version, NEWT_SUPPORTS_SYNC_VERSION)
+    ) {
+        // Newt does not support the sync message so not checking - stop here -
+        return PONG;
+    }
 
     // Check config version and sync if stale.
     const configVersion = await getClientConfigVersion(newt.newtId);
@@ -65,14 +86,5 @@ export const handleNewtPingMessage: MessageHandler = async (context) => {
         await sendNewtSyncMessage(newt, site);
     }
 
-    return {
-        message: {
-            type: "pong",
-            data: {
-                timestamp: new Date().toISOString()
-            }
-        },
-        broadcast: false,
-        excludeSender: false
-    };
+    return PONG;
 };

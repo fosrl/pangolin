@@ -26,7 +26,7 @@ const listAllSiteResourcesByOrgParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
-const listAllSiteResourcesByOrgQuerySchema = z.object({
+const listAllSiteResourcesByOrgQuerySchema = z.strictObject({
     pageSize: z.coerce
         .number<string>() // for prettier formatting
         .int()
@@ -196,6 +196,7 @@ function querySiteResourcesBase() {
             disableIcmp: siteResources.disableIcmp,
             authDaemonMode: siteResources.authDaemonMode,
             authDaemonPort: siteResources.authDaemonPort,
+            pamMode: siteResources.pamMode,
             subdomain: siteResources.subdomain,
             domainId: siteResources.domainId,
             fullDomain: siteResources.fullDomain,
@@ -225,7 +226,22 @@ registry.registerPath({
         params: listAllSiteResourcesByOrgParamsSchema,
         query: listAllSiteResourcesByOrgQuerySchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function listAllSiteResourcesByOrg(

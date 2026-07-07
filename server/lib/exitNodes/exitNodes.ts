@@ -19,7 +19,11 @@ export async function verifyExitNodeOrgAccess(
 export async function listExitNodes(
     orgId: string,
     filterOnline = false,
-    noCloud = false
+    noCloud = false,
+    // Accepted for parity with the enterprise implementation (used there for
+    // site-label filtering of remote exit nodes). The OSS build has no remote
+    // exit nodes, so it is unused here.
+    siteId?: number
 ) {
     // TODO: pick which nodes to send and ping better than just all of them that are not remote
     const allExitNodes = await db

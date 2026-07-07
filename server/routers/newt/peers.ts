@@ -1,7 +1,7 @@
 import { db, Site } from "@server/db";
 import { newts, sites } from "@server/db";
 import { eq } from "drizzle-orm";
-import { sendToClient } from "#dynamic/routers/ws";
+import { sendToClient, sendToClientsBatch } from "#dynamic/routers/ws";
 import logger from "@server/logger";
 
 export async function addPeer(
@@ -36,10 +36,14 @@ export async function addPeer(
         newtId = newt.newtId;
     }
 
-    await sendToClient(newtId, {
-        type: "newt/wg/peer/add",
-        data: peer
-    }, { incrementConfigVersion: true }).catch((error) => {
+    await sendToClient(
+        newtId,
+        {
+            type: "newt/wg/peer/add",
+            data: peer
+        },
+        { incrementConfigVersion: true }
+    ).catch((error) => {
         logger.warn(`Error sending message:`, error);
     });
 
@@ -76,18 +80,51 @@ export async function deletePeer(
         newtId = newt.newtId;
     }
 
-    await sendToClient(newtId, {
-        type: "newt/wg/peer/remove",
-        data: {
-            publicKey
-        }
-    }, { incrementConfigVersion: true }).catch((error) => {
+    await sendToClient(
+        newtId,
+        {
+            type: "newt/wg/peer/remove",
+            data: {
+                publicKey
+            }
+        },
+        { incrementConfigVersion: true }
+    ).catch((error) => {
         logger.warn(`Error sending message:`, error);
     });
 
     logger.info(`Deleted peer ${publicKey} from newt ${newtId}`);
 
     return site;
+}
+
+export async function deletePeersBatch(
+    peers: {
+        siteId: number;
+        publicKey: string;
+        newtId: string;
+    }[]
+) {
+    if (peers.length === 0) {
+        return;
+    }
+
+    await sendToClientsBatch(
+        peers.map((peer) => ({
+            clientId: peer.newtId,
+            message: {
+                type: "newt/wg/peer/remove",
+                data: {
+                    publicKey: peer.publicKey
+                }
+            },
+            options: { incrementConfigVersion: true }
+        }))
+    ).catch((error) => {
+        logger.warn(`Error sending batched newt peer removals:`, error);
+    });
+
+    logger.info(`Deleted ${peers.length} peer(s) from newts (batch)`);
 }
 
 export async function updatePeer(
@@ -122,13 +159,17 @@ export async function updatePeer(
         newtId = newt.newtId;
     }
 
-    await sendToClient(newtId, {
-        type: "newt/wg/peer/update",
-        data: {
-            publicKey,
-            ...peer
-        }
-    }, { incrementConfigVersion: true }).catch((error) => {
+    await sendToClient(
+        newtId,
+        {
+            type: "newt/wg/peer/update",
+            data: {
+                publicKey,
+                ...peer
+            }
+        },
+        { incrementConfigVersion: true }
+    ).catch((error) => {
         logger.warn(`Error sending message:`, error);
     });
 

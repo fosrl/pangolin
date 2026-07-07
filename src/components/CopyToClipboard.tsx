@@ -1,3 +1,4 @@
+import { cn } from "@app/lib/cn";
 import { Check, Copy } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -7,12 +8,14 @@ type CopyToClipboardProps = {
     text: string;
     displayText?: string;
     isLink?: boolean;
+    className?: string;
 };
 
 const CopyToClipboard = ({
     text,
     displayText,
-    isLink
+    isLink,
+    className
 }: CopyToClipboardProps) => {
     const [copied, setCopied] = useState(false);
 
@@ -48,14 +51,20 @@ const CopyToClipboard = ({
                     href={text}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="truncate hover:underline text-sm min-w-0 max-w-full"
+                    className={cn(
+                        "truncate hover:underline text-sm min-w-0 max-w-full",
+                        className
+                    )}
                     title={text} // Shows full text on hover
                 >
                     {displayValue}
                 </Link>
             ) : (
                 <span
-                    className="truncate text-sm min-w-0 max-w-full"
+                    className={cn(
+                        "truncate text-sm min-w-0 max-w-full",
+                        className
+                    )}
                     style={{
                         whiteSpace: "nowrap",
                         overflow: "hidden",

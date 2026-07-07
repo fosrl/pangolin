@@ -1,28 +1,49 @@
 {
     "compilerOptions": {
-        "lib": ["dom", "dom.iterable", "esnext"],
+        "lib": [
+            "dom",
+            "dom.iterable",
+            "esnext"
+        ],
         "allowJs": true,
         "skipLibCheck": true,
         "strict": true,
         "noEmit": true,
         "esModuleInterop": true,
         "module": "esnext",
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
         "resolveJsonModule": true,
         "isolatedModules": true,
-        "jsx": "preserve",
+        "jsx": "react-jsx",
         "incremental": true,
-        "baseUrl": "src",
         "paths": {
-            "@server/*": ["../server/*"],
-            "@test/*": ["../test/*"],
-            "@app/*": ["*"],
-            "@cli/*": ["../cli/*"],
-            "@/*": ["./*"],
-            "#private/*": ["../server/private/*"],
-            "#open/*": ["../server/*"],
-            "#closed/*": ["../server/private/*"],
-            "#dynamic/*": ["../server/private/*"]
+            "@server/*": [
+                "./server/*"
+            ],
+            "@test/*": [
+                "./test/*"
+            ],
+            "@app/*": [
+                "./src/*"
+            ],
+            "@cli/*": [
+                "./cli/*"
+            ],
+            "@/*": [
+                "./src/*"
+            ],
+            "#private/*": [
+                "./server/private/*"
+            ],
+            "#open/*": [
+                "./server/*"
+            ],
+            "#closed/*": [
+                "./server/private/*"
+            ],
+            "#dynamic/*": [
+                "./server/private/*"
+            ]
         },
         "plugins": [
             {
@@ -31,6 +52,15 @@
         ],
         "target": "ES2024"
     },
-    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-    "exclude": ["node_modules"]
+    "include": [
+        "next-env.d.ts",
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.d.ts",
+        ".next/types/**/*.ts",
+        ".next/dev/types/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
 }

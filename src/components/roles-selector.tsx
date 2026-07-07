@@ -16,6 +16,7 @@ export type RolesSelectorProps = {
     restrictAdminRole?: boolean;
     mapRolesByName?: boolean;
     buttonText?: string;
+    lockedIds?: Set<string>;
 };
 
 export function RolesSelector({
@@ -25,7 +26,8 @@ export function RolesSelector({
     disabled,
     restrictAdminRole,
     mapRolesByName,
-    buttonText
+    buttonText,
+    lockedIds
 }: RolesSelectorProps) {
     const t = useTranslations();
     const [roleSearchQuery, setRoleSearchQuery] = useState("");
@@ -76,6 +78,7 @@ export function RolesSelector({
             value={selectedRoles}
             onChange={onSelectRoles}
             disabled={disabled}
+            lockedIds={lockedIds}
         />
     );
 }

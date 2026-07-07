@@ -54,9 +54,13 @@ type Config struct {
 	InstallGerbil             bool
 	TraefikBouncerKey         string
 	DoCrowdsecInstall         bool
-	EnableGeoblocking         bool
+	EnableMaxMind             bool
 	Secret                    string
 	IsEnterprise              bool
+    IsPostgreSQL              bool
+	IsPostgreSQLPass          string
+    IsRedis                   bool
+	IsRedisPass               string
 }
 
 type SupportedContainer string
@@ -67,9 +71,12 @@ const (
 	Undefined SupportedContainer = "undefined"
 )
 
+var redisFlag *bool
+
 func main() {
 
 	crowdsecFlag := flag.Bool("crowdsec", false, "Enable the CrowdSec installation prompt")
+	redisFlag = flag.Bool("redis", false, "Install Redis as cacheing solution. Required for HA. Not required for the Enterprise version.")
 	flag.Parse()
 
 	// print a banner about prerequisites - opening port 80, 443, 51820, and 21820 on the VPS and firewall and pointing your domain to the VPS IP with a records. Docs are at http://localhost:3000/Getting%20Started/dns-networking
@@ -123,11 +130,11 @@ func main() {
 
 		fmt.Println("\nConfiguration files created successfully!")
 
-		// Download MaxMind database if requested
-		if config.EnableGeoblocking {
-			fmt.Println("\n=== Downloading MaxMind Database ===")
+		// Download MaxMind Country / ASN database if requested
+		if config.EnableMaxMind {
+			fmt.Println("\n=== Downloading MaxMind Country and ASN Databases ===")
 			if err := downloadMaxMindDatabase(); err != nil {
-				fmt.Printf("Error downloading MaxMind database: %v\n", err)
+				fmt.Printf("Error downloading MaxMind databases: %v\n", err)
 				fmt.Println("You can download it manually later if needed.")
 			}
 		}
@@ -188,15 +195,15 @@ func main() {
 		fmt.Println("\n=== MaxMind Database Update ===")
 		if _, err := os.Stat("config/GeoLite2-Country.mmdb"); err == nil {
 			fmt.Println("MaxMind GeoLite2 Country database found.")
-			if readBool("Would you like to update the MaxMind database to the latest version?", false) {
+			if readBool("Would you like to update the MaxMind databases (Country and ASN) to the latest version?", false) {
 				if err := downloadMaxMindDatabase(); err != nil {
 					fmt.Printf("Error updating MaxMind database: %v\n", err)
 					fmt.Println("You can try updating it manually later if needed.")
 				}
 			}
 		} else {
-			fmt.Println("MaxMind GeoLite2 Country database not found.")
-			if readBool("Would you like to download the MaxMind GeoLite2 database for geoblocking functionality?", false) {
+			fmt.Println("MaxMind GeoLite2 Country and ASN databases not found.")
+			if readBool("Would you like to download the MaxMind GeoLite2 databases for blocking functionality?", false) {
 				if err := downloadMaxMindDatabase(); err != nil {
 					fmt.Printf("Error downloading MaxMind database: %v\n", err)
 					fmt.Println("You can try downloading it manually later if needed.")
@@ -204,8 +211,10 @@ func main() {
 				// Now you need to update your config file accordingly to enable geoblocking
 				fmt.Print("Please remember to update your config/config.yml file to enable geoblocking! \n\n")
 				// add   maxmind_db_path: "./config/GeoLite2-Country.mmdb" under server
-				fmt.Println("Add the following line under the 'server' section:")
+				// add   maxmind_asn_path: "./config/GeoLite2-ASN.mmdb" under server
+				fmt.Println("Add the following lines under the 'server' section:")
 				fmt.Println("  maxmind_db_path: \"./config/GeoLite2-Country.mmdb\"")
+				fmt.Println("  maxmind_asn_path: \"./config/GeoLite2-ASN.mmdb\"")
 			}
 		}
 	}
@@ -484,6 +493,17 @@ func collectUserInput() Config {
 	fmt.Println("\n=== Basic Configuration ===")
 
 	config.IsEnterprise = readBoolNoDefault("Do you want to install the Enterprise version of Pangolin? The EE is free for personal use or for businesses making less than 100k USD annually.")
+    if config.IsEnterprise {
+        if *redisFlag {
+			config.IsRedis = true
+            config.IsRedisPass = readPassword("Enter a unique password for the Redis service.")
+        }
+    }
+
+    config.IsPostgreSQL = readBool("Do you want to use PostgreSQL (not recommended for most users)?", false)
+	if config.IsPostgreSQL {
+		config.IsPostgreSQLPass = readPassword("Enter a unique password for the PostgreSQL pangolin user.")
+	}
 
 	config.BaseDomain = readString("Enter your base domain (no subdomain e.g. example.com)", "")
 
@@ -527,7 +547,7 @@ func collectUserInput() Config {
 	fmt.Println("\n=== Advanced Configuration ===")
 
 	config.EnableIPv6 = readBool("Is your server IPv6 capable?", true)
-	config.EnableGeoblocking = readBool("Do you want to download the MaxMind GeoLite2 database for geoblocking functionality?", true)
+	config.EnableMaxMind = readBool("Do you want to download the MaxMind GeoLite2 Country and ASN databases for blocking functionality?", true)
 
 	if config.DashboardDomain == "" {
 		fmt.Println("Error: Dashboard Domain name is required")
@@ -780,29 +800,42 @@ func checkPortsAvailable(port int) error {
 }
 
 func downloadMaxMindDatabase() error {
-	fmt.Println("Downloading MaxMind GeoLite2 Country database...")
+	fmt.Println("Downloading MaxMind GeoLite2 Country and ASN databases...")
 
-	// Download the GeoLite2 Country database
+	// Download the GeoLite2 Country databases
 	if err := run("curl", "-L", "-o", "GeoLite2-Country.tar.gz",
 		"https://github.com/GitSquared/node-geolite2-redist/raw/refs/heads/master/redist/GeoLite2-Country.tar.gz"); err != nil {
-		return fmt.Errorf("failed to download GeoLite2 database: %v", err)
+		return fmt.Errorf("failed to download GeoLite2 Country database: %v", err)
+	}
+	if err := run("curl", "-L", "-o", "GeoLite2-ASN.tar.gz",
+		"https://github.com/GitSquared/node-geolite2-redist/raw/refs/heads/master/redist/GeoLite2-ASN.tar.gz"); err != nil {
+		return fmt.Errorf("failed to download GeoLite2 ASN database: %v", err)
 	}
 
-	// Extract the database
+	// Extract the Country database
 	if err := run("tar", "-xzf", "GeoLite2-Country.tar.gz"); err != nil {
-		return fmt.Errorf("failed to extract GeoLite2 database: %v", err)
+		return fmt.Errorf("failed to extract GeoLite2 Country database: %v", err)
+	}
+	if err := run("tar", "-xzf", "GeoLite2-ASN.tar.gz"); err != nil {
+		return fmt.Errorf("failed to extract GeoLite2 ASN database: %v", err)
 	}
 
 	// Find the .mmdb file and move it to the config directory
 	if err := run("bash", "-c", "mv GeoLite2-Country_*/GeoLite2-Country.mmdb config/"); err != nil {
-		return fmt.Errorf("failed to move GeoLite2 database to config directory: %v", err)
+		return fmt.Errorf("failed to move GeoLite2 Country database to config directory: %v", err)
+	}
+	if err := run("bash", "-c", "mv GeoLite2-ASN_*/GeoLite2-ASN.mmdb config/"); err != nil {
+		return fmt.Errorf("failed to move GeoLite2 ASN database to config directory: %v", err)
 	}
 
 	// Clean up the downloaded files
-	if err := run("rm", "-rf", "GeoLite2-Country.tar.gz", "GeoLite2-Country_*"); err != nil {
-		fmt.Printf("Warning: failed to clean up temporary files: %v\n", err)
+	if err := run("sh", "-c", "rm -rf GeoLite2-Country.tar.gz GeoLite2-Country_*"); err != nil {
+		fmt.Printf("Warning: failed to clean up temporary country files: %v\n", err)
+	}
+	if err := run("sh", "-c", "rm -rf GeoLite2-ASN.tar.gz GeoLite2-ASN_*"); err != nil {
+		fmt.Printf("Warning: failed to clean up temporary ASN files: %v\n", err)
 	}
 
-	fmt.Println("MaxMind GeoLite2 Country database downloaded successfully!")
+	fmt.Println("MaxMind GeoLite2 Country and ASN database downloaded successfully!")
 	return nil
 }

@@ -12,7 +12,7 @@ import {
     users
 } from "@server/db";
 import { db } from "@server/db";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import config from "@server/lib/config";
 import type { RandomReader } from "@oslojs/crypto/random";
 import { generateRandomString } from "@oslojs/crypto/random";
@@ -133,6 +133,45 @@ export async function invalidateAllSessions(userId: string): Promise<void> {
         });
     } catch (e) {
         logger.error("Failed to all invalidate user sessions", e);
+    }
+}
+
+export async function invalidateAllSessionsExceptCurrent(
+    userId: string,
+    currentSessionId: string
+): Promise<void> {
+    try {
+        await db.transaction(async (trx) => {
+            const userSessions = await trx
+                .select()
+                .from(sessions)
+                .where(
+                    and(
+                        eq(sessions.userId, userId),
+                        ne(sessions.sessionId, currentSessionId)
+                    )
+                );
+
+            if (userSessions.length > 0) {
+                await trx.delete(resourceSessions).where(
+                    inArray(
+                        resourceSessions.userSessionId,
+                        userSessions.map((s) => s.sessionId)
+                    )
+                );
+            }
+
+            await trx
+                .delete(sessions)
+                .where(
+                    and(
+                        eq(sessions.userId, userId),
+                        ne(sessions.sessionId, currentSessionId)
+                    )
+                );
+        });
+    } catch (e) {
+        logger.error("Failed to invalidate user sessions except current", e);
     }
 }
 

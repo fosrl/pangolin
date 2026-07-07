@@ -28,15 +28,14 @@ import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { build } from "@server/build";
+import { validateLocalPath } from "@app/lib/validateLocalPath";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { GetLoginPageBrandingResponse } from "@server/routers/loginPage/types";
 import { XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { PaidFeaturesAlert } from "./PaidFeaturesAlert";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { validateLocalPath } from "@app/lib/validateLocalPath";
-import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 export type AuthPageCustomizationProps = {
     orgId: string;
@@ -92,7 +91,7 @@ export default function AuthPageBrandingForm({
             orgSubtitle: branding?.orgSubtitle ?? `Log in to {{orgName}}`,
             resourceTitle:
                 branding?.resourceTitle ??
-                `Authenticate to access {{resourceName}}`,
+                `Authenticate to Access {{resourceName}}`,
             resourceSubtitle:
                 branding?.resourceSubtitle ??
                 `Choose your preferred authentication method for {{resourceName}}`,

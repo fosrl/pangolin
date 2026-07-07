@@ -10,6 +10,6 @@ export default async function RemoteExitNodePage(props: {
 }) {
     const params = await props.params;
     redirect(
-        `/${params.orgId}/settings/remote-exit-nodes/${params.remoteExitNodeId}/credentials`
+        `/${params.orgId}/settings/remote-exit-nodes/${params.remoteExitNodeId}/networking`
     );
 }

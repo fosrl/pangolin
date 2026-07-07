@@ -1,24 +1,36 @@
 import { Request, Response, NextFunction } from "express";
-import { db, DB_TYPE } from "@server/db";
-import { and, eq, or, inArray, sql } from "drizzle-orm";
+import { db, DB_TYPE, type Label } from "@server/db";
+import { and, asc, eq, or, inArray, sql } from "drizzle-orm";
 import {
     resources,
     userResources,
     roleResources,
+    userPolicies,
+    rolePolicies,
+    resourcePolicies,
     userOrgRoles,
     userOrgs,
     resourcePassword,
     resourcePincode,
     resourceWhitelist,
+    resourcePolicyPassword,
+    resourcePolicyPincode,
+    resourcePolicyWhiteList,
     siteResources,
     userSiteResources,
     roleSiteResources,
     siteNetworks,
-    sites
+    sites,
+    labels,
+    resourceLabels,
+    siteResourceLabels
 } from "@server/db";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { response } from "@server/lib/response";
+import { getFirstString } from "@server/lib/requestParams";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 export async function getUserResources(
     req: Request,
@@ -26,12 +38,22 @@ export async function getUserResources(
     next: NextFunction
 ): Promise<any> {
     try {
-        const { orgId } = req.params;
+        const effectiveResourcePolicyId = sql<
+            number | null
+        >`coalesce(${resources.resourcePolicyId}, ${resources.defaultResourcePolicyId})`;
+
+        const orgId = getFirstString(req.params.orgId);
         const userId = req.user?.userId;
 
         if (!userId) {
             return next(
                 createHttpError(HttpCode.UNAUTHORIZED, "User not authenticated")
+            );
+        }
+
+        if (!orgId) {
+            return next(
+                createHttpError(HttpCode.BAD_REQUEST, "Invalid organization ID")
             );
         }
 
@@ -63,14 +85,63 @@ export async function getUserResources(
         const directResourcesQuery = db
             .select({ resourceId: userResources.resourceId })
             .from(userResources)
-            .where(eq(userResources.userId, userId));
+            .innerJoin(
+                resources,
+                eq(userResources.resourceId, resources.resourceId)
+            )
+            .where(
+                and(
+                    eq(userResources.userId, userId),
+                    eq(resources.orgId, orgId)
+                )
+            );
 
         const roleResourcesQuery =
             userRoleIds.length > 0
                 ? db
                       .select({ resourceId: roleResources.resourceId })
                       .from(roleResources)
-                      .where(inArray(roleResources.roleId, userRoleIds))
+                      .innerJoin(
+                          resources,
+                          eq(roleResources.resourceId, resources.resourceId)
+                      )
+                      .where(
+                          and(
+                              inArray(roleResources.roleId, userRoleIds),
+                              eq(resources.orgId, orgId)
+                          )
+                      )
+                : Promise.resolve([]);
+
+        const directPolicyResourcesQuery = db
+            .select({ resourceId: resources.resourceId })
+            .from(resources)
+            .innerJoin(
+                userPolicies,
+                eq(effectiveResourcePolicyId, userPolicies.resourcePolicyId)
+            )
+            .where(
+                and(eq(userPolicies.userId, userId), eq(resources.orgId, orgId))
+            );
+
+        const rolePolicyResourcesQuery =
+            userRoleIds.length > 0
+                ? db
+                      .select({ resourceId: resources.resourceId })
+                      .from(resources)
+                      .innerJoin(
+                          rolePolicies,
+                          eq(
+                              effectiveResourcePolicyId,
+                              rolePolicies.resourcePolicyId
+                          )
+                      )
+                      .where(
+                          and(
+                              inArray(rolePolicies.roleId, userRoleIds),
+                              eq(resources.orgId, orgId)
+                          )
+                      )
                 : Promise.resolve([]);
 
         const directSiteResourcesQuery = db
@@ -91,11 +162,15 @@ export async function getUserResources(
         const [
             directResources,
             roleResourceResults,
+            directPolicyResourceResults,
+            rolePolicyResourceResults,
             directSiteResourceResults,
             roleSiteResourceResults
         ] = await Promise.all([
             directResourcesQuery,
             roleResourcesQuery,
+            directPolicyResourcesQuery,
+            rolePolicyResourcesQuery,
             directSiteResourcesQuery,
             roleSiteResourcesQuery
         ]);
@@ -103,42 +178,62 @@ export async function getUserResources(
         // Combine all accessible resource IDs
         const accessibleResourceIds = [
             ...directResources.map((r) => r.resourceId),
-            ...roleResourceResults.map((r) => r.resourceId)
+            ...roleResourceResults.map((r) => r.resourceId),
+            ...directPolicyResourceResults.map((r) => r.resourceId),
+            ...rolePolicyResourceResults.map((r) => r.resourceId)
         ];
+
+        // remove duplicates
+        const uniqueResourceIds = Array.from(new Set(accessibleResourceIds));
 
         // Combine all accessible site resource IDs
         const accessibleSiteResourceIds = [
             ...directSiteResourceResults.map((r) => r.siteResourceId),
             ...roleSiteResourceResults.map((r) => r.siteResourceId)
         ];
+        const uniqueSiteResourceIds = Array.from(
+            new Set(accessibleSiteResourceIds)
+        );
 
         // Get resource details for accessible resources
         let resourcesData: Array<{
             resourceId: number;
+            effectiveResourcePolicyId: number | null;
             name: string;
             fullDomain: string | null;
             ssl: boolean;
             enabled: boolean;
-            sso: boolean;
-            protocol: string;
-            emailWhitelistEnabled: boolean;
+            sso: boolean | null;
+            mode: string;
+            emailWhitelistEnabled: boolean | null;
+            policyEmailWhitelistEnabled: boolean | null;
         }> = [];
-        if (accessibleResourceIds.length > 0) {
+        if (uniqueResourceIds.length > 0) {
             resourcesData = await db
                 .select({
                     resourceId: resources.resourceId,
+                    effectiveResourcePolicyId,
                     name: resources.name,
                     fullDomain: resources.fullDomain,
                     ssl: resources.ssl,
                     enabled: resources.enabled,
                     sso: resources.sso,
-                    protocol: resources.protocol,
-                    emailWhitelistEnabled: resources.emailWhitelistEnabled
+                    mode: resources.mode,
+                    emailWhitelistEnabled: resources.emailWhitelistEnabled,
+                    policyEmailWhitelistEnabled:
+                        resourcePolicies.emailWhitelistEnabled
                 })
                 .from(resources)
+                .leftJoin(
+                    resourcePolicies,
+                    eq(
+                        effectiveResourcePolicyId,
+                        resourcePolicies.resourcePolicyId
+                    )
+                )
                 .where(
                     and(
-                        inArray(resources.resourceId, accessibleResourceIds),
+                        inArray(resources.resourceId, uniqueResourceIds),
                         eq(resources.orgId, orgId),
                         eq(resources.enabled, true)
                     )
@@ -167,7 +262,7 @@ export async function getUserResources(
             siteAddresses: (string | null)[];
             siteOnlines: boolean[];
         }> = [];
-        if (accessibleSiteResourceIds.length > 0) {
+        if (uniqueSiteResourceIds.length > 0) {
             const aggCol = <T>(column: any) => {
                 if (DB_TYPE === "sqlite") {
                     return sql<T>`json_group_array(${column})`;
@@ -207,7 +302,7 @@ export async function getUserResources(
                     and(
                         inArray(
                             siteResources.siteResourceId,
-                            accessibleSiteResourceIds
+                            uniqueSiteResourceIds
                         ),
                         eq(siteResources.orgId, orgId),
                         eq(siteResources.enabled, true)
@@ -263,47 +358,157 @@ export async function getUserResources(
             });
         }
 
+        const resourceIdList = resourcesData.map((r) => r.resourceId);
+        const siteResourceIdList = siteResourcesData.map(
+            (r) => r.siteResourceId
+        );
+
+        const isLabelFeatureEnabled = await isLicensedOrSubscribed(
+            orgId,
+            tierMatrix.labels
+        );
+
+        let labelsForResources: Array<{
+            labelId: number;
+            name: string;
+            color: string;
+            resourceId: number;
+        }> = [];
+        let labelsForSiteResources: Array<{
+            labelId: number;
+            name: string;
+            color: string;
+            siteResourceId: number;
+        }> = [];
+
+        if (isLabelFeatureEnabled) {
+            [labelsForResources, labelsForSiteResources] = await Promise.all([
+                resourceIdList.length === 0
+                    ? Promise.resolve([])
+                    : db
+                          .select({
+                              labelId: labels.labelId,
+                              name: labels.name,
+                              color: labels.color,
+                              resourceId: resourceLabels.resourceId
+                          })
+                          .from(labels)
+                          .innerJoin(
+                              resourceLabels,
+                              eq(resourceLabels.labelId, labels.labelId)
+                          )
+                          .where(
+                              inArray(resourceLabels.resourceId, resourceIdList)
+                          )
+                          .orderBy(asc(resourceLabels.resourceLabelId)),
+                siteResourceIdList.length === 0
+                    ? Promise.resolve([])
+                    : db
+                          .select({
+                              labelId: labels.labelId,
+                              name: labels.name,
+                              color: labels.color,
+                              siteResourceId: siteResourceLabels.siteResourceId
+                          })
+                          .from(labels)
+                          .innerJoin(
+                              siteResourceLabels,
+                              eq(siteResourceLabels.labelId, labels.labelId)
+                          )
+                          .where(
+                              inArray(
+                                  siteResourceLabels.siteResourceId,
+                                  siteResourceIdList
+                              )
+                          )
+                          .orderBy(asc(siteResourceLabels.siteResourceLabelId))
+            ]);
+        }
+
         // Check for password, pincode, and whitelist protection for each resource
         const resourcesWithAuth = await Promise.all(
             resourcesData.map(async (resource) => {
-                const [passwordCheck, pincodeCheck, whitelistCheck] =
-                    await Promise.all([
-                        db
-                            .select()
-                            .from(resourcePassword)
-                            .where(
-                                eq(
-                                    resourcePassword.resourceId,
-                                    resource.resourceId
-                                )
-                            )
-                            .limit(1),
-                        db
-                            .select()
-                            .from(resourcePincode)
-                            .where(
-                                eq(
-                                    resourcePincode.resourceId,
-                                    resource.resourceId
-                                )
-                            )
-                            .limit(1),
-                        db
-                            .select()
-                            .from(resourceWhitelist)
-                            .where(
-                                eq(
-                                    resourceWhitelist.resourceId,
-                                    resource.resourceId
-                                )
-                            )
-                            .limit(1)
-                    ]);
+                const policyId = resource.effectiveResourcePolicyId;
 
-                const hasPassword = passwordCheck.length > 0;
-                const hasPincode = pincodeCheck.length > 0;
+                const [
+                    passwordCheck,
+                    pincodeCheck,
+                    whitelistCheck,
+                    policyPasswordCheck,
+                    policyPincodeCheck,
+                    policyWhitelistCheck
+                ] = await Promise.all([
+                    db
+                        .select()
+                        .from(resourcePassword)
+                        .where(
+                            eq(resourcePassword.resourceId, resource.resourceId)
+                        )
+                        .limit(1),
+                    db
+                        .select()
+                        .from(resourcePincode)
+                        .where(
+                            eq(resourcePincode.resourceId, resource.resourceId)
+                        )
+                        .limit(1),
+                    db
+                        .select()
+                        .from(resourceWhitelist)
+                        .where(
+                            eq(
+                                resourceWhitelist.resourceId,
+                                resource.resourceId
+                            )
+                        )
+                        .limit(1),
+                    policyId
+                        ? db
+                              .select()
+                              .from(resourcePolicyPassword)
+                              .where(
+                                  eq(
+                                      resourcePolicyPassword.resourcePolicyId,
+                                      policyId
+                                  )
+                              )
+                              .limit(1)
+                        : Promise.resolve([]),
+                    policyId
+                        ? db
+                              .select()
+                              .from(resourcePolicyPincode)
+                              .where(
+                                  eq(
+                                      resourcePolicyPincode.resourcePolicyId,
+                                      policyId
+                                  )
+                              )
+                              .limit(1)
+                        : Promise.resolve([]),
+                    policyId
+                        ? db
+                              .select()
+                              .from(resourcePolicyWhiteList)
+                              .where(
+                                  eq(
+                                      resourcePolicyWhiteList.resourcePolicyId,
+                                      policyId
+                                  )
+                              )
+                              .limit(1)
+                        : Promise.resolve([])
+                ]);
+
+                const hasPassword =
+                    passwordCheck.length > 0 || policyPasswordCheck.length > 0;
+                const hasPincode =
+                    pincodeCheck.length > 0 || policyPincodeCheck.length > 0;
                 const hasWhitelist =
-                    whitelistCheck.length > 0 || resource.emailWhitelistEnabled;
+                    whitelistCheck.length > 0 ||
+                    policyWhitelistCheck.length > 0 ||
+                    resource.emailWhitelistEnabled ||
+                    !!resource.policyEmailWhitelistEnabled;
 
                 return {
                     resourceId: resource.resourceId,
@@ -316,11 +521,14 @@ export async function getUserResources(
                         hasPincode ||
                         hasWhitelist
                     ),
-                    protocol: resource.protocol,
+                    mode: resource.mode,
                     sso: resource.sso,
                     password: hasPassword,
                     pincode: hasPincode,
-                    whitelist: hasWhitelist
+                    whitelist: hasWhitelist,
+                    labels: labelsForResources.filter(
+                        (l) => l.resourceId === resource.resourceId
+                    )
                 };
             })
         );
@@ -330,9 +538,9 @@ export async function getUserResources(
             return {
                 siteResourceId: siteResource.siteResourceId,
                 name: siteResource.name,
+                niceId: siteResource.niceId,
                 destination: siteResource.destination,
                 mode: siteResource.mode,
-                protocol: siteResource.scheme,
                 ssl: siteResource.ssl,
                 fullDomain: siteResource.fullDomain,
                 enabled: siteResource.enabled,
@@ -346,7 +554,10 @@ export async function getUserResources(
                 siteNiceIds: siteResource.siteNiceIds,
                 siteAddresses: siteResource.siteAddresses,
                 siteOnlines: siteResource.siteOnlines,
-                type: "site" as const
+                type: "site" as const,
+                labels: labelsForSiteResources.filter(
+                    (l) => l.siteResourceId === siteResource.siteResourceId
+                )
             };
         });
 
@@ -380,14 +591,15 @@ export type GetUserResourcesResponse = {
             domain: string;
             enabled: boolean;
             protected: boolean;
-            protocol: string;
+            mode: string;
+            labels?: Array<Pick<Label, "color" | "labelId" | "name">>;
         }>;
         siteResources: Array<{
             siteResourceId: number;
             name: string;
+            niceId: string;
             destination: string;
             mode: string;
-            protocol: string | null;
             tcpPortRangeString: string | null;
             udpPortRangeString: string | null;
             disableIcmp: boolean | null;
@@ -402,6 +614,7 @@ export type GetUserResourcesResponse = {
             siteAddresses: (string | null)[];
             siteOnlines: boolean[];
             type: "site";
+            labels?: Array<Pick<Label, "color" | "labelId" | "name">>;
         }>;
     };
 };

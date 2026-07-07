@@ -9,8 +9,9 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { eq, and } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 
-const querySchema = z.object({
+const querySchema = z.strictObject({
     limit: z
         .string()
         .optional()
@@ -48,6 +49,23 @@ export type ListOrgApiKeysResponse = {
     pagination: { total: number; limit: number; offset: number };
 };
 
+const ListOrgApiKeysResponseDataSchema = z.object({
+    apiKeys: z.array(
+        z.object({
+            apiKeyId: z.string(),
+            orgId: z.string(),
+            lastChars: z.string(),
+            createdAt: z.string(),
+            name: z.string()
+        })
+    ),
+    pagination: z.object({
+        total: z.number(),
+        limit: z.number(),
+        offset: z.number()
+    })
+});
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/api-keys",
@@ -57,7 +75,18 @@ registry.registerPath({
         params: paramsSchema,
         query: querySchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        ListOrgApiKeysResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
 });
 
 export async function listOrgApiKeys(

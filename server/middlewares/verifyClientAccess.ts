@@ -107,8 +107,7 @@ export async function verifyClientAccess(
                 return next(
                     createHttpError(
                         HttpCode.FORBIDDEN,
-                        "Failed organization access policy check: " +
-                            (policyCheck.error || "Unknown error")
+                        "" + (policyCheck.error || "Unknown error")
                     )
                 );
             }
@@ -129,10 +128,7 @@ export async function verifyClientAccess(
                       .where(
                           and(
                               eq(roleClients.clientId, client.clientId),
-                              inArray(
-                                  roleClients.roleId,
-                                  req.userOrgRoleIds!
-                              )
+                              inArray(roleClients.roleId, req.userOrgRoleIds!)
                           )
                       )
                       .limit(1)

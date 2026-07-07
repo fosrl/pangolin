@@ -9,7 +9,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
+import { rebuildClientAssociationsFromClient, isOrgRebuildRateLimited } from "@server/lib/rebuildClientAssociations";
 
 const paramsSchema = z.strictObject({
     clientId: z.string().transform(Number).pipe(z.int().positive())
@@ -60,13 +60,26 @@ export async function rebuildClientAssociationsCacheRoute(
             );
         }
 
-        await rebuildClientAssociationsFromClient(client);
+        if (await isOrgRebuildRateLimited(client.orgId)) {
+            return next(
+                createHttpError(
+                    HttpCode.TOO_MANY_REQUESTS,
+                    "Too many concurrent rebuild operations for this organization. Please retry after a moment."
+                )
+            );
+        }
+
+        rebuildClientAssociationsFromClient(client).catch((e) => {
+            logger.error(
+                `Failed to rebuild client associations for client ${clientId}: ${e}`
+            );
+        });
 
         return response(res, {
             data: null,
             success: true,
             error: false,
-            message: "Client association cache rebuilt successfully",
+            message: "Client association cache queued successfully",
             status: HttpCode.OK
         });
     } catch (error) {

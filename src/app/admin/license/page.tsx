@@ -42,7 +42,14 @@ import {
     SettingsSectionFooter
 } from "@app/components/Settings";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
-import { ArrowRight, Check, ExternalLink, Heart, InfoIcon, TicketCheck } from "lucide-react";
+import {
+    ArrowRight,
+    Check,
+    ExternalLink,
+    Heart,
+    InfoIcon,
+    TicketCheck
+} from "lucide-react";
 import Link from "next/link";
 import DismissableBanner from "@app/components/DismissableBanner";
 import CopyTextBox from "@app/components/CopyTextBox";
@@ -50,7 +57,7 @@ import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { SitePriceCalculator } from "@app/components/SitePriceCalculator";
 import { Checkbox } from "@app/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
-import { useSupporterStatusContext } from "@app/hooks/useSupporterStatusContext";
+// import { useSupporterStatusContext } from "@app/hooks/useSupporterStatusContext";
 import { useTranslations } from "next-intl";
 
 const ENTERPRISE_DOCS_URL =
@@ -82,7 +89,7 @@ export default function LicensePage() {
     const [isActivatingLicense, setIsActivatingLicense] = useState(false);
     const [isDeletingLicense, setIsDeletingLicense] = useState(false);
     const [isRecheckingLicense, setIsRecheckingLicense] = useState(false);
-    const { supporterStatus } = useSupporterStatusContext();
+    // const { supporterStatus } = useSupporterStatusContext();
 
     const t = useTranslations();
 
@@ -347,9 +354,7 @@ export default function LicensePage() {
                     storageKey="license-banner-dismissed"
                     version={1}
                     title={t("licenseBannerTitle")}
-                    titleIcon={
-                        <TicketCheck className="w-5 h-5 text-primary" />
-                    }
+                    titleIcon={<TicketCheck className="w-5 h-5 text-primary" />}
                     description={t("licenseBannerDescription")}
                 >
                     <Link

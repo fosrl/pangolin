@@ -1,4 +1,4 @@
-import { logsDb, requestAuditLog, driver, primaryLogsDb } from "@server/db";
+import { logsDb, requestAuditLog, driver } from "@server/db";
 import { registry } from "@server/openApi";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
@@ -74,12 +74,12 @@ async function query(query: Q) {
         );
     }
 
-    const [all] = await primaryLogsDb
+    const [all] = await logsDb
         .select({ total: count() })
         .from(requestAuditLog)
         .where(baseConditions);
 
-    const [blocked] = await primaryLogsDb
+    const [blocked] = await logsDb
         .select({ total: count() })
         .from(requestAuditLog)
         .where(and(baseConditions, eq(requestAuditLog.action, false)));
@@ -90,7 +90,7 @@ async function query(query: Q) {
 
     const DISTINCT_LIMIT = 500;
 
-    const requestsPerCountry = await primaryLogsDb
+    const requestsPerCountry = await logsDb
         .selectDistinct({
             code: requestAuditLog.location,
             count: totalQ
@@ -118,7 +118,7 @@ async function query(query: Q) {
     const booleanTrue = driver === "pg" ? sql`true` : sql`1`;
     const booleanFalse = driver === "pg" ? sql`false` : sql`0`;
 
-    const requestsPerDay = await primaryLogsDb
+    const requestsPerDay = await logsDb
         .select({
             day: groupByDayFunction.as("day"),
             allowedCount:
@@ -156,7 +156,22 @@ registry.registerPath({
         query: queryAccessAuditLogsQuery,
         params: queryRequestAuditLogsParams
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export type QueryRequestAnalyticsResponse = Awaited<ReturnType<typeof query>>;

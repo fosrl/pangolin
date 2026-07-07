@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+
+When writing TypeScript:
+
+Prefer to use types instead of interfaces.

@@ -14,7 +14,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 const updateRoleParamsSchema = z.strictObject({
-    roleId: z.string().transform(Number).pipe(z.int().positive())
+    roleId: z.coerce.number().int().positive()
 });
 
 const sshSudoModeSchema = z.enum(["none", "full", "commands"]);
@@ -53,7 +53,22 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function updateRole(
@@ -119,12 +134,18 @@ export async function updateRole(
             );
         }
 
-        const isLicensedDeviceApprovals = await isLicensedOrSubscribed(orgId, tierMatrix.deviceApprovals);
+        const isLicensedDeviceApprovals = await isLicensedOrSubscribed(
+            orgId,
+            tierMatrix.deviceApprovals
+        );
         if (!isLicensedDeviceApprovals) {
             updateData.requireDeviceApproval = undefined;
         }
 
-        const isLicensedSshPam = await isLicensedOrSubscribed(orgId, tierMatrix.sshPam);
+        const isLicensedSshPam = await isLicensedOrSubscribed(
+            orgId,
+            tierMatrix.advancedPrivateResources
+        );
         if (!isLicensedSshPam) {
             delete updateData.sshSudoMode;
             delete updateData.sshSudoCommands;
@@ -132,10 +153,14 @@ export async function updateRole(
             delete updateData.sshUnixGroups;
         } else {
             if (Array.isArray(updateData.sshSudoCommands)) {
-                updateData.sshSudoCommands = JSON.stringify(updateData.sshSudoCommands);
+                updateData.sshSudoCommands = JSON.stringify(
+                    updateData.sshSudoCommands
+                );
             }
             if (Array.isArray(updateData.sshUnixGroups)) {
-                updateData.sshUnixGroups = JSON.stringify(updateData.sshUnixGroups);
+                updateData.sshUnixGroups = JSON.stringify(
+                    updateData.sshUnixGroups
+                );
             }
         }
 

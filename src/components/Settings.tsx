@@ -22,13 +22,67 @@ export function SettingsSectionHeader({
 
 export function SettingsSectionForm({
     children,
+    className,
+    variant = "compact"
+}: {
+    children: React.ReactNode;
+    variant?: "half" | "compact";
+    className?: string;
+}) {
+    return (
+        <div
+            className={cn(
+                variant === "half"
+                    ? "max-w-3xl space-y-4"
+                    : "max-w-xl space-y-4",
+                className
+            )}
+        >
+            {children}
+        </div>
+    );
+}
+
+export function SettingsFormGrid({
+    children,
     className
 }: {
     children: React.ReactNode;
     className?: string;
 }) {
     return (
-        <div className={cn("max-w-xl space-y-4", className)}>{children}</div>
+        <div
+            className={cn(
+                "grid grid-cols-1 md:grid-cols-4 gap-4 items-start",
+                className
+            )}
+        >
+            {children}
+        </div>
+    );
+}
+
+export function SettingsFormCell({
+    children,
+    span = "half",
+    className
+}: {
+    children: React.ReactNode;
+    span?: "quarter" | "half" | "full";
+    className?: string;
+}) {
+    return (
+        <div
+            className={cn(
+                "min-w-0",
+                span === "quarter" && "md:col-span-1",
+                span === "half" && "md:col-span-2",
+                span === "full" && "md:col-span-4",
+                className
+            )}
+        >
+            {children}
+        </div>
     );
 }
 
@@ -52,6 +106,40 @@ export function SettingsSectionDescription({
     return <p className="text-muted-foreground text-sm">{children}</p>;
 }
 
+export function SettingsSubsectionHeader({
+    children,
+    className
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return <div className={cn("py-3 space-y-0.5", className)}>{children}</div>;
+}
+
+export function SettingsSubsectionTitle({
+    children,
+    className
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return <h3 className={cn("font-semibold", className)}>{children}</h3>;
+}
+
+export function SettingsSubsectionDescription({
+    children,
+    className
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return (
+        <p className={cn("text-sm text-muted-foreground", className)}>
+            {children}
+        </p>
+    );
+}
+
 export function SettingsSectionBody({
     children
 }: {
@@ -61,12 +149,19 @@ export function SettingsSectionBody({
 }
 
 export function SettingsSectionFooter({
-    children
+    children,
+    className
 }: {
     children: React.ReactNode;
+    className?: string;
 }) {
     return (
-        <div className="flex flex-col md:flex-row justify-end space-y-2 md:space-y-0 md:space-x-2 mt-auto pt-6">
+        <div
+            className={cn(
+                "flex flex-col md:flex-row justify-end space-y-2 md:space-y-0 md:space-x-2 mt-auto pt-6",
+                className
+            )}
+        >
             {children}
         </div>
     );

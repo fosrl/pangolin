@@ -9,7 +9,10 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
+import {
+    rebuildClientAssociationsFromClient,
+    isOrgRebuildRateLimited
+} from "@server/lib/rebuildClientAssociations";
 import { sendTerminateClient } from "../client/terminate";
 import { OlmErrorCodes } from "./error";
 
@@ -28,7 +31,22 @@ const paramsSchema = z
 //     request: {
 //         params: paramsSchema
 //     },
-//     responses: {}
+// responses: {
+// 200: {
+// description: "Successful response",
+// content: {
+// "application/json": {
+// schema: z.object({
+// data: z.record(z.string(), z.any()).nullable(),
+// success: z.boolean(),
+// error: z.boolean(),
+// message: z.string(),
+// status: z.number()
+// })
+// }
+// }
+// }
+// }
 // });
 
 export async function deleteUserOlm(
@@ -48,6 +66,30 @@ export async function deleteUserOlm(
         }
 
         const { olmId } = parsedParams.data;
+
+        // get the client first
+        const [client] = await db
+            .select()
+            .from(clients)
+            .where(eq(clients.olmId, olmId));
+
+        if (!client) {
+            return next(
+                createHttpError(
+                    HttpCode.NOT_FOUND,
+                    `No client found for olmId ${olmId}`
+                )
+            );
+        }
+
+        if (await isOrgRebuildRateLimited(client.orgId)) {
+            return next(
+                createHttpError(
+                    HttpCode.TOO_MANY_REQUESTS,
+                    "Too many concurrent rebuild operations for this organization. Please retry after a moment."
+                )
+            );
+        }
 
         let deletedClient: Client | undefined;
         // Delete associated clients and the OLM in a transaction
@@ -71,13 +113,11 @@ export async function deleteUserOlm(
         });
 
         if (deletedClient) {
-            rebuildClientAssociationsFromClient(deletedClient, primaryDb).catch(
-                (e) => {
-                    logger.error(
-                        `Failed to rebuild client-site associations after deleting OLM ${olmId}: ${e}`
-                    );
-                }
-            );
+            rebuildClientAssociationsFromClient(deletedClient).catch((e) => {
+                logger.error(
+                    `Failed to rebuild client-site associations after deleting OLM ${olmId}: ${e}`
+                );
+            });
             sendTerminateClient(
                 deletedClient.clientId,
                 OlmErrorCodes.TERMINATED_DELETED,

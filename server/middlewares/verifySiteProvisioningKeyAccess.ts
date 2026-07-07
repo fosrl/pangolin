@@ -1,10 +1,16 @@
 import { Request, Response, NextFunction } from "express";
-import { db, userOrgs, siteProvisioningKeys, siteProvisioningKeyOrg } from "@server/db";
+import {
+    db,
+    userOrgs,
+    siteProvisioningKeys,
+    siteProvisioningKeyOrg
+} from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifySiteProvisioningKeyAccess(
     req: Request,
@@ -13,8 +19,10 @@ export async function verifySiteProvisioningKeyAccess(
 ) {
     try {
         const userId = req.user!.userId;
-        const siteProvisioningKeyId = req.params.siteProvisioningKeyId;
-        const orgId = req.params.orgId;
+        const siteProvisioningKeyId = getFirstString(
+            req.params.siteProvisioningKeyId
+        );
+        const orgId = getFirstString(req.params.orgId);
 
         if (!userId) {
             return next(
@@ -80,10 +88,7 @@ export async function verifySiteProvisioningKeyAccess(
                 .where(
                     and(
                         eq(userOrgs.userId, userId),
-                        eq(
-                            userOrgs.orgId,
-                            row.siteProvisioningKeyOrg.orgId
-                        )
+                        eq(userOrgs.orgId, row.siteProvisioningKeyOrg.orgId)
                     )
                 )
                 .limit(1);
@@ -110,8 +115,7 @@ export async function verifySiteProvisioningKeyAccess(
                 return next(
                     createHttpError(
                         HttpCode.FORBIDDEN,
-                        "Failed organization access policy check: " +
-                            (policyCheck.error || "Unknown error")
+                        "" + (policyCheck.error || "Unknown error")
                     )
                 );
             }

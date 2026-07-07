@@ -2,6 +2,7 @@ import {
     pgTable,
     serial,
     varchar,
+    unique,
     boolean,
     integer,
     bigint,
@@ -11,7 +12,7 @@ import {
     primaryKey,
     uniqueIndex
 } from "drizzle-orm/pg-core";
-import { InferSelectModel } from "drizzle-orm";
+import { InferSelectModel, sql } from "drizzle-orm";
 import {
     domains,
     orgs,
@@ -19,12 +20,13 @@ import {
     roles,
     users,
     exitNodes,
-    sessions,
-    clients,
     resources,
     siteResources,
     targetHealthCheck,
-    sites
+    sites,
+    clients,
+    sessions,
+    labels
 } from "./schema";
 
 export const certificates = pgTable("certificates", {
@@ -197,6 +199,42 @@ export const remoteExitNodes = pgTable("remoteExitNode", {
     })
 });
 
+export const remoteExitNodeResources = pgTable("remoteExitNodeResources", {
+    remoteExitNodeResourceId: serial("remoteExitNodeResourceId").primaryKey(),
+    remoteExitNodeId: varchar("remoteExitNodeId")
+        .notNull()
+        .references(() => remoteExitNodes.remoteExitNodeId, {
+            onDelete: "cascade"
+        }),
+    destination: varchar("destination").notNull() // a cidr range
+});
+
+export const remoteExitNodePreferenceLabels = pgTable(
+    // this controls what sites are enforced to connect to this node
+    "remoteExitNodePreferenceLabels",
+    {
+        remoteExitNodePreferenceLabelId: serial(
+            "remoteExitNodePreferenceLabelId"
+        ).primaryKey(),
+        remoteExitNodeId: varchar("remoteExitNodeId")
+            .references(() => remoteExitNodes.remoteExitNodeId, {
+                onDelete: "cascade"
+            })
+            .notNull(),
+        labelId: integer("labelId")
+            .references(() => labels.labelId, {
+                onDelete: "cascade"
+            })
+            .notNull()
+    },
+    (t) => [
+        unique("remote_exit_node_preference_label_uniq").on(
+            t.remoteExitNodeId,
+            t.labelId
+        )
+    ]
+);
+
 export const remoteExitNodeSessions = pgTable("remoteExitNodeSession", {
     sessionId: varchar("id").primaryKey(),
     remoteExitNodeId: varchar("remoteExitNodeId")
@@ -207,17 +245,28 @@ export const remoteExitNodeSessions = pgTable("remoteExitNodeSession", {
     expiresAt: bigint("expiresAt", { mode: "number" }).notNull()
 });
 
-export const loginPage = pgTable("loginPage", {
-    loginPageId: serial("loginPageId").primaryKey(),
-    subdomain: varchar("subdomain"),
-    fullDomain: varchar("fullDomain"),
-    exitNodeId: integer("exitNodeId").references(() => exitNodes.exitNodeId, {
-        onDelete: "set null"
-    }),
-    domainId: varchar("domainId").references(() => domains.domainId, {
-        onDelete: "set null"
-    })
-});
+export const loginPage = pgTable(
+    "loginPage",
+    {
+        loginPageId: serial("loginPageId").primaryKey(),
+        subdomain: varchar("subdomain"),
+        fullDomain: varchar("fullDomain"),
+        exitNodeId: integer("exitNodeId").references(
+            () => exitNodes.exitNodeId,
+            {
+                onDelete: "set null"
+            }
+        ),
+        domainId: varchar("domainId").references(() => domains.domainId, {
+            onDelete: "set null"
+        })
+    },
+    (t) => [
+        index("idx_loginpage_fulldomain")
+            .on(t.fullDomain)
+            .where(sql`${t.fullDomain} IS NOT NULL`)
+    ]
+);
 
 export const loginPageOrg = pgTable("loginPageOrg", {
     loginPageId: integer("loginPageId")

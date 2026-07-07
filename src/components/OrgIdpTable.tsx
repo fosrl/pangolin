@@ -125,6 +125,13 @@ function IdpImportRowIcon({
     return <IdpTypeIcon type={type} variant={variant} size={20} />;
 }
 
+function isUserMemberOfIdp(
+    userIdpId: number | null | undefined,
+    idpId: number
+) {
+    return userIdpId != null && userIdpId === idpId;
+}
+
 type Props = {
     idps: IdpRow[];
     orgId: string;
@@ -362,9 +369,17 @@ export default function IdpTable({ idps, orgId }: Props) {
                             <p>{t("idpDeleteGlobalDescription")}</p>
                         </div>
                     }
-                    buttonText={t("idpConfirmDelete")}
+                    buttonText={
+                        isUserMemberOfIdp(user.idpId, selectedIdp.idpId)
+                            ? t("idpConfirmDeleteAndRemoveMeFromOrg")
+                            : t("idpConfirmDelete")
+                    }
                     onConfirm={async () => deleteIdp(selectedIdp.idpId)}
-                    string={selectedIdp.name}
+                    string={
+                        isUserMemberOfIdp(user.idpId, selectedIdp.idpId)
+                            ? t("idpConfirmDeleteAndRemoveMeFromOrg")
+                            : selectedIdp.name
+                    }
                     title={t("idpDelete")}
                 />
             )}
@@ -381,11 +396,25 @@ export default function IdpTable({ idps, orgId }: Props) {
                             <p>{t("idpUnassociateDescription")}</p>
                         </div>
                     }
-                    buttonText={t("idpUnassociateConfirm")}
+                    buttonText={
+                        isUserMemberOfIdp(
+                            user.idpId,
+                            selectedUnassociateIdp.idpId
+                        )
+                            ? t("idpUnassociateAndRemoveMeFromOrg")
+                            : t("idpUnassociateConfirm")
+                    }
                     onConfirm={async () =>
                         unassociateIdp(selectedUnassociateIdp.idpId)
                     }
-                    string={selectedUnassociateIdp.name}
+                    string={
+                        isUserMemberOfIdp(
+                            user.idpId,
+                            selectedUnassociateIdp.idpId
+                        )
+                            ? t("idpUnassociateAndRemoveMeFromOrg")
+                            : selectedUnassociateIdp.name
+                    }
                     title={t("idpUnassociateTitle")}
                     warningText={t("idpUnassociateWarning")}
                 />

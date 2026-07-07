@@ -44,13 +44,13 @@ function isSafeUrlForLink(href: string): boolean {
 const OVERVIEW_META_CLASS = "w-full min-w-0 text-muted-foreground text-sm";
 
 function publicProtocolLabel(r: PublicResourceRow): string {
-    if (r.http) {
+    if (r.mode == "http") {
         return r.ssl ? "HTTPS" : "HTTP";
     }
-    const p = (r.protocol || "").toLowerCase();
+    const p = (r.mode || "").toLowerCase();
     if (p === "tcp") return "TCP";
     if (p === "udp") return "UDP";
-    return (r.protocol || "—").toUpperCase();
+    return (r.mode || "—").toUpperCase();
 }
 
 function PublicResourceMeta({ resource: r }: { resource: PublicResourceRow }) {
@@ -68,12 +68,13 @@ function PrivateResourceMeta({ row }: { row: SiteResourceRow }) {
     const modeLabel: Record<SiteResourceRow["mode"], string> = {
         host: t("editInternalResourceDialogModeHost"),
         cidr: t("editInternalResourceDialogModeCidr"),
-        http: t("editInternalResourceDialogModeHttp")
+        http: t("editInternalResourceDialogModeHttp"),
+        ssh: t("editInternalResourceDialogModeSsh")
     };
     const dest = formatSiteResourceDestinationDisplay({
         mode: row.mode,
         destination: row.destination,
-        httpHttpsPort: row.destinationPort ?? null,
+        destinationPort: row.destinationPort ?? null,
         scheme: row.scheme
     });
     return (
@@ -90,7 +91,7 @@ function PrivateResourceMeta({ row }: { row: SiteResourceRow }) {
 
 function PublicAccessMethod({ resource: r }: { resource: PublicResourceRow }) {
     const t = useTranslations();
-    if (!r.http) {
+    if (!["http", "ssh", "rdp", "vnc"].includes(r.mode || "")) {
         return (
             <CopyToClipboard
                 text={r.proxyPort?.toString() ?? ""}
@@ -149,7 +150,7 @@ function PrivateAccessMethod({ row }: { row: SiteResourceRow }) {
     const dest = formatSiteResourceDestinationDisplay({
         mode: row.mode,
         destination: row.destination,
-        httpHttpsPort: row.destinationPort,
+        destinationPort: row.destinationPort,
         scheme: row.scheme
     });
     return (
@@ -420,15 +421,15 @@ export default function SiteResourcesOverview({
         publicList.length === 0 &&
         privateList.length === 0;
 
-    const publicViewAllHref = `/${orgId}/settings/resources/proxy?siteId=${siteId}`;
-    const privateViewAllHref = `/${orgId}/settings/resources/client?siteId=${siteId}`;
+    const publicViewAllHref = `/${orgId}/settings/resources/public?siteId=${siteId}`;
+    const privateViewAllHref = `/${orgId}/settings/resources/private?siteId=${siteId}`;
 
     const publicRows = publicList.map((r) => ({
         key: r.resourceId,
         meta: <PublicResourceMeta resource={r} />,
         name: r.name,
         access: <PublicAccessMethod resource={r} />,
-        editHref: `/${orgId}/settings/resources/proxy/${r.niceId}`
+        editHref: `/${orgId}/settings/resources/public/${r.niceId}`
     }));
 
     const privateRows = privateList.map((row) => {
@@ -441,7 +442,7 @@ export default function SiteResourcesOverview({
             meta: <PrivateResourceMeta row={row} />,
             name: row.name,
             access: <PrivateAccessMethod row={row} />,
-            editHref: `/${orgId}/settings/resources/client?${qs.toString()}`
+            editHref: `/${orgId}/settings/resources/private?${qs.toString()}`
         };
     });
 

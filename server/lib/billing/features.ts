@@ -1,28 +1,39 @@
-export enum FeatureId {
+export enum LimitId {
     USERS = "users",
     SITES = "sites",
     EGRESS_DATA_MB = "egressDataMb",
     DOMAINS = "domains",
     REMOTE_EXIT_NODES = "remoteExitNodes",
-    ORGINIZATIONS = "organizations",
+    ORGANIZATIONS = "organizations",
+    PUBLIC_RESOURCES = "publicResources",
+    PRIVATE_RESOURCES = "privateResources",
+    MACHINE_CLIENTS = "machineClients",
     TIER1 = "tier1"
 }
 
-export async function getFeatureDisplayName(featureId: FeatureId): Promise<string> {
+export async function getFeatureDisplayName(
+    featureId: LimitId
+): Promise<string> {
     switch (featureId) {
-        case FeatureId.USERS:
+        case LimitId.USERS:
             return "Users";
-        case FeatureId.SITES:
+        case LimitId.SITES:
             return "Sites";
-        case FeatureId.EGRESS_DATA_MB:
+        case LimitId.EGRESS_DATA_MB:
             return "Egress Data (MB)";
-        case FeatureId.DOMAINS:
+        case LimitId.DOMAINS:
             return "Domains";
-        case FeatureId.REMOTE_EXIT_NODES:
+        case LimitId.REMOTE_EXIT_NODES:
             return "Remote Exit Nodes";
-        case FeatureId.ORGINIZATIONS:
+        case LimitId.ORGANIZATIONS:
             return "Organizations";
-        case FeatureId.TIER1:
+        case LimitId.PUBLIC_RESOURCES:
+            return "Public Resources";
+        case LimitId.PRIVATE_RESOURCES:
+            return "Private Resources";
+        case LimitId.MACHINE_CLIENTS:
+            return "Machine Clients";
+        case LimitId.TIER1:
             return "Home Lab";
         default:
             return featureId;
@@ -30,15 +41,16 @@ export async function getFeatureDisplayName(featureId: FeatureId): Promise<strin
 }
 
 // this is from the old system
-export const FeatureMeterIds: Partial<Record<FeatureId, string>> = { // right now we are not charging for any data
+export const FeatureMeterIds: Partial<Record<LimitId, string>> = {
+    // right now we are not charging for any data
     // [FeatureId.EGRESS_DATA_MB]: "mtr_61Srreh9eWrExDSCe41D3Ee2Ir7Wm5YW"
 };
 
-export const FeatureMeterIdsSandbox: Partial<Record<FeatureId, string>> = {
+export const FeatureMeterIdsSandbox: Partial<Record<LimitId, string>> = {
     // [FeatureId.EGRESS_DATA_MB]: "mtr_test_61Snh2a2m6qome5Kv41DCpkOb237B3dQ"
 };
 
-export function getFeatureMeterId(featureId: FeatureId): string | undefined {
+export function getFeatureMeterId(featureId: LimitId): string | undefined {
     if (
         process.env.ENVIRONMENT == "prod" &&
         process.env.SANDBOX_MODE !== "true"
@@ -49,22 +61,20 @@ export function getFeatureMeterId(featureId: FeatureId): string | undefined {
     }
 }
 
-export function getFeatureIdByMetricId(
-    metricId: string
-): FeatureId | undefined {
-    return (Object.entries(FeatureMeterIds) as [FeatureId, string][]).find(
+export function getFeatureIdByMetricId(metricId: string): LimitId | undefined {
+    return (Object.entries(FeatureMeterIds) as [LimitId, string][]).find(
         ([_, v]) => v === metricId
     )?.[0];
 }
 
-export type FeaturePriceSet = Partial<Record<FeatureId, string>>;
+export type FeaturePriceSet = Partial<Record<LimitId, string>>;
 
 export const tier1FeaturePriceSet: FeaturePriceSet = {
-    [FeatureId.TIER1]: "price_1SzVE3D3Ee2Ir7Wm6wT5Dl3G"
+    [LimitId.TIER1]: "price_1SzVE3D3Ee2Ir7Wm6wT5Dl3G"
 };
 
 export const tier1FeaturePriceSetSandbox: FeaturePriceSet = {
-    [FeatureId.TIER1]: "price_1SxgpPDCpkOb237Bfo4rIsoT"
+    [LimitId.TIER1]: "price_1SxgpPDCpkOb237Bfo4rIsoT"
 };
 
 export function getTier1FeaturePriceSet(): FeaturePriceSet {
@@ -79,11 +89,11 @@ export function getTier1FeaturePriceSet(): FeaturePriceSet {
 }
 
 export const tier2FeaturePriceSet: FeaturePriceSet = {
-    [FeatureId.USERS]: "price_1SzVCcD3Ee2Ir7Wmn6U3KvPN"
+    [LimitId.USERS]: "price_1SzVCcD3Ee2Ir7Wmn6U3KvPN"
 };
 
 export const tier2FeaturePriceSetSandbox: FeaturePriceSet = {
-    [FeatureId.USERS]: "price_1SxaEHDCpkOb237BD9lBkPiR"
+    [LimitId.USERS]: "price_1SxaEHDCpkOb237BD9lBkPiR"
 };
 
 export function getTier2FeaturePriceSet(): FeaturePriceSet {
@@ -98,11 +108,11 @@ export function getTier2FeaturePriceSet(): FeaturePriceSet {
 }
 
 export const tier3FeaturePriceSet: FeaturePriceSet = {
-    [FeatureId.USERS]: "price_1SzVDKD3Ee2Ir7WmPtOKNusv"
+    [LimitId.USERS]: "price_1SzVDKD3Ee2Ir7WmPtOKNusv"
 };
 
 export const tier3FeaturePriceSetSandbox: FeaturePriceSet = {
-    [FeatureId.USERS]: "price_1SxaEODCpkOb237BiXdCBSfs"
+    [LimitId.USERS]: "price_1SxaEODCpkOb237BiXdCBSfs"
 };
 
 export function getTier3FeaturePriceSet(): FeaturePriceSet {
@@ -116,7 +126,7 @@ export function getTier3FeaturePriceSet(): FeaturePriceSet {
     }
 }
 
-export function getFeatureIdByPriceId(priceId: string): FeatureId | undefined {
+export function getFeatureIdByPriceId(priceId: string): LimitId | undefined {
     // Check all feature price sets
     const allPriceSets = [
         getTier1FeaturePriceSet(),
@@ -125,7 +135,7 @@ export function getFeatureIdByPriceId(priceId: string): FeatureId | undefined {
     ];
 
     for (const priceSet of allPriceSets) {
-        const entry = (Object.entries(priceSet) as [FeatureId, string][]).find(
+        const entry = (Object.entries(priceSet) as [LimitId, string][]).find(
             ([_, price]) => price === priceId
         );
         if (entry) {

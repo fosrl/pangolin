@@ -3,7 +3,6 @@
 import type { SidebarNavSection } from "@app/app/navigation";
 import { OrgSelector } from "@app/components/OrgSelector";
 import { SidebarNav } from "@app/components/SidebarNav";
-import SupporterStatus from "@app/components/SupporterStatus";
 import {
     Tooltip,
     TooltipContent,
@@ -19,7 +18,13 @@ import { approvalQueries } from "@app/lib/queries";
 import { build } from "@server/build";
 import { useQuery } from "@tanstack/react-query";
 import { ListUserOrgsResponse } from "@server/routers/org";
-import { ArrowRight, ExternalLink, PanelRightOpen, Server } from "lucide-react";
+import {
+    ArrowRight,
+    ExternalLink,
+    PanelRightOpen,
+    Server,
+    SquareMousePointer
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -131,6 +136,13 @@ export function LayoutSidebar({
     const showTrial =
         build === "saas" && Boolean(orgId) && subscriptionContext?.isTrial;
 
+    const isSettingsPage = Boolean(
+        orgId && pathname?.includes(`/${orgId}/settings`)
+    );
+    const canViewResourceLauncher = Boolean(
+        currentOrg?.isAdmin || currentOrg?.isOwner
+    );
+
     return (
         <div
             className={cn(
@@ -153,6 +165,46 @@ export function LayoutSidebar({
             />
             <div className="flex-1 overflow-y-auto relative">
                 <div className="px-2 pt-3">
+                    {!isAdminPage &&
+                        isSettingsPage &&
+                        canViewResourceLauncher &&
+                        orgId && (
+                            <div
+                                className={cn(
+                                    "shrink-0",
+                                    isSidebarCollapsed ? "mb-4" : "mb-1"
+                                )}
+                            >
+                                <Link
+                                    href={`/${orgId}`}
+                                    className={cn(
+                                        "flex items-center transition-colors text-muted-foreground hover:text-foreground text-sm w-full hover:bg-sidebar-accent dark:hover:bg-sidebar-accent/50 rounded-md",
+                                        isSidebarCollapsed
+                                            ? "px-2 py-2 justify-center"
+                                            : "px-3 py-1.5"
+                                    )}
+                                    title={
+                                        isSidebarCollapsed
+                                            ? t("resourceLauncherTitle")
+                                            : undefined
+                                    }
+                                >
+                                    <span
+                                        className={cn(
+                                            "flex-shrink-0 w-5 h-5 flex items-center justify-center text-muted-foreground",
+                                            !isSidebarCollapsed && "mr-3"
+                                        )}
+                                    >
+                                        <SquareMousePointer className="h-4 w-4" />
+                                    </span>
+                                    {!isSidebarCollapsed && (
+                                        <span className="flex-1">
+                                            {t("resourceLauncherTitle")}
+                                        </span>
+                                    )}
+                                </Link>
+                            </div>
+                        )}
                     {!isAdminPage && user.serverAdmin && (
                         <div
                             className={cn(
@@ -256,11 +308,6 @@ export function LayoutSidebar({
                         <SidebarLicenseButton
                             isCollapsed={isSidebarCollapsed}
                         />
-                    </div>
-                )}
-                {build === "oss" && (
-                    <div className="px-4">
-                        <SupporterStatus isCollapsed={isSidebarCollapsed} />
                     </div>
                 )}
                 {build === "saas" && (

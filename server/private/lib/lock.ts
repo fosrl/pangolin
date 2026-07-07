@@ -11,37 +11,80 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { config } from "@server/lib/config";
 import logger from "@server/logger";
 import { redis } from "#private/lib/redis";
 import { v4 as uuidv4 } from "uuid";
 
 const instanceId = uuidv4();
 
+type LocalLockRecord = {
+    owner: string;
+    expiresAt: number;
+};
+
+const localLocks = new Map<string, LocalLockRecord>();
+
 export class LockManager {
+    private clearExpiredLocalLock(lockKey: string): void {
+        const current = localLocks.get(lockKey);
+        if (current && current.expiresAt <= Date.now()) {
+            localLocks.delete(lockKey);
+        }
+    }
+
     /**
      * Acquire a distributed lock using Redis SET with NX and PX options
      * @param lockKey - Unique identifier for the lock
      * @param ttlMs - Time to live in milliseconds
-     * @returns Promise<boolean> - true if lock acquired, false otherwise
+     * @returns Promise<string | null> - a token identifying this specific acquisition
+     *          (truthy) on success, or null if the lock could not be acquired.
      */
     async acquireLock(
         lockKey: string,
         ttlMs: number = 30000,
         maxRetries: number = 3,
         retryDelayMs: number = 100
-    ): Promise<boolean> {
+    ): Promise<string | null> {
         if (!redis || !redis.status || redis.status !== "ready") {
-            return true;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                this.clearExpiredLocalLock(lockKey);
+
+                const existing = localLocks.get(lockKey);
+                if (!existing) {
+                    const token = `${instanceId}:${uuidv4()}`;
+                    localLocks.set(lockKey, {
+                        owner: token,
+                        expiresAt: Date.now() + ttlMs
+                    });
+                    return token;
+                }
+
+                // Do not treat a same-process holder as automatically
+                // reentrant -- see the note in the Redis branch below.
+                if (attempt < maxRetries - 1) {
+                    const delay = retryDelayMs * Math.pow(2, attempt);
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                }
+            }
+
+            return null;
         }
 
-        const lockValue = `${
-            instanceId
-        }:${Date.now()}`;
         const redisKey = `lock:${lockKey}`;
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
+                // Every acquisition attempt gets its own unique token, even
+                // within the same process. Two independent logical operations
+                // (e.g. two different API requests handled by the same server)
+                // racing for this key must never both believe they hold the
+                // lock -- if we treated "existing value starts with my
+                // instanceId" as reentrant success, a second unrelated caller
+                // on this process could barge in while the first is still
+                // mid-flight, and their writes under the lock would interleave
+                // unguarded.
+                const lockValue = `${instanceId}:${uuidv4()}`;
+
                 // Use SET with NX (only set if not exists) and PX (expire in milliseconds)
                 // This is atomic and handles both setting and expiration
                 const result = await redis.set(
@@ -53,30 +96,8 @@ export class LockManager {
                 );
 
                 if (result === "OK") {
-                    logger.debug(
-                        `Lock acquired: ${lockKey} by ${
-                            instanceId
-                        }`
-                    );
-                    return true;
-                }
-
-                // Check if the existing lock is from this worker (reentrant behavior)
-                const existingValue = await redis.get(redisKey);
-                if (
-                    existingValue &&
-                    existingValue.startsWith(
-                        `${instanceId}:`
-                    )
-                ) {
-                    // Extend the lock TTL since it's the same worker
-                    await redis.pexpire(redisKey, ttlMs);
-                    logger.debug(
-                        `Lock extended: ${lockKey} by ${
-                            instanceId
-                        }`
-                    );
-                    return true;
+                    logger.debug(`Lock acquired: ${lockKey} by ${instanceId}`);
+                    return lockValue;
                 }
 
                 // If this isn't our last attempt, wait before retrying with exponential backoff
@@ -88,7 +109,10 @@ export class LockManager {
                     await new Promise((resolve) => setTimeout(resolve, delay));
                 }
             } catch (error) {
-                logger.error(`Failed to acquire lock ${lockKey} (attempt ${attempt + 1}/${maxRetries}):`, error);
+                logger.error(
+                    `Failed to acquire lock ${lockKey} (attempt ${attempt + 1}/${maxRetries}):`,
+                    error
+                );
                 // On error, still retry if we have attempts left
                 if (attempt < maxRetries - 1) {
                     const delay = retryDelayMs * Math.pow(2, attempt);
@@ -100,27 +124,36 @@ export class LockManager {
         logger.debug(
             `Failed to acquire lock ${lockKey} after ${maxRetries} attempts`
         );
-        return false;
+        return null;
     }
 
     /**
-     * Release a lock using Lua script to ensure atomicity
+     * Release a lock previously acquired via acquireLock/acquireLockWithRetry,
+     * using a Lua script to ensure we only delete it if it still matches the
+     * exact token from that acquisition (not just "owned by this process") --
+     * this ensures a caller whose TTL already expired can't delete a
+     * different, currently-active holder's lock.
      * @param lockKey - Unique identifier for the lock
+     * @param token - the exact token returned by the acquisition being released
      */
-    async releaseLock(lockKey: string): Promise<void> {
+    async releaseLock(lockKey: string, token: string): Promise<void> {
         if (!redis || !redis.status || redis.status !== "ready") {
+            this.clearExpiredLocalLock(lockKey);
+            const existing = localLocks.get(lockKey);
+            if (existing && existing.owner === token) {
+                localLocks.delete(lockKey);
+            }
             return;
         }
 
         const redisKey = `lock:${lockKey}`;
 
-        // Lua script to ensure we only delete the lock if it belongs to this worker
         const luaScript = `
       local key = KEYS[1]
-      local worker_prefix = ARGV[1]
+      local expected_value = ARGV[1]
       local current_value = redis.call('GET', key)
 
-      if current_value and string.find(current_value, worker_prefix, 1, true) == 1 then
+      if current_value and current_value == expected_value then
         return redis.call('DEL', key)
       else
         return 0
@@ -132,20 +165,14 @@ export class LockManager {
                 luaScript,
                 1,
                 redisKey,
-                `${instanceId}:`
+                token
             )) as number;
 
             if (result === 1) {
-                logger.debug(
-                    `Lock released: ${lockKey} by ${
-                        instanceId
-                    }`
-                );
+                logger.debug(`Lock released: ${lockKey} by ${instanceId}`);
             } else {
                 logger.warn(
-                    `Lock not released - not owned by worker: ${lockKey} by ${
-                        instanceId
-                    }`
+                    `Lock not released - token did not match current holder: ${lockKey} (attempted by ${instanceId})`
                 );
             }
         } catch (error) {
@@ -159,6 +186,7 @@ export class LockManager {
      */
     async forceReleaseLock(lockKey: string): Promise<void> {
         if (!redis || !redis.status || redis.status !== "ready") {
+            localLocks.delete(lockKey);
             return;
         }
 
@@ -186,7 +214,20 @@ export class LockManager {
         owner?: string;
     }> {
         if (!redis || !redis.status || redis.status !== "ready") {
-            return { exists: false, ownedByMe: true, ttl: 0 };
+            this.clearExpiredLocalLock(lockKey);
+            const existing = localLocks.get(lockKey);
+
+            if (!existing) {
+                return { exists: false, ownedByMe: false, ttl: 0 };
+            }
+
+            const ttl = Math.max(0, existing.expiresAt - Date.now());
+            return {
+                exists: true,
+                ownedByMe: existing.owner.startsWith(`${instanceId}:`),
+                ttl,
+                owner: existing.owner.split(":")[0]
+            };
         }
 
         const redisKey = `lock:${lockKey}`;
@@ -198,11 +239,7 @@ export class LockManager {
             ]);
 
             const exists = value !== null;
-            const ownedByMe =
-                exists &&
-                value!.startsWith(
-                    `${instanceId}:`
-                );
+            const ownedByMe = exists && value!.startsWith(`${instanceId}:`);
             const owner = exists ? value!.split(":")[0] : undefined;
 
             return {
@@ -218,26 +255,40 @@ export class LockManager {
     }
 
     /**
-     * Extend the TTL of an existing lock owned by this worker
+     * Extend the TTL of an existing lock, provided the token matches the
+     * acquisition currently holding it.
      * @param lockKey - Unique identifier for the lock
      * @param ttlMs - New TTL in milliseconds
+     * @param token - the token returned by the acquisition being extended
      * @returns Promise<boolean> - true if extended successfully
      */
-    async extendLock(lockKey: string, ttlMs: number): Promise<boolean> {
+    async extendLock(
+        lockKey: string,
+        ttlMs: number,
+        token: string
+    ): Promise<boolean> {
         if (!redis || !redis.status || redis.status !== "ready") {
+            this.clearExpiredLocalLock(lockKey);
+            const existing = localLocks.get(lockKey);
+
+            if (!existing || existing.owner !== token) {
+                return false;
+            }
+
+            existing.expiresAt = Date.now() + ttlMs;
+            localLocks.set(lockKey, existing);
             return true;
         }
 
         const redisKey = `lock:${lockKey}`;
 
-        // Lua script to extend TTL only if lock is owned by this worker
         const luaScript = `
       local key = KEYS[1]
-      local worker_prefix = ARGV[1]
+      local expected_value = ARGV[1]
       local ttl = tonumber(ARGV[2])
       local current_value = redis.call('GET', key)
 
-      if current_value and string.find(current_value, worker_prefix, 1, true) == 1 then
+      if current_value and current_value == expected_value then
         return redis.call('PEXPIRE', key, ttl)
       else
         return 0
@@ -249,15 +300,13 @@ export class LockManager {
                 luaScript,
                 1,
                 redisKey,
-                `${instanceId}:`,
+                token,
                 ttlMs.toString()
             )) as number;
 
             if (result === 1) {
                 logger.debug(
-                    `Lock extended: ${lockKey} by ${
-                        instanceId
-                    } for ${ttlMs}ms`
+                    `Lock extended: ${lockKey} by ${instanceId} for ${ttlMs}ms`
                 );
                 return true;
             }
@@ -274,23 +323,24 @@ export class LockManager {
      * @param ttlMs - Time to live in milliseconds
      * @param maxRetries - Maximum number of retry attempts
      * @param baseDelayMs - Base delay between retries in milliseconds
-     * @returns Promise<boolean> - true if lock acquired
+     * @returns Promise<string | null> - token if acquired, null otherwise
      */
     async acquireLockWithRetry(
         lockKey: string,
         ttlMs: number = 30000,
         maxRetries: number = 5,
         baseDelayMs: number = 100
-    ): Promise<boolean> {
-        if (!redis || !redis.status || redis.status !== "ready") {
-            return true;
-        }
-
+    ): Promise<string | null> {
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            const acquired = await this.acquireLock(lockKey, ttlMs);
+            const acquired = await this.acquireLock(
+                lockKey,
+                ttlMs,
+                1,
+                baseDelayMs
+            );
 
             if (acquired) {
-                return true;
+                return acquired;
             }
 
             if (attempt < maxRetries) {
@@ -304,7 +354,7 @@ export class LockManager {
         logger.warn(
             `Failed to acquire lock ${lockKey} after ${maxRetries + 1} attempts`
         );
-        return false;
+        return null;
     }
 
     /**
@@ -319,20 +369,16 @@ export class LockManager {
         fn: () => Promise<T>,
         ttlMs: number = 30000
     ): Promise<T> {
-        if (!redis || !redis.status || redis.status !== "ready") {
-            return await fn();
-        }
+        const token = await this.acquireLock(lockKey, ttlMs);
 
-        const acquired = await this.acquireLock(lockKey, ttlMs);
-
-        if (!acquired) {
+        if (!token) {
             throw new Error(`Failed to acquire lock: ${lockKey}`);
         }
 
         try {
             return await fn();
         } finally {
-            await this.releaseLock(lockKey);
+            await this.releaseLock(lockKey, token);
         }
     }
 
@@ -346,7 +392,21 @@ export class LockManager {
         locksOwnedByMe: number;
     }> {
         if (!redis || !redis.status || redis.status !== "ready") {
-            return { activeLocksCount: 0, locksOwnedByMe: 0 };
+            const now = Date.now();
+            for (const [key, value] of localLocks.entries()) {
+                if (value.expiresAt <= now) {
+                    localLocks.delete(key);
+                }
+            }
+
+            let locksOwnedByMe = 0;
+            for (const value of localLocks.values()) {
+                if (value.owner.startsWith(`${instanceId}:`)) {
+                    locksOwnedByMe++;
+                }
+            }
+
+            return { activeLocksCount: localLocks.size, locksOwnedByMe };
         }
 
         try {
@@ -356,11 +416,7 @@ export class LockManager {
             if (keys.length > 0) {
                 const values = await redis.mget(...keys);
                 locksOwnedByMe = values.filter(
-                    (value) =>
-                        value &&
-                        value.startsWith(
-                            `${instanceId}:`
-                        )
+                    (value) => value && value.startsWith(`${instanceId}:`)
                 ).length;
             }
 

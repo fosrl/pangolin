@@ -21,7 +21,6 @@ import { Layout } from "@app/components/Layout";
 import ApplyInternalRedirect from "@app/components/ApplyInternalRedirect";
 import SubscriptionViolation from "@app/components/SubscriptionViolation";
 
-
 export default async function OrgLayout(props: {
     children: React.ReactNode;
     params: Promise<{ orgId: string }>;
@@ -42,6 +41,26 @@ export default async function OrgLayout(props: {
         redirect(`/`);
     }
 
+    let orgs: ListUserOrgsResponse["orgs"] = [];
+    try {
+        const getOrgs = cache(async () =>
+            internal.get<AxiosResponse<ListUserOrgsResponse>>(
+                `/user/${user.userId}/orgs`,
+                await authCookieHeader()
+            )
+        );
+        const res = await getOrgs();
+        if (res && res.data.data.orgs) {
+            orgs = res.data.data.orgs;
+        }
+    } catch (e) {}
+
+    const primaryOrg = orgs.find((org) => org.isPrimaryOrg);
+    const canViewPrimaryBilling = Boolean(primaryOrg?.isOwner);
+    const primaryOrgBillingHref = primaryOrg
+        ? `/${primaryOrg.orgId}/settings/billing`
+        : null;
+
     let accessRes: CheckOrgUserAccessResponse | null = null;
     try {
         const checkOrgAccess = cache(() =>
@@ -58,19 +77,6 @@ export default async function OrgLayout(props: {
 
     if (!accessRes?.allowed) {
         // For non-admin users, show the member resources portal
-        let orgs: ListUserOrgsResponse["orgs"] = [];
-        try {
-            const getOrgs = cache(async () =>
-                internal.get<AxiosResponse<ListUserOrgsResponse>>(
-                    `/user/${user.userId}/orgs`,
-                    await authCookieHeader()
-                )
-            );
-            const res = await getOrgs();
-            if (res && res.data.data.orgs) {
-                orgs = res.data.data.orgs;
-            }
-        } catch (e) {}
         return (
             <UserProvider user={user}>
                 <ApplyInternalRedirect orgId={orgId} />
@@ -110,7 +116,12 @@ export default async function OrgLayout(props: {
         >
             <ApplyInternalRedirect orgId={orgId} />
             {props.children}
-            {build === "saas" && <SubscriptionViolation />}
+            {build === "saas" && (
+                <SubscriptionViolation
+                    canViewBilling={canViewPrimaryBilling}
+                    billingHref={primaryOrgBillingHref}
+                />
+            )}
 
             <SetLastOrgCookie orgId={orgId} />
         </SubscriptionStatusProvider>

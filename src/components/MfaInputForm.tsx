@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Button } from "@app/components/ui/button";
 import {
@@ -8,17 +7,15 @@ import {
     FormControl,
     FormField,
     FormItem,
+    FormLabel,
     FormMessage
 } from "@app/components/ui/form";
-import {
-    InputOTP,
-    InputOTPGroup,
-    InputOTPSlot
-} from "./ui/input-otp";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { useTranslations } from "next-intl";
-import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
-import * as z from "zod";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
+
+const MFA_OTP_INPUT_ID = "mfa-otp-code";
 
 type MfaInputFormProps = {
     form: UseFormReturn<{ code: string }>;
@@ -27,6 +24,7 @@ type MfaInputFormProps = {
     error?: string | null;
     loading?: boolean;
     formId?: string;
+    username?: string;
 };
 
 export default function MfaInputForm({
@@ -35,55 +33,10 @@ export default function MfaInputForm({
     onBack,
     error,
     loading = false,
-    formId = "mfaForm"
+    formId = "mfaForm",
+    username
 }: MfaInputFormProps) {
     const t = useTranslations();
-    const otpContainerRef = useRef<HTMLDivElement>(null);
-
-    // Auto-focus MFA input when component mounts
-    useEffect(() => {
-        const focusInput = () => {
-            // Try using the ref first
-            if (otpContainerRef.current) {
-                const hiddenInput = otpContainerRef.current.querySelector(
-                    "input"
-                ) as HTMLInputElement;
-                if (hiddenInput) {
-                    hiddenInput.focus();
-                    return;
-                }
-            }
-
-            // Fallback: query the DOM
-            const otpContainer = document.querySelector(
-                '[data-slot="input-otp"]'
-            );
-            if (!otpContainer) return;
-
-            const hiddenInput = otpContainer.querySelector(
-                "input"
-            ) as HTMLInputElement;
-            if (hiddenInput) {
-                hiddenInput.focus();
-                return;
-            }
-
-            // Last resort: click the first slot
-            const firstSlot = otpContainer.querySelector(
-                '[data-slot="input-otp-slot"]'
-            ) as HTMLElement;
-            if (firstSlot) {
-                firstSlot.click();
-            }
-        };
-
-        // Use requestAnimationFrame to wait for the next paint
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                focusInput();
-            });
-        });
-    }, []);
 
     return (
         <div className="space-y-4">
@@ -99,25 +52,45 @@ export default function MfaInputForm({
                     className="space-y-4"
                     id={formId}
                 >
+                    {username ? (
+                        <input
+                            type="text"
+                            name="username"
+                            autoComplete="username"
+                            value={username}
+                            readOnly
+                            tabIndex={-1}
+                            aria-hidden="true"
+                            className="sr-only"
+                        />
+                    ) : null}
                     <FormField
                         control={form.control}
                         name="code"
                         render={({ field }) => (
                             <FormItem>
+                                <FormLabel
+                                    htmlFor={MFA_OTP_INPUT_ID}
+                                    className="sr-only"
+                                >
+                                    {t("otpAuth")}
+                                </FormLabel>
                                 <FormControl>
-                                    <div
-                                        ref={otpContainerRef}
-                                        className="flex justify-center"
-                                    >
+                                    <div className="flex justify-center">
                                         <InputOTP
+                                            id={MFA_OTP_INPUT_ID}
                                             maxLength={6}
                                             {...field}
+                                            autoComplete="one-time-code"
+                                            inputMode="numeric"
                                             autoFocus
-                                            pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
+                                            pattern={REGEXP_ONLY_DIGITS}
                                             onChange={(value: string) => {
                                                 field.onChange(value);
                                                 if (value.length === 6) {
-                                                    form.handleSubmit(onSubmit)();
+                                                    form.handleSubmit(
+                                                        onSubmit
+                                                    )();
                                                 }
                                             }}
                                         >

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db } from "@server/db";
 import { Org, orgs } from "@server/db";
 import { eq } from "drizzle-orm";
@@ -17,6 +18,10 @@ const getOrgSchema = z.strictObject({
 export type GetOrgResponse = {
     org: Org;
 };
+const GetOrgResponseDataSchema = z.object({
+    org: z.object({}).passthrough()
+});
+
 
 registry.registerPath({
     method: "get",
@@ -26,7 +31,16 @@ registry.registerPath({
     request: {
         params: getOrgSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(GetOrgResponseDataSchema)
+                }
+            }
+        }
+    }
 });
 
 export async function getOrg(

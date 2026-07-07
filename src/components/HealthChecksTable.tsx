@@ -406,7 +406,7 @@ export default function HealthChecksTable({
                 }
                 return (
                     <Link
-                        href={`/${orgId}/settings/resources/proxy/${r.resourceNiceId}`}
+                        href={`/${orgId}/settings/resources/public/${r.resourceNiceId}`}
                     >
                         <Button variant="outline" size="sm">
                             {r.resourceName}
@@ -627,7 +627,7 @@ export default function HealthChecksTable({
                         </DropdownMenu>
                         {r.resourceId && r.resourceName && r.resourceNiceId ? (
                             <Link
-                                href={`/${orgId}/settings/resources/proxy/${r.resourceNiceId}`}
+                                href={`/${orgId}/settings/resources/public/${r.resourceNiceId}`}
                             >
                                 <Button variant="outline" disabled={!isPaid}>
                                     {t("edit")}

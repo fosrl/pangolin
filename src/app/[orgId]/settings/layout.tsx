@@ -13,6 +13,7 @@ import { Layout } from "@app/components/Layout";
 import { getTranslations } from "next-intl/server";
 import { pullEnv } from "@app/lib/pullEnv";
 import { orgNavSections } from "@app/app/navigation";
+import { getCachedOrgUser } from "@app/lib/api/getCachedOrgUser";
 
 export const dynamic = "force-dynamic";
 
@@ -48,13 +49,7 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
     const t = await getTranslations();
 
     try {
-        const getOrgUser = cache(() =>
-            internal.get<AxiosResponse<GetOrgUserResponse>>(
-                `/org/${params.orgId}/user/${user.userId}`,
-                cookie
-            )
-        );
-        const orgUser = await getOrgUser();
+        const orgUser = await getCachedOrgUser(params.orgId, user.userId);
 
         if (!orgUser.data.data.isAdmin && !orgUser.data.data.isOwner) {
             throw new Error(t("userErrorNotAdminOrOwner"));

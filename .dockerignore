@@ -34,3 +34,5 @@ build.ts
 tsconfig.json
 Dockerfile*
 drizzle.config.ts
+allowedDevOrigins.json
+scratch/

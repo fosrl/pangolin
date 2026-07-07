@@ -8,16 +8,31 @@ import { useTheme } from "next-themes";
 import BrandingLogo from "./BrandingLogo";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
+import { ListUserOrgsResponse } from "@server/routers/org";
+import { LauncherOrgSelector } from "@app/components/resource-launcher/LauncherOrgSelector";
+import { Button } from "@app/components/ui/button";
+import { useTranslations } from "next-intl";
 
-interface LayoutHeaderProps {
+type LayoutHeaderProps = {
     showTopBar: boolean;
-}
+    launcherMode?: boolean;
+    orgId?: string;
+    orgs?: ListUserOrgsResponse["orgs"];
+    showViewAsAdmin?: boolean;
+};
 
-export function LayoutHeader({ showTopBar }: LayoutHeaderProps) {
+export function LayoutHeader({
+    showTopBar,
+    launcherMode = false,
+    orgId,
+    orgs,
+    showViewAsAdmin = false
+}: LayoutHeaderProps) {
     const { theme } = useTheme();
     const [path, setPath] = useState<string>("");
     const { env } = useEnvContext();
     const { isUnlocked } = useLicenseStatusContext();
+    const t = useTranslations();
 
     const logoWidth = isUnlocked()
         ? env.branding.logo?.navbar?.width || 98
@@ -53,16 +68,38 @@ export function LayoutHeader({ showTopBar }: LayoutHeaderProps) {
             <div className="relative z-10 px-6 py-2">
                 <div className="container mx-auto max-w-12xl">
                     <div className="h-16 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Link href="/" className="flex items-center">
+                        <div className="flex items-center gap-5 min-w-0">
+                            <Link
+                                href="/"
+                                className="flex items-center shrink-0"
+                            >
                                 <BrandingLogo
                                     width={logoWidth}
                                     height={logoHeight}
                                 />
                             </Link>
-                            {/* {build === "saas" && (
-                                <Badge variant="secondary">Cloud Beta</Badge>
-                            )} */}
+                            {launcherMode ? (
+                                <>
+                                    <LauncherOrgSelector
+                                        orgId={orgId}
+                                        orgs={orgs}
+                                    />
+                                    {showViewAsAdmin && orgId ? (
+                                        <Button
+                                            variant="text"
+                                            size="sm"
+                                            className="p-0"
+                                            asChild
+                                        >
+                                            <Link href={`/${orgId}/settings`}>
+                                                {t(
+                                                    "resourceLauncherViewAsAdmin"
+                                                )}
+                                            </Link>
+                                        </Button>
+                                    ) : null}
+                                </>
+                            ) : null}
                         </div>
 
                         {showTopBar && (

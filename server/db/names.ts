@@ -1,6 +1,12 @@
 import { join } from "path";
 import { readFileSync } from "fs";
-import { clients, db, resources, siteResources } from "@server/db";
+import {
+    clients,
+    db,
+    resourcePolicies,
+    resources,
+    siteResources
+} from "@server/db";
 import { randomInt } from "crypto";
 import { exitNodes, sites } from "@server/db";
 import { eq, and } from "drizzle-orm";
@@ -101,6 +107,35 @@ export async function getUniqueResourceName(orgId: string): Promise<string> {
                 )
         ]);
         if (resourceCount.length === 0 && siteResourceCount.length === 0) {
+            return name;
+        }
+        loops++;
+    }
+}
+
+export async function getUniqueResourcePolicyName(
+    orgId: string
+): Promise<string> {
+    let loops = 0;
+    while (true) {
+        if (loops > 100) {
+            throw new Error("Could not generate a unique name");
+        }
+
+        const name = generateName();
+        const policyCount = await db
+            .select({
+                niceId: resourcePolicies.niceId,
+                orgId: resourcePolicies.orgId
+            })
+            .from(resourcePolicies)
+            .where(
+                and(
+                    eq(resourcePolicies.niceId, name),
+                    eq(resourcePolicies.orgId, orgId)
+                )
+            );
+        if (policyCount.length === 0) {
             return name;
         }
         loops++;

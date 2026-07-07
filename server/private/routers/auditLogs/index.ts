@@ -17,3 +17,4 @@ export * from "./queryAccessAuditLog";
 export * from "./exportAccessAuditLog";
 export * from "./queryConnectionAuditLog";
 export * from "./exportConnectionAuditLog";
+export * from "./logAccessAuditAttempt";

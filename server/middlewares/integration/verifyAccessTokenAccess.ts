@@ -4,6 +4,7 @@ import { resourceAccessToken, resources, apiKeyOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyApiKeyAccessTokenAccess(
     req: Request,
@@ -12,11 +13,17 @@ export async function verifyApiKeyAccessTokenAccess(
 ) {
     try {
         const apiKey = req.apiKey;
-        const accessTokenId = req.params.accessTokenId;
+        const accessTokenId = getFirstString(req.params.accessTokenId);
 
         if (!apiKey) {
             return next(
                 createHttpError(HttpCode.UNAUTHORIZED, "Key not authenticated")
+            );
+        }
+
+        if (!accessTokenId) {
+            return next(
+                createHttpError(HttpCode.BAD_REQUEST, "Invalid access token ID")
             );
         }
 

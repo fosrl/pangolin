@@ -3,6 +3,7 @@ import { sites, clients, olms } from "@server/db";
 import { and, eq, inArray } from "drizzle-orm";
 import logger from "@server/logger";
 import { fireSiteOnlineAlert } from "@server/lib/alerts";
+import { withRetry } from "@server/lib/dbRetry";
 
 /**
  * Ping Accumulator
@@ -22,8 +23,6 @@ import { fireSiteOnlineAlert } from "@server/lib/alerts";
  */
 
 const FLUSH_INTERVAL_MS = 10_000; // Flush every 10 seconds
-const MAX_RETRIES = 5;
-const BASE_DELAY_MS = 50;
 
 // ── Site (newt) pings ──────────────────────────────────────────────────
 // Map of siteId -> latest ping timestamp (unix seconds)
@@ -56,9 +55,6 @@ export function recordSitePing(siteId: number): void {
     const now = Math.floor(Date.now() / 1000);
     pendingSitePings.set(siteId, now);
 }
-
-/** @deprecated Use `recordSitePing` instead. Alias kept for existing call-sites. */
-export const recordPing = recordSitePing;
 
 /**
  * Record a ping for an OLM client. Batches the `clients` table update
@@ -269,85 +265,7 @@ export async function flushPingsToDb(): Promise<void> {
 }
 
 // ── Retry / Error Helpers ──────────────────────────────────────────────
-
-/**
- * Simple retry wrapper with exponential backoff for transient errors
- * (deadlocks, connection timeouts, unexpected disconnects).
- *
- * PostgreSQL deadlocks (40P01) are always safe to retry: the database
- * guarantees exactly one winner per deadlock pair, so the loser just needs
- * to try again. MAX_RETRIES is intentionally higher than typical connection
- * retry budgets to give deadlock victims enough chances to succeed.
- */
-async function withRetry<T>(
-    operation: () => Promise<T>,
-    context: string
-): Promise<T> {
-    let attempt = 0;
-    while (true) {
-        try {
-            return await operation();
-        } catch (error: any) {
-            if (isTransientError(error) && attempt < MAX_RETRIES) {
-                attempt++;
-                const baseDelay = Math.pow(2, attempt - 1) * BASE_DELAY_MS;
-                const jitter = Math.random() * baseDelay;
-                const delay = baseDelay + jitter;
-                logger.warn(
-                    `Transient DB error in ${context}, retrying attempt ${attempt}/${MAX_RETRIES} after ${delay.toFixed(0)}ms`,
-                    { code: error?.code ?? error?.cause?.code }
-                );
-                await new Promise((resolve) => setTimeout(resolve, delay));
-                continue;
-            }
-            throw error;
-        }
-    }
-}
-
-/**
- * Detect transient errors that are safe to retry.
- */
-function isTransientError(error: any): boolean {
-    if (!error) return false;
-
-    const message = (error.message || "").toLowerCase();
-    const causeMessage = (error.cause?.message || "").toLowerCase();
-    const code = error.code || error.cause?.code || "";
-
-    // Connection timeout / terminated
-    if (
-        message.includes("connection timeout") ||
-        message.includes("connection terminated") ||
-        message.includes("timeout exceeded when trying to connect") ||
-        causeMessage.includes("connection terminated unexpectedly") ||
-        causeMessage.includes("connection timeout")
-    ) {
-        return true;
-    }
-
-    // PostgreSQL deadlock detected - always safe to retry (one winner guaranteed)
-    if (code === "40P01" || message.includes("deadlock")) {
-        return true;
-    }
-
-    // PostgreSQL serialization failure
-    if (code === "40001") {
-        return true;
-    }
-
-    // ECONNRESET, ECONNREFUSED, EPIPE, ETIMEDOUT
-    if (
-        code === "ECONNRESET" ||
-        code === "ECONNREFUSED" ||
-        code === "EPIPE" ||
-        code === "ETIMEDOUT"
-    ) {
-        return true;
-    }
-
-    return false;
-}
+// See @server/lib/dbRetry for the shared withRetry/isTransientError helpers.
 
 // ── Lifecycle ──────────────────────────────────────────────────────────
 

@@ -19,6 +19,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
 import { InfoPopup } from "@app/components/ui/info-popup";
@@ -36,18 +37,12 @@ import {
     ArrowUpRight,
     ChevronDown,
     ChevronsUpDownIcon,
-    MoreHorizontal,
+    MoreHorizontal
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-    startTransition,
-    useEffect,
-    useMemo,
-    useState,
-    useTransition
-} from "react";
+import { startTransition, useMemo, useState, useTransition } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import z from "zod";
 import { ColumnFilterButton } from "./ColumnFilterButton";
@@ -56,13 +51,14 @@ import {
     type ExtendedColumnDef
 } from "./ui/controlled-data-table";
 
+import { useOptimisticLabels } from "@app/hooks/useOptimisticLabels";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import { cn } from "@app/lib/cn";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
-import { type SelectedLabel } from "./labels-selector";
 import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
-import { useLocalLabels } from "@app/hooks/useLocalLabels";
-import { TableLabelsCell } from "./TableLabelsCell";
+import { LabelsTableCell } from "./LabelsTableCell";
+import { useQuery } from "@tanstack/react-query";
+import { productUpdatesQueries } from "@app/lib/queries";
+import semver from "semver";
 
 export type SiteRow = {
     id: number;
@@ -109,7 +105,9 @@ export default function SitesTable({
     } = useNavigationContext();
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteWithResources, setDeleteWithResources] = useState(false);
     const [selectedSite, setSelectedSite] = useState<SiteRow | null>(null);
+    const [restartingSite, setRestartingSite] = useState<SiteRow | null>(null);
     const [resourcesDialogSite, setResourcesDialogSite] =
         useState<SiteRow | null>(null);
     const [isRefreshing, startTransition] = useTransition();
@@ -121,12 +119,11 @@ export default function SitesTable({
     const api = createApiClient(useEnvContext());
     const t = useTranslations();
 
-    // useEffect(() => {
-    //     const interval = setInterval(() => {
-    //         router.refresh();
-    //     }, 30_000);
-    //     return () => clearInterval(interval);
-    // }, []);
+    const { data: latestVersions } = useQuery(
+        productUpdatesQueries.latestVersion(true)
+    );
+
+    const latestNewtVersion = latestVersions?.data?.newt?.latestVersion;
 
     const booleanSearchFilterSchema = z
         .enum(["true", "false"])
@@ -163,10 +160,30 @@ export default function SitesTable({
         });
     }
 
-    function deleteSite(siteId: number) {
+    async function restartSite(siteId: number) {
+        try {
+            await api.post(`/site/${siteId}/restart`);
+            toast({
+                title: t("siteRestarted"),
+                description: t("siteRestartedDescription")
+            });
+        } catch (e) {
+            toast({
+                variant: "destructive",
+                title: t("siteErrorRestart"),
+                description: formatAxiosError(e, t("siteErrorRestartDescription"))
+            });
+        } finally {
+            setRestartingSite(null);
+        }
+    }
+
+    function deleteSite(siteId: number, withResources: boolean) {
         startTransition(async () => {
             await api
-                .delete(`/site/${siteId}`)
+                .delete(`/site/${siteId}`, {
+                    params: { deleteResources: withResources }
+                })
                 .catch((e) => {
                     console.error(t("siteErrorDelete"), e);
                     toast({
@@ -341,6 +358,11 @@ export default function SitesTable({
                 cell: ({ row }) => {
                     const originalRow = row.original;
 
+                    let updateAvailable =
+                        latestNewtVersion &&
+                        originalRow.newtVersion &&
+                        semver.lt(originalRow.newtVersion, latestNewtVersion);
+
                     if (originalRow.type === "newt") {
                         return (
                             <div className="flex items-center space-x-1">
@@ -354,7 +376,7 @@ export default function SitesTable({
                                         )}
                                     </div>
                                 </Badge>
-                                {originalRow.newtUpdateAvailable && (
+                                {updateAvailable && (
                                     <InfoPopup
                                         info={t("newtUpdateAvailableInfo")}
                                     />
@@ -506,7 +528,7 @@ export default function SitesTable({
                                     </Link>
                                     <Link
                                         className="block w-full"
-                                        href={`/${siteRow.orgId}/settings/resources/proxy?siteId=${siteRow.id}`}
+                                        href={`/${siteRow.orgId}/settings/resources/public?siteId=${siteRow.id}`}
                                     >
                                         <DropdownMenuItem>
                                             {t("sitesTableViewPublicResources")}
@@ -514,7 +536,7 @@ export default function SitesTable({
                                     </Link>
                                     <Link
                                         className="block w-full"
-                                        href={`/${siteRow.orgId}/settings/resources/client?siteId=${siteRow.id}`}
+                                        href={`/${siteRow.orgId}/settings/resources/private?siteId=${siteRow.id}`}
                                     >
                                         <DropdownMenuItem>
                                             {t(
@@ -522,6 +544,47 @@ export default function SitesTable({
                                             )}
                                         </DropdownMenuItem>
                                     </Link>
+                                    <DropdownMenuSeparator />
+                                    {siteRow.type === "newt" && (
+                                        <>
+                                            <DropdownMenuItem
+                                                onClick={() =>
+                                                    setRestartingSite(siteRow)
+                                                }
+                                            >
+                                                <span className="text-orange-500">
+                                                    {t("siteRestartButton")}
+                                                </span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                        </>
+                                    )}
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setSelectedSite(siteRow);
+                                            setDeleteWithResources(false);
+                                            setIsDeleteModalOpen(true);
+                                        }}
+                                    >
+                                        <span className="text-red-500">
+                                            {t("sitesTableDeleteSite")}
+                                        </span>
+                                    </DropdownMenuItem>
+                                    {siteRow.resourceCount <= 250 && (
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                setSelectedSite(siteRow);
+                                                setDeleteWithResources(true);
+                                                setIsDeleteModalOpen(true);
+                                            }}
+                                        >
+                                            <span className="text-red-500">
+                                                {t(
+                                                    "sitesTableDeleteSiteAndResources"
+                                                )}
+                                            </span>
+                                        </DropdownMenuItem>
+                                    )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                             <Link
@@ -559,7 +622,7 @@ export default function SitesTable({
         }
 
         return cols;
-    }, [isLabelFeatureEnabled, orgId, t, searchParams]);
+    }, [isLabelFeatureEnabled, orgId, t, searchParams, latestNewtVersion]);
 
     function toggleSort(column: string) {
         const newSearch = getNextSortOrder(column, searchParams);
@@ -624,25 +687,66 @@ export default function SitesTable({
                 </CredenzaContent>
             </Credenza>
 
+            {restartingSite && (
+                <ConfirmDeleteDialog
+                    open={Boolean(restartingSite)}
+                    setOpen={(val) => {
+                        if (!val) setRestartingSite(null);
+                    }}
+                    dialog={
+                        <p>
+                            {t.rich("siteRestartDialogMessage", {
+                                name: restartingSite.name,
+                                b: (chunks) => <b>{chunks}</b>
+                            })}
+                        </p>
+                    }
+                    buttonText={t("siteRestartButton")}
+                    onConfirm={() => restartSite(restartingSite.id)}
+                    string={restartingSite.name}
+                    warningText={t("siteRestartWarning")}
+                    title={t("siteRestartTitle")}
+                />
+            )}
+
             {selectedSite && (
                 <ConfirmDeleteDialog
                     open={isDeleteModalOpen}
                     setOpen={(val) => {
                         setIsDeleteModalOpen(val);
                         setSelectedSite(null);
+                        setDeleteWithResources(false);
                     }}
                     dialog={
                         <div className="space-y-2">
-                            <p>{t("siteQuestionRemove")}</p>
-                            <p>{t("siteMessageRemove")}</p>
+                            <p>
+                                {deleteWithResources
+                                    ? t("siteQuestionRemoveAndResources")
+                                    : t("siteQuestionRemove")}
+                            </p>
+                            <p>
+                                {deleteWithResources
+                                    ? t("siteMessageRemoveAndResources")
+                                    : t("siteMessageRemove")}
+                            </p>
                         </div>
                     }
-                    buttonText={t("siteConfirmDelete")}
+                    buttonText={
+                        deleteWithResources
+                            ? t("siteConfirmDeleteAndResources")
+                            : t("siteConfirmDelete")
+                    }
                     onConfirm={async () =>
-                        startTransition(() => deleteSite(selectedSite!.id))
+                        startTransition(() =>
+                            deleteSite(selectedSite!.id, deleteWithResources)
+                        )
                     }
                     string={selectedSite.name}
-                    title={t("siteDelete")}
+                    title={
+                        deleteWithResources
+                            ? t("siteDeleteAndResources")
+                            : t("siteDelete")
+                    }
                 />
             )}
 
@@ -670,7 +774,7 @@ export default function SitesTable({
                     nice: false,
                     exitNode: false,
                     address: false,
-                    labels: false
+                    labels: true
                 }}
                 enableColumnVisibility
                 stickyLeftColumn="name"
@@ -686,54 +790,19 @@ type SiteLabelCellProps = {
 };
 
 function SiteLabelCell({ site, orgId }: SiteLabelCellProps) {
-    const t = useTranslations();
-
-    const api = createApiClient(useEnvContext());
-
-    const [localLabels, setLocalLabels] = useLocalLabels(site.labels, site.id);
-
-    function toggleSiteLabel(
-        label: SelectedLabel,
-        action: "attach" | "detach"
-    ) {
-        const previousLabels = localLabels;
-
-        void (async () => {
-            try {
-                if (action === "attach") {
-                    setLocalLabels([...previousLabels, label]);
-
-                    await api.put(
-                        `/org/${orgId}/label/${label.labelId}/attach`,
-                        { siteId: site.id }
-                    );
-                } else {
-                    setLocalLabels(
-                        previousLabels.filter(
-                            (lb) => lb.labelId !== label.labelId
-                        )
-                    );
-                    await api.put(
-                        `/org/${orgId}/label/${label.labelId}/detach`,
-                        { siteId: site.id }
-                    );
-                }
-            } catch (e) {
-                setLocalLabels(previousLabels);
-                toast({
-                    title: t("error"),
-                    description: formatAxiosError(e, t("errorOccurred")),
-                    variant: "destructive"
-                });
-            }
-        })();
-    }
+    const { localLabels, refresh, toggleLabel } = useOptimisticLabels({
+        serverLabels: site.labels,
+        orgId,
+        entityId: site.id,
+        entityIdField: "siteId"
+    });
 
     return (
-        <TableLabelsCell
+        <LabelsTableCell
             orgId={orgId}
-            localLabels={localLabels}
-            toggleLabel={toggleSiteLabel}
+            selectedLabels={localLabels}
+            onToggleLabel={toggleLabel}
+            onClosePopover={() => startTransition(refresh)}
         />
     );
 }

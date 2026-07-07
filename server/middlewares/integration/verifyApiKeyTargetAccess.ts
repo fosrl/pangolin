@@ -4,6 +4,7 @@ import { resources, targets, apiKeyOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { getFirstString } from "@server/lib/requestParams";
 
 export async function verifyApiKeyTargetAccess(
     req: Request,
@@ -12,7 +13,8 @@ export async function verifyApiKeyTargetAccess(
 ) {
     try {
         const apiKey = req.apiKey;
-        const targetId = parseInt(req.params.targetId);
+        const targetIdRaw = getFirstString(req.params.targetId);
+        const targetId = Number.parseInt(targetIdRaw ?? "", 10);
 
         if (!apiKey) {
             return next(
@@ -20,7 +22,7 @@ export async function verifyApiKeyTargetAccess(
             );
         }
 
-        if (isNaN(targetId)) {
+        if (Number.isNaN(targetId)) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Invalid target ID")
             );

@@ -17,9 +17,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 *.db
-*.sqlite
+*.sqlite*
 !Dockerfile.sqlite
-*.sqlite3
+*.sqlite3*
 *.log
 .machinelogs*.json
 *-audit.json
@@ -54,3 +54,5 @@ hydrateSaas.ts
 CLAUDE.md
 drizzle.config.ts
 server/setup/migrations.ts
+solo.yml
+allowedDevOrigins.json

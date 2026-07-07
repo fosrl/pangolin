@@ -4,11 +4,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     ShieldCheck,
     ShieldOff,
-    Eye,
     EyeOff,
     CheckCircle2,
-    XCircle,
-    Clock
+    XCircle
 } from "lucide-react";
 import { useResourceContext } from "@app/hooks/useResourceContext";
 import CopyToClipboard from "@app/components/CopyToClipboard";
@@ -32,12 +30,43 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
 
     const fullUrl = `${resource.ssl ? "https" : "http"}://${toUnicode(resource.fullDomain || "")}`;
 
+    const showCertificate = !!(
+        ["http", "ssh", "rdp", "vnc"].includes(resource.mode) &&
+        resource.domainId &&
+        resource.fullDomain &&
+        build != "oss"
+    );
+    const showType = !!(
+        ["http", "ssh", "rdp", "vnc"].includes(resource.mode) && resource.mode
+    );
+    const showHealth =
+        !["ssh", "rdp", "vnc"].includes(resource.mode || "") &&
+        !!resource.health &&
+        resource.health !== "unknown";
+    const showVisibility = !resource.enabled;
+
+    const numSections = [
+        true, // URL or Protocol
+        true, // Authentication or Port
+        showType,
+        showCertificate,
+        showHealth,
+        showVisibility
+    ].filter(Boolean).length;
+
     return (
         <Alert>
             <AlertDescription>
-                {/* 4 cols because of the certs */}
-                <InfoSections cols={resource.http && build != "oss" ? 5 : 4}>
-                    {resource.http ? (
+                <InfoSections cols={numSections}>
+                    {/* <InfoSection>
+                        <InfoSectionTitle>{t("identifier")}</InfoSectionTitle>
+                        <InfoSectionContent>
+                            <span className="inline-flex items-center">
+                                {resource.niceId}
+                            </span>
+                        </InfoSectionContent>
+                    </InfoSection> */}
+                    {["http", "ssh", "rdp", "vnc"].includes(resource.mode) ? (
                         <>
                             <InfoSection>
                                 <InfoSectionTitle>URL</InfoSectionTitle>
@@ -54,6 +83,22 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                                     )}
                                 </InfoSectionContent>
                             </InfoSection>
+                            {showType && (
+                                <InfoSection>
+                                    <InfoSectionTitle>
+                                        {t("type")}
+                                    </InfoSectionTitle>
+                                    <InfoSectionContent>
+                                        <span className="inline-flex items-center">
+                                            {resource.mode == "http"
+                                                ? resource.ssl
+                                                    ? "HTTPS"
+                                                    : "HTTP"
+                                                : resource.mode?.toUpperCase()}
+                                        </span>
+                                    </InfoSectionContent>
+                                </InfoSection>
+                            )}
                             <InfoSection>
                                 <InfoSectionTitle>
                                     {t("authentication")}
@@ -76,24 +121,6 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                                     )}
                                 </InfoSectionContent>
                             </InfoSection>
-                            {/* {isEnabled && (
-                                <InfoSection>
-                                    <InfoSectionTitle>Socket</InfoSectionTitle>
-                                    <InfoSectionContent>
-                                        {isAvailable ? (
-                                            <span className="flex items-center space-x-2">
-                                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                                <span>Online</span>
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center space-x-2">
-                                                <div className="w-2 h-2 bg-neutral-500 rounded-full"></div>
-                                                <span>Offline</span>
-                                            </span>
-                                        )}
-                                    </InfoSectionContent>
-                                </InfoSection>
-                            )} */}
                         </>
                     ) : (
                         <>
@@ -103,7 +130,7 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                                 </InfoSectionTitle>
                                 <InfoSectionContent>
                                     <span className="inline-flex items-center">
-                                        {resource.protocol.toUpperCase()}
+                                        {resource.mode?.toUpperCase()}
                                     </span>
                                 </InfoSectionContent>
                             </InfoSection>
@@ -141,74 +168,69 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                     {/*     </InfoSectionContent> */}
                     {/* </InfoSection> */}
                     {/* Certificate Status Column */}
-                    {resource.http &&
-                        resource.domainId &&
-                        resource.fullDomain &&
-                        build != "oss" && (
-                            <InfoSection>
-                                <InfoSectionTitle>
-                                    {t("certificateStatus", {
-                                        defaultValue: "Certificate"
-                                    })}
-                                </InfoSectionTitle>
-                                <InfoSectionContent>
-                                    <CertificateStatus
-                                        orgId={resource.orgId}
-                                        domainId={resource.domainId}
-                                        fullDomain={resource.fullDomain}
-                                        autoFetch={true}
-                                        showLabel={false}
-                                        polling={true}
-                                    />
-                                </InfoSectionContent>
-                            </InfoSection>
-                        )}
-                    <InfoSection>
-                        <InfoSectionTitle>{t("health")}</InfoSectionTitle>
-                        <InfoSectionContent>
-                            {resource.health === "healthy" && (
-                                <div className="flex items-center space-x-2">
-                                    <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-green-500" />
-                                    <span>{t("resourcesTableHealthy")}</span>
-                                </div>
-                            )}
-                            {resource.health === "degraded" && (
-                                <div className="flex items-center space-x-2">
-                                    <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-yellow-500" />
-                                    <span>{t("resourcesTableDegraded")}</span>
-                                </div>
-                            )}
-                            {resource.health === "unhealthy" && (
-                                <div className="flex items-center space-x-2">
-                                    <XCircle className="w-4 h-4 flex-shrink-0 text-destructive" />
-                                    <span>{t("resourcesTableUnhealthy")}</span>
-                                </div>
-                            )}
-                            {(!resource.health ||
-                                resource.health === "unknown") && (
-                                <div className="flex items-center space-x-2">
-                                    <Clock className="w-4 h-4 flex-shrink-0" />
-                                    <span>{t("resourcesTableUnknown")}</span>
-                                </div>
-                            )}
-                        </InfoSectionContent>
-                    </InfoSection>
-                    <InfoSection>
-                        <InfoSectionTitle>{t("visibility")}</InfoSectionTitle>
-                        <InfoSectionContent>
-                            {resource.enabled ? (
-                                <div className="flex items-center space-x-2">
-                                    <Eye className="w-4 h-4 flex-shrink-0 text-green-500" />
-                                    <span>{t("enabled")}</span>
-                                </div>
-                            ) : (
+                    {showCertificate && (
+                        <InfoSection>
+                            <InfoSectionTitle>
+                                {t("certificateStatus", {
+                                    defaultValue: "Certificate"
+                                })}
+                            </InfoSectionTitle>
+                            <InfoSectionContent>
+                                <CertificateStatus
+                                    orgId={resource.orgId}
+                                    domainId={resource.domainId!}
+                                    fullDomain={resource.fullDomain!}
+                                    autoFetch={true}
+                                    showLabel={false}
+                                    polling={true}
+                                />
+                            </InfoSectionContent>
+                        </InfoSection>
+                    )}
+                    {showHealth && (
+                        <InfoSection>
+                            <InfoSectionTitle>{t("health")}</InfoSectionTitle>
+                            <InfoSectionContent>
+                                {resource.health === "healthy" && (
+                                    <div className="flex items-center space-x-2">
+                                        <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-green-500" />
+                                        <span>
+                                            {t("resourcesTableHealthy")}
+                                        </span>
+                                    </div>
+                                )}
+                                {resource.health === "degraded" && (
+                                    <div className="flex items-center space-x-2">
+                                        <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-yellow-500" />
+                                        <span>
+                                            {t("resourcesTableDegraded")}
+                                        </span>
+                                    </div>
+                                )}
+                                {resource.health === "unhealthy" && (
+                                    <div className="flex items-center space-x-2">
+                                        <XCircle className="w-4 h-4 flex-shrink-0 text-destructive" />
+                                        <span>
+                                            {t("resourcesTableUnhealthy")}
+                                        </span>
+                                    </div>
+                                )}
+                            </InfoSectionContent>
+                        </InfoSection>
+                    )}
+                    {showVisibility && (
+                        <InfoSection>
+                            <InfoSectionTitle>
+                                {t("visibility")}
+                            </InfoSectionTitle>
+                            <InfoSectionContent>
                                 <div className="flex items-center space-x-2">
                                     <EyeOff className="w-4 h-4 flex-shrink-0 text-neutral-500" />
                                     <span>{t("disabled")}</span>
                                 </div>
-                            )}
-                        </InfoSectionContent>
-                    </InfoSection>
+                            </InfoSectionContent>
+                        </InfoSection>
+                    )}
                 </InfoSections>
             </AlertDescription>
         </Alert>

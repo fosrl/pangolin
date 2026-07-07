@@ -10,8 +10,14 @@ import {
 import { cn } from "@app/lib/cn";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Checkbox } from "../ui/checkbox";
 
-export type TagValue = { text: string; id: string; isAdmin?: boolean };
+export type TagValue = {
+    text: string;
+    id: string;
+    isAdmin?: boolean;
+    color?: string;
+};
 
 export type MultiSelectTagsProps<T extends TagValue> = {
     emptyPlaceholder?: string;
@@ -23,6 +29,7 @@ export type MultiSelectTagsProps<T extends TagValue> = {
     onSearch: (query: string) => void;
     ref?: Ref<HTMLButtonElement>;
     disabled?: boolean;
+    lockedIds?: Set<string>;
 };
 
 export function MultiSelectContent<T extends TagValue>({
@@ -32,7 +39,8 @@ export function MultiSelectContent<T extends TagValue>({
     value,
     options,
     onSearch,
-    onChange
+    onChange,
+    lockedIds
 }: MultiSelectTagsProps<T>) {
     const t = useTranslations();
     const selectedValues = new Set(value.map((v) => v.id));
@@ -48,33 +56,44 @@ export function MultiSelectContent<T extends TagValue>({
                     {emptyPlaceholder ?? t("noResults")}
                 </CommandEmpty>
                 <CommandGroup>
-                    {options.map((option) => (
-                        <CommandItem
-                            value={option.id}
-                            key={option.id}
-                            onSelect={() => {
-                                let newValues = [];
-                                if (selectedValues.has(option.id)) {
-                                    newValues = value.filter(
-                                        (v) => v.id !== option.id
-                                    );
-                                } else {
-                                    newValues = [...value, option];
-                                }
-                                onChange(newValues);
-                            }}
-                        >
-                            <CheckIcon
-                                className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedValues.has(option.id)
-                                        ? "opacity-100"
-                                        : "opacity-0"
+                    {options.map((option) => {
+                        const isLocked = lockedIds?.has(option.id);
+                        return (
+                            <CommandItem
+                                value={option.id}
+                                key={option.id}
+                                disabled={isLocked}
+                                onSelect={() => {
+                                    if (isLocked) return;
+                                    let newValues = [];
+                                    if (selectedValues.has(option.id)) {
+                                        newValues = value.filter(
+                                            (v) => v.id !== option.id
+                                        );
+                                    } else {
+                                        newValues = [...value, option];
+                                    }
+                                    onChange(newValues);
+                                }}
+                            >
+                                <Checkbox
+                                    className="pointer-events-none shrink-0"
+                                    checked={selectedValues.has(option.id)}
+                                    aria-hidden
+                                    tabIndex={-1}
+                                />
+                                {option.color && (
+                                    <span
+                                        className="size-2 rounded-full flex-none"
+                                        style={{
+                                            backgroundColor: option.color
+                                        }}
+                                    />
                                 )}
-                            />
-                            {`${option.text}`}
-                        </CommandItem>
-                    ))}
+                                {`${option.text}`}
+                            </CommandItem>
+                        );
+                    })}
                 </CommandGroup>
             </CommandList>
         </Command>

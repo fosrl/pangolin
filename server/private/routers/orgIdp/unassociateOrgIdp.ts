@@ -13,14 +13,17 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, idpOrg } from "@server/db";
+import { db, idpOrg, orgs, primaryDb, users, userOrgs } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { and, eq, sql } from "drizzle-orm";
+import { removeUserFromOrg } from "@server/lib/userOrg";
+import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import { OpenAPITags, registry } from "@server/openApi";
+import { isOrgRebuildRateLimited } from "@server/lib/rebuildClientAssociations";
 
 const paramsSchema = z
     .object({
@@ -76,9 +79,64 @@ export async function unassociateOrgIdp(
             );
         }
 
-        await db
-            .delete(idpOrg)
-            .where(and(eq(idpOrg.idpId, idpId), eq(idpOrg.orgId, orgId)));
+        const [org] = await db
+            .select()
+            .from(orgs)
+            .where(eq(orgs.orgId, orgId))
+            .limit(1);
+
+        if (!org) {
+            return next(
+                createHttpError(HttpCode.NOT_FOUND, "Organization not found")
+            );
+        }
+
+        if (await isOrgRebuildRateLimited(org.orgId)) {
+            return next(
+                createHttpError(
+                    HttpCode.TOO_MANY_REQUESTS,
+                    "Too many concurrent rebuild operations for this organization. Please retry after a moment."
+                )
+            );
+        }
+
+        const orgUsersFromIdp = await db
+            .select({
+                userId: userOrgs.userId,
+                isOwner: userOrgs.isOwner
+            })
+            .from(userOrgs)
+            .innerJoin(users, eq(users.userId, userOrgs.userId))
+            .where(and(eq(userOrgs.orgId, orgId), eq(users.idpId, idpId)));
+
+        if (orgUsersFromIdp.some((u) => u.isOwner)) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Cannot unassociate identity provider while an organization owner uses it"
+                )
+            );
+        }
+
+        const userIdsToRemove = orgUsersFromIdp.map((u) => u.userId);
+
+        await db.transaction(async (trx) => {
+            for (const userId of userIdsToRemove) {
+                await removeUserFromOrg(org, userId, trx);
+            }
+
+            await trx
+                .delete(idpOrg)
+                .where(and(eq(idpOrg.idpId, idpId), eq(idpOrg.orgId, orgId)));
+        });
+
+        for (const userId of userIdsToRemove) {
+            calculateUserClientsForOrgs(userId).catch((e) => {
+                logger.error(
+                    `Failed to calculate user clients after removing user ${userId} from org ${orgId} during IdP unassociation: ${e}`
+                );
+            });
+        }
 
         return response<null>(res, {
             data: null,

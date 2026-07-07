@@ -14,7 +14,8 @@
 import {
     handleRemoteExitNodeRegisterMessage,
     handleRemoteExitNodePingMessage,
-    startRemoteExitNodeOfflineChecker
+    startRemoteExitNodeOfflineChecker,
+    startExitNodeReconnectScheduler
 } from "#private/routers/remoteExitNode";
 import { MessageHandler } from "@server/routers/ws";
 import { build } from "@server/build";
@@ -29,4 +30,5 @@ export const messageHandlers: Record<string, MessageHandler> = {
 
 if (build != "saas") {
     startRemoteExitNodeOfflineChecker(); // this is to handle the offline check for remote exit nodes
+    startExitNodeReconnectScheduler(); // check pending exit node reconnects and notify newts
 }

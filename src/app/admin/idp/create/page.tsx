@@ -243,10 +243,8 @@ export default function Page() {
                                 onCheckedChange={(checked) => {
                                     form.setValue("autoProvision", checked);
                                 }}
+                                description={t("idpAutoProvisionConfigureAfterCreate")}
                             />
-                            <p className="text-sm text-muted-foreground">
-                                {t("idpAutoProvisionConfigureAfterCreate")}
-                            </p>
                         </div>
                     </SettingsSectionBody>
                 </SettingsSection>

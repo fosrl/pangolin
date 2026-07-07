@@ -1,4 +1,4 @@
-import { db, resources } from "@server/db";
+import { db, resourcePolicies, resources } from "@server/db";
 import response from "@server/lib/response";
 import stoi from "@server/lib/stoi";
 import logger from "@server/logger";
@@ -9,6 +9,7 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
+import { applyInlinePolicyFields } from "./inlinePolicyFields";
 
 const getResourceSchema = z.strictObject({
     resourceId: z
@@ -41,6 +42,15 @@ async function query(resourceId?: number, niceId?: string, orgId?: string) {
     }
 }
 
+async function queryInlinePolicy(resourcePolicyId: number) {
+    const [res] = await db
+        .select()
+        .from(resourcePolicies)
+        .where(eq(resourcePolicies.resourcePolicyId, resourcePolicyId))
+        .limit(1);
+    return res;
+}
+
 export type GetResourceResponse = Omit<
     NonNullable<Awaited<ReturnType<typeof query>>>,
     "requestHeaders" | "responseHeaders"
@@ -61,7 +71,22 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 registry.registerPath({
@@ -74,7 +99,22 @@ registry.registerPath({
             resourceId: z.number()
         })
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function getResource(
@@ -103,15 +143,28 @@ export async function getResource(
             );
         }
 
+        const isInlinePolicy =
+            resource.resourcePolicyId === null &&
+            resource.defaultResourcePolicyId !== null;
+
+        let returnData = resource;
+        if (isInlinePolicy) {
+            // get the policy
+            const policy = await queryInlinePolicy(
+                resource.defaultResourcePolicyId!
+            );
+            returnData = applyInlinePolicyFields(returnData, policy);
+        }
+
         return response<GetResourceResponse>(res, {
             data: {
-                ...resource,
-                requestHeaders: resource.requestHeaders
-                    ? JSON.parse(resource.requestHeaders)
-                    : resource.requestHeaders,
-                responseHeaders: resource.responseHeaders
-                    ? JSON.parse(resource.responseHeaders)
-                    : resource.responseHeaders
+                ...returnData,
+                requestHeaders: returnData.requestHeaders
+                    ? JSON.parse(returnData.requestHeaders)
+                    : returnData.requestHeaders,
+                responseHeaders: returnData.responseHeaders
+                    ? JSON.parse(returnData.responseHeaders)
+                    : returnData.responseHeaders
             },
             success: true,
             error: false,

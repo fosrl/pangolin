@@ -6,6 +6,7 @@ import logger from "@server/logger";
 import { generateId } from "@server/auth/sessions/app";
 import { getNextAvailableClientSubnet } from "@server/lib/ip";
 import { z } from "zod";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 
@@ -14,6 +15,12 @@ export type PickClientDefaultsResponse = {
     olmSecret: string;
     subnet: string;
 };
+const PickClientDefaultsResponseDataSchema = z.object({
+    olmId: z.string(),
+    olmSecret: z.string(),
+    subnet: z.string()
+});
+
 
 const pickClientDefaultsSchema = z.strictObject({
     orgId: z.string()
@@ -27,7 +34,16 @@ registry.registerPath({
     request: {
         params: pickClientDefaultsSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(PickClientDefaultsResponseDataSchema)
+                }
+            }
+        }
+    }
 });
 
 export async function pickClientDefaults(
@@ -51,7 +67,9 @@ export async function pickClientDefaults(
         const olmId = generateId(15);
         const secret = generateId(48);
 
-        const newSubnet = await getNextAvailableClientSubnet(orgId);
+        const { value: newSubnet, release } =
+            await getNextAvailableClientSubnet(orgId);
+        await release(); // release immediately — this endpoint only previews the next available value
         if (!newSubnet) {
             return next(
                 createHttpError(

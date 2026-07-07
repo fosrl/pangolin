@@ -43,7 +43,22 @@ export type CreateOlmResponse = {
 //         },
 //         params: paramsSchema
 //     },
-//     responses: {}
+// responses: {
+// 200: {
+// description: "Successful response",
+// content: {
+// "application/json": {
+// schema: z.object({
+// data: z.record(z.string(), z.any()).nullable(),
+// success: z.boolean(),
+// error: z.boolean(),
+// message: z.string(),
+// status: z.number()
+// })
+// }
+// }
+// }
+// }
 // });
 
 export async function createUserOlm(
@@ -89,7 +104,7 @@ export async function createUserOlm(
             dateCreated: moment().toISOString()
         });
 
-        calculateUserClientsForOrgs(userId, primaryDb).catch((e) => {
+        calculateUserClientsForOrgs(userId).catch((e) => {
             console.error(
                 "Error calculating user clients after creating olm:",
                 e

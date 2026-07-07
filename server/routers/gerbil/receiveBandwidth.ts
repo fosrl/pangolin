@@ -6,7 +6,7 @@ import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
 import { usageService } from "@server/lib/billing/usageService";
-import { FeatureId } from "@server/lib/billing/features";
+import { LimitId } from "@server/lib/billing/features";
 import { checkExitNodeOrg } from "#dynamic/lib/exitNodes";
 import { build } from "@server/build";
 
@@ -171,8 +171,9 @@ export async function flushSiteBandwidthToDb(): Promise<void> {
                 }
 
                 // PostgreSQL: batch UPDATE … FROM (VALUES …) - single round-trip per chunk.
-                const valuesList = chunk.map(([publicKey, { bytesIn, bytesOut }]) =>
-                    sql`(${publicKey}::text, ${bytesIn}::real, ${bytesOut}::real)`
+                const valuesList = chunk.map(
+                    ([publicKey, { bytesIn, bytesOut }]) =>
+                        sql`(${publicKey}::text, ${bytesIn}::real, ${bytesOut}::real)`
                 );
                 const valuesClause = sql.join(valuesList, sql`, `);
                 return dbQueryRows<{ orgId: string; pubKey: string }>(sql`
@@ -228,7 +229,7 @@ export async function flushSiteBandwidthToDb(): Promise<void> {
                 const totalBandwidth = orgUsageMap.get(orgId)!;
                 const bandwidthUsage = await usageService.add(
                     orgId,
-                    FeatureId.EGRESS_DATA_MB,
+                    LimitId.EGRESS_DATA_MB,
                     totalBandwidth
                 );
                 if (bandwidthUsage) {
@@ -236,7 +237,7 @@ export async function flushSiteBandwidthToDb(): Promise<void> {
                     usageService
                         .checkLimitSet(
                             orgId,
-                            FeatureId.EGRESS_DATA_MB,
+                            LimitId.EGRESS_DATA_MB,
                             bandwidthUsage
                         )
                         .catch((error: any) => {
@@ -247,10 +248,7 @@ export async function flushSiteBandwidthToDb(): Promise<void> {
                         });
                 }
             } catch (error) {
-                logger.error(
-                    `Error processing usage for org ${orgId}:`,
-                    error
-                );
+                logger.error(`Error processing usage for org ${orgId}:`, error);
                 // Continue with other orgs.
             }
         }

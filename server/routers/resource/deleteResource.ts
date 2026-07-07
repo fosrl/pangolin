@@ -1,21 +1,21 @@
-import { Request, Response, NextFunction } from "express";
-import { z } from "zod";
-import { db, targetHealthCheck } from "@server/db";
-import { newts, resources, sites, targets } from "@server/db";
-import { eq, inArray } from "drizzle-orm";
+import { db } from "@server/db";
 import response from "@server/lib/response";
-import HttpCode from "@server/types/HttpCode";
-import createHttpError from "http-errors";
 import logger from "@server/logger";
-import { fromError } from "zod-validation-error";
-import { addPeer } from "../gerbil/peers";
-import { removeTargets } from "../newt/targets";
-import { getAllowedIps } from "../target/helpers";
 import { OpenAPITags, registry } from "@server/openApi";
+import HttpCode from "@server/types/HttpCode";
+import { NextFunction, Request, Response } from "express";
+import createHttpError from "http-errors";
+import { z } from "zod";
+import { fromError } from "zod-validation-error";
+import {
+    performDeleteResource,
+    runResourceDeleteSideEffects
+} from "@server/lib/deleteResource";
+import { LimitId } from "@server/lib/billing";
+import { usageService } from "@server/lib/billing/usageService";
 
-// Define Zod schema for request parameters validation
 const deleteResourceSchema = z.strictObject({
-    resourceId: z.string().transform(Number).pipe(z.int().positive())
+    resourceId: z.coerce.number().int().positive()
 });
 
 registry.registerPath({
@@ -26,7 +26,22 @@ registry.registerPath({
     request: {
         params: deleteResourceSchema
     },
-    responses: {}
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function deleteResource(
@@ -47,27 +62,21 @@ export async function deleteResource(
 
         const { resourceId } = parsedParams.data;
 
-        const targetsToBeRemoved = await db
-            .select()
-            .from(targets)
-            .where(eq(targets.resourceId, resourceId));
+        let deleteResult = null;
 
-        const healthChecksToBeRemoved = await db
-            .select()
-            .from(targetHealthCheck)
-            .where(
-                inArray(
-                    targetHealthCheck.targetId,
-                    targetsToBeRemoved.map((t) => t.targetId)
-                )
-            );
+        await db.transaction(async (trx) => {
+            deleteResult = await performDeleteResource(resourceId, trx);
+            if (deleteResult?.deletedResource?.orgId) {
+                await usageService.add(
+                    deleteResult?.deletedResource?.orgId,
+                    LimitId.PUBLIC_RESOURCES,
+                    -1,
+                    trx
+                );
+            }
+        });
 
-        const [deletedResource] = await db
-            .delete(resources)
-            .where(eq(resources.resourceId, resourceId))
-            .returning();
-
-        if (!deletedResource) {
+        if (!deleteResult) {
             return next(
                 createHttpError(
                     HttpCode.NOT_FOUND,
@@ -76,42 +85,7 @@ export async function deleteResource(
             );
         }
 
-        for (const target of targetsToBeRemoved) {
-            const [site] = await db
-                .select()
-                .from(sites)
-                .where(eq(sites.siteId, target.siteId))
-                .limit(1);
-
-            if (!site) {
-                return next(
-                    createHttpError(
-                        HttpCode.NOT_FOUND,
-                        `Site with ID ${target.siteId} not found`
-                    )
-                );
-            }
-
-            if (site.pubKey) {
-                if (site.type == "newt") {
-                    // get the newt on the site by querying the newt table for siteId
-                    const [newt] = await db
-                        .select()
-                        .from(newts)
-                        .where(eq(newts.siteId, site.siteId))
-                        .limit(1);
-
-                    await removeTargets(
-                        newt.newtId,
-                        // [target],
-                        [], // deleting the target from newt causes issues because we cant unbind the port. this needs to be fixed in newt before we can do this
-                        healthChecksToBeRemoved,
-                        deletedResource.protocol,
-                        newt.version
-                    );
-                }
-            }
-        }
+        await runResourceDeleteSideEffects(deleteResult);
 
         return response(res, {
             data: null,
@@ -122,6 +96,9 @@ export async function deleteResource(
         });
     } catch (error) {
         logger.error(error);
+        if (createHttpError.isHttpError(error)) {
+            return next(error);
+        }
         return next(
             createHttpError(HttpCode.INTERNAL_SERVER_ERROR, "An error occurred")
         );

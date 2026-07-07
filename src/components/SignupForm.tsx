@@ -554,7 +554,7 @@ export default function SignupForm({
                                                                 "signUpTerms.IAgreeToThe"
                                                             )}{" "}
                                                             <a
-                                                                href="https://pangolin.net/terms-of-service.html"
+                                                                href="https://pangolin.net/tos"
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-primary hover:underline"
@@ -567,7 +567,7 @@ export default function SignupForm({
                                                                 "signUpTerms.and"
                                                             )}{" "}
                                                             <a
-                                                                href="https://pangolin.net/privacy-policy.html"
+                                                                href="https://pangolin.net/privacy"
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-primary hover:underline"
