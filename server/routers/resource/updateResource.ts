@@ -663,6 +663,10 @@ async function updateHttpResource(
         responseHeaders = null;
     }
 
+    updateData.headers = undefined;
+    updateData.requestHeaders = undefined;
+    updateData.responseHeaders = undefined;
+
     if (!isLicensed) {
         updateData.maintenanceModeEnabled = undefined;
         updateData.maintenanceModeType = undefined;
@@ -715,7 +719,7 @@ async function updateHttpResource(
 
         const updatedResource = await db
             .update(resources)
-            .set({ ...resourceOnlyData, headers })
+            .set({ ...resourceOnlyData, requestHeaders, responseHeaders })
             .where(eq(resources.resourceId, resource.resourceId))
             .returning();
 
