@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "Genereer Toegangstoken",
     "actionDeleteAccessToken": "Verwijder toegangstoken",
     "actionListAccessTokens": "Lijst toegangstokens",
-    "actionCreateResourceSessionToken": "Resourcesessietoken maken",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "Bronregel aanmaken",
     "actionDeleteResourceRule": "Verwijder Resource Regel",
     "actionListResourceRules": "Bron regels weergeven",
