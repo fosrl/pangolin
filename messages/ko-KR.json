@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "액세스 토큰 생성",
     "actionDeleteAccessToken": "액세스 토큰 삭제",
     "actionListAccessTokens": "액세스 토큰 목록",
-    "actionCreateResourceSessionToken": "리소스 세션 토큰 생성",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "리소스 규칙 생성",
     "actionDeleteResourceRule": "리소스 규칙 삭제",
     "actionListResourceRules": "리소스 규칙 목록",
