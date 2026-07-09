@@ -1397,6 +1397,7 @@
     "createOrgUser": "Opret organisationsbruger",
     "actionUpdateOrg": "Opdater organisation",
     "actionRemoveInvitation": "Fjern invitation",
+    "actionRemoveUserRole": "Remove User Role",
     "actionUpdateUser": "Opdater bruger",
     "actionGetUser": "Hent bruger",
     "actionGetOrgUser": "Hent organisationsbruger",
