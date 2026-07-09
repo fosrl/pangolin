@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "Generovat přístupový token",
     "actionDeleteAccessToken": "Odstranit přístupový token",
     "actionListAccessTokens": "Seznam přístupových tokenů",
-    "actionCreateResourceSessionToken": "Vytvořit token relace prostředku",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "Vytvořit pravidlo pro zdroj",
     "actionDeleteResourceRule": "Odstranit pravidlo pro dokument",
     "actionListResourceRules": "Seznam pravidel zdrojů",
