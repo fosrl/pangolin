@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "Gerar Token de Acesso",
     "actionDeleteAccessToken": "Eliminar Token de Acesso",
     "actionListAccessTokens": "Listar Tokens de Acesso",
-    "actionCreateResourceSessionToken": "Criar token de sessão de recurso",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "Criar Regra de Recurso",
     "actionDeleteResourceRule": "Eliminar Regra de Recurso",
     "actionListResourceRules": "Listar Regras de Recurso",
