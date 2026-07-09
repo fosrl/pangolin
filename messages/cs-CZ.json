@@ -1397,6 +1397,7 @@
     "createOrgUser": "Vytvořit Org uživatele",
     "actionUpdateOrg": "Aktualizovat organizaci",
     "actionRemoveInvitation": "Odstranit pozvání",
+    "actionRemoveUserRole": "Remove User Role",
     "actionUpdateUser": "Aktualizovat uživatele",
     "actionGetUser": "Získat uživatele",
     "actionGetOrgUser": "Získat uživatele organizace",
