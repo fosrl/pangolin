@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "Генериране на токен за достъп",
     "actionDeleteAccessToken": "Изтриване на токен за достъп",
     "actionListAccessTokens": "Изброяване на токени за достъп",
-    "actionCreateResourceSessionToken": "Създаване на токен за сесия на ресурс",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "Създаване на правило за ресурс",
     "actionDeleteResourceRule": "Изтрийте правило за ресурс",
     "actionListResourceRules": "Изброяване на правила за ресурс",
