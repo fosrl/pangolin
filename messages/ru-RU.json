@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "Сгенерировать токен доступа",
     "actionDeleteAccessToken": "Удалить токен доступа",
     "actionListAccessTokens": "Список токенов доступа",
-    "actionCreateResourceSessionToken": "Создать токен сеанса ресурса",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "Создать правило ресурса",
     "actionDeleteResourceRule": "Удалить правило ресурса",
     "actionListResourceRules": "Список правил ресурса",
