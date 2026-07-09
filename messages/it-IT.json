@@ -1397,6 +1397,7 @@
     "createOrgUser": "Crea Utente Org",
     "actionUpdateOrg": "Aggiorna Organizzazione",
     "actionRemoveInvitation": "Rimuovi Invito",
+    "actionRemoveUserRole": "Remove User Role",
     "actionUpdateUser": "Aggiorna Utente",
     "actionGetUser": "Ottieni Utente",
     "actionGetOrgUser": "Ottieni Utente Organizzazione",
