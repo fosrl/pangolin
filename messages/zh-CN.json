@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "生成访问令牌",
     "actionDeleteAccessToken": "删除访问令牌",
     "actionListAccessTokens": "访问令牌",
-    "actionCreateResourceSessionToken": "创建资源会话令牌",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "创建资源规则",
     "actionDeleteResourceRule": "删除资源规则",
     "actionListResourceRules": "列出资源规则",
