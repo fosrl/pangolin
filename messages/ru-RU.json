@@ -1397,6 +1397,7 @@
     "createOrgUser": "Создать пользователя Org",
     "actionUpdateOrg": "Обновить организацию",
     "actionRemoveInvitation": "Удалить приглашение",
+    "actionRemoveUserRole": "Remove User Role",
     "actionUpdateUser": "Обновить пользователя",
     "actionGetUser": "Получить пользователя",
     "actionGetOrgUser": "Получить пользователя организации",
