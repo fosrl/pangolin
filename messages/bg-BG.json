@@ -1397,6 +1397,7 @@
     "createOrgUser": "Създаване на Организационна Потребител",
     "actionUpdateOrg": "Актуализиране на организацията",
     "actionRemoveInvitation": "Премахване на поканата.",
+    "actionRemoveUserRole": "Remove User Role",
     "actionUpdateUser": "Актуализиране на потребител",
     "actionGetUser": "Получаване на потребител",
     "actionGetOrgUser": "Вземете потребител на организация",
