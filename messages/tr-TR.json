@@ -1397,6 +1397,7 @@
     "createOrgUser": "Organizasyon Kullanıcısı Oluştur",
     "actionUpdateOrg": "Kuruluşu Güncelle",
     "actionRemoveInvitation": "Daveti Kaldır",
+    "actionRemoveUserRole": "Remove User Role",
     "actionUpdateUser": "Kullanıcıyı Güncelle",
     "actionGetUser": "Kullanıcıyı Getir",
     "actionGetOrgUser": "Kuruluş Kullanıcısını Al",
