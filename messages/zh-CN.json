@@ -1397,6 +1397,7 @@
     "createOrgUser": "创建组织用户",
     "actionUpdateOrg": "更新组织",
     "actionRemoveInvitation": "移除邀请",
+    "actionRemoveUserRole": "Remove User Role",
     "actionUpdateUser": "更新用户",
     "actionGetUser": "获取用户",
     "actionGetOrgUser": "获取组织用户",
