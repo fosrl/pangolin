@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "Erişim Jetonu Oluştur",
     "actionDeleteAccessToken": "Erişim Jetonunu Sil",
     "actionListAccessTokens": "Erişim Jetonlarını Listele",
-    "actionCreateResourceSessionToken": "Kaynak Oturum Belirteci Oluştur",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "Kaynak Kuralı Oluştur",
     "actionDeleteResourceRule": "Kaynak Kuralını Sil",
     "actionListResourceRules": "Kaynak Kurallarını Listele",
