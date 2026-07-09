@@ -1462,7 +1462,7 @@
     "actionGenerateAccessToken": "Generer tilgangstoken",
     "actionDeleteAccessToken": "Slett tilgangstoken",
     "actionListAccessTokens": "List opp tilgangstokener",
-    "actionCreateResourceSessionToken": "Opprett ressurssesjonstoken",
+    "actionCreateResourceSessionToken": "Create Resource Session Token",
     "actionCreateResourceRule": "Opprett ressursregel",
     "actionDeleteResourceRule": "Slett ressursregel",
     "actionListResourceRules": "List opp ressursregler",
