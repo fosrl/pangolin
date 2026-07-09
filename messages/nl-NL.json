@@ -1397,6 +1397,7 @@
     "createOrgUser": "Org gebruiker aanmaken",
     "actionUpdateOrg": "Organisatie bijwerken",
     "actionRemoveInvitation": "Verwijder uitnodiging",
+    "actionRemoveUserRole": "Remove User Role",
     "actionUpdateUser": "Gebruiker bijwerken",
     "actionGetUser": "Gebruiker ophalen",
     "actionGetOrgUser": "Krijg organisatie-gebruiker",
