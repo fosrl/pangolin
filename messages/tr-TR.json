@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "Authenticator uygulamanızdan veya tek kullanımlık yedek kodlarınızdan birini girin.",
     "otpAuthSubmit": "Kodu Gönder",
     "idpContinue": "Veya devam et:",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "Şifreye Geri Dön",
     "navbar": "Navigasyon Menüsü",
     "navbarDescription": "Uygulamanın ana navigasyon menüsü",
