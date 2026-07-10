@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "Zadejte kód z vaší autentizační aplikace nebo jeden z vlastních záložních kódů.",
     "otpAuthSubmit": "Odeslat kód",
     "idpContinue": "Nebo pokračovat s",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "Zpět na heslo",
     "navbar": "Navigation Menu",
     "navbarDescription": "Hlavní navigační menu aplikace",
