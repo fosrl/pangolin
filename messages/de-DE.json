@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "Geben Sie den Code aus Ihrer Authenticator-App oder einen Ihrer einmaligen Backup-Codes ein.",
     "otpAuthSubmit": "Code absenden",
     "idpContinue": "Oder weiter mit",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "Zurück zum Passwort",
     "navbar": "Navigationsmenü",
     "navbarDescription": "Hauptnavigationsmenü für die Anwendung",
