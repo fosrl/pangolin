@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "Indtast koden fra autentiseringsappen din eller en af dine engangs reservekoder.",
     "otpAuthSubmit": "Send kode",
     "idpContinue": "Eller fortsæt med",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "Tilbage til adgangskode",
     "navbar": "Navigationsmenu",
     "navbarDescription": "Hovednavigasjonsmeny for applikationen",
