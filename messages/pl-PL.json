@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "Wprowadź kod z aplikacji uwierzytelniającej lub jeden z jednorazowych kodów zapasowych.",
     "otpAuthSubmit": "Wyślij kod",
     "idpContinue": "Lub kontynuuj z",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "Powrót do hasła",
     "navbar": "Menu nawigacyjne",
     "navbarDescription": "Główne menu nawigacyjne aplikacji",
