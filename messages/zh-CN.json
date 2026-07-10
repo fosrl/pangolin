@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "从您的身份验证程序中输入代码或您的单次备份代码。",
     "otpAuthSubmit": "提交代码",
     "idpContinue": "或者继续",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "回到密码",
     "navbar": "导航菜单",
     "navbarDescription": "应用程序的主导航菜单",
