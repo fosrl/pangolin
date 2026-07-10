@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "Voer de code van je authenticator-app of een van je reservekopiecodes voor het eenmalig gebruik in.",
     "otpAuthSubmit": "Code indienen",
     "idpContinue": "Of ga verder met",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "Terug naar wachtwoord",
     "navbar": "Navigatiemenu",
     "navbarDescription": "Hoofd navigatie menu voor de applicatie",
