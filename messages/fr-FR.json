@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "Entrez le code de votre application d'authentification ou l'un de vos codes de secours à usage unique.",
     "otpAuthSubmit": "Soumettre le code",
     "idpContinue": "Ou continuer avec",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "Retour au mot de passe",
     "navbar": "Menu de navigation",
     "navbarDescription": "Menu de navigation principal de l'application",
