@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "인증 앱에서 코드를 입력하거나 단일 사용 백업 코드 중 하나를 입력하세요.",
     "otpAuthSubmit": "코드 제출",
     "idpContinue": "또는 계속 진행하십시오.",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "비밀번호로 돌아가기",
     "navbar": "탐색 메뉴",
     "navbarDescription": "애플리케이션의 주요 탐색 메뉴",
