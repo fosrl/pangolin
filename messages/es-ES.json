@@ -1517,6 +1517,7 @@
     "otpAuthDescription": "Introduzca el código de su aplicación de autenticación o uno de sus códigos de copia de seguridad de un solo uso.",
     "otpAuthSubmit": "Enviar código",
     "idpContinue": "O continuar con",
+    "idpLastUsed": "Last Used",
     "otpAuthBack": "Volver a la contraseña",
     "navbar": "Menú de navegación",
     "navbarDescription": "Menú de navegación principal para la aplicación",
