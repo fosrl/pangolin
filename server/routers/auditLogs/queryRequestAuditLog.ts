@@ -9,7 +9,7 @@ import {
 import { registry } from "@server/openApi";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
-import { eq, gt, lt, and, count, desc, inArray, isNull, or } from "drizzle-orm";
+import { eq, gt, lt, and, count, desc, inArray, or } from "drizzle-orm";
 import { OpenAPITags } from "@server/openApi";
 import { z } from "zod";
 import createHttpError from "http-errors";
@@ -294,52 +294,67 @@ async function queryUniqueFilterAttributes(
 
     const DISTINCT_LIMIT = 500;
 
-    // TODO: SOMEONE PLEASE OPTIMIZE THIS!!!!!
+    // Previously this ran 6 separate SELECT DISTINCT queries, each of which
+    // independently re-scanned every row in the org+time range (there's no
+    // index on actor/location/host/path/resourceId/siteResourceId, so a
+    // DISTINCT on any of them can't avoid scanning the whole matched range).
+    // That was 6x the necessary I/O for what is fundamentally one scan.
+    //
+    // Instead we scan the matching rows once and compute all six distinct
+    // sets in memory in the same pass. Each set is capped at
+    // DISTINCT_LIMIT + 1 entries (mirroring the old per-query limits) so a
+    // huge time range with e.g. thousands of unique paths can't blow up
+    // memory.
+    const actorSet = new Set<string>();
+    const locationSet = new Set<string>();
+    const hostSet = new Set<string>();
+    const pathSet = new Set<string>();
+    const resourceIdSet = new Set<number>();
+    const siteResourceIdSet = new Set<number>();
 
-    // Run all queries in parallel
-    const [
-        uniqueActors,
-        uniqueLocations,
-        uniqueHosts,
-        uniquePaths,
-        uniqueResources,
-        uniqueSiteResources
-    ] = await Promise.all([
-        logsDb
-            .selectDistinct({ actor: requestAuditLog.actor })
-            .from(requestAuditLog)
-            .where(baseConditions)
-            .limit(DISTINCT_LIMIT + 1),
-        logsDb
-            .selectDistinct({ locations: requestAuditLog.location })
-            .from(requestAuditLog)
-            .where(baseConditions)
-            .limit(DISTINCT_LIMIT + 1),
-        logsDb
-            .selectDistinct({ hosts: requestAuditLog.host })
-            .from(requestAuditLog)
-            .where(baseConditions)
-            .limit(DISTINCT_LIMIT + 1),
-        logsDb
-            .selectDistinct({ paths: requestAuditLog.path })
-            .from(requestAuditLog)
-            .where(baseConditions)
-            .limit(DISTINCT_LIMIT + 1),
-        logsDb
-            .selectDistinct({
-                id: requestAuditLog.resourceId
-            })
-            .from(requestAuditLog)
-            .where(baseConditions)
-            .limit(DISTINCT_LIMIT + 1),
-        logsDb
-            .selectDistinct({
-                id: requestAuditLog.siteResourceId
-            })
-            .from(requestAuditLog)
-            .where(and(baseConditions, isNull(requestAuditLog.resourceId)))
-            .limit(DISTINCT_LIMIT + 1)
-    ]);
+    const rows = await logsDb
+        .select({
+            actor: requestAuditLog.actor,
+            location: requestAuditLog.location,
+            host: requestAuditLog.host,
+            path: requestAuditLog.path,
+            resourceId: requestAuditLog.resourceId,
+            siteResourceId: requestAuditLog.siteResourceId
+        })
+        .from(requestAuditLog)
+        .where(baseConditions);
+
+    for (const row of rows) {
+        if (row.actor !== null && actorSet.size <= DISTINCT_LIMIT) {
+            actorSet.add(row.actor);
+        }
+        if (row.location !== null && locationSet.size <= DISTINCT_LIMIT) {
+            locationSet.add(row.location);
+        }
+        if (row.host !== null && hostSet.size <= DISTINCT_LIMIT) {
+            hostSet.add(row.host);
+        }
+        if (row.path !== null && pathSet.size <= DISTINCT_LIMIT) {
+            pathSet.add(row.path);
+        }
+        if (row.resourceId !== null) {
+            if (resourceIdSet.size <= DISTINCT_LIMIT) {
+                resourceIdSet.add(row.resourceId);
+            }
+        } else if (
+            row.siteResourceId !== null &&
+            siteResourceIdSet.size <= DISTINCT_LIMIT
+        ) {
+            // Mirrors the original query's isNull(resourceId) condition:
+            // a siteResourceId only counts when there's no resourceId.
+            siteResourceIdSet.add(row.siteResourceId);
+        }
+    }
+
+    const uniqueActors = Array.from(actorSet);
+    const uniqueLocations = Array.from(locationSet);
+    const uniqueHosts = Array.from(hostSet);
+    const uniquePaths = Array.from(pathSet);
 
     // TODO: for stuff like the paths this is too restrictive so lets just show some of the paths and the user needs to
     // refine the time range to see what they need to see
@@ -348,19 +363,14 @@ async function queryUniqueFilterAttributes(
     //     uniqueLocations.length > DISTINCT_LIMIT ||
     //     uniqueHosts.length > DISTINCT_LIMIT ||
     //     uniquePaths.length > DISTINCT_LIMIT ||
-    //     uniqueResources.length > DISTINCT_LIMIT
+    //     resourceIdSet.size > DISTINCT_LIMIT
     // ) {
     //     throw new Error("Too many distinct filter attributes to retrieve. Please refine your time range.");
     // }
 
     // Fetch resource names from main database for the unique resource IDs
-    const resourceIds = uniqueResources
-        .map((row) => row.id)
-        .filter((id): id is number => id !== null);
-
-    const siteResourceIds = uniqueSiteResources
-        .map((row) => row.id)
-        .filter((id): id is number => id !== null);
+    const resourceIds = Array.from(resourceIdSet);
+    const siteResourceIds = Array.from(siteResourceIdSet);
 
     let resourcesWithNames: Array<{ id: number; name: string | null }> = [];
 
@@ -401,19 +411,11 @@ async function queryUniqueFilterAttributes(
     }
 
     return {
-        actors: uniqueActors
-            .map((row) => row.actor)
-            .filter((actor): actor is string => actor !== null),
+        actors: uniqueActors,
         resources: sortNamedFilterOptions(resourcesWithNames),
-        locations: uniqueLocations
-            .map((row) => row.locations)
-            .filter((location): location is string => location !== null),
-        hosts: uniqueHosts
-            .map((row) => row.hosts)
-            .filter((host): host is string => host !== null),
+        locations: uniqueLocations,
+        hosts: uniqueHosts,
         paths: uniquePaths
-            .map((row) => row.paths)
-            .filter((path): path is string => path !== null)
     };
 }
 
