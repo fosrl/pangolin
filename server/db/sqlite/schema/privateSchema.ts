@@ -1,4 +1,4 @@
-import { InferSelectModel } from "drizzle-orm";
+import { InferSelectModel, sql } from "drizzle-orm";
 import {
     index,
     integer,
@@ -241,17 +241,30 @@ export const remoteExitNodeSessions = sqliteTable("remoteExitNodeSession", {
     expiresAt: integer("expiresAt").notNull()
 });
 
-export const loginPage = sqliteTable("loginPage", {
-    loginPageId: integer("loginPageId").primaryKey({ autoIncrement: true }),
-    subdomain: text("subdomain"),
-    fullDomain: text("fullDomain"),
-    exitNodeId: integer("exitNodeId").references(() => exitNodes.exitNodeId, {
-        onDelete: "set null"
-    }),
-    domainId: text("domainId").references(() => domains.domainId, {
-        onDelete: "set null"
-    })
-});
+export const loginPage = sqliteTable(
+    "loginPage",
+    {
+        loginPageId: integer("loginPageId").primaryKey({
+            autoIncrement: true
+        }),
+        subdomain: text("subdomain"),
+        fullDomain: text("fullDomain"),
+        exitNodeId: integer("exitNodeId").references(
+            () => exitNodes.exitNodeId,
+            {
+                onDelete: "set null"
+            }
+        ),
+        domainId: text("domainId").references(() => domains.domainId, {
+            onDelete: "set null"
+        })
+    },
+    (t) => [
+        index("idx_loginpage_fulldomain")
+            .on(t.fullDomain)
+            .where(sql`${t.fullDomain} IS NOT NULL`)
+    ]
+);
 
 export const loginPageOrg = sqliteTable("loginPageOrg", {
     loginPageId: integer("loginPageId")
