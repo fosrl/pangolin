@@ -3811,5 +3811,6 @@
     "rdpUploadFailed": "Falha no upload",
     "rdpUnicodeKeyboardMode": "Modo de teclado Unicode",
     "sessionToolbarShow": "Mostrar barra de ferramentas",
-    "sessionToolbarHide": "Ocultar barra de ferramentas"
+    "sessionToolbarHide": "Ocultar barra de ferramentas",
+    "actionUpdateSiteApprovals": "Update Site Approvals"
 }
