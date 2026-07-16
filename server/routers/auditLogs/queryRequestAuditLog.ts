@@ -9,7 +9,7 @@ import {
 import { registry } from "@server/openApi";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
-import { eq, gt, lt, and, count, desc, inArray, or } from "drizzle-orm";
+import { eq, gt, lt, and, count, desc, inArray, isNull, or, sql } from "drizzle-orm";
 import { OpenAPITags } from "@server/openApi";
 import { z } from "zod";
 import createHttpError from "http-errors";
@@ -294,67 +294,107 @@ async function queryUniqueFilterAttributes(
 
     const DISTINCT_LIMIT = 500;
 
-    // Previously this ran 6 separate SELECT DISTINCT queries, each of which
-    // independently re-scanned every row in the org+time range (there's no
-    // index on actor/location/host/path/resourceId/siteResourceId, so a
-    // DISTINCT on any of them can't avoid scanning the whole matched range).
-    // That was 6x the necessary I/O for what is fundamentally one scan.
+    // Originally this ran 6 separate SELECT DISTINCT queries (6 round trips),
+    // each independently re-scanning every row in the org+time range since
+    // there's no index on actor/location/host/path/resourceId/siteResourceId
+    // individually.
     //
-    // Instead we scan the matching rows once and compute all six distinct
-    // sets in memory in the same pass. Each set is capped at
-    // DISTINCT_LIMIT + 1 entries (mirroring the old per-query limits) so a
-    // huge time range with e.g. thousands of unique paths can't blow up
-    // memory.
-    const actorSet = new Set<string>();
-    const locationSet = new Set<string>();
-    const hostSet = new Set<string>();
-    const pathSet = new Set<string>();
-    const resourceIdSet = new Set<number>();
-    const siteResourceIdSet = new Set<number>();
-
-    const rows = await logsDb
-        .select({
-            actor: requestAuditLog.actor,
-            location: requestAuditLog.location,
-            host: requestAuditLog.host,
-            path: requestAuditLog.path,
-            resourceId: requestAuditLog.resourceId,
-            siteResourceId: requestAuditLog.siteResourceId
-        })
-        .from(requestAuditLog)
-        .where(baseConditions);
-
-    for (const row of rows) {
-        if (row.actor !== null && actorSet.size <= DISTINCT_LIMIT) {
-            actorSet.add(row.actor);
-        }
-        if (row.location !== null && locationSet.size <= DISTINCT_LIMIT) {
-            locationSet.add(row.location);
-        }
-        if (row.host !== null && hostSet.size <= DISTINCT_LIMIT) {
-            hostSet.add(row.host);
-        }
-        if (row.path !== null && pathSet.size <= DISTINCT_LIMIT) {
-            pathSet.add(row.path);
-        }
-        if (row.resourceId !== null) {
-            if (resourceIdSet.size <= DISTINCT_LIMIT) {
-                resourceIdSet.add(row.resourceId);
-            }
-        } else if (
-            row.siteResourceId !== null &&
-            siteResourceIdSet.size <= DISTINCT_LIMIT
-        ) {
-            // Mirrors the original query's isNull(resourceId) condition:
-            // a siteResourceId only counts when there's no resourceId.
-            siteResourceIdSet.add(row.siteResourceId);
-        }
+    // We still want each field's distinctness computed in the DB rather than
+    // pulled into the app and deduped in memory - for a busy org with e.g.
+    // millions of rows but only a handful of distinct paths, that would ship
+    // the entire matched row set across the wire just to derive a few
+    // values - and we still want each field's result set capped at
+    // DISTINCT_LIMIT like the original per-query LIMITs did. So instead of
+    // 6 round trips, this issues ONE query: a UNION ALL of 6 subqueries,
+    // each doing its own GROUP BY <field> ... LIMIT, tagged with a `field`
+    // discriminator column so the flat result set can be split back apart
+    // below. resourceId and siteResourceId are cast to text so all 6
+    // branches share a column type (required for UNION ALL) and parsed back
+    // to numbers afterward.
+    function distinctTextField(column: any, field: string) {
+        const sub = logsDb
+            .select({ value: column })
+            .from(requestAuditLog)
+            .where(and(baseConditions, sql`${column} IS NOT NULL`))
+            .groupBy(column)
+            .limit(DISTINCT_LIMIT + 1)
+            .as(`sub_${field}`);
+        return logsDb
+            .select({
+                value: sql<string>`${sub.value}`.as("value"),
+                field: sql<string>`${field}`.as("field")
+            })
+            .from(sub);
     }
 
-    const uniqueActors = Array.from(actorSet);
-    const uniqueLocations = Array.from(locationSet);
-    const uniqueHosts = Array.from(hostSet);
-    const uniquePaths = Array.from(pathSet);
+    function distinctIdField(column: any, field: string, extraCondition?: any) {
+        const sub = logsDb
+            .select({ value: column })
+            .from(requestAuditLog)
+            .where(
+                extraCondition
+                    ? and(
+                          baseConditions,
+                          sql`${column} IS NOT NULL`,
+                          extraCondition
+                      )
+                    : and(baseConditions, sql`${column} IS NOT NULL`)
+            )
+            .groupBy(column)
+            .limit(DISTINCT_LIMIT + 1)
+            .as(`sub_${field}`);
+        return logsDb
+            .select({
+                value: sql<string>`CAST(${sub.value} AS TEXT)`.as("value"),
+                field: sql<string>`${field}`.as("field")
+            })
+            .from(sub);
+    }
+
+    const unionedRows = await distinctTextField(requestAuditLog.actor, "actor")
+        .unionAll(distinctTextField(requestAuditLog.location, "location"))
+        .unionAll(distinctTextField(requestAuditLog.host, "host"))
+        .unionAll(distinctTextField(requestAuditLog.path, "path"))
+        .unionAll(distinctIdField(requestAuditLog.resourceId, "resourceId"))
+        .unionAll(
+            distinctIdField(
+                requestAuditLog.siteResourceId,
+                "siteResourceId",
+                // Mirrors the original query's isNull(resourceId) condition:
+                // a siteResourceId only counts when there's no resourceId.
+                isNull(requestAuditLog.resourceId)
+            )
+        );
+
+    const uniqueActors: string[] = [];
+    const uniqueLocations: string[] = [];
+    const uniqueHosts: string[] = [];
+    const uniquePaths: string[] = [];
+    const resourceIds: number[] = [];
+    const siteResourceIds: number[] = [];
+
+    for (const row of unionedRows as Array<{ value: string; field: string }>) {
+        switch (row.field) {
+            case "actor":
+                uniqueActors.push(row.value);
+                break;
+            case "location":
+                uniqueLocations.push(row.value);
+                break;
+            case "host":
+                uniqueHosts.push(row.value);
+                break;
+            case "path":
+                uniquePaths.push(row.value);
+                break;
+            case "resourceId":
+                resourceIds.push(Number(row.value));
+                break;
+            case "siteResourceId":
+                siteResourceIds.push(Number(row.value));
+                break;
+        }
+    }
 
     // TODO: for stuff like the paths this is too restrictive so lets just show some of the paths and the user needs to
     // refine the time range to see what they need to see
@@ -363,15 +403,12 @@ async function queryUniqueFilterAttributes(
     //     uniqueLocations.length > DISTINCT_LIMIT ||
     //     uniqueHosts.length > DISTINCT_LIMIT ||
     //     uniquePaths.length > DISTINCT_LIMIT ||
-    //     resourceIdSet.size > DISTINCT_LIMIT
+    //     resourceIds.length > DISTINCT_LIMIT
     // ) {
     //     throw new Error("Too many distinct filter attributes to retrieve. Please refine your time range.");
     // }
 
     // Fetch resource names from main database for the unique resource IDs
-    const resourceIds = Array.from(resourceIdSet);
-    const siteResourceIds = Array.from(siteResourceIdSet);
-
     let resourcesWithNames: Array<{ id: number; name: string | null }> = [];
 
     if (resourceIds.length > 0) {
