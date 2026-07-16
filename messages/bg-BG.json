@@ -3811,5 +3811,6 @@
     "rdpUploadFailed": "Качването неуспешно",
     "rdpUnicodeKeyboardMode": "Режим на unicode клавиатура",
     "sessionToolbarShow": "Показване на лентата с инструменти",
-    "sessionToolbarHide": "Скриване на лентата с инструменти"
+    "sessionToolbarHide": "Скриване на лентата с инструменти",
+    "actionUpdateSiteApprovals": "Update Site Approvals"
 }
