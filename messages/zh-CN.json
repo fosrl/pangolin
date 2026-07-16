@@ -3811,5 +3811,6 @@
     "rdpUploadFailed": "上传失败",
     "rdpUnicodeKeyboardMode": "Unicode 键盘模式",
     "sessionToolbarShow": "显示工具栏",
-    "sessionToolbarHide": "隐藏工具栏"
+    "sessionToolbarHide": "隐藏工具栏",
+    "actionUpdateSiteApprovals": "Update Site Approvals"
 }
