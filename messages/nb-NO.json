@@ -3811,5 +3811,6 @@
     "rdpUploadFailed": "Opplastningen mislyktes",
     "rdpUnicodeKeyboardMode": "Unicode tastaturmodus",
     "sessionToolbarShow": "Vis verktøylinje",
-    "sessionToolbarHide": "Skjul verktøylinje"
+    "sessionToolbarHide": "Skjul verktøylinje",
+    "actionUpdateSiteApprovals": "Update Site Approvals"
 }
