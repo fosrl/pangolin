@@ -158,7 +158,7 @@ export function queryRequest(data: Q) {
         })
         .from(requestAuditLog)
         .where(getWhere(data))
-        .orderBy(desc(requestAuditLog.timestamp));
+        .orderBy(desc(requestAuditLog.timestamp), desc(requestAuditLog.id));
 }
 
 async function enrichWithResourceDetails(

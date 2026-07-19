@@ -15,7 +15,6 @@ import { getPrivateResourceSettingsHref } from "@app/lib/launcherResourceAdminHr
 import { logQueries } from "@app/lib/queries";
 import { build } from "@server/build";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
-import type { QueryConnectionAuditLogResponse } from "@server/routers/auditLogs/types";
 import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import axios from "axios";
@@ -144,7 +143,7 @@ export default function ConnectionLogsPage() {
         enabled: isPaidUser(tierMatrix.connectionLogs) && build !== "oss"
     });
 
-    const rows = isLoading ? generateSampleConnectionLogs() : (data?.log ?? []);
+    const rows = data?.log ?? [];
     const totalCount = data?.pagination?.total ?? 0;
     const filterAttributes = data?.filterAttributes ?? {
         protocols: [],
@@ -588,51 +587,4 @@ export default function ConnectionLogsPage() {
             />
         </>
     );
-}
-
-function generateSampleConnectionLogs(): QueryConnectionAuditLogResponse["log"] {
-    const protocols = ["tcp", "udp", "icmp"];
-    const destAddrs = [
-        "10.0.0.1:22",
-        "10.0.0.2:80",
-        "10.0.0.3:443",
-        "192.168.1.10:3306"
-    ];
-
-    const now = Math.floor(Date.now() / 1000);
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60;
-
-    return Array.from({ length: 10 }, (_, i) => {
-        const startedAt = Math.floor(
-            sevenDaysAgo + Math.random() * (now - sevenDaysAgo)
-        );
-        const active = Math.random() > 0.3;
-
-        return {
-            sessionId: `session-${i}`,
-            siteResourceId: (i % 3) + 1,
-            orgId: "sample-org",
-            siteId: 1,
-            clientId: (i % 4) + 1,
-            clientEndpoint: `10.0.0.${i + 1}:51820`,
-            userId: i % 2 === 0 ? `user-${i}` : null,
-            sourceAddr: `192.168.1.${i + 1}:${40000 + i}`,
-            destAddr: destAddrs[Math.floor(Math.random() * destAddrs.length)],
-            protocol: protocols[Math.floor(Math.random() * protocols.length)],
-            startedAt,
-            endedAt: active
-                ? null
-                : startedAt + Math.floor(Math.random() * 3600),
-            bytesTx: active ? null : Math.floor(Math.random() * 1024 * 1024),
-            bytesRx: active ? null : Math.floor(Math.random() * 1024 * 1024),
-            resourceName: `Resource ${(i % 3) + 1}`,
-            resourceNiceId: `resource-${(i % 3) + 1}`,
-            siteName: "Sample Site",
-            siteNiceId: "sample-site",
-            clientName: `Client ${(i % 4) + 1}`,
-            clientNiceId: `client-${(i % 4) + 1}`,
-            clientType: i % 2 === 0 ? "user" : "machine",
-            userEmail: i % 2 === 0 ? `user${i}@example.com` : null
-        };
-    });
 }
