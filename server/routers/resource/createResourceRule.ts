@@ -9,16 +9,14 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import {
-    isValidCIDR,
-    isValidIP,
-    isValidUrlGlobPattern
+    getResourceRuleValueValidationError,
+    RESOURCE_RULE_MATCH_TYPES
 } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
-import { isValidRegionId } from "@server/db/regions";
 
 const createResourceRuleSchema = z.strictObject({
     action: z.enum(["ACCEPT", "DROP", "PASS"]),
-    match: z.enum(["CIDR", "IP", "PATH", "COUNTRY", "ASN", "REGION"]),
+    match: z.enum(RESOURCE_RULE_MATCH_TYPES),
     value: z.string().min(1),
     priority: z.int(),
     enabled: z.boolean().optional()
@@ -118,39 +116,12 @@ export async function createResourceRule(
             );
         }
 
-        if (match === "CIDR") {
-            if (!isValidCIDR(value)) {
-                return next(
-                    createHttpError(
-                        HttpCode.BAD_REQUEST,
-                        "Invalid CIDR provided"
-                    )
-                );
-            }
-        } else if (match === "IP") {
-            if (!isValidIP(value)) {
-                return next(
-                    createHttpError(HttpCode.BAD_REQUEST, "Invalid IP provided")
-                );
-            }
-        } else if (match === "PATH") {
-            if (!isValidUrlGlobPattern(value)) {
-                return next(
-                    createHttpError(
-                        HttpCode.BAD_REQUEST,
-                        "Invalid URL glob pattern provided"
-                    )
-                );
-            }
-        } else if (match === "REGION") {
-            if (!isValidRegionId(value)) {
-                return next(
-                    createHttpError(
-                        HttpCode.BAD_REQUEST,
-                        "Invalid region ID provided"
-                    )
-                );
-            }
+        const validationError = getResourceRuleValueValidationError(
+            match,
+            value
+        );
+        if (validationError) {
+            return next(createHttpError(HttpCode.BAD_REQUEST, validationError));
         }
 
         // Create the new resource rule
