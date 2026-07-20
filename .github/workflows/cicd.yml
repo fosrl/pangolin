@@ -77,7 +77,7 @@ jobs:
                   fi
 
             - name: Log in to Docker Hub
-              uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+              uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
               with:
                   registry: docker.io
                   username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -149,7 +149,7 @@ jobs:
                   fi
 
             - name: Log in to Docker Hub
-              uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+              uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
               with:
                   registry: docker.io
                   username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -204,7 +204,7 @@ jobs:
               uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
             - name: Log in to Docker Hub
-              uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+              uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
               with:
                   registry: docker.io
                   username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -264,7 +264,7 @@ jobs:
               shell: bash
 
             - name: Install Go
-              uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+              uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
               with:
                   go-version: 1.25
 
@@ -407,7 +407,7 @@ jobs:
               shell: bash
 
             - name: Login to GitHub Container Registry (for cosign)
-              uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+              uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
               with:
                 registry: ghcr.io
                 username: ${{ github.actor }}
