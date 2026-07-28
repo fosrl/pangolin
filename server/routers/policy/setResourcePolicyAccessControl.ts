@@ -2,14 +2,13 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import {
     db,
-    idp,
-    idpOrg,
     resourcePolicies,
     rolePolicies,
     roles,
     userOrgs,
     users
 } from "@server/db";
+import { canOrgUseIdp } from "@server/lib/idp/canOrgUseIdp";
 import { userPolicies } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -163,16 +162,7 @@ export async function setResourcePolicyAccessControl(
 
         // Check if Identity provider in `skipToIdpId` exists
         if (idpId) {
-            const [provider] = await db
-                .select()
-                .from(idp)
-                .innerJoin(idpOrg, eq(idpOrg.idpId, idp.idpId))
-                .where(
-                    and(eq(idp.idpId, idpId), eq(idpOrg.orgId, policy.orgId))
-                )
-                .limit(1);
-
-            if (!provider) {
+            if (!(await canOrgUseIdp(idpId, policy.orgId))) {
                 return next(
                     createHttpError(
                         HttpCode.INTERNAL_SERVER_ERROR,
