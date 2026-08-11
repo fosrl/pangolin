@@ -31,7 +31,7 @@ export async function ensureSigningKey(): Promise<void> {
     }
 
     const keyPair = generateKeyPairSync("rsa", {
-        modulusLength: 2048,
+        modulusLength: 4096,
         publicKeyEncoding: {
             type: "spki",
             format: "pem"
