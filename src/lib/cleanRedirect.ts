@@ -14,7 +14,7 @@ const ALLOWED_QUERY_PARAMS = new Set([
 
 const DUMMY_BASE = "https://internal.local";
 
-export function cleanOAuthRedirectOptions(path: string | undefined | null): CleanRedirectOptions {
+export function cleanOAuthRedirectOptions(path: string): CleanRedirectOptions {
     return path?.startsWith("/oauth/authorize") ? { allowAllQueryParams: true } : {};
 }
 

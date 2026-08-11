@@ -45,7 +45,7 @@ export default function LoginPasswordForm({
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [mfaRequested, setMfaRequested] = useState(false);
-    const cleanRedirectOptions = cleanOAuthRedirectOptions(redirect);
+    const cleanRedirectOptions = cleanOAuthRedirectOptions(redirect ?? "");
 
     // Check if identifier is a valid email
     const isEmail = (() => {
