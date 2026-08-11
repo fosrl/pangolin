@@ -1353,6 +1353,9 @@ export async function handleMessagingForUpdatedSiteResource(
                         siteResources.destination,
                         existingSiteResource.destination
                     ),
+                    // a sibling that doesn't advertise its destination isn't
+                    // keeping the route alive, so it must not block removal
+                    eq(siteResources.advertiseDestination, true),
                     ne(
                         siteResources.siteResourceId,
                         existingSiteResource.siteResourceId
@@ -1571,9 +1574,16 @@ export async function handleMessagingForUpdatedSiteResource(
     const enabledChanged =
         existingSiteResource &&
         existingSiteResource.enabled !== updatedSiteResource.enabled;
+    // Only affects what generateRemoteSubnets emits, so this drives the peer
+    // data (client route) update but not the newt targets, which are keyed off
+    // the alias address and are unchanged by it.
+    const advertiseDestinationChanged =
+        existingSiteResource &&
+        existingSiteResource.advertiseDestination !==
+            updatedSiteResource.advertiseDestination;
 
     logger.debug(
-        `handleMessagingForUpdatedSiteResource: change flags destinationChanged=${Boolean(destinationChanged)} destinationPortChanged=${Boolean(destinationPortChanged)} aliasChanged=${Boolean(aliasChanged)} fullDomainChanged=${Boolean(fullDomainChanged)} sslChanged=${Boolean(sslChanged)} portRangesChanged=${Boolean(portRangesChanged)} enabledChanged=${Boolean(enabledChanged)}`
+        `handleMessagingForUpdatedSiteResource: change flags destinationChanged=${Boolean(destinationChanged)} destinationPortChanged=${Boolean(destinationPortChanged)} aliasChanged=${Boolean(aliasChanged)} fullDomainChanged=${Boolean(fullDomainChanged)} sslChanged=${Boolean(sslChanged)} portRangesChanged=${Boolean(portRangesChanged)} enabledChanged=${Boolean(enabledChanged)} advertiseDestinationChanged=${Boolean(advertiseDestinationChanged)}`
     );
 
     // if the existingSiteResource is undefined (new resource) we don't need to do anything here, the rebuild above handled it all
@@ -1585,7 +1595,8 @@ export async function handleMessagingForUpdatedSiteResource(
         sslChanged ||
         portRangesChanged ||
         destinationPortChanged ||
-        enabledChanged
+        enabledChanged ||
+        advertiseDestinationChanged
     ) {
         const shouldUpdateTargets =
             destinationChanged ||
@@ -1670,7 +1681,9 @@ export async function handleMessagingForUpdatedSiteResource(
                     clientId: client.clientId,
                     siteId,
                     remoteSubnets:
-                        destinationChanged || enabledChanged
+                        destinationChanged ||
+                        enabledChanged ||
+                        advertiseDestinationChanged
                             ? {
                                   oldRemoteSubnets:
                                       !oldDestinationStillInUseBySite

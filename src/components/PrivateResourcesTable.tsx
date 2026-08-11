@@ -96,6 +96,7 @@ export type InternalResourceRow = {
     tcpPortRangeString: string | null;
     udpPortRangeString: string | null;
     disableIcmp: boolean;
+    advertiseDestination: boolean;
     authDaemonMode?: "site" | "remote" | "native" | null;
     authDaemonPort?: number | null;
     pamMode?: "passthrough" | "push" | null;

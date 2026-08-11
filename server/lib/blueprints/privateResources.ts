@@ -279,6 +279,8 @@ export async function updatePrivateResources(
                     disableIcmp:
                         resourceData["disable-icmp"] ||
                         (resourceData.mode == "http" ? true : false), // default to true for http resources, otherwise false
+                    advertiseDestination:
+                        resourceData["advertise-destination"] ?? true,
                     tcpPortRangeString:
                         resourceData.mode == "http"
                             ? "443,80"
@@ -554,6 +556,8 @@ export async function updatePrivateResources(
                     disableIcmp:
                         resourceData["disable-icmp"] ||
                         (resourceData.mode == "http" ? true : false), // default to true for http resources, otherwise false
+                    advertiseDestination:
+                        resourceData["advertise-destination"] ?? true,
                     tcpPortRangeString:
                         resourceData.mode == "http"
                             ? "443,80"

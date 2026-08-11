@@ -55,6 +55,7 @@ import { PrivateResourceHttpFields } from "@app/components/PrivateResourceHttpFi
 import { PrivateResourceSshFields } from "@app/components/PrivateResourceSshFields";
 import { PrivateResourcePortRanges } from "@app/components/PrivateResourcePortRanges";
 import {
+    PrivateResourceAdvertiseDestinationField,
     PrivateResourceAliasField,
     PrivateResourceCidrDestinationField,
     PrivateResourceHostDestinationFields
@@ -112,7 +113,8 @@ export default function CreatePrivateResourcePage() {
             pamMode: "passthrough",
             tcpPortRangeString: "*",
             udpPortRangeString: "*",
-            disableIcmp: false
+            disableIcmp: false,
+            advertiseDestination: true
         }
     });
 
@@ -385,6 +387,22 @@ export default function CreatePrivateResourcePage() {
                                                 )}
                                                 watch={asAnyWatch(form.watch)}
                                                 labelPrefix="create"
+                                                disabled={
+                                                    mode === "ssh" &&
+                                                    sshSectionDisabled
+                                                }
+                                            />
+                                        </SettingsFormCell>
+                                    )}
+
+                                    {(mode === "host" ||
+                                        (mode === "ssh" && !isNativeSsh)) && (
+                                        <SettingsFormCell span="full">
+                                            <PrivateResourceAdvertiseDestinationField
+                                                control={asAnyControl(
+                                                    form.control
+                                                )}
+                                                id="create-private-resource-advertise-destination"
                                                 disabled={
                                                     mode === "ssh" &&
                                                     sshSectionDisabled

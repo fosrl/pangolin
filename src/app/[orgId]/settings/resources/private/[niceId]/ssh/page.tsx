@@ -9,6 +9,7 @@ import {
     SettingsSectionForm,
     SettingsSectionHeader,
     SettingsSectionTitle,
+    SettingsFormCell,
     SettingsFormGrid
 } from "@app/components/Settings";
 import { SshServerSettingsFields } from "@app/components/SshServerSettingsFields";
@@ -27,6 +28,7 @@ import { useActionState, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { PrivateResourceSshFields } from "@app/components/PrivateResourceSshFields";
+import { PrivateResourceAdvertiseDestinationField } from "@app/components/PrivateResourceDestinationFields";
 import type { Selectedsite } from "@app/components/site-selector";
 import { useSaveSiteResource } from "@app/hooks/useSaveSiteResource";
 import {
@@ -74,7 +76,8 @@ export default function PrivateResourceSshPage() {
                   : "site",
             authDaemonPort: siteResource.authDaemonPort
                 ? String(siteResource.authDaemonPort)
-                : "22123"
+                : "22123",
+            advertiseDestination: siteResource.advertiseDestination ?? true
         }
     });
 
@@ -144,7 +147,8 @@ export default function PrivateResourceSshPage() {
             destinationPort: isNative ? null : data.destinationPort,
             authDaemonMode: effectiveAuthDaemonMode,
             authDaemonPort: effectiveAuthDaemonPort,
-            pamMode: data.pamMode
+            pamMode: data.pamMode,
+            advertiseDestination: data.advertiseDestination
         });
     }, null);
 
@@ -210,6 +214,16 @@ export default function PrivateResourceSshPage() {
                                         showPaidFeaturesAlert={false}
                                         isNativeSsh={isNative}
                                     />
+                                    {!isNative && (
+                                        <SettingsFormCell span="full">
+                                            <PrivateResourceAdvertiseDestinationField
+                                                control={asAnyControl(
+                                                    form.control
+                                                )}
+                                                id="private-ssh-edit-advertise-destination"
+                                            />
+                                        </SettingsFormCell>
+                                    )}
                                 </SettingsFormGrid>
                             </SettingsSectionForm>
                         </SettingsSectionBody>
