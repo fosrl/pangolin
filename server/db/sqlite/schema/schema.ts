@@ -492,6 +492,12 @@ export const siteResources = sqliteTable("siteResources", {
     disableIcmp: integer("disableIcmp", { mode: "boolean" })
         .notNull()
         .default(false),
+    // When false, host/ssh resources are still reachable through their
+    // aliasAddress but their destination is not sent to clients as a route.
+    // Lets a client keep a pre-existing path to the destination.
+    advertiseDestination: integer("advertiseDestination", { mode: "boolean" })
+        .notNull()
+        .default(true),
     authDaemonPort: integer("authDaemonPort").default(22123),
     pamMode: text("pamMode")
         .$type<"passthrough" | "push">()
