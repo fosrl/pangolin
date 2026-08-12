@@ -43,6 +43,8 @@
     "inviteLoginUser": "올바른 사용자로 로그인했는지 확인하십시오.",
     "inviteErrorNoUser": "죄송하지만, 접근하려는 초대가 존재하지 않는 사용자에 대한 것인 것 같습니다.",
     "inviteCreateUser": "먼저 계정을 생성해 주세요.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "홈으로 가기",
     "inviteLogInOtherUser": "다른 사용자로 로그인",
     "createAnAccount": "계정 만들기",
