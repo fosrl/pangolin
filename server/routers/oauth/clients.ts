@@ -77,11 +77,14 @@ const publicClientColumns = {
     lastChars: oauthClients.lastChars
 };
 
-function normalizeScopes(scopes: string[]): string {
+function normalizeScopes(
+    scopes: string[],
+    _validScopes: readonly string[] = validScopes
+): string {
     const set = new Set(scopes);
     set.add("openid");
 
-    return validScopes.filter((scope) => set.has(scope)).join(" ");
+    return _validScopes.filter((scope) => set.has(scope)).join(" ");
 }
 
 function getBackchannelLogoutValidationError(
@@ -327,6 +330,10 @@ export async function updateOAuthClient(
         }
 
         await db.transaction(async (trx) => {
+            const updatedScopes = body.scopes
+                ? normalizeScopes(body.scopes)
+                : undefined;
+
             await trx
                 .update(oauthClients)
                 .set({
@@ -334,9 +341,7 @@ export async function updateOAuthClient(
                     clientUri: body.clientUri,
                     logoUri: body.logoUri,
                     redirectUris: body.redirectUris,
-                    scopes: body.scopes
-                        ? normalizeScopes(body.scopes)
-                        : undefined,
+                    scopes: updatedScopes,
                     pkceRequired: body.pkceRequired,
                     enabled: body.enabled,
                     logoutTerminatesPangolinSession:
@@ -353,6 +358,30 @@ export async function updateOAuthClient(
                     .where(
                         eq(oauthAccessTokens.clientId, existingClient.clientId)
                     );
+            }
+
+            // Check and update consents, if scope was reduced
+            const consents = await trx
+                .select()
+                .from(oauthConsents)
+                .where(eq(oauthConsents.clientId, existingClient.clientId));
+
+            for (const consent of consents) {
+                const normalizedScopes = normalizeScopes(
+                    consent.scope.split(" "),
+                    existingClient.scopes.split(" ")
+                );
+
+                if (normalizedScopes === consent.scope)
+                    continue;
+
+                await trx
+                    .update(oauthConsents)
+                    .set({
+                        scope: normalizedScopes,
+                        updatedAt: Date.now()
+                    })
+                    .where(eq(oauthConsents.consentId, consent.consentId));
             }
         });
 
