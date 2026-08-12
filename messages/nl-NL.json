@@ -43,6 +43,8 @@
     "inviteLoginUser": "Controleer of je bent aangemeld als de juiste gebruiker.",
     "inviteErrorNoUser": "Het spijt ons, maar de uitnodiging die u probeert te gebruiken is niet voor een bestaande gebruiker.",
     "inviteCreateUser": "U moet eerst een account aanmaken.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "Ga naar huis",
     "inviteLogInOtherUser": "Log in als een andere gebruiker",
     "createAnAccount": "Account aanmaken",
