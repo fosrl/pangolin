@@ -43,6 +43,8 @@
     "inviteLoginUser": "Моля, уверете се, че сте влезли като правилния потребител.",
     "inviteErrorNoUser": "Съжаляваме, но изглежда, че поканата, до която се опитвате да получите достъп, не е за съществуващ потребител.",
     "inviteCreateUser": "Моля, първо създайте акаунт.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "Отиди вкъщи",
     "inviteLogInOtherUser": "Влезте като друг потребител",
     "createAnAccount": "Създайте профил",
