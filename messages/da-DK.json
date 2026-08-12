@@ -43,6 +43,8 @@
     "inviteLoginUser": "Venligst tjek at du er loget ind som korrekt bruger.",
     "inviteErrorNoUser": "Beklager, men det ser ud til, at invitationen du prøver at få adgang til, ikke er til en eksisterende bruger.",
     "inviteCreateUser": "Opret venligst en konto først.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "Gå hjem",
     "inviteLogInOtherUser": "Log ind som en anden bruger",
     "createAnAccount": "Opret konto",
