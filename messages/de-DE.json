@@ -2015,7 +2015,7 @@
     "billingSites": "Standorte",
     "billingUsers": "Benutzergeräte",
     "billingDomains": "Domänen",
-    "billingOrganizations": "Orden",
+    "billingOrganizations": "Organisationen",
     "billingRemoteExitNodes": "Entfernte Knoten",
     "billingPublicResources": "Öffentliche Ressourcen",
     "billingPrivateResources": "Private Ressourcen",
@@ -2175,7 +2175,7 @@
     "billingResolvePaymentIssue": "Bitte beheben Sie Ihr Zahlungsproblem vor dem Upgrade oder Herabstufen",
     "signUpTerms": {
         "IAgreeToThe": "Ich stimme den",
-        "termsOfService": "Nutzungsbedingungen zu",
+        "termsOfService": "Nutzungsbedingungen",
         "and": "und",
         "privacyPolicy": "datenschutzrichtlinie."
     },
@@ -3393,7 +3393,7 @@
     "enterMfaCode": "Geben Sie den Code aus Ihrer Authentifizierungs-App ein",
     "securityKeyRequired": "Bitte verwenden Sie Ihren Sicherheitsschlüssel zum Anmelden.",
     "needToUseAnotherAccount": "Benötigen Sie ein anderes Konto?",
-    "loginLegalDisclaimer": "Indem Sie auf die Buttons unten klicken, bestätigen Sie, dass Sie gelesen haben, verstehen, und stimmen den <termsOfService>Nutzungsbedingungen</termsOfService> und <privacyPolicy>Datenschutzrichtlinien</privacyPolicy> zu.",
+    "loginLegalDisclaimer": "Indem Sie auf die Buttons unten klicken, bestätigen Sie, dass Sie die <termsOfService>Nutzungsbedingungen</termsOfService> und <privacyPolicy>Datenschutzrichtlinien</privacyPolicy> gelesen haben, verstehen und ihnen zustimmen.",
     "termsOfService": "Nutzungsbedingungen",
     "privacyPolicy": "Datenschutzerklärung",
     "userNotFoundWithUsername": "Kein Benutzer mit diesem Benutzernamen gefunden.",
