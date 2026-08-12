@@ -43,6 +43,8 @@
     "inviteLoginUser": "Verifique se você está logado como o utilizador correto.",
     "inviteErrorNoUser": "Desculpe, mas parece que o convite que está a tentar aceder não é para um utilizador que existe.",
     "inviteCreateUser": "Por favor, crie uma conta primeiro.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "Voltar ao inicio",
     "inviteLogInOtherUser": "Fazer login como um utilizador diferente",
     "createAnAccount": "Crie uma conta",
