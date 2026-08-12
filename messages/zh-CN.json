@@ -43,6 +43,8 @@
     "inviteLoginUser": "请确保您以正确的用户登录。",
     "inviteErrorNoUser": "很抱歉，但看起来你想访问的邀请不是一个存在的用户。",
     "inviteCreateUser": "请先创建一个帐户。",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "返回首页",
     "inviteLogInOtherUser": "以不同的用户登录",
     "createAnAccount": "创建帐户",
