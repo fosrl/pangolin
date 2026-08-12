@@ -43,6 +43,8 @@
     "inviteLoginUser": "Lütfen doğru kullanıcı olarak oturum açtığınızdan emin olun.",
     "inviteErrorNoUser": "Üzgünüz, ancak erişmeye çalıştığınız davet, var olan bir kullanıcı için değil gibi görünüyor.",
     "inviteCreateUser": "Öncelikle bir hesap oluşturun.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "Ana Sayfaya Dön",
     "inviteLogInOtherUser": "Başka bir kullanıcı olarak giriş yapın",
     "createAnAccount": "Bir Hesap Oluşturun",
