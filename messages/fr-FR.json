@@ -43,6 +43,8 @@
     "inviteLoginUser": "Veuillez vous assurer que vous êtes connecté avec le bon compte.",
     "inviteErrorNoUser": "Nous sommes désolés, mais il semble que l'invitation à laquelle vous essayez d'accéder ne concerne pas un utilisateur existant.",
     "inviteCreateUser": "Veuillez d'abord créer un compte.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "Retour à l'accueil",
     "inviteLogInOtherUser": "Se connecter en tant qu'utilisateur différent",
     "createAnAccount": "Créer un compte",
