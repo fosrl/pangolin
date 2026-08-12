@@ -43,6 +43,8 @@
     "inviteLoginUser": "Убедитесь, что вы вошли под правильным пользователем.",
     "inviteErrorNoUser": "Извините, но похоже, что приглашение, к которому вы пытаетесь получить доступ, предназначено для несуществующего пользователя.",
     "inviteCreateUser": "Сначала создайте аккаунт.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "На главную",
     "inviteLogInOtherUser": "Войти под другим пользователем",
     "createAnAccount": "Создать учётную запись",
