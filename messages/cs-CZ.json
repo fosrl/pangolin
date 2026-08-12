@@ -43,6 +43,8 @@
     "inviteLoginUser": "Prosím ujistěte se, že jste přihlášeni jako správný uživatel.",
     "inviteErrorNoUser": "Je nám líto, ale vypadá to, že pozvánka, ke které se snažíte získat přístup, není pro existujícího uživatele.",
     "inviteCreateUser": "Nejprve si prosím vytvořte účet.",
+    "inviteErrorOidcNotAllowed": "Invites can only be accepted by internal accounts. Sign out and log in with your password for this email.",
+    "inviteLoginInternalOnly": "Invites require an internal account with a password. Create an account or sign in with your password.",
     "goHome": "Přejít na hlavní stránku",
     "inviteLogInOtherUser": "Přihlásit se jako jiný uživatel",
     "createAnAccount": "Vytvořit účet",
