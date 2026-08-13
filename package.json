@@ -13,6 +13,7 @@
     "scripts": {
         "dev": "NODE_ENV=development ENVIRONMENT=dev tsx watch server/index.ts",
         "dev:check": "npx tsc --noEmit && npm run format:check",
+        "test:ios14-compat": "tsx --test src/lib/legacyIosStylesheet.test.ts",
         "dev:setup": "cp config/config.example.yml config/config.yml && npm run set:oss && npm run set:sqlite && npm run db:sqlite:generate && npm run db:sqlite:push",
         "db:generate": "drizzle-kit generate --config=./drizzle.config.ts",
         "db:push": "npx tsx server/db/migrate.ts",
@@ -23,8 +24,8 @@
         "set:enterprise": "echo 'export const build = \"enterprise\" as \"saas\" | \"enterprise\" | \"oss\";' > server/build.ts && cp tsconfig.enterprise.json tsconfig.json",
         "set:sqlite": "echo 'export * from \"./sqlite\";\nexport const driver: \"pg\" | \"sqlite\" = \"sqlite\";' > server/db/index.ts && cp drizzle.sqlite.config.ts drizzle.config.ts && cp server/setup/migrationsSqlite.ts server/setup/migrations.ts",
         "set:pg": "echo 'export * from \"./pg\";\nexport const driver: \"pg\" | \"sqlite\" = \"pg\";' > server/db/index.ts && cp drizzle.pg.config.ts drizzle.config.ts && cp server/setup/migrationsPg.ts server/setup/migrations.ts",
-        "build:next": "next build",
-        "build": "mkdir -p dist && next build && node esbuild.mjs -e server/index.ts -o dist/server.mjs && node esbuild.mjs -e server/setup/migrations.ts -o dist/migrations.mjs",
+        "build:next": "next build && node scripts/compat-ios14.mjs",
+        "build": "mkdir -p dist && next build && node scripts/compat-ios14.mjs && node esbuild.mjs -e server/index.ts -o dist/server.mjs && node esbuild.mjs -e server/setup/migrations.ts -o dist/migrations.mjs",
         "start": "ENVIRONMENT=prod node dist/migrations.mjs && ENVIRONMENT=prod NODE_ENV=development node --enable-source-maps dist/server.mjs",
         "email": "email dev --dir server/emails/templates --port 3005",
         "build:cli": "node esbuild.mjs -e cli/index.ts -o dist/cli.mjs",
@@ -182,5 +183,12 @@
         "esbuild": "0.28.1",
         "dompurify": "3.4.0",
         "postcss": "8.5.15"
-    }
+    },
+    "browserslist": [
+        "chrome 111",
+        "edge 111",
+        "firefox 111",
+        "safari 14",
+        "ios_saf 14.0-14.4"
+    ]
 }
