@@ -507,6 +507,10 @@ export function generateRemoteSubnets(
                 return parseResult.success;
             }
             if (sr.mode === "host" || sr.mode === "ssh") {
+                // the resource is still served through its aliasAddress by
+                // generateSubnetProxyTargetV2, we just don't hand the client a
+                // route to the destination itself
+                if (sr.advertiseDestination === false) return false;
                 // check if its a valid IP using zod
                 const ipSchema = z.union([z.ipv4(), z.ipv6()]);
                 const parseResult = ipSchema.safeParse(sr.destination);

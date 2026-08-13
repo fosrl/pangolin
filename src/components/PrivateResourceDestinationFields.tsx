@@ -10,8 +10,45 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 import { Input } from "@app/components/ui/input";
+import { SwitchInput } from "@app/components/SwitchInput";
 import { useTranslations } from "next-intl";
 import type { Control, UseFormWatch } from "react-hook-form";
+
+export function PrivateResourceAdvertiseDestinationField({
+    control,
+    id = "private-resource-advertise-destination",
+    disabled = false
+}: {
+    control: Control<any>;
+    id?: string;
+    disabled?: boolean;
+}) {
+    const t = useTranslations();
+
+    return (
+        <FormField
+            control={control}
+            name="advertiseDestination"
+            render={({ field }) => (
+                <FormItem>
+                    <FormControl>
+                        <SwitchInput
+                            id={id}
+                            label={t("privateResourceAdvertiseDestination")}
+                            description={t(
+                                "privateResourceAdvertiseDestinationDescription"
+                            )}
+                            checked={field.value ?? true}
+                            onCheckedChange={field.onChange}
+                            disabled={disabled}
+                        />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+    );
+}
 
 type PrivateResourceAliasFieldProps = {
     control: Control<any>;

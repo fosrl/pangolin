@@ -62,6 +62,7 @@ export function useSaveSiteResource() {
                 tcpPortRangeString: merged.tcpPortRangeString ?? null,
                 udpPortRangeString: merged.udpPortRangeString ?? null,
                 disableIcmp: merged.disableIcmp ?? false,
+                advertiseDestination: merged.advertiseDestination ?? true,
                 authDaemonMode: merged.authDaemonMode ?? null,
                 authDaemonPort: merged.authDaemonPort ?? null,
                 pamMode: merged.pamMode ?? null

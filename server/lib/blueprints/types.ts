@@ -474,6 +474,7 @@ export const PrivateResourceSchema = z
         "tcp-ports": portRangeStringSchema.optional().default("*"),
         "udp-ports": portRangeStringSchema.optional().default("*"),
         "disable-icmp": z.boolean().optional().default(false),
+        "advertise-destination": z.boolean().optional().default(true),
         "full-domain": z.string().optional(),
         ssl: z.boolean().optional(),
         scheme: z.enum(["http", "https"]).optional().nullable(),
