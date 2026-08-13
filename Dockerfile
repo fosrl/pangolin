@@ -1,5 +1,5 @@
 # FROM node:24-slim AS base
-FROM public.ecr.aws/docker/library/node:24-slim AS base
+FROM public.ecr.aws/docker/library/node:26-slim AS base
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ FROM base AS builder
 RUN npm ci --omit=dev
 
 # FROM node:24-slim AS runner
-FROM public.ecr.aws/docker/library/node:24-slim AS runner
+FROM public.ecr.aws/docker/library/node:26-slim AS runner
 
 WORKDIR /app
 
