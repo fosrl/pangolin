@@ -179,6 +179,7 @@ export const resources = pgTable(
         enableCompress: boolean("enableCompress").notNull().default(false),
         compressExcludedContentTypes: text("compressExcludedContentTypes"), // JSON array of strings
         enableCache: boolean("enableCache").notNull().default(false),
+        enableCachePath: text("enableCachePath").notNull(),
         skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {
             onDelete: "set null"
         }),
