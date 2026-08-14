@@ -211,6 +211,11 @@ export const resources = sqliteTable("resources", {
         .$type<"site" | "remote" | "native">()
         .default("site"),
     authDaemonPort: integer("authDaemonPort").default(22123),
+    enableCompress: integer("enableCompress", { mode: "boolean" }).notNull().default(false),
+    compressExcludedContentTypes: text("compressExcludedContentTypes"), // JSON array of strings
+    enableCache: integer("enableCache", { mode: "boolean" })
+        .notNull()
+        .default(false),
     status: text("status").$type<"pending" | "approved">().default("approved")
 });
 
