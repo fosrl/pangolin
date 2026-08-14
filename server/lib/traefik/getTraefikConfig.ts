@@ -408,6 +408,16 @@ export async function getTraefikConfig(
                 }
             }
 
+            // Handle compression middleware if enabled
+            if (resource.compress) {
+                // TODO
+            }
+
+            // Handle caching middleware if enabled
+            if (resource.cacheEnabled) {
+                // TODO
+            }
+
             // Build routing rules
             let rule = `Host(\`${fullDomain}\`)`;
 
