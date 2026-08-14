@@ -204,7 +204,7 @@ function ProxyResourceHttpForm({
                     headers: data.headers || null,
                     enableCompress: data.enableCompress,
                     compressExcludedContentTypes: excludedContentTypesArray,
-                    enableCache: data.cacheEnabled,
+                    enableCache: data.enableCache,
                     enableCachePath: data.enableCachePath,
                 }
             )
