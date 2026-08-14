@@ -92,8 +92,9 @@ const updateHttpResourceBodySchema = z
         tlsServerName: z.string().nullable().optional(),
         setHostHeader: z.string().nullable().optional(),
         enableCompress: z.boolean().optional(),
-        enableCache: z.boolean().optional(),
         compressExcludedContentTypes: z.array(z.string()).nullable().optional(),
+        enableCache: z.boolean().optional(),
+        enableCachePath: z.string().optional(),
         skipToIdpId: z
             .int()
             .positive()
