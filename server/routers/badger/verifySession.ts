@@ -189,7 +189,7 @@ export async function verifyResourceSession(
             }
 
             resourceData = result;
-            localCache.set(resourceCacheKey, resourceData, 5);
+            localCache.set(resourceCacheKey, resourceData, 3600);
         }
 
         const {
@@ -451,7 +451,7 @@ export async function verifyResourceSession(
                     headerAuth.headerAuthHash
                 )
             ) {
-                localCache.set(clientHeaderAuthKey, clientHeaderAuth, 5);
+                localCache.set(clientHeaderAuthKey, clientHeaderAuth, 3600);
                 logger.debug("Resource allowed because header auth is valid");
 
                 logRequestAudit(
@@ -553,7 +553,7 @@ export async function verifyResourceSession(
                 );
 
                 resourceSession = result?.resourceSession;
-                localCache.set(sessionCacheKey, resourceSession, 5);
+                localCache.set(sessionCacheKey, resourceSession, 60);
             }
 
             if (resourceSession?.isRequestToken) {
@@ -956,7 +956,7 @@ async function allowAccessToken(
                 resource.resourceId
             );
             resourceSession = result?.resourceSession;
-            localCache.set(sessionCacheKey, resourceSession, 5);
+            localCache.set(sessionCacheKey, resourceSession, 60);
         }
 
         if (
@@ -1024,7 +1024,7 @@ async function getAccessTokenUserData(
         .limit(1);
 
     if (!user) {
-        localCache.set(cacheKey, null, 5);
+        localCache.set(cacheKey, null, 3600);
         return undefined;
     }
 
@@ -1268,7 +1268,7 @@ async function checkRules(
 
     if (!rules) {
         rules = await getResourceRules(resourceId);
-        localCache.set(ruleCacheKey, rules, 5);
+        localCache.set(ruleCacheKey, rules, 3600);
     }
 
     if (rules.length === 0) {

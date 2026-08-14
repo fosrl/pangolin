@@ -13,6 +13,7 @@ import {
     getResourceRuleValueValidationError
 } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
+import { invalidateRulesCache } from "@server/lib/badgerCacheInvalidation";
 
 const createResourceRuleSchema = z.strictObject({
     action: z.enum(["ACCEPT", "DROP", "PASS"]),
@@ -199,6 +200,8 @@ export async function createResourceRule(
                 enabled
             })
             .returning();
+
+        invalidateRulesCache(resourceId);
 
         return response(res, {
             data: newRule,

@@ -13,6 +13,7 @@ import {
 } from "@server/lib/deleteResource";
 import { LimitId } from "@server/lib/billing";
 import { usageService } from "@server/lib/billing/usageService";
+import { invalidateResourceCache } from "@server/lib/badgerCacheInvalidation";
 
 const deleteResourceSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -112,6 +113,8 @@ export async function deleteResource(
         }
 
         await runResourceDeleteSideEffects(deleteResult);
+
+        invalidateResourceCache(deleteResult?.deletedResource?.fullDomain);
 
         return response(res, {
             data: null,
