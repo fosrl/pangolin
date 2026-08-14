@@ -112,9 +112,8 @@ export async function deleteResource(
             );
         }
 
-        await runResourceDeleteSideEffects(deleteResult);
-
         invalidateResourceCache(deleteResult?.deletedResource?.fullDomain);
+        await runResourceDeleteSideEffects(deleteResult);
 
         return response(res, {
             data: null,
