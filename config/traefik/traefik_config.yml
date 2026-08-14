@@ -12,6 +12,9 @@ experimental:
     badger:
       moduleName: github.com/fosrl/badger
       version: v1.4.1
+    cache:
+      moduleName: github.com/traefik/plugin-simplecache
+      version: v0.2.1
 log:
   level: INFO
   format: common
