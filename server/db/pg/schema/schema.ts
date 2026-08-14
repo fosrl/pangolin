@@ -604,7 +604,9 @@ export const sessions = pgTable("session", {
     expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
     issuedAt: bigint("issuedAt", { mode: "number" }),
     deviceAuthUsed: boolean("deviceAuthUsed").notNull().default(false)
-});
+}, (t) => [
+    index("idx_session_userId").on(t.userId),
+]);
 
 export const newtSessions = pgTable("newtSession", {
     sessionId: varchar("id").primaryKey(),
@@ -626,7 +628,9 @@ export const userOrgs = pgTable("userOrgs", {
     isOwner: boolean("isOwner").notNull().default(false),
     autoProvisioned: boolean("autoProvisioned").default(false),
     pamUsername: varchar("pamUsername") // cleaned username for ssh and such
-});
+}, (t) => [
+    index("idx_userOrgs_userId").on(t.userId),
+]);
 
 export const emailVerificationCodes = pgTable("emailVerificationCodes", {
     codeId: serial("id").primaryKey(),
@@ -829,7 +833,9 @@ export const resourcePincode = pgTable("resourcePincode", {
         .references(() => resources.resourceId, { onDelete: "cascade" }),
     pincodeHash: varchar("pincodeHash").notNull(),
     digitLength: integer("digitLength").notNull()
-});
+}, (t) => [
+    index("idx_resourcePincode_resourceId").on(t.resourceId),
+]);
 
 export const resourcePassword = pgTable("resourcePassword", {
     passwordId: serial("passwordId").primaryKey(),
@@ -837,7 +843,9 @@ export const resourcePassword = pgTable("resourcePassword", {
         .notNull()
         .references(() => resources.resourceId, { onDelete: "cascade" }),
     passwordHash: varchar("passwordHash").notNull()
-});
+}, (t) => [
+    index("idx_resourcePassword_resourceId").on(t.resourceId),
+]);
 
 export const resourceHeaderAuth = pgTable("resourceHeaderAuth", {
     headerAuthId: serial("headerAuthId").primaryKey(),
@@ -845,7 +853,9 @@ export const resourceHeaderAuth = pgTable("resourceHeaderAuth", {
         .notNull()
         .references(() => resources.resourceId, { onDelete: "cascade" }),
     headerAuthHash: varchar("headerAuthHash").notNull()
-});
+}, (t) => [
+    index("idx_resourceHeaderAuth_resourceId").on(t.resourceId),
+]);
 
 export const resourceHeaderAuthExtendedCompatibility = pgTable(
     "resourceHeaderAuthExtendedCompatibility",
@@ -977,7 +987,10 @@ export const resourceSessions = pgTable("resourceSessions", {
         }
     ),
     issuedAt: bigint("issuedAt", { mode: "number" })
-});
+}, (t) => [
+    index("idx_resourceSessions_resourceId").on(t.resourceId),
+    index("idx_resourceSessions_userSessionId").on(t.userSessionId),
+]);
 
 export const resourceWhitelist = pgTable("resourceWhitelist", {
     whitelistId: serial("id").primaryKey(),
@@ -985,7 +998,9 @@ export const resourceWhitelist = pgTable("resourceWhitelist", {
     resourceId: integer("resourceId")
         .notNull()
         .references(() => resources.resourceId, { onDelete: "cascade" })
-});
+}, (t) => [
+    index("idx_resourceWhitelist_resourceId").on(t.resourceId),
+]);
 
 export const resourceOtp = pgTable("resourceOtp", {
     otpId: serial("otpId").primaryKey(),
@@ -1022,7 +1037,9 @@ export const resourceRules = pgTable("resourceRules", {
         >()
         .notNull(), // CIDR, PATH, IP
     value: varchar("value").notNull()
-});
+}, (t) => [
+    index("idx_resourceRules_resourceId").on(t.resourceId),
+]);
 
 export const resourcePolicyRules = pgTable("resourcePolicyRules", {
     ruleId: serial("ruleId").primaryKey(),
