@@ -134,13 +134,12 @@ export async function verifyResourceSession(
             ? stripPortFromHost(requestIp, badgerVersion)
             : undefined;
 
-        logger.debug("Client IP:", { clientIp });
+        if (logger.isLevelEnabled("debug")) {
+            logger.debug("Client IP:", { clientIp });
+        }
 
-        const ipCC = clientIp
-            ? await getCountryCodeFromIp(clientIp)
-            : undefined;
-
-        const ipAsn = clientIp ? await getAsnFromIp(clientIp) : undefined;
+        let ipCC: string | undefined;
+        let ipAsn: number | undefined;
 
         let cleanHost = host;
         // if the host ends with :port, strip it
@@ -243,13 +242,15 @@ export async function verifyResourceSession(
 
         // check the rules
         if (applyRules) {
-            const action = await checkRules(
+            const rulesResult = await checkRules(
                 resource.resourceId,
                 clientIp,
-                path,
-                ipCC,
-                ipAsn
+                path
             );
+
+            const action = rulesResult?.action;
+            ipCC = rulesResult?.ipCC;
+            ipAsn = rulesResult?.ipAsn;
 
             if (action == "ACCEPT") {
                 logger.debug("Resource allowed by rule");
@@ -1258,10 +1259,15 @@ async function isUserAllowedToAccessResource(
 async function checkRules(
     resourceId: number,
     clientIp: string | undefined,
-    path: string | undefined,
-    ipCC?: string,
-    ipAsn?: number
-): Promise<"ACCEPT" | "DROP" | "PASS" | undefined> {
+    path: string | undefined
+): Promise<
+    | {
+          action: "ACCEPT" | "DROP" | "PASS" | undefined;
+          ipCC?: string;
+          ipAsn?: number;
+      }
+    | undefined
+> {
     const ruleCacheKey = `rules:${resourceId}`;
 
     let rules: ResourceRule[] | undefined = localCache.get(ruleCacheKey);
@@ -1272,12 +1278,17 @@ async function checkRules(
     }
 
     if (rules.length === 0) {
-        logger.debug("No rules found for resource", resourceId);
+        if (logger.isLevelEnabled("debug")) {
+            logger.debug("No rules found for resource", resourceId);
+        }
         return;
     }
 
     // sort rules by priority in ascending order
     rules = rules.sort((a, b) => a.priority - b.priority);
+
+    let ipCC: string | undefined;
+    let ipAsn: number | undefined;
 
     for (const rule of rules) {
         if (!rule.enabled) {
@@ -1289,15 +1300,15 @@ async function checkRules(
             rule.match == "CIDR" &&
             isIpInCidr(clientIp, rule.value)
         ) {
-            return rule.action as any;
+            return { action: rule.action as any, ipCC, ipAsn };
         } else if (clientIp && rule.match == "IP" && clientIp == rule.value) {
-            return rule.action as any;
+            return { action: rule.action as any, ipCC, ipAsn };
         } else if (
             path &&
             rule.match == "PATH" &&
             isPathAllowed(rule.value, path)
         ) {
-            return rule.action as any;
+            return { action: rule.action as any, ipCC, ipAsn };
         } else if (
             clientIp &&
             (rule.match === "COUNTRY" || rule.match === "COUNTRY_IS_NOT")
@@ -1310,11 +1321,15 @@ async function checkRules(
                 continue;
             }
 
+            if (!ipCC) {
+                ipCC = await getCountryCodeFromIp(clientIp);
+            }
+
             const inCountry = await isIpInGeoIP(ipCC, rule.value);
             const matched = rule.match === "COUNTRY" ? inCountry : !inCountry;
 
             if (matched) {
-                return rule.action as any;
+                return { action: rule.action as any, ipCC, ipAsn };
             }
         } else if (clientIp && rule.match == "ASN") {
             // ASN=ALL/AS0 should not affect local/private/CGNAT addresses.
@@ -1326,19 +1341,25 @@ async function checkRules(
                 continue;
             }
 
-            if (await isIpInAsn(ipAsn, rule.value)) {
-                return rule.action as any;
+            if (!ipAsn) {
+                ipAsn = await getAsnFromIp(clientIp);
             }
-        } else if (
-            clientIp &&
-            rule.match == "REGION" &&
-            (await isIpInRegion(ipCC, rule.value))
-        ) {
-            return rule.action as any;
+
+            if (await isIpInAsn(ipAsn, rule.value)) {
+                return { action: rule.action as any, ipCC, ipAsn };
+            }
+        } else if (clientIp && rule.match == "REGION") {
+            if (!ipCC) {
+                ipCC = await getCountryCodeFromIp(clientIp);
+            }
+
+            if (await isIpInRegion(ipCC, rule.value)) {
+                return { action: rule.action as any, ipCC, ipAsn };
+            }
         }
     }
 
-    return;
+    return { action: "PASS", ipCC, ipAsn };
 }
 
 export { isPathAllowed };
