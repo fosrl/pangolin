@@ -727,6 +727,7 @@
     "proxyCompressExcludedContentTypes": "Excluded Content Types",
     "proxyCompressExcludedContentTypesDescription": "One content type per line. Responses with these content types will not be compressed.",
     "proxyCache": "Enable Caching",
+    "proxyCachePath": "The base path that files will be created under.",
     "proxyCacheDescription": "Cache HTTP responses locally on disk.",
     "target": "Target",
     "configureTarget": "Configure Targets",
