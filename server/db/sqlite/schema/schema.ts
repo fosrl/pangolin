@@ -213,9 +213,8 @@ export const resources = sqliteTable("resources", {
     authDaemonPort: integer("authDaemonPort").default(22123),
     enableCompress: integer("enableCompress", { mode: "boolean" }).notNull().default(false),
     compressExcludedContentTypes: text("compressExcludedContentTypes"), // JSON array of strings
-    enableCache: integer("enableCache", { mode: "boolean" })
-        .notNull()
-        .default(false),
+    enableCache: integer("enableCache", { mode: "boolean" }).notNull().default(false),
+    enableCachePath: text("enableCachePath").notNull(),
     status: text("status").$type<"pending" | "approved">().default("approved")
 });
 
