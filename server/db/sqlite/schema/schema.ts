@@ -211,6 +211,8 @@ export const resources = sqliteTable("resources", {
         .$type<"site" | "remote" | "native">()
         .default("site"),
     authDaemonPort: integer("authDaemonPort").default(22123),
+    enableCache: integer("enableCache", { mode: "boolean" }).notNull().default(false),
+    enableCachePath: text("enableCachePath").notNull().default("/tmp"),
     status: text("status").$type<"pending" | "approved">().default("approved")
 });
 

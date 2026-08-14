@@ -109,6 +109,8 @@ export async function getTraefikConfig(
             headers: resources.headers,
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
+            enableCache: resources.enableCache,
+            enableCachePath: resources.enableCachePath,
             wildcard: resources.wildcard,
             mode: resources.mode,
 
@@ -251,6 +253,8 @@ export async function getTraefikConfig(
                 headers: row.headers,
                 proxyProtocol: row.proxyProtocol,
                 proxyProtocolVersion: row.proxyProtocolVersion ?? 1,
+                enableCache: row.enableCache,
+                enableCachePath: row.enableCachePath,
                 path: row.path, // the targets will all have the same path
                 pathMatchType: row.pathMatchType, // the targets will all have the same pathMatchType
                 rewritePath: row.rewritePath,
@@ -817,6 +821,22 @@ export async function getTraefikConfig(
 
                     routerMiddlewares.push(headersMiddlewareName);
                 }
+            }
+
+            // Handle caching middleware if enabled
+            if (resource.enableCache) {
+                const cacheMiddlewareName = `${key}-cache-middleware`;
+                if (!config_output.http.middlewares) {
+                    config_output.http.middlewares = {};
+                }
+                config_output.http.middlewares[cacheMiddlewareName] = {
+                    plugin: {
+                        cache: {
+                            path: resource.enableCachePath || "/tmp"
+                        }
+                    }
+                };
+                routerMiddlewares.push(cacheMiddlewareName);
             }
 
             if (resource.path && resource.pathMatchType) {
