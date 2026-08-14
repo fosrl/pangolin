@@ -87,7 +87,17 @@ const defaultExcludedContentTypes = [
     "font/woff",
     "font/woff2",
     "application/zip",
-    "application/gzip"
+    "application/gzip",
+    "application/x-gzip",
+    "application/x-7z-compressed",
+    "application/x-rar-compressed",
+    "application/vnd.rar",
+    "application/x-bzip",
+    "application/x-bzip2",
+    "application/x-tar",
+    "application/x-xz",
+    "application/zstd",
+    "application/pdf",
 ];
 
 function ProxyResourceHttpForm({
