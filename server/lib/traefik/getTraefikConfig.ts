@@ -70,6 +70,7 @@ export async function getTraefikConfig(
             enableCompress: resources.enableCompress,
             compressExcludedContentTypes: resources.compressExcludedContentTypes,
             enableCache: resources.enableCache,
+            enableCachePath: resources.enableCachePath,
             mode: resources.mode,
 
             // Target fields
@@ -190,6 +191,7 @@ export async function getTraefikConfig(
                 enableCompress: row.enableCompress,
                 compressExcludedContentTypes: row.compressExcludedContentTypes,
                 enableCache: row.enableCache,
+                enableCachePath: row.enableCachePath,
                 // Store domain cert resolver fields
                 domainCertResolver: row.domainCertResolver,
                 preferWildcardCert: row.preferWildcardCert
@@ -409,12 +411,12 @@ export async function getTraefikConfig(
             }
 
             // Handle compression middleware if enabled
-            if (resource.compress) {
+            if (resource.enableCompress) {
                 // TODO
             }
 
             // Handle caching middleware if enabled
-            if (resource.cacheEnabled) {
+            if (resource.enableCache) {
                 // TODO
             }
 
