@@ -67,6 +67,9 @@ export async function getTraefikConfig(
             headers: resources.headers,
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
+            enableCompress: resources.enableCompress,
+            compressExcludedContentTypes: resources.compressExcludedContentTypes,
+            enableCache: resources.enableCache,
             mode: resources.mode,
 
             // Target fields
@@ -184,6 +187,9 @@ export async function getTraefikConfig(
                 rewritePath: row.rewritePath,
                 rewritePathType: row.rewritePathType,
                 priority: priority,
+                enableCompress: row.enableCompress,
+                compressExcludedContentTypes: row.compressExcludedContentTypes,
+                enableCache: row.enableCache,
                 // Store domain cert resolver fields
                 domainCertResolver: row.domainCertResolver,
                 preferWildcardCert: row.preferWildcardCert
@@ -402,28 +408,14 @@ export async function getTraefikConfig(
                 }
             }
 
-            // Build routing rules
-            let rule = `Host(\`${fullDomain}\`)`;
+            // Handle compression middleware if enabled
+            if (resource.compress) {
+            // TODO
+            }
 
-            // priority logic
-            let priority: number;
-            if (resource.priority && resource.priority != 100) {
-                priority = resource.priority;
-            } else {
-                priority = 100;
-                if (resource.path && resource.pathMatchType) {
-                    priority += 10;
-                    if (resource.pathMatchType === "exact") {
-                        priority += 5;
-                    } else if (resource.pathMatchType === "prefix") {
-                        priority += 3;
-                    } else if (resource.pathMatchType === "regex") {
-                        priority += 2;
-                    }
-                    if (resource.path === "/") {
-                        priority = 1; // lowest for catch-all
-                    }
-                }
+            // Handle caching middleware if enabled
+            if (resource.enableCache) {
+            // TODO
             }
 
             if (resource.path && resource.pathMatchType) {
