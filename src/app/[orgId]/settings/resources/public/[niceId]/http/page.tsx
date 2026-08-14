@@ -134,8 +134,9 @@ function ProxyResourceHttpForm({
             .array(z.object({ name: z.string(), value: z.string() }))
             .nullable(),
         enableCompress: z.boolean(),
+        compressExcludedContentTypes: z.string().optional(),
         enableCache: z.boolean(),
-        compressExcludedContentTypes: z.string().optional()
+        enableCachePath: z.string(),
     });
 
     const form = useForm({
@@ -147,7 +148,6 @@ function ProxyResourceHttpForm({
             setHostHeader: resource.setHostHeader || "",
             headers: resource.headers,
             enableCompress: resource.enableCompress ?? false,
-            enableCache: resource.enableCache ?? false,
             compressExcludedContentTypes: (() => {
                 if (!resource.compressExcludedContentTypes) {
                     return defaultExcludedContentTypes.join("\n");
@@ -161,7 +161,9 @@ function ProxyResourceHttpForm({
                     }
                 } catch {}
                 return defaultExcludedContentTypes.join("\n");
-            })()
+            })(),
+            enableCache: resource.enableCache ?? false,
+            enableCachePath: resource.enableCachePath || ""
         },
         mode: "onChange"
     });
@@ -201,8 +203,9 @@ function ProxyResourceHttpForm({
                     setHostHeader: data.setHostHeader || null,
                     headers: data.headers || null,
                     enableCompress: data.enableCompress,
+                    compressExcludedContentTypes: excludedContentTypesArray,
                     enableCache: data.cacheEnabled,
-                    compressExcludedContentTypes: excludedContentTypesArray
+                    enableCachePath: data.enableCachePath,
                 }
             )
             .catch((err) => {
@@ -225,10 +228,9 @@ function ProxyResourceHttpForm({
                 setHostHeader: data.setHostHeader || null,
                 headers: data.headers || null,
                 enableCompress: data.enableCompress,
+                compressExcludedContentTypes: JSON.stringify(excludedContentTypesArray),
                 enableCache: data.enableCache,
-                compressExcludedContentTypes: JSON.stringify(
-                    excludedContentTypesArray
-                )
+                enableCachePath: data.enableCachePath
             });
 
             toast({
@@ -335,7 +337,7 @@ function ProxyResourceHttpForm({
                                     />
                                 </SettingsFormCell>
 
-                                {form.watch("compress") && (
+                                {form.watch("enableCompress") && (
                                     <SettingsFormCell span="full">
                                         <FormField
                                             control={form.control}
@@ -393,6 +395,37 @@ function ProxyResourceHttpForm({
                                         )}
                                     />
                                 </SettingsFormCell>
+
+                                {form.watch("enableCache") && (
+                                    <SettingsFormCell span="full">
+                                        <FormField
+                                            control={form.control}
+                                            name="enableCachePath"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t(
+                                                            "proxyCachePath"
+                                                        )}
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            {...field}
+                                                            rows={1}
+                                                            placeholder={enableCachePath}
+                                                        />
+                                                    </FormControl>
+                                                    <FormDescription>
+                                                        {t(
+                                                            "proxyCachePathDescription"
+                                                        )}
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </SettingsFormCell>
+                                )}
 
                                 <SettingsFormCell span="full">
                                     <FormField
