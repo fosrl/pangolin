@@ -214,7 +214,7 @@ export const resources = sqliteTable("resources", {
     enableCompress: integer("enableCompress", { mode: "boolean" }).notNull().default(false),
     compressExcludedContentTypes: text("compressExcludedContentTypes"), // JSON array of strings
     enableCache: integer("enableCache", { mode: "boolean" }).notNull().default(false),
-    enableCachePath: text("enableCachePath").notNull(),
+    enableCachePath: text("enableCachePath").notNull().default("/tmp"),
     status: text("status").$type<"pending" | "approved">().default("approved")
 });
 
