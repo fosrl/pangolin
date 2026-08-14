@@ -408,14 +408,28 @@ export async function getTraefikConfig(
                 }
             }
 
-            // Handle compression middleware if enabled
-            if (resource.compress) {
-            // TODO
-            }
+            // Build routing rules
+            let rule = `Host(\`${fullDomain}\`)`;
 
-            // Handle caching middleware if enabled
-            if (resource.enableCache) {
-            // TODO
+            // priority logic
+            let priority: number;
+            if (resource.priority && resource.priority != 100) {
+                priority = resource.priority;
+            } else {
+                priority = 100;
+                if (resource.path && resource.pathMatchType) {
+                    priority += 10;
+                    if (resource.pathMatchType === "exact") {
+                        priority += 5;
+                    } else if (resource.pathMatchType === "prefix") {
+                        priority += 3;
+                    } else if (resource.pathMatchType === "regex") {
+                        priority += 2;
+                    }
+                    if (resource.path === "/") {
+                        priority = 1; // lowest for catch-all
+                    }
+                }
             }
 
             if (resource.path && resource.pathMatchType) {
