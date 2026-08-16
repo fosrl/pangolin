@@ -4,7 +4,7 @@ import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
-import { resourceAccessToken, resources, sessions } from "@server/db";
+import { resourceAccessToken, resources, resourceSessions } from "@server/db";
 import { db } from "@server/db";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import {
@@ -12,7 +12,6 @@ import {
     serializeResourceSessionCookie,
     validateResourceSessionToken
 } from "@server/auth/sessions/resource";
-import { resourceAccessToken, resources, resourceSessions } from "@server/db";
 import {
     generateSessionToken,
     SESSION_COOKIE_EXPIRES
