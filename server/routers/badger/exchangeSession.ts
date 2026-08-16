@@ -12,6 +12,7 @@ import {
     serializeResourceSessionCookie,
     validateResourceSessionToken
 } from "@server/auth/sessions/resource";
+import { resourceAccessToken, resources, resourceSessions } from "@server/db";
 import {
     generateSessionToken,
     SESSION_COOKIE_EXPIRES
@@ -128,7 +129,7 @@ export async function exchangeSession(
             );
         }
 
-        await db.delete(sessions).where(eq(sessions.sessionId, requestToken));
+        await db.delete(resourceSessions).where(eq(resourceSessions.sessionId, requestSession.sessionId));
 
         const token = generateSessionToken();
 
