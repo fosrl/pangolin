@@ -200,6 +200,28 @@ export async function createTarget(
             );
         }
 
+        if (resource.mode === "ssh") {
+            const isSingleSiteMode =
+                resource.authDaemonMode === "native" ||
+                (resource.pamMode === "push" && resource.authDaemonMode === "site");
+
+            if (isSingleSiteMode) {
+                const existingTargets = await db
+                    .select()
+                    .from(targets)
+                    .where(eq(targets.resourceId, resourceId));
+                
+                if (existingTargets.length > 0) {
+                    return next(
+                        createHttpError(
+                            HttpCode.BAD_REQUEST,
+                            "Only one target is allowed for SSH resources in push+site or native mode"
+                        )
+                    );
+                }
+            }
+        }
+
         const siteId = targetData.siteId;
 
         const [site] = await db
