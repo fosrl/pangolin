@@ -498,7 +498,8 @@ async function updateHttpResource(
     }
 
     // catch when the resource policy changes or gets cleared
-    if (resource.resourcePolicyId != updateData.resourcePolicyId) {
+    if (updateData.resourcePolicyId !== undefined && 
+        resource.resourcePolicyId !== updateData.resourcePolicyId) {
         await clearResourceSpecificSettings(
             resource.resourceId,
             resource.orgId,
