@@ -31,7 +31,7 @@ export async function addPeer(
             .where(eq(newts.siteId, siteId))
             .limit(1);
         if (!newt) {
-            throw new Error(`Site found for site ${siteId}`);
+            throw new Error(`Newt not found for site ${siteId}`);
         }
         newtId = newt.newtId;
     }
