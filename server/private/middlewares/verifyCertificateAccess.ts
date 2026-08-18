@@ -66,6 +66,24 @@ export async function verifyCertificateAccess(
 
         let domainId = domainIdFromParams || domainIdFromBody;
 
+        // If certId is in URL and domainId came from body, validate relationship
+        if (certIdFromParams && domainIdFromBody) {
+            const [cert] = await db
+                .select()
+                .from(certificates)
+                .where(eq(certificates.certId, Number(certIdFromParams)))
+                .limit(1);
+
+            if (!cert || cert.domainId !== domainIdFromBody) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Domain ID does not match certificate"
+                    )
+                );
+            }
+        }
+
         if (!orgId) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Invalid organization ID")
