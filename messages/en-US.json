@@ -1789,6 +1789,8 @@
     "aiClientConfigTabCli": "Automatic (CLI)",
     "aiClientConfigTabManual": "Manual Configuration",
     "aiClientConfigEndpointPlaceholder": "https://example.resource.url.com",
+    "aiClientConfigRevealError": "Could not load your API key.",
+    "aiClientConfigRevealRetry": "Try again",
     "resourceGeneralAiClientConfigLink": "See how to configure access to this resource in common clients like Claude Code and OpenCode",
     "aiProvidersTitle": "AI Providers",
     "aiProvidersDescription": "Connect model providers for AI workloads in this organization",

@@ -171,10 +171,6 @@ export default function UserVirtualApiKeys({
         orgId,
         initialData.userKey.virtualApiKeyId
     );
-    const keyPreview = formatVirtualApiKeyPreview(
-        initialData.userKey.virtualApiKeyId,
-        initialData.userKey.lastChars
-    );
 
     return (
         <>
@@ -184,15 +180,6 @@ export default function UserVirtualApiKeys({
                     virtualApiKeyId={initialData.userKey.virtualApiKeyId}
                     lastChars={initialData.userKey.lastChars}
                     resourceName={resourceName}
-                />
-
-                <AiClientConfigSection
-                    endpoint={t("aiClientConfigEndpointPlaceholder")}
-                    auth={{
-                        mode: "keyed",
-                        keyDisplay: keyPreview,
-                        getKeyText: getKeyCopyText
-                    }}
                 />
 
                 {initialData.manualKeys.length > 0 ? (
@@ -227,6 +214,15 @@ export default function UserVirtualApiKeys({
                         </SettingsSectionBody>
                     </SettingsSection>
                 ) : null}
+
+                <AiClientConfigSection
+                    layout="wide"
+                    endpoint={t("aiClientConfigEndpointPlaceholder")}
+                    auth={{
+                        mode: "keyed",
+                        getKeyText: getKeyCopyText
+                    }}
+                />
             </SettingsContainer>
         </>
     );

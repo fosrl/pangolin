@@ -18,7 +18,6 @@ export function AiConfigCodeBlock({ block }: { block: AiConfigBlock }) {
             >
                 <CopyTextBox
                     text={block.displayText}
-                    getCopyText={block.getCopyText}
                     wrapText={block.kind === "steps"}
                 />
             </div>

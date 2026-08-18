@@ -1,16 +1,26 @@
 export const AI_CLIENT_IDS = ["claude", "codex", "opencode", "cursor"] as const;
 export type AiClientId = (typeof AI_CLIENT_IDS)[number];
 
-export type AiClientAuth =
-    | { mode: "keyed"; keyDisplay: string; getKeyText: () => Promise<string> }
+export const AI_CLIENT_NAMES: Record<AiClientId, string> = {
+    claude: "Claude Code",
+    codex: "Codex",
+    opencode: "OpenCode",
+    cursor: "Cursor"
+};
+
+/** Auth as supplied by callers: the real key isn't fetched yet. */
+export type AiClientAuthInput =
+    | { mode: "keyed"; getKeyText: () => Promise<string> }
     | { mode: "keyless" };
+
+/** Auth once the real key (if any) has been resolved. */
+export type AiClientAuth = { mode: "keyed"; key: string } | { mode: "keyless" };
 
 export type AiConfigBlock = {
     id: string;
     label: string;
     kind?: "code" | "steps";
     displayText: string;
-    getCopyText?: () => Promise<string>;
 };
 
 export type AiClientPresetId = "default" | "bedrock" | "vertex" | "kimi";
@@ -35,14 +45,8 @@ export type AiClientGuide = {
     presets: AiConfigPreset[];
 };
 
-function authValue(auth: AiClientAuth): {
-    display: string;
-    getCopyText?: () => Promise<string>;
-} {
-    if (auth.mode === "keyed") {
-        return { display: auth.keyDisplay, getCopyText: auth.getKeyText };
-    }
-    return { display: "-" };
+function keyValue(auth: AiClientAuth): string {
+    return auth.mode === "keyed" ? auth.key : "-";
 }
 
 function block(
@@ -52,14 +56,7 @@ function block(
     auth: AiClientAuth,
     kind: "code" | "steps" = "code"
 ): AiConfigBlock {
-    const { display, getCopyText } = authValue(auth);
-    return {
-        id,
-        label,
-        kind,
-        displayText: build(display),
-        getCopyText: getCopyText ? async () => build(await getCopyText()) : undefined
-    };
+    return { id, label, kind, displayText: build(keyValue(auth)) };
 }
 
 function buildCli(clientArg: "claude" | "codex", auth: AiClientAuth): AiCliCommands {
@@ -84,16 +81,12 @@ function buildCli(clientArg: "claude" | "codex", auth: AiClientAuth): AiCliComma
         configureWithKey: {
             id: `cli-configure-key-${clientArg}`,
             label: "Configure with an API key",
-            displayText: `pangolin configure ${clientArg} ${auth.keyDisplay}`,
-            getCopyText: async () =>
-                `pangolin configure ${clientArg} ${await auth.getKeyText()}`
+            displayText: `pangolin configure ${clientArg} ${auth.key}`
         },
         runWithKey: {
             id: `cli-run-key-${clientArg}`,
             label: "Run with an API key",
-            displayText: `pangolin run ${clientArg} ${auth.keyDisplay}`,
-            getCopyText: async () =>
-                `pangolin run ${clientArg} ${await auth.getKeyText()}`
+            displayText: `pangolin run ${clientArg} ${auth.key}`
         }
     };
 }
@@ -184,7 +177,7 @@ function buildClaudeGuide(endpoint: string, auth: AiClientAuth): AiClientGuide {
 
     return {
         id: "claude",
-        name: "Claude Code",
+        name: AI_CLIENT_NAMES.claude,
         cli: buildCli("claude", auth),
         presets: [
             {
@@ -240,7 +233,7 @@ function buildCodexGuide(endpoint: string, auth: AiClientAuth): AiClientGuide {
 
     return {
         id: "codex",
-        name: "Codex",
+        name: AI_CLIENT_NAMES.codex,
         cli: buildCli("codex", auth),
         presets: [
             {
@@ -284,7 +277,7 @@ function buildOpencodeGuide(endpoint: string, auth: AiClientAuth): AiClientGuide
 
     return {
         id: "opencode",
-        name: "OpenCode",
+        name: AI_CLIENT_NAMES.opencode,
         cli: null,
         presets: [
             {
@@ -316,7 +309,7 @@ function buildCursorGuide(endpoint: string, auth: AiClientAuth): AiClientGuide {
 
     return {
         id: "cursor",
-        name: "Cursor",
+        name: AI_CLIENT_NAMES.cursor,
         cli: null,
         presets: [
             {
@@ -328,11 +321,20 @@ function buildCursorGuide(endpoint: string, auth: AiClientAuth): AiClientGuide {
     };
 }
 
-export function buildAiClientGuides(endpoint: string, auth: AiClientAuth): AiClientGuide[] {
-    return [
-        buildClaudeGuide(endpoint, auth),
-        buildCodexGuide(endpoint, auth),
-        buildOpencodeGuide(endpoint, auth),
-        buildCursorGuide(endpoint, auth)
-    ];
+const GUIDE_BUILDERS: Record<
+    AiClientId,
+    (endpoint: string, auth: AiClientAuth) => AiClientGuide
+> = {
+    claude: buildClaudeGuide,
+    codex: buildCodexGuide,
+    opencode: buildOpencodeGuide,
+    cursor: buildCursorGuide
+};
+
+export function buildAiClientGuide(
+    clientId: AiClientId,
+    endpoint: string,
+    auth: AiClientAuth
+): AiClientGuide {
+    return GUIDE_BUILDERS[clientId](endpoint, auth);
 }

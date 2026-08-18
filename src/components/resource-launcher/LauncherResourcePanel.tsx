@@ -36,7 +36,6 @@ import {
 import { getLauncherResourceAdminHref } from "@app/lib/launcherResourceAdminHref";
 import { isSafeUrlForLink } from "@app/lib/launcherResourceAccess";
 import { launcherQueries } from "@app/lib/queries";
-import { formatVirtualApiKeyPreview } from "@app/lib/virtualApiKeyFormat";
 import type { LauncherResource } from "@server/routers/launcher/types";
 import type { GetResourceAuthInfoResponse } from "@server/routers/resource/getResourceAuthInfo";
 import type { GetResourceResponse } from "@server/routers/resource/getResource";
@@ -350,10 +349,6 @@ function PublicResourceDetails({
                             endpoint={launcherResource.accessUrl ?? ""}
                             auth={{
                                 mode: "keyed",
-                                keyDisplay: formatVirtualApiKeyPreview(
-                                    aiKeysData.userKey.virtualApiKeyId,
-                                    aiKeysData.userKey.lastChars
-                                ),
                                 getKeyText: getAiKeyCopyText
                             }}
                         />

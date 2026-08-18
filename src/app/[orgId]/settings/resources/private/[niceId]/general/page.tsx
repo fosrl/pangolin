@@ -74,7 +74,7 @@ export default function PrivateResourceGeneralPage() {
                     {siteResource.mode === "inference" ? (
                         <p className="text-sm pt-1">
                             <Link
-                                href={`/${siteResource.orgId}?query=${encodeURIComponent(siteResource.name)}`}
+                                href={`/${siteResource.orgId}?openResource=${encodeURIComponent(siteResource.niceId)}&openResourceQuery=${encodeURIComponent(siteResource.name)}`}
                                 className="text-primary hover:underline"
                             >
                                 {t("resourceGeneralAiClientConfigLink")}

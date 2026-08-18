@@ -259,7 +259,7 @@ export default function GeneralForm() {
                         {resource.mode === "inference" ? (
                             <p className="text-sm pt-1">
                                 <Link
-                                    href={`/${resource.orgId}?query=${encodeURIComponent(resource.name)}`}
+                                    href={`/${resource.orgId}?openResource=${encodeURIComponent(resource.niceId)}&openResourceQuery=${encodeURIComponent(resource.name)}`}
                                     className="text-primary hover:underline"
                                 >
                                     {t("resourceGeneralAiClientConfigLink")}

@@ -8,37 +8,43 @@ import {
     SettingsSectionHeader,
     SettingsSectionTitle
 } from "@app/components/Settings";
-import type { AiClientAuth } from "@app/lib/aiClientConfig";
-import { buildAiClientGuides } from "@app/lib/aiClientConfig";
+import {
+    AI_CLIENT_IDS,
+    AI_CLIENT_NAMES,
+    type AiClientAuthInput
+} from "@app/lib/aiClientConfig";
 import { cn } from "@app/lib/cn";
 import { MousePointerClick, Sparkles, SquareTerminal, TerminalSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
 
 type AiClientConfigSectionProps = {
     endpoint: string;
-    auth: AiClientAuth;
+    auth: AiClientAuthInput;
+    /**
+     * "wide" lays the client cards out side by side and allows a card's
+     * code blocks to sit side by side once there's room (e.g. the Keys
+     * page). "compact" always stacks both, which is what fits the
+     * Resource Launcher's side panel.
+     */
+    layout?: "wide" | "compact";
     className?: string;
 };
+
+const CLIENT_ICONS = {
+    claude: Sparkles,
+    codex: TerminalSquare,
+    opencode: SquareTerminal,
+    cursor: MousePointerClick
+} as const;
 
 export function AiClientConfigSection({
     endpoint,
     auth,
+    layout = "compact",
     className
 }: AiClientConfigSectionProps) {
     const t = useTranslations();
-
-    const guides = useMemo(
-        () => buildAiClientGuides(endpoint, auth),
-        [endpoint, auth]
-    );
-
-    const icons = {
-        claude: Sparkles,
-        codex: TerminalSquare,
-        opencode: SquareTerminal,
-        cursor: MousePointerClick
-    } as const;
+    const isWide = layout === "wide";
 
     const descriptions: Record<string, string> = {
         claude: t("aiClientConfigDescriptionClaude"),
@@ -58,18 +64,26 @@ export function AiClientConfigSection({
                 </SettingsSectionDescription>
             </SettingsSectionHeader>
             <SettingsSectionBody>
-                <div
-                    className={cn("@container space-y-3", className)}
-                >
-                    {guides.map((guide, index) => (
-                        <AiClientConfigCard
-                            key={guide.id}
-                            guide={guide}
-                            description={descriptions[guide.id]}
-                            icon={icons[guide.id]}
-                            defaultOpen={index === 0}
-                        />
-                    ))}
+                <div className={cn("@container", className)}>
+                    <div
+                        className={cn(
+                            "grid gap-3",
+                            isWide && "@3xl:grid-cols-2"
+                        )}
+                    >
+                        {AI_CLIENT_IDS.map((clientId) => (
+                            <AiClientConfigCard
+                                key={clientId}
+                                clientId={clientId}
+                                name={AI_CLIENT_NAMES[clientId]}
+                                endpoint={endpoint}
+                                keyAuth={auth}
+                                description={descriptions[clientId]}
+                                icon={CLIENT_ICONS[clientId]}
+                                stackBlocks={!isWide}
+                            />
+                        ))}
+                    </div>
                 </div>
             </SettingsSectionBody>
         </SettingsSection>

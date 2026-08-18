@@ -1,6 +1,7 @@
 "use client";
 
 import { AiConfigCodeBlock } from "@app/components/ai-client-config/AiConfigCodeBlock";
+import { Button } from "@app/components/ui/button";
 import {
     Collapsible,
     CollapsibleContent,
@@ -19,35 +20,80 @@ import {
     TabsList,
     TabsTrigger
 } from "@app/components/ui/tabs";
-import type { AiClientGuide, AiClientPresetId } from "@app/lib/aiClientConfig";
+import type {
+    AiClientAuthInput,
+    AiClientId,
+    AiClientPresetId
+} from "@app/lib/aiClientConfig";
+import { buildAiClientGuide } from "@app/lib/aiClientConfig";
 import { cn } from "@app/lib/cn";
-import { ChevronDown, type LucideIcon } from "lucide-react";
+import { ChevronDown, Loader2, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type AiClientConfigCardProps = {
-    guide: AiClientGuide;
+    clientId: AiClientId;
+    name: string;
+    endpoint: string;
+    keyAuth: AiClientAuthInput;
     description: string;
     icon: LucideIcon;
-    defaultOpen?: boolean;
+    stackBlocks?: boolean;
 };
 
 export function AiClientConfigCard({
-    guide,
+    clientId,
+    name,
+    endpoint,
+    keyAuth,
     description,
     icon: Icon,
-    defaultOpen = false
+    stackBlocks = true
 }: AiClientConfigCardProps) {
     const t = useTranslations();
-    const [open, setOpen] = useState(defaultOpen);
-    const [presetId, setPresetId] = useState<AiClientPresetId>(
-        guide.presets[0]?.id ?? "default"
-    );
+    const [open, setOpen] = useState(false);
+    const [presetId, setPresetId] = useState<AiClientPresetId>("default");
+    const [revealedKey, setRevealedKey] = useState<string | null>(null);
+    const [revealing, setRevealing] = useState(false);
+    const [revealError, setRevealError] = useState(false);
+
+    const reveal = () => {
+        if (keyAuth.mode !== "keyed" || revealedKey !== null || revealing) {
+            return;
+        }
+        setRevealing(true);
+        setRevealError(false);
+        keyAuth
+            .getKeyText()
+            .then(setRevealedKey)
+            .catch(() => setRevealError(true))
+            .finally(() => setRevealing(false));
+    };
+
+    const handleOpenChange = (next: boolean) => {
+        setOpen(next);
+        if (next) {
+            reveal();
+        }
+    };
+
+    const guide = useMemo(() => {
+        if (keyAuth.mode === "keyless") {
+            return buildAiClientGuide(clientId, endpoint, { mode: "keyless" });
+        }
+        if (revealedKey === null) {
+            return null;
+        }
+        return buildAiClientGuide(clientId, endpoint, {
+            mode: "keyed",
+            key: revealedKey
+        });
+    }, [clientId, endpoint, keyAuth.mode, revealedKey]);
 
     const preset =
-        guide.presets.find((p) => p.id === presetId) ?? guide.presets[0];
+        guide?.presets.find((p) => p.id === presetId) ?? guide?.presets[0];
 
-    const manualContent = (
+    const manualContent = guide ? (
         <div className="space-y-4">
             {guide.presets.length > 1 ? (
                 <Select
@@ -68,24 +114,29 @@ export function AiClientConfigCard({
                     </SelectContent>
                 </Select>
             ) : null}
-            <div className="grid gap-4 @lg:grid-cols-2">
+            <div
+                className={cn(
+                    "grid gap-4",
+                    !stackBlocks && "@lg:grid-cols-2"
+                )}
+            >
                 {preset?.blocks.map((block) => (
                     <AiConfigCodeBlock key={block.id} block={block} />
                 ))}
             </div>
         </div>
-    );
+    ) : null;
 
     return (
         <Collapsible
             open={open}
-            onOpenChange={setOpen}
+            onOpenChange={handleOpenChange}
             className="rounded-md border bg-card"
         >
             <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left cursor-pointer">
                 <Icon className="size-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{guide.name}</p>
+                    <p className="font-medium truncate">{name}</p>
                     <p className="text-xs text-muted-foreground truncate">
                         {description}
                     </p>
@@ -98,40 +149,62 @@ export function AiClientConfigCard({
                 />
             </CollapsibleTrigger>
             <CollapsibleContent className="border-t px-4 py-4">
-                {guide.cli ? (
-                    <Tabs defaultValue="cli">
-                        <TabsList>
-                            <TabsTrigger value="cli">
-                                {t("aiClientConfigTabCli")}
-                            </TabsTrigger>
-                            <TabsTrigger value="manual">
-                                {t("aiClientConfigTabManual")}
-                            </TabsTrigger>
-                        </TabsList>
-                        <TabsContent
-                            value="cli"
-                            className="grid gap-4 @lg:grid-cols-2 mt-4"
-                        >
-                            <AiConfigCodeBlock block={guide.cli.configure} />
-                            <AiConfigCodeBlock block={guide.cli.run} />
-                            {guide.cli.configureWithKey ? (
+                {!guide && revealing ? (
+                    <div className="flex items-center justify-center py-6 text-muted-foreground">
+                        <Loader2 className="size-5 animate-spin" />
+                    </div>
+                ) : null}
+                {!guide && revealError ? (
+                    <div className="flex flex-col items-center gap-2 py-6 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            {t("aiClientConfigRevealError")}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={reveal}>
+                            {t("aiClientConfigRevealRetry")}
+                        </Button>
+                    </div>
+                ) : null}
+                {guide ? (
+                    guide.cli ? (
+                        <Tabs defaultValue="cli">
+                            <TabsList>
+                                <TabsTrigger value="cli">
+                                    {t("aiClientConfigTabCli")}
+                                </TabsTrigger>
+                                <TabsTrigger value="manual">
+                                    {t("aiClientConfigTabManual")}
+                                </TabsTrigger>
+                            </TabsList>
+                            <TabsContent
+                                value="cli"
+                                className={cn(
+                                    "grid gap-4 mt-4",
+                                    !stackBlocks && "@lg:grid-cols-2"
+                                )}
+                            >
                                 <AiConfigCodeBlock
-                                    block={guide.cli.configureWithKey}
+                                    block={guide.cli.configure}
                                 />
-                            ) : null}
-                            {guide.cli.runWithKey ? (
-                                <AiConfigCodeBlock
-                                    block={guide.cli.runWithKey}
-                                />
-                            ) : null}
-                        </TabsContent>
-                        <TabsContent value="manual" className="mt-4">
-                            {manualContent}
-                        </TabsContent>
-                    </Tabs>
-                ) : (
-                    manualContent
-                )}
+                                <AiConfigCodeBlock block={guide.cli.run} />
+                                {guide.cli.configureWithKey ? (
+                                    <AiConfigCodeBlock
+                                        block={guide.cli.configureWithKey}
+                                    />
+                                ) : null}
+                                {guide.cli.runWithKey ? (
+                                    <AiConfigCodeBlock
+                                        block={guide.cli.runWithKey}
+                                    />
+                                ) : null}
+                            </TabsContent>
+                            <TabsContent value="manual" className="mt-4">
+                                {manualContent}
+                            </TabsContent>
+                        </Tabs>
+                    ) : (
+                        manualContent
+                    )
+                ) : null}
             </CollapsibleContent>
         </Collapsible>
     );
