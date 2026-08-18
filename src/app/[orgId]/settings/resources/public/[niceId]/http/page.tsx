@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HeadersInput } from "@app/components/HeadersInput";
+import { Textarea } from "@app/components/ui/textarea";
 import {
     SettingsContainer,
     SettingsFormCell,
@@ -79,6 +80,26 @@ export default function ReverseProxyTargetsPage() {
     );
 }
 
+const defaultExcludedContentTypes = [
+    "image/*",
+    "video/*",
+    "audio/*",
+    "font/woff",
+    "font/woff2",
+    "application/zip",
+    "application/gzip",
+    "application/x-gzip",
+    "application/x-7z-compressed",
+    "application/x-rar-compressed",
+    "application/vnd.rar",
+    "application/x-bzip",
+    "application/x-bzip2",
+    "application/x-tar",
+    "application/x-xz",
+    "application/zstd",
+    "application/pdf",
+];
+
 function ProxyResourceHttpForm({
     resource,
     updateResource
@@ -121,7 +142,9 @@ function ProxyResourceHttpForm({
             ),
         headers: z
             .array(z.object({ name: z.string(), value: z.string() }))
-            .nullable()
+            .nullable(),
+        enableCompress: z.boolean(),
+        compressExcludedContentTypes: z.string().optional(),
     });
 
     const form = useForm({
@@ -131,7 +154,22 @@ function ProxyResourceHttpForm({
             ssl: resource.ssl,
             tlsServerName: resource.tlsServerName || "",
             setHostHeader: resource.setHostHeader || "",
-            headers: resource.headers
+            headers: resource.headers,
+            enableCompress: resource.enableCompress ?? false,
+            compressExcludedContentTypes: (() => {
+                if (!resource.compressExcludedContentTypes) {
+                    return defaultExcludedContentTypes.join("\n");
+                }
+                try {
+                    const parsed = JSON.parse(
+                        resource.compressExcludedContentTypes
+                    );
+                    if (Array.isArray(parsed)) {
+                        return parsed.join("\n");
+                    }
+                } catch {}
+                return defaultExcludedContentTypes.join("\n");
+            })(),
         },
         mode: "onChange"
     });
@@ -154,6 +192,13 @@ function ProxyResourceHttpForm({
 
         const data = form.getValues();
 
+        const excludedContentTypesArray = data.compressExcludedContentTypes
+            ? data.compressExcludedContentTypes
+                  .split("\n")
+                  .map((item) => item.trim())
+                  .filter((item) => item.length > 0)
+            : defaultExcludedContentTypes;
+
         const res = await api
             .post<AxiosResponse<UpdateResourceResponse>>(
                 `/resource/${resource.resourceId}`,
@@ -162,7 +207,9 @@ function ProxyResourceHttpForm({
                     ssl: data.ssl,
                     tlsServerName: data.tlsServerName || null,
                     setHostHeader: data.setHostHeader || null,
-                    headers: data.headers || null
+                    headers: data.headers || null,
+                    enableCompress: data.enableCompress,
+                    compressExcludedContentTypes: excludedContentTypesArray,
                 }
             )
             .catch((err) => {
@@ -183,7 +230,9 @@ function ProxyResourceHttpForm({
                 ssl: data.ssl,
                 tlsServerName: data.tlsServerName || null,
                 setHostHeader: data.setHostHeader || null,
-                headers: data.headers || null
+                headers: data.headers || null,
+                enableCompress: data.enableCompress,
+                compressExcludedContentTypes: JSON.stringify(excludedContentTypesArray),
             });
 
             toast({
@@ -344,6 +393,65 @@ function ProxyResourceHttpForm({
                                         )}
                                     />
                                 </SettingsFormCell>
+
+                                <SettingsFormCell span="full">
+                                    <FormField
+                                        control={form.control}
+                                        name="enableCompress"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <SwitchInput
+                                                        id="compress-toggle"
+                                                        label={t(
+                                                            "proxyCompress"
+                                                        )}
+                                                        description={t(
+                                                            "proxyCompressDescription"
+                                                        )}
+                                                        checked={field.value}
+                                                        onCheckedChange={
+                                                            field.onChange
+                                                        }
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </SettingsFormCell>
+
+                                {form.watch("enableCompress") && (
+                                    <SettingsFormCell span="full">
+                                        <FormField
+                                            control={form.control}
+                                            name="compressExcludedContentTypes"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t(
+                                                            "proxyCompressExcludedContentTypes"
+                                                        )}
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            {...field}
+                                                            rows={6}
+                                                            placeholder={defaultExcludedContentTypes.join(
+                                                                "\n"
+                                                            )}
+                                                        />
+                                                    </FormControl>
+                                                    <FormDescription>
+                                                        {t(
+                                                            "proxyCompressExcludedContentTypesDescription"
+                                                        )}
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </SettingsFormCell>
+                                )}
                             </SettingsFormGrid>
                         </form>
                     </Form>

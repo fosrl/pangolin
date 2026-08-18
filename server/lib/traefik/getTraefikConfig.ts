@@ -67,6 +67,8 @@ export async function getTraefikConfig(
             headers: resources.headers,
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
+            enableCompress: resources.enableCompress,
+            compressExcludedContentTypes: resources.compressExcludedContentTypes,
             mode: resources.mode,
 
             // Target fields
@@ -184,6 +186,8 @@ export async function getTraefikConfig(
                 rewritePath: row.rewritePath,
                 rewritePathType: row.rewritePathType,
                 priority: priority,
+                enableCompress: row.enableCompress,
+                compressExcludedContentTypes: row.compressExcludedContentTypes,
                 // Store domain cert resolver fields
                 domainCertResolver: row.domainCertResolver,
                 preferWildcardCert: row.preferWildcardCert
@@ -400,6 +404,56 @@ export async function getTraefikConfig(
 
                     routerMiddlewares.push(headersMiddlewareName);
                 }
+            }
+
+            // Handle compression middleware if enabled
+            if (resource.enableCompress) {
+                const compressMiddlewareName = `${key}-compress-middleware`;
+                if (!config_output.http.middlewares) {
+                    config_output.http.middlewares = {};
+                }
+
+                let excludedContentTypes = [
+                    "image/*",
+                    "video/*",
+                    "audio/*",
+                    "font/woff",
+                    "font/woff2",
+                    "application/zip",
+                    "application/gzip",
+                    "application/x-gzip",
+                    "application/x-7z-compressed",
+                    "application/x-rar-compressed",
+                    "application/vnd.rar",
+                    "application/x-bzip",
+                    "application/x-bzip2",
+                    "application/x-tar",
+                    "application/x-xz",
+                    "application/zstd",
+                    "application/pdf"
+                ];
+
+                if (resource.compressExcludedContentTypes) {
+                    try {
+                        const parsed = JSON.parse(
+                            resource.compressExcludedContentTypes
+                        );
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            excludedContentTypes = parsed;
+                        }
+                    } catch (e) {
+                        logger.warn(
+                            `Failed to parse compressExcludedContentTypes for resource ${resource.resourceId}: ${e}`
+                        );
+                    }
+                }
+
+                config_output.http.middlewares[compressMiddlewareName] = {
+                    compress: {
+                        excludedContentTypes: excludedContentTypes
+                    }
+                };
+                routerMiddlewares.push(compressMiddlewareName);
             }
 
             // Build routing rules
