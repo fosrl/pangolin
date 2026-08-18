@@ -5,6 +5,7 @@ import moment from "moment";
 import { Button } from "@app/components/ui/button";
 import CopyTextBox from "@app/components/CopyTextBox";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import { AiClientConfigSection } from "@app/components/ai-client-config/AiClientConfigSection";
 import {
     SettingsContainer,
     SettingsFormCell,
@@ -166,6 +167,14 @@ export default function UserVirtualApiKeys({
 }: UserVirtualApiKeysProps) {
     const t = useTranslations();
     const resourceName = initialData.resourceName;
+    const { getCopyText: getKeyCopyText } = useMyVirtualApiKeySecret(
+        orgId,
+        initialData.userKey.virtualApiKeyId
+    );
+    const keyPreview = formatVirtualApiKeyPreview(
+        initialData.userKey.virtualApiKeyId,
+        initialData.userKey.lastChars
+    );
 
     return (
         <>
@@ -175,6 +184,15 @@ export default function UserVirtualApiKeys({
                     virtualApiKeyId={initialData.userKey.virtualApiKeyId}
                     lastChars={initialData.userKey.lastChars}
                     resourceName={resourceName}
+                />
+
+                <AiClientConfigSection
+                    endpoint={t("aiClientConfigEndpointPlaceholder")}
+                    auth={{
+                        mode: "keyed",
+                        keyDisplay: keyPreview,
+                        getKeyText: getKeyCopyText
+                    }}
                 />
 
                 {initialData.manualKeys.length > 0 ? (

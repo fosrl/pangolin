@@ -27,6 +27,7 @@ import { SwitchInput } from "@app/components/SwitchInput";
 import { createGeneralFormSchema } from "@app/lib/privateResourceForm";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useActionState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -70,6 +71,16 @@ export default function PrivateResourceGeneralPage() {
                     <SettingsSectionDescription>
                         {t("privateResourceGeneralDescription")}
                     </SettingsSectionDescription>
+                    {siteResource.mode === "inference" ? (
+                        <p className="text-sm pt-1">
+                            <Link
+                                href={`/${siteResource.orgId}?query=${encodeURIComponent(siteResource.name)}`}
+                                className="text-primary hover:underline"
+                            >
+                                {t("resourceGeneralAiClientConfigLink")}
+                            </Link>
+                        </p>
+                    ) : null}
                 </SettingsSectionHeader>
 
                 <SettingsSectionBody>

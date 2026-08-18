@@ -1,5 +1,6 @@
 "use client";
 
+import { AiClientConfigSection } from "@app/components/ai-client-config/AiClientConfigSection";
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import {
     InfoSection,
@@ -27,6 +28,7 @@ import {
 } from "@app/components/SidePanel";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { Button } from "@app/components/ui/button";
+import { useMyVirtualApiKeySecret } from "@app/hooks/useMyVirtualApiKeySecret";
 import {
     derivePublicAuthState,
     formatPublicResourceType
@@ -34,6 +36,7 @@ import {
 import { getLauncherResourceAdminHref } from "@app/lib/launcherResourceAdminHref";
 import { isSafeUrlForLink } from "@app/lib/launcherResourceAccess";
 import { launcherQueries } from "@app/lib/queries";
+import { formatVirtualApiKeyPreview } from "@app/lib/virtualApiKeyFormat";
 import type { LauncherResource } from "@server/routers/launcher/types";
 import type { GetResourceAuthInfoResponse } from "@server/routers/resource/getResourceAuthInfo";
 import type { GetResourceResponse } from "@server/routers/resource/getResource";
@@ -249,6 +252,15 @@ function PublicResourceDetails({
     const authState = derivePublicAuthState(resource.mode, authInfo);
     const infoSectionCount = 2 + (showAuthBadge ? 1 : 0) + (showHealth ? 1 : 0);
 
+    const { data: aiKeysData } = useQuery({
+        ...launcherQueries.myVirtualApiKeys(orgId, resource.resourceGuid),
+        enabled: isInference
+    });
+    const { getCopyText: getAiKeyCopyText } = useMyVirtualApiKeySecret(
+        orgId,
+        aiKeysData?.userKey.virtualApiKeyId ?? ""
+    );
+
     return (
         <div className="space-y-4">
             <SettingsSection>
@@ -333,6 +345,19 @@ function PublicResourceDetails({
                         orgId={orgId}
                         resourceGuid={resource.resourceGuid}
                     />
+                    {aiKeysData ? (
+                        <AiClientConfigSection
+                            endpoint={launcherResource.accessUrl ?? ""}
+                            auth={{
+                                mode: "keyed",
+                                keyDisplay: formatVirtualApiKeyPreview(
+                                    aiKeysData.userKey.virtualApiKeyId,
+                                    aiKeysData.userKey.lastChars
+                                ),
+                                getKeyText: getAiKeyCopyText
+                            }}
+                        />
+                    ) : null}
                 </>
             ) : null}
         </div>
@@ -397,13 +422,19 @@ function PrivateResourceDetails({
                 </SettingsSectionBody>
             </SettingsSection>
             {isInference ? (
-                <LauncherInferenceModelsSection
-                    orgId={orgId}
-                    params={{
-                        resourceType: "site",
-                        siteResourceId: resource.siteResourceId
-                    }}
-                />
+                <>
+                    <LauncherInferenceModelsSection
+                        orgId={orgId}
+                        params={{
+                            resourceType: "site",
+                            siteResourceId: resource.siteResourceId
+                        }}
+                    />
+                    <AiClientConfigSection
+                        endpoint={launcherResource.accessUrl ?? ""}
+                        auth={{ mode: "keyless" }}
+                    />
+                </>
             ) : null}
         </div>
     );

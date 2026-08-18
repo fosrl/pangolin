@@ -256,6 +256,16 @@ export default function GeneralForm() {
                         <SettingsSectionDescription>
                             {t("resourceGeneralDescription")}
                         </SettingsSectionDescription>
+                        {resource.mode === "inference" ? (
+                            <p className="text-sm pt-1">
+                                <Link
+                                    href={`/${resource.orgId}?query=${encodeURIComponent(resource.name)}`}
+                                    className="text-primary hover:underline"
+                                >
+                                    {t("resourceGeneralAiClientConfigLink")}
+                                </Link>
+                            </p>
+                        ) : null}
                     </SettingsSectionHeader>
 
                     <SettingsSectionBody>
