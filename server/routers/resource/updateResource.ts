@@ -91,6 +91,8 @@ const updateHttpResourceBodySchema = z
         stickySession: z.boolean().optional(),
         tlsServerName: z.string().nullable().optional(),
         setHostHeader: z.string().nullable().optional(),
+        enableCache: z.boolean().optional(),
+        enableCachePath: z.string().optional(),
         skipToIdpId: z
             .int()
             .positive()

@@ -176,6 +176,8 @@ export const resources = pgTable(
         tlsServerName: varchar("tlsServerName"),
         setHostHeader: varchar("setHostHeader"),
         enableProxy: boolean("enableProxy").default(true),
+        enableCache: boolean("enableCache").notNull().default(false),
+        enableCachePath: text("enableCachePath").notNull().default("/tmp"),
         skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {
             onDelete: "set null"
         }),

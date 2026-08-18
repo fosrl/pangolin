@@ -121,7 +121,9 @@ function ProxyResourceHttpForm({
             ),
         headers: z
             .array(z.object({ name: z.string(), value: z.string() }))
-            .nullable()
+            .nullable(),
+        enableCache: z.boolean(),
+        enableCachePath: z.string(),
     });
 
     const form = useForm({
@@ -131,7 +133,9 @@ function ProxyResourceHttpForm({
             ssl: resource.ssl,
             tlsServerName: resource.tlsServerName || "",
             setHostHeader: resource.setHostHeader || "",
-            headers: resource.headers
+            headers: resource.headers,
+            enableCache: resource.enableCache ?? false,
+            enableCachePath: resource.enableCachePath || "",
         },
         mode: "onChange"
     });
@@ -162,7 +166,9 @@ function ProxyResourceHttpForm({
                     ssl: data.ssl,
                     tlsServerName: data.tlsServerName || null,
                     setHostHeader: data.setHostHeader || null,
-                    headers: data.headers || null
+                    headers: data.headers || null,
+                    enableCache: data.enableCache,
+                    enableCachePath: data.enableCachePath,
                 }
             )
             .catch((err) => {
@@ -183,7 +189,9 @@ function ProxyResourceHttpForm({
                 ssl: data.ssl,
                 tlsServerName: data.tlsServerName || null,
                 setHostHeader: data.setHostHeader || null,
-                headers: data.headers || null
+                headers: data.headers || null,
+                enableCache: data.enableCache,
+                enableCachePath: data.enableCachePath,
             });
 
             toast({
@@ -344,6 +352,62 @@ function ProxyResourceHttpForm({
                                         )}
                                     />
                                 </SettingsFormCell>
+
+                                <SettingsFormCell span="full">
+                                    <FormField
+                                        control={form.control}
+                                        name="enableCache"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <SwitchInput
+                                                        id="cache-toggle"
+                                                        label={t(
+                                                            "proxyCache"
+                                                        )}
+                                                        description={t(
+                                                            "proxyCacheDescription"
+                                                        )}
+                                                        checked={field.value}
+                                                        onCheckedChange={
+                                                            field.onChange
+                                                        }
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </SettingsFormCell>
+
+                                {form.watch("enableCache") && (
+                                    <SettingsFormCell span="full">
+                                        <FormField
+                                            control={form.control}
+                                            name="enableCachePath"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t(
+                                                            "proxyCachePath"
+                                                        )}
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            {...field}
+                                                            placeholder="/tmp"
+                                                        />
+                                                    </FormControl>
+                                                    <FormDescription>
+                                                        {t(
+                                                            "proxyCachePathDescription"
+                                                        )}
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </SettingsFormCell>
+                                )}
                             </SettingsFormGrid>
                         </form>
                     </Form>
