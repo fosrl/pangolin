@@ -117,7 +117,9 @@ export function AiClientConfigCard({
             <div
                 className={cn(
                     "grid gap-4",
-                    !stackBlocks && "@lg:grid-cols-2"
+                    !stackBlocks &&
+                        (preset?.blocks.length ?? 0) > 1 &&
+                        "@lg:grid-cols-2"
                 )}
             >
                 {preset?.blocks.map((block) => (
