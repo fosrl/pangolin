@@ -21,10 +21,10 @@ type AiClientConfigSectionProps = {
     endpoint: string;
     auth: AiClientAuthInput;
     /**
-     * "wide" lays the client cards out side by side and allows a card's
-     * code blocks to sit side by side once there's room (e.g. the Keys
-     * page). "compact" always stacks both, which is what fits the
-     * Resource Launcher's side panel.
+     * "wide" lays the client cards out side by side once there's room
+     * (e.g. the Keys page). "compact" always stacks them, which is what
+     * fits the Resource Launcher's side panel. A card's own code blocks
+     * always stack regardless of this setting.
      */
     layout?: "wide" | "compact";
     className?: string;
@@ -64,10 +64,10 @@ export function AiClientConfigSection({
                 </SettingsSectionDescription>
             </SettingsSectionHeader>
             <SettingsSectionBody>
-                <div className={cn("@container", className)}>
+                <div className={cn("@container min-w-0", className)}>
                     <div
                         className={cn(
-                            "grid gap-3",
+                            "grid min-w-0 gap-3",
                             isWide && "@3xl:grid-cols-2"
                         )}
                     >
@@ -80,7 +80,6 @@ export function AiClientConfigSection({
                                 keyAuth={auth}
                                 description={descriptions[clientId]}
                                 icon={CLIENT_ICONS[clientId]}
-                                stackBlocks={!isWide}
                             />
                         ))}
                     </div>

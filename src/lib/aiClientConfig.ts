@@ -34,8 +34,6 @@ export type AiConfigPreset = {
 export type AiCliCommands = {
     configure: AiConfigBlock;
     configureWithKey?: AiConfigBlock;
-    run: AiConfigBlock;
-    runWithKey?: AiConfigBlock;
 };
 
 export type AiClientGuide = {
@@ -59,34 +57,26 @@ function block(
     return { id, label, kind, displayText: build(keyValue(auth)) };
 }
 
-function buildCli(clientArg: "claude" | "codex", auth: AiClientAuth): AiCliCommands {
+function buildCli(
+    clientArg: "claude" | "codex" | "opencode",
+    auth: AiClientAuth
+): AiCliCommands {
     const configure: AiConfigBlock = {
         id: `cli-configure-${clientArg}`,
         label: "Configure",
         displayText: `pangolin configure ${clientArg}`
     };
-    const run: AiConfigBlock = {
-        id: `cli-run-${clientArg}`,
-        label: "Run",
-        displayText: `pangolin run ${clientArg}`
-    };
 
     if (auth.mode !== "keyed") {
-        return { configure, run };
+        return { configure };
     }
 
     return {
         configure,
-        run,
         configureWithKey: {
             id: `cli-configure-key-${clientArg}`,
             label: "Configure with an API key",
             displayText: `pangolin configure ${clientArg} ${auth.key}`
-        },
-        runWithKey: {
-            id: `cli-run-key-${clientArg}`,
-            label: "Run with an API key",
-            displayText: `pangolin run ${clientArg} ${auth.key}`
         }
     };
 }
@@ -278,7 +268,7 @@ function buildOpencodeGuide(endpoint: string, auth: AiClientAuth): AiClientGuide
     return {
         id: "opencode",
         name: AI_CLIENT_NAMES.opencode,
-        cli: null,
+        cli: buildCli("opencode", auth),
         presets: [
             {
                 id: "default",

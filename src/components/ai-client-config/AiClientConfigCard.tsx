@@ -38,7 +38,6 @@ type AiClientConfigCardProps = {
     keyAuth: AiClientAuthInput;
     description: string;
     icon: LucideIcon;
-    stackBlocks?: boolean;
 };
 
 export function AiClientConfigCard({
@@ -47,8 +46,7 @@ export function AiClientConfigCard({
     endpoint,
     keyAuth,
     description,
-    icon: Icon,
-    stackBlocks = true
+    icon: Icon
 }: AiClientConfigCardProps) {
     const t = useTranslations();
     const [open, setOpen] = useState(false);
@@ -94,7 +92,7 @@ export function AiClientConfigCard({
         guide?.presets.find((p) => p.id === presetId) ?? guide?.presets[0];
 
     const manualContent = guide ? (
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
             {guide.presets.length > 1 ? (
                 <Select
                     value={presetId}
@@ -114,14 +112,7 @@ export function AiClientConfigCard({
                     </SelectContent>
                 </Select>
             ) : null}
-            <div
-                className={cn(
-                    "grid gap-4",
-                    !stackBlocks &&
-                        (preset?.blocks.length ?? 0) > 1 &&
-                        "@lg:grid-cols-2"
-                )}
-            >
+            <div className="grid min-w-0 gap-4">
                 {preset?.blocks.map((block) => (
                     <AiConfigCodeBlock key={block.id} block={block} />
                 ))}
@@ -133,7 +124,7 @@ export function AiClientConfigCard({
         <Collapsible
             open={open}
             onOpenChange={handleOpenChange}
-            className="rounded-md border bg-card"
+            className="min-w-0 rounded-md border bg-card"
         >
             <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left cursor-pointer">
                 <Icon className="size-4 shrink-0 text-muted-foreground" />
@@ -150,7 +141,7 @@ export function AiClientConfigCard({
                     )}
                 />
             </CollapsibleTrigger>
-            <CollapsibleContent className="border-t px-4 py-4">
+            <CollapsibleContent className="min-w-0 border-t px-4 py-4">
                 {!guide && revealing ? (
                     <div className="flex items-center justify-center py-6 text-muted-foreground">
                         <Loader2 className="size-5 animate-spin" />
@@ -179,27 +170,21 @@ export function AiClientConfigCard({
                             </TabsList>
                             <TabsContent
                                 value="cli"
-                                className={cn(
-                                    "grid gap-4 mt-4",
-                                    !stackBlocks && "@lg:grid-cols-2"
-                                )}
+                                className="grid min-w-0 gap-4 mt-4"
                             >
                                 <AiConfigCodeBlock
                                     block={guide.cli.configure}
                                 />
-                                <AiConfigCodeBlock block={guide.cli.run} />
                                 {guide.cli.configureWithKey ? (
                                     <AiConfigCodeBlock
                                         block={guide.cli.configureWithKey}
                                     />
                                 ) : null}
-                                {guide.cli.runWithKey ? (
-                                    <AiConfigCodeBlock
-                                        block={guide.cli.runWithKey}
-                                    />
-                                ) : null}
                             </TabsContent>
-                            <TabsContent value="manual" className="mt-4">
+                            <TabsContent
+                                value="manual"
+                                className="min-w-0 mt-4"
+                            >
                                 {manualContent}
                             </TabsContent>
                         </Tabs>
