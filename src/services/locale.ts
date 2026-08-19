@@ -10,6 +10,51 @@ import { authCookieHeader } from "@app/lib/api/cookies";
 const COOKIE_NAME = "NEXT_LOCALE";
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year in seconds
 
+function matchLocaleFromAcceptLanguage(
+    acceptLang: string | null | undefined
+): Locale | null {
+    if (!acceptLang) return null;
+
+    const parsedLanguages = acceptLang
+        .split(",")
+        .map((langStr) => {
+            const [rawTag, ...params] = langStr.trim().split(";");
+            const tag = rawTag.trim();
+            let q = 1.0;
+            for (const param of params) {
+                const [key, val] = param.trim().split("=");
+                if (key === "q" && val) {
+                    const parsedQ = parseFloat(val);
+                    if (!isNaN(parsedQ)) {
+                        q = parsedQ;
+                    }
+                }
+            }
+            return { tag, q };
+        })
+        .filter((item) => item.tag.length > 0 && item.q > 0)
+        .sort((a, b) => b.q - a.q);
+
+    for (const { tag } of parsedLanguages) {
+        const exactMatch = locales.find(
+            (locale: Locale) => locale.toLowerCase() === tag.toLowerCase()
+        );
+        if (exactMatch) {
+            return exactMatch;
+        }
+
+        const baseTag = tag.split("-")[0].toLowerCase();
+        const prefixMatch = locales.find(
+            (locale: Locale) => locale.split("-")[0].toLowerCase() === baseTag
+        );
+        if (prefixMatch) {
+            return prefixMatch;
+        }
+    }
+
+    return null;
+}
+
 export async function getUserLocale(): Promise<Locale> {
     const cookieLocale = (await cookies()).get(COOKIE_NAME)?.value;
 
@@ -46,16 +91,9 @@ export async function getUserLocale(): Promise<Locale> {
     const headerList = await headers();
     const acceptLang = headerList.get("accept-language");
 
-    if (acceptLang) {
-        const browserLang = acceptLang.split(",")[0];
-        const matched = locales.find((locale) =>
-            browserLang
-                .toLowerCase()
-                .startsWith(locale.split("-")[0].toLowerCase())
-        );
-        if (matched) {
-            return matched;
-        }
+    const matchedLocale = matchLocaleFromAcceptLanguage(acceptLang);
+    if (matchedLocale) {
+        return matchedLocale;
     }
 
     return defaultLocale;
