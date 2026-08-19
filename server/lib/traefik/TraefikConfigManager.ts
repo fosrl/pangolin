@@ -1205,6 +1205,11 @@ export function isDomainCoveredByWildcard(
 ): boolean {
     for (const [certDomain, state] of lastLocalCertificateState) {
         if (state.exists && state.wildcard) {
+            // If it's an exact match for the base domain
+            if (domain === certDomain) {
+                return true;
+            }
+
             // If stored as example.com but is wildcard, check subdomains
             if (domain.endsWith("." + certDomain)) {
                 // Check that it's only one level deep (wildcard only covers one level)
