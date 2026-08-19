@@ -17,7 +17,7 @@ function matchLocaleFromAcceptLanguage(
 
     const parsedLanguages = acceptLang
         .split(",")
-        .map((langStr) => {
+        .map((langStr, index) => {
             const [rawTag, ...params] = langStr.trim().split(";");
             const tag = rawTag.trim();
             let q = 1.0;
@@ -30,10 +30,10 @@ function matchLocaleFromAcceptLanguage(
                     }
                 }
             }
-            return { tag, q };
+            return { tag, q, index };
         })
         .filter((item) => item.tag.length > 0 && item.q > 0)
-        .sort((a, b) => b.q - a.q);
+        .sort((a, b) => b.q - a.q || a.index - b.index);
 
     for (const { tag } of parsedLanguages) {
         const exactMatch = locales.find(
