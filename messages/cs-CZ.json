@@ -1785,6 +1785,7 @@
     "aiClientConfigDescriptionClaude": "Antropický agentický kódovací nástroj pro terminál.",
     "aiClientConfigDescriptionCodex": "Agentický kódovací nástroj OpenAI pro terminál.",
     "aiClientConfigDescriptionOpencode": "Open source terminální kódovací agent.",
+    "aiClientConfigDescriptionGemini": "Google's agentic coding tool for the terminal.",
     "aiClientConfigSetup": "Nastavení",
     "aiClientConfigTabCli": "Automatické (CLI)",
     "aiClientConfigTabManual": "Ruční konfigurace",
