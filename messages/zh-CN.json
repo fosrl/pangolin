@@ -1785,6 +1785,7 @@
     "aiClientConfigDescriptionClaude": "Anthropic 的终端代理编码工具。",
     "aiClientConfigDescriptionCodex": "OpenAI 的终端代理编码工具。",
     "aiClientConfigDescriptionOpencode": "开源终端编码代理。",
+    "aiClientConfigDescriptionGemini": "Google's agentic coding tool for the terminal.",
     "aiClientConfigSetup": "设置",
     "aiClientConfigTabCli": "自动 (CLI)",
     "aiClientConfigTabManual": "手动配置",
