@@ -1923,6 +1923,8 @@
     "aiCapabilityOpenaiResponsesDescription": "Podporuje /v1/responses",
     "aiCapabilityAnthropicMessages": "Zprávy Anthropic",
     "aiCapabilityAnthropicMessagesDescription": "Podporuje /v1/messages",
+    "aiCapabilityAnthropicModels": "Anthropic Models",
+    "aiCapabilityAnthropicModelsDescription": "Supports /v1/models model discovery",
     "aiCapabilityGeminiGenerateContent": "Generování obsahu Gemini",
     "aiCapabilityGeminiGenerateContentDescription": "Podporuje přímé API Gemini",
     "aiCapabilityBedrockModelInvoke": "Vyvolání modelu Bedrock",
