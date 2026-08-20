@@ -1923,6 +1923,8 @@
     "aiCapabilityOpenaiResponsesDescription": "Поддържа /v1/responses",
     "aiCapabilityAnthropicMessages": "Anthropic Съобщения",
     "aiCapabilityAnthropicMessagesDescription": "Поддържа /v1/messages",
+    "aiCapabilityAnthropicModels": "Anthropic Models",
+    "aiCapabilityAnthropicModelsDescription": "Supports /v1/models model discovery",
     "aiCapabilityGeminiGenerateContent": "Gemini Генериране на Съдържание",
     "aiCapabilityGeminiGenerateContentDescription": "Поддържа директния Gemini API",
     "aiCapabilityBedrockModelInvoke": "Бедрок Модел Активирай",
