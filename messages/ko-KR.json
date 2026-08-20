@@ -1785,6 +1785,7 @@
     "aiClientConfigDescriptionClaude": "Anthropic의 터미널 에이전트 코딩 도구입니다.",
     "aiClientConfigDescriptionCodex": "OpenAI의 터미널 에이전트 코딩 도구입니다.",
     "aiClientConfigDescriptionOpencode": "오픈 소스 터미널 코딩 에이전트.",
+    "aiClientConfigDescriptionGemini": "Google's agentic coding tool for the terminal.",
     "aiClientConfigSetup": "설정",
     "aiClientConfigTabCli": "자동 (CLI)",
     "aiClientConfigTabManual": "수동 구성",
