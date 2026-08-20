@@ -1923,6 +1923,8 @@
     "aiCapabilityOpenaiResponsesDescription": "支持 /v1/responses",
     "aiCapabilityAnthropicMessages": "Anthropic 消息",
     "aiCapabilityAnthropicMessagesDescription": "支持 /v1/messages",
+    "aiCapabilityAnthropicModels": "Anthropic Models",
+    "aiCapabilityAnthropicModelsDescription": "Supports /v1/models model discovery",
     "aiCapabilityGeminiGenerateContent": "Gemini 生成内容",
     "aiCapabilityGeminiGenerateContentDescription": "支持直接Gemini API",
     "aiCapabilityBedrockModelInvoke": "Bedrock 模型调用",
