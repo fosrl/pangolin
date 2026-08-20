@@ -1785,6 +1785,7 @@
     "aiClientConfigDescriptionClaude": "Инструментът за кодиране на Anthropic за терминала.",
     "aiClientConfigDescriptionCodex": "Инструментът за кодиране на OpenAI за терминала.",
     "aiClientConfigDescriptionOpencode": "Отворен кодиращ агент за терминал.",
+    "aiClientConfigDescriptionGemini": "Google's agentic coding tool for the terminal.",
     "aiClientConfigSetup": "Настройка",
     "aiClientConfigTabCli": "Автоматичен (CLI)",
     "aiClientConfigTabManual": "Ръчна конфигурация",
