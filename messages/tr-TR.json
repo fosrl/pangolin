@@ -1785,6 +1785,7 @@
     "aiClientConfigDescriptionClaude": "Anthropic'in terminal için aracılık kodlama aracı.",
     "aiClientConfigDescriptionCodex": "OpenAI'nin terminal için aracılık kodlama aracı.",
     "aiClientConfigDescriptionOpencode": "Açık kaynak terminal kodlama aracı.",
+    "aiClientConfigDescriptionGemini": "Google's agentic coding tool for the terminal.",
     "aiClientConfigSetup": "Kurulum",
     "aiClientConfigTabCli": "Otomatik (CLI)",
     "aiClientConfigTabManual": "Manuel Yapılandırma",
