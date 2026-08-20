@@ -1923,6 +1923,8 @@
     "aiCapabilityOpenaiResponsesDescription": "Suporta /v1/responses",
     "aiCapabilityAnthropicMessages": "Mensagens Antropicas",
     "aiCapabilityAnthropicMessagesDescription": "Suporta /v1/messages",
+    "aiCapabilityAnthropicModels": "Anthropic Models",
+    "aiCapabilityAnthropicModelsDescription": "Supports /v1/models model discovery",
     "aiCapabilityGeminiGenerateContent": "Gêmeos Gerar Conteúdo",
     "aiCapabilityGeminiGenerateContentDescription": "Suporta a API diretta do Gêmeos",
     "aiCapabilityBedrockModelInvoke": "Modelo Bedrock Invocar",
