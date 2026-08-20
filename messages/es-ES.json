@@ -1923,6 +1923,8 @@
     "aiCapabilityOpenaiResponsesDescription": "Admite /v1/responses",
     "aiCapabilityAnthropicMessages": "Mensajes Antropicos",
     "aiCapabilityAnthropicMessagesDescription": "Admite /v1/messages",
+    "aiCapabilityAnthropicModels": "Anthropic Models",
+    "aiCapabilityAnthropicModelsDescription": "Supports /v1/models model discovery",
     "aiCapabilityGeminiGenerateContent": "Generar contenido Gemini",
     "aiCapabilityGeminiGenerateContentDescription": "Admite la API directa de Gemini",
     "aiCapabilityBedrockModelInvoke": "Invocar modelo de Bedrock",
