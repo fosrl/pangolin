@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Rute gjennom mål på dine nettsteder",
     "aiProviderRoutingModeTargetNote": "Etter å ha opprettet denne leverandøren, konfigurer områdemål på fanen Nettverksinnstillinger.",
     "aiProviderTargetNoOne": "Denne leverandøren har ingen mål. Legg til et mål for å rute forespørsler gjennom dine nettsteder.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Hopp over TLS-verifisering",
     "aiProviderSkipTlsVerificationDescription": "Deaktiver TLS-sertifikatverifisering for oppstrøms tilkobling",
     "aiProviderBudget": "Budsjett",
