@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Über Ziele auf Ihren Sites routen",
     "aiProviderRoutingModeTargetNote": "Konfigurieren Sie nach der Erstellung dieses Anbieters Site-Ziele auf der Registerkarte 'Netzwerkeinstellungen'.",
     "aiProviderTargetNoOne": "Dieser Anbieter hat keine Ziele. Fügen Sie ein Ziel hinzu, um Anfragen über Ihre Sites zu leiten.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "TLS-Überprüfung überspringen",
     "aiProviderSkipTlsVerificationDescription": "TLS-Zertifikatsüberprüfung für die Upstream-Verbindung deaktivieren",
     "aiProviderBudget": "Budget",
