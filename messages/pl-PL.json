@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Trasa przez cele na Twoich witrynach",
     "aiProviderRoutingModeTargetNote": "Po utworzeniu tego dostawcy, skonfiguruj cele witryny na karcie Ustawienia sieci.",
     "aiProviderTargetNoOne": "Ten dostawca nie ma żadnych celów. Dodaj cel, aby trasować zapytania przez swoje witryny.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Pomiń weryfikację TLS",
     "aiProviderSkipTlsVerificationDescription": "Wyłącz weryfikację certyfikatu TLS dla połączenia w górę",
     "aiProviderBudget": "Budżet",
