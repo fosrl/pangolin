@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Маршрутизация через цели на ваших сайтах",
     "aiProviderRoutingModeTargetNote": "После создания этого провайдера настройте целевые сайты на вкладке Сетевые настройки.",
     "aiProviderTargetNoOne": "У этого провайдера нет целей. Добавьте цель для маршрутизации запросов через ваши сайты.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Пропустить проверку TLS",
     "aiProviderSkipTlsVerificationDescription": "Отключить проверку сертификата TLS для исходного соединения",
     "aiProviderBudget": "Бюджет",
