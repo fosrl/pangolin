@@ -4087,6 +4087,8 @@
     "httpDestConnectionLogsDescription": "Události týkající se připojení lokality a tunelu, včetně připojení a odpojení.",
     "httpDestRequestLogsTitle": "Záznamy HTTP požadavků",
     "httpDestRequestLogsDescription": "HTTP záznamy požadavků pro proxy zdroje, včetně metod, cesty a kódu odpovědi.",
+    "httpDestAISessionLogsTitle": "AI Session Logs",
+    "httpDestAISessionLogsDescription": "AI gateway request and response sessions, including prompts, model responses, and token usage.",
     "httpDestSaveChanges": "Uložit změny",
     "httpDestCreateDestination": "Vytvořit cíl",
     "httpDestUpdatedSuccess": "Cíl byl úspěšně aktualizován",
