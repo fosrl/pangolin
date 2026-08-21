@@ -4087,6 +4087,8 @@
     "httpDestConnectionLogsDescription": "Udstyrs- og tunnelforbindelseshændelser, inklusive forbindelser og frakobling.",
     "httpDestRequestLogsTitle": "HTTP-forespørgselslogs",
     "httpDestRequestLogsDescription": "HTTP-forespørgsel logs for bekræftede ressourcer, inklusive metode, sti og responskode.",
+    "httpDestAISessionLogsTitle": "AI Session Logs",
+    "httpDestAISessionLogsDescription": "AI gateway request and response sessions, including prompts, model responses, and token usage.",
     "httpDestSaveChanges": "Gem ændringer",
     "httpDestCreateDestination": "Opret mål",
     "httpDestUpdatedSuccess": "Målet er opdateret",
