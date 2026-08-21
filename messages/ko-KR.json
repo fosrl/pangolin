@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "사이트의 타겟을 통해 라우트",
     "aiProviderRoutingModeTargetNote": "이 공급자를 생성한 후 네트워크 설정 탭에 사이트 타겟을 구성합니다.",
     "aiProviderTargetNoOne": "이 공급자에게 타겟이 없습니다. 사이트를 통해 요청을 라우트하기 위한 타겟을 추가하십시오.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "TLS 검증 건너뛰기",
     "aiProviderSkipTlsVerificationDescription": "상류 연결에 대한 TLS 인증서 검증 비활성화",
     "aiProviderBudget": "예산",
