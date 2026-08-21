@@ -4087,6 +4087,8 @@
     "httpDestConnectionLogsDescription": "사이트 및 터널 연결 이벤트, 연결 및 연결 끊기를 포함합니다.",
     "httpDestRequestLogsTitle": "HTTP 요청 로그",
     "httpDestRequestLogsDescription": "프록시된 리소스에 대한 HTTP 요청 로그, 메서드, 경로 및 응답 코드를 포함합니다.",
+    "httpDestAISessionLogsTitle": "AI Session Logs",
+    "httpDestAISessionLogsDescription": "AI gateway request and response sessions, including prompts, model responses, and token usage.",
     "httpDestSaveChanges": "변경 사항 저장",
     "httpDestCreateDestination": "대상지 생성",
     "httpDestUpdatedSuccess": "대상지가 성공적으로 업데이트되었습니다",
