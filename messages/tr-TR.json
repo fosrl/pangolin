@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Siteniz üzerindeki hedefler üzerinden yönlendirin",
     "aiProviderRoutingModeTargetNote": "Bu sağlayıcıyı oluşturduktan sonra, site hedeflerini Ağ Ayarları sekmesinde yapılandırın.",
     "aiProviderTargetNoOne": "Bu sağlayıcının herhangi bir hedefi yok. Sitemiz üzerinden istekleri yönlendirmek için bir hedef ekleyin.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "TLS Doğrulamayı Atla",
     "aiProviderSkipTlsVerificationDescription": "Yukarı akış bağlantısı için TLS sertifika doğrulamasını devre dışı bırakın",
     "aiProviderBudget": "Bütçe",
