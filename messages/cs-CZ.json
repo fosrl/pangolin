@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Směrujte přes cíle na svých stránkách",
     "aiProviderRoutingModeTargetNote": "Po vytvoření tohoto poskytovatele, nakonfigurujte cíle stránek na záložce Nastavení sítě.",
     "aiProviderTargetNoOne": "Tento poskytovatel nemá žádné cíle. Přidejte cíl pro směrování požadavků přes vaše stránky.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Přeskočit ověření TLS",
     "aiProviderSkipTlsVerificationDescription": "Zakázat ověření certifikátu TLS pro upstream připojení",
     "aiProviderBudget": "Rozpočet",
