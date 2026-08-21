@@ -4087,6 +4087,8 @@
     "httpDestConnectionLogsDescription": "Събития на свързване и прекъсване на сайта и тунела, включително свръзки и прекъсвания.",
     "httpDestRequestLogsTitle": "Логове за HTTP заявки",
     "httpDestRequestLogsDescription": "Регистри за HTTP заявките към проксирани ресурси, включително метод, път и код на отговор.",
+    "httpDestAISessionLogsTitle": "AI Session Logs",
+    "httpDestAISessionLogsDescription": "AI gateway request and response sessions, including prompts, model responses, and token usage.",
     "httpDestSaveChanges": "Запази промените",
     "httpDestCreateDestination": "Създаване на дестинация",
     "httpDestUpdatedSuccess": "Дестинацията беше актуализирана успешно",
