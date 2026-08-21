@@ -4087,6 +4087,8 @@
     "httpDestConnectionLogsDescription": "Site- und Tunnelverbindungen, einschließlich Verbindungen und Trennungen.",
     "httpDestRequestLogsTitle": "HTTP Anforderungsprotokolle",
     "httpDestRequestLogsDescription": "HTTP-Request-Protokolle für proxiierte Ressourcen, einschließlich Methode, Pfad und Antwort-Code.",
+    "httpDestAISessionLogsTitle": "AI Session Logs",
+    "httpDestAISessionLogsDescription": "AI gateway request and response sessions, including prompts, model responses, and token usage.",
     "httpDestSaveChanges": "Änderungen speichern",
     "httpDestCreateDestination": "Ziel erstellen",
     "httpDestUpdatedSuccess": "Ziel erfolgreich aktualisiert",
