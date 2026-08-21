@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Маршрутиране чрез цели на вашите сайтове",
     "aiProviderRoutingModeTargetNote": "След създаването на този доставчик, конфигурирайте целите на сайта в раздела Настройки на мрежата.",
     "aiProviderTargetNoOne": "Този доставчик няма цели. Добавете цел за маршрутиране на заявки чрез вашите сайтове.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Пропуснете проверката на TLS",
     "aiProviderSkipTlsVerificationDescription": "Деактивирайте проверката на TLS сертификат за възходящото свързване",
     "aiProviderBudget": "Бюджет",
