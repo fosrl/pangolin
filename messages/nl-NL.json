@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Routeer door doelen op uw sites",
     "aiProviderRoutingModeTargetNote": "Nadat u deze provider hebt aangemaakt, configureert u site-doelen op het tabblad Netwerkinstellingen.",
     "aiProviderTargetNoOne": "Deze provider heeft geen doelen. Voeg een doel toe om verzoeken via uw sites te routeren.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Sla TLS-verificatie over",
     "aiProviderSkipTlsVerificationDescription": "Schakel TLS-certificaatverificatie voor de upstream-verbinding uit",
     "aiProviderBudget": "Budget",
