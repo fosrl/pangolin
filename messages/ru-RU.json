@@ -4087,6 +4087,8 @@
     "httpDestConnectionLogsDescription": "События связи с сайтами и туннелями, включая соединения и отключения.",
     "httpDestRequestLogsTitle": "HTTP Запросы Логи",
     "httpDestRequestLogsDescription": "Журналы запросов HTTP для проксируемых ресурсов, включая метод, путь и код ответа.",
+    "httpDestAISessionLogsTitle": "AI Session Logs",
+    "httpDestAISessionLogsDescription": "AI gateway request and response sessions, including prompts, model responses, and token usage.",
     "httpDestSaveChanges": "Сохранить изменения",
     "httpDestCreateDestination": "Создать адрес назначения",
     "httpDestUpdatedSuccess": "Адрес назначения успешно обновлен",
