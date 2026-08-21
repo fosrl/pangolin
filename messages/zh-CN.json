@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "通过您站点上的目标进行路由",
     "aiProviderRoutingModeTargetNote": "创建此提供商后，在“网络设置”选项卡中配置站点目标。",
     "aiProviderTargetNoOne": "该提供商没有任何目标。 添加目标以通过您的站点路由请求。",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "跳过TLS验证",
     "aiProviderSkipTlsVerificationDescription": "禁用上游连接的TLS证书验证",
     "aiProviderBudget": "预算",
