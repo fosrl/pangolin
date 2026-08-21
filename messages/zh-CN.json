@@ -4087,6 +4087,8 @@
     "httpDestConnectionLogsDescription": "站点和隧道连接事件，包括连接和断开连接。",
     "httpDestRequestLogsTitle": "请求日志",
     "httpDestRequestLogsDescription": "HTTP 请求代理资源日志，包括方法、路径和响应代码。",
+    "httpDestAISessionLogsTitle": "AI Session Logs",
+    "httpDestAISessionLogsDescription": "AI gateway request and response sessions, including prompts, model responses, and token usage.",
     "httpDestSaveChanges": "保存更改",
     "httpDestCreateDestination": "创建目标",
     "httpDestUpdatedSuccess": "目标已成功更新",
