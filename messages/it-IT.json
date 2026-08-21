@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Instrada tramite target sui tuoi siti",
     "aiProviderRoutingModeTargetNote": "Dopo aver creato questo provider, configura i target del sito nella scheda Impostazioni di Rete.",
     "aiProviderTargetNoOne": "Questo provider non ha alcun target. Aggiungi un target per instradare le richieste attraverso i tuoi siti.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Salta la verifica TLS",
     "aiProviderSkipTlsVerificationDescription": "Disabilita la verifica del certificato TLS per la connessione a monte",
     "aiProviderBudget": "Budget",
