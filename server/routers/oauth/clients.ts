@@ -20,6 +20,7 @@ import response from "@server/lib/response";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
 import { validScopes } from "@server/lib/oauth/scopes";
 import { validateBackchannelLogoutUri } from "@server/lib/oauth/backchannelLogoutSecurity";
+import { CLIENT_AUTH_METHODS } from "@server/lib/oauth/clientAuthMethods";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().min(1)
@@ -42,6 +43,7 @@ const createBodySchema = z.strictObject({
         .optional()
         .default(["openid", "profile", "email"]),
     pkceRequired: z.boolean().optional().default(true),
+    clientAuthenticationMethod: z.enum(CLIENT_AUTH_METHODS).optional(),
     enabled: z.boolean().optional().default(true),
     logoutTerminatesPangolinSession: z.boolean().optional().default(false)
 });
@@ -55,6 +57,7 @@ const updateBodySchema = z.strictObject({
     postLogoutRedirectUris: z.array(z.string().url()).nullable().optional(),
     scopes: z.array(z.enum(validScopes)).optional(),
     pkceRequired: z.boolean().optional(),
+    clientAuthenticationMethod: z.enum(CLIENT_AUTH_METHODS).optional(),
     enabled: z.boolean().optional(),
     logoutTerminatesPangolinSession: z.boolean().optional()
 });
@@ -69,6 +72,7 @@ const publicClientColumns = {
     redirectUris: oauthClients.redirectUris,
     scopes: oauthClients.scopes,
     pkceRequired: oauthClients.pkceRequired,
+    clientAuthenticationMethod: oauthClients.clientAuthenticationMethod,
     enabled: oauthClients.enabled,
     logoutTerminatesPangolinSession:
         oauthClients.logoutTerminatesPangolinSession,
@@ -152,6 +156,8 @@ export async function createOAuthClient(
             redirectUris: body.redirectUris,
             scopes: normalizeScopes(body.scopes),
             pkceRequired: body.pkceRequired,
+            clientAuthenticationMethod:
+                body.clientAuthenticationMethod ?? "client_secret_jwt",
             enabled: body.enabled,
             logoutTerminatesPangolinSession:
                 body.logoutTerminatesPangolinSession,
@@ -345,6 +351,7 @@ export async function updateOAuthClient(
                     redirectUris: body.redirectUris,
                     scopes: updatedScopes,
                     pkceRequired: body.pkceRequired,
+                    clientAuthenticationMethod: body.clientAuthenticationMethod,
                     enabled: body.enabled,
                     logoutTerminatesPangolinSession:
                         body.logoutTerminatesPangolinSession,

@@ -18,6 +18,7 @@ export default async function migration() {
                     'clientId' text PRIMARY KEY NOT NULL,
                     'clientSecret' text,
                     'lastChars' text DEFAULT '' NOT NULL,
+                    'clientAuthenticationMethod' text DEFAULT 'client_secret_jwt' NOT NULL,
                     'clientName' text NOT NULL,
                     'clientUri' text,
                     'logoUri' text,

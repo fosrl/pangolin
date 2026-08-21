@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import HttpCode from "@server/types/HttpCode";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import { validScopes } from "@server/lib/oauth/scopes";
+import { CLIENT_AUTH_METHODS } from "@server/lib/oauth/clientAuthMethods";
 
 export function openidConfiguration(_: Request, res: Response): void {
     const issuer = getIssuerUrl();
@@ -19,11 +20,7 @@ export function openidConfiguration(_: Request, res: Response): void {
         subject_types_supported: ["public"],
         id_token_signing_alg_values_supported: ["RS256"],
         scopes_supported: [...validScopes],
-        token_endpoint_auth_methods_supported: [
-            "client_secret_jwt",
-            "client_secret_basic",
-            "client_secret_post"
-        ],
+        token_endpoint_auth_methods_supported: CLIENT_AUTH_METHODS,
         code_challenge_methods_supported: ["S256"],
         backchannel_logout_supported: true,
         backchannel_logout_session_supported: false,

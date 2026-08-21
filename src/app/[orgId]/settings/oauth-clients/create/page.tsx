@@ -58,6 +58,7 @@ export default function CreateOAuthClientPage() {
                         : undefined,
                 scopes: data.scopes,
                 pkceRequired: data.pkceRequired,
+                clientAuthenticationMethod: data.clientAuthenticationMethod,
                 enabled: data.enabled,
                 logoutTerminatesPangolinSession:
                     data.logoutTerminatesPangolinSession

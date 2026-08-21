@@ -83,6 +83,7 @@ async function authenticateClientAssertion(
     if (!client) {
         throw new Error("client_secret_jwt: client not found");
     }
+    verifyAuthMethod(client, "client_secret_jwt");
 
     try {
         const result = jsonwebtoken.verify(assertion, client.storedSecret, {
@@ -117,6 +118,8 @@ async function authenticateClientSecretPost(
     }
 
     const client = await getClientWithSecret(clientId);
+    verifyAuthMethod(client, "client_secret_post");
+
     if (constantTimeEquals(clientSecret, client.storedSecret)) {
         return client;
     }
@@ -128,6 +131,7 @@ async function authenticateClientSecretBasic(
 ): Promise<OAuthClientWithSecret> {
     const credentials = parseBasicAuth(req);
     const client = await getClientWithSecret(credentials.clientId);
+    verifyAuthMethod(client, "client_secret_basic");
 
     if (constantTimeEquals(credentials.clientSecret, client.storedSecret)) {
         return client;
@@ -148,13 +152,20 @@ async function getClientWithSecret(
         throw new Error("Client not found or disabled");
     }
 
-    client.storedSecret = decrypt(
-        client.clientSecret,
-        config.getRawConfig().server.secret!
-    );
+    try {
+        client.storedSecret = decrypt(
+            client.clientSecret,
+            config.getRawConfig().server.secret!
+        );
+    } catch (err) {
+        throw new Error(`Failed to decrypt client secret: ${err}`);
+    }
 
-    if (!client.storedSecret) {
-        throw new Error("Failed to decrypt client secret");
+    // Secret = 32 byte -> Base32 without padding = 52 chars
+    if (!client.storedSecret || client.storedSecret.length !== 52) {
+        throw new Error(
+            "Failed to decrypt client secret, is the server secret invalid?"
+        );
     }
 
     return client;
@@ -170,4 +181,16 @@ export function constantTimeEquals(
         sha256(new TextEncoder().encode(candidate)),
         sha256(new TextEncoder().encode(expected))
     );
+}
+
+function verifyAuthMethod(
+    client: OAuthClientWithSecret,
+    usedMethod: string
+): void {
+    const pinned = client.clientAuthenticationMethod;
+    if (pinned !== usedMethod) {
+        throw new Error(
+            `${usedMethod}: Client is pinned to '${pinned}' as authentication method`
+        );
+    }
 }

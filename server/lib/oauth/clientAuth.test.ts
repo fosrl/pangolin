@@ -9,12 +9,12 @@ import type { Request, Response } from "express";
 import { eq, inArray } from "drizzle-orm";
 import config from "@server/lib/config";
 import { encrypt } from "@server/lib/crypto";
-import { db, oauthClients, orgs } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
+import { updateOAuthClient } from "@server/routers/oauth/clients";
 import { sendOAuthError } from "@server/routers/oauth/token";
 import { assertEquals, assertEqualsObj } from "@test/assert";
-import type { OAuthClientWithSecret } from "./clientAuth";
+import type { ClientAuthenticationMethod } from "./clientAuthMethods";
 import { CLIENT_JWT_MAX_AGE_SECONDS } from "./lifetimes";
 import {
     authenticateClient,
@@ -53,6 +53,11 @@ class MockOAuthRes {
 
     json(body: unknown): void {
         this.jsonBody = body;
+    }
+
+    send(body: unknown): this {
+        this.jsonBody = body;
+        return this;
     }
 
     setHeader(name: string, value: string): void {
@@ -306,8 +311,11 @@ const validClientId = `clientAuth-test-${runId}-valid`;
 const disabledClientId = `clientAuth-test-${runId}-disabled`;
 const nullCredClientId = `clientAuth-test-${runId}-nullcred`;
 const brokenKeyClientId = `clientAuth-test-${runId}-brokenkey`;
+// Pinning is per-client, so the post/jwt scenarios need their own rows — one shared client can only be pinned to a single method.
 const postClientId = `clientAuth-test-${runId}-post`;
 const jwtClientId = `clientAuth-test-${runId}-jwt`;
+// Row inserted without clientAuthenticationMethod to prove the DDL default at the persistence level.
+const defaultMethodClientId = `clientAuth-test-${runId}-defaultmethod`;
 const seededClientIds: string[] = [
     validClientId,
     disabledClientId,
@@ -315,6 +323,7 @@ const seededClientIds: string[] = [
     brokenKeyClientId,
     postClientId,
     jwtClientId,
+    defaultMethodClientId
 ];
 
 // 32 chars — the canonical minimum for a client secret.
@@ -331,7 +340,8 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
     async function insertClient(
         clientId: string,
         enabled: boolean,
-        clientSecret: string | null
+        clientSecret: string | null,
+        clientAuthenticationMethod: ClientAuthenticationMethod
     ): Promise<void> {
         await db.insert(oauthClients).values({
             clientId,
@@ -345,7 +355,8 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             logoutTerminatesPangolinSession: false,
             orgId: testOrgId,
             createdAt: Date.now(),
-            updatedAt: Date.now()
+            updatedAt: Date.now(),
+            clientAuthenticationMethod
         });
     }
 
@@ -353,15 +364,17 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         await insertClient(
             validClientId,
             true,
-            encrypt(validSecret, config.getRawConfig().server.secret!)
+            encrypt(validSecret, config.getRawConfig().server.secret!),
+            "client_secret_basic"
         );
         await insertClient(
             disabledClientId,
             false,
-            encrypt(validSecret, config.getRawConfig().server.secret!)
+            encrypt(validSecret, config.getRawConfig().server.secret!),
+            "client_secret_basic"
         );
         // NULL secret — a legacy/unmigrated row that can never authenticate.
-        await insertClient(nullCredClientId, true, null);
+        await insertClient(nullCredClientId, true, null, "client_secret_basic");
 
         // Corrupted/mismatched ciphertext column (e.g. after rotation ran against a key that never encrypted
         // these rows). This value has no "Salted__" prefix, so crypto-js derives the AES key/IV from a fresh
@@ -371,7 +384,23 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         await insertClient(
             brokenKeyClientId,
             true,
-            "corrupted-not-a-valid-ciphertext"
+            "corrupted-not-a-valid-ciphertext",
+            "client_secret_basic"
+        );
+
+        // The pinning checkpoint only lets the matching presented mode through, so the post/jwt success and
+        // failure scenarios need rows pinned to those methods (same secret value as the basic row).
+        await insertClient(
+            postClientId,
+            true,
+            encrypt(validSecret, config.getRawConfig().server.secret!),
+            "client_secret_post"
+        );
+        await insertClient(
+            jwtClientId,
+            true,
+            encrypt(validSecret, config.getRawConfig().server.secret!),
+            "client_secret_jwt"
         );
 
         // --- Dispatch / credential-source selection -------------------------
@@ -710,6 +739,175 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             // Present (unparseable-as-Basic) Authorization header → WWW-Authenticate is echoed.
             const outcome = await runClientAuth(makeRequest({}, "Bearer abc"));
             expectFailure(outcome, true);
+        }
+
+        // --- Cross-mode pinning rejections ----------------------------------
+        // Presenting a mode different from the stored pin must fail with the same uniform wire contract as
+        // every other auth failure in this suite (401 invalid_client, WWW-Authenticate only when an
+        // Authorization header was sent). The thrown message names the pinned method on purpose: it is
+        // logged server-side (token.ts logger.warn) and never reaches the wire.
+
+        {
+            // basic-pinned presented via post body.
+            const req = makeRequest({
+                client_id: validClientId,
+                client_secret: validSecret
+            });
+            await expectAuthError(
+                req,
+                "client_secret_post: Client is pinned to 'client_secret_basic' as authentication method"
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
+
+        {
+            // basic-pinned presented via jwt assertion.
+            const req = makeRequest({
+                client_assertion: signHs256(
+                    jwtClaimsFor(validClientId),
+                    validSecret
+                )
+            });
+            await expectAuthError(
+                req,
+                "client_secret_jwt: Client is pinned to 'client_secret_basic' as authentication method"
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
+
+        {
+            // post-pinned presented via basic header.
+            const req = makeRequest(
+                {},
+                basicAuthHeader(postClientId, validSecret)
+            );
+            await expectAuthError(
+                req,
+                "client_secret_basic: Client is pinned to 'client_secret_post' as authentication method"
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
+
+        {
+            // post-pinned presented via jwt assertion.
+            const req = makeRequest({
+                client_assertion: signHs256(
+                    jwtClaimsFor(postClientId),
+                    validSecret
+                )
+            });
+            await expectAuthError(
+                req,
+                "client_secret_jwt: Client is pinned to 'client_secret_post' as authentication method"
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
+
+        {
+            // jwt-pinned presented via basic header.
+            const req = makeRequest(
+                {},
+                basicAuthHeader(jwtClientId, validSecret)
+            );
+            await expectAuthError(
+                req,
+                "client_secret_basic: Client is pinned to 'client_secret_jwt' as authentication method"
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
+
+        {
+            // jwt-pinned presented via post body.
+            const req = makeRequest({
+                client_id: jwtClientId,
+                client_secret: validSecret
+            });
+            await expectAuthError(
+                req,
+                "client_secret_post: Client is pinned to 'client_secret_jwt' as authentication method"
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
+
+        // --- Re-pin through updateOAuthClient ---------------------------------
+        // Simulate an administrator changing the stored method via the real router handler with stubbed
+        // req/res/next (MockOAuthRes.send covers response()'s res.status().send() call). The partial body
+        // leaves every other column untouched. postClientId moves from client_secret_post to
+        // client_secret_basic; all earlier sections already ran against its original pin.
+
+        {
+            const nextErrors: unknown[] = [];
+            await updateOAuthClient(
+                {
+                    params: { orgId: testOrgId, clientId: postClientId },
+                    body: { clientAuthenticationMethod: "client_secret_basic" }
+                } as unknown as Request,
+                new MockOAuthRes() as unknown as Response,
+                (error) => {
+                    nextErrors.push(error);
+                }
+            );
+            assertEquals(
+                nextErrors.length,
+                0,
+                "updateOAuthClient must not forward an error on success"
+            );
+
+            // The newly pinned mode is now accepted...
+            const outcome = await runClientAuth(
+                makeRequest({}, basicAuthHeader(postClientId, validSecret))
+            );
+            expectSuccess(outcome, postClientId, validSecret);
+
+            // ...and the previously pinned mode is rejected with the pinning error.
+            const oldModeReq = makeRequest({
+                client_id: postClientId,
+                client_secret: validSecret
+            });
+            await expectAuthError(
+                oldModeReq,
+                "client_secret_post: Client is pinned to 'client_secret_basic' as authentication method"
+            );
+            const oldModeOutcome = await runClientAuth(oldModeReq);
+            expectFailure(oldModeOutcome, false);
+        }
+
+        // --- DDL default persistence -----------------------------------------
+        {
+            // Raw insert omitting clientAuthenticationMethod entirely — the stored value must come from
+            // the column's DDL default, not from any application-level fallback.
+            await db.insert(oauthClients).values({
+                clientId: defaultMethodClientId,
+                clientSecret: null,
+                lastChars: "",
+                clientName: "clientAuth test default method",
+                redirectUris: ["https://example.com/oauth/callback"],
+                scopes: "openid profile email",
+                pkceRequired: false,
+                enabled: true,
+                logoutTerminatesPangolinSession: false,
+                orgId: testOrgId,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            });
+
+            const [defaultMethodRow] = await db
+                .select()
+                .from(oauthClients)
+                .where(eq(oauthClients.clientId, defaultMethodClientId))
+                .limit(1);
+
+            assertEquals(
+                defaultMethodRow?.clientAuthenticationMethod,
+                "client_secret_jwt",
+                "DDL default for clientAuthenticationMethod"
+            );
         }
 
         await db

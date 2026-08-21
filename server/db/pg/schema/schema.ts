@@ -15,6 +15,7 @@ import {
     uniqueIndex,
     varchar
 } from "drizzle-orm/pg-core";
+import type { ClientAuthenticationMethod } from "@server/lib/oauth/clientAuthMethods";
 
 export const domains = pgTable("domains", {
     domainId: varchar("domainId").primaryKey(),
@@ -1432,6 +1433,10 @@ export const oauthClients = pgTable(
         clientId: varchar("clientId").primaryKey(),
         clientSecret: varchar("clientSecret"), // Encrypted with server secret
         lastChars: varchar("lastChars").notNull().default(""),
+        clientAuthenticationMethod: varchar("clientAuthenticationMethod")
+            .notNull()
+            .$type<ClientAuthenticationMethod>()
+            .default("client_secret_jwt"),
         clientName: varchar("clientName").notNull(),
         clientUri: varchar("clientUri"),
         logoUri: varchar("logoUri"),

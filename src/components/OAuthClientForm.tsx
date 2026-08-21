@@ -12,11 +12,16 @@ import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
 import { Label } from "@app/components/ui/label";
 import { Checkbox } from "@app/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@app/components/ui/radio-group";
 import { Switch } from "@app/components/ui/switch";
 import CopyTextBox from "@app/components/CopyTextBox";
 import { useTranslations } from "next-intl";
 import ClientAvatar from "@app/components/ClientAvatar";
 import { OFFLINE_ACCESS_SCOPE } from "@server/lib/oauth/scopes";
+import {
+    CLIENT_AUTH_METHODS,
+    type ClientAuthenticationMethod
+} from "@server/lib/oauth/clientAuthMethods";
 
 export type OAuthClientFormData = {
     clientName: string;
@@ -27,6 +32,7 @@ export type OAuthClientFormData = {
     postLogoutRedirectUris: string[];
     scopes: string[];
     pkceRequired: boolean;
+    clientAuthenticationMethod: ClientAuthenticationMethod;
     enabled: boolean;
     logoutTerminatesPangolinSession: boolean;
 };
@@ -44,6 +50,7 @@ type OAuthClientFormProps = {
         scopeGroups?: boolean;
         scopeOfflineAccess?: boolean;
         pkceRequired?: boolean;
+        clientAuthenticationMethod?: ClientAuthenticationMethod;
         enabled?: boolean;
         logoutTerminatesPangolinSession?: boolean;
     };
@@ -95,6 +102,10 @@ export default function OAuthClientForm({
     const [pkceRequired, setPkceRequired] = useState(
         initialValues?.pkceRequired ?? true
     );
+    const [clientAuthenticationMethod, setClientAuthenticationMethod] =
+        useState<ClientAuthenticationMethod>(
+            initialValues?.clientAuthenticationMethod ?? "client_secret_jwt"
+        );
     const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
     const [
         logoutTerminatesPangolinSession,
@@ -128,6 +139,24 @@ export default function OAuthClientForm({
             label: OFFLINE_ACCESS_SCOPE
         }
     ];
+
+    const authMethodCopy: Record<
+        ClientAuthenticationMethod,
+        { label: string; description: string }
+    > = {
+        client_secret_basic: {
+            label: t("oauthClientAuthMethodBasicLabel"),
+            description: t("oauthClientAuthMethodBasicDescription")
+        },
+        client_secret_post: {
+            label: t("oauthClientAuthMethodPostLabel"),
+            description: t("oauthClientAuthMethodPostDescription")
+        },
+        client_secret_jwt: {
+            label: t("oauthClientAuthMethodJwtLabel"),
+            description: t("oauthClientAuthMethodJwtDescription")
+        }
+    };
 
     function updateRedirectUri(index: number, value: string) {
         setRedirectUris((prev) =>
@@ -189,6 +218,7 @@ export default function OAuthClientForm({
             postLogoutRedirectUris: cleanedPostLogoutRedirectUris,
             scopes,
             pkceRequired,
+            clientAuthenticationMethod,
             enabled,
             logoutTerminatesPangolinSession
         });
@@ -412,6 +442,45 @@ export default function OAuthClientForm({
                                 </div>
                             ))}
                         </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2">
+                        <Label>{t("oauthClientAuthMethodLabel")}</Label>
+                        <p className="text-xs text-muted-foreground">
+                            {t("oauthClientAuthMethodDescription")}
+                        </p>
+                        <RadioGroup
+                            value={clientAuthenticationMethod}
+                            onValueChange={(value) =>
+                                setClientAuthenticationMethod(
+                                    value as ClientAuthenticationMethod
+                                )
+                            }
+                            className="gap-3 pt-1"
+                        >
+                            {CLIENT_AUTH_METHODS.map((method) => (
+                                <div
+                                    key={method}
+                                    className="flex items-start gap-2"
+                                >
+                                    <RadioGroupItem
+                                        value={method}
+                                        id={`client-auth-method-${method}`}
+                                        className="mt-0.5"
+                                    />
+                                    <div>
+                                        <Label
+                                            htmlFor={`client-auth-method-${method}`}
+                                        >
+                                            {authMethodCopy[method].label}
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {authMethodCopy[method].description}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </RadioGroup>
                     </div>
 
                     <div className="space-y-4 pt-2">

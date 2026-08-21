@@ -26,11 +26,18 @@ import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useTranslations } from "next-intl";
 import ClientAvatar from "@app/components/ClientAvatar";
-import { OAuthClient } from "@app/app/[orgId]/settings/oauth-clients/types";
+import type { PublicOAuthClient } from "@server/lib/oauth/clientAuth";
 
 export type OAuthClientRow = Pick<
-    OAuthClient,
-    "clientId" | "clientName" | "logoUri" | "redirectUris" | "scopes" | "enabled" | "createdAt" | "lastChars"
+    PublicOAuthClient,
+    | "clientId"
+    | "clientName"
+    | "logoUri"
+    | "redirectUris"
+    | "scopes"
+    | "enabled"
+    | "createdAt"
+    | "lastChars"
 >;
 
 type OAuthClientsTableProps = {
@@ -107,9 +114,7 @@ export default function OAuthClientsTable({
             await api.delete(`/org/${orgId}/oauth-clients/${clientId}`);
             router.refresh();
             setIsDeleteModalOpen(false);
-            setRows((prev) =>
-                prev.filter((row) => row.clientId !== clientId)
-            );
+            setRows((prev) => prev.filter((row) => row.clientId !== clientId));
         } catch (e) {
             toast({
                 variant: "destructive",
@@ -141,7 +146,12 @@ export default function OAuthClientsTable({
                 const { clientName, logoUri } = row.original;
                 return (
                     <div className="flex items-center gap-2">
-                        <ClientAvatar name={clientName} logoUri={logoUri} size="sm" className="shrink-0" />
+                        <ClientAvatar
+                            name={clientName}
+                            logoUri={logoUri}
+                            size="sm"
+                            className="shrink-0"
+                        />
                         <span>{clientName}</span>
                     </div>
                 );
@@ -156,9 +166,7 @@ export default function OAuthClientsTable({
             cell: ({ row }) => {
                 const id = row.original.clientId;
                 const truncated =
-                    id.length > 14
-                        ? `${id.slice(0, 8)}...${id.slice(-4)}`
-                        : id;
+                    id.length > 14 ? `${id.slice(0, 8)}...${id.slice(-4)}` : id;
                 return <ClientIdCell id={id} truncated={truncated} />;
             }
         },
@@ -213,10 +221,7 @@ export default function OAuthClientsTable({
                     <div className="flex items-center gap-2 justify-end">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    className="h-8 w-8 p-0"
-                                >
+                                <Button variant="ghost" className="h-8 w-8 p-0">
                                     <span className="sr-only">
                                         {t("openMenu")}
                                     </span>

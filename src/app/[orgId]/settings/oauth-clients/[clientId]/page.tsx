@@ -29,7 +29,7 @@ import {
 import CopyTextBox from "@app/components/CopyTextBox";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
-import { OAuthClient } from "../types";
+import type { PublicOAuthClient } from "@server/lib/oauth/clientAuth";
 import { ResponseT } from "@server/types/Response";
 import { OFFLINE_ACCESS_SCOPE } from "@server/lib/oauth/scopes";
 import OAuthClientForm, {
@@ -57,7 +57,7 @@ export default function EditOAuthClientPage() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [client, setClient] = useState<OAuthClient | null>(null);
+    const [client, setClient] = useState<PublicOAuthClient | null>(null);
     const [rotatedSecret, setRotatedSecret] = useState<{
         clientId: string;
         clientSecret: string;
@@ -74,9 +74,9 @@ export default function EditOAuthClientPage() {
             setLoading(true);
 
             try {
-                const res = await api.get<ResponseT<{ client: OAuthClient }>>(
-                    `/org/${orgId}/oauth-clients/${clientId}`
-                );
+                const res = await api.get<
+                    ResponseT<{ client: PublicOAuthClient }>
+                >(`/org/${orgId}/oauth-clients/${clientId}`);
                 setClient(res.data.data!.client);
             } catch (error) {
                 toast({
@@ -107,6 +107,7 @@ export default function EditOAuthClientPage() {
                         : null,
                 scopes: data.scopes,
                 pkceRequired: data.pkceRequired,
+                clientAuthenticationMethod: data.clientAuthenticationMethod,
                 enabled: data.enabled,
                 logoutTerminatesPangolinSession:
                     data.logoutTerminatesPangolinSession
@@ -306,6 +307,8 @@ export default function EditOAuthClientPage() {
                         scopeOfflineAccess:
                             clientScopes.has(OFFLINE_ACCESS_SCOPE),
                         pkceRequired: client.pkceRequired,
+                        clientAuthenticationMethod:
+                            client.clientAuthenticationMethod,
                         enabled: client.enabled,
                         logoutTerminatesPangolinSession:
                             client.logoutTerminatesPangolinSession
