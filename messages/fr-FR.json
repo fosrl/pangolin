@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Route à travers les cibles sur vos sites",
     "aiProviderRoutingModeTargetNote": "Après avoir créé ce fournisseur, configurez les cibles du site dans l'onglet Paramètres du réseau.",
     "aiProviderTargetNoOne": "Ce fournisseur n'a aucune cible. Ajoutez une cible pour acheminer les requêtes via vos sites.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Ignorer la vérification TLS",
     "aiProviderSkipTlsVerificationDescription": "Désactiver la vérification du certificat TLS pour la connexion amont",
     "aiProviderBudget": "Budget",
