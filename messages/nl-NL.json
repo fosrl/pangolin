@@ -4087,6 +4087,8 @@
     "httpDestConnectionLogsDescription": "Verbinding met de Site en tunnel maken verbroken, inclusief verbindingen en verbindingen.",
     "httpDestRequestLogsTitle": "HTTP-aanvraaglogboeken",
     "httpDestRequestLogsDescription": "HTTP request logs voor proxied hulpmiddelen, waaronder methode, pad en response code.",
+    "httpDestAISessionLogsTitle": "AI Session Logs",
+    "httpDestAISessionLogsDescription": "AI gateway request and response sessions, including prompts, model responses, and token usage.",
     "httpDestSaveChanges": "Wijzigingen opslaan",
     "httpDestCreateDestination": "Maak bestemming aan",
     "httpDestUpdatedSuccess": "Bestemming succesvol bijgewerkt",
