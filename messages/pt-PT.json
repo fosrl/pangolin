@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Roteie através de alvos em seus sites",
     "aiProviderRoutingModeTargetNote": "Após criar este provedor, configure alvos do site na aba Configurações de Rede.",
     "aiProviderTargetNoOne": "Este provedor não tem alvos. Adicione um alvo para rotear pedidos pelos seus sites.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Pular Verificação TLS",
     "aiProviderSkipTlsVerificationDescription": "Desativar a verificação de certificado TLS para a conexão upstream",
     "aiProviderBudget": "Orçamento",
