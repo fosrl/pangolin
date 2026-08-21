@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Ruta a través de objetivos en sus sitios",
     "aiProviderRoutingModeTargetNote": "Después de crear este proveedor, configure objetivos de sitio en la pestaña de Configuración de Red.",
     "aiProviderTargetNoOne": "Este proveedor no tiene objetivos. Agregue un objetivo para enrutar solicitudes a través de sus sitios.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Omitir verificación de TLS",
     "aiProviderSkipTlsVerificationDescription": "Deshabilitar la verificación del certificado TLS para la conexión de upstream",
     "aiProviderBudget": "Presupuesto",
