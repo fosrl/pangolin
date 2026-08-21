@@ -1891,6 +1891,7 @@
     "aiProviderRoutingModeTargetDescription": "Rute gennem mål på dine steder",
     "aiProviderRoutingModeTargetNote": "Efter oprettelse af denne udbyder, konfigurer mål på Netværksindstillinger fanen.",
     "aiProviderTargetNoOne": "Denne udbyder har ingen mål. Tilføj et mål for at rute forespørgsler gennem dine steder.",
+    "aiProviderRemoteNodeTargetsWarning": "Sites connected to remote nodes are inaccessable to be routed to on AI Gateway providers.",
     "aiProviderSkipTlsVerification": "Spring TLS-verifikation over",
     "aiProviderSkipTlsVerificationDescription": "Deaktiver TLS-certifikat verifikation for opstrømsforbindelsen",
     "aiProviderBudget": "Budget",
