@@ -2493,7 +2493,7 @@ authenticated.post(
 
 export const oauthRouter = Router();
 unauthenticated.use("/oauth", oauthRouter);
-oauthRouter.use(express.urlencoded);
+oauthRouter.use(express.urlencoded());
 
 // OIDC: Rate limits
 const oauthUserRateLimit = rateLimit({
@@ -2508,7 +2508,7 @@ const oauthClientRateLimit = rateLimit({
     max: OAUTH_TOKEN_RATE_LIMIT_MAX,
     message: `You can only make ${OAUTH_TOKEN_RATE_LIMIT_MAX} token requests every ${OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES} minutes. Please try again later.`,
     keyGenerator: (req) =>
-        `oauthToken:${req.oauthIdToken?.clientId ?? req.oauthBearerToken ?? ipKeyGenerator(req.ip || "")}`
+        `oauthToken:${(req.oauthClient ?? req.oauthBearerToken)?.clientId ?? ipKeyGenerator(req.ip || "")}`
 });
 
 // OIDC: Public endpoints - unauthenticated, no rate limit

@@ -3,6 +3,7 @@ import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
 import { NextFunction, Request, Response } from "express";
 import { sendJsonHttpError } from "./verifyOAuthClient";
+import { getToken } from "@server/lib/oauth/tokens";
 
 export async function verifyOAuthBearerTokenAccess(
     req: Request,
@@ -21,10 +22,17 @@ export async function verifyOAuthBearerTokenAccess(
         });
     }
 
-    req.oauthBearerToken = bearer ?? form ?? param;
-    if (req.oauthBearerToken) {
+    const accessToken = bearer ?? form ?? param;
+    if (!accessToken) {
         return sendOAuthInvalidTokenError(res);
     }
+
+    const token = await getToken(accessToken);
+    if (!token || !token.clientEnabled || token.expiresAt <= Date.now()) {
+        return sendOAuthInvalidTokenError(res);
+    }
+
+    req.oauthBearerToken = token;
     return next();
 }
 

@@ -32,7 +32,8 @@ import license from "#dynamic/license/license";
 import { fetchServerIp } from "@server/lib/serverIpService";
 import { initAiModelCatalog } from "@server/lib/aiModelCatalog";
 import type { OAuthClientWithSecret } from "./lib/oauth/clientAuth";
-import { OAuthSessionTokenIds } from "./middlewares/verifyOAuthUserTokenAccess";
+import type { OAuthValidatedToken } from "./lib/oauth/tokens";
+import type { OAuthSessionTokenIds } from "./middlewares/verifyOAuthUserTokenAccess";
 
 async function startServers() {
     await setHostMeta();
@@ -101,7 +102,7 @@ declare global {
             virtualApiKey?: VirtualApiKey;
             redirect?: Redirect;
             oauthClient?: OAuthClientWithSecret;
-            oauthBearerToken?: string;
+            oauthBearerToken?: OAuthValidatedToken;
             oauthIdToken?: OAuthSessionTokenIds;
             orgPolicyAllowed?: boolean;
         }

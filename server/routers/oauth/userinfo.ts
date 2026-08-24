@@ -1,9 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
-import { eq } from "drizzle-orm";
-import { db, oauthAccessTokens, oauthClients } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
-import { hashToken } from "@server/lib/oauth/tokens";
 import logger from "@server/logger";
 import { buildUserinfoClaims } from "@server/lib/oauth/claims";
 import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
@@ -16,43 +13,19 @@ export async function handleUserinfoRequest(
 ): Promise<Response | void> {
     try {
         const token = req.oauthBearerToken!;
-        const [accessToken] = await db
-            .select({
-                userId: oauthAccessTokens.userId,
-                clientId: oauthAccessTokens.clientId,
-                scope: oauthAccessTokens.scope,
-                expiresAt: oauthAccessTokens.expiresAt,
-                clientEnabled: oauthClients.enabled
-            })
-            .from(oauthAccessTokens)
-            .innerJoin(
-                oauthClients,
-                eq(oauthAccessTokens.clientId, oauthClients.clientId)
-            )
-            .where(eq(oauthAccessTokens.tokenHash, hashToken(token)))
-            .limit(1);
+        const inOrg = await userBelongsToClientOrg(
+            token.userId,
+            token.clientId
+        );
 
-        if (
-            !accessToken ||
-            Date.now() > accessToken.expiresAt ||
-            !accessToken.clientEnabled
-        ) {
-            return sendOAuthInvalidTokenError(res);
-        }
-
-        if (
-            !(await userBelongsToClientOrg(
-                accessToken.userId,
-                accessToken.clientId
-            ))
-        ) {
+        if (!inOrg) {
             return sendOAuthInvalidTokenError(res);
         }
 
         const claims = await buildUserinfoClaims(
-            accessToken.userId,
-            accessToken.clientId,
-            accessToken.scope
+            token.userId,
+            token.clientId,
+            token.scope
         );
 
         res.setHeader("Cache-Control", "no-store");
