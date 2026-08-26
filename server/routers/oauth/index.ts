@@ -4,6 +4,7 @@ export * from "./authorize";
 export * from "./token";
 export * from "./userinfo";
 export * from "./revoke";
+export * from "./introspection";
 export * from "./clients";
 export * from "./consents";
 export * from "./endSession";

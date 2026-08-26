@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from "express";
 const csrfExemptPaths = new Set([
     "/api/v1/oauth/token/issue",
     "/api/v1/oauth/token/revoke",
+    "/api/v1/oauth/token/introspect",
     "/api/v1/oauth/userinfo",
     "/api/v1/oauth/logout"
 ]);

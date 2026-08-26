@@ -2548,7 +2548,7 @@ oauthTokenRouter.use(verifyOAuthClient);
 oauthTokenRouter.use(oauthClientRateLimit);
 oauthTokenRouter.post("/issue", oauth.issueToken);
 oauthTokenRouter.post("/revoke", oauth.revokeToken);
-// oauthTokenRouter.post("/introspect", oauth.introspectToken);
+oauthTokenRouter.post("/introspect", oauth.introspectToken);
 
 // OIDC: Consent configuration routes (Pangolin user panel)
 export const oauthUserRouter = Router();

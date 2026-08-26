@@ -20,7 +20,7 @@ export function openidConfiguration(_: Request, res: Response): void {
         // verifyOAuthClient middleware (client secret)
         token_endpoint: `${issuer}/api/v1/oauth/token/issue`,
         revocation_endpoint: `${issuer}/api/v1/oauth/token/revoke`,
-        // introspection_endpoint: `${issuer}/api/v1/oauth/token/introspect`,
+        introspection_endpoint: `${issuer}/api/v1/oauth/token/introspect`,
 
         // verifyOAuthBearerAccess middleware (user bearer token via client)
         userinfo_endpoint: `${issuer}/api/v1/oauth/userinfo`,
