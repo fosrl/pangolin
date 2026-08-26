@@ -1,6 +1,6 @@
 export const OFFLINE_ACCESS_SCOPE = "offline_access" as const;
 
-export const validScopes = [
+export const VALID_SCOPES = [
     "openid",
     "profile",
     "email",
@@ -8,10 +8,19 @@ export const validScopes = [
     OFFLINE_ACCESS_SCOPE
 ] as const;
 
-export type OAuthScope = (typeof validScopes)[number];
+export type OAuthScope = (typeof VALID_SCOPES)[number];
+export const validScopes = new Set<OAuthScope>(VALID_SCOPES);
 
-function isOAuthScope(scope: string): scope is OAuthScope {
-    return (validScopes as readonly string[]).includes(scope);
+export function isOAuthScope(scope: string): scope is OAuthScope {
+    return validScopes.has(scope as any);
+}
+
+export function buildScopeString(scopes: Iterable<string>) {
+    return Array.from(scopes).join(" ");
+}
+
+export function parseScopeStringSet(scope: string): Set<string> {
+    return new Set<string>(parseScopeString(scope));
 }
 
 export function parseScopeString(scope: string): string[] {
@@ -29,10 +38,9 @@ export function isScopeSubset(
     candidateScope: string,
     originalScope: string
 ): boolean {
-    const original = new Set(parseScopeString(originalScope));
-    return parseScopeString(candidateScope).every((scope) =>
-        original.has(scope)
-    );
+    const original = parseScopeStringSet(originalScope);
+    const candidate = parseScopeStringSet(candidateScope);
+    return candidate.isSubsetOf(original);
 }
 
 export function validateScopes(requested: string, allowed: string): string {
@@ -47,5 +55,5 @@ export function validateScopes(requested: string, allowed: string): string {
         }
     }
 
-    return Array.from(granted).join(" ");
+    return buildScopeString(granted);
 }

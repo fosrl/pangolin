@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import HttpCode from "@server/types/HttpCode";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
-import { validScopes } from "@server/lib/oauth/scopes";
+import { VALID_SCOPES } from "@server/lib/oauth/scopes";
 import { CLIENT_AUTH_METHODS } from "@server/lib/oauth/clientAuthMethods";
 
 export function openidConfiguration(_: Request, res: Response): void {
@@ -25,7 +25,7 @@ export function openidConfiguration(_: Request, res: Response): void {
         // verifyOAuthBearerAccess middleware (user bearer token via client)
         userinfo_endpoint: `${issuer}/api/v1/oauth/userinfo`,
 
-        scopes_supported: [...validScopes],
+        scopes_supported: VALID_SCOPES,
         token_endpoint_auth_methods_supported: CLIENT_AUTH_METHODS,
 
         response_types_supported: ["code"],

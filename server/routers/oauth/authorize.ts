@@ -18,7 +18,8 @@ import {
     hasScope,
     isScopeSubset,
     validateScopes,
-    parseScopeString
+    parseScopeString,
+    buildScopeString
 } from "@server/lib/oauth/scopes";
 import {
     AUTH_CODE_LIFETIME_MS,
@@ -451,7 +452,7 @@ export async function handleAuthorizationConsent(
                 await trx
                     .update(oauthConsents)
                     .set({
-                        scope: Array.from(mergedScopes).join(" "),
+                        scope: buildScopeString(mergedScopes),
                         updatedAt: now
                     })
                     .where(

@@ -1,12 +1,13 @@
 import type { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import { z } from "zod";
 import config from "@server/lib/config";
 import { encrypt } from "@server/lib/crypto";
 import {
     db,
+    Transaction,
     oauthClients,
     oauthAccessTokens,
     oauthAuthorizationCodes,
@@ -18,7 +19,12 @@ import HttpCode from "@server/types/HttpCode";
 import logger from "@server/logger";
 import response from "@server/lib/response";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
-import { validScopes } from "@server/lib/oauth/scopes";
+import {
+    buildScopeString,
+    parseScopeStringSet,
+    VALID_SCOPES,
+    validScopes
+} from "@server/lib/oauth/scopes";
 import { validateBackchannelLogoutUri } from "@server/lib/oauth/backchannelLogoutSecurity";
 import { CLIENT_AUTH_METHODS } from "@server/lib/oauth/clientAuthMethods";
 
@@ -33,13 +39,13 @@ const clientParamsSchema = z.strictObject({
 
 const createBodySchema = z.strictObject({
     clientName: z.string().min(1).max(255),
-    redirectUris: z.array(z.string().url()).min(1),
-    clientUri: z.string().url().optional(),
-    logoUri: z.string().url().optional(),
-    backchannelLogoutUri: z.string().url().optional(),
-    postLogoutRedirectUris: z.array(z.string().url()).optional(),
+    redirectUris: z.array(z.httpUrl({ normalize: true })).min(1),
+    clientUri: z.httpUrl({ normalize: true }).optional(),
+    logoUri: z.httpUrl({ normalize: true }).optional(),
+    backchannelLogoutUri: z.httpUrl({ normalize: true }).normalize().optional(),
+    postLogoutRedirectUris: z.array(z.httpUrl({ normalize: true })).optional(),
     scopes: z
-        .array(z.enum(validScopes))
+        .array(z.enum(VALID_SCOPES))
         .optional()
         .default(["openid", "profile", "email"]),
     pkceRequired: z.boolean().optional().default(true),
@@ -50,12 +56,18 @@ const createBodySchema = z.strictObject({
 
 const updateBodySchema = z.strictObject({
     clientName: z.string().min(1).max(255).optional(),
-    redirectUris: z.array(z.string().url()).min(1).optional(),
-    clientUri: z.string().url().nullable().optional(),
-    logoUri: z.string().url().nullable().optional(),
-    backchannelLogoutUri: z.string().url().nullable().optional(),
-    postLogoutRedirectUris: z.array(z.string().url()).nullable().optional(),
-    scopes: z.array(z.enum(validScopes)).optional(),
+    redirectUris: z
+        .array(z.httpUrl({ normalize: true }))
+        .min(1)
+        .optional(),
+    clientUri: z.httpUrl({ normalize: true }).nullable().optional(),
+    logoUri: z.httpUrl({ normalize: true }).nullable().optional(),
+    backchannelLogoutUri: z.httpUrl({ normalize: true }).nullable().optional(),
+    postLogoutRedirectUris: z
+        .array(z.httpUrl({ normalize: true }))
+        .nullable()
+        .optional(),
+    scopes: z.array(z.enum(VALID_SCOPES)).optional(),
     pkceRequired: z.boolean().optional(),
     clientAuthenticationMethod: z.enum(CLIENT_AUTH_METHODS).optional(),
     enabled: z.boolean().optional(),
@@ -83,13 +95,11 @@ const publicClientColumns = {
 };
 
 function normalizeScopes(
-    scopes: string[],
-    _validScopes: readonly string[] = validScopes
-): string {
-    const set = new Set(scopes);
-    set.add("openid");
-
-    return _validScopes.filter((scope) => set.has(scope)).join(" ");
+    scopes: string[] | Set<string>,
+    _validScopes: Set<string> = validScopes
+): Set<string> {
+    const set = new Set([...scopes, "openid"]);
+    return _validScopes.intersection(set);
 }
 
 function getBackchannelLogoutValidationError(
@@ -143,6 +153,7 @@ export async function createOAuthClient(
         const clientId = generateIdFromEntropySize(25);
         const clientSecret = generateIdFromEntropySize(32);
         const key = config.getRawConfig().server.secret!;
+        const scopes = normalizeScopes(body.scopes);
 
         await db.insert(oauthClients).values({
             clientId,
@@ -154,7 +165,7 @@ export async function createOAuthClient(
             backchannelLogoutUri: body.backchannelLogoutUri,
             postLogoutRedirectUris: body.postLogoutRedirectUris,
             redirectUris: body.redirectUris,
-            scopes: normalizeScopes(body.scopes),
+            scopes: buildScopeString(scopes),
             pkceRequired: body.pkceRequired,
             clientAuthenticationMethod:
                 body.clientAuthenticationMethod ?? "client_secret_jwt",
@@ -328,8 +339,6 @@ export async function updateOAuthClient(
         const backchannelLogoutError = getBackchannelLogoutValidationError(
             body.backchannelLogoutUri
         );
-        const isDisablingClient =
-            existingClient.enabled && body.enabled === false;
 
         if (backchannelLogoutError) {
             return next(
@@ -337,11 +346,15 @@ export async function updateOAuthClient(
             );
         }
 
-        await db.transaction(async (trx) => {
-            const updatedScopes = body.scopes
-                ? normalizeScopes(body.scopes)
-                : undefined;
+        const previousScopes = normalizeScopes(
+            parseScopeStringSet(existingClient.scopes)
+        );
+        const updatedScopes = body.scopes
+            ? normalizeScopes(body.scopes)
+            : previousScopes;
+        const removedScopes = previousScopes.difference(updatedScopes);
 
+        await db.transaction(async (trx) => {
             await trx
                 .update(oauthClients)
                 .set({
@@ -349,7 +362,6 @@ export async function updateOAuthClient(
                     clientUri: body.clientUri,
                     logoUri: body.logoUri,
                     redirectUris: body.redirectUris,
-                    scopes: updatedScopes,
                     pkceRequired: body.pkceRequired,
                     clientAuthenticationMethod: body.clientAuthenticationMethod,
                     enabled: body.enabled,
@@ -357,65 +369,32 @@ export async function updateOAuthClient(
                         body.logoutTerminatesPangolinSession,
                     backchannelLogoutUri: body.backchannelLogoutUri,
                     postLogoutRedirectUris: body.postLogoutRedirectUris,
-                    updatedAt: Date.now()
+                    updatedAt: Date.now(),
+
+                    // Only update scopes if requested
+                    ...(body.scopes
+                        ? { scopes: buildScopeString(updatedScopes) }
+                        : {})
                 })
                 .where(eq(oauthClients.clientId, existingClient.clientId));
 
-            if (isDisablingClient) {
-                await trx
-                    .delete(oauthInteractions)
-                    .where(
-                        eq(oauthInteractions.clientId, existingClient.clientId)
-                    );
-                await trx
-                    .delete(oauthAuthorizationCodes)
-                    .where(
-                        eq(
-                            oauthAuthorizationCodes.clientId,
-                            existingClient.clientId
-                        )
-                    );
-                await trx
-                    .delete(oauthAccessTokens)
-                    .where(
-                        eq(oauthAccessTokens.clientId, existingClient.clientId)
-                    );
-                await trx
-                    .update(oauthRefreshTokens)
-                    .set({ revokedAt: Date.now() })
-                    .where(
-                        and(
-                            eq(
-                                oauthRefreshTokens.clientId,
-                                existingClient.clientId
-                            ),
-                            isNull(oauthRefreshTokens.revokedAt)
-                        )
-                    );
+            // Invalidate **all** tokens touched by these changes
+            if (existingClient.enabled && body.enabled === false) {
+                await invalidateTokensFromClient(trx, existingClient.clientId);
+            } else if (removedScopes.size > 0) {
+                await invalidateTokensWithReducedScopes(
+                    trx,
+                    existingClient.clientId,
+                    removedScopes
+                );
             }
 
             // Check and update consents, if scope was reduced
-            const consents = await trx
-                .select()
-                .from(oauthConsents)
-                .where(eq(oauthConsents.clientId, existingClient.clientId));
-
-            for (const consent of consents) {
-                const normalizedScopes = normalizeScopes(
-                    consent.scope.split(" "),
-                    (updatedScopes ?? existingClient.scopes).split(" ")
-                );
-
-                if (normalizedScopes === consent.scope) continue;
-
-                await trx
-                    .update(oauthConsents)
-                    .set({
-                        scope: normalizedScopes,
-                        updatedAt: Date.now()
-                    })
-                    .where(eq(oauthConsents.consentId, consent.consentId));
-            }
+            await reduceUserConsentScope(
+                trx,
+                existingClient.clientId,
+                updatedScopes
+            );
         });
 
         return response(res, {
@@ -470,20 +449,7 @@ export async function deleteOAuthClient(
         }
 
         await db.transaction(async (trx) => {
-            await trx
-                .delete(oauthInteractions)
-                .where(eq(oauthInteractions.clientId, existingClient.clientId));
-            await trx
-                .delete(oauthAuthorizationCodes)
-                .where(
-                    eq(
-                        oauthAuthorizationCodes.clientId,
-                        existingClient.clientId
-                    )
-                );
-            await trx
-                .delete(oauthAccessTokens)
-                .where(eq(oauthAccessTokens.clientId, existingClient.clientId));
+            await invalidateTokensFromClient(trx, existingClient.clientId);
             await trx
                 .delete(oauthRefreshTokens)
                 .where(
@@ -606,4 +572,146 @@ export async function rotateOAuthClientSecret(
             )
         );
     }
+}
+
+async function invalidateTokensWithReducedScopes(
+    trx: Transaction | typeof db,
+    clientId: string,
+    removedScopes: Set<string>
+): Promise<void> {
+    // Scope reduction: invalidate tokens that still carry a removed scope.
+    const findInvalidToken = (
+        tokens: { tokenId: string; scope: string }[]
+    ): string[] =>
+        tokens
+            .filter(
+                (token) =>
+                    !parseScopeStringSet(token.scope).isDisjointFrom(
+                        removedScopes
+                    )
+            )
+            .map((token) => token.tokenId);
+
+    // Handle access tokens
+    const accessTokens = await trx
+        .select({
+            tokenId: oauthAccessTokens.accessTokenId,
+            scope: oauthAccessTokens.scope
+        })
+        .from(oauthAccessTokens)
+        .where(eq(oauthAccessTokens.clientId, clientId));
+
+    const staleAccessTokenIds = findInvalidToken(accessTokens);
+    if (staleAccessTokenIds.length) {
+        await trx
+            .delete(oauthAccessTokens)
+            .where(
+                inArray(oauthAccessTokens.accessTokenId, staleAccessTokenIds)
+            );
+    }
+
+    // Handle refresh tokens
+    const refreshTokens = await trx
+        .select({
+            tokenId: oauthRefreshTokens.refreshTokenId,
+            scope: oauthRefreshTokens.scope
+        })
+        .from(oauthRefreshTokens)
+        .where(
+            and(
+                eq(oauthRefreshTokens.clientId, clientId),
+                isNull(oauthRefreshTokens.revokedAt)
+            )
+        );
+
+    const staleRefreshTokenIds = findInvalidToken(refreshTokens);
+    if (staleRefreshTokenIds.length) {
+        await trx
+            .update(oauthRefreshTokens)
+            .set({ revokedAt: Date.now() })
+            .where(
+                inArray(oauthRefreshTokens.refreshTokenId, staleRefreshTokenIds)
+            );
+    }
+
+    // Handle interactions
+    const interactions = await trx
+        .select({
+            tokenId: oauthInteractions.interactionId,
+            scope: oauthInteractions.scope
+        })
+        .from(oauthInteractions)
+        .where(eq(oauthInteractions.clientId, clientId));
+
+    const staleInteractions = findInvalidToken(interactions);
+    await trx
+        .delete(oauthInteractions)
+        .where(inArray(oauthInteractions.interactionId, staleInteractions));
+
+    // Handle authorization codes
+    const authCodes = await trx
+        .select({
+            tokenId: oauthAuthorizationCodes.codeId,
+            scope: oauthAuthorizationCodes.scope
+        })
+        .from(oauthAuthorizationCodes)
+        .where(eq(oauthAuthorizationCodes.clientId, clientId));
+
+    const staleAuthCodes = findInvalidToken(authCodes);
+    await trx
+        .delete(oauthAuthorizationCodes)
+        .where(inArray(oauthAuthorizationCodes.codeId, staleAuthCodes));
+}
+
+async function reduceUserConsentScope(
+    trx: Transaction,
+    clientId: string,
+    updatedScopes: Set<string>
+): Promise<void> {
+    const consents = await trx
+        .select({
+            consentId: oauthConsents.consentId,
+            scope: oauthConsents.scope
+        })
+        .from(oauthConsents)
+        .where(eq(oauthConsents.clientId, clientId));
+
+    for (const consent of consents) {
+        const consentScopes = parseScopeStringSet(consent.scope);
+        const normalizedScopes = normalizeScopes(consentScopes, updatedScopes);
+
+        if (!normalizedScopes.symmetricDifference(consentScopes).size) continue;
+
+        await trx
+            .update(oauthConsents)
+            .set({
+                scope: buildScopeString(normalizedScopes),
+                updatedAt: Date.now()
+            })
+            .where(eq(oauthConsents.consentId, consent.consentId));
+    }
+}
+
+async function invalidateTokensFromClient(
+    trx: Transaction,
+    clientId: string
+): Promise<void> {
+    await trx
+        .delete(oauthInteractions)
+        .where(eq(oauthInteractions.clientId, clientId));
+    await trx
+        .delete(oauthAuthorizationCodes)
+        .where(eq(oauthAuthorizationCodes.clientId, clientId));
+    await trx
+        .delete(oauthAccessTokens)
+        .where(eq(oauthAccessTokens.clientId, clientId));
+    await trx
+        .update(oauthRefreshTokens)
+        .set({ revokedAt: Date.now() })
+        .where(
+            and(
+                eq(oauthRefreshTokens.clientId, clientId),
+                isNull(oauthRefreshTokens.revokedAt)
+            )
+        );
 }
