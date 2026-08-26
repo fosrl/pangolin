@@ -140,13 +140,15 @@ export default function ProfileIcon() {
                         )}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setOpenEditProfile(true)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        <span>{t("editProfile")}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     {user?.type === UserType.Internal && (
                         <>
+                            <DropdownMenuItem
+                                onClick={() => setOpenEditProfile(true)}
+                            >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                <span>{t("editProfile")}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {!user.twoFactorEnabled && (
                                 <DropdownMenuItem
                                     onClick={() => setOpenEnable2fa(true)}

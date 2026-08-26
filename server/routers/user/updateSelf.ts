@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, users } from "@server/db";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -48,18 +48,12 @@ export async function updateSelf(
         }
 
         if (username) {
-            const [existing] = await db
-                .select({ userId: users.userId })
-                .from(users)
-                .where(
-                    and(
-                        eq(users.username, username),
-                        ne(users.userId, userId)
-                    )
-                )
-                .limit(1);
+            const existing = await db.$count(
+                users,
+                and(eq(users.username, username), ne(users.userId, userId))
+            );
 
-            if (existing) {
+            if (existing !== 0) {
                 return next(
                     createHttpError(
                         HttpCode.CONFLICT,
@@ -69,10 +63,23 @@ export async function updateSelf(
             }
         }
 
-        await db
+        // Users with idpId are external and prohibited to change their names
+        const [result] = await db
             .update(users)
             .set({ name, username })
-            .where(eq(users.userId, userId));
+            .where(and(eq(users.userId, userId), isNull(users.idpId)))
+            .returning();
+
+        // We assert that the user with this userId exists,
+        // which implies that idpId is set => external user
+        if (!result) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "External users can not change their names"
+                )
+            );
+        }
 
         return response(res, {
             data: null,
