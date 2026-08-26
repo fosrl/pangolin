@@ -1733,6 +1733,7 @@
     "actionDeleteSiteProvisioningKey": "Delete Site Provisioning Key",
     "actionCreateOAuthClient": "Create OAuth Client",
     "actionListOAuthClients": "List OAuth Clients",
+    "actionGetOAuthClient": "Get OAuth Client",
     "actionUpdateOAuthClient": "Update OAuth Client",
     "actionDeleteOAuthClient": "Delete OAuth Client",
     "noneSelected": "None selected",

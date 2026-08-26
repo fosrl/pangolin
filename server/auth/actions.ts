@@ -130,6 +130,7 @@ export enum ActionsEnum {
     deleteSiteProvisioningKey = "deleteSiteProvisioningKey",
     createOAuthClient = "createOAuthClient",
     listOAuthClients = "listOAuthClients",
+    getOAuthClient = "getOAuthClient",
     updateOAuthClient = "updateOAuthClient",
     deleteOAuthClient = "deleteOAuthClient",
     getCertificate = "getCertificate",

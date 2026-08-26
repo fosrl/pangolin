@@ -254,6 +254,7 @@ function getActionsCategories(root: boolean) {
         "OAuth Client": {
             [t("actionCreateOAuthClient")]: "createOAuthClient",
             [t("actionListOAuthClients")]: "listOAuthClients",
+            [t("actionGetOAuthClient")]: "getOAuthClient",
             [t("actionUpdateOAuthClient")]: "updateOAuthClient",
             [t("actionDeleteOAuthClient")]: "deleteOAuthClient"
         }
