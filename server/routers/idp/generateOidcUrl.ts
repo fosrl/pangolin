@@ -8,7 +8,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { idp, idpOidcConfig, idpOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
-import * as arctic from "arctic";
+import * as client from "openid-client";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import jsonwebtoken from "jsonwebtoken";
 import config from "@server/lib/config";
@@ -128,15 +128,6 @@ export async function generateOidcUrl(
             }
         }
 
-        const parsedScopes = existingIdp.idpOidcConfig.scopes
-            .split(" ")
-            .map((scope) => {
-                return scope.trim();
-            })
-            .filter((scope) => {
-                return scope.length > 0;
-            });
-
         const key = config.getRawConfig().server.secret!;
 
         const decryptedClientId = decrypt(
@@ -154,27 +145,34 @@ export async function generateOidcUrl(
             decryptedClientSecret,
             redirectUrl
         });
-        const client = new arctic.OAuth2Client(
+
+        const authConfig: client.Configuration = await client.discovery(
+            new URL("https://account.spacestation14.com"),
             decryptedClientId,
             decryptedClientSecret,
-            redirectUrl
         );
 
-        const codeVerifier = arctic.generateCodeVerifier();
-        const state = arctic.generateState();
-        const url = client.createAuthorizationURLWithPKCE(
-            ensureTrailingSlash(existingIdp.idpOidcConfig.authUrl),
+        const codeVerifier = client.randomPKCECodeVerifier();
+        const codeChallenge: string =
+            await client.calculatePKCECodeChallenge(codeVerifier);
+        const state: string = client.randomState();
+        const nonce: string = client.randomNonce();
+
+        const redirectTo: URL = client.buildAuthorizationUrl(authConfig, {
+            redirect_uri: ensureTrailingSlash(redirectUrl),
+            scope: existingIdp.idpOidcConfig.scopes,
+            code_challenge: codeChallenge,
+            code_challenge_method: "S256",
             state,
-            arctic.CodeChallengeMethod.S256,
-            codeVerifier,
-            parsedScopes
-        );
+            nonce
+        });
 
         const stateJwt = jsonwebtoken.sign(
             {
                 redirectUrl: postAuthRedirectUrl, // TODO: validate that this is safe
                 state,
-                codeVerifier
+                nonce,
+                codeVerifier,
             },
             config.getRawConfig().server.secret!
         );
@@ -189,7 +187,7 @@ export async function generateOidcUrl(
 
         return response<GenerateOidcUrlResponse>(res, {
             data: {
-                redirectUrl: url.toString()
+                redirectUrl: redirectTo.toString()
             },
             success: true,
             error: false,

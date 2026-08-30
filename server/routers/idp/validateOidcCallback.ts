@@ -18,8 +18,7 @@ import {
     users
 } from "@server/db";
 import { and, eq, inArray } from "drizzle-orm";
-import * as arctic from "arctic";
-import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
+import * as client from "openid-client";
 import jmespath from "jmespath";
 import jsonwebtoken from "jsonwebtoken";
 import config from "@server/lib/config";
@@ -40,6 +39,8 @@ import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import { unwrapRoleMapping } from "@app/lib/idpRoleMapping";
+import { ResponseBodyError } from "openid-client";
+import { pullEnv } from "@/lib/pullEnv";
 
 const ensureTrailingSlash = (url: string): string => {
     return url;
@@ -64,6 +65,17 @@ const querySchema = z.object({
 export type ValidateOidcUrlCallbackResponse = {
     redirectUrl: string;
 };
+
+function buildCallbackUrl(idpId: number, code: string, state: string, scopes: string): URL {
+    const env = pullEnv();
+    const url = new URL(
+        `${env.app.dashboardUrl}/auth/idp/${idpId}/oidc/callback`
+    );
+    url.searchParams.append("code", code);
+    url.searchParams.append("state", state);
+    url.searchParams.append("scope", scopes);
+    return url;
+}
 
 export async function validateOidcCallback(
     req: Request,
@@ -133,17 +145,13 @@ export async function validateOidcCallback(
             key
         );
 
-        const redirectUrl = await generateOidcRedirectUrl(
-            existingIdp.idp.idpId,
-            undefined,
-            loginPageId
-        );
-        const client = new arctic.OAuth2Client(
+        const authConfig: client.Configuration = await client.discovery(
+            new URL("https://account.spacestation14.com"),
             decryptedClientId,
-            decryptedClientSecret,
-            redirectUrl
+            decryptedClientSecret
         );
 
+        // noinspection JSVoidFunctionReturnValueUsed
         const statePayload = jsonwebtoken.verify(
             storedState,
             config.getRawConfig().server.secret!,
@@ -165,6 +173,7 @@ export async function validateOidcCallback(
             .object({
                 redirectUrl: z.string(),
                 state: z.string(),
+                nonce: z.string(),
                 codeVerifier: z.string()
             })
             .safeParse(statePayload);
@@ -182,6 +191,7 @@ export async function validateOidcCallback(
         const {
             codeVerifier,
             state,
+            nonce,
             redirectUrl: postAuthRedirectUrl
         } = stateObj.data;
 
@@ -198,75 +208,60 @@ export async function validateOidcCallback(
             state
         });
 
-        let tokens: arctic.OAuth2Tokens;
+        // openid-client parses the callback url to validate the exchange
+        const currentUrl = buildCallbackUrl(
+            idpId,
+            code,
+            state,
+            existingIdp.idpOidcConfig.scopes,
+        );
+        logger.debug("URL", {
+            currentUrl,
+        });
+
+        let tokens: client.TokenEndpointResponse;
         try {
-            tokens = await client.validateAuthorizationCode(
-                ensureTrailingSlash(existingIdp.idpOidcConfig.tokenUrl),
-                code,
-                codeVerifier
+            tokens = await client.authorizationCodeGrant(
+                authConfig,
+                currentUrl,
+                {
+                    pkceCodeVerifier: codeVerifier,
+                    expectedState: state,
+                    expectedNonce: nonce,
+                }
             );
         } catch (err: unknown) {
-            if (err instanceof arctic.OAuth2RequestError) {
-                logger.warn("OIDC provider rejected the authorization code", {
+            if (err instanceof client.ClientError) {
+                logger.warn("Encountered client error", {
                     error: err.code,
-                    description: err.description,
-                    uri: err.uri,
-                    state: err.state
+                    cause: err.cause,
+                    name: err.name,
+                    message: err.message,
+                    stack: err.stack,
                 });
-                return next(
-                    createHttpError(
-                        HttpCode.UNAUTHORIZED,
-                        err.description ||
-                            `OIDC provider rejected the request (${err.code})`
-                    )
-                );
+                return next(createHttpError(HttpCode.BAD_GATEWAY,
+                    err.code || "unknown error"));
             }
 
-            if (err instanceof arctic.UnexpectedResponseError) {
-                logger.error(
-                    "OIDC provider returned an unexpected response during token exchange",
-                    { status: err.status }
-                );
-                return next(
-                    createHttpError(
-                        HttpCode.BAD_GATEWAY,
-                        "Received an unexpected response from the identity provider while exchanging the authorization code."
-                    )
-                );
-            }
-
-            if (err instanceof arctic.UnexpectedErrorResponseBodyError) {
-                logger.error(
-                    "OIDC provider returned an unexpected error payload during token exchange",
-                    { status: err.status, data: err.data }
-                );
-                return next(
-                    createHttpError(
-                        HttpCode.BAD_GATEWAY,
-                        "Identity provider returned an unexpected error payload while exchanging the authorization code."
-                    )
-                );
-            }
-
-            if (err instanceof arctic.ArcticFetchError) {
-                logger.error(
-                    "Failed to reach OIDC provider while exchanging authorization code",
-                    { error: err.message }
-                );
-                return next(
-                    createHttpError(
-                        HttpCode.BAD_GATEWAY,
-                        "Unable to reach the identity provider while exchanging the authorization code. Please try again."
-                    )
-                );
+            if (err instanceof ResponseBodyError) {
+                logger.warn("Encountered error in response body", {
+                    error: err.code,
+                    cause: err.cause,
+                    name: err.name,
+                    message: err.message,
+                    stack: err.stack,
+                    resp: err.response.body
+                });
+                return next(createHttpError(HttpCode.INTERNAL_SERVER_ERROR, err.code || "unknown error"));
             }
 
             throw err;
         }
 
-        const idToken = tokens.idToken();
-        logger.debug("ID token", { idToken });
-        const claims = arctic.decodeIdToken(idToken);
+        logger.debug("Token endpoint response", { tokens });
+
+        // @ts-ignore
+        const claims = tokens.claims()!;
         logger.debug("ID token claims", { claims });
 
         let userIdentifier = jmespath.search(
@@ -304,6 +299,19 @@ export async function validateOidcCallback(
                 );
             }
         } catch (error) {}
+
+        if (!email || !name) {
+            const userInfo = await client.fetchUserInfo(
+                authConfig,
+                tokens.access_token,
+                userIdentifier,
+            );
+
+            email = userInfo.email;
+            name = userInfo.name;
+
+            logger.debug("userinfo response", { userInfo });
+        }
 
         logger.debug("User email", { email });
         logger.debug("User name", { name });
