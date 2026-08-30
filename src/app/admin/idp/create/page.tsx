@@ -50,7 +50,7 @@ export default function Page() {
 
     const createIdpFormSchema = z.object({
         name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
-        type: z.enum(["oidc"]),
+        type: z.enum(["oidc", "google", "azure"]),
         clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
         clientSecret: z
             .string()
@@ -90,17 +90,16 @@ export default function Page() {
     });
 
     const watchedType = form.watch("type");
-    // const templatesLocked =
-    //     !templatesPaid && (watchedType === "google" || watchedType === "azure");
-    const templatesLocked = false;
+    const templatesLocked =
+        !templatesPaid && (watchedType === "google" || watchedType === "azure");
 
     async function onSubmit(data: CreateIdpFormValues) {
-        // if (
-        //     !templatesPaid &&
-        //     (data.type === "google" || data.type === "azure")
-        // ) {
-        //     return;
-        // }
+        if (
+            !templatesPaid &&
+            (data.type === "google" || data.type === "azure")
+        ) {
+            return;
+        }
 
         setCreateLoading(true);
 
@@ -252,6 +251,175 @@ export default function Page() {
                     disabled={templatesLocked}
                     className="min-w-0 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60"
                 >
+                    {watchedType === "google" && (
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("idpGoogleConfigurationTitle")}
+                                </SettingsSectionTitle>
+                                <SettingsSectionDescription>
+                                    {t("idpGoogleConfigurationDescription")}
+                                </SettingsSectionDescription>
+                            </SettingsSectionHeader>
+                            <SettingsSectionBody>
+                                <SettingsSectionForm>
+                                    <Form {...form}>
+                                        <form
+                                            className="space-y-4"
+                                            id="create-idp-form"
+                                            onSubmit={form.handleSubmit(
+                                                onSubmit
+                                            )}
+                                        >
+                                            <FormField
+                                                control={form.control}
+                                                name="clientId"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("idpClientId")}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            {t(
+                                                                "idpGoogleClientIdDescription"
+                                                            )}
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="clientSecret"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t(
+                                                                "idpClientSecret"
+                                                            )}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                type="password"
+                                                                {...field}
+                                                            />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            {t(
+                                                                "idpGoogleClientSecretDescription"
+                                                            )}
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </form>
+                                    </Form>
+                                </SettingsSectionForm>
+                            </SettingsSectionBody>
+                        </SettingsSection>
+                    )}
+
+                    {watchedType === "azure" && (
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("idpAzureConfigurationTitle")}
+                                </SettingsSectionTitle>
+                                <SettingsSectionDescription>
+                                    {t("idpAzureConfigurationDescription")}
+                                </SettingsSectionDescription>
+                            </SettingsSectionHeader>
+                            <SettingsSectionBody>
+                                <SettingsSectionForm>
+                                    <Form {...form}>
+                                        <form
+                                            className="space-y-4"
+                                            id="create-idp-form"
+                                            onSubmit={form.handleSubmit(
+                                                onSubmit
+                                            )}
+                                        >
+                                            <FormField
+                                                control={form.control}
+                                                name="tenantId"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t(
+                                                                "idpTenantIdLabel"
+                                                            )}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            {t(
+                                                                "idpAzureTenantIdDescription"
+                                                            )}
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="clientId"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("idpClientId")}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            {t(
+                                                                "idpAzureClientIdDescription2"
+                                                            )}
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="clientSecret"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t(
+                                                                "idpClientSecret"
+                                                            )}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                type="password"
+                                                                {...field}
+                                                            />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            {t(
+                                                                "idpAzureClientSecretDescription2"
+                                                            )}
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </form>
+                                    </Form>
+                                </SettingsSectionForm>
+                            </SettingsSectionBody>
+                        </SettingsSection>
+                    )}
+
                     {watchedType === "oidc" && (
                         <SettingsSectionGrid cols={2}>
                             <SettingsSection>
