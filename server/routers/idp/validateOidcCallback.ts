@@ -274,10 +274,22 @@ export async function validateOidcCallback(
         const claims = tokens.claims()!;
         logger.debug("ID token claims", { claims });
 
+        const userInfo = await client.fetchUserInfo(
+            authConfig,
+            tokens.access_token,
+            claims.sub,
+        );
+
+        logger.debug("userinfo response", { userInfo });
+
         let userIdentifier = jmespath.search(
             claims,
             existingIdp.idpOidcConfig.identifierPath
-        ) as string | null;
+        );
+
+        if (!userIdentifier) {
+            userIdentifier = userInfo[existingIdp.idpOidcConfig.identifierPath];
+        }
 
         if (!userIdentifier) {
             return next(
@@ -293,34 +305,19 @@ export async function validateOidcCallback(
         logger.debug("User identifier", { userIdentifier });
 
         let email = null;
-        let name = null;
-        try {
-            if (existingIdp.idpOidcConfig.emailPath) {
-                email = jmespath.search(
-                    claims,
-                    existingIdp.idpOidcConfig.emailPath
-                );
-            }
+        if (existingIdp.idpOidcConfig.emailPath) {
+            email =
+                jmespath.search(claims, existingIdp.idpOidcConfig.emailPath) ??
+                userInfo.email;
+        }
 
-            if (existingIdp.idpOidcConfig.namePath) {
-                name = jmespath.search(
+        let name = null;
+        if (existingIdp.idpOidcConfig.namePath) {
+            name =
+                jmespath.search(
                     claims,
                     existingIdp.idpOidcConfig.namePath || ""
-                );
-            }
-        } catch (error) {}
-
-        if (!email || !name) {
-            const userInfo = await client.fetchUserInfo(
-                authConfig,
-                tokens.access_token,
-                userIdentifier,
-            );
-
-            email = userInfo.email;
-            name = userInfo.name;
-
-            logger.debug("userinfo response", { userInfo });
+                ) ?? userInfo.name;
         }
 
         logger.debug("User email", { email });
