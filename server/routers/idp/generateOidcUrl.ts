@@ -147,7 +147,7 @@ export async function generateOidcUrl(
         });
 
         const authConfig: client.Configuration = await client.discovery(
-            new URL("https://account.spacestation14.com"),
+            new URL(existingIdp.idpOidcConfig.discoveryUrl),
             decryptedClientId,
             decryptedClientSecret,
         );

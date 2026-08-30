@@ -146,7 +146,7 @@ export async function validateOidcCallback(
         );
 
         const authConfig: client.Configuration = await client.discovery(
-            new URL("https://account.spacestation14.com"),
+            new URL(existingIdp.idpOidcConfig.discoveryUrl),
             decryptedClientId,
             decryptedClientSecret
         );
@@ -203,7 +203,6 @@ export async function validateOidcCallback(
         }
 
         logger.debug("State verified", {
-            urL: ensureTrailingSlash(existingIdp.idpOidcConfig.tokenUrl),
             expectedState,
             state
         });
