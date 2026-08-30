@@ -91,8 +91,7 @@ export default function GeneralPage() {
             .min(1, { message: t("idpClientSecretRequired") }),
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
-        authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }),
-        tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }),
+        discoveryUrl: z.url({ message: t("idpErrorDiscoveryUrlInvalid") }),
         identifierPath: z.string().min(1, { message: t("idpPathRequired") }),
         emailPath: z.string().nullable().optional(),
         namePath: z.string().nullable().optional(),
@@ -154,8 +153,7 @@ export default function GeneralPage() {
             name: "",
             clientId: "",
             clientSecret: "",
-            authUrl: "",
-            tokenUrl: "",
+            discoveryUrl: "",
             identifierPath: "sub",
             emailPath: "email",
             namePath: "name",
@@ -217,8 +215,7 @@ export default function GeneralPage() {
 
                     // Add variant-specific fields
                     if (idpVariant === "oidc") {
-                        formData.authUrl = data.idpOidcConfig.authUrl;
-                        formData.tokenUrl = data.idpOidcConfig.tokenUrl;
+                        formData.discoveryUrl = data.idpOidcConfig.discoveryUrl;
                         formData.identifierPath =
                             data.idpOidcConfig.identifierPath;
                         formData.emailPath =
@@ -344,38 +341,37 @@ export default function GeneralPage() {
                 const oidcData = data as OidcFormValues;
                 payload = {
                     ...payload,
-                    authUrl: oidcData.authUrl,
-                    tokenUrl: oidcData.tokenUrl,
+                    discoveryUrl: oidcData.discoveryUrl,
                     identifierPath: oidcData.identifierPath,
                     emailPath: oidcData.emailPath || "",
                     namePath: oidcData.namePath || "",
                     scopes: oidcData.scopes
                 };
             } else if (variant === "azure") {
-                const azureData = data as AzureFormValues;
-                // Construct URLs dynamically for Azure provider
-                const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
-                const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
-                payload = {
-                    ...payload,
-                    authUrl: authUrl,
-                    tokenUrl: tokenUrl,
-                    identifierPath: "email",
-                    emailPath: "email",
-                    namePath: "name",
-                    scopes: "openid profile email"
-                };
+                // const azureData = data as AzureFormValues;
+                // // Construct URLs dynamically for Azure provider
+                // const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
+                // const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
+                // payload = {
+                //     ...payload,
+                //     authUrl: authUrl,
+                //     tokenUrl: tokenUrl,
+                //     identifierPath: "email",
+                //     emailPath: "email",
+                //     namePath: "name",
+                //     scopes: "openid profile email"
+                // };
             } else if (variant === "google") {
-                // Google uses predefined URLs
-                payload = {
-                    ...payload,
-                    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-                    tokenUrl: "https://oauth2.googleapis.com/token",
-                    identifierPath: "email",
-                    emailPath: "email",
-                    namePath: "name",
-                    scopes: "openid profile email"
-                };
+                // // Google uses predefined URLs
+                // payload = {
+                //     ...payload,
+                //     authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+                //     tokenUrl: "https://oauth2.googleapis.com/token",
+                //     identifierPath: "email",
+                //     emailPath: "email",
+                //     namePath: "name",
+                //     scopes: "openid profile email"
+                // };
             }
 
             const res = await api.post(
@@ -762,39 +758,20 @@ export default function GeneralPage() {
 
                                             <FormField
                                                 control={form.control}
-                                                name="authUrl"
+                                                name="discoveryUrl"
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>
-                                                            {t("idpAuthUrl")}
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} />
-                                                        </FormControl>
-                                                        <FormDescription>
                                                             {t(
-                                                                "idpAuthUrlDescription"
+                                                                "idpDiscoveryUrl"
                                                             )}
-                                                        </FormDescription>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-
-                                            <FormField
-                                                control={form.control}
-                                                name="tokenUrl"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>
-                                                            {t("idpTokenUrl")}
                                                         </FormLabel>
                                                         <FormControl>
                                                             <Input {...field} />
                                                         </FormControl>
                                                         <FormDescription>
                                                             {t(
-                                                                "idpTokenUrlDescription"
+                                                                "idpDiscoveryUrlDescription"
                                                             )}
                                                         </FormDescription>
                                                         <FormMessage />

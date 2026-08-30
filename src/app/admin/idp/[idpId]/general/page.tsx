@@ -61,8 +61,7 @@ export default function GeneralPage() {
         clientSecret: z
             .string()
             .min(1, { message: t("idpClientSecretRequired") }),
-        authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }),
-        tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }),
+        discoveryUrl: z.url({ message: t("idpErrorDiscoveryUrlInvalid") }),
         identifierPath: z.string().min(1, { message: t("idpPathRequired") }),
         emailPath: z.string().optional(),
         namePath: z.string().optional(),
@@ -114,8 +113,7 @@ export default function GeneralPage() {
             name: "",
             clientId: "",
             clientSecret: "",
-            authUrl: "",
-            tokenUrl: "",
+            discoveryUrl: "",
             identifierPath: "sub",
             emailPath: "email",
             namePath: "name",
@@ -143,14 +141,14 @@ export default function GeneralPage() {
                     setVariant(idpVariant);
 
                     let tenantId = "";
-                    if (idpVariant === "azure" && data.idpOidcConfig?.authUrl) {
-                        const tenantMatch = data.idpOidcConfig.authUrl.match(
-                            /login\.microsoftonline\.com\/([^/]+)\/oauth2/
-                        );
-                        if (tenantMatch) {
-                            tenantId = tenantMatch[1];
-                        }
-                    }
+                    // if (idpVariant === "azure" && data.idpOidcConfig?.authUrl) {
+                    //     const tenantMatch = data.idpOidcConfig.authUrl.match(
+                    //         /login\.microsoftonline\.com\/([^/]+)\/oauth2/
+                    //     );
+                    //     if (tenantMatch) {
+                    //         tenantId = tenantMatch[1];
+                    //     }
+                    // }
 
                     const formData: Record<string, unknown> = {
                         name: data.idp.name,
@@ -160,8 +158,7 @@ export default function GeneralPage() {
                     };
 
                     if (idpVariant === "oidc") {
-                        formData.authUrl = data.idpOidcConfig.authUrl;
-                        formData.tokenUrl = data.idpOidcConfig.tokenUrl;
+                        formData.discoveryUrl = data.idpOidcConfig.discoveryUrl;
                         formData.identifierPath =
                             data.idpOidcConfig.identifierPath;
                         formData.emailPath =
@@ -226,8 +223,7 @@ export default function GeneralPage() {
                 const oidcData = data as OidcFormValues;
                 payload = {
                     ...payload,
-                    authUrl: oidcData.authUrl,
-                    tokenUrl: oidcData.tokenUrl,
+                    discoveryUrl: oidcData.discoveryUrl,
                     identifierPath: oidcData.identifierPath,
                     emailPath: oidcData.emailPath ?? "",
                     namePath: oidcData.namePath ?? "",
@@ -240,7 +236,6 @@ export default function GeneralPage() {
                 payload = {
                     ...payload,
                     authUrl,
-                    tokenUrl,
                     identifierPath: "email",
                     emailPath: "email",
                     namePath: "name",
@@ -630,39 +625,18 @@ export default function GeneralPage() {
 
                                             <FormField
                                                 control={form.control}
-                                                name="authUrl"
+                                                name="discoveryUrl"
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>
-                                                            {t("idpAuthUrl")}
+                                                            {t("idpDiscoveryUrl")}
                                                         </FormLabel>
                                                         <FormControl>
                                                             <Input {...field} />
                                                         </FormControl>
                                                         <FormDescription>
                                                             {t(
-                                                                "idpAuthUrlDescription"
-                                                            )}
-                                                        </FormDescription>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-
-                                            <FormField
-                                                control={form.control}
-                                                name="tokenUrl"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>
-                                                            {t("idpTokenUrl")}
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} />
-                                                        </FormControl>
-                                                        <FormDescription>
-                                                            {t(
-                                                                "idpTokenUrlDescription"
+                                                                "idpDiscoveryUrlDescription"
                                                             )}
                                                         </FormDescription>
                                                         <FormMessage />
