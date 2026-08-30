@@ -31,7 +31,7 @@ export function OidcIdpProviderTypeSelect({ value, onTypeChange }: Props) {
             const base: StrategyOption<IdpOidcProviderType>[] = [
                 {
                     id: "oidc",
-                    title: "OAuth2/OIDC",
+                    title: t("idpOidc"),
                     description: t("idpOidcDescription"),
                     icon: <IdpTypeIcon type="oidc" size={24} />
                 }
