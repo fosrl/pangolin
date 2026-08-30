@@ -24,6 +24,7 @@ export default async function Page(props: {
         error?: string;
         error_description?: string;
         error_uri?: string;
+        iss?: string;
     }>;
 }) {
     const params = await props.params;
@@ -88,6 +89,7 @@ export default async function Page(props: {
                 stateCookie={stateCookie}
                 idp={{ name: foundIdp.name }}
                 providerError={providerError}
+                issuer={searchParams.iss}
             />
         </>
     );

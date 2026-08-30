@@ -55,7 +55,8 @@ const paramsSchema = z
 const bodySchema = z.object({
     code: z.string().nonempty(),
     state: z.string().nonempty(),
-    storedState: z.string().nonempty()
+    storedState: z.string().nonempty(),
+    issuer: z.string().optional(),
 });
 
 const querySchema = z.object({
@@ -66,7 +67,13 @@ export type ValidateOidcUrlCallbackResponse = {
     redirectUrl: string;
 };
 
-function buildCallbackUrl(idpId: number, code: string, state: string, scopes: string): URL {
+function buildCallbackUrl(
+    idpId: number,
+    code: string,
+    state: string,
+    scopes: string,
+    issuer: string | undefined
+): URL {
     const env = pullEnv();
     const url = new URL(
         `${env.app.dashboardUrl}/auth/idp/${idpId}/oidc/callback`
@@ -74,6 +81,9 @@ function buildCallbackUrl(idpId: number, code: string, state: string, scopes: st
     url.searchParams.append("code", code);
     url.searchParams.append("state", state);
     url.searchParams.append("scope", scopes);
+    if (issuer) {
+        url.searchParams.append("iss", issuer ?? "");
+    }
     return url;
 }
 
@@ -117,7 +127,7 @@ export async function validateOidcCallback(
 
         const { loginPageId } = parsedQuery.data;
 
-        const { storedState, code, state: expectedState } = parsedBody.data;
+        const { storedState, code, state: expectedState, issuer } = parsedBody.data;
 
         const [existingIdp] = await db
             .select()
@@ -213,6 +223,7 @@ export async function validateOidcCallback(
             code,
             state,
             existingIdp.idpOidcConfig.scopes,
+            issuer,
         );
         logger.debug("URL", {
             currentUrl,

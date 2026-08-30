@@ -426,7 +426,8 @@ export async function validateOidcUrlCallbackProxy(
     code: string,
     expectedState: string,
     stateCookie: string,
-    loginPageId?: number
+    loginPageId?: number,
+    issuer?: string
 ): Promise<ResponseT<ValidateOidcUrlCallbackResponse>> {
     const serverPort = process.env.SERVER_EXTERNAL_PORT;
     const url = `http://localhost:${serverPort}/api/v1/auth/idp/${idpId}/oidc/validate-callback${loginPageId ? "?loginPageId=" + loginPageId : ""}`;
@@ -436,7 +437,8 @@ export async function validateOidcUrlCallbackProxy(
     return await makeApiRequest<ValidateOidcUrlCallbackResponse>(url, "POST", {
         code: code,
         state: expectedState,
-        storedState: stateCookie
+        storedState: stateCookie,
+        issuer: issuer,
     });
 }
 
