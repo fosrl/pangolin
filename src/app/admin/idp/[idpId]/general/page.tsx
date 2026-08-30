@@ -50,7 +50,7 @@ export default function GeneralPage() {
     const { idpId } = useParams();
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
-    const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
+    const [variant, setVariant] = useState<"oidc">("oidc");
 
     const redirectUrl = `${env.app.dashboardUrl}/auth/idp/${idpId}/oidc/callback`;
     const t = useTranslations();
@@ -69,39 +69,40 @@ export default function GeneralPage() {
         autoProvision: z.boolean().default(false)
     });
 
-    const GoogleFormSchema = z.object({
-        name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
-        clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
-        clientSecret: z
-            .string()
-            .min(1, { message: t("idpClientSecretRequired") }),
-        autoProvision: z.boolean().default(false)
-    });
-
-    const AzureFormSchema = z.object({
-        name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
-        clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
-        clientSecret: z
-            .string()
-            .min(1, { message: t("idpClientSecretRequired") }),
-        tenantId: z.string().min(1, { message: t("idpTenantIdRequired") }),
-        autoProvision: z.boolean().default(false)
-    });
+    // const GoogleFormSchema = z.object({
+    //     name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
+    //     clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
+    //     clientSecret: z
+    //         .string()
+    //         .min(1, { message: t("idpClientSecretRequired") }),
+    //     autoProvision: z.boolean().default(false)
+    // });
+    //
+    // const AzureFormSchema = z.object({
+    //     name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
+    //     clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
+    //     clientSecret: z
+    //         .string()
+    //         .min(1, { message: t("idpClientSecretRequired") }),
+    //     tenantId: z.string().min(1, { message: t("idpTenantIdRequired") }),
+    //     autoProvision: z.boolean().default(false)
+    // });
 
     type OidcFormValues = z.infer<typeof OidcFormSchema>;
-    type GoogleFormValues = z.infer<typeof GoogleFormSchema>;
-    type AzureFormValues = z.infer<typeof AzureFormSchema>;
-    type GeneralFormValues =
-        | OidcFormValues
-        | GoogleFormValues
-        | AzureFormValues;
+    // type GoogleFormValues = z.infer<typeof GoogleFormSchema>;
+    // type AzureFormValues = z.infer<typeof AzureFormSchema>;
+    // type GeneralFormValues =
+    //     | OidcFormValues
+    //     | GoogleFormValues
+    //     | AzureFormValues;
+    type GeneralFormValues = OidcFormValues;
 
     const getFormSchema = () => {
         switch (variant) {
-            case "google":
-                return GoogleFormSchema;
-            case "azure":
-                return AzureFormSchema;
+            // case "google":
+            //     return GoogleFormSchema;
+            // case "azure":
+            //     return AzureFormSchema;
             default:
                 return OidcFormSchema;
         }
@@ -119,7 +120,6 @@ export default function GeneralPage() {
             namePath: "name",
             scopes: "openid profile email",
             autoProvision: true,
-            tenantId: ""
         }
     });
 
@@ -135,12 +135,10 @@ export default function GeneralPage() {
                     const data = res.data.data;
                     const idpVariant =
                         (data.idpOidcConfig?.variant as
-                            | "oidc"
-                            | "google"
-                            | "azure") || "oidc";
+                            | "oidc") || "oidc";
                     setVariant(idpVariant);
 
-                    let tenantId = "";
+                    // let tenantId = "";
                     // if (idpVariant === "azure" && data.idpOidcConfig?.authUrl) {
                     //     const tenantMatch = data.idpOidcConfig.authUrl.match(
                     //         /login\.microsoftonline\.com\/([^/]+)\/oauth2/
@@ -166,9 +164,10 @@ export default function GeneralPage() {
                         formData.namePath =
                             data.idpOidcConfig.namePath ?? undefined;
                         formData.scopes = data.idpOidcConfig.scopes;
-                    } else if (idpVariant === "azure") {
-                        formData.tenantId = tenantId;
                     }
+                    // } else if (idpVariant === "azure") {
+                    //     formData.tenantId = tenantId;
+                    // }
 
                     form.reset(formData as GeneralFormValues);
                 }
@@ -229,29 +228,30 @@ export default function GeneralPage() {
                     namePath: oidcData.namePath ?? "",
                     scopes: oidcData.scopes
                 };
-            } else if (variant === "azure") {
-                const azureData = data as AzureFormValues;
-                const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
-                const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
-                payload = {
-                    ...payload,
-                    authUrl,
-                    identifierPath: "email",
-                    emailPath: "email",
-                    namePath: "name",
-                    scopes: "openid profile email"
-                };
-            } else if (variant === "google") {
-                payload = {
-                    ...payload,
-                    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-                    tokenUrl: "https://oauth2.googleapis.com/token",
-                    identifierPath: "email",
-                    emailPath: "email",
-                    namePath: "name",
-                    scopes: "openid profile email"
-                };
             }
+            // } else if (variant === "azure") {
+            //     const azureData = data as AzureFormValues;
+            //     const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
+            //     const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
+            //     payload = {
+            //         ...payload,
+            //         authUrl,
+            //         identifierPath: "email",
+            //         emailPath: "email",
+            //         namePath: "name",
+            //         scopes: "openid profile email"
+            //     };
+            // } else if (variant === "google") {
+            //     payload = {
+            //         ...payload,
+            //         authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+            //         tokenUrl: "https://oauth2.googleapis.com/token",
+            //         identifierPath: "email",
+            //         emailPath: "email",
+            //         namePath: "name",
+            //         scopes: "openid profile email"
+            //     };
+            // }
 
             const res = await api.post(`/idp/${idpId}/oidc`, payload);
 
@@ -395,165 +395,6 @@ export default function GeneralPage() {
                         </Form>
                     </SettingsSectionBody>
                 </SettingsSection>
-
-                {variant === "google" && (
-                    <SettingsSection>
-                        <SettingsSectionHeader>
-                            <SettingsSectionTitle>
-                                {t("idpGoogleConfiguration")}
-                            </SettingsSectionTitle>
-                            <SettingsSectionDescription>
-                                {t("idpGoogleConfigurationDescription")}
-                            </SettingsSectionDescription>
-                        </SettingsSectionHeader>
-                        <SettingsSectionBody>
-                            <SettingsSectionForm>
-                                <Form {...form}>
-                                    <form
-                                        onSubmit={form.handleSubmit(onSubmit)}
-                                        className="space-y-4"
-                                        id="general-settings-form"
-                                    >
-                                        <FormField
-                                            control={form.control}
-                                            name="clientId"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        {t("idpClientId")}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input {...field} />
-                                                    </FormControl>
-                                                    <FormDescription>
-                                                        {t(
-                                                            "idpGoogleClientIdDescription"
-                                                        )}
-                                                    </FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
-                                        <FormField
-                                            control={form.control}
-                                            name="clientSecret"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        {t("idpClientSecret")}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="password"
-                                                            {...field}
-                                                        />
-                                                    </FormControl>
-                                                    <FormDescription>
-                                                        {t(
-                                                            "idpGoogleClientSecretDescription"
-                                                        )}
-                                                    </FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </form>
-                                </Form>
-                            </SettingsSectionForm>
-                        </SettingsSectionBody>
-                    </SettingsSection>
-                )}
-
-                {variant === "azure" && (
-                    <SettingsSection>
-                        <SettingsSectionHeader>
-                            <SettingsSectionTitle>
-                                {t("idpAzureConfiguration")}
-                            </SettingsSectionTitle>
-                            <SettingsSectionDescription>
-                                {t("idpAzureConfigurationDescription")}
-                            </SettingsSectionDescription>
-                        </SettingsSectionHeader>
-                        <SettingsSectionBody>
-                            <SettingsSectionForm>
-                                <Form {...form}>
-                                    <form
-                                        onSubmit={form.handleSubmit(onSubmit)}
-                                        className="space-y-4"
-                                        id="general-settings-form"
-                                    >
-                                        <FormField
-                                            control={form.control}
-                                            name="tenantId"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        {t("idpTenantId")}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input {...field} />
-                                                    </FormControl>
-                                                    <FormDescription>
-                                                        {t(
-                                                            "idpAzureTenantIdDescription"
-                                                        )}
-                                                    </FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
-                                        <FormField
-                                            control={form.control}
-                                            name="clientId"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        {t("idpClientId")}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input {...field} />
-                                                    </FormControl>
-                                                    <FormDescription>
-                                                        {t(
-                                                            "idpAzureClientIdDescription"
-                                                        )}
-                                                    </FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
-                                        <FormField
-                                            control={form.control}
-                                            name="clientSecret"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        {t("idpClientSecret")}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="password"
-                                                            {...field}
-                                                        />
-                                                    </FormControl>
-                                                    <FormDescription>
-                                                        {t(
-                                                            "idpAzureClientSecretDescription"
-                                                        )}
-                                                    </FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </form>
-                                </Form>
-                            </SettingsSectionForm>
-                        </SettingsSectionBody>
-                    </SettingsSection>
-                )}
 
                 {variant === "oidc" && (
                     <SettingsSectionGrid cols={2}>

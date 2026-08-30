@@ -18,7 +18,8 @@ type Props = {
 export function OidcIdpProviderTypeSelect({ value, onTypeChange }: Props) {
     const t = useTranslations();
     const { env } = useEnvContext();
-    const hideTemplates = env.flags.disableEnterpriseFeatures;
+    // const hideTemplates = env.flags.disableEnterpriseFeatures;
+    const hideTemplates = true;
 
     useEffect(() => {
         if (hideTemplates && (value === "google" || value === "azure")) {
@@ -31,7 +32,7 @@ export function OidcIdpProviderTypeSelect({ value, onTypeChange }: Props) {
             const base: StrategyOption<IdpOidcProviderType>[] = [
                 {
                     id: "oidc",
-                    title: "OAuth2/OIDC",
+                    title: t("idpOidc"),
                     description: t("idpOidcDescription"),
                     icon: <IdpTypeIcon type="oidc" size={24} />
                 }
