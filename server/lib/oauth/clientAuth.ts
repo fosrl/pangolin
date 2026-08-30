@@ -107,30 +107,38 @@ export async function authenticateClient(
         };
     }
 
-    if (client.clientSecretHash) {
-        if (!clientSecret) {
-            return {
-                status: HttpCode.UNAUTHORIZED,
-                oauthError: {
-                    error: "invalid_client",
-                    error_description: "Missing client_secret"
-                }
-            };
-        }
+    if (!client.clientSecretHash) {
+        return {
+            status: HttpCode.UNAUTHORIZED,
+            oauthError: {
+                error: "invalid_client",
+                error_description: "Invalid client configuration"
+            }
+        };
+    }
 
-        const validSecret = await verifyPassword(
-            clientSecret,
-            client.clientSecretHash
-        );
-        if (!validSecret) {
-            return {
-                status: HttpCode.UNAUTHORIZED,
-                oauthError: {
-                    error: "invalid_client",
-                    error_description: "Invalid client credentials"
-                }
-            };
-        }
+    if (!clientSecret) {
+        return {
+            status: HttpCode.UNAUTHORIZED,
+            oauthError: {
+                error: "invalid_client",
+                error_description: "Missing client_secret"
+            }
+        };
+    }
+
+    const validSecret = await verifyPassword(
+        clientSecret,
+        client.clientSecretHash
+    );
+    if (!validSecret) {
+        return {
+            status: HttpCode.UNAUTHORIZED,
+            oauthError: {
+                error: "invalid_client",
+                error_description: "Invalid client credentials"
+            }
+        };
     }
 
     return { client };
