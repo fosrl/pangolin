@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import ClientAvatar from "@app/components/ClientAvatar";
 import { OFFLINE_ACCESS_SCOPE } from "@server/lib/oauth/scopes";
+import { createApiClient } from "@app/lib/api";
+import { useEnvContext } from "@app/hooks/useEnvContext";
 
 type OauthAuthorizeParams = {
     response_type?: string;
@@ -29,38 +31,33 @@ type OauthAuthorizeParams = {
     nonce?: string;
 };
 
-const initiateResponseSchema = z.strictObject({
-    data: z.union([
-        z.strictObject({
-            redirectTo: z.string().min(1)
-        }),
-        z.strictObject({
-            interactionId: z.string().min(1),
-            clientName: z.string().min(1),
-            clientUri: z.string().nullable(),
-            logoUri: z.string().nullable(),
-            requestedScopes: z.array(z.string()),
-            user: z.strictObject({
-                name: z.string().nullable(),
-                email: z.string().nullable(),
-                username: z.string()
-            })
-        })
-    ]),
+const redirectResponseSchema = z.strictObject({
+    redirectTo: z.string().min(1)
+});
+
+const consentDataResponseSchema = z.strictObject({
+    interactionId: z.string().min(1),
+    clientName: z.string().min(1),
+    clientUri: z.string().nullable(),
+    logoUri: z.string().nullable(),
+    requestedScopes: z.array(z.string()),
+    user: z.strictObject({
+        name: z.string().nullable(),
+        email: z.string().nullable(),
+        username: z.string()
+    })
+});
+
+const consentResponseSchema = z.strictObject({
+    data: redirectResponseSchema,
     success: z.boolean(),
     error: z.boolean(),
     message: z.string(),
     status: z.number()
 });
 
-const consentResponseSchema = z.strictObject({
-    data: z.strictObject({
-        redirectTo: z.string().min(1)
-    }),
-    success: z.boolean(),
-    error: z.boolean(),
-    message: z.string(),
-    status: z.number()
+const initiateResponseSchema = consentResponseSchema.extend({
+    data: z.xor([redirectResponseSchema, consentDataResponseSchema])
 });
 
 const scopeDescriptionKeys: Record<string, string> = {
@@ -107,8 +104,10 @@ export default function ConsentPage({
         !params.response_type ||
         !params.client_id ||
         !params.redirect_uri ||
-        !params.scope ||
-        !params.state;
+        !params.scope;
+
+    const { env } = useEnvContext();
+    const api = createApiClient({ env });
 
     useEffect(() => {
         if (isMissingRequiredParams) {
@@ -121,15 +120,7 @@ export default function ConsentPage({
 
         const initiate = async () => {
             try {
-                const res = await fetch("/api/v1/oauth/authorize/initiate", {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRF-Token": "x-csrf-protection"
-                    },
-                    body: JSON.stringify(params)
-                });
+                const res = await api.post("/oauth/authorize/initiate", params);
 
                 if (res.status === 401) {
                     const redirectPath = `${window.location.pathname}${window.location.search}`;
@@ -137,23 +128,21 @@ export default function ConsentPage({
                     return;
                 }
 
-                const json = await res.json();
-
-                if (!res.ok) {
-                    if (!cancelled) {
-                        setError(
-                            json?.message || t("oauthAuthorizeInitFailed")
-                        );
-                    }
+                if (res.status !== 200) {
+                    if (cancelled) return;
+                    setError(
+                        res.data?.message || t("oauthAuthorizeInitFailed")
+                    );
                     return;
                 }
 
-                const parsedPayload = initiateResponseSchema.safeParse(json);
+                const parsedPayload = initiateResponseSchema.safeParse(
+                    res.data
+                );
 
-                if (!parsedPayload.success) {
-                    if (!cancelled) {
-                        setError(t("oauthAuthorizeInvalidInitResponse"));
-                    }
+                if (!parsedPayload.success || !parsedPayload.data) {
+                    if (cancelled) return;
+                    setError(t("oauthAuthorizeInvalidInitResponse"));
                     return;
                 }
 
@@ -194,28 +183,18 @@ export default function ConsentPage({
         setError(null);
 
         try {
-            const res = await fetch("/api/v1/oauth/authorize/consent", {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-Token": "x-csrf-protection"
-                },
-                body: JSON.stringify({
-                    interactionId: interaction.interactionId,
-                    approved
-                })
+            const res = await api.post("/oauth/authorize/consent", {
+                interactionId: interaction.interactionId,
+                approved
             });
 
-            const json = await res.json();
-
-            if (!res.ok) {
-                setError(json?.message || t("oauthAuthorizeConsentFailed"));
+            if (res.status !== 200) {
+                setError(res.data?.message || t("oauthAuthorizeConsentFailed"));
                 setConsentLoading(false);
                 return;
             }
 
-            const parsedPayload = consentResponseSchema.safeParse(json);
+            const parsedPayload = consentResponseSchema.safeParse(res.data);
 
             if (!parsedPayload.success) {
                 setError(t("oauthAuthorizeInvalidConsentResponse"));
