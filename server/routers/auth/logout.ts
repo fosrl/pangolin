@@ -9,7 +9,7 @@ import {
 } from "@server/auth/sessions/app";
 import { verifySession } from "@server/auth/sessions/verifySession";
 import config from "@server/lib/config";
-import { sendBackchannelLogout } from "@server/lib/oauth/backchannelLogout";
+import { scheduleBackchannelLogout } from "@server/lib/oauth/backchannelLogout";
 
 export async function logout(
     req: Request,
@@ -46,8 +46,9 @@ export async function logout(
             logger.error("Failed to invalidate session", error);
         }
 
-        // OIDC: notify RPs after local token revocation completes
-        await sendBackchannelLogout(user.userId);
+        // OIDC: awaits local token revocation
+        // backchannel logouts will be triggered (but not awaited)
+        await scheduleBackchannelLogout(user.userId);
 
         return response<null>(res, {
             data: null,
