@@ -76,8 +76,7 @@ export default function Page() {
         clientSecret: z
             .string()
             .min(1, { message: t("idpClientSecretRequired") }),
-        authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }).optional(),
-        tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }).optional(),
+        discoveryUrl: z.url({ message: t("idpErrorDiscoveryUrlInvalid") }).optional(),
         identifierPath: z
             .string()
             .min(1, { message: t("idpPathRequired") })
@@ -104,8 +103,7 @@ export default function Page() {
             type: "oidc",
             clientId: "",
             clientSecret: "",
-            authUrl: "",
-            tokenUrl: "",
+            discoveryUrl: "",
             identifierPath: "sub",
             namePath: "name",
             emailPath: "email",
@@ -150,13 +148,13 @@ export default function Page() {
 
         try {
             // Construct URLs dynamically for Azure provider
-            let authUrl = data.authUrl;
-            let tokenUrl = data.tokenUrl;
+            // let authUrl = data.authUrl;
+            // let tokenUrl = data.tokenUrl;
 
-            if (data.type === "azure" && data.tenantId) {
-                authUrl = authUrl?.replace("{{TENANT_ID}}", data.tenantId);
-                tokenUrl = tokenUrl?.replace("{{TENANT_ID}}", data.tenantId);
-            }
+            // if (data.type === "azure" && data.tenantId) {
+            //     authUrl = authUrl?.replace("{{TENANT_ID}}", data.tenantId);
+            //     tokenUrl = tokenUrl?.replace("{{TENANT_ID}}", data.tenantId);
+            // }
 
             const roleMappingExpression = compileRoleMappingExpression({
                 mode: roleMappingMode,
@@ -183,8 +181,7 @@ export default function Page() {
                 name: data.name,
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
-                authUrl: authUrl,
-                tokenUrl: tokenUrl,
+                discoveryUrl: data.discoveryUrl,
                 identifierPath: data.identifierPath,
                 emailPath: data.emailPath,
                 namePath: data.namePath,
@@ -608,45 +605,23 @@ export default function Page() {
 
                                             <FormField
                                                 control={form.control}
-                                                name="authUrl"
+                                                name="discoveryUrl"
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>
-                                                            {t("idpAuthUrl")}
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <Input
-                                                                placeholder="https://your-idp.com/oauth2/authorize"
-                                                                {...field}
-                                                            />
-                                                        </FormControl>
-                                                        <FormDescription>
                                                             {t(
-                                                                "idpAuthUrlDescription"
+                                                                "idpDiscoveryUrl"
                                                             )}
-                                                        </FormDescription>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-
-                                            <FormField
-                                                control={form.control}
-                                                name="tokenUrl"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>
-                                                            {t("idpTokenUrl")}
                                                         </FormLabel>
                                                         <FormControl>
                                                             <Input
-                                                                placeholder="https://your-idp.com/oauth2/token"
+                                                                placeholder="https://your-idp.com/.well-known/openid-configuration"
                                                                 {...field}
                                                             />
                                                         </FormControl>
                                                         <FormDescription>
                                                             {t(
-                                                                "idpTokenUrlDescription"
+                                                                "idpDiscoveryUrlDescription"
                                                             )}
                                                         </FormDescription>
                                                         <FormMessage />

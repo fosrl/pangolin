@@ -32,6 +32,7 @@ type ValidateOidcTokenParams = {
         description?: string | null;
         uri?: string | null;
     };
+    issuer?: string;
 };
 
 export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
@@ -107,7 +108,8 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
                     props.code,
                     props.expectedState,
                     props.stateCookie,
-                    props.loginPageId
+                    props.loginPageId,
+                    props.issuer
                 );
 
                 if (response.error) {

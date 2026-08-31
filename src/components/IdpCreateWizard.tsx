@@ -37,8 +37,7 @@ type CreateIdpFormValues = {
     type: "oidc";
     clientId: string;
     clientSecret: string;
-    authUrl: string;
-    tokenUrl: string;
+    discoveryUrl: string;
     identifierPath: string;
     emailPath?: string;
     namePath?: string;
@@ -66,8 +65,7 @@ export function IdpCreateWizard({
         clientSecret: z
             .string()
             .min(1, { message: t("idpClientSecretRequired") }),
-        authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }),
-        tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }),
+        discoveryUrl: z.url({ message: t("idpErrorDiscoveryUrlInvalid") }),
         identifierPath: z.string().min(1, { message: t("idpPathRequired") }),
         emailPath: z.string().optional(),
         namePath: z.string().optional(),
@@ -96,8 +94,7 @@ export function IdpCreateWizard({
             type: "oidc",
             clientId: "",
             clientSecret: "",
-            authUrl: "",
-            tokenUrl: "",
+            discoveryUrl: "",
             identifierPath: "sub",
             namePath: "name",
             emailPath: "email",
@@ -258,46 +255,21 @@ export function IdpCreateWizard({
 
                                     <FormField
                                         control={form.control}
-                                        name="authUrl"
+                                        name="discoveryUrl"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
-                                                    {t("idpAuthUrl")}
+                                                    {t("idpDiscoveryUrl")}
                                                 </FormLabel>
                                                 <FormControl>
                                                     <Input
-                                                        placeholder="https://your-idp.com/oauth2/authorize"
+                                                        placeholder="https://your-idp.com/.well-known/openid-configuration"
                                                         {...field}
                                                         disabled={loading}
                                                     />
                                                 </FormControl>
                                                 <FormDescription>
-                                                    {t("idpAuthUrlDescription")}
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <FormField
-                                        control={form.control}
-                                        name="tokenUrl"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>
-                                                    {t("idpTokenUrl")}
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        placeholder="https://your-idp.com/oauth2/token"
-                                                        {...field}
-                                                        disabled={loading}
-                                                    />
-                                                </FormControl>
-                                                <FormDescription>
-                                                    {t(
-                                                        "idpTokenUrlDescription"
-                                                    )}
+                                                    {t("idpDiscoveryUrlDescription")}
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
