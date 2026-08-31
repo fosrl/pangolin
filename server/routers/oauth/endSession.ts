@@ -15,6 +15,7 @@ import {
 import { verifySession } from "@server/auth/sessions/verifySession";
 import logger from "@server/logger";
 import { OAuthSessionTokenIds } from "@server/middlewares";
+import { scheduleBackchannelLogout } from "@server/lib/oauth/backchannelLogout";
 
 type OAuthEndSessionConfig = {
     redirectUrl: URL;
@@ -126,6 +127,7 @@ async function endPangolinSession(
 
     if (user && session && user.userId === idToken.userId) {
         await invalidateSession(session.sessionId);
+        await scheduleBackchannelLogout(user.userId);
         res.setHeader(
             "Set-Cookie",
             createBlankSessionTokenCookie(req.protocol === "https")
