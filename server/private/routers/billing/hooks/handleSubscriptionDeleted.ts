@@ -53,6 +53,15 @@ export async function handleSubscriptionDeleted(
             return;
         }
 
+        // If the subscription has been manually overridden, we lock it down
+        // so Stripe can no longer change (or delete) its status locally.
+        if (existingSubscription.override === true) {
+            logger.info(
+                `Subscription ${subscription.id} is locked (override=true). Ignoring deletion event from Stripe.`
+            );
+            return;
+        }
+
         await db
             .delete(subscriptions)
             .where(eq(subscriptions.subscriptionId, subscription.id));

@@ -33,7 +33,9 @@ import {
     resourcePolicyPassword,
     ResourcePolicyPassword,
     resourcePolicyHeaderAuth,
-    ResourcePolicyHeaderAuth
+    ResourcePolicyHeaderAuth,
+    resourceWhitelist,
+    resourcePolicyWhiteList
 } from "@server/db";
 import { alias } from "@server/db";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
@@ -446,6 +448,36 @@ export async function getResourceRules(
     }));
 
     return [...directRules, ...offsetPolicyRules] as ResourceRule[];
+}
+
+/**
+ * Get the whitelisted email associated with a resource session's whitelist
+ * match (either a direct resource whitelist entry or a resource policy
+ * whitelist entry).
+ */
+export async function getWhitelistEmail(
+    whitelistId?: number | null,
+    policyWhitelistId?: number | null
+): Promise<string | null> {
+    if (whitelistId) {
+        const [row] = await db
+            .select({ email: resourceWhitelist.email })
+            .from(resourceWhitelist)
+            .where(eq(resourceWhitelist.whitelistId, whitelistId))
+            .limit(1);
+        return row?.email ?? null;
+    }
+
+    if (policyWhitelistId) {
+        const [row] = await db
+            .select({ email: resourcePolicyWhiteList.email })
+            .from(resourcePolicyWhiteList)
+            .where(eq(resourcePolicyWhiteList.whitelistId, policyWhitelistId))
+            .limit(1);
+        return row?.email ?? null;
+    }
+
+    return null;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { join } from "path";
 import { readFileSync } from "fs";
 import {
+    aiProviders,
     clients,
     db,
     resourcePolicies,
@@ -107,6 +108,32 @@ export async function getUniqueResourceName(orgId: string): Promise<string> {
                 )
         ]);
         if (resourceCount.length === 0 && siteResourceCount.length === 0) {
+            return name;
+        }
+        loops++;
+    }
+}
+
+export async function getUniqueProviderName(orgId: string): Promise<string> {
+    let loops = 0;
+    while (true) {
+        if (loops > 100) {
+            throw new Error("Could not generate a unique name");
+        }
+
+        const name = generateName();
+
+        const aiProviderCount = await db
+            .select({
+                niceId: aiProviders.niceId,
+                orgId: aiProviders.orgId
+            })
+            .from(aiProviders)
+            .where(
+                and(eq(aiProviders.niceId, name), eq(aiProviders.orgId, orgId))
+            );
+
+        if (aiProviderCount.length === 0) {
             return name;
         }
         loops++;

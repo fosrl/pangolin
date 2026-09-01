@@ -44,6 +44,7 @@ export default function InviteStatusCard({
         | "user_does_not_exist"
         | "not_logged_in"
         | "user_limit_exceeded"
+        | "oidc_not_allowed"
     >("rejected");
 
     useEffect(() => {
@@ -71,6 +72,12 @@ export default function InviteStatusCard({
                     return "wrong_user";
                 } else if (
                     error.includes(
+                        "Invites can only be accepted by internal users."
+                    )
+                ) {
+                    return "oidc_not_allowed";
+                } else if (
+                    error.includes(
                         "User does not exist. Please create an account first."
                     )
                 ) {
@@ -93,14 +100,20 @@ export default function InviteStatusCard({
             setType(type);
 
             if (!user && type === "user_does_not_exist") {
+                const inviteRedirect = encodeURIComponent(
+                    `/invite?token=${tokenParam}`
+                );
                 const redirectUrl = email
-                    ? `/auth/signup?redirect=/invite?token=${tokenParam}&email=${email}`
-                    : `/auth/signup?redirect=/invite?token=${tokenParam}`;
+                    ? `/auth/signup?redirect=${inviteRedirect}&email=${encodeURIComponent(email)}`
+                    : `/auth/signup?redirect=${inviteRedirect}`;
                 router.push(redirectUrl);
             } else if (!user && type === "not_logged_in") {
+                const inviteRedirect = encodeURIComponent(
+                    `/invite?token=${tokenParam}`
+                );
                 const redirectUrl = email
-                    ? `/auth/login?redirect=/invite?token=${tokenParam}&user=${email}`
-                    : `/auth/login?redirect=/invite?token=${tokenParam}`;
+                    ? `/auth/login?redirect=${inviteRedirect}&user=${encodeURIComponent(email)}`
+                    : `/auth/login?redirect=${inviteRedirect}`;
                 router.push(redirectUrl);
             } else {
                 setLoading(false);
@@ -112,17 +125,23 @@ export default function InviteStatusCard({
 
     async function goToLogin() {
         await api.post("/auth/logout", {});
+        const inviteRedirect = encodeURIComponent(
+            `/invite?token=${tokenParam}`
+        );
         const redirectUrl = email
-            ? `/auth/login?redirect=/invite?token=${tokenParam}&user=${email}`
-            : `/auth/login?redirect=/invite?token=${tokenParam}`;
+            ? `/auth/login?redirect=${inviteRedirect}&user=${encodeURIComponent(email)}`
+            : `/auth/login?redirect=${inviteRedirect}`;
         router.push(redirectUrl);
     }
 
     async function goToSignup() {
         await api.post("/auth/logout", {});
+        const inviteRedirect = encodeURIComponent(
+            `/invite?token=${tokenParam}`
+        );
         const redirectUrl = email
-            ? `/auth/signup?redirect=/invite?token=${tokenParam}&email=${email}`
-            : `/auth/signup?redirect=/invite?token=${tokenParam}`;
+            ? `/auth/signup?redirect=${inviteRedirect}&email=${encodeURIComponent(email)}`
+            : `/auth/signup?redirect=${inviteRedirect}`;
         router.push(redirectUrl);
     }
 
@@ -152,6 +171,14 @@ export default function InviteStatusCard({
                 <div>
                     <p className="text-center mb-4">{t("inviteErrorNoUser")}</p>
                     <p className="text-center">{t("inviteCreateUser")}</p>
+                </div>
+            );
+        } else if (type === "oidc_not_allowed") {
+            return (
+                <div>
+                    <p className="text-center mb-4">
+                        {t("inviteErrorOidcNotAllowed")}
+                    </p>
                 </div>
             );
         } else if (type === "user_limit_exceeded") {
@@ -187,6 +214,10 @@ export default function InviteStatusCard({
             );
         } else if (type === "user_does_not_exist") {
             return <Button onClick={goToSignup}>{t("createAnAccount")}</Button>;
+        } else if (type === "oidc_not_allowed") {
+            return (
+                <Button onClick={goToLogin}>{t("inviteLogInOtherUser")}</Button>
+            );
         } else if (type === "user_limit_exceeded") {
             return (
                 <Button

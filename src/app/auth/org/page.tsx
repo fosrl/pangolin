@@ -19,6 +19,7 @@ import { isOrgSubscribed } from "@app/lib/api/isOrgSubscribed";
 import { OrgSelectionForm } from "@app/components/OrgSelectionForm";
 import OrgLoginPage from "@app/components/OrgLoginPage";
 import type { Metadata } from "next";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 export const metadata: Metadata = {
     title: "Choose Organization"
@@ -83,7 +84,10 @@ export default async function OrgAuthPage(props: {
             redirect(env.app.dashboardUrl);
         }
 
-        const subscribed = await isOrgSubscribed(loginPage.orgId);
+        const subscribed = await isOrgSubscribed(
+            loginPage.orgId,
+            tierMatrix.loginPageDomain
+        );
 
         if (build === "saas" && !subscribed) {
             console.log(

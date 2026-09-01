@@ -11,11 +11,7 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import {
-    db,
-    siteProvisioningKeyOrg,
-    siteProvisioningKeys
-} from "@server/db";
+import { db, siteProvisioningKeyOrg, siteProvisioningKeys } from "@server/db";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
@@ -25,6 +21,8 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { eq } from "drizzle-orm";
 import type { ListSiteProvisioningKeysResponse } from "@server/routers/siteProvisioning/types";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
+import { OpenAPITags, registry } from "@server/openApi";
 
 const paramsSchema = z.object({
     orgId: z.string().nonempty()
@@ -45,11 +43,55 @@ const querySchema = z.object({
         .pipe(z.int().nonnegative())
 });
 
+const ListSiteProvisioningKeysResponseDataSchema = z.object({
+    siteProvisioningKeys: z.array(
+        z.object({
+            siteProvisioningKeyId: z.string(),
+            orgId: z.string(),
+            lastChars: z.string(),
+            createdAt: z.string(),
+            name: z.string(),
+            lastUsed: z.string().nullable(),
+            maxBatchSize: z.number().nullable(),
+            numUsed: z.number(),
+            validUntil: z.string().nullable(),
+            approveNewSites: z.boolean()
+        })
+    ),
+    pagination: z.object({
+        total: z.number(),
+        limit: z.number(),
+        offset: z.number()
+    })
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/org/{orgId}/site-provisioning-keys",
+    description: "List all site provisioning keys for an organization.",
+    tags: [OpenAPITags.SiteProvisioningKey],
+    request: {
+        params: paramsSchema,
+        query: querySchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        ListSiteProvisioningKeysResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
+});
+
 function querySiteProvisioningKeys(orgId: string) {
     return db
         .select({
-            siteProvisioningKeyId:
-                siteProvisioningKeys.siteProvisioningKeyId,
+            siteProvisioningKeyId: siteProvisioningKeys.siteProvisioningKeyId,
             orgId: siteProvisioningKeyOrg.orgId,
             lastChars: siteProvisioningKeys.lastChars,
             createdAt: siteProvisioningKeys.createdAt,

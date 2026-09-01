@@ -7,6 +7,7 @@ export async function logAccessAudit(data: {
     type: string;
     orgId: string;
     resourceId?: number;
+    siteResourceId?: number;
     user?: { username: string; userId: string };
     apiKey?: { name: string | null; apiKeyId: string };
     metadata?: any;

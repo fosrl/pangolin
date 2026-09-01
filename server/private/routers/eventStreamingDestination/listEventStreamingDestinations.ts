@@ -60,6 +60,7 @@ export type ListEventStreamingDestinationsResponse = {
         sendRequestLogs: boolean;
         sendActionLogs: boolean;
         sendAccessLogs: boolean;
+        sendAISessionLogs: boolean;
     }[];
     pagination: {
         total: number;
@@ -83,7 +84,8 @@ const ListEventStreamingDestinationsResponseDataSchema = z.object({
             sendConnectionLogs: z.boolean(),
             sendRequestLogs: z.boolean(),
             sendActionLogs: z.boolean(),
-            sendAccessLogs: z.boolean()
+            sendAccessLogs: z.boolean(),
+            sendAISessionLogs: z.boolean()
         })
     ),
     pagination: z.object({
@@ -109,7 +111,7 @@ registry.registerPath({
     path: "/org/{orgId}/event-streaming-destination",
     description:
         "List all event streaming destinations for a specific organization.",
-    tags: [OpenAPITags.Org],
+    tags: [OpenAPITags.EventStreamingDestination],
     request: {
         query: querySchema,
         params: paramsSchema

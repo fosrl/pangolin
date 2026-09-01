@@ -125,7 +125,7 @@ function querySitesBase() {
             niceId: sites.niceId,
             name: sites.name,
             pubKey: sites.pubKey,
-            subnet: sites.subnet,
+            subnet: sites.exitNodeSubnet,
             megabytesIn: sites.megabytesIn,
             megabytesOut: sites.megabytesOut,
             orgName: orgs.name,
@@ -177,7 +177,7 @@ registry.registerPath({
     method: "get",
     path: "/org/{orgId}/sites",
     description: "List all sites in an organization",
-    tags: [OpenAPITags.Org, OpenAPITags.Site],
+    tags: [OpenAPITags.Site],
     request: {
         params: listSitesParamsSchema,
         query: listSitesSchema
@@ -235,11 +235,6 @@ export async function listSites(
             );
         }
 
-        const isLabelFeatureEnabled = await isLicensedOrSubscribed(
-            orgId,
-            tierMatrix.labels
-        );
-
         const {
             pageSize,
             page,
@@ -291,7 +286,7 @@ export async function listSites(
             conditions.push(eq(sites.status, status));
         }
 
-        if (isLabelFeatureEnabled && labelFilter && labelFilter.length > 0) {
+        if (labelFilter && labelFilter.length > 0) {
             conditions.push(
                 inArray(
                     sites.siteId,
@@ -311,24 +306,20 @@ export async function listSites(
             const q = "%" + query.toLowerCase() + "%";
             const queryList = [
                 like(sql`LOWER(${sites.name})`, q),
-                like(sql`LOWER(${sites.niceId})`, q)
+                like(sql`LOWER(${sites.niceId})`, q),
+                inArray(
+                    sites.siteId,
+                    db
+                        .select({ id: siteLabels.siteId })
+                        .from(siteLabels)
+                        .innerJoin(
+                            labels,
+                            eq(labels.labelId, siteLabels.labelId)
+                        )
+                        .where(like(sql`LOWER(${labels.name})`, q))
+                )
             ];
 
-            if (isLabelFeatureEnabled) {
-                queryList.push(
-                    inArray(
-                        sites.siteId,
-                        db
-                            .select({ id: siteLabels.siteId })
-                            .from(siteLabels)
-                            .innerJoin(
-                                labels,
-                                eq(labels.labelId, siteLabels.labelId)
-                            )
-                            .where(like(sql`LOWER(${labels.name})`, q))
-                    )
-                );
-            }
             conditions.push(or(...queryList)!);
         }
 
@@ -366,25 +357,23 @@ export async function listSites(
             siteId: number;
         }> = [];
 
-        if (isLabelFeatureEnabled) {
-            labelsForSites =
-                siteIds.length === 0
-                    ? []
-                    : await db
-                          .select({
-                              labelId: labels.labelId,
-                              name: labels.name,
-                              color: labels.color,
-                              siteId: siteLabels.siteId
-                          })
-                          .from(labels)
-                          .innerJoin(
-                              siteLabels,
-                              eq(siteLabels.labelId, labels.labelId)
-                          )
-                          .where(inArray(siteLabels.siteId, siteIds))
-                          .orderBy(asc(siteLabels.siteLabelId));
-        }
+        labelsForSites =
+            siteIds.length === 0
+                ? []
+                : await db
+                      .select({
+                          labelId: labels.labelId,
+                          name: labels.name,
+                          color: labels.color,
+                          siteId: siteLabels.siteId
+                      })
+                      .from(labels)
+                      .innerJoin(
+                          siteLabels,
+                          eq(siteLabels.labelId, labels.labelId)
+                      )
+                      .where(inArray(siteLabels.siteId, siteIds))
+                      .orderBy(asc(siteLabels.siteLabelId));
 
         const sitesWithUpdates: SiteWithUpdateAvailable[] = rows.map((site) => {
             const siteWithUpdate: SiteWithUpdateAvailable = { ...site };

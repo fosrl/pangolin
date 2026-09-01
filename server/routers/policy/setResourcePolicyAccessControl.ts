@@ -2,8 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import {
     db,
-    idp,
-    idpOrg,
     resourcePolicies,
     rolePolicies,
     roles,
@@ -18,6 +16,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import { idpExistsForOrg } from "@server/lib/idp/idpExistsForOrg";
 
 const setResourcePolicyAcccessControlBodySchema = z.strictObject({
     sso: z.boolean(),
@@ -27,7 +26,7 @@ const setResourcePolicyAcccessControlBodySchema = z.strictObject({
     }),
     skipToIdpId: z.int().positive().optional().nullable().openapi({
         type: "integer",
-        description: "Page number to retrieve"
+        description: "Default identity provider ID to skip to on login"
     })
 });
 
@@ -36,11 +35,70 @@ const setResourcePolicyAccessControlParamsSchema = z.strictObject({
 });
 
 registry.registerPath({
-    method: "post",
-    path: "/resource-policy/{resourceId}/access-control",
+    method: "put",
+    path: "/resource-policy/{resourcePolicyId}/access-control",
     description:
         "Set access control users for a resource policy, including SSO, users, roles, Identity provider.",
-    tags: [OpenAPITags.Policy, OpenAPITags.User],
+    tags: [OpenAPITags.PublicResourcePolicyLegacy],
+    request: {
+        params: setResourcePolicyAccessControlParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyAcccessControlBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource-policy/{resourceId}/access-control",
+    description:
+        "Set access control users for a resource policy, including SSO, users, roles, Identity provider.",
+    tags: [OpenAPITags.PublicResourcePolicy, OpenAPITags.User],
+    request: {
+        params: setResourcePolicyAccessControlParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyAcccessControlBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/resource-policy/{resourceId}/access-control",
+    description:
+        "Set access control users for a resource policy, including SSO, users, roles, Identity provider. Deprecated: use POST instead.",
+    deprecated: true,
+    tags: [OpenAPITags.PublicResourcePolicyLegacy],
+    request: {
+        params: setResourcePolicyAccessControlParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyAcccessControlBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/public-resource-policy/{resourceId}/access-control",
+    description:
+        "Set access control users for a resource policy, including SSO, users, roles, Identity provider. Deprecated: use POST instead.",
+    deprecated: true,
+    tags: [OpenAPITags.PublicResourcePolicy, OpenAPITags.User],
     request: {
         params: setResourcePolicyAccessControlParamsSchema,
         body: {
@@ -104,16 +162,9 @@ export async function setResourcePolicyAccessControl(
 
         // Check if Identity provider in `skipToIdpId` exists
         if (idpId) {
-            const [provider] = await db
-                .select()
-                .from(idp)
-                .innerJoin(idpOrg, eq(idpOrg.idpId, idp.idpId))
-                .where(
-                    and(eq(idp.idpId, idpId), eq(idpOrg.orgId, policy.orgId))
-                )
-                .limit(1);
+            const providerExists = await idpExistsForOrg(idpId, policy.orgId);
 
-            if (!provider) {
+            if (!providerExists) {
                 return next(
                     createHttpError(
                         HttpCode.INTERNAL_SERVER_ERROR,

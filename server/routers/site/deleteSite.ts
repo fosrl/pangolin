@@ -159,15 +159,39 @@ export async function deleteSite(
             siteResources: []
         };
 
-        await db.transaction(async (trx) => {
-            if (deleteResources) {
+        if (deleteResources) {
+            await db.transaction(async (trx) => {
                 resourceSideEffects = await deleteAssociatedResourcesForSite(
                     siteId,
                     site.orgId,
                     trx
                 );
-            }
 
+                if (resourceSideEffects.resources.length > 0) {
+                    await usageService.add(
+                        site.orgId,
+                        LimitId.PUBLIC_RESOURCES,
+                        -resourceSideEffects.resources.length,
+                        trx
+                    );
+                }
+
+                if (resourceSideEffects.siteResources.length > 0) {
+                    await usageService.add(
+                        site.orgId,
+                        LimitId.PRIVATE_RESOURCES,
+                        -resourceSideEffects.siteResources.length,
+                        trx
+                    );
+                }
+            });
+
+            await runDeleteSiteAssociatedResourcesSideEffects(
+                resourceSideEffects
+            );
+        }
+
+        await db.transaction(async (trx) => {
             if (site.type == "wireguard") {
                 if (site.pubKey) {
                     await deletePeer(site.exitNodeId!, site.pubKey);
@@ -179,12 +203,6 @@ export async function deleteSite(
             await trx.delete(sites).where(eq(sites.siteId, siteId));
             await usageService.add(site.orgId, LimitId.SITES, -1, trx);
         });
-
-        if (deleteResources) {
-            await runDeleteSiteAssociatedResourcesSideEffects(
-                resourceSideEffects
-            );
-        }
 
         if (deletedNewt) {
             const payload = {

@@ -19,6 +19,7 @@ Reasons:
 106 - Valid email
 107 - Valid SSO
 108 - Connected Client
+109 - Valid Virtual API Key
 
 201 - Resource Not Found
 202 - Resource Blocked
@@ -90,7 +91,9 @@ async function flushAuditLogs() {
             auditLogBuffer.unshift(...logsToWrite);
             logger.info(`Re-queued ${logsToWrite.length} audit logs for retry`);
         } else {
-            logger.error(`Buffer full, dropped ${logsToWrite.length} audit logs`);
+            logger.error(
+                `Buffer full, dropped ${logsToWrite.length} audit logs`
+            );
         }
     } finally {
         isFlushInProgress = false;

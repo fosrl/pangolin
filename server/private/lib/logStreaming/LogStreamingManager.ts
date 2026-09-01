@@ -19,11 +19,13 @@ import {
     requestAuditLog,
     actionAuditLog,
     accessAuditLog,
-    connectionAuditLog
+    connectionAuditLog,
+    aiSessionLog
 } from "@server/db";
 import logger from "@server/logger";
 import { and, eq, gt, desc, max, sql } from "drizzle-orm";
 import { decrypt } from "@server/lib/crypto";
+import { decompressText } from "@server/lib/textCompression";
 import config from "@server/lib/config";
 import {
     LogType,
@@ -309,6 +311,7 @@ export class LogStreamingManager {
         if (dest.sendActionLogs) enabledTypes.push("action");
         if (dest.sendAccessLogs) enabledTypes.push("access");
         if (dest.sendConnectionLogs) enabledTypes.push("connection");
+        if (dest.sendAISessionLogs) enabledTypes.push("aiSession");
 
         if (enabledTypes.length === 0) return;
 
@@ -585,6 +588,13 @@ export class LogStreamingManager {
                         .where(eq(connectionAuditLog.orgId, orgId));
                     return row?.maxId ?? 0;
                 }
+                case "aiSession": {
+                    const [row] = await logsDb
+                        .select({ maxId: max(aiSessionLog.id) })
+                        .from(aiSessionLog)
+                        .where(eq(aiSessionLog.orgId, orgId));
+                    return row?.maxId ?? 0;
+                }
             }
         } catch (err) {
             logger.warn(
@@ -670,6 +680,48 @@ export class LogStreamingManager {
                     .limit(limit)) as Array<
                     Record<string, unknown> & { id: number }
                 >;
+
+            case "aiSession": {
+                const rows = (await logsDb
+                    .select()
+                    .from(aiSessionLog)
+                    .where(
+                        and(
+                            eq(aiSessionLog.orgId, orgId),
+                            gt(aiSessionLog.id, afterId)
+                        )
+                    )
+                    .orderBy(aiSessionLog.id)
+                    .limit(limit)) as Array<
+                    Record<string, unknown> & { id: number }
+                >;
+
+                const compressedFields = [
+                    "requestBody",
+                    "responseBody",
+                    "normalizedRequest",
+                    "normalizedResponse"
+                ] as const;
+
+                for (const row of rows) {
+                    for (const field of compressedFields) {
+                        const value = row[field];
+                        if (typeof value !== "string") {
+                            continue;
+                        }
+                        try {
+                            row[field] = decompressText(value);
+                        } catch (error) {
+                            logger.error(
+                                `Failed to decompress AI session log field ${field}`,
+                                { error }
+                            );
+                        }
+                    }
+                }
+
+                return rows;
+            }
         }
     }
 
@@ -693,6 +745,14 @@ export class LogStreamingManager {
             case "connection":
                 timestamp =
                     typeof row.startedAt === "number" ? row.startedAt : 0;
+                break;
+            case "aiSession":
+                // createdAt is stored as epoch milliseconds; normalise to
+                // epoch seconds to match the other log types.
+                timestamp =
+                    typeof row.createdAt === "number"
+                        ? Math.floor(row.createdAt / 1000)
+                        : 0;
                 break;
         }
 

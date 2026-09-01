@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const LAUNCHER_UNLABELED_GROUP_KEY = "unlabeled";
 export const LAUNCHER_NO_SITE_GROUP_KEY = "no-site";
+export const LAUNCHER_AI_GATEWAY_GROUP_KEY = "ai-gateway";
 export const LAUNCHER_FLAT_GROUP_KEY = "__all__";
 
 export const launcherViewConfigSchema = z.object({

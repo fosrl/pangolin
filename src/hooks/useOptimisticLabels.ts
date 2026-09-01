@@ -95,7 +95,10 @@ export function useOptimisticLabels({
     }
 
     async function refresh() {
-        router.refresh();
+        // Only refresh if the labels have been modified
+        if (pendingActions.length > 0) {
+            router.refresh();
+        }
         setPendingActions([]);
     }
 

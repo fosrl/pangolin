@@ -13,22 +13,13 @@
 
 import {
     handleRemoteExitNodeRegisterMessage,
-    handleRemoteExitNodePingMessage,
-    startRemoteExitNodeOfflineChecker,
-    startExitNodeReconnectScheduler
+    handleRemoteExitNodePingMessage
 } from "#private/routers/remoteExitNode";
 import { MessageHandler } from "@server/routers/ws";
-import { build } from "@server/build";
-import { handleConnectionLogMessage, handleRequestLogMessage } from "#private/routers/newt";
+import { handleConnectionLogMessage } from "#private/routers/newt";
 
 export const messageHandlers: Record<string, MessageHandler> = {
     "remoteExitNode/register": handleRemoteExitNodeRegisterMessage,
     "remoteExitNode/ping": handleRemoteExitNodePingMessage,
-    "newt/access-log": handleConnectionLogMessage,
-    "newt/request-log": handleRequestLogMessage,
+    "newt/access-log": handleConnectionLogMessage
 };
-
-if (build != "saas") {
-    startRemoteExitNodeOfflineChecker(); // this is to handle the offline check for remote exit nodes
-    startExitNodeReconnectScheduler(); // check pending exit node reconnects and notify newts
-}

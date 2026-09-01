@@ -1,7 +1,7 @@
 "use client";
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
-import UptimeMiniBar from "@app/components/UptimeMiniBar";
+import { UptimeMiniBar } from "@app/components/UptimeMiniBar";
 
 import {
     Credenza,
@@ -52,13 +52,12 @@ import {
 } from "./ui/controlled-data-table";
 
 import { useOptimisticLabels } from "@app/hooks/useOptimisticLabels";
-import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { durationToMs } from "@app/lib/durationToMs";
+import { orgQueries, productUpdatesQueries } from "@app/lib/queries";
+import { useQuery } from "@tanstack/react-query";
+import semver from "semver";
 import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
 import { LabelsTableCell } from "./LabelsTableCell";
-import { useQuery } from "@tanstack/react-query";
-import { productUpdatesQueries } from "@app/lib/queries";
-import semver from "semver";
 
 export type SiteRow = {
     id: number;
@@ -90,6 +89,8 @@ type SitesTableProps = {
     rowCount: number;
 };
 
+const SITE_STATUS_HISTORY_DAYS = 30;
+
 export default function SitesTable({
     sites,
     orgId,
@@ -113,8 +114,16 @@ export default function SitesTable({
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
 
-    const { isPaidUser } = usePaidStatus();
-    const isLabelFeatureEnabled = isPaidUser(tierMatrix.labels);
+    const siteIds = useMemo(() => sites.map((s) => s.id), [sites]);
+
+    const statusHistoryQuery = useQuery({
+        ...orgQueries.batchedSiteStatusHistory({
+            orgId,
+            siteIds,
+            days: SITE_STATUS_HISTORY_DAYS
+        }),
+        enabled: siteIds.length > 0
+    });
 
     const api = createApiClient(useEnvContext());
     const t = useTranslations();
@@ -171,7 +180,10 @@ export default function SitesTable({
             toast({
                 variant: "destructive",
                 title: t("siteErrorRestart"),
-                description: formatAxiosError(e, t("siteErrorRestartDescription"))
+                description: formatAxiosError(
+                    e,
+                    t("siteErrorRestartDescription")
+                )
             });
         } finally {
             setRestartingSite(null);
@@ -295,7 +307,14 @@ export default function SitesTable({
                     if (originalRow.type == "local") {
                         return <span>-</span>;
                     }
-                    return <UptimeMiniBar siteId={originalRow.id} days={30} />;
+                    const data = statusHistoryQuery.data?.[row.original.id];
+                    return (
+                        <UptimeMiniBar
+                            isLoading={statusHistoryQuery.isLoading}
+                            data={data}
+                            days={SITE_STATUS_HISTORY_DAYS}
+                        />
+                    );
                 }
             },
             {
@@ -358,10 +377,12 @@ export default function SitesTable({
                 cell: ({ row }) => {
                     const originalRow = row.original;
 
-                    let updateAvailable =
+                    const updateAvailable = Boolean(
                         latestNewtVersion &&
                         originalRow.newtVersion &&
-                        semver.lt(originalRow.newtVersion, latestNewtVersion);
+                        semver.valid(originalRow.newtVersion) &&
+                        semver.lt(originalRow.newtVersion, latestNewtVersion)
+                    );
 
                     if (originalRow.type === "newt") {
                         return (
@@ -498,6 +519,23 @@ export default function SitesTable({
                 }
             },
             {
+                accessorKey: "labels",
+                header: () => (
+                    <LabelColumnFilterButton
+                        orgId={orgId}
+                        selectedValues={searchParams.getAll("labels")}
+                        onSelectedValuesChange={(value) =>
+                            handleFilterChange("labels", value)
+                        }
+                        label={t("labels")}
+                        className="p-3"
+                    />
+                ),
+                cell: ({ row }: { row: { original: SiteRow } }) => (
+                    <SiteLabelCell site={row.original} orgId={orgId} />
+                )
+            },
+            {
                 id: "actions",
                 enableHiding: false,
                 header: () => <span className="p-3"></span>,
@@ -552,9 +590,7 @@ export default function SitesTable({
                                                     setRestartingSite(siteRow)
                                                 }
                                             >
-                                                <span className="text-orange-500">
-                                                    {t("siteRestartButton")}
-                                                </span>
+                                                {t("siteRestartButton")}
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                         </>
@@ -601,28 +637,15 @@ export default function SitesTable({
             }
         ];
 
-        if (isLabelFeatureEnabled) {
-            cols.splice(cols.length - 1, 0, {
-                accessorKey: "labels",
-                header: () => (
-                    <LabelColumnFilterButton
-                        orgId={orgId}
-                        selectedValues={searchParams.getAll("labels")}
-                        onSelectedValuesChange={(value) =>
-                            handleFilterChange("labels", value)
-                        }
-                        label={t("labels")}
-                        className="p-3"
-                    />
-                ),
-                cell: ({ row }: { row: { original: SiteRow } }) => (
-                    <SiteLabelCell site={row.original} orgId={orgId} />
-                )
-            });
-        }
-
         return cols;
-    }, [isLabelFeatureEnabled, orgId, t, searchParams, latestNewtVersion]);
+    }, [
+        orgId,
+        t,
+        searchParams,
+        latestNewtVersion,
+        statusHistoryQuery.data,
+        statusHistoryQuery.isLoading
+    ]);
 
     function toggleSort(column: string) {
         const newSearch = getNextSortOrder(column, searchParams);

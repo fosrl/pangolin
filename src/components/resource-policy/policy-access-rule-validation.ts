@@ -17,6 +17,7 @@ export const POLICY_RULE_MATCH_TYPES = [
     "IP",
     "PATH",
     "COUNTRY",
+    "COUNTRY_IS_NOT",
     "ASN",
     "REGION"
 ] as const;
@@ -78,6 +79,7 @@ export function createPolicyRuleValueSchema(t: TranslateFn, match: string) {
                 message: t("rulesErrorInvalidRegionDescription")
             });
         case "COUNTRY":
+        case "COUNTRY_IS_NOT":
             return required.refine(
                 (value) => COUNTRIES.some((country) => country.code === value),
                 { message: t("rulesErrorInvalidCountryDescription") }

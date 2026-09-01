@@ -7,6 +7,7 @@ import {
     PopoverContent
 } from "@app/components/ui/popover";
 import { useCertificate } from "@app/hooks/useCertificate";
+import type { GetCertificateResponse } from "@server/routers/certificates/types";
 import { cn } from "@app/lib/cn";
 import { FileBadge } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -17,11 +18,13 @@ import {
     useState,
     type ReactNode
 } from "react";
+import { durationToMs } from "@app/lib/durationToMs";
 
 type ResourceAccessCertIndicatorProps = {
     orgId: string;
     domainId: string;
     fullDomain: string;
+    initialCertValue?: GetCertificateResponse | null;
 };
 
 function getStatusColor(status: string) {
@@ -43,7 +46,8 @@ function getStatusColor(status: string) {
 export function ResourceAccessCertIndicator({
     orgId,
     domainId,
-    fullDomain
+    fullDomain,
+    initialCertValue
 }: ResourceAccessCertIndicatorProps) {
     const t = useTranslations();
     const [open, setOpen] = useState(false);
@@ -53,16 +57,19 @@ export function ResourceAccessCertIndicator({
         orgId,
         domainId,
         fullDomain,
-        autoFetch: true,
+        initialCertValue,
         polling: open,
-        pollingInterval: 5000
+        pollingInterval: durationToMs(5, "seconds")
     });
 
     const { cert, certLoading, certError, refreshing, fetchCert } = certificate;
 
+    // `polling` only schedules on predefined intervals (1 second),
+    // so the first request would be a full interval away if open = true (which set polling = true).
+    // So we fetch immediately so the popover opens with fresh data.
     useEffect(() => {
         if (!open) return;
-        void fetchCert(false);
+        void fetchCert();
     }, [open, fetchCert]);
 
     const clearCloseTimer = useCallback(() => {

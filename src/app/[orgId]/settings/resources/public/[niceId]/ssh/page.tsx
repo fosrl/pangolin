@@ -14,14 +14,13 @@ import {
     SettingsSubsectionHeader,
     SettingsSubsectionTitle
 } from "@app/components/Settings";
-import { StrategySelect, StrategyOption } from "@app/components/StrategySelect";
+import { SshServerSettingsFields } from "@app/components/SshServerSettingsFields";
 import { BrowserGatewayTargetForm } from "@app/components/BrowserGatewayTargetForm";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { SitesSelector } from "@app/components/site-selector";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
 import { Button } from "@app/components/ui/button";
-import { Input } from "@app/components/ui/input";
 import {
     Form,
     FormControl,
@@ -35,8 +34,7 @@ import {
     PopoverContent,
     PopoverTrigger
 } from "@app/components/ui/popover";
-import { ChevronsUpDown, ExternalLink } from "lucide-react";
-import { Badge } from "@app/components/ui/badge";
+import { ChevronsUpDown } from "lucide-react";
 import { toast } from "@app/hooks/useToast";
 import { useResourceContext } from "@app/hooks/useResourceContext";
 import { useEnvContext } from "@app/hooks/useEnvContext";
@@ -77,11 +75,7 @@ export default function SshSettingsPage(props: {
 }) {
     const params = use(props.params);
     const { resource, updateResource } = useResourceContext();
-    const { isPaidUser } = usePaidStatus();
     const api = createApiClient(useEnvContext());
-    const disabled = !isPaidUser(
-        tierMatrix[TierFeature.AdvancedPublicResources]
-    );
 
     const { data: targetsResponse, isLoading: isLoadingTargets } = useQuery({
         queryKey: ["resourceTargets", resource.resourceId, params.orgId, "ssh"],
@@ -97,14 +91,10 @@ export default function SshSettingsPage(props: {
 
     return (
         <SettingsContainer>
-            <PaidFeaturesAlert
-                tiers={tierMatrix[TierFeature.AdvancedPublicResources]}
-            />
             <SshServerForm
                 orgId={params.orgId}
                 resource={resource}
                 updateResource={updateResource}
-                disabled={disabled}
                 targetsResponse={targetsResponse ?? { targets: [] }}
             />
         </SettingsContainer>
@@ -115,13 +105,11 @@ function SshServerForm({
     orgId,
     resource,
     updateResource,
-    disabled,
     targetsResponse
 }: {
     orgId: string;
     resource: GetResourceResponse;
     updateResource: ResourceContextType["updateResource"];
-    disabled: boolean;
     targetsResponse: ResourceTargetsResponse;
 }) {
     const t = useTranslations();
@@ -223,6 +211,7 @@ function SshServerForm({
 
     const pamMode = form.watch("pamMode");
     const standardDaemonLocation = form.watch("standardDaemonLocation");
+    const authDaemonPort = form.watch("authDaemonPort");
     const selectedNativeSite = form.watch("selectedNativeSite");
 
     async function save() {
@@ -364,35 +353,6 @@ function SshServerForm({
         }
     }
 
-    const authMethodOptions: StrategyOption<"passthrough" | "push">[] = [
-        {
-            id: "passthrough",
-            title: t("sshAuthMethodManual"),
-            description: t("sshAuthMethodManualDescription")
-        },
-        {
-            id: "push",
-            title: t("sshAuthMethodAutomated"),
-            description: t("sshAuthMethodAutomatedDescription")
-        }
-    ];
-
-    const daemonLocationOptions: StrategyOption<"site" | "remote">[] = [
-        {
-            id: "site",
-            title: t("internalResourceAuthDaemonSite"),
-            description: t("sshDaemonLocationSiteDescription")
-        },
-        {
-            id: "remote",
-            title: t("sshDaemonLocationRemote"),
-            description: t("sshDaemonLocationRemoteDescription")
-        }
-    ];
-
-    const showDaemonLocation = !isNative && pamMode === "push";
-    const showDaemonPort =
-        !isNative && pamMode === "push" && standardDaemonLocation === "remote";
     const useMultiSiteTargetForm =
         !isNative &&
         (standardDaemonLocation !== "site" || pamMode === "passthrough");
@@ -405,105 +365,41 @@ function SshServerForm({
                     {t("sshServerDescription")}
                 </SettingsSectionDescription>
             </SettingsSectionHeader>
-            <fieldset
-                disabled={disabled}
-                className={disabled ? "opacity-50 pointer-events-none" : ""}
-            >
                 <Form {...form}>
                     <SettingsSectionBody>
                         <SettingsSectionForm variant="half">
                             <SettingsFormGrid>
-                                <SettingsFormCell span="full">
-                                    <div className="space-y-2">
-                                        <p className="font-semibold text-sm">
-                                            {t("sshServerMode")}
-                                        </p>
-                                        <Badge variant="secondary">
-                                            {sshServerMode == "standard"
-                                                ? t("sshServerModeStandard")
-                                                : t("sshServerModePangolin")}
-                                        </Badge>
-                                    </div>
-                                </SettingsFormCell>
-
-                                <SettingsFormCell span="full">
-                                    <div className="space-y-2">
-                                        <p className="font-semibold text-sm">
-                                            {t("sshAuthenticationMethod")}
-                                        </p>
-                                        <StrategySelect<"passthrough" | "push">
-                                            value={pamMode}
-                                            options={authMethodOptions}
-                                            onChange={(value) =>
-                                                form.setValue("pamMode", value, {
-                                                    shouldValidate: true
-                                                })
-                                            }
-                                            cols={2}
-                                        />
-                                    </div>
-                                </SettingsFormCell>
-
-                                {showDaemonLocation && (
-                                    <SettingsFormCell span="full">
-                                        <div className="space-y-2">
-                                            <p className="font-semibold text-sm">
-                                                {t("sshAuthDaemonLocation")}
-                                            </p>
-                                            <StrategySelect<"site" | "remote">
-                                                value={standardDaemonLocation}
-                                                options={daemonLocationOptions}
-                                                onChange={(value) =>
-                                                    form.setValue(
-                                                        "standardDaemonLocation",
-                                                        value,
-                                                        {
-                                                            shouldValidate: true
-                                                        }
-                                                    )
-                                                }
-                                                cols={2}
-                                            />
-                                            <p className="text-sm text-muted-foreground">
-                                                {t("sshDaemonDisclaimer")}{" "}
-                                                <a
-                                                    href="https://docs.pangolin.net/manage/ssh"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-primary hover:underline inline-flex items-center gap-1"
-                                                >
-                                                    {t("learnMore")}
-                                                    <ExternalLink className="size-3.5 shrink-0" />
-                                                </a>
-                                            </p>
-                                        </div>
-                                    </SettingsFormCell>
-                                )}
-
-                                {showDaemonPort && (
-                                    <SettingsFormCell span="half">
-                                        <FormField
-                                            control={form.control}
-                                            name="authDaemonPort"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        {t("sshDaemonPort")}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="number"
-                                                            min={1}
-                                                            max={65535}
-                                                            {...field}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </SettingsFormCell>
-                                )}
+                                <SshServerSettingsFields
+                                    idPrefix="public-ssh-edit"
+                                    pamMode={pamMode}
+                                    standardDaemonLocation={
+                                        standardDaemonLocation
+                                    }
+                                    authDaemonPort={authDaemonPort}
+                                    onPamModeChange={(value) =>
+                                        form.setValue("pamMode", value, {
+                                            shouldValidate: true
+                                        })
+                                    }
+                                    onStandardDaemonLocationChange={(value) =>
+                                        form.setValue(
+                                            "standardDaemonLocation",
+                                            value,
+                                            { shouldValidate: true }
+                                        )
+                                    }
+                                    onAuthDaemonPortChange={(value) =>
+                                        form.setValue("authDaemonPort", value, {
+                                            shouldValidate: true
+                                        })
+                                    }
+                                    authDaemonPortError={
+                                        form.formState.errors.authDaemonPort
+                                            ?.message
+                                    }
+                                    sshServerMode={sshServerMode}
+                                    serverModeDisplay="badge"
+                                />
 
                                 <SettingsFormCell span="full">
                                     <SettingsSubsectionHeader>
@@ -620,7 +516,6 @@ function SshServerForm({
                         </Button>
                     </form>
                 </Form>
-            </fieldset>
         </SettingsSection>
     );
 }

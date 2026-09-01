@@ -17,11 +17,13 @@ export interface MultiSelectInputProps<
 > extends MultiSelectTagsProps<T> {
     buttonText?: string;
     lockedIds?: Set<string>;
+    onPopoverOpenChange?: (open: boolean) => void;
 }
 
 export function MultiSelectTagInput<T extends TagValue>({
     buttonText,
     lockedIds,
+    onPopoverOpenChange,
     ...props
 }: MultiSelectInputProps<T>) {
     const selectedValues = new Set(props.value.map((v) => v.id));
@@ -33,6 +35,7 @@ export function MultiSelectTagInput<T extends TagValue>({
                     // clear input when popover is closed
                     props.onSearch("");
                 }
+                onPopoverOpenChange?.(open);
             }}
         >
             <PopoverTrigger asChild>

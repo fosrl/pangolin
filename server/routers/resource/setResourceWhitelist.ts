@@ -24,7 +24,6 @@ const setResourceWhitelistBodySchema = z.strictObject({
                 })
             )
         )
-        .max(50)
         .transform((v) => v.map((e) => e.toLowerCase()))
 });
 
@@ -35,6 +34,40 @@ const setResourceWhitelistParamsSchema = z.strictObject({
 registry.registerPath({
     method: "post",
     path: "/resource/{resourceId}/whitelist",
+    description:
+        "Set email whitelist for a resource. This will replace all existing emails.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: setResourceWhitelistParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourceWhitelistBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource/{resourceId}/whitelist",
     description:
         "Set email whitelist for a resource. This will replace all existing emails.",
     tags: [OpenAPITags.PublicResource],
@@ -109,13 +142,14 @@ export async function setResourceWhitelist(
             );
         }
 
-        const isInlinePolicy =
-            resource.resourcePolicyId === null &&
-            resource.defaultResourcePolicyId !== null;
+        // A shared policy takes precedence over the resource's inline
+        // (default) policy, which takes precedence over the resource's own
+        // direct whitelist fields. This mirrors the precedence used at
+        // request time in authWithWhitelist.ts / getResourceAuthInfo.ts.
+        const policyId =
+            resource.resourcePolicyId ?? resource.defaultResourcePolicyId;
 
-        if (isInlinePolicy) {
-            const policyId = resource.defaultResourcePolicyId!;
-
+        if (policyId !== null) {
             const [policy] = await db
                 .select()
                 .from(resourcePolicies)

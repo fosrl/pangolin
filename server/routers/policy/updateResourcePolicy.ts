@@ -19,10 +19,66 @@ const updateResourcePolicyBodySchema = z.strictObject({
 });
 
 registry.registerPath({
-    method: "put",
+    method: "post",
     path: "/resource-policy/{resourcePolicyId}",
     description: "Update a resource policy.",
-    tags: [OpenAPITags.Org, OpenAPITags.Policy],
+    tags: [OpenAPITags.PublicResourcePolicy],
+    request: {
+        params: updateResourcePolicyParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: updateResourcePolicyBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource-policy/{resourcePolicyId}",
+    description: "Update a resource policy.",
+    tags: [OpenAPITags.PublicResourcePolicy],
+    request: {
+        params: updateResourcePolicyParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: updateResourcePolicyBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/resource-policy/{resourcePolicyId}",
+    description: "Update a resource policy. Deprecated: use POST instead.",
+    deprecated: true,
+    tags: [OpenAPITags.PublicResourcePolicy],
+    request: {
+        params: updateResourcePolicyParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: updateResourcePolicyBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/public-resource-policy/{resourcePolicyId}",
+    description: "Update a resource policy. Deprecated: use POST instead.",
+    deprecated: true,
+    tags: [OpenAPITags.PublicResourcePolicy],
     request: {
         params: updateResourcePolicyParamsSchema,
         body: {

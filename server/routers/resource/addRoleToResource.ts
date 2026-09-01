@@ -30,6 +30,40 @@ registry.registerPath({
     path: "/resource/{resourceId}/roles/add",
     description:
         "Add a single role to a resource. When the resource has an inline policy defined (no shared resource policy assigned), the role is added to the inline policy instead of directly to the resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: addRoleToResourceParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: addRoleToResourceBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource/{resourceId}/roles/add",
+    description:
+        "Add a single role to a resource. When the resource has an inline policy defined (no shared resource policy assigned), the role is added to the inline policy instead of directly to the resource.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.Role],
     request: {
         params: addRoleToResourceParamsSchema,

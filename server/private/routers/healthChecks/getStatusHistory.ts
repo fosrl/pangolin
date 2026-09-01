@@ -55,9 +55,14 @@ export async function getHealthCheckStatusHistory(
 
         const entityType = "health_check";
         const entityId = parsedParams.data.healthCheckId;
-        const { days } = parsedQuery.data;
+        const { days, tzOffsetMinutes } = parsedQuery.data;
 
-        const data = await getCachedStatusHistory(entityType, entityId, days);
+        const data = await getCachedStatusHistory(
+            entityType,
+            entityId,
+            days,
+            tzOffsetMinutes
+        );
 
         return response<StatusHistoryResponse>(res, {
             data,

@@ -23,11 +23,70 @@ const setResourcePolicyPincodeBodySchema = z.strictObject({
 });
 
 registry.registerPath({
-    method: "put",
+    method: "post",
     path: "/resource-policy/{resourcePolicyId}/pincode",
     description:
         "Set the PIN code for a resource policy. Setting the PIN code to null will remove it.",
-    tags: [OpenAPITags.Policy],
+    tags: [OpenAPITags.PublicResourcePolicyLegacy],
+    request: {
+        params: setResourcePolicyPincodeParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyPincodeBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource-policy/{resourcePolicyId}/pincode",
+    description:
+        "Set the PIN code for a resource policy. Setting the PIN code to null will remove it.",
+    tags: [OpenAPITags.PublicResourcePolicy],
+    request: {
+        params: setResourcePolicyPincodeParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyPincodeBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/resource-policy/{resourcePolicyId}/pincode",
+    description:
+        "Set the PIN code for a resource policy. Setting the PIN code to null will remove it. Deprecated: use POST instead.",
+    deprecated: true,
+    tags: [OpenAPITags.PublicResourcePolicyLegacy],
+    request: {
+        params: setResourcePolicyPincodeParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyPincodeBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/public-resource-policy/{resourcePolicyId}/pincode",
+    description:
+        "Set the PIN code for a resource policy. Setting the PIN code to null will remove it. Deprecated: use POST instead.",
+    deprecated: true,
+    tags: [OpenAPITags.PublicResourcePolicy],
     request: {
         params: setResourcePolicyPincodeParamsSchema,
         body: {

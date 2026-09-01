@@ -248,6 +248,39 @@ export async function loginProxy(
     return await makeApiRequest<LoginResponse>(url, "POST", request);
 }
 
+export async function logoutProxy(): Promise<ResponseT<null>> {
+    const env = pullEnv();
+    const serverPort = process.env.SERVER_EXTERNAL_PORT;
+    const url = `http://localhost:${serverPort}/api/v1/auth/logout`;
+
+    const result = await makeApiRequest<null>(url, "POST");
+
+    try {
+        const headersList = await reqHeaders();
+        const host = headersList.get("host")?.split(":")[0];
+        const allCookies = await cookies();
+        const clearOptions = {
+            httpOnly: true,
+            secure: true,
+            sameSite: "lax" as const,
+            path: "/",
+            maxAge: 0
+        };
+        // Clear both host-only and domain-scoped variants.
+        allCookies.set(env.server.sessionCookieName, "", clearOptions);
+        if (host) {
+            allCookies.set(env.server.sessionCookieName, "", {
+                ...clearOptions,
+                domain: host
+            });
+        }
+    } catch (cookieError) {
+        console.error("Failed to clear session cookie:", cookieError);
+    }
+
+    return result;
+}
+
 export async function securityKeyStartProxy(
     request: SecurityKeyStartRequest,
     forceLogin?: boolean

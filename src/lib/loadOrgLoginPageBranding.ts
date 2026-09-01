@@ -1,6 +1,7 @@
 import { priv } from "@app/lib/api";
 import { isOrgSubscribed } from "@app/lib/api/isOrgSubscribed";
 import { build } from "@server/build";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { LoadLoginPageBrandingResponse } from "@server/routers/loginPage/types";
 import { AxiosResponse } from "axios";
 
@@ -11,7 +12,10 @@ export async function loadOrgLoginPageBranding(orgId: string): Promise<{
         return { primaryColor: null };
     }
 
-    const subscribed = await isOrgSubscribed(orgId);
+    const subscribed = await isOrgSubscribed(
+        orgId,
+        tierMatrix.loginPageBranding
+    );
     if (!subscribed) {
         return { primaryColor: null };
     }

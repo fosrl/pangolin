@@ -255,20 +255,6 @@ export async function createClient(
 
         let newClient: Client | null = null;
         await db.transaction(async (trx) => {
-            // TODO: more intelligent way to pick the exit node
-            const exitNodesList = await listExitNodes(orgId);
-            const randomExitNode =
-                exitNodesList[Math.floor(Math.random() * exitNodesList.length)];
-
-            if (!randomExitNode) {
-                return next(
-                    createHttpError(
-                        HttpCode.NOT_FOUND,
-                        `No exit nodes available. ${build == "saas" ? "Please contact support." : "You need to install gerbil to use the clients."}`
-                    )
-                );
-            }
-
             const [adminRole] = await trx
                 .select()
                 .from(roles)
@@ -287,7 +273,6 @@ export async function createClient(
                 .insert(clients)
                 .values({
                     niceId,
-                    exitNodeId: randomExitNode.exitNodeId,
                     orgId,
                     name,
                     subnet: updatedSubnet,

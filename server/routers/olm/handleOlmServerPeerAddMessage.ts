@@ -3,24 +3,15 @@ import {
     db,
     networks,
     siteNetworks,
-    siteResources,
+    siteResources
 } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
-import {
-    clients,
-    clientSitesAssociationsCache,
-    Olm,
-    sites
-} from "@server/db";
+import { clients, clientSitesAssociationsCache, Olm, sites } from "@server/db";
 import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import logger from "@server/logger";
-import {
-    generateAliasConfig,
-} from "@server/lib/ip";
+import { generateAliasConfig } from "@server/lib/ip";
 import { generateRemoteSubnets } from "@server/lib/ip";
-import {
-    addPeer as newtAddPeer,
-} from "@server/routers/newt/peers";
+import { addPeer as newtAddPeer } from "@server/routers/newt/peers";
 
 export const handleOlmServerPeerAddMessage: MessageHandler = async (
     context
@@ -135,10 +126,7 @@ export const handleOlmServerPeerAddMessage: MessageHandler = async (
                 clientSiteResourcesAssociationsCache.siteResourceId
             )
         )
-        .innerJoin(
-            networks,
-            eq(siteResources.networkId, networks.networkId)
-        )
+        .innerJoin(networks, eq(siteResources.networkId, networks.networkId))
         .innerJoin(
             siteNetworks,
             and(
@@ -147,10 +135,7 @@ export const handleOlmServerPeerAddMessage: MessageHandler = async (
             )
         )
         .where(
-            eq(
-                clientSiteResourcesAssociationsCache.clientId,
-                client.clientId
-            )
+            eq(clientSiteResourcesAssociationsCache.clientId, client.clientId)
         );
 
     // Return connect message with all site configurations
@@ -161,6 +146,9 @@ export const handleOlmServerPeerAddMessage: MessageHandler = async (
                 siteId: site.siteId,
                 name: site.name,
                 endpoint: site.endpoint,
+                localEndpoints: site.localEndpoints
+                    ? JSON.parse(site.localEndpoints)
+                    : undefined,
                 publicKey: site.publicKey,
                 serverIP: site.address,
                 serverPort: site.listenPort,
@@ -170,7 +158,7 @@ export const handleOlmServerPeerAddMessage: MessageHandler = async (
                 aliases: generateAliasConfig(
                     allSiteResources.map(({ siteResources }) => siteResources)
                 ),
-                chainId: chainId,
+                chainId: chainId
             }
         },
         broadcast: false,

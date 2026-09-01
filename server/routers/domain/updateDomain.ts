@@ -33,9 +33,34 @@ const UpdateDomainResponseDataSchema = z.object({
 
 
 registry.registerPath({
-    method: "patch",
+    method: "post",
     path: "/org/{orgId}/domain/{domainId}",
     description: "Update a domain by domainId.",
+    tags: [OpenAPITags.Domain],
+    request: {
+        params: z.object({
+            domainId: z.string(),
+            orgId: z.string()
+        })
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(UpdateDomainResponseDataSchema)
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "patch",
+    path: "/org/{orgId}/domain/{domainId}",
+    description:
+        "Update a domain by domainId. Deprecated: use POST instead.",
+    deprecated: true,
     tags: [OpenAPITags.Domain],
     request: {
         params: z.object({

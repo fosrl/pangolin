@@ -45,11 +45,11 @@ const bannerClassName =
     "mb-6 border-black-500/30 bg-linear-to-br from-black-500/10 via-background to-background overflow-hidden";
 const bannerContentClassName = "py-3 px-4";
 const bannerRowClassName =
-    "flex items-center gap-2.5 text-sm text-muted-foreground";
+    "flex items-center gap-2.5 text-sm text-muted-foreground whitespace-nowrap";
 const bannerIconClassName = "size-4 shrink-0 text-black-500";
+const bannerTextClassName = "whitespace-nowrap shrink-0";
 const docsLinkClassName =
     "inline-flex items-center gap-1 font-medium text-black-600 underline";
-const PANGOLIN_CLOUD_SIGNUP_URL = "https://app.pangolin.net/auth/signup/";
 const ENTERPRISE_DOCS_URL =
     "https://docs.pangolin.net/self-host/enterprise-edition";
 const BOOK_A_DEMO_URL = "https://click.fossorial.io/ep922";
@@ -64,34 +64,21 @@ function getTierLinkRenderer(billingHref: string) {
     };
 }
 
-function getPangolinCloudLinkRenderer() {
-    return function pangolinCloudLinkRenderer(chunks: React.ReactNode) {
-        return (
-            <Link
-                href={PANGOLIN_CLOUD_SIGNUP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={docsLinkClassName}
-            >
-                {chunks}
-                <ExternalLink className="size-3.5 shrink-0" />
-            </Link>
-        );
-    };
-}
-
 function getBookADemoLinkRenderer() {
     return function bookADemoLinkRenderer(chunks: React.ReactNode) {
         return (
-            <Link
-                href={BOOK_A_DEMO_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={docsLinkClassName}
-            >
-                {chunks}
-                <ExternalLink className="size-3.5 shrink-0" />
-            </Link>
+            <span className="whitespace-nowrap">
+                <Link
+                    href={BOOK_A_DEMO_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={docsLinkClassName}
+                >
+                    {chunks}
+                    <ExternalLink className="size-3.5 shrink-0" />
+                </Link>
+                .
+            </span>
         );
     };
 }
@@ -114,10 +101,9 @@ function getDocsLinkRenderer(href: string) {
 
 type Props = {
     tiers: Tier[];
-    showBookADemo?: boolean;
 };
 
-export function PaidFeaturesAlert({ tiers, showBookADemo = true }: Props) {
+export function PaidFeaturesAlert({ tiers }: Props) {
     const t = useTranslations();
     const params = useParams();
     const orgId = params?.orgId as string | undefined;
@@ -133,11 +119,8 @@ export function PaidFeaturesAlert({ tiers, showBookADemo = true }: Props) {
         ? `/${orgId}/settings/billing`
         : "https://pangolin.net/pricing";
     const tierLinkRenderer = getTierLinkRenderer(billingHref);
-    const pangolinCloudLinkRenderer = getPangolinCloudLinkRenderer();
     const enterpriseDocsLinkRenderer = getDocsLinkRenderer(ENTERPRISE_DOCS_URL);
-    const bookADemoLinkRenderer = showBookADemo
-        ? getBookADemoLinkRenderer()
-        : () => null;
+    const bookADemoLinkRenderer = getBookADemoLinkRenderer();
 
     if (env.flags.disableEnterpriseFeatures) {
         return null;
@@ -150,17 +133,12 @@ export function PaidFeaturesAlert({ tiers, showBookADemo = true }: Props) {
                     <CardContent className={bannerContentClassName}>
                         <div className={bannerRowClassName}>
                             <KeyRound className={bannerIconClassName} />
-                            <span>
+                            <span className={bannerTextClassName}>
                                 {requiredTiersLabel
-                                    ? isActive
-                                        ? t.rich("upgradeToTierToUse", {
-                                              tier: requiredTiersLabel,
-                                              tierLink: tierLinkRenderer
-                                          })
-                                        : t.rich("upgradeToTierToUse", {
-                                              tier: requiredTiersLabel,
-                                              tierLink: tierLinkRenderer
-                                          })
+                                    ? t.rich("upgradeToTierToUse", {
+                                          tier: requiredTiersLabel,
+                                          tierLink: tierLinkRenderer
+                                      })
                                     : isActive
                                       ? t("mustUpgradeToUse")
                                       : t("subscriptionRequiredToUse")}
@@ -170,34 +148,16 @@ export function PaidFeaturesAlert({ tiers, showBookADemo = true }: Props) {
                 </Card>
             ) : null}
 
-            {build === "enterprise" && !hasEnterpriseLicense ? (
+            {(build === "enterprise" || build === "oss") &&
+            !hasEnterpriseLicense ? (
                 <Card className={bannerClassName}>
                     <CardContent className={bannerContentClassName}>
                         <div className={bannerRowClassName}>
                             <KeyRound className={bannerIconClassName} />
-                            <span>
-                                {t.rich("licenseRequiredToUse", {
-                                    enterpriseLicenseLink:
-                                        enterpriseDocsLinkRenderer,
-                                    pangolinCloudLink: pangolinCloudLinkRenderer,
-                                    bookADemoLink: bookADemoLinkRenderer
-                                })}
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
-            ) : null}
-
-            {build === "oss" && !hasEnterpriseLicense ? (
-                <Card className={bannerClassName}>
-                    <CardContent className={bannerContentClassName}>
-                        <div className={bannerRowClassName}>
-                            <KeyRound className={bannerIconClassName} />
-                            <span>
+                            <span className={bannerTextClassName}>
                                 {t.rich("ossEnterpriseEditionRequired", {
                                     enterpriseEditionLink:
                                         enterpriseDocsLinkRenderer,
-                                    pangolinCloudLink: pangolinCloudLinkRenderer,
                                     bookADemoLink: bookADemoLinkRenderer
                                 })}
                             </span>

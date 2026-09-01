@@ -16,18 +16,26 @@ export async function logout(
     next: NextFunction
 ): Promise<any> {
     const { user, session } = await verifySession(req);
+    const isSecure = req.protocol === "https";
+
+    // Always clear the session cookie so logout is idempotent, even when
+    // the session is already missing or invalid
+    res.setHeader("Set-Cookie", createBlankSessionTokenCookie(isSecure));
+
     if (!user || !session) {
         if (config.getRawConfig().app.log_failed_attempts) {
             logger.info(
-                `Log out failed because missing or invalid session. IP: ${req.ip}.`
+                `Log out with missing or invalid session. IP: ${req.ip}.`
             );
         }
-        return next(
-            createHttpError(
-                HttpCode.BAD_REQUEST,
-                "You must be logged in to sign out"
-            )
-        );
+
+        return response<null>(res, {
+            data: null,
+            success: true,
+            error: false,
+            message: "Logged out successfully",
+            status: HttpCode.OK
+        });
     }
 
     try {
@@ -36,9 +44,6 @@ export async function logout(
         } catch (error) {
             logger.error("Failed to invalidate session", error);
         }
-
-        const isSecure = req.protocol === "https";
-        res.setHeader("Set-Cookie", createBlankSessionTokenCookie(isSecure));
 
         return response<null>(res, {
             data: null,

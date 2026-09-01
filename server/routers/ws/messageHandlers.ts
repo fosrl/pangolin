@@ -1,26 +1,26 @@
-import { build } from "@server/build";
 import {
     handleNewtRegisterMessage,
     handleReceiveBandwidthMessage,
     handleNewtGetConfigMessage,
     handleDockerStatusMessage,
     handleDockerContainersMessage,
-    handleNewtPingRequestMessage,
+    handleNewtExitNodesRequestMessage,
     handleApplyBlueprintMessage,
     handleNewtPingMessage,
-    startNewtOfflineChecker,
-    handleNewtDisconnectingMessage
+    handleNewtDisconnectingMessage,
+    handleRequestLogMessage
 } from "../newt";
-import { startPingAccumulator } from "../newt/pingAccumulator";
 import {
     handleOlmRegisterMessage,
     handleOlmRelayMessage,
     handleOlmPingMessage,
-    startOlmOfflineChecker,
     handleOlmServerPeerAddMessage,
     handleOlmUnRelayMessage,
     handleOlmDisconnectingMessage,
-    handleOlmServerInitAddPeerHandshake
+    handleOlmServerInitAddPeerHandshake,
+    handleOlmLocalMessage,
+    handleOlmUnLocalMessage,
+    handleOlmExitNodesRequestMessage
 } from "../olm";
 import { handleHealthcheckStatusMessage } from "../target";
 import { handleRoundTripMessage } from "./handleRoundTripMessage";
@@ -32,7 +32,10 @@ export const messageHandlers: Record<string, MessageHandler> = {
     "olm/wg/register": handleOlmRegisterMessage,
     "olm/wg/relay": handleOlmRelayMessage,
     "olm/wg/unrelay": handleOlmUnRelayMessage,
+    "olm/wg/local": handleOlmLocalMessage,
+    "olm/wg/unlocal": handleOlmUnLocalMessage,
     "olm/ping": handleOlmPingMessage,
+    "olm/ping/request": handleOlmExitNodesRequestMessage,
     "olm/disconnecting": handleOlmDisconnectingMessage,
     "newt/disconnecting": handleNewtDisconnectingMessage,
     "newt/ping": handleNewtPingMessage,
@@ -41,17 +44,9 @@ export const messageHandlers: Record<string, MessageHandler> = {
     "newt/receive-bandwidth": handleReceiveBandwidthMessage,
     "newt/socket/status": handleDockerStatusMessage,
     "newt/socket/containers": handleDockerContainersMessage,
-    "newt/ping/request": handleNewtPingRequestMessage,
+    "newt/ping/request": handleNewtExitNodesRequestMessage,
     "newt/blueprint/apply": handleApplyBlueprintMessage,
     "newt/healthcheck/status": handleHealthcheckStatusMessage,
+    "newt/request-log": handleRequestLogMessage,
     "ws/round-trip/complete": handleRoundTripMessage
 };
-
-// Start the ping accumulator for all builds - it batches per-site online/lastPing
-// updates into periodic bulk writes, preventing connection pool exhaustion.
-startPingAccumulator();
-
-if (build != "saas") {
-    startOlmOfflineChecker(); // this is to handle the offline check for olms
-    startNewtOfflineChecker(); // this is to handle the offline check for newts
-}

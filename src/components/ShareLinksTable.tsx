@@ -35,6 +35,7 @@ import moment from "moment";
 import CreateShareLinkForm from "@app/components/CreateShareLinkForm";
 import { constructShareLink } from "@app/lib/shareLinks";
 import { useTranslations } from "next-intl";
+import { getUserDisplayName } from "@app/lib/getUserDisplayName";
 
 export type ShareLinkRow = {
     accessTokenId: string;
@@ -44,6 +45,10 @@ export type ShareLinkRow = {
     title: string | null;
     createdAt: number;
     expiresAt: number | null;
+    userId?: string | null;
+    userName?: string | null;
+    username?: string | null;
+    userEmail?: string | null;
 };
 
 type ShareLinksTableProps = {
@@ -149,6 +154,41 @@ export default function ShareLinksTable({
                     >
                         <Button variant="outline" size="sm">
                             {r.resourceName}
+                            <ArrowUpRight className="ml-2 h-3 w-3" />
+                        </Button>
+                    </Link>
+                );
+            }
+        },
+        {
+            accessorKey: "userId",
+            friendlyName: t("user"),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() =>
+                            column.toggleSorting(column.getIsSorted() === "asc")
+                        }
+                    >
+                        {t("user")}
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                );
+            },
+            cell: ({ row }) => {
+                const r = row.original;
+                if (!r.userId) {
+                    return <span>-</span>;
+                }
+                return (
+                    <Link href={`/${orgId}/settings/access/users/${r.userId}`}>
+                        <Button variant="outline" size="sm">
+                            {getUserDisplayName({
+                                email: r.userEmail,
+                                name: r.userName,
+                                username: r.username
+                            })}
                             <ArrowUpRight className="ml-2 h-3 w-3" />
                         </Button>
                     </Link>

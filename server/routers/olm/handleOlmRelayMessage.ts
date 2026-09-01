@@ -79,9 +79,9 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
             )
         );
 
-    // update the peer on the exit node
+    // update the peer on the newt
     await newtUpdatePeer(siteId, client.pubKey, {
-        endpoint: "" // this removes the endpoint so the exit node knows to relay
+        endpoint: "" // this removes the endpoint so the newt knows to relay
     });
 
     return {

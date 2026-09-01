@@ -1,5 +1,6 @@
 "use client";
 
+import CopyToClipboard from "@app/components/CopyToClipboard";
 import { SettingsFormCell, SettingsFormGrid } from "@app/components/Settings";
 import { SwitchInput } from "@app/components/SwitchInput";
 import { Button } from "@app/components/ui/button";
@@ -29,6 +30,10 @@ export type PolicyAuthSsoSectionProps = {
     usersEditor: React.ReactNode;
     disabled?: boolean;
     idpDisabled?: boolean;
+    ssoLocked?: boolean;
+    title?: string;
+    description?: string;
+    identityKeyUrl?: string | null;
 };
 
 export function PolicyAuthSsoSection({
@@ -40,7 +45,11 @@ export function PolicyAuthSsoSection({
     rolesEditor,
     usersEditor,
     disabled,
-    idpDisabled
+    idpDisabled,
+    ssoLocked,
+    title,
+    description,
+    identityKeyUrl
 }: PolicyAuthSsoSectionProps) {
     const t = useTranslations();
     const [showIdpSelect, setShowIdpSelect] = useState(skipToIdpId != null);
@@ -52,22 +61,55 @@ export function PolicyAuthSsoSection({
     }, [skipToIdpId]);
 
     const idpSelectDisabled = idpDisabled ?? disabled;
+    const ssoActive = ssoLocked || sso;
+    const ssoTitle = title ?? t("policyAuthSsoTitle");
+    const ssoDescription = description ?? t("policyAuthSsoDescription");
 
     return (
         <SettingsFormGrid>
-            <SettingsFormCell span="full">
-                <SwitchInput
-                    id="policy-auth-sso"
-                    label={t("policyAuthSsoTitle")}
-                    description={t("policyAuthSsoDescription")}
-                    checked={sso}
-                    disabled={disabled}
-                    onCheckedChange={onSsoChange}
-                />
-            </SettingsFormCell>
+            {!ssoLocked && (
+                <SettingsFormCell span="full">
+                    <SwitchInput
+                        id="policy-auth-sso"
+                        label={ssoTitle}
+                        description={ssoDescription}
+                        checked={ssoActive}
+                        disabled={disabled}
+                        onCheckedChange={onSsoChange}
+                    />
+                </SettingsFormCell>
+            )}
 
-            {sso && (
+            {ssoActive && (
                 <>
+                    {ssoLocked && identityKeyUrl !== undefined && (
+                        <SettingsFormCell span="full">
+                            {identityKeyUrl ? (
+                                <FormItem>
+                                    <FormLabel>
+                                        {t(
+                                            "policyAuthInferenceIdentityKeySignInUrl"
+                                        )}
+                                    </FormLabel>
+                                    <CopyToClipboard
+                                        text={identityKeyUrl}
+                                        isLink
+                                    />
+                                    <FormDescription>
+                                        {t(
+                                            "policyAuthInferenceIdentityKeyHelp"
+                                        )}
+                                    </FormDescription>
+                                </FormItem>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">
+                                    {t(
+                                        "policyAuthInferenceIdentityKeyHelpNoUrl"
+                                    )}
+                                </p>
+                            )}
+                        </SettingsFormCell>
+                    )}
                     <SettingsFormCell span="full">
                         <FormItem>
                             <FormLabel>{t("roles")}</FormLabel>

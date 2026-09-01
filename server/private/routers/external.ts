@@ -11,7 +11,6 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import * as certificates from "#private/routers/certificates";
 import { createStore } from "#private/lib/rateLimitStore";
 import * as billing from "#private/routers/billing";
 import * as remoteExitNode from "#private/routers/remoteExitNode";
@@ -20,20 +19,20 @@ import * as orgIdp from "#private/routers/orgIdp";
 import * as domain from "#private/routers/domain";
 import * as auth from "#private/routers/auth";
 import * as license from "#private/routers/license";
-import * as generateLicense from "./generatedLicense";
+import * as generateLicense from "#private/routers/generatedLicense";
 import * as logs from "#private/routers/auditLogs";
+import {
+    queryAiSessionLogs,
+    exportAiSessionLogs
+} from "@server/routers/auditLogs";
 import * as misc from "#private/routers/misc";
 import * as reKey from "#private/routers/re-key";
 import * as approval from "#private/routers/approvals";
-import * as ssh from "#private/routers/ssh";
 import * as user from "#private/routers/user";
 import * as siteProvisioning from "#private/routers/siteProvisioning";
 import * as eventStreamingDestination from "#private/routers/eventStreamingDestination";
 import * as alertRule from "#private/routers/alertRule";
 import * as healthChecks from "#private/routers/healthChecks";
-import * as labels from "#private/routers/labels";
-import * as client from "@server/routers/client";
-import * as resource from "#private/routers/resource";
 import * as policy from "#private/routers/policy";
 
 import {
@@ -54,7 +53,6 @@ import {
 import { ActionsEnum } from "@server/auth/actions";
 import {
     logActionAudit,
-    verifyCertificateAccess,
     verifyIdpAccess,
     verifyLoginPageAccess,
     verifyRemoteExitNodeAccess,
@@ -166,25 +164,6 @@ authenticated.get(
     "/user/:userId/admin-org-idps",
     verifyIsLoggedInUser,
     orgIdp.listUserAdminOrgIdps
-);
-
-authenticated.get(
-    "/org/:orgId/certificate/:domainId/:domain",
-    verifyOrgAccess,
-    verifyCertificateAccess,
-    verifyUserHasAction(ActionsEnum.getCertificate),
-    certificates.getCertificate
-);
-
-authenticated.post(
-    "/org/:orgId/certificate/:certId/restart",
-    verifyValidLicense,
-    verifyOrgAccess,
-    verifyCertificateAccess,
-    verifyLimits,
-    verifyUserHasAction(ActionsEnum.restartCertificate),
-    logActionAudit(ActionsEnum.restartCertificate),
-    certificates.restartCertificate
 );
 
 if (build === "saas") {
@@ -616,6 +595,25 @@ authenticated.get(
     logs.exportConnectionAuditLogs
 );
 
+authenticated.get(
+    "/org/:orgId/logs/ai",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.aiSessionLogs),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.viewLogs),
+    queryAiSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ai/export",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.aiSessionLogs),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.exportLogs),
+    logActionAudit(ActionsEnum.exportLogs),
+    exportAiSessionLogs
+);
+
 authenticated.post(
     "/re-key/:clientId/regenerate-client-secret",
     verifyClientAccess, // this is first to set the org id
@@ -644,17 +642,6 @@ authenticated.put(
     verifyLimits,
     verifyUserHasAction(ActionsEnum.reGenerateSecret),
     reKey.reGenerateExitNodeSecret
-);
-
-authenticated.post(
-    "/org/:orgId/ssh/sign-key",
-    verifyValidLicense,
-    verifyValidSubscription(tierMatrix.advancedPrivateResources),
-    verifyOrgAccess,
-    verifyLimits,
-    // verifyUserHasAction(ActionsEnum.signSshKey), // this check happens inside of the function now
-    // logActionAudit(ActionsEnum.signSshKey), // it is handled inside of the function below so we can include more metadata
-    ssh.signSshKey
 );
 
 authenticated.post(
@@ -802,65 +789,20 @@ authenticated.get(
     alertRule.listAlertRules
 );
 
+authenticated.post(
+    "/org/:orgId/test-alert-rule",
+    verifyValidLicense,
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.testAlertRule),
+    alertRule.testAlertRule
+);
+
 authenticated.get(
     "/org/:orgId/alert-rule/:alertRuleId",
     verifyValidLicense,
     verifyOrgAccess,
     verifyUserHasAction(ActionsEnum.getAlertRule),
     alertRule.getAlertRule
-);
-
-authenticated.get(
-    "/org/:orgId/labels",
-    verifyValidLicense,
-    verifyOrgAccess,
-    verifyValidSubscription(tierMatrix.labels),
-    verifyUserHasAction(ActionsEnum.listOrgLabels),
-    labels.listOrgLabels
-);
-
-authenticated.post(
-    "/org/:orgId/labels",
-    verifyValidLicense,
-    verifyOrgAccess,
-    verifyValidSubscription(tierMatrix.labels),
-    verifyUserHasAction(ActionsEnum.createOrgLabel),
-    labels.createOrgLabel
-);
-
-authenticated.patch(
-    "/org/:orgId/label/:labelId",
-    verifyValidLicense,
-    verifyOrgAccess,
-    verifyValidSubscription(tierMatrix.labels),
-    verifyUserHasAction(ActionsEnum.updateOrgLabel),
-    labels.updateOrgLabel
-);
-
-authenticated.delete(
-    "/org/:orgId/label/:labelId",
-    verifyValidLicense,
-    verifyOrgAccess,
-    verifyUserHasAction(ActionsEnum.deleteOrgLabel),
-    labels.deleteOrgLabel
-);
-
-authenticated.put(
-    "/org/:orgId/label/:labelId/attach",
-    verifyValidLicense,
-    verifyOrgAccess,
-    verifyValidSubscription(tierMatrix.labels),
-    verifyUserHasAction(ActionsEnum.attachLabelToItem),
-    labels.attachLabelToItem
-);
-
-authenticated.put(
-    "/org/:orgId/label/:labelId/detach",
-    verifyValidLicense,
-    verifyOrgAccess,
-    verifyValidSubscription(tierMatrix.labels),
-    verifyUserHasAction(ActionsEnum.detachLabelFromItem),
-    labels.detachLabelFromItem
 );
 
 authenticated.get(
@@ -908,15 +850,11 @@ authenticated.get(
 );
 
 authenticated.get(
-    "/client/:clientId/verify-associations-cache",
-    verifyClientAccess,
-    client.verifyClientAssociationsCache
-);
-
-authenticated.post(
-    "/client/:clientId/rebuild-associations-cache",
-    verifyClientAccess,
-    client.rebuildClientAssociationsCacheRoute
+    "/org/:orgId/health-check-status-histories",
+    verifyValidLicense,
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getTarget),
+    healthChecks.getBatchedHealthCheckStatusHistory
 );
 
 authenticated.post(

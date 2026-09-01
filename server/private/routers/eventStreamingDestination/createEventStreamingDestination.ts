@@ -37,7 +37,8 @@ const bodySchema = z.strictObject({
     sendConnectionLogs: z.boolean().optional().default(false),
     sendRequestLogs: z.boolean().optional().default(false),
     sendActionLogs: z.boolean().optional().default(false),
-    sendAccessLogs: z.boolean().optional().default(false)
+    sendAccessLogs: z.boolean().optional().default(false),
+    sendAISessionLogs: z.boolean().optional().default(false)
 });
 
 export type CreateEventStreamingDestinationResponse = {
@@ -52,7 +53,7 @@ registry.registerPath({
     method: "put",
     path: "/org/{orgId}/event-streaming-destination",
     description: "Create an event streaming destination for a specific organization.",
-    tags: [OpenAPITags.Org],
+    tags: [OpenAPITags.EventStreamingDestination],
     request: {
         params: paramsSchema,
         body: {
@@ -122,7 +123,8 @@ export async function createEventStreamingDestination(
                 sendAccessLogs: parsedBody.data.sendAccessLogs,
                 sendActionLogs: parsedBody.data.sendActionLogs,
                 sendConnectionLogs: parsedBody.data.sendConnectionLogs,
-                sendRequestLogs: parsedBody.data.sendRequestLogs
+                sendRequestLogs: parsedBody.data.sendRequestLogs,
+                sendAISessionLogs: parsedBody.data.sendAISessionLogs
             })
             .returning();
 

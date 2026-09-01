@@ -17,6 +17,8 @@ import {
 } from "next/navigation";
 import { cleanRedirect } from "@app/lib/cleanRedirect";
 import { Separator } from "@app/components/ui/separator";
+import { setClientCookie } from "@app/lib/setClientCookie";
+import { LAST_USED_IDP_COOKIE_NAME } from "@app/lib/consts";
 
 type SmartLoginOrgSelectorProps = {
     identifier: string;
@@ -140,6 +142,17 @@ export default function SmartLoginOrgSelector({
     async function loginWithIdp(idpId: number, orgId: string) {
         setPendingIdpId(idpId);
         setError(null);
+
+        setClientCookie(
+            LAST_USED_IDP_COOKIE_NAME,
+            JSON.stringify({
+                orgId,
+                idpId
+            }),
+            {
+                sameSite: "Lax"
+            }
+        );
 
         let redirectToUrl: string | undefined;
         try {

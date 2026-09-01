@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "@server/db";
-import { resources, targets, apiKeyOrg } from "@server/db";
+import { aiProviders, resources, targets, apiKeyOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
@@ -43,43 +43,65 @@ export async function verifyApiKeyTargetAccess(
             );
         }
 
-        const resourceId = target.resourceId;
-        if (!resourceId) {
+        const { resourceId, providerId } = target;
+        if ((!resourceId && !providerId) || (resourceId && providerId)) {
             return next(
                 createHttpError(
                     HttpCode.INTERNAL_SERVER_ERROR,
-                    `Target with ID ${targetId} does not have a resource ID`
-                )
-            );
-        }
-
-        const [resource] = await db
-            .select()
-            .from(resources)
-            .where(eq(resources.resourceId, resourceId))
-            .limit(1);
-
-        if (!resource) {
-            return next(
-                createHttpError(
-                    HttpCode.NOT_FOUND,
-                    `Resource with ID ${resourceId} not found`
+                    `Target with ID ${targetId} has invalid ownership`
                 )
             );
         }
 
         if (apiKey.isRoot) {
-            // Root keys can access any key in any org
+            // Root keys can access any target
             return next();
         }
 
-        if (!resource.orgId) {
-            return next(
-                createHttpError(
-                    HttpCode.INTERNAL_SERVER_ERROR,
-                    `Resource with ID ${resourceId} does not have an organization ID`
-                )
-            );
+        let orgId: string;
+        if (resourceId) {
+            const [resource] = await db
+                .select()
+                .from(resources)
+                .where(eq(resources.resourceId, resourceId))
+                .limit(1);
+
+            if (!resource) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Resource with ID ${resourceId} not found`
+                    )
+                );
+            }
+
+            if (!resource.orgId) {
+                return next(
+                    createHttpError(
+                        HttpCode.INTERNAL_SERVER_ERROR,
+                        `Resource with ID ${resourceId} does not have an organization ID`
+                    )
+                );
+            }
+
+            orgId = resource.orgId;
+        } else {
+            const [provider] = await db
+                .select()
+                .from(aiProviders)
+                .where(eq(aiProviders.providerId, providerId!))
+                .limit(1);
+
+            if (!provider) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `AI provider with ID ${providerId} not found`
+                    )
+                );
+            }
+
+            orgId = provider.orgId;
         }
 
         if (!req.apiKeyOrg) {
@@ -89,7 +111,7 @@ export async function verifyApiKeyTargetAccess(
                 .where(
                     and(
                         eq(apiKeyOrg.apiKeyId, apiKey.apiKeyId),
-                        eq(apiKeyOrg.orgId, resource.orgId)
+                        eq(apiKeyOrg.orgId, orgId)
                     )
                 )
                 .limit(1);
@@ -98,7 +120,7 @@ export async function verifyApiKeyTargetAccess(
             }
         }
 
-        if (!req.apiKeyOrg) {
+        if (!req.apiKeyOrg || req.apiKeyOrg.orgId !== orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

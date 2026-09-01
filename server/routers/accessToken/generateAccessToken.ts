@@ -1,4 +1,3 @@
-import { hash } from "@node-rs/argon2";
 import {
     generateId,
     generateIdFromEntropySize,
@@ -8,18 +7,18 @@ import { db } from "@server/db";
 import {
     ResourceAccessToken,
     resourceAccessToken,
-    resources
+    resources,
+    userOrgs
 } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { createDate, TimeSpan } from "oslo";
-import { hashPassword } from "@server/auth/password";
 import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { OpenAPITags, registry } from "@server/openApi";
@@ -28,7 +27,9 @@ export const generateAccessTokenBodySchema = z.strictObject({
     validForSeconds: z.int().positive().optional(), // seconds
     title: z.string().optional(),
     path: z.string().optional(),
-    description: z.string().optional()
+    description: z.string().optional(),
+    persistSession: z.boolean().optional().default(false),
+    userId: z.string().optional()
 });
 
 export const generateAccssTokenParamsSchema = z.strictObject({
@@ -43,6 +44,39 @@ export type GenerateAccessTokenResponse = Omit<
 registry.registerPath({
     method: "post",
     path: "/resource/{resourceId}/access-token",
+    description: "Generate a new access token for a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: generateAccssTokenParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: generateAccessTokenBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource/{resourceId}/access-token",
     description: "Generate a new access token for a resource.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.AccessToken],
     request: {
@@ -101,7 +135,14 @@ export async function generateAccessToken(
     }
 
     const { resourceId } = parsedParams.data;
-    const { validForSeconds, title, path, description } = parsedBody.data;
+    const {
+        validForSeconds,
+        title,
+        path,
+        description,
+        persistSession,
+        userId
+    } = parsedBody.data;
 
     const [resource] = await db
         .select()
@@ -110,6 +151,28 @@ export async function generateAccessToken(
 
     if (!resource) {
         return next(createHttpError(HttpCode.NOT_FOUND, "Resource not found"));
+    }
+
+    if (userId) {
+        const [membership] = await db
+            .select()
+            .from(userOrgs)
+            .where(
+                and(
+                    eq(userOrgs.userId, userId),
+                    eq(userOrgs.orgId, resource.orgId)
+                )
+            )
+            .limit(1);
+
+        if (!membership) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "User is not a member of this organization"
+                )
+            );
+        }
     }
 
     try {
@@ -133,23 +196,27 @@ export async function generateAccessToken(
                 accessTokenId: id,
                 orgId: resource.orgId,
                 resourceId,
+                userId: userId || null,
                 tokenHash,
                 expiresAt: expiresAt || null,
                 sessionLength: sessionLength,
                 title: title || null,
                 path: path || null,
                 description: description || null,
+                persistSession,
                 createdAt: new Date().getTime()
             })
             .returning({
                 accessTokenId: resourceAccessToken.accessTokenId,
                 orgId: resourceAccessToken.orgId,
                 resourceId: resourceAccessToken.resourceId,
+                userId: resourceAccessToken.userId,
                 expiresAt: resourceAccessToken.expiresAt,
                 sessionLength: resourceAccessToken.sessionLength,
                 title: resourceAccessToken.title,
                 path: resourceAccessToken.path,
                 description: resourceAccessToken.description,
+                persistSession: resourceAccessToken.persistSession,
                 createdAt: resourceAccessToken.createdAt
             })
             .execute();

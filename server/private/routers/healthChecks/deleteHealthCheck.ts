@@ -37,7 +37,7 @@ registry.registerPath({
     method: "delete",
     path: "/org/{orgId}/health-check/{healthCheckId}",
     description: "Delete a health check for a specific organization.",
-    tags: [OpenAPITags.Org],
+    tags: [OpenAPITags.HealthCheck],
     request: {
         params: paramsSchema
     },

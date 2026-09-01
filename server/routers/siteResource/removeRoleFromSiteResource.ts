@@ -33,6 +33,39 @@ registry.registerPath({
     method: "post",
     path: "/site-resource/{siteResourceId}/roles/remove",
     description: "Remove a single role from a site resource.",
+    tags: [OpenAPITags.PrivateResourceLegacy],
+    request: {
+        params: removeRoleFromSiteResourceParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: removeRoleFromSiteResourceBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/private-resource/{resourceId}/roles/remove",
+    description: "Remove a single role from a site resource.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Role],
     request: {
         params: removeRoleFromSiteResourceParamsSchema,

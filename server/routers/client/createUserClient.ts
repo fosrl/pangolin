@@ -222,11 +222,6 @@ export async function createUserClient(
 
         let newClient: Client | null = null;
         await db.transaction(async (trx) => {
-            // TODO: more intelligent way to pick the exit node
-            const exitNodesList = await listExitNodes(orgId);
-            const randomExitNode =
-                exitNodesList[Math.floor(Math.random() * exitNodesList.length)];
-
             const [adminRole] = await trx
                 .select()
                 .from(roles)
@@ -244,7 +239,6 @@ export async function createUserClient(
             [newClient] = await trx
                 .insert(clients)
                 .values({
-                    exitNodeId: randomExitNode.exitNodeId,
                     orgId,
                     niceId,
                     name,

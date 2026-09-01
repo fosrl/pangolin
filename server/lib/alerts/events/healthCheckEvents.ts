@@ -202,6 +202,10 @@ async function handleResource(
         return;
     }
 
+    if (!target.resourceId) {
+        return;
+    }
+
     const [resource] = await trx
         .select()
         .from(resources)
@@ -227,9 +231,7 @@ async function handleResource(
 
     let health = "healthy";
     const allUnknown = monitoredTargets.length === 0;
-    const allHealthy = monitoredTargets.every(
-        (t) => t.hcHealth === "healthy"
-    );
+    const allHealthy = monitoredTargets.every((t) => t.hcHealth === "healthy");
     const allUnhealthy = monitoredTargets.every(
         (t) => t.hcHealth === "unhealthy"
     );

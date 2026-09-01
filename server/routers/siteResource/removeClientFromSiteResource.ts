@@ -33,6 +33,40 @@ registry.registerPath({
     path: "/site-resource/{siteResourceId}/clients/remove",
     description:
         "Remove a single client from a site resource. Clients with a userId cannot be removed.",
+    tags: [OpenAPITags.PrivateResourceLegacy],
+    request: {
+        params: removeClientFromSiteResourceParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: removeClientFromSiteResourceBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/private-resource/{resourceId}/clients/remove",
+    description:
+        "Remove a single client from a site resource. Clients with a userId cannot be removed.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Client],
     request: {
         params: removeClientFromSiteResourceParamsSchema,

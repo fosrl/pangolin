@@ -18,37 +18,44 @@ import {
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { subdomainSchema, wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import { OpenAPITags, registry } from "@server/openApi";
-import { createCertificate } from "#dynamic/routers/certificates/createCertificate";
+import { createCertificate } from "@server/routers/certificates";
 import {
     validateAndConstructDomain,
     checkWildcardDomainConflict
 } from "@server/lib/domainUtils";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
-import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import {
     getUniqueResourceName,
     getUniqueResourcePolicyName
 } from "@server/db/names";
 import { usageService } from "@server/lib/billing/usageService";
 import { LimitId } from "@server/lib/billing";
+import {
+    isInferenceFieldsError,
+    resolveProviderAttachments,
+    resourceAiProviderAttachmentSchema,
+    setPublicResourceAiProviders,
+    type ResourceAiProviderAttachment
+} from "@server/lib/aiInferenceResource";
 
 const createResourceParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
 function resolveModeFromLegacyFields(data: {
-    mode?: "http" | "ssh" | "rdp" | "vnc" | "tcp" | "udp";
+    mode?: "http" | "ssh" | "rdp" | "vnc" | "tcp" | "udp" | "inference";
     http?: boolean;
     protocol?: "tcp" | "udp";
 }): {
-    mode?: "http" | "ssh" | "rdp" | "vnc" | "tcp" | "udp";
+    mode?: "http" | "ssh" | "rdp" | "vnc" | "tcp" | "udp" | "inference";
     error?: string;
 } {
     if (data.mode) {
@@ -90,11 +97,20 @@ const createHttpResourceSchema = z
         domainId: z.string(),
         stickySession: z.boolean().optional(),
         postAuthPath: z.string().nullable().optional(),
-        mode: z.enum(["http", "ssh", "rdp", "vnc", "tcp", "udp"]).optional(),
+        mode: z
+            .enum(["http", "ssh", "rdp", "vnc", "tcp", "udp", "inference"])
+            .optional(),
         // SSH Settings
         pamMode: z.enum(["passthrough", "push"]).optional(),
         authDaemonPort: z.int().positive().optional(),
-        authDaemonMode: z.enum(["site", "remote", "native"]).optional()
+        authDaemonMode: z.enum(["site", "remote", "native"]).optional(),
+        // Inference settings
+        aiProviders: z
+            .array(resourceAiProviderAttachmentSchema)
+            .optional()
+            .describe(
+                "For inference-mode resources: AI providers to attach. Providers are attached in inherit mode, using each provider's own allow/block lists. Effective allow model keys must be unique across attached providers."
+            )
     })
     .refine(
         (data) => {
@@ -152,6 +168,39 @@ export type CreateResourceResponse = Resource;
 registry.registerPath({
     method: "put",
     path: "/org/{orgId}/resource",
+    description: "Create a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: createResourceParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: createHttpResourceSchema.or(createRawResourceSchema)
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/org/{orgId}/public-resource",
     description: "Create a resource.",
     tags: [OpenAPITags.PublicResource],
     request: {
@@ -332,10 +381,49 @@ async function createHttpResource(
         mode,
         authDaemonPort,
         authDaemonMode,
-        pamMode
+        pamMode,
+        aiProviders: aiProviderInputs
     } = parsedBody.data;
     const subdomain = parsedBody.data.subdomain;
     const stickySession = parsedBody.data.stickySession;
+
+    const effectiveMode = mode ?? "http";
+
+    let providerAttachments: ResourceAiProviderAttachment[] = [];
+    if (effectiveMode === "inference") {
+        // A new resource has no model selections yet, so providers always start
+        // in inherit mode; select can be enabled afterwards.
+        const resolved = await resolveProviderAttachments({
+            orgId,
+            attachments: (aiProviderInputs ?? []).map((p) => ({
+                providerId: p.providerId,
+                accessMode: "inherit" as const,
+                enabled: true as const
+            })),
+            requireAtLeastOne: false
+        });
+        if (isInferenceFieldsError(resolved)) {
+            return next(createHttpError(HttpCode.BAD_REQUEST, resolved.error));
+        }
+        providerAttachments = resolved;
+    } else if (aiProviderInputs && aiProviderInputs.length > 0) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "AI providers can only be attached to inference-mode resources"
+            )
+        );
+    }
+
+    // Wildcard subdomains are not allowed for inference-mode resources
+    if (effectiveMode === "inference" && subdomain && subdomain.includes("*")) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "Wildcard subdomains are not supported for inference-mode resources."
+            )
+        );
+    }
 
     // Wildcard subdomains are a paid feature
     if (subdomain && subdomain.includes("*")) {
@@ -376,21 +464,6 @@ async function createHttpResource(
         }
     }
 
-    if (
-        ["ssh", "rdp", "vnc"].includes(mode!) &&
-        !isLicensedOrSubscribed(
-            orgId!,
-            tierMatrix[TierFeature.AdvancedPublicResources]
-        )
-    ) {
-        return next(
-            createHttpError(
-                HttpCode.BAD_REQUEST,
-                "Your current subscription does not support browser gateway resources. Please upgrade to access this feature."
-            )
-        );
-    }
-
     // Validate domain and construct full domain
     const domainResult = await validateAndConstructDomain(
         domainId,
@@ -406,11 +479,22 @@ async function createHttpResource(
 
     logger.debug(`Full domain: ${fullDomain}`);
 
-    // make sure the full domain is unique
+    // make sure the full domain is unique. Inference resources are routed
+    // through the central AI gateway rather than normal target-based
+    // proxying, so they're allowed to share a full-domain with a
+    // non-inference resource (and vice versa) - only conflicts within the
+    // same routing category are rejected.
     const existingResource = await db
         .select()
         .from(resources)
-        .where(eq(resources.fullDomain, fullDomain));
+        .where(
+            and(
+                eq(resources.fullDomain, fullDomain),
+                effectiveMode === "inference"
+                    ? ne(resources.mode, "inference")
+                    : eq(resources.mode, "inference")
+            )
+        );
 
     if (existingResource.length > 0) {
         return next(
@@ -510,7 +594,7 @@ async function createHttpResource(
                 orgId,
                 name,
                 subdomain: finalSubdomain,
-                mode: mode,
+                mode: effectiveMode,
                 pamMode: pamMode,
                 authDaemonMode: authDaemonMode,
                 authDaemonPort: authDaemonPort,
@@ -522,6 +606,14 @@ async function createHttpResource(
                 defaultResourcePolicyId: defaultPolicy.resourcePolicyId
             })
             .returning();
+
+        if (providerAttachments.length > 0) {
+            await setPublicResourceAiProviders(
+                newResource[0].resourceId,
+                providerAttachments,
+                trx
+            );
+        }
 
         await trx.insert(roleResources).values({
             roleId: adminRole[0].roleId,
@@ -550,9 +642,7 @@ async function createHttpResource(
         );
     }
 
-    if (build !== "oss") {
-        await createCertificate(domainId, fullDomain, db);
-    }
+    await createCertificate(domainId, fullDomain, db);
 
     return response<CreateResourceResponse>(res, {
         data: resource,

@@ -8,6 +8,7 @@ import {
     InfoSections,
     InfoSectionTitle
 } from "@app/components/InfoSection";
+import CopyToClipboard from "@app/components/CopyToClipboard";
 import { useTranslations } from "next-intl";
 
 type OrgInfoCardProps = {};
@@ -26,7 +27,9 @@ export default function OrgInfoCard({}: OrgInfoCardProps) {
                     </InfoSection>
                     <InfoSection>
                         <InfoSectionTitle>{t("orgId")}</InfoSectionTitle>
-                        <InfoSectionContent>{org.org.orgId}</InfoSectionContent>
+                        <InfoSectionContent>
+                            <CopyToClipboard text={org.org.orgId} />
+                        </InfoSectionContent>
                     </InfoSection>
                     <InfoSection>
                         <InfoSectionTitle>{t("subnet")}</InfoSectionTitle>

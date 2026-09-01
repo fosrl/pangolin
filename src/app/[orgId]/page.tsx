@@ -1,9 +1,11 @@
 import { Layout } from "@app/components/Layout";
 import ResourceLauncher from "@app/components/resource-launcher/ResourceLauncher";
+import { commandBarNavSections } from "@app/app/navigation";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { fetchLauncherPageData } from "@app/lib/launcherServerData";
 import { verifySession } from "@app/lib/auth/verifySession";
+import { pullEnv } from "@app/lib/pullEnv";
 import UserProvider from "@app/providers/UserProvider";
 import { ListUserOrgsResponse } from "@server/routers/org";
 import { GetOrgOverviewResponse } from "@server/routers/org/getOrgOverview";
@@ -57,6 +59,8 @@ export default async function OrgPage(props: OrgPageProps) {
     } catch (e) {}
 
     const isAdminOrOwner = Boolean(overview?.isAdmin || overview?.isOwner);
+    const env = pullEnv();
+    const primaryOrg = orgs.find((o) => o.orgId === orgId)?.isPrimaryOrg;
 
     const searchParams = new URLSearchParams(await props.searchParams);
     const launcherData = overview
@@ -73,6 +77,9 @@ export default async function OrgPage(props: OrgPageProps) {
                 orgId={orgId}
                 orgs={orgs}
                 navItems={[]}
+                commandNavItems={commandBarNavSections(env, {
+                    isPrimaryOrg: primaryOrg
+                })}
                 showSidebar={false}
                 launcherMode
                 showViewAsAdmin={isAdminOrOwner}

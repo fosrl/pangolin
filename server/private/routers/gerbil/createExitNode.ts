@@ -34,10 +34,6 @@ export async function createExitNode(
             // TODO: eventually we will want to get the next available port so that we can multiple exit nodes
             // const listenPort = await getNextAvailablePort();
             const listenPort = config.getRawConfig().gerbil.start_port;
-            let subEndpoint = "";
-            if (config.getRawConfig().gerbil.use_subdomain) {
-                subEndpoint = await getUniqueExitNodeEndpointName();
-            }
 
             const exitNodeName =
                 config.getRawConfig().gerbil.exit_node_name ||
@@ -48,7 +44,7 @@ export async function createExitNode(
                 .insert(exitNodes)
                 .values({
                     publicKey,
-                    endpoint: `${subEndpoint}${subEndpoint != "" ? "." : ""}${config.getRawConfig().gerbil.base_endpoint}`,
+                    endpoint: config.getRawConfig().gerbil.base_endpoint,
                     address,
                     listenPort,
                     online: true,

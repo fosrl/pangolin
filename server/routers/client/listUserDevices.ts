@@ -67,12 +67,12 @@ const listUserDevicesSchema = z.strictObject({
         }),
     query: z.string().optional(),
     sort_by: z
-        .enum(["megabytesIn", "megabytesOut"])
+        .enum(["megabytesIn", "megabytesOut", "firstSeen", "lastSeen"])
         .optional()
         .catch(undefined)
         .openapi({
             type: "string",
-            enum: ["megabytesIn", "megabytesOut"],
+            enum: ["megabytesIn", "megabytesOut", "firstSeen", "lastSeen"],
             description: "Field to sort by"
         }),
     order: z
@@ -183,7 +183,9 @@ function queryUserDevicesBase() {
             fingerprintArch: currentFingerprint.arch,
             fingerprintSerialNumber: currentFingerprint.serialNumber,
             fingerprintUsername: currentFingerprint.username,
-            fingerprintHostname: currentFingerprint.hostname
+            fingerprintHostname: currentFingerprint.hostname,
+            firstSeen: currentFingerprint.firstSeen,
+            lastSeen: currentFingerprint.lastSeen
         })
         .from(clients)
         .leftJoin(orgs, eq(clients.orgId, orgs.orgId))
@@ -389,14 +391,23 @@ export async function listUserDevices(
 
         const countQuery = db.$count(baseQuery.as("filtered_clients"));
 
+        const sortColumn =
+            sort_by === "firstSeen"
+                ? currentFingerprint.firstSeen
+                : sort_by === "lastSeen"
+                  ? currentFingerprint.lastSeen
+                  : sort_by
+                    ? clients[sort_by]
+                    : undefined;
+
         const listDevicesQuery = baseQuery
             .limit(pageSize)
             .offset(pageSize * (page - 1))
             .orderBy(
-                sort_by
+                sortColumn
                     ? order === "asc"
-                        ? asc(clients[sort_by])
-                        : desc(clients[sort_by])
+                        ? asc(sortColumn)
+                        : desc(sortColumn)
                     : asc(clients.clientId)
             );
 

@@ -1,16 +1,20 @@
 import { Router } from "express";
 import * as gerbil from "@server/routers/gerbil";
 import * as traefik from "@server/routers/traefik";
-import * as resource from "./resource";
-import * as badger from "./badger";
+import * as resource from "@server/routers/resource";
+import * as badger from "@server/routers/badger";
 import * as auth from "@server/routers/auth";
 import * as supporterKey from "@server/routers/supporterKey";
 import * as idp from "@server/routers/idp";
+import * as ssh from "@server/routers/ssh";
 import HttpCode from "@server/types/HttpCode";
 import {
     verifyResourceAccess,
-    verifySessionUserMiddleware
+    verifySessionUserMiddleware,
+    verifyUserFromResourceSessionMiddleware
 } from "@server/middlewares";
+import * as ws from "@server/routers/ws";
+import * as browserTarget from "@server/routers/browserGatewayTarget";
 
 // Root routes
 export const internalRouter = Router();
@@ -42,6 +46,12 @@ internalRouter.get("/idp", idp.listIdps);
 
 internalRouter.get("/idp/:idpId", idp.getIdp);
 
+internalRouter.post(
+    "/org/:orgId/ssh/sign-key",
+    verifyUserFromResourceSessionMiddleware,
+    ssh.signSshKey
+);
+
 // Gerbil routes
 const gerbilRouter = Router();
 internalRouter.use("/gerbil", gerbilRouter);
@@ -63,3 +73,11 @@ internalRouter.use("/badger", badgerRouter);
 badgerRouter.post("/verify-session", badger.verifyResourceSession);
 
 badgerRouter.post("/exchange-session", badger.exchangeSession);
+
+internalRouter.get("/resource/browser-target", browserTarget.getBrowserTarget);
+
+internalRouter.get(
+    "/ws/round-trip-message/:messageId",
+    verifyUserFromResourceSessionMiddleware,
+    ws.checkRoundTripMessage
+);

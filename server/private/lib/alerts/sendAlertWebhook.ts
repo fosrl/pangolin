@@ -14,12 +14,27 @@
 import logger from "@server/logger";
 import {
     AlertContext,
-    WebhookAlertConfig
+    WebhookAlertConfig,
+    type AlertEventType
 } from "@server/routers/alertRule/types";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 500;
+
+type WebhookAlertContext = {
+    eventType: AlertEventType;
+    orgId: string;
+    /** Set for site_online / site_offline events */
+    siteId?: number;
+    /** Set for health_check_* events */
+    healthCheckId?: number;
+    /** Set for resource_* events */
+    resourceId?: number;
+    /** Human-readable context data included in emails and webhook payloads */
+    data: Record<string, unknown>;
+    isTest?: boolean;
+};
 
 /**
  * Sends a single webhook POST for an alert event.
@@ -40,14 +55,14 @@ const RETRY_BASE_DELAY_MS = 500;
 export async function sendAlertWebhook(
     url: string,
     webhookConfig: WebhookAlertConfig,
-    context: AlertContext
+    context: WebhookAlertContext
 ): Promise<void> {
     const eventType = context.eventType;
     const timestamp = new Date().toISOString();
     const status = deriveStatus(eventType, context.data);
     const data = { orgId: context.orgId, ...context.data };
 
-    let body: string;
+    let body: Record<string, any>;
     if (webhookConfig.useBodyTemplate && webhookConfig.bodyTemplate?.trim()) {
         body = renderTemplate(webhookConfig.bodyTemplate, {
             event: eventType,
@@ -56,7 +71,11 @@ export async function sendAlertWebhook(
             data
         });
     } else {
-        body = JSON.stringify({ event: eventType, timestamp, status, data });
+        body = { event: eventType, timestamp, status, data };
+    }
+
+    if (body.data && context.isTest) {
+        body.data.test = true;
     }
 
     const headers = buildHeaders(webhookConfig);
@@ -75,7 +94,7 @@ export async function sendAlertWebhook(
             response = await fetch(url, {
                 method: webhookConfig.method ?? "POST",
                 headers,
-                body,
+                body: JSON.stringify(body),
                 signal: controller.signal
             });
         } catch (err: unknown) {
@@ -247,7 +266,10 @@ interface TemplateContext {
  *      left untouched.
  *   3. The fixed top-level keys: event, timestamp, status.
  */
-function renderTemplate(template: string, ctx: TemplateContext): string {
+function renderTemplate(
+    template: string,
+    ctx: TemplateContext
+): Record<string, any> {
     // Step 1 – expand {{data}} first so its contents are already serialised
     // and won't be touched by later passes.
     let rendered = template.replace(/\{\{data\}\}/g, JSON.stringify(ctx.data));
@@ -280,20 +302,19 @@ function renderTemplate(template: string, ctx: TemplateContext): string {
     // Validate the rendered result is valid JSON; if not, log a warning and
     // fall back to the default payload so the webhook still fires.
     try {
-        JSON.parse(rendered);
-        return rendered;
+        return JSON.parse(rendered);
     } catch {
         logger.warn(
             `sendAlertWebhook: body template produced invalid JSON for event ` +
                 `"${ctx.event}" destined for a webhook. Falling back to default ` +
                 `payload. Check that {{data}} is NOT wrapped in quotes in your template.`
         );
-        return JSON.stringify({
+        return {
             event: ctx.event,
             timestamp: ctx.timestamp,
             status: ctx.status,
             data: ctx.data
-        });
+        };
     }
 }
 

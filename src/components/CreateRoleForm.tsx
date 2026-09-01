@@ -52,7 +52,7 @@ export default function CreateRoleForm({
             requireDeviceApproval: values.requireDeviceApproval,
             allowSsh: values.allowSsh
         };
-        if (isPaidUser(tierMatrix.advancedPrivateResources)) {
+        if (isPaidUser(tierMatrix.roleBasedSSHControls)) {
             payload.sshSudoMode = values.sshSudoMode;
             payload.sshCreateHomeDir = values.sshCreateHomeDir;
             payload.sshSudoCommands =
@@ -80,13 +80,39 @@ export default function CreateRoleForm({
             });
 
         if (res && res.status === 201) {
+            const createdRole = res.data.data;
+
+            const pendingBudgets = (values.budgets ?? []).filter(
+                (budget) => budget.amount.trim() !== ""
+            );
+            if (pendingBudgets.length > 0) {
+                try {
+                    await Promise.all(
+                        pendingBudgets.map((budget) =>
+                            api.put(`/org/${org?.org.orgId}/ai-budget`, {
+                                roleId: createdRole.roleId,
+                                amount: Number(budget.amount),
+                                unit: budget.unit,
+                                period: budget.period
+                            })
+                        )
+                    );
+                } catch (e) {
+                    toast({
+                        variant: "destructive",
+                        title: t("aiBudgetErrorSave"),
+                        description: formatAxiosError(e, t("aiBudgetErrorSave"))
+                    });
+                }
+            }
+
             toast({
                 variant: "default",
                 title: t("accessRoleCreated"),
                 description: t("accessRoleCreatedDescription")
             });
             if (open) setOpen(false);
-            afterCreate?.(res.data.data);
+            afterCreate?.(createdRole);
         }
     }
 

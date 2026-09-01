@@ -1,17 +1,6 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
-import { ExtendedColumnDef } from "@app/components/ui/data-table";
-import { IdpDataTable } from "@app/components/OrgIdpDataTable";
-import { Button } from "@app/components/ui/button";
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList
-} from "@app/components/ui/command";
+import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import {
     Credenza,
     CredenzaBody,
@@ -22,37 +11,42 @@ import {
     CredenzaHeader,
     CredenzaTitle
 } from "@app/components/Credenza";
+import { isIdpGlobalModeBannerVisible } from "@app/components/IdpGlobalModeBanner";
+import IdpTypeBadge from "@app/components/IdpTypeBadge";
+import IdpTypeIcon from "@app/components/IdpTypeIcon";
+import { IdpDataTable } from "@app/components/OrgIdpDataTable";
+import { Badge } from "@app/components/ui/badge";
+import { Button } from "@app/components/ui/button";
 import {
-    ArrowRight,
-    ArrowUpDown,
-    MoreHorizontal
-} from "lucide-react";
-import { useMemo, useState } from "react";
-import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
-import { toast } from "@app/hooks/useToast";
-import { formatAxiosError } from "@app/lib/api";
-import { createApiClient } from "@app/lib/api";
-import { useEnvContext } from "@app/hooks/useEnvContext";
-import { useUserContext } from "@app/hooks/useUserContext";
-import { useRouter } from "next/navigation";
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList
+} from "@app/components/ui/command";
+import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
-import Link from "next/link";
-import { useTranslations } from "next-intl";
-import IdpTypeBadge from "@app/components/IdpTypeBadge";
-import IdpTypeIcon from "@app/components/IdpTypeIcon";
-import { useQuery } from "@tanstack/react-query";
-import { useDebounce } from "use-debounce";
-import type { ListUserAdminOrgIdpsResponse } from "@server/routers/orgIdp/types";
-import { cn } from "@app/lib/cn";
-import { Badge } from "@app/components/ui/badge";
+import { useEnvContext } from "@app/hooks/useEnvContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { toast } from "@app/hooks/useToast";
+import { useUserContext } from "@app/hooks/useUserContext";
+import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { cn } from "@app/lib/cn";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
-import { isIdpGlobalModeBannerVisible } from "@app/components/IdpGlobalModeBanner";
+import type { ListUserAdminOrgIdpsResponse } from "@server/routers/orgIdp/types";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowRight, ArrowUpDown, MoreHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useDebounce } from "use-debounce";
 
 export type IdpRow = {
     idpId: number;
@@ -483,15 +477,17 @@ export default function IdpTable({ idps, orgId }: Props) {
                                                     {group.name}
                                                 </div>
                                                 <div className="mt-1 flex flex-wrap gap-1">
-                                                    {group.sources.map((src) => (
-                                                        <Badge
-                                                            key={src.orgId}
-                                                            variant="secondary"
-                                                            className="max-w-full truncate font-normal"
-                                                        >
-                                                            {src.orgName}
-                                                        </Badge>
-                                                    ))}
+                                                    {group.sources.map(
+                                                        (src) => (
+                                                            <Badge
+                                                                key={src.orgId}
+                                                                variant="secondary"
+                                                                className="max-w-full truncate font-normal"
+                                                            >
+                                                                {src.orgName}
+                                                            </Badge>
+                                                        )
+                                                    )}
                                                 </div>
                                             </div>
                                         </CommandItem>

@@ -79,38 +79,54 @@ export async function deleteTarget(
                 )
             );
         }
-        // get the resource
-        const [resource] = await db
-            .select()
-            .from(resources)
-            .where(eq(resources.resourceId, deletedTarget.resourceId!));
 
-        if (!resource) {
+        if (
+            (!deletedTarget.resourceId && !deletedTarget.providerId) ||
+            (deletedTarget.resourceId && deletedTarget.providerId)
+        ) {
             return next(
                 createHttpError(
-                    HttpCode.NOT_FOUND,
-                    `Resource with ID ${deletedTarget.resourceId} not found`
+                    HttpCode.INTERNAL_SERVER_ERROR,
+                    `Target with ID ${targetId} has invalid ownership`
                 )
             );
         }
 
-        // check if there are other targets on the resource
-        const otherTargets = await db
-            .select()
-            .from(targets)
-            .where(
-                and(
-                    eq(targets.resourceId, resource.resourceId),
-                    ne(targets.targetId, targetId)
-                )
-            );
+        let resource: typeof resources.$inferSelect | undefined;
+        if (deletedTarget.resourceId) {
+            [resource] = await db
+                .select()
+                .from(resources)
+                .where(eq(resources.resourceId, deletedTarget.resourceId))
+                .limit(1);
 
-        if (otherTargets.length == 0) {
-            // set the resource status
-            await db
-                .update(resources)
-                .set({ health: "unknown" })
-                .where(eq(resources.resourceId, resource.resourceId));
+            if (!resource) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Resource with ID ${deletedTarget.resourceId} not found`
+                    )
+                );
+            }
+
+            // check if there are other targets on the resource
+            const otherTargets = await db
+                .select()
+                .from(targets)
+                .where(
+                    and(
+                        eq(targets.resourceId, resource.resourceId),
+                        ne(targets.targetId, targetId)
+                    )
+                );
+
+            if (otherTargets.length == 0) {
+                // set the resource status
+                await db
+                    .update(resources)
+                    .set({ health: "unknown" })
+                    .where(eq(resources.resourceId, resource.resourceId));
+            }
         }
 
         const [site] = await db
@@ -137,16 +153,26 @@ export async function deleteTarget(
                     .where(eq(newts.siteId, site.siteId))
                     .limit(1);
 
-                if (["http", "tcp", "udp"].includes(deletedTarget.mode)) {
+                if (
+                    deletedTarget.providerId ||
+                    ["http", "tcp", "udp"].includes(deletedTarget.mode)
+                ) {
                     await removeTargets(
                         newt.newtId,
                         // [deletedTarget],
                         [], // deleting the target from newt causes issues because we cant unbind the port. this needs to be fixed in newt before we can do this
                         [deletedHealthCheck],
-                        resource.mode === "udp" ? "udp" : "tcp",
+                        deletedTarget.providerId
+                            ? "tcp"
+                            : (resource!.mode as string) === "udp"
+                              ? "udp"
+                              : "tcp",
                         newt.version
                     );
-                } else if (["ssh", "rdp", "vnc"].includes(deletedTarget.mode)) {
+                } else if (
+                    !deletedTarget.providerId &&
+                    ["ssh", "rdp", "vnc"].includes(deletedTarget.mode)
+                ) {
                     await removeBrowserGatewayTarget(
                         newt.newtId,
                         deletedTarget.targetId,

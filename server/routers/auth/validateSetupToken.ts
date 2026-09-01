@@ -48,7 +48,7 @@ export async function validateSetupToken(
             return response<ValidateSetupTokenResponse>(res, {
                 data: {
                     valid: false,
-                    message: "Invalid or expired setup token"
+                    message: "Invalid setup token"
                 },
                 success: true,
                 error: false,

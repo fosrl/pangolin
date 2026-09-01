@@ -17,6 +17,7 @@ import HttpCode from "@server/types/HttpCode";
 import { build } from "@server/build";
 import { getOrgTierData } from "#private/lib/billing";
 import { Tier } from "@server/types/Tiers";
+import logger from "@server/logger";
 
 export function verifyValidSubscription(tiers: Tier[]) {
     return async function (
@@ -30,9 +31,9 @@ export function verifyValidSubscription(tiers: Tier[]) {
             }
 
             const orgId =
-                req.params.orgId ||
-                req.body.orgId ||
-                req.query.orgId ||
+                req.params?.orgId ||
+                req.body?.orgId ||
+                req.query?.orgId ||
                 req.userOrgId;
 
             if (!orgId) {
@@ -65,7 +66,7 @@ export function verifyValidSubscription(tiers: Tier[]) {
 
             return next();
         } catch (e) {
-            console.error(e);
+            logger.error(e);
             return next(
                 createHttpError(
                     HttpCode.INTERNAL_SERVER_ERROR,

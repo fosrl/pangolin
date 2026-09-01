@@ -17,10 +17,9 @@ import { useTranslations } from "next-intl";
 
 type AccessTokenProps = {
     token: string;
-    resourceId?: number;
 };
 
-export default function AccessToken({ token, resourceId }: AccessTokenProps) {
+export default function AccessToken({ token }: AccessTokenProps) {
     const [loading, setLoading] = useState(true);
     const [isValid, setIsValid] = useState(false);
 
@@ -59,13 +58,13 @@ export default function AccessToken({ token, resourceId }: AccessTokenProps) {
             return;
         }
 
-        async function checkSHA256() {
+        async function check() {
             try {
                 const res = await api.post<
                     AxiosResponse<AuthWithAccessTokenResponse>
                 >(`/auth/access-token`, {
                     accessToken,
-                    accessTokenId
+                    accessTokenId: accessTokenId || undefined
                 });
 
                 if (res.data.data.session) {
@@ -82,35 +81,7 @@ export default function AccessToken({ token, resourceId }: AccessTokenProps) {
             }
         }
 
-        async function check() {
-            try {
-                const res = await api.post<
-                    AxiosResponse<AuthWithAccessTokenResponse>
-                >(`/auth/resource/${resourceId}/access-token`, {
-                    accessToken,
-                    accessTokenId
-                });
-
-                if (res.data.data.session) {
-                    setIsValid(true);
-                    window.location.href = appendRequestToken(
-                        res.data.data.redirectUrl!,
-                        res.data.data.session
-                    );
-                }
-            } catch (e) {
-                console.error(t("accessTokenError"), e);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        if (!accessTokenId) {
-            // no access token id so check the sha256
-            checkSHA256();
-        } else {
-            check();
-        }
+        check();
     }, [token]);
 
     function renderTitle() {

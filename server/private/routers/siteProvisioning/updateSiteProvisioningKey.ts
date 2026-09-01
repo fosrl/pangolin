@@ -13,11 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import {
-    db,
-    siteProvisioningKeyOrg,
-    siteProvisioningKeys
-} from "@server/db";
+import { db, siteProvisioningKeyOrg, siteProvisioningKeys } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -25,6 +21,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import type { UpdateSiteProvisioningKeyResponse } from "@server/routers/siteProvisioning/types";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
+import { OpenAPITags, registry } from "@server/openApi";
 
 const paramsSchema = z.object({
     siteProvisioningKeyId: z.string().nonempty(),
@@ -38,7 +36,13 @@ const bodySchema = z
                 z.null(),
                 z.coerce.number().int().positive().max(1_000_000)
             ])
-            .optional(),
+            .optional()
+            .openapi({
+                type: "number",
+                default: null,
+                description:
+                    "Maximum number of sites that can be provisioned in a single batch. If null, there is no limit."
+            }),
         validUntil: z.string().max(255).optional(),
         approveNewSites: z.boolean().optional()
     })
@@ -50,7 +54,8 @@ const bodySchema = z
         ) {
             ctx.addIssue({
                 code: "custom",
-                message: "Provide maxBatchSize and/or validUntil and/or approveNewSites",
+                message:
+                    "Provide maxBatchSize and/or validUntil and/or approveNewSites",
                 path: ["maxBatchSize"]
             });
         }
@@ -68,6 +73,48 @@ const bodySchema = z
     });
 
 export type UpdateSiteProvisioningKeyBody = z.infer<typeof bodySchema>;
+
+const UpdateSiteProvisioningKeyResponseDataSchema = z.object({
+    siteProvisioningKeyId: z.string(),
+    orgId: z.string(),
+    name: z.string(),
+    lastChars: z.string(),
+    createdAt: z.string(),
+    lastUsed: z.string().nullable(),
+    maxBatchSize: z.number().nullable(),
+    numUsed: z.number(),
+    validUntil: z.string().nullable(),
+    approveNewSites: z.boolean()
+});
+
+registry.registerPath({
+    method: "patch",
+    path: "/org/{orgId}/site-provisioning-key/{siteProvisioningKeyId}",
+    description: "Update a site provisioning key.",
+    tags: [OpenAPITags.SiteProvisioningKey],
+    request: {
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: bodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        UpdateSiteProvisioningKeyResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
+});
 
 export async function updateSiteProvisioningKey(
     req: Request,

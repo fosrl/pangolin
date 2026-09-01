@@ -77,6 +77,8 @@ export type ClientRow = {
         username: string | null;
         hostname: string | null;
     } | null;
+    firstSeen: number | null;
+    lastSeen: number | null;
 };
 
 type ClientTableProps = {
@@ -112,7 +114,9 @@ export default function UserDevicesTable({
 
     const defaultUserColumnVisibility = {
         subnet: false,
-        niceId: false
+        niceId: false,
+        firstSeen: false,
+        lastSeen: false
     };
 
     const refreshData = () => {
@@ -588,9 +592,12 @@ export default function UserDevicesTable({
                         if (agent in latestPlatformVersions) {
                             const agentVersion = latestPlatformVersions[agent];
 
-                            updateAvailable = semver.lt(
-                                originalRow.olmVersion,
-                                agentVersion.latestVersion
+                            updateAvailable = Boolean(
+                                semver.valid(originalRow.olmVersion) &&
+                                semver.lt(
+                                    originalRow.olmVersion,
+                                    agentVersion.latestVersion
+                                )
                             );
                         }
                     }
@@ -618,6 +625,68 @@ export default function UserDevicesTable({
                 accessorKey: "subnet",
                 friendlyName: t("address"),
                 header: () => <span className="px-3">{t("address")}</span>
+            },
+            {
+                accessorKey: "firstSeen",
+                friendlyName: t("firstSeen"),
+                header: () => {
+                    const firstSeenOrder = getSortDirection(
+                        "firstSeen",
+                        searchParams
+                    );
+
+                    const Icon =
+                        firstSeenOrder === "asc"
+                            ? ArrowDown01Icon
+                            : firstSeenOrder === "desc"
+                              ? ArrowUp10Icon
+                              : ChevronsUpDownIcon;
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => toggleSort("firstSeen")}
+                        >
+                            {t("firstSeen")}
+                            <Icon className="ml-2 h-4 w-4" />
+                        </Button>
+                    );
+                },
+                cell: ({ row }) => {
+                    const firstSeen = row.original.firstSeen;
+                    if (!firstSeen) return "-";
+                    return new Date(firstSeen * 1000).toLocaleString();
+                }
+            },
+            {
+                accessorKey: "lastSeen",
+                friendlyName: t("lastSeen"),
+                header: () => {
+                    const lastSeenOrder = getSortDirection(
+                        "lastSeen",
+                        searchParams
+                    );
+
+                    const Icon =
+                        lastSeenOrder === "asc"
+                            ? ArrowDown01Icon
+                            : lastSeenOrder === "desc"
+                              ? ArrowUp10Icon
+                              : ChevronsUpDownIcon;
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => toggleSort("lastSeen")}
+                        >
+                            {t("lastSeen")}
+                            <Icon className="ml-2 h-4 w-4" />
+                        </Button>
+                    );
+                },
+                cell: ({ row }) => {
+                    const lastSeen = row.original.lastSeen;
+                    if (!lastSeen) return "-";
+                    return new Date(lastSeen * 1000).toLocaleString();
+                }
             }
         ];
 

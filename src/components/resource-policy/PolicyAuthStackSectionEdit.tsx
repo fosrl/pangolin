@@ -30,6 +30,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { toUnicode } from "punycode";
 import {
     useActionState,
     useContext,
@@ -108,8 +109,20 @@ export function PolicyAuthStackSectionEdit({
     const resourceContext = useContext(ResourceContext);
     const api = createApiClient(useEnvContext());
 
+    const isInferenceResource = resourceContext?.resource.mode === "inference";
     const isResourceOverlay = resourceId !== undefined;
     const authReadonly = readonly || isResourceOverlay;
+
+    const inferenceResourceUrl = useMemo(() => {
+        if (!isInferenceResource || !resourceContext?.resource) {
+            return null;
+        }
+        const { ssl, fullDomain } = resourceContext.resource;
+        if (!fullDomain) {
+            return null;
+        }
+        return `${ssl ? "https" : "http"}://${toUnicode(fullDomain)}`;
+    }, [isInferenceResource, resourceContext?.resource]);
 
     const policyRoleItems = useMemo<OverlaySelectedRole[]>(
         () =>
@@ -264,6 +277,12 @@ export function PolicyAuthStackSectionEdit({
     const overlayRoles = combinedRoles.filter((r) => !r.isAdmin);
     const overlayUsers = combinedUsers;
 
+    useEffect(() => {
+        if (isInferenceResource && !form.getValues("sso")) {
+            form.setValue("sso", true);
+        }
+    }, [isInferenceResource, form]);
+
     const [, formAction, isSubmitting] = useActionState(onSubmit, null);
     const [isSavingOverlay, setIsSavingOverlay] = useState(false);
 
@@ -294,7 +313,7 @@ export function PolicyAuthStackSectionEdit({
                 .put(
                     `/resource-policy/${policy.resourcePolicyId}/access-control`,
                     {
-                        sso: payload.sso,
+                        sso: isInferenceResource ? true : payload.sso,
                         userIds: payload.users.map((user) => user.id),
                         roleIds: payload.roles.map((role) => Number(role.id)),
                         skipToIdpId: payload.skipToIdpId
@@ -302,93 +321,100 @@ export function PolicyAuthStackSectionEdit({
                 )
                 .catch(handleError)
         );
+        policyUpdates.sso = isInferenceResource ? true : payload.sso;
 
-        if (passcodeActive && payload.password?.password) {
+        if (!isInferenceResource) {
+            if (passcodeActive && payload.password?.password) {
+                requests.push(
+                    api
+                        .put(
+                            `/resource-policy/${policy.resourcePolicyId}/password`,
+                            { password: payload.password.password }
+                        )
+                        .catch(handleError)
+                );
+                policyUpdates.passwordId = policy.passwordId ?? -1;
+            } else if (!passcodeActive && passcodeOnServerRef.current) {
+                requests.push(
+                    api
+                        .put(
+                            `/resource-policy/${policy.resourcePolicyId}/password`,
+                            { password: null }
+                        )
+                        .catch(handleError)
+                );
+                policyUpdates.passwordId = null;
+            }
+
+            if (pinActive && payload.pincode?.pincode?.length === 6) {
+                requests.push(
+                    api
+                        .put(
+                            `/resource-policy/${policy.resourcePolicyId}/pincode`,
+                            { pincode: payload.pincode.pincode }
+                        )
+                        .catch(handleError)
+                );
+                policyUpdates.pincodeId = policy.pincodeId ?? -1;
+            } else if (!pinActive && pincodeOnServerRef.current) {
+                requests.push(
+                    api
+                        .put(
+                            `/resource-policy/${policy.resourcePolicyId}/pincode`,
+                            { pincode: null }
+                        )
+                        .catch(handleError)
+                );
+                policyUpdates.pincodeId = null;
+            }
+
+            if (
+                headerAuthActive &&
+                payload.headerAuth?.user &&
+                payload.headerAuth?.password
+            ) {
+                requests.push(
+                    api
+                        .put(
+                            `/resource-policy/${policy.resourcePolicyId}/header-auth`,
+                            { headerAuth: payload.headerAuth }
+                        )
+                        .catch(handleError)
+                );
+                policyUpdates.headerAuth = {
+                    id: policy.headerAuth?.id ?? -1,
+                    extendedCompability:
+                        payload.headerAuth.extendedCompatibility ?? true
+                };
+            } else if (!headerAuthActive && headerAuthOnServerRef.current) {
+                requests.push(
+                    api
+                        .put(
+                            `/resource-policy/${policy.resourcePolicyId}/header-auth`,
+                            { headerAuth: null }
+                        )
+                        .catch(handleError)
+                );
+                policyUpdates.headerAuth = {
+                    id: null,
+                    extendedCompability: null
+                } as unknown as GetResourcePolicyResponse["headerAuth"];
+            }
+
             requests.push(
                 api
                     .put(
-                        `/resource-policy/${policy.resourcePolicyId}/password`,
-                        { password: payload.password.password }
+                        `/resource-policy/${policy.resourcePolicyId}/whitelist`,
+                        {
+                            emailWhitelistEnabled:
+                                payload.emailWhitelistEnabled,
+                            emails: payload.emails?.map((e) => e.text) ?? []
+                        }
                     )
                     .catch(handleError)
             );
-            policyUpdates.passwordId = policy.passwordId ?? -1;
-        } else if (!passcodeActive && passcodeOnServerRef.current) {
-            requests.push(
-                api
-                    .put(
-                        `/resource-policy/${policy.resourcePolicyId}/password`,
-                        { password: null }
-                    )
-                    .catch(handleError)
-            );
-            policyUpdates.passwordId = null;
+            policyUpdates.emailWhitelistEnabled = payload.emailWhitelistEnabled;
         }
-
-        if (pinActive && payload.pincode?.pincode?.length === 6) {
-            requests.push(
-                api
-                    .put(
-                        `/resource-policy/${policy.resourcePolicyId}/pincode`,
-                        { pincode: payload.pincode.pincode }
-                    )
-                    .catch(handleError)
-            );
-            policyUpdates.pincodeId = policy.pincodeId ?? -1;
-        } else if (!pinActive && pincodeOnServerRef.current) {
-            requests.push(
-                api
-                    .put(
-                        `/resource-policy/${policy.resourcePolicyId}/pincode`,
-                        { pincode: null }
-                    )
-                    .catch(handleError)
-            );
-            policyUpdates.pincodeId = null;
-        }
-
-        if (
-            headerAuthActive &&
-            payload.headerAuth?.user &&
-            payload.headerAuth?.password
-        ) {
-            requests.push(
-                api
-                    .put(
-                        `/resource-policy/${policy.resourcePolicyId}/header-auth`,
-                        { headerAuth: payload.headerAuth }
-                    )
-                    .catch(handleError)
-            );
-            policyUpdates.headerAuth = {
-                id: policy.headerAuth?.id ?? -1,
-                extendedCompability:
-                    payload.headerAuth.extendedCompatibility ?? true
-            };
-        } else if (!headerAuthActive && headerAuthOnServerRef.current) {
-            requests.push(
-                api
-                    .put(
-                        `/resource-policy/${policy.resourcePolicyId}/header-auth`,
-                        { headerAuth: null }
-                    )
-                    .catch(handleError)
-            );
-            policyUpdates.headerAuth = {
-                id: null,
-                extendedCompability: null
-            } as unknown as GetResourcePolicyResponse["headerAuth"];
-        }
-
-        requests.push(
-            api
-                .put(`/resource-policy/${policy.resourcePolicyId}/whitelist`, {
-                    emailWhitelistEnabled: payload.emailWhitelistEnabled,
-                    emails: payload.emails?.map((e) => e.text) ?? []
-                })
-                .catch(handleError)
-        );
-        policyUpdates.emailWhitelistEnabled = payload.emailWhitelistEnabled;
 
         try {
             const results = await Promise.all(requests);
@@ -411,13 +437,17 @@ export function PolicyAuthStackSectionEdit({
 
                 updatePolicy(policyUpdates);
 
-                resourceContext?.updateAuthInfo({
-                    sso: payload.sso,
-                    whitelist: payload.emailWhitelistEnabled,
-                    password: passcodeOnServerRef.current,
-                    pincode: pincodeOnServerRef.current,
-                    headerAuth: headerAuthOnServerRef.current
-                });
+                resourceContext?.updateAuthInfo(
+                    isInferenceResource
+                        ? { sso: true }
+                        : {
+                              sso: payload.sso,
+                              whitelist: payload.emailWhitelistEnabled,
+                              password: passcodeOnServerRef.current,
+                              pincode: pincodeOnServerRef.current,
+                              headerAuth: headerAuthOnServerRef.current
+                          }
+                );
 
                 toast({
                     title: t("success"),
@@ -514,7 +544,9 @@ export function PolicyAuthStackSectionEdit({
                             {t("policyAuthStackTitle")}
                         </SettingsSectionTitle>
                         <SettingsSectionDescription>
-                            {t("policyAuthStackDescription")}
+                            {isInferenceResource
+                                ? t("policyAuthInferenceStackDescription")
+                                : t("policyAuthStackDescription")}
                         </SettingsSectionDescription>
                     </SettingsSectionHeader>
                     <SettingsSectionBody>
@@ -523,10 +555,13 @@ export function PolicyAuthStackSectionEdit({
                         )}
                         <SettingsSectionForm variant="half">
                             <PolicyAuthSsoSection
-                                sso={Boolean(sso)}
-                                onSsoChange={(active) =>
-                                    form.setValue("sso", active)
-                                }
+                                sso={Boolean(sso) || isInferenceResource}
+                                onSsoChange={(active) => {
+                                    if (isInferenceResource) {
+                                        return;
+                                    }
+                                    form.setValue("sso", active);
+                                }}
                                 skipToIdpId={skipToIdpId}
                                 onSkipToIdpChange={(id) =>
                                     form.setValue("skipToIdpId", id)
@@ -534,6 +569,12 @@ export function PolicyAuthStackSectionEdit({
                                 allIdps={allIdps}
                                 disabled={authReadonly}
                                 idpDisabled={authReadonly}
+                                ssoLocked={isInferenceResource}
+                                identityKeyUrl={
+                                    isInferenceResource
+                                        ? inferenceResourceUrl
+                                        : undefined
+                                }
                                 rolesEditor={
                                     isResourceOverlay ? (
                                         <RolesSelector
@@ -605,100 +646,132 @@ export function PolicyAuthStackSectionEdit({
                                 }
                             />
 
-                            <PolicyAuthOtherMethodsSection
-                                pinActive={pinActive}
-                                passcodeActive={passcodeActive}
-                                emailWhitelistEnabled={Boolean(
-                                    emailWhitelistEnabled
-                                )}
-                                headerAuthActive={headerAuthActive}
-                                headerAuthUser={headerAuth?.user ?? ""}
-                                emailCount={emails.length}
-                                emailEnabled={emailEnabled}
-                                disabled={authReadonly}
-                                onConfigure={openMethodEditor}
-                                onTogglePincode={(active) =>
-                                    handleToggle("pincode", active, () => {
-                                        setPinActive(false);
-                                        form.setValue("pincode", null);
-                                    })
-                                }
-                                onTogglePasscode={(active) =>
-                                    handleToggle("passcode", active, () => {
-                                        setPasscodeActive(false);
-                                        form.setValue("password", null);
-                                    })
-                                }
-                                onToggleEmail={(active) =>
-                                    handleToggle("email", active, () =>
-                                        form.setValue(
-                                            "emailWhitelistEnabled",
-                                            false
+                            {!isInferenceResource && (
+                                <PolicyAuthOtherMethodsSection
+                                    pinActive={pinActive}
+                                    passcodeActive={passcodeActive}
+                                    emailWhitelistEnabled={Boolean(
+                                        emailWhitelistEnabled
+                                    )}
+                                    headerAuthActive={headerAuthActive}
+                                    headerAuthUser={headerAuth?.user ?? ""}
+                                    emailCount={emails.length}
+                                    emailEnabled={emailEnabled}
+                                    disabled={authReadonly}
+                                    onConfigure={openMethodEditor}
+                                    onTogglePincode={(active) =>
+                                        handleToggle("pincode", active, () => {
+                                            setPinActive(false);
+                                            form.setValue("pincode", null);
+                                        })
+                                    }
+                                    onTogglePasscode={(active) =>
+                                        handleToggle("passcode", active, () => {
+                                            setPasscodeActive(false);
+                                            form.setValue("password", null);
+                                        })
+                                    }
+                                    onToggleEmail={(active) =>
+                                        handleToggle("email", active, () =>
+                                            form.setValue(
+                                                "emailWhitelistEnabled",
+                                                false
+                                            )
                                         )
-                                    )
-                                }
-                                onToggleHeaderAuth={(active) =>
-                                    handleToggle("headerAuth", active, () => {
-                                        setHeaderAuthActive(false);
-                                        form.setValue("headerAuth", null);
-                                    })
-                                }
-                            />
+                                    }
+                                    onToggleHeaderAuth={(active) =>
+                                        handleToggle(
+                                            "headerAuth",
+                                            active,
+                                            () => {
+                                                setHeaderAuthActive(false);
+                                                form.setValue(
+                                                    "headerAuth",
+                                                    null
+                                                );
+                                            }
+                                        )
+                                    }
+                                />
+                            )}
                         </SettingsSectionForm>
 
-                        <PincodeCredenza
-                            open={editingMethod === "pincode"}
-                            onOpenChange={(open) => !open && closeCredenza()}
-                            defaultPincode={pincode?.pincode ?? ""}
-                            onSave={(value) => {
-                                form.setValue("pincode", { pincode: value });
-                                setPinActive(true);
-                            }}
-                        />
+                        {!isInferenceResource && (
+                            <>
+                                <PincodeCredenza
+                                    open={editingMethod === "pincode"}
+                                    onOpenChange={(open) =>
+                                        !open && closeCredenza()
+                                    }
+                                    defaultPincode={pincode?.pincode ?? ""}
+                                    onSave={(value) => {
+                                        form.setValue("pincode", {
+                                            pincode: value
+                                        });
+                                        setPinActive(true);
+                                    }}
+                                />
 
-                        <PasscodeCredenza
-                            open={editingMethod === "passcode"}
-                            onOpenChange={(open) => !open && closeCredenza()}
-                            defaultPassword={password?.password ?? ""}
-                            existingConfigured={Boolean(policy.passwordId)}
-                            onSave={(value) => {
-                                form.setValue("password", { password: value });
-                                setPasscodeActive(true);
-                            }}
-                        />
+                                <PasscodeCredenza
+                                    open={editingMethod === "passcode"}
+                                    onOpenChange={(open) =>
+                                        !open && closeCredenza()
+                                    }
+                                    defaultPassword={password?.password ?? ""}
+                                    existingConfigured={Boolean(
+                                        policy.passwordId
+                                    )}
+                                    onSave={(value) => {
+                                        form.setValue("password", {
+                                            password: value
+                                        });
+                                        setPasscodeActive(true);
+                                    }}
+                                />
 
-                        <EmailCredenza
-                            open={editingMethod === "email"}
-                            onOpenChange={(open) => !open && closeCredenza()}
-                            emailEnabled={emailEnabled}
-                            disabled={authReadonly}
-                            emails={emails}
-                            onSave={(value) => {
-                                form.setValue("emails", value);
-                                form.setValue("emailWhitelistEnabled", true);
-                            }}
-                        />
+                                <EmailCredenza
+                                    open={editingMethod === "email"}
+                                    onOpenChange={(open) =>
+                                        !open && closeCredenza()
+                                    }
+                                    emailEnabled={emailEnabled}
+                                    disabled={authReadonly}
+                                    emails={emails}
+                                    onSave={(value) => {
+                                        form.setValue("emails", value);
+                                        form.setValue(
+                                            "emailWhitelistEnabled",
+                                            true
+                                        );
+                                    }}
+                                />
 
-                        <HeaderAuthCredenza
-                            open={editingMethod === "headerAuth"}
-                            onOpenChange={(open) => !open && closeCredenza()}
-                            defaultValues={
-                                headerAuth
-                                    ? {
-                                          user: headerAuth.user,
-                                          password: headerAuth.password,
-                                          extendedCompatibility:
-                                              headerAuth.extendedCompatibility ??
-                                              true
-                                      }
-                                    : undefined
-                            }
-                            existingConfigured={Boolean(policy.headerAuth?.id)}
-                            onSave={(value) => {
-                                form.setValue("headerAuth", value);
-                                setHeaderAuthActive(true);
-                            }}
-                        />
+                                <HeaderAuthCredenza
+                                    open={editingMethod === "headerAuth"}
+                                    onOpenChange={(open) =>
+                                        !open && closeCredenza()
+                                    }
+                                    defaultValues={
+                                        headerAuth
+                                            ? {
+                                                  user: headerAuth.user,
+                                                  password: headerAuth.password,
+                                                  extendedCompatibility:
+                                                      headerAuth.extendedCompatibility ??
+                                                      true
+                                              }
+                                            : undefined
+                                    }
+                                    existingConfigured={Boolean(
+                                        policy.headerAuth?.id
+                                    )}
+                                    onSave={(value) => {
+                                        form.setValue("headerAuth", value);
+                                        setHeaderAuthActive(true);
+                                    }}
+                                />
+                            </>
+                        )}
                     </SettingsSectionBody>
                     <SettingsSectionFooter>
                         <Button

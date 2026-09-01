@@ -304,11 +304,6 @@ export async function listClients(
             (client) => client.clientId
         );
 
-        const isLabelFeatureEnabled = await isLicensedOrSubscribed(
-            orgId,
-            tierMatrix.labels
-        );
-
         // Get client count with filter
         const conditions = [
             and(
@@ -341,7 +336,7 @@ export async function listClients(
             conditions.push(or(...filterAggregates));
         }
 
-        if (isLabelFeatureEnabled && labelFilter && labelFilter.length > 0) {
+        if (labelFilter && labelFilter.length > 0) {
             conditions.push(
                 inArray(
                     clients.clientId,
@@ -361,24 +356,19 @@ export async function listClients(
             const q = "%" + query.toLowerCase() + "%";
             const queryList = [
                 like(sql`LOWER(${clients.name})`, q),
-                like(sql`LOWER(${clients.niceId})`, q)
+                like(sql`LOWER(${clients.niceId})`, q),
+                inArray(
+                    clients.clientId,
+                    db
+                        .select({ id: clientLabels.clientId })
+                        .from(clientLabels)
+                        .innerJoin(
+                            labels,
+                            eq(labels.labelId, clientLabels.labelId)
+                        )
+                        .where(like(sql`LOWER(${labels.name})`, q))
+                )
             ];
-
-            if (isLabelFeatureEnabled) {
-                queryList.push(
-                    inArray(
-                        clients.clientId,
-                        db
-                            .select({ id: clientLabels.clientId })
-                            .from(clientLabels)
-                            .innerJoin(
-                                labels,
-                                eq(labels.labelId, clientLabels.labelId)
-                            )
-                            .where(like(sql`LOWER(${labels.name})`, q))
-                    )
-                );
-            }
 
             conditions.push(or(...queryList));
         }
@@ -414,7 +404,7 @@ export async function listClients(
             clientId: number;
         }> = [];
 
-        if (isLabelFeatureEnabled && clientIds.length > 0) {
+        if (clientIds.length > 0) {
             labelsForClients = await db
                 .select({
                     labelId: labels.labelId,

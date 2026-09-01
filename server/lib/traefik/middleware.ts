@@ -1,5 +1,64 @@
 import logger from "@server/logger";
 
+/**
+ * Create (if configured) and attach a path-rewrite middleware for a
+ * resource, mutating both config_output.http.middlewares and the
+ * router's middleware chain. Shared by the OSS and private Traefik config
+ * generators, which apply it identically.
+ */
+export function applyPathRewriteMiddleware(
+    config_output: any,
+    resourceId: number,
+    key: string,
+    path: string | null,
+    pathMatchType: string | null,
+    rewritePath: string | null,
+    rewritePathType: string | null,
+    routerMiddlewares: string[]
+) {
+    if (
+        rewritePath === null ||
+        path === null ||
+        !pathMatchType ||
+        !rewritePathType
+    ) {
+        return;
+    }
+
+    const rewriteMiddlewareName = `rewrite-r${resourceId}-${key}`;
+
+    try {
+        const rewriteResult = createPathRewriteMiddleware(
+            rewriteMiddlewareName,
+            path,
+            pathMatchType,
+            rewritePath,
+            rewritePathType
+        );
+
+        if (!config_output.http.middlewares) {
+            config_output.http.middlewares = {};
+        }
+
+        Object.assign(
+            config_output.http.middlewares,
+            rewriteResult.middlewares
+        );
+
+        if (rewriteResult.chain) {
+            // For chained middlewares (like stripPrefix + addPrefix)
+            routerMiddlewares.push(...rewriteResult.chain);
+        } else {
+            // Single middleware
+            routerMiddlewares.push(rewriteMiddlewareName);
+        }
+    } catch (error) {
+        logger.error(
+            `Failed to create path rewrite middleware for resource ${resourceId}: ${error}`
+        );
+    }
+}
+
 export default function createPathRewriteMiddleware(
     middlewareName: string,
     path: string,

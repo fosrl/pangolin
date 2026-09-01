@@ -5,6 +5,11 @@ import { MaintenanceSchema } from "#dynamic/lib/blueprints/MaintenanceSchema";
 import { isValidRegionId } from "@server/db/regions";
 import { wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
+import {
+    aiBudgetEnforcementSchema,
+    aiBudgetPeriodSchema,
+    aiBudgetUnitSchema
+} from "@server/routers/aiBudget/validation";
 
 const maxmindDbPath = config.getRawConfig().server.maxmind_db_path;
 const maxmindAsnPath = config.getRawConfig().server.maxmind_asn_path;
@@ -28,7 +33,7 @@ export const TargetHealthCheckSchema = z.object({
     hostname: z.string(),
     port: z.int().min(1).max(65535),
     enabled: z.boolean().optional().default(true),
-    path: z.string().optional(),
+    path: z.string().optional().default("/"),
     scheme: z.string().optional(),
     mode: z.string().default("http"),
     interval: z.int().default(30),
@@ -96,7 +101,7 @@ export const AuthSchema = z.object({
 export const RuleSchema = z
     .object({
         action: z.enum(["allow", "deny", "pass"]),
-        match: z.enum(["cidr", "path", "ip", "country", "asn", "region"]),
+        match: z.enum(["cidr", "path", "ip", "country", "country_is_not", "asn", "region"]),
         value: z.coerce.string(),
         priority: z.int().optional(),
         enabled: z.boolean().optional().default(true)
@@ -131,7 +136,7 @@ export const RuleSchema = z
     )
     .refine(
         (rule) => {
-            if (rule.match === "country") {
+            if (rule.match === "country" || rule.match === "country_is_not") {
                 if (!hasMaxmindCountryDb) {
                     return false;
                 }
@@ -183,6 +188,56 @@ export const HeaderSchema = z.object({
     value: z.string().min(1)
 });
 
+export const AiProviderAttachmentSchema = z
+    .object({
+        provider: z.string().min(1),
+        "access-mode": z
+            .enum(["inherit", "select"])
+            .optional()
+            .default("inherit"),
+        enabled: z.boolean().optional().default(true),
+        models: z.array(z.string()).optional().default([])
+    })
+    .refine(
+        (provider) => {
+            if (provider.models.length === 0) {
+                return true;
+            }
+            return provider["access-mode"] === "select";
+        },
+        {
+            path: ["models"],
+            error: "'models' can only be set on a provider with access-mode 'select'"
+        }
+    );
+
+export const AiBudgetSchema = z.object({
+    amount: z.number().positive(),
+    unit: aiBudgetUnitSchema,
+    period: aiBudgetPeriodSchema.optional().default("monthly"),
+    enforcement: aiBudgetEnforcementSchema.optional().default("hard"),
+    enabled: z.boolean().optional().default(true)
+});
+
+const aiBudgetArraySchema = z.array(AiBudgetSchema).refine(
+    (budgets) => {
+        const keys = budgets.map((b) => `${b.unit}::${b.period}`);
+        return keys.length === new Set(keys).size;
+    },
+    {
+        message:
+            "'ai-budget' entries must not overlap: only one budget per unit/period combination is allowed"
+    }
+);
+
+// No default here: an object with only 'targets' set must remain
+// recognized as a targets-only resource by isTargetsOnlyResource().
+export const AiBudgetListSchema = aiBudgetArraySchema.optional();
+
+export const AiBudgetListSchemaWithDefault = aiBudgetArraySchema
+    .optional()
+    .default([]);
+
 export const AuthDaemonSchema = z
     .object({
         pam: z.enum(["passthrough", "push"]).optional().default("passthrough"),
@@ -209,7 +264,9 @@ export const PublicResourceSchema = z
         protocol: z
             .enum(["http", "tcp", "udp", "ssh", "rdp", "vnc"])
             .optional(), // this was the old one and is now DEPRECATED in favor of the mode
-        mode: z.enum(["http", "tcp", "udp", "ssh", "rdp", "vnc"]).optional(),
+        mode: z
+            .enum(["http", "tcp", "udp", "ssh", "rdp", "vnc", "inference"])
+            .optional(),
         policy: z.string().optional(),
         ssl: z.boolean().optional(),
         scheme: z.enum(["http", "https"]).optional(),
@@ -227,7 +284,10 @@ export const PublicResourceSchema = z
         maintenance: MaintenanceSchema.optional(),
         "auth-daemon": AuthDaemonSchema.optional(),
         "proxy-protocol": z.boolean().optional(),
-        "proxy-protocol-version": z.int().min(1).optional()
+        "proxy-protocol-version": z.int().min(1).optional(),
+        labels: z.array(z.string().min(1)).optional(),
+        "ai-providers": z.array(AiProviderAttachmentSchema).optional(),
+        "ai-budget": AiBudgetListSchema
     })
     .refine(
         (resource) => {
@@ -316,11 +376,13 @@ export const PublicResourceSchema = z
                 return true;
             }
 
-            // If protocol/mode is http, ssh, rdp, or vnc, it must have a full-domain
+            // If protocol/mode is http, ssh, rdp, vnc, or inference, it must have a full-domain
             const effectiveProtocol = resource.mode ?? resource.protocol;
             if (
                 effectiveProtocol !== undefined &&
-                ["http", "ssh", "rdp", "vnc"].includes(effectiveProtocol)
+                ["http", "ssh", "rdp", "vnc", "inference"].includes(
+                    effectiveProtocol
+                )
             ) {
                 return (
                     resource["full-domain"] !== undefined &&
@@ -331,7 +393,43 @@ export const PublicResourceSchema = z
         },
         {
             path: ["full-domain"],
-            error: "When protocol is 'http', 'ssh', 'rdp', or 'vnc', a 'full-domain' must be provided"
+            error: "When protocol is 'http', 'ssh', 'rdp', 'vnc', or 'inference', a 'full-domain' must be provided"
+        }
+    )
+    .refine(
+        (resource) => {
+            if (isTargetsOnlyResource(resource)) {
+                return true;
+            }
+
+            const effectiveMode = resource.mode ?? resource.protocol;
+            if (effectiveMode !== "inference") {
+                return true;
+            }
+
+            return resource.targets.every((target) => target == null);
+        },
+        {
+            path: ["targets"],
+            error: "When mode is 'inference', 'targets' must not be provided"
+        }
+    )
+    .refine(
+        (resource) => {
+            if (isTargetsOnlyResource(resource)) {
+                return true;
+            }
+
+            const effectiveMode = resource.mode ?? resource.protocol;
+            if (effectiveMode === "inference") {
+                return true;
+            }
+
+            return (resource["ai-providers"]?.length ?? 0) === 0;
+        },
+        {
+            path: ["ai-providers"],
+            error: "'ai-providers' can only be set when mode is 'inference'"
         }
     )
     .refine(
@@ -465,14 +563,14 @@ export function isTargetsOnlyResource(resource: any): boolean {
 export const PrivateResourceSchema = z
     .object({
         name: z.string().min(1).max(255),
-        mode: z.enum(["host", "cidr", "http", "ssh"]),
+        mode: z.enum(["host", "cidr", "http", "ssh", "inference"]),
         site: z.string().optional(), // DEPRECATED IN FAVOR OF sites
         sites: z.array(z.string()).optional().default([]),
         // protocol: z.enum(["tcp", "udp"]).optional(),
         // proxyPort: z.int().positive().optional(),
         "destination-port": z.int().positive().optional(),
         destination: z.string().min(1).optional(),
-        // enabled: z.boolean().default(true),
+        enabled: z.boolean().default(true),
         "tcp-ports": portRangeStringSchema.optional().default("*"),
         "udp-ports": portRangeStringSchema.optional().default("*"),
         "disable-icmp": z.boolean().optional().default(false),
@@ -495,16 +593,26 @@ export const PrivateResourceSchema = z
             }),
         users: z.array(z.string()).optional().default([]),
         machines: z.array(z.string()).optional().default([]),
-        "auth-daemon": AuthDaemonSchema.optional()
+        labels: z.array(z.string().min(1)).optional().default([]),
+        "auth-daemon": AuthDaemonSchema.optional(),
+        "ai-providers": z
+            .array(AiProviderAttachmentSchema)
+            .optional()
+            .default([]),
+        "ai-budget": AiBudgetListSchemaWithDefault
     })
     .refine(
         (data) => {
-            // destination is optional only for ssh+native; required for everything else
+            // destination is optional only for ssh+native or inference; required for everything else
             const isNativeSSH =
                 data.mode === "ssh" &&
                 (data["auth-daemon"] === undefined ||
                     data["auth-daemon"].mode === "native");
-            if (!isNativeSSH && !data.destination) {
+            if (
+                data.mode !== "inference" &&
+                !isNativeSSH &&
+                !data.destination
+            ) {
                 return false;
             }
             return true;
@@ -512,7 +620,19 @@ export const PrivateResourceSchema = z
         {
             path: ["destination"],
             message:
-                "destination is required unless mode is 'ssh' with auth-daemon mode 'native'"
+                "destination is required unless mode is 'ssh' with auth-daemon mode 'native', or mode is 'inference'"
+        }
+    )
+    .refine(
+        (data) => {
+            if (data.mode === "inference") {
+                return true;
+            }
+            return (data["ai-providers"]?.length ?? 0) === 0;
+        },
+        {
+            path: ["ai-providers"],
+            error: "'ai-providers' can only be set when mode is 'inference'"
         }
     )
     .refine(
@@ -634,7 +754,6 @@ export const ResourcePolicySchema = z.object({
                 })
             )
         )
-        .max(50)
         .transform((v) => v.map((e) => e.toLowerCase()))
         .optional()
         .default([]),
@@ -840,3 +959,4 @@ export type Target = z.infer<typeof TargetSchema>;
 export type Resource = z.infer<typeof PublicResourceSchema>;
 export type Config = z.infer<typeof ConfigSchema>;
 export type BlueprintResourcePolicy = z.infer<typeof ResourcePolicySchema>;
+export type BlueprintAiBudget = z.infer<typeof AiBudgetSchema>;

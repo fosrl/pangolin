@@ -311,13 +311,13 @@ export async function createSite(
                 // lets also make sure there is no overlap with other sites on the exit node
                 const sitesQuery = await db
                     .select({
-                        subnet: sites.subnet
+                        subnet: sites.exitNodeSubnet
                     })
                     .from(sites)
                     .where(
                         and(
                             eq(sites.exitNodeId, exitNodeId),
-                            eq(sites.subnet, subnet)
+                            eq(sites.exitNodeSubnet, subnet)
                         )
                     );
 
@@ -427,7 +427,7 @@ export async function createSite(
                             exitNodeId,
                             name,
                             niceId: updatedNiceId!,
-                            subnet,
+                            exitNodeSubnet: subnet,
                             type,
                             pubKey: pubKey || null,
                             status: "approved"
@@ -444,7 +444,7 @@ export async function createSite(
                             type,
                             dockerSocketEnabled: false,
                             online: true,
-                            subnet: "0.0.0.0/32",
+                            exitNodeSubnet: "0.0.0.0/32",
                             status: "approved"
                         })
                         .returning();

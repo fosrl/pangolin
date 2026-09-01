@@ -39,7 +39,6 @@ export function CreateOrgLabelDialog({
     const t = useTranslations();
     const api = createApiClient(useEnvContext());
     const { isPaidUser } = usePaidStatus();
-    const canManageLabels = isPaidUser(tierMatrix.labels);
     const [isSubmitting, startTransition] = useTransition();
 
     async function createOrgLabel(data: { name: string; color: string }) {
@@ -84,11 +83,8 @@ export function CreateOrgLabelDialog({
                     </CredenzaDescription>
                 </CredenzaHeader>
                 <CredenzaBody>
-                    <PaidFeaturesAlert tiers={tierMatrix.labels} />
                     <OrgLabelForm
-                        disabled={!canManageLabels}
                         onSubmit={(data) => {
-                            if (!canManageLabels) return;
                             startTransition(async () => createOrgLabel(data));
                         }}
                     />
@@ -106,7 +102,7 @@ export function CreateOrgLabelDialog({
                     <Button
                         type="submit"
                         form="org-label-form"
-                        disabled={isSubmitting || !canManageLabels}
+                        disabled={isSubmitting}
                         loading={isSubmitting}
                     >
                         {t("labelCreate")}

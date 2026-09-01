@@ -34,7 +34,7 @@ registry.registerPath({
     method: "delete",
     path: "/org/{orgId}/alert-rule/{alertRuleId}",
     description: "Delete an alert rule for a specific organization.",
-    tags: [OpenAPITags.Org],
+    tags: [OpenAPITags.AlertRule],
     request: {
         params: paramsSchema
     },

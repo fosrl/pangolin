@@ -134,7 +134,9 @@ export default function UptimeBar({
 
     if (!data) return null;
 
-    const allNoData = data.days.every((d) => d.status === "no_data");
+    const allNoData = data.days.every(
+        (d) => d.status === "no_data" || d.status === "unknown"
+    );
 
     return (
         <div className={cn("space-y-3", className)}>

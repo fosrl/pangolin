@@ -34,7 +34,9 @@ const createRoleSchema = z.strictObject({
 export const defaultRoleAllowedActions: ActionsEnum[] = [
     ActionsEnum.getOrg,
     ActionsEnum.getResource,
-    ActionsEnum.listResources
+    ActionsEnum.listResources,
+    ActionsEnum.getSiteResource,
+    ActionsEnum.listSiteResources
 ];
 
 export type CreateRoleBody = z.infer<typeof createRoleSchema>;
@@ -133,7 +135,7 @@ export async function createRole(
 
         const isLicensedSshPam = await isLicensedOrSubscribed(
             orgId,
-            tierMatrix.advancedPrivateResources
+            tierMatrix.roleBasedSSHControls
         );
         const roleInsertValues: Record<string, unknown> = {
             name: roleData.name,

@@ -28,7 +28,7 @@ async function getAccessDays(orgId: string): Promise<number> {
 
     const [org] = await db
         .select({
-            settingsLogRetentionDaysAction: orgs.settingsLogRetentionDaysAction
+            settingsLogRetentionDaysAccess: orgs.settingsLogRetentionDaysAccess
         })
         .from(orgs)
         .where(eq(orgs.orgId, orgId))
@@ -41,11 +41,11 @@ async function getAccessDays(orgId: string): Promise<number> {
     // store the result in cache
     await cache.set(
         `org_${orgId}_accessDays`,
-        org.settingsLogRetentionDaysAction,
+        org.settingsLogRetentionDaysAccess,
         300
     );
 
-    return org.settingsLogRetentionDaysAction;
+    return org.settingsLogRetentionDaysAccess;
 }
 
 export async function cleanUpOldLogs(orgId: string, retentionDays: number) {

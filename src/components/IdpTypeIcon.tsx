@@ -23,6 +23,8 @@ export default function IdpTypeIcon({
 }: Props) {
     const effectiveType = (variant || type || "").toLowerCase();
 
+    console.log(`[IdpTypeIcon]`, { effectiveType, variant, type });
+
     let src: string | null = null;
     let defaultAlt = "";
 

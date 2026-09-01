@@ -43,7 +43,6 @@ const PickSiteDefaultsResponseDataSchema = z.object({
     clientAddress: z.string().optional()
 });
 
-
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/pick-site-defaults",
@@ -60,7 +59,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(PickSiteDefaultsResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        PickSiteDefaultsResponseDataSchema
+                    )
                 }
             }
         }
@@ -108,7 +109,7 @@ export async function pickSiteDefaults(
         // list all of the sites on that exit node
         const sitesQuery = await db
             .select({
-                subnet: sites.subnet
+                subnet: sites.exitNodeSubnet
             })
             .from(sites)
             .where(eq(sites.exitNodeId, randomExitNode.exitNodeId));

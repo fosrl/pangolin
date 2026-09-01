@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { idp, userResources, users } from "@server/db"; // Assuming these are the correct tables
+import { idp, resources, userPolicies, userResources, users } from "@server/db"; // Assuming these are the correct tables
 import { eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -14,7 +14,23 @@ const listResourceUsersSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
 
-async function queryUsers(resourceId: number) {
+async function queryUsers(resourceId: number, policyId: number | null) {
+    if (policyId !== null) {
+        return await db
+            .select({
+                userId: userPolicies.userId,
+                username: users.username,
+                type: users.type,
+                idpName: idp.name,
+                idpId: users.idpId,
+                email: users.email
+            })
+            .from(userPolicies)
+            .innerJoin(users, eq(userPolicies.userId, users.userId))
+            .leftJoin(idp, eq(users.idpId, idp.idpId))
+            .where(eq(userPolicies.resourcePolicyId, policyId));
+    }
+
     return await db
         .select({
             userId: userResources.userId,
@@ -37,6 +53,32 @@ export type ListResourceUsersResponse = {
 registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/users",
+    description: "List all users for a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: listResourceUsersSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/public-resource/{resourceId}/users",
     description: "List all users for a resource.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.User],
     request: {
@@ -78,7 +120,26 @@ export async function listResourceUsers(
 
         const { resourceId } = parsedParams.data;
 
-        const resourceUsersList = await queryUsers(resourceId);
+        const [resource] = await db
+            .select()
+            .from(resources)
+            .where(eq(resources.resourceId, resourceId))
+            .limit(1);
+
+        if (!resource) {
+            return next(
+                createHttpError(HttpCode.NOT_FOUND, "Resource not found")
+            );
+        }
+
+        const isInlinePolicy =
+            resource.resourcePolicyId === null &&
+            resource.defaultResourcePolicyId !== null;
+
+        const resourceUsersList = await queryUsers(
+            resourceId,
+            isInlinePolicy ? resource.defaultResourcePolicyId! : null
+        );
 
         return response<ListResourceUsersResponse>(res, {
             data: {

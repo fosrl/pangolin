@@ -1,5 +1,6 @@
 import {
     db,
+    primaryDb,
     newts,
     blueprints,
     Blueprint,
@@ -34,12 +35,6 @@ import {
     rebuildClientAssociationsFromSiteResource,
     waitForSiteResourceRebuildIdle
 } from "../rebuildClientAssociations";
-import { build } from "@server/build";
-import HttpCode from "@server/types/HttpCode";
-import createHttpError from "http-errors";
-import next from "next";
-import { LimitId } from "../billing";
-import { usageService } from "../billing/usageService";
 
 type ApplyBlueprintArgs = {
     orgId: string;
@@ -86,93 +81,103 @@ export async function applyBlueprint({
                 trx,
                 siteId
             );
+        });
 
-            // We need to update the targets on the newts from the successfully updated information
-            for (const result of publicResourcesResults) {
-                for (const target of result.targetsToUpdate) {
-                    const [site] = await trx
-                        .select()
-                        .from(sites)
-                        .innerJoin(newts, eq(sites.siteId, newts.siteId))
-                        .where(
-                            and(
-                                eq(sites.siteId, target.siteId),
-                                eq(sites.orgId, orgId),
-                                eq(sites.type, "newt"),
-                                isNotNull(sites.pubKey)
-                            )
+        // Push updates to newts/clients only after the transaction has
+        // committed. Doing this while the transaction is still open can
+        // race with the writes (e.g. newts requesting config before the
+        // new targets/resources are actually visible), leaving them out
+        // of sync until manually toggled.
+
+        // We need to update the targets on the newts from the successfully updated information
+        for (const result of publicResourcesResults) {
+            for (const target of result.targetsToUpdate) {
+                // read from the primary: this determines whether/how we push
+                // the just-created target to the newt, so a lagging replica
+                // returning stale or missing data here would silently skip
+                // the push
+                const [site] = await primaryDb
+                    .select()
+                    .from(sites)
+                    .innerJoin(newts, eq(sites.siteId, newts.siteId))
+                    .where(
+                        and(
+                            eq(sites.siteId, target.siteId),
+                            eq(sites.orgId, orgId),
+                            eq(sites.type, "newt"),
+                            isNotNull(sites.pubKey)
                         )
-                        .limit(1);
+                    )
+                    .limit(1);
 
-                    if (site) {
-                        logger.debug(
-                            `Updating target ${target.targetId} on site ${site.sites.siteId}`
+                if (site) {
+                    logger.debug(
+                        `Updating target ${target.targetId} on site ${site.sites.siteId}`
+                    );
+
+                    // see if you can find a matching target health check from the healthchecksToUpdate array
+                    const matchingHealthcheck =
+                        result.healthchecksToUpdate.find(
+                            (hc) => hc.targetId === target.targetId
                         );
 
-                        // see if you can find a matching target health check from the healthchecksToUpdate array
-                        const matchingHealthcheck =
-                            result.healthchecksToUpdate.find(
-                                (hc) => hc.targetId === target.targetId
-                            );
-
-                        if (["http", "tcp", "udp"].includes(target.mode)) {
-                            await addProxyTargets(
-                                site.newt.newtId,
-                                [target],
-                                matchingHealthcheck
-                                    ? [matchingHealthcheck]
-                                    : [],
-                                result.proxyResource.mode === "udp"
-                                    ? "udp"
-                                    : "tcp",
-                                site.newt.version
-                            );
-                        } else if (
-                            ["ssh", "rdp", "vnc"].includes(target.mode)
-                        ) {
-                            await sendBrowserGatewayTargets(
-                                site.newt.newtId,
-                                [target],
-                                site.newt.version
-                            );
-                        }
+                    if (["http", "tcp", "udp"].includes(target.mode)) {
+                        await addProxyTargets(
+                            site.newt.newtId,
+                            [target],
+                            matchingHealthcheck
+                                ? [matchingHealthcheck]
+                                : [],
+                            result.proxyResource.mode === "udp"
+                                ? "udp"
+                                : "tcp",
+                            site.newt.version
+                        );
+                    } else if (
+                        ["ssh", "rdp", "vnc"].includes(target.mode)
+                    ) {
+                        await sendBrowserGatewayTargets(
+                            site.newt.newtId,
+                            [target],
+                            site.newt.version
+                        );
                     }
                 }
             }
+        }
 
-            logger.debug(
-                `Successfully updated public resources for org ${orgId}: ${JSON.stringify(publicResourcesResults)}`
-            );
+        logger.debug(
+            `Successfully updated public resources for org ${orgId}: ${JSON.stringify(publicResourcesResults)}`
+        );
 
-            // We need to update the targets on the newts from the successfully updated information
-            for (const result of privateResourcesResults) {
-                rebuildClientAssociationsFromSiteResource(
-                    result.newSiteResource
+        // We need to update the targets on the newts from the successfully updated information
+        for (const result of privateResourcesResults) {
+            rebuildClientAssociationsFromSiteResource(
+                result.newSiteResource
+            )
+                .then(() =>
+                    waitForSiteResourceRebuildIdle(
+                        result.newSiteResource.siteResourceId
+                    )
                 )
-                    .then(() =>
-                        waitForSiteResourceRebuildIdle(
-                            result.newSiteResource.siteResourceId
-                        )
+                .then(() =>
+                    handleMessagingForUpdatedSiteResource(
+                        result.oldSiteResource,
+                        result.newSiteResource,
+                        result.oldSites.map((s) => s.siteId),
+                        result.newSites.map((s) => s.siteId)
                     )
-                    .then(() =>
-                        handleMessagingForUpdatedSiteResource(
-                            result.oldSiteResource,
-                            result.newSiteResource,
-                            result.oldSites.map((s) => s.siteId),
-                            result.newSites.map((s) => s.siteId)
-                        )
-                    )
-                    .catch((e) => {
-                        logger.error(
-                            `Failed to rebuild and handle messaging for site resource ${result.newSiteResource.siteResourceId}. Error: ${e}`
-                        );
-                    });
-            }
+                )
+                .catch((e) => {
+                    logger.error(
+                        `Failed to rebuild and handle messaging for site resource ${result.newSiteResource.siteResourceId}. Error: ${e}`
+                    );
+                });
+        }
 
-            logger.debug(
-                `Successfully updated private resources for org ${orgId}: ${JSON.stringify(privateResourcesResults)}`
-            );
-        });
+        logger.debug(
+            `Successfully updated private resources for org ${orgId}: ${JSON.stringify(privateResourcesResults)}`
+        );
 
         blueprintSucceeded = true;
         blueprintMessage = "Blueprint applied successfully";

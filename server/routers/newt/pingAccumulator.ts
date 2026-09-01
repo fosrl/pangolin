@@ -94,7 +94,13 @@ async function flushSitePingsToDb(): Promise<void> {
     const pingsToFlush = new Map(pendingSitePings);
     pendingSitePings.clear();
 
-    const entries = Array.from(pingsToFlush.entries());
+    // Sort by id ascending so concurrent writers (other app replicas, or
+    // unrelated single-row updates elsewhere in the app) always acquire row
+    // locks in the same order. Without this, overlapping batches/updates
+    // that touch the same rows in different orders can deadlock each other.
+    const entries = Array.from(pingsToFlush.entries()).sort(
+        ([a], [b]) => a - b
+    );
 
     const BATCH_SIZE = 50;
     for (let i = 0; i < entries.length; i += BATCH_SIZE) {
@@ -193,7 +199,11 @@ async function flushClientPingsToDb(): Promise<void> {
 
     // ── Flush client pings ─────────────────────────────────────────────
     if (pingsToFlush.size > 0) {
-        const entries = Array.from(pingsToFlush.entries());
+        // Sort ascending for consistent lock ordering (see note in
+        // flushSitePingsToDb).
+        const entries = Array.from(pingsToFlush.entries()).sort(
+            ([a], [b]) => a - b
+        );
 
         const BATCH_SIZE = 50;
         for (let i = 0; i < entries.length; i += BATCH_SIZE) {

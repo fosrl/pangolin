@@ -10,9 +10,18 @@ import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
 
-const listTargetsParamsSchema = z.strictObject({
+const resourceTargetsParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
+
+const providerTargetsParamsSchema = z.strictObject({
+    providerId: z.coerce.number().int().positive()
+});
+
+const listTargetsParamsSchema = z.union([
+    resourceTargetsParamsSchema,
+    providerTargetsParamsSchema
+]);
 
 const listTargetsSchema = z.strictObject({
     limit: z
@@ -29,7 +38,7 @@ const listTargetsSchema = z.strictObject({
         .pipe(z.int().nonnegative())
 });
 
-function queryTargets(resourceId: number) {
+function queryTargets(owner: { resourceId: number } | { providerId: number }) {
     const baseQuery = db
         .select({
             targetId: targets.targetId,
@@ -39,6 +48,7 @@ function queryTargets(resourceId: number) {
             port: targets.port,
             enabled: targets.enabled,
             resourceId: targets.resourceId,
+            providerId: targets.providerId,
             siteId: targets.siteId,
             siteType: sites.type,
             siteName: sites.name,
@@ -71,7 +81,11 @@ function queryTargets(resourceId: number) {
             targetHealthCheck,
             eq(targetHealthCheck.targetId, targets.targetId)
         )
-        .where(eq(targets.resourceId, resourceId));
+        .where(
+            "providerId" in owner
+                ? eq(targets.providerId, owner.providerId)
+                : eq(targets.resourceId, owner.resourceId)
+        );
 
     return baseQuery;
 }
@@ -92,9 +106,63 @@ registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/targets",
     description: "List targets for a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: resourceTargetsParamsSchema,
+        query: listTargetsSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/public-resource/{resourceId}/targets",
+    description: "List targets for a resource.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.Target],
     request: {
-        params: listTargetsParamsSchema,
+        params: resourceTargetsParamsSchema,
+        query: listTargetsSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/ai-provider/{providerId}/targets",
+    description: "List targets for an AI provider.",
+    tags: [OpenAPITags.AiProvider],
+    request: {
+        params: providerTargetsParamsSchema,
         query: listTargetsSchema
     },
     responses: {
@@ -141,14 +209,18 @@ export async function listTargets(
                 )
             );
         }
-        const { resourceId } = parsedParams.data;
+        const owner = parsedParams.data;
+        const ownerCondition =
+            "providerId" in owner
+                ? eq(targets.providerId, owner.providerId)
+                : eq(targets.resourceId, owner.resourceId);
 
-        const baseQuery = queryTargets(resourceId);
+        const baseQuery = queryTargets(owner);
 
         const countQuery = db
             .select({ count: sql<number>`cast(count(*) as integer)` })
             .from(targets)
-            .where(eq(targets.resourceId, resourceId));
+            .where(ownerCondition);
 
         const targetsList = await baseQuery.limit(limit).offset(offset);
         const totalCountResult = await countQuery;

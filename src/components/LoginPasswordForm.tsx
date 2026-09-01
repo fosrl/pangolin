@@ -22,6 +22,8 @@ import Link from "next/link";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { cleanRedirect } from "@app/lib/cleanRedirect";
 import MfaInputForm from "@app/components/MfaInputForm";
+import { LAST_USED_IDP_COOKIE_NAME } from "@app/lib/consts";
+import { setClientCookie } from "@app/lib/setClientCookie";
 
 type LoginPasswordFormProps = {
     identifier: string;
@@ -81,6 +83,12 @@ export default function LoginPasswordForm({
     async function onSubmit(values: z.infer<typeof formSchema>) {
         const { password } = values;
         const { code } = mfaForm.getValues();
+
+        // delete last used auth cookie by setting it in the past
+        setClientCookie(LAST_USED_IDP_COOKIE_NAME, JSON.stringify(null), {
+            sameSite: "Lax",
+            days: -1
+        });
 
         setLoading(true);
         setError(null);

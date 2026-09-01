@@ -88,7 +88,27 @@ export const queryAccessAuditLogsQuery = z.object({
         .optional()
         .default("0")
         .transform(Number)
-        .pipe(z.int().nonnegative())
+        .pipe(z.int().nonnegative()),
+    ip: z
+        .preprocess((val) => {
+            if (val === undefined || val === null || val === "") {
+                return undefined;
+            }
+            if (Array.isArray(val)) {
+                return val;
+            }
+            // the array is returned as this
+            if (typeof val === "string") {
+                return val.split(",");
+            }
+            return undefined;
+        }, z.array(z.string()))
+        .optional()
+        .catch([])
+        .openapi({
+            type: "array",
+            description: "Filter by IP adresses"
+        })
 });
 
 export const queryAccessAuditLogsParams = z.object({
@@ -134,6 +154,9 @@ function getWhere(data: Q) {
         data.type ? eq(accessAuditLog.type, data.type) : undefined,
         data.action !== undefined
             ? eq(accessAuditLog.action, data.action)
+            : undefined,
+        data.ip && data.ip.length > 0
+            ? inArray(accessAuditLog.ip, data.ip)
             : undefined
     );
 }

@@ -15,7 +15,21 @@ import { sendEmail } from "@server/emails";
 import AlertNotification from "@server/emails/templates/AlertNotification";
 import config from "@server/lib/config";
 import logger from "@server/logger";
-import { AlertContext } from "@server/routers/alertRule/types";
+import { type AlertEventType } from "@server/routers/alertRule/types";
+
+type EmailAlertContext = {
+    eventType: AlertEventType;
+    orgId: string;
+    /** Set for site_online / site_offline events */
+    siteId?: number;
+    /** Set for health_check_* events */
+    healthCheckId?: number;
+    /** Set for resource_* events */
+    resourceId?: number;
+    /** Human-readable context data included in emails and webhook payloads */
+    data: Record<string, unknown>;
+    isTest?: boolean;
+};
 
 /**
  * Sends an alert notification email to every address in `recipients`.
@@ -27,7 +41,7 @@ import { AlertContext } from "@server/routers/alertRule/types";
  */
 export async function sendAlertEmail(
     recipients: string[],
-    context: AlertContext
+    context: EmailAlertContext
 ): Promise<void> {
     if (recipients.length === 0) {
         return;
@@ -46,7 +60,8 @@ export async function sendAlertEmail(
                     eventType: context.eventType,
                     orgId: context.orgId,
                     data: context.data,
-                    dashboardLink
+                    dashboardLink,
+                    isTestAlert: context.isTest
                 }),
                 {
                     from,
@@ -70,34 +85,35 @@ export async function sendAlertEmail(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function buildSubject(context: AlertContext): string {
+function buildSubject(context: EmailAlertContext): string {
+    const prefix = context.isTest ? "[Test Alert]" : "[Alert]";
     switch (context.eventType) {
         case "site_online":
-            return "[Alert] Site Back Online";
+            return `${prefix} Site Back Online`;
         case "site_offline":
-            return "[Alert] Site Offline";
+            return `${prefix} Site Offline`;
         case "site_toggle":
-            return "[Alert] Site Status Changed";
+            return `${prefix} Site Status Changed`;
         case "health_check_healthy":
-            return "[Alert] Health Check Recovered";
+            return `${prefix} Health Check Recovered`;
         case "health_check_unhealthy":
-            return "[Alert] Health Check Failing";
+            return `${prefix} Health Check Failing`;
         case "health_check_toggle":
-            return "[Alert] Health Check Status Changed";
+            return `${prefix} Health Check Status Changed`;
         case "resource_healthy":
-            return "[Alert] Resource Healthy";
+            return `${prefix} Resource Healthy`;
         case "resource_unhealthy":
-            return "[Alert] Resource Unhealthy";
+            return `${prefix} Resource Unhealthy`;
         case "resource_degraded":
-            return "[Alert] Resource Degraded";
+            return `${prefix} Resource Degraded`;
         case "resource_toggle":
-            return "[Alert] Resource Status Changed";
+            return `${prefix} Resource Status Changed`;
         default: {
             // Exhaustiveness fallback – should never be reached with a
             // well-typed caller, but keeps runtime behaviour predictable.
             const _exhaustive: never = context.eventType;
             void _exhaustive;
-            return "[Alert] Event Notification";
+            return `${prefix} Event Notification`;
         }
     }
 }

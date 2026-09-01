@@ -39,6 +39,32 @@ registry.registerPath({
     method: "get",
     path: "/site-resource/{siteResourceId}/clients",
     description: "List all clients for a site resource.",
+    tags: [OpenAPITags.PrivateResourceLegacy],
+    request: {
+        params: listSiteResourceClientsSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/private-resource/{resourceId}/clients",
+    description: "List all clients for a site resource.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Client],
     request: {
         params: listSiteResourceClientsSchema

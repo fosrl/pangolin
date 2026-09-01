@@ -12,7 +12,7 @@ import UserProvider from "@app/providers/UserProvider";
 import { Layout } from "@app/components/Layout";
 import { getTranslations } from "next-intl/server";
 import { pullEnv } from "@app/lib/pullEnv";
-import { orgNavSections } from "@app/app/navigation";
+import { commandBarNavSections, orgNavSections } from "@app/app/navigation";
 import { getCachedOrgUser } from "@app/lib/api/getCachedOrgUser";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +80,10 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
                 orgId={params.orgId}
                 orgs={orgs}
                 navItems={orgNavSections(env, {
+                    isPrimaryOrg: primaryOrg,
+                    isServerAdmin: user.serverAdmin
+                })}
+                commandNavItems={commandBarNavSections(env, {
                     isPrimaryOrg: primaryOrg
                 })}
             >

@@ -112,7 +112,7 @@ function ProxyResourceProtocolForm({
                     message: t("proxyErrorInvalidHeader")
                 }
             ),
-        headers: z
+        requestHeaders: z
             .array(z.object({ name: z.string(), value: z.string() }))
             .nullable(),
         proxyProtocol: z.boolean().optional(),
@@ -123,7 +123,7 @@ function ProxyResourceProtocolForm({
         resolver: zodResolver(proxySettingsSchema),
         defaultValues: {
             setHostHeader: resource.setHostHeader || "",
-            headers: resource.headers,
+            requestHeaders: resource.requestHeaders,
             proxyProtocol: resource.proxyProtocol || false,
             proxyProtocolVersion: resource.proxyProtocolVersion || 1
         }

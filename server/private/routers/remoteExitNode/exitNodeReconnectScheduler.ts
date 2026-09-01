@@ -16,7 +16,7 @@ import { db, exitNodes, newts, sites } from "@server/db";
 import { eq } from "drizzle-orm";
 import logger from "@server/logger";
 import redisManager from "#private/lib/redis";
-import { sendToClient } from "#private/routers/ws";
+// import { sendToClient } from "#private/routers/ws";
 
 const INITIAL_DELAY_MS = 15 * 1000; // 15 seconds before first check
 const CHECK_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
@@ -150,47 +150,47 @@ async function processPendingReconnects(): Promise<void> {
             `Exit node ${exitNodeId} is reachable. Sending newt/wg/reconnect to connected newts.`
         );
 
-        await sendReconnectToNewts(exitNodeId);
+        // await sendReconnectToNewts(exitNodeId);
         await removePending(exitNodeId);
     }
 }
 
-async function sendReconnectToNewts(exitNodeId: number): Promise<void> {
-    try {
-        const connectedNewts = await db
-            .select({ newtId: newts.newtId })
-            .from(newts)
-            .innerJoin(sites, eq(newts.siteId, sites.siteId))
-            .where(eq(sites.exitNodeId, exitNodeId));
+// async function sendReconnectToNewts(exitNodeId: number): Promise<void> {
+// try {
+//         const connectedNewts = await db
+//             .select({ newtId: newts.newtId })
+//             .from(newts)
+//             .innerJoin(sites, eq(newts.siteId, sites.siteId))
+//             .where(eq(sites.exitNodeId, exitNodeId));
 
-        if (connectedNewts.length === 0) {
-            logger.debug(
-                `No newts found for exit node ${exitNodeId}, nothing to reconnect`
-            );
-            return;
-        }
+//         if (connectedNewts.length === 0) {
+//             logger.debug(
+//                 `No newts found for exit node ${exitNodeId}, nothing to reconnect`
+//             );
+//             return;
+//         }
 
-        logger.info(
-            `Sending newt/wg/reconnect to ${connectedNewts.length} newt(s) for exit node ${exitNodeId}`
-        );
+//         logger.info(
+//             `Sending newt/wg/reconnect to ${connectedNewts.length} newt(s) for exit node ${exitNodeId}`
+//         );
 
-        const reconnectMessage = {
-            type: "newt/wg/reconnect",
-            data: {}
-        };
+//         const reconnectMessage = {
+//             type: "newt/wg/reconnect",
+//             data: {}
+//         };
 
-        await Promise.allSettled(
-            connectedNewts.map(({ newtId }) =>
-                sendToClient(newtId, reconnectMessage)
-            )
-        );
-    } catch (error) {
-        logger.error(
-            `Failed to send reconnect messages for exit node ${exitNodeId}`,
-            { error }
-        );
-    }
-}
+//         await Promise.allSettled(
+//             connectedNewts.map(({ newtId }) =>
+//                 sendToClient(newtId, reconnectMessage)
+//             )
+//         );
+//     } catch (error) {
+//         logger.error(
+//             `Failed to send reconnect messages for exit node ${exitNodeId}`,
+//             { error }
+//         );
+//     }
+// }
 
 async function removePending(exitNodeId: number): Promise<void> {
     pendingReconnects.delete(exitNodeId);

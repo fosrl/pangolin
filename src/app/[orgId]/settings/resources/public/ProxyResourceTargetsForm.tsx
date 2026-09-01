@@ -42,7 +42,7 @@ import { toast } from "@app/hooks/useToast";
 import { createApiClient } from "@app/lib/api";
 import { formatAxiosError } from "@app/lib/api/formatAxiosError";
 import { DockerManager, DockerState } from "@app/lib/docker";
-import { orgQueries, resourceQueries } from "@app/lib/queries";
+import { orgQueries, resourceQueries, aiProviderQueries } from "@app/lib/queries";
 import { build } from "@server/build";
 import { type GetResourceResponse } from "@server/routers/resource";
 import { CreateTargetResponse } from "@server/routers/target";
@@ -63,9 +63,11 @@ import { ExternalLink, Info, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
+    forwardRef,
     useActionState,
     useCallback,
     useEffect,
+    useImperativeHandle,
     useMemo,
     useState
 } from "react";
@@ -80,27 +82,65 @@ export type LocalTarget = Omit<
     "protocol"
 >;
 
-interface ProxyResourceTargetsFormProps {
+export type ProxyResourceTargetsFormHandle = {
+    save: (options?: { silent?: boolean }) => Promise<boolean>;
+};
+
+const DEFAULT_ALLOWED_METHODS: ("http" | "https" | "h2c")[] = [
+    "http",
+    "https",
+    "h2c"
+];
+const EMPTY_TARGETS: LocalTarget[] = [];
+
+type ProxyResourceTargetsFormProps = {
     orgId: string;
     isHttp: boolean;
     initialTargets?: LocalTarget[];
-    /** Edit mode: when provided, shows a save button and polls for health status */
+    /** Edit mode for a public resource: save button + health polling */
     resource?: GetResourceResponse;
+    /** Edit mode for an AI provider: save button + health polling */
+    providerId?: number;
     updateResource?: ResourceContextType["updateResource"];
     /** Create mode: called whenever the targets list changes */
     onChange?: (targets: LocalTarget[]) => void;
-}
+    /** HTTP method options for address selector. Defaults to http/https/h2c. */
+    allowedMethods?: ("http" | "https" | "h2c")[];
+    emptyMessage?: string;
+    /** Render table without its own SettingsSection wrapper */
+    embedded?: boolean;
+    /** Hide the built-in save button (use ref.save from parent) */
+    hideSaveButton?: boolean;
+    /** Hide the advanced mode toggle and always use non-advanced mode (e.g. AI providers) */
+    disableAdvancedMode?: boolean;
+    /** Targets picker is for an AI provider (changes which routing warnings are shown) */
+    isAiProvider?: boolean;
+};
 
-export function ProxyResourceTargetsForm({
-    orgId,
-    isHttp,
-    initialTargets = [],
-    resource,
-    updateResource,
-    onChange
-}: ProxyResourceTargetsFormProps) {
+export const ProxyResourceTargetsForm = forwardRef<
+    ProxyResourceTargetsFormHandle,
+    ProxyResourceTargetsFormProps
+>(function ProxyResourceTargetsForm(
+    {
+        orgId,
+        isHttp,
+        initialTargets = EMPTY_TARGETS,
+        resource,
+        providerId,
+        updateResource,
+        onChange,
+        allowedMethods = DEFAULT_ALLOWED_METHODS,
+        emptyMessage,
+        embedded = false,
+        hideSaveButton = false,
+        disableAdvancedMode = false,
+        isAiProvider = false
+    },
+    ref
+) {
     const t = useTranslations();
     const api = createApiClient(useEnvContext());
+    const isEditMode = !!resource || !!providerId;
 
     const [targets, setTargets] = useState<LocalTarget[]>(initialTargets);
     const [targetsToRemove, setTargetsToRemove] = useState<number[]>([]);
@@ -111,13 +151,25 @@ export function ProxyResourceTargetsForm({
     }, [targets]);
 
     // Poll health status only in edit mode
-    const { data: polledTargets } = useQuery({
+    const { data: polledResourceTargets } = useQuery({
         ...resourceQueries.resourceTargets({
             resourceId: resource?.resourceId ?? 0
         }),
         refetchInterval: 10_000,
         enabled: !!resource
     });
+
+    const { data: polledProviderTargets } = useQuery({
+        ...aiProviderQueries.providerTargets({
+            providerId: providerId ?? 0
+        }),
+        refetchInterval: 10_000,
+        enabled: !!providerId
+    });
+
+    const polledTargets = providerId
+        ? polledProviderTargets
+        : polledResourceTargets;
 
     useEffect(() => {
         if (!polledTargets) return;
@@ -182,6 +234,9 @@ export function ProxyResourceTargetsForm({
     );
 
     const [isAdvancedMode, setIsAdvancedMode] = useState(() => {
+        if (disableAdvancedMode) {
+            return false;
+        }
         if (typeof window !== "undefined") {
             const saved = localStorage.getItem("proxy-advanced-mode");
             return saved === "true";
@@ -207,6 +262,14 @@ export function ProxyResourceTargetsForm({
         })
     );
 
+    const { data: remoteExitNodes = [] } = useQuery({
+        ...orgQueries.remoteExitNodes({ orgId }),
+        enabled: build === "saas" && isAiProvider
+    });
+    const hasRemoteExitNodes = remoteExitNodes.some(
+        (node) => node.exitNodeId !== null
+    );
+
     const updateTarget = useCallback(
         (targetId: number, data: Partial<LocalTarget>) => {
             setTargets((prevTargets) => {
@@ -221,7 +284,7 @@ export function ProxyResourceTargetsForm({
                 );
             });
         },
-        [sites]
+        []
     );
 
     const openHealthCheckDialog = useCallback((target: LocalTarget) => {
@@ -427,6 +490,7 @@ export function ProxyResourceTargetsForm({
                         isHttp={isHttp}
                         proxyTarget={row.original}
                         updateTarget={updateTarget}
+                        allowedMethods={allowedMethods}
                     />
                 );
             },
@@ -570,22 +634,27 @@ export function ProxyResourceTargetsForm({
     }, [
         isAdvancedMode,
         isHttp,
-        sites,
         updateTarget,
         getDockerStateForSite,
         refreshContainersForSite,
         openHealthCheckDialog,
         removeTarget,
+        allowedMethods,
         t
     ]);
 
     function addNewTarget() {
+        const defaultMethod = providerId
+            ? (allowedMethods[0] ?? "https")
+            : isHttp
+              ? "http"
+              : null;
         const newTarget: LocalTarget = {
             targetId: -Date.now(),
             ip: "",
             mode: ((resource?.mode as LocalTarget["mode"]) ??
                 (isHttp ? "http" : "tcp")) as LocalTarget["mode"],
-            method: isHttp ? "http" : null,
+            method: defaultMethod,
             port: 0,
             siteId: sites.length > 0 ? sites[0].siteId : 0,
             siteName: sites.length > 0 ? sites[0].name : "",
@@ -595,7 +664,8 @@ export function ProxyResourceTargetsForm({
             rewritePathType: null,
             priority: 100,
             enabled: true,
-            resourceId: resource?.resourceId ?? 0,
+            resourceId: resource?.resourceId ?? null,
+            providerId: providerId ?? null,
             hcEnabled: false,
             hcPath: null,
             hcMethod: null,
@@ -662,18 +732,25 @@ export function ProxyResourceTargetsForm({
     }, [sites]);
 
     useEffect(() => {
+        if (disableAdvancedMode) return;
         if (typeof window !== "undefined") {
             localStorage.setItem(
                 "proxy-advanced-mode",
                 isAdvancedMode.toString()
             );
         }
-    }, [isAdvancedMode]);
+    }, [isAdvancedMode, disableAdvancedMode]);
 
-    const [, formAction, isSubmitting] = useActionState(saveTargets, null);
+    const [, formAction, isSubmitting] = useActionState(
+        async () => {
+            await saveTargets();
+            return null;
+        },
+        null
+    );
 
     const addTargetButton = (
-        <Button onClick={addNewTarget} variant="outline">
+        <Button type="button" onClick={addNewTarget} variant="outline">
             <Plus className="h-4 w-4 mr-2" />
             {t("addTarget")}
         </Button>
@@ -681,8 +758,8 @@ export function ProxyResourceTargetsForm({
 
     const hasTargets = targets.length > 0;
 
-    async function saveTargets() {
-        if (!resource) return;
+    async function saveTargets(options?: { silent?: boolean }) {
+        if (!isEditMode) return true;
 
         const targetsWithInvalidFields = targets.filter(
             (target) =>
@@ -698,7 +775,7 @@ export function ProxyResourceTargetsForm({
                 title: t("targetErrorInvalidIp"),
                 description: t("targetErrorInvalidIpDescription")
             });
-            return;
+            return false;
         }
 
         try {
@@ -742,9 +819,12 @@ export function ProxyResourceTargetsForm({
                 }
 
                 if (target.new) {
+                    const createPath = providerId
+                        ? `/ai-provider/${providerId}/target`
+                        : `/resource/${resource!.resourceId}/target`;
                     const res = await api.put<
                         AxiosResponse<CreateTargetResponse>
-                    >(`/resource/${resource.resourceId}/target`, data);
+                    >(createPath, data);
                     target.targetId = res.data.data.targetId;
                     target.new = false;
                 } else if (target.updated) {
@@ -753,24 +833,33 @@ export function ProxyResourceTargetsForm({
                 }
             }
 
-            toast({
-                title:
-                    targets.length === 0
-                        ? t("targetTargetsCleared")
-                        : t("settingsUpdated"),
-                description:
-                    targets.length === 0
-                        ? t("targetTargetsClearedDescription")
-                        : t("settingsUpdatedDescription")
-            });
+            if (!options?.silent) {
+                toast({
+                    title:
+                        targets.length === 0
+                            ? t("targetTargetsCleared")
+                            : t("settingsUpdated"),
+                    description:
+                        targets.length === 0
+                            ? t("targetTargetsClearedDescription")
+                            : t("settingsUpdatedDescription")
+                });
+            }
 
             setTargetsToRemove([]);
             router.refresh();
-            await queryClient.invalidateQueries(
-                resourceQueries.resourceTargets({
-                    resourceId: resource.resourceId
-                })
-            );
+            if (providerId) {
+                await queryClient.invalidateQueries(
+                    aiProviderQueries.providerTargets({ providerId })
+                );
+            } else if (resource) {
+                await queryClient.invalidateQueries(
+                    resourceQueries.resourceTargets({
+                        resourceId: resource.resourceId
+                    })
+                );
+            }
+            return true;
         } catch (err) {
             console.error(err);
             toast({
@@ -781,151 +870,173 @@ export function ProxyResourceTargetsForm({
                     t("settingsErrorUpdateDescription")
                 )
             });
+            return false;
         }
     }
 
+    useImperativeHandle(ref, () => ({
+        save: saveTargets
+    }));
+
+    const advancedModeToggleId = providerId
+        ? `advanced-mode-toggle-provider-${providerId}`
+        : resource
+          ? `advanced-mode-toggle-resource-${resource.resourceId}`
+          : "advanced-mode-toggle";
+
+    const targetsTable = (
+        <>
+            <div className="overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        {table.getHeaderGroups().map((headerGroup) => (
+                            <TableRow key={headerGroup.id}>
+                                {headerGroup.headers.map((header) => {
+                                    const isActionsColumn =
+                                        header.column.id === "actions";
+                                    const isSiteColumn =
+                                        header.column.id === "site";
+                                    return (
+                                        <TableHead
+                                            key={header.id}
+                                            className={
+                                                isActionsColumn
+                                                    ? "sticky right-0 z-10 w-auto min-w-fit bg-card"
+                                                    : isSiteColumn
+                                                      ? "w-45"
+                                                      : ""
+                                            }
+                                        >
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                      header.column.columnDef
+                                                          .header,
+                                                      header.getContext()
+                                                  )}
+                                        </TableHead>
+                                    );
+                                })}
+                            </TableRow>
+                        ))}
+                    </TableHeader>
+                    <TableBody>
+                        {table.getRowModel().rows?.length ? (
+                            table.getRowModel().rows.map((row) => (
+                                <TableRow key={row.id}>
+                                    {row.getVisibleCells().map((cell) => {
+                                        const isActionsColumn =
+                                            cell.column.id === "actions";
+                                        const isSiteColumn =
+                                            cell.column.id === "site";
+                                        return (
+                                            <TableCell
+                                                key={cell.id}
+                                                className={
+                                                    isActionsColumn
+                                                        ? "sticky right-0 z-10 w-auto min-w-fit bg-card"
+                                                        : isSiteColumn
+                                                          ? "w-45"
+                                                          : ""
+                                                }
+                                            >
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext()
+                                                )}
+                                            </TableCell>
+                                        );
+                                    })}
+                                </TableRow>
+                            ))
+                        ) : (
+                            <DataTableEmptyState
+                                colSpan={columns.length}
+                                message={emptyMessage ?? t("targetNoOne")}
+                                action={addTargetButton}
+                                compact
+                            />
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+            {hasTargets && (
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between w-full gap-2">
+                        {addTargetButton}
+                        {!disableAdvancedMode && (
+                            <div className="flex items-center gap-2">
+                                <Switch
+                                    id={advancedModeToggleId}
+                                    checked={isAdvancedMode}
+                                    onCheckedChange={setIsAdvancedMode}
+                                />
+                                <label
+                                    htmlFor={advancedModeToggleId}
+                                    className="text-sm"
+                                >
+                                    {t("advancedMode")}
+                                </label>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+            {build === "saas" &&
+                !isAiProvider &&
+                targets.length > 1 &&
+                new Set(targets.map((t) => t.siteId)).size > 1 && (
+                    <p className="text-sm text-muted-foreground mt-3">
+                        {t("proxyMultiSiteRoundRobinNodeHelp")}{" "}
+                        <a
+                            href="https://docs.pangolin.net/manage/resources/public/targets#distributing-sites-load-across-servers"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                            {t("learnMore")}
+                            <ExternalLink className="size-3.5 shrink-0" />
+                        </a>
+                        .
+                    </p>
+                )}
+            {build === "saas" && isAiProvider && hasRemoteExitNodes && (
+                <p className="text-sm text-muted-foreground mt-3">
+                    {t("aiProviderRemoteNodeTargetsWarning")}
+                </p>
+            )}
+        </>
+    );
+
     return (
         <>
-            <SettingsSection>
-                <SettingsSectionHeader>
-                    <SettingsSectionTitle>{t("targets")}</SettingsSectionTitle>
-                    <SettingsSectionDescription>
-                        {t("targetsDescription")}
-                    </SettingsSectionDescription>
-                </SettingsSectionHeader>
-                <SettingsSectionBody>
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                {table.getHeaderGroups().map((headerGroup) => (
-                                    <TableRow key={headerGroup.id}>
-                                        {headerGroup.headers.map((header) => {
-                                            const isActionsColumn =
-                                                header.column.id === "actions";
-                                            const isSiteColumn =
-                                                header.column.id === "site";
-                                            return (
-                                                <TableHead
-                                                    key={header.id}
-                                                    className={
-                                                        isActionsColumn
-                                                            ? "sticky right-0 z-10 w-auto min-w-fit bg-card"
-                                                            : isSiteColumn
-                                                              ? "w-45"
-                                                              : ""
-                                                    }
-                                                >
-                                                    {header.isPlaceholder
-                                                        ? null
-                                                        : flexRender(
-                                                              header.column
-                                                                  .columnDef
-                                                                  .header,
-                                                              header.getContext()
-                                                          )}
-                                                </TableHead>
-                                            );
-                                        })}
-                                    </TableRow>
-                                ))}
-                            </TableHeader>
-                            <TableBody>
-                                {table.getRowModel().rows?.length ? (
-                                    table.getRowModel().rows.map((row) => (
-                                        <TableRow key={row.id}>
-                                            {row
-                                                .getVisibleCells()
-                                                .map((cell) => {
-                                                    const isActionsColumn =
-                                                        cell.column.id ===
-                                                        "actions";
-                                                    const isSiteColumn =
-                                                        cell.column.id ===
-                                                        "site";
-                                                    return (
-                                                        <TableCell
-                                                            key={cell.id}
-                                                            className={
-                                                                isActionsColumn
-                                                                    ? "sticky right-0 z-10 w-auto min-w-fit bg-card"
-                                                                    : isSiteColumn
-                                                                      ? "w-45"
-                                                                      : ""
-                                                            }
-                                                        >
-                                                            {flexRender(
-                                                                cell.column
-                                                                    .columnDef
-                                                                    .cell,
-                                                                cell.getContext()
-                                                            )}
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <DataTableEmptyState
-                                        colSpan={columns.length}
-                                        message={t("targetNoOne")}
-                                        action={addTargetButton}
-                                    />
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    {hasTargets && (
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center justify-between w-full gap-2">
-                                {addTargetButton}
-                                <div className="flex items-center gap-2">
-                                    <Switch
-                                        id="advanced-mode-toggle"
-                                        checked={isAdvancedMode}
-                                        onCheckedChange={setIsAdvancedMode}
-                                    />
-                                    <label
-                                        htmlFor="advanced-mode-toggle"
-                                        className="text-sm"
-                                    >
-                                        {t("advancedMode")}
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {build === "saas" &&
-                        targets.length > 1 &&
-                        new Set(targets.map((t) => t.siteId)).size > 1 && (
-                            <p className="text-sm text-muted-foreground mt-3">
-                                {t("proxyMultiSiteRoundRobinNodeHelp")}{" "}
-                                <a
-                                    href="https://docs.pangolin.net/manage/resources/public/targets#distributing-sites-load-across-servers"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-primary hover:underline inline-flex items-center gap-1"
-                                >
-                                    {t("learnMore")}
-                                    <ExternalLink className="size-3.5 shrink-0" />
-                                </a>
-                                .
-                            </p>
-                        )}
-                </SettingsSectionBody>
+            {embedded ? (
+                <div className="space-y-4">{targetsTable}</div>
+            ) : (
+                <SettingsSection>
+                    <SettingsSectionHeader>
+                        <SettingsSectionTitle>
+                            {t("targets")}
+                        </SettingsSectionTitle>
+                        <SettingsSectionDescription>
+                            {t("targetsDescription")}
+                        </SettingsSectionDescription>
+                    </SettingsSectionHeader>
+                    <SettingsSectionBody>{targetsTable}</SettingsSectionBody>
 
-                {/* Save button — only shown in edit mode */}
-                {resource && (
-                    <form className="self-end mt-4" action={formAction}>
-                        <Button
-                            disabled={isSubmitting}
-                            loading={isSubmitting}
-                            type="submit"
-                        >
-                            {t("saveResourceTargets")}
-                        </Button>
-                    </form>
-                )}
-            </SettingsSection>
+                    {isEditMode && !hideSaveButton && (
+                        <form className="self-end mt-4" action={formAction}>
+                            <Button
+                                disabled={isSubmitting}
+                                loading={isSubmitting}
+                                type="submit"
+                            >
+                                {t("saveResourceTargets")}
+                            </Button>
+                        </form>
+                    )}
+                </SettingsSection>
+            )}
 
             {selectedTargetForHealthCheck && (
                 <HealthCheckCredenza
@@ -986,4 +1097,4 @@ export function ProxyResourceTargetsForm({
             )}
         </>
     );
-}
+});

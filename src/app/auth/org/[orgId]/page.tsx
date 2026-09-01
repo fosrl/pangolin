@@ -13,6 +13,8 @@ import { redirect } from "next/navigation";
 import OrgLoginPage from "@app/components/OrgLoginPage";
 import { pullEnv } from "@app/lib/pullEnv";
 import type { Metadata } from "next";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { isOrgSubscribed } from "@app/lib/api/isOrgSubscribed";
 
 export const metadata: Metadata = {
     title: "Organization Login"
@@ -68,15 +70,22 @@ export default async function OrgAuthPage(props: {
         variant: idp.variant
     })) as LoginFormIDP[];
 
+    const hasLoginPageBranding = await isOrgSubscribed(
+        orgId,
+        tierMatrix.loginPageBranding
+    );
+
     let branding: LoadLoginPageBrandingResponse | null = null;
-    try {
-        const res = await priv.get<
-            AxiosResponse<LoadLoginPageBrandingResponse>
-        >(`/login-page-branding?orgId=${orgId}`);
-        if (res.status === 200) {
-            branding = res.data.data;
-        }
-    } catch (error) {}
+    if (hasLoginPageBranding) {
+        try {
+            const res = await priv.get<
+                AxiosResponse<LoadLoginPageBrandingResponse>
+            >(`/login-page-branding?orgId=${orgId}`);
+            if (res.status === 200) {
+                branding = res.data.data;
+            }
+        } catch (error) {}
+    }
 
     return (
         <OrgLoginPage

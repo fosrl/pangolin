@@ -18,7 +18,7 @@ export function EmailLetterHead() {
             <Img
                 src="https://fossorial-public-assets.s3.us-east-1.amazonaws.com/word_mark_black.png"
                 alt="Pangolin Logo"
-                width="180"
+                width="135"
                 height="auto"
                 className="mx-auto"
             />

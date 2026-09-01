@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import { APP_PATH } from "@server/lib/consts";
 import { existsSync, mkdirSync } from "fs";
+import logger from "@server/logger";
 
 export const location = path.join(APP_PATH, "db", "db.sqlite");
 export const exists = checkFileExists(location);
@@ -12,7 +13,11 @@ export const exists = checkFileExists(location);
 bootstrapVolume();
 
 function createDb() {
-    const sqlite = new Database(location);
+    const verbose =
+        process.env.QUERY_LOGGING == "true"
+            ? (message: unknown) => logger.debug(String(message))
+            : undefined;
+    const sqlite = new Database(location, { verbose });
 
     if (process.env.ENABLE_SQLITE_WAL_MODE == "true") {
         // Enable WAL mode — allows concurrent readers + single writer, preventing

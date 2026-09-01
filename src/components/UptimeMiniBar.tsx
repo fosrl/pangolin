@@ -1,15 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { orgQueries } from "@app/lib/queries";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger
 } from "@app/components/ui/tooltip";
-import { useEnvContext } from "@app/hooks/useEnvContext";
-import { createApiClient } from "@app/lib/api";
 import { cn } from "@app/lib/cn";
+import { orgQueries } from "@app/lib/queries";
+import type { StatusHistoryResponse } from "@server/lib/statusHistory";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 
 function formatDuration(seconds: number): string {
@@ -46,21 +45,16 @@ type UptimeMiniBarProps = {
     days?: number;
 };
 
-export default function UptimeMiniBar({
+export default function UptimeMiniBarWrapper({
     orgId,
     siteId,
     resourceId,
     healthCheckId,
     days = 30
 }: UptimeMiniBarProps) {
-    const t = useTranslations();
-    const api = createApiClient(useEnvContext());
-
     const siteQuery = useQuery({
         ...orgQueries.siteStatusHistory({ siteId: siteId ?? 0, days }),
-        enabled: siteId != null,
-        meta: { api },
-        staleTime: 5 * 60 * 1000
+        enabled: siteId != null
     });
 
     const hcQuery = useQuery({
@@ -69,16 +63,12 @@ export default function UptimeMiniBar({
             healthCheckId: healthCheckId ?? 0,
             days
         }),
-        enabled: healthCheckId != null && siteId == null && resourceId == null,
-        meta: { api },
-        staleTime: 5 * 60 * 1000
+        enabled: healthCheckId != null && siteId == null && resourceId == null
     });
 
     const resourceQuery = useQuery({
         ...orgQueries.resourceStatusHistory({ resourceId, days }),
-        enabled: resourceId != null && siteId == null && healthCheckId == null,
-        meta: { api },
-        staleTime: 5 * 60 * 1000
+        enabled: resourceId != null && siteId == null && healthCheckId == null
     });
 
     const { data, isLoading } =
@@ -87,6 +77,22 @@ export default function UptimeMiniBar({
             : resourceId != null
               ? resourceQuery
               : hcQuery;
+
+    return <UptimeMiniBar data={data} isLoading={isLoading} days={days} />;
+}
+
+type UptimeMiniBarUIProps = {
+    data?: StatusHistoryResponse;
+    isLoading?: boolean;
+    days?: number;
+};
+
+export function UptimeMiniBar({
+    data,
+    isLoading,
+    days = 30
+}: UptimeMiniBarUIProps) {
+    const t = useTranslations();
 
     if (isLoading) {
         return (
@@ -118,7 +124,9 @@ export default function UptimeMiniBar({
 
     if (!data) return null;
 
-    const allNoData = data.days.every((d) => d.status === "no_data");
+    const allNoData = data.days.every(
+        (d) => d.status === "no_data" || d.status === "unknown"
+    );
 
     return (
         <div className="flex items-center gap-2">
@@ -138,7 +146,8 @@ export default function UptimeMiniBar({
                                 {formatDate(day.date)}
                             </div>
                             <div className="text-xs text-primary-foreground/80">
-                                {day.status === "no_data" || day.status === "unknown"
+                                {day.status === "no_data" ||
+                                day.status === "unknown"
                                     ? t("uptimeNoData")
                                     : `${day.uptimePercent.toFixed(1)}% ${t("uptimeSuffix")}`}
                             </div>

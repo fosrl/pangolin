@@ -6,7 +6,9 @@ import {
     AlertRuleSourceFields,
     AlertRuleTriggerFields
 } from "@app/components/alert-rule-editor/AlertRuleFields";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { SettingsContainer } from "@app/components/Settings";
+import { SwitchInput } from "@app/components/SwitchInput";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent } from "@app/components/ui/card";
 import {
@@ -19,6 +21,7 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 import { Input } from "@app/components/ui/input";
+import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import {
     buildFormSchema,
@@ -27,19 +30,15 @@ import {
     type AlertRuleFormValues
 } from "@app/lib/alertRuleForm";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import { useEnvContext } from "@app/hooks/useEnvContext";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { CreateAlertRuleResponse } from "@server/routers/alertRule/types";
 import type { AxiosResponse } from "axios";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronLeft, Cog, Flag, Zap } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
-import { useFieldArray, useForm, type Resolver } from "react-hook-form";
+import { Cog, Flag, Zap, ZapIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
-import { SwitchInput } from "@app/components/SwitchInput";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { useRouter } from "next/navigation";
+import { useActionState, useMemo, useTransition, type ReactNode } from "react";
+import { useFieldArray, useForm, type Resolver } from "react-hook-form";
 import { Badge } from "../ui/badge";
 
 const FORM_ID = "alert-rule-form";
@@ -115,7 +114,6 @@ export default function AlertRuleGraphEditor({
     const t = useTranslations();
     const router = useRouter();
     const api = createApiClient(useEnvContext());
-    const [isSaving, setIsSaving] = useState(false);
     const schema = useMemo(() => buildFormSchema(t), [t]);
     const form = useForm<AlertRuleFormValues>({
         resolver: zodResolver(schema) as Resolver<AlertRuleFormValues>,
@@ -127,8 +125,22 @@ export default function AlertRuleGraphEditor({
         name: "actions"
     });
 
-    const onSubmit = form.handleSubmit(async (values) => {
-        setIsSaving(true);
+    const saveAlert = async () => {
+        const isValid = await form.trigger();
+        if (!isValid) {
+            const values = form.getValues();
+            if (values.actions.length === 0) {
+                toast({
+                    variant: "warning",
+                    title: t("alertingNoActionsTitle"),
+                    description: t("alertingNoActionsSaveDescription")
+                });
+            }
+            return;
+        }
+
+        const values = form.getValues();
+
         try {
             const payload = formValuesToApiPayload(values);
             if (isNew) {
@@ -158,14 +170,48 @@ export default function AlertRuleGraphEditor({
                 description: formatAxiosError(e),
                 variant: "destructive"
             });
-        } finally {
-            setIsSaving(false);
         }
-    });
+    };
+
+    const testAlert = async () => {
+        const isValid = await form.trigger("actions");
+        const values = form.getValues();
+
+        if (!isValid) {
+            if (values.actions.length === 0) {
+                toast({
+                    variant: "warning",
+                    title: t("alertingNoActionsTitle"),
+                    description: t("alertingNoActionsTestDescription")
+                });
+            }
+
+            return;
+        }
+
+        try {
+            const payload = formValuesToApiPayload(values);
+            await api.post(`/org/${orgId}/test-alert-rule`, payload);
+
+            toast({
+                title: t("alertingTestAlertSent"),
+                description: t("alertingTestAlertSentDescription")
+            });
+        } catch (e) {
+            toast({
+                title: t("error"),
+                description: formatAxiosError(e),
+                variant: "destructive"
+            });
+        }
+    };
+
+    const [, formAction, isSaving] = useActionState(saveAlert, null);
+    const [isTestingAlert, startTransition] = useTransition();
 
     return (
         <Form {...form}>
-            <form id={FORM_ID} onSubmit={onSubmit}>
+            <form id={FORM_ID} action={formAction}>
                 <SettingsContainer>
                     <PaidFeaturesAlert tiers={tierMatrix.alertingRules} />
                     <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
@@ -263,14 +309,29 @@ export default function AlertRuleGraphEditor({
                                                 </FormItem>
                                             )}
                                         />
-                                        <Button
-                                            type="submit"
-                                            className="w-full"
-                                            disabled={isSaving}
-                                            loading={isSaving}
-                                        >
-                                            {t("save")}
-                                        </Button>
+                                        <div className="flex flex-col items-center w-full gap-3">
+                                            <Button
+                                                type="submit"
+                                                className="w-full"
+                                                disabled={isSaving}
+                                                loading={isSaving}
+                                            >
+                                                {t("save")}
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="w-full gap-1.5"
+                                                onClick={() =>
+                                                    startTransition(testAlert)
+                                                }
+                                                loading={isTestingAlert}
+                                            >
+                                                <ZapIcon className="size-3.5 flex-none" />
+                                                {t("alertingTestRule")}
+                                            </Button>
+                                        </div>
                                     </fieldset>
                                 </CardContent>
                             </Card>

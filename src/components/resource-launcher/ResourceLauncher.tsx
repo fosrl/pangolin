@@ -27,6 +27,7 @@ import {
     parseLauncherUrlState,
     serializeLauncherUrlState
 } from "@app/lib/launcherUrlState";
+import { buildLauncherSearchParams } from "@app/lib/launcherSearchParams";
 import { useToast } from "@app/hooks/useToast";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import {
@@ -38,13 +39,16 @@ import {
 import { launcherQueries } from "@app/lib/queries";
 import {
     getEffectiveDefaultLauncherConfig,
+    LAUNCHER_FLAT_GROUP_KEY,
     type LauncherDefaultViewOverrides,
     type LauncherGroup,
     type LauncherResource,
     type LauncherScaleInfo,
     type LauncherViewConfig,
-    type LauncherViewRecord
+    type LauncherViewRecord,
+    type ListLauncherResourcesResponse
 } from "@server/routers/launcher/types";
+import type { AxiosResponse } from "axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -580,6 +584,61 @@ export default function ResourceLauncher({
         }
     }, []);
 
+    const hasHandledAutoOpen = useRef(false);
+
+    useEffect(() => {
+        if (hasHandledAutoOpen.current) {
+            return;
+        }
+
+        const targetNiceId = searchParams.get("openResource");
+        if (!targetNiceId) {
+            return;
+        }
+
+        // The launcher search endpoint matches on name/domain/labels, not
+        // niceId, so search by name (if provided) and pick the exact niceId
+        // match out of the results.
+        const searchTerm =
+            searchParams.get("openResourceQuery") ?? targetNiceId;
+
+        hasHandledAutoOpen.current = true;
+
+        (async () => {
+            try {
+                const sp = buildLauncherSearchParams(
+                    {
+                        query: searchTerm,
+                        groupBy: configRef.current.groupBy,
+                        groupKey: LAUNCHER_FLAT_GROUP_KEY,
+                        siteIds: [],
+                        labelIds: [],
+                        sort_by: configRef.current.sortBy,
+                        order: configRef.current.order
+                    },
+                    1
+                );
+                const res = await api.get<
+                    AxiosResponse<ListLauncherResourcesResponse>
+                >(`/org/${orgId}/launcher/resources?${sp.toString()}`);
+                const resources = res.data.data.resources ?? [];
+                const match =
+                    resources.find((r) => r.niceId === targetNiceId) ??
+                    resources[0];
+                if (match) {
+                    handleResourceSelect(match);
+                }
+            } catch {
+                // Resource may no longer exist or be accessible; ignore.
+            } finally {
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete("openResource");
+                params.delete("openResourceQuery");
+                navigate({ searchParams: params, replace: true });
+            }
+        })();
+    }, [api, handleResourceSelect, navigate, orgId, searchParams]);
+
     const savedViewTabs = views.map((view) => ({
         viewId: view.viewId,
         name: view.name
@@ -587,7 +646,9 @@ export default function ResourceLauncher({
 
     const renderToolbarSearch = (searchClassName: string) => (
         <div className={cn("relative shrink-0", searchClassName)}>
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center">
+                <Search className="size-4 text-muted-foreground" />
+            </span>
             <Input
                 key={`${activeViewId}-${searchInputResetKey}`}
                 defaultValue={config.query}

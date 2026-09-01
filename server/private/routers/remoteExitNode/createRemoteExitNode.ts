@@ -191,13 +191,20 @@ export async function createRemoteExitNode(
 
         // If this remote exit node isn't already backing an exit node in
         // another org, we're about to create a brand new one. Reserve a
-        // subnet for it up front so the allocation lock is held across the
-        // whole insert - this guarantees exit node subnets never overlap,
-        // even under concurrent creation, which matters for HA setups.
+        // subnet for it up front, scoped to this org's existing exit nodes,
+        // so the allocation lock is held across the whole insert - this
+        // guarantees exit node subnets never overlap within the org, even
+        // under concurrent creation, which matters for HA setups. Subnets
+        // may still be reused across different orgs; there isn't enough
+        // address space to avoid that, and it isn't necessary since HA only
+        // routes multiple exit nodes for the same org.
         let releaseSubnetLock: (() => Promise<void>) | null = null;
         let newExitNodeAddress: string | null = null;
         if (!existingExitNode) {
-            const { value, release } = await getNextAvailableSubnet();
+            const { value, release } = await getNextAvailableSubnet(
+                db,
+                orgId
+            );
             newExitNodeAddress = value;
             releaseSubnetLock = release;
         }

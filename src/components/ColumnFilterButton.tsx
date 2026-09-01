@@ -21,7 +21,7 @@ import { useTranslations } from "next-intl";
 
 interface FilterOption {
     value: string;
-    label: string;
+    label: React.ReactNode;
 }
 
 interface ColumnFilterButtonProps {
@@ -32,6 +32,7 @@ interface ColumnFilterButtonProps {
     emptyMessage?: string;
     className?: string;
     label: string;
+    allowArbitraryValues?: boolean;
 }
 
 export function ColumnFilterButton({
@@ -41,7 +42,8 @@ export function ColumnFilterButton({
     searchPlaceholder = "Search...",
     emptyMessage = "No options found",
     className,
-    label
+    label,
+    allowArbitraryValues
 }: ColumnFilterButtonProps) {
     const [open, setOpen] = useState(false);
 
@@ -101,7 +103,7 @@ export function ColumnFilterButton({
                             {options.map((option) => (
                                 <CommandItem
                                     key={option.value}
-                                    value={option.label}
+                                    value={option.value}
                                     onSelect={() => {
                                         onValueChange(
                                             selectedValue === option.value

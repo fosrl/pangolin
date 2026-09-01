@@ -94,7 +94,7 @@ export async function adminGeneratePasswordResetCode(
             });
         });
 
-        const url = `${config.getRawConfig().app.dashboard_url}/auth/reset-password?email=${existingUser[0].email}&token=${token}`;
+        const url = `${config.getRawConfig().app.dashboard_url}/auth/reset-password?email=${encodeURIComponent(existingUser[0].email!)}&token=${token}`;
 
         logger.info(
             `Admin generated password reset code for user ${existingUser[0].email} (${userId})`

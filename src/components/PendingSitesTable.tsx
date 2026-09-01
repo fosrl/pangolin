@@ -1,6 +1,16 @@
 "use client";
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
+import {
+    Credenza,
+    CredenzaBody,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle
+} from "@app/components/Credenza";
+import SiteResourcesOverview from "@app/components/SiteResourcesOverview";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import {
@@ -24,6 +34,7 @@ import {
     ArrowUp10Icon,
     ArrowUpRight,
     Check,
+    ChevronDown,
     ChevronsUpDownIcon,
     MoreHorizontal,
     X
@@ -65,8 +76,10 @@ export default function PendingSitesTable({
     const [isRefreshing, startTransition] = useTransition();
     const [approvingIds, setApprovingIds] = useState<Set<number>>(new Set());
     const [rejectingIds, setRejectingIds] = useState<Set<number>>(new Set());
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [selectedSite, setSelectedSite] = useState<SiteRow | null>(null);
+    const [resourcesDialogSite, setResourcesDialogSite] =
+        useState<SiteRow | null>(null);
 
     const api = createApiClient(useEnvContext());
     const t = useTranslations();
@@ -111,7 +124,7 @@ export default function PendingSitesTable({
     async function approveSite(siteId: number) {
         setApprovingIds((prev) => new Set(prev).add(siteId));
         try {
-            await api.post(`/site/${siteId}`, { status: "approved" });
+            await api.post(`/site/${siteId}/approve`);
             toast({
                 title: t("success"),
                 description: t("siteApproveSuccess"),
@@ -136,20 +149,20 @@ export default function PendingSitesTable({
     async function rejectSite(siteId: number) {
         setRejectingIds((prev) => new Set(prev).add(siteId));
         try {
-            await api.delete(`/site/${siteId}`);
+            await api.post(`/site/${siteId}/reject`);
             toast({
                 title: t("success"),
-                description: t("siteDeleted"),
+                description: t("siteRejectSuccess"),
                 variant: "default"
             });
-            setIsDeleteModalOpen(false);
+            setIsRejectModalOpen(false);
             setSelectedSite(null);
             router.refresh();
         } catch (e) {
             toast({
                 variant: "destructive",
-                title: t("siteErrorDelete"),
-                description: formatAxiosError(e, t("siteErrorDelete"))
+                title: t("siteRejectError"),
+                description: formatAxiosError(e, t("siteRejectError"))
             });
         } finally {
             setRejectingIds((prev) => {
@@ -343,6 +356,29 @@ export default function PendingSitesTable({
             }
         },
         {
+            id: "resources",
+            accessorKey: "resourceCount",
+            friendlyName: t("resources"),
+            header: () => <span className="p-3">{t("resources")}</span>,
+            cell: ({ row }) => {
+                const siteRow = row.original;
+                return (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setResourcesDialogSite(siteRow)}
+                        className="flex h-8 items-center gap-2 px-0 font-normal"
+                    >
+                        <span className="text-sm tabular-nums">
+                            {siteRow.resourceCount} {t("resources")}
+                        </span>
+                        <ChevronDown className="h-3 w-3 shrink-0" />
+                    </Button>
+                );
+            }
+        },
+        {
             accessorKey: "exitNode",
             friendlyName: t("exitNode"),
             header: () => {
@@ -445,7 +481,7 @@ export default function PendingSitesTable({
                             disabled={isApproving || isRejecting}
                             onClick={() => {
                                 setSelectedSite(siteRow);
-                                setIsDeleteModalOpen(true);
+                                setIsRejectModalOpen(true);
                             }}
                         >
                             <X className="mr-2 w-4 h-4" />
@@ -491,25 +527,63 @@ export default function PendingSitesTable({
 
     return (
         <>
+            <Credenza
+                open={Boolean(resourcesDialogSite)}
+                onOpenChange={(open) => {
+                    if (!open) setResourcesDialogSite(null);
+                }}
+            >
+                <CredenzaContent className="md:max-w-7xl">
+                    <CredenzaHeader>
+                        <CredenzaTitle>{t("siteResourcesTab")}</CredenzaTitle>
+                        <CredenzaDescription>
+                            {t("siteResourcesDialogDescription")}
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaBody>
+                        {resourcesDialogSite != null && (
+                            <SiteResourcesOverview
+                                orgIdOverride={orgId}
+                                siteId={resourcesDialogSite.id}
+                                initialPublicData={null}
+                                initialPrivateData={null}
+                                initialPublicForbidden={false}
+                                initialPrivateForbidden={false}
+                                showViewAllLinks={false}
+                            />
+                        )}
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setResourcesDialogSite(null)}
+                        >
+                            {t("close")}
+                        </Button>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
+
             {selectedSite && (
                 <ConfirmDeleteDialog
-                    open={isDeleteModalOpen}
+                    open={isRejectModalOpen}
                     setOpen={(val) => {
-                        setIsDeleteModalOpen(val);
+                        setIsRejectModalOpen(val);
                         if (!val) {
                             setSelectedSite(null);
                         }
                     }}
                     dialog={
                         <div className="space-y-2">
-                            <p>{t("siteQuestionRemove")}</p>
-                            <p>{t("siteMessageRemove")}</p>
+                            <p>{t("siteQuestionReject")}</p>
+                            <p>{t("siteMessageReject")}</p>
                         </div>
                     }
-                    buttonText={t("siteConfirmDelete")}
+                    buttonText={t("siteConfirmReject")}
                     onConfirm={async () => rejectSite(selectedSite.id)}
                     string={selectedSite.name}
-                    title={t("siteDelete")}
+                    title={t("siteReject")}
                 />
             )}
             <ControlledDataTable

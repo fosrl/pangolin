@@ -6,7 +6,14 @@ import {
     TargetHealthCheck,
     targetHealthCheck
 } from "@server/db";
-import { newts, resources, sites, Target, targets } from "@server/db";
+import {
+    aiProviders,
+    newts,
+    resources,
+    sites,
+    Target,
+    targets
+} from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -29,9 +36,18 @@ import { generateId } from "@server/auth/sessions/app";
 import config from "@server/lib/config";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
 
-const createTargetParamsSchema = z.strictObject({
+const resourceTargetParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
+
+const providerTargetParamsSchema = z.strictObject({
+    providerId: z.coerce.number().int().positive()
+});
+
+const createTargetParamsSchema = z.union([
+    resourceTargetParamsSchema,
+    providerTargetParamsSchema
+]);
 
 const createTargetSchema = z
     .strictObject({
@@ -93,9 +109,75 @@ registry.registerPath({
     method: "put",
     path: "/resource/{resourceId}/target",
     description: "Create a target for a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: resourceTargetParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: createTargetSchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/public-resource/{resourceId}/target",
+    description: "Create a target for a resource.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.Target],
     request: {
-        params: createTargetParamsSchema,
+        params: resourceTargetParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: createTargetSchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/ai-provider/{providerId}/target",
+    description: "Create a target for an AI provider.",
+    tags: [OpenAPITags.AiProvider],
+    request: {
+        params: providerTargetParamsSchema,
         body: {
             content: {
                 "application/json": {
@@ -150,21 +232,74 @@ export async function createTarget(
             );
         }
 
-        const { resourceId } = parsedParams.data;
+        let resource: typeof resources.$inferSelect | undefined;
+        let provider: typeof aiProviders.$inferSelect | undefined;
 
-        // get the resource
-        const [resource] = await db
-            .select()
-            .from(resources)
-            .where(eq(resources.resourceId, resourceId));
+        if ("providerId" in parsedParams.data) {
+            const { providerId } = parsedParams.data;
+            [provider] =
+                req.aiProvider && req.aiProvider.providerId === providerId
+                    ? [req.aiProvider]
+                    : await db
+                          .select()
+                          .from(aiProviders)
+                          .where(eq(aiProviders.providerId, providerId))
+                          .limit(1);
 
-        if (!resource) {
-            return next(
-                createHttpError(
-                    HttpCode.NOT_FOUND,
-                    `Resource with ID ${resourceId} not found`
-                )
-            );
+            if (!provider) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `AI provider with ID ${providerId} not found`
+                    )
+                );
+            }
+
+            if (provider.routingMode !== "target") {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "AI provider must use target routing mode"
+                    )
+                );
+            }
+
+            if (provider.type !== "custom") {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Only custom AI providers support targets"
+                    )
+                );
+            }
+
+            if (
+                targetData.method &&
+                !["http", "https"].includes(targetData.method.toLowerCase())
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "AI provider target method must be http or https"
+                    )
+                );
+            }
+        } else {
+            const { resourceId } = parsedParams.data;
+            [resource] = await db
+                .select()
+                .from(resources)
+                .where(eq(resources.resourceId, resourceId))
+                .limit(1);
+
+            if (!resource) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Resource with ID ${resourceId} not found`
+                    )
+                );
+            }
         }
 
         const siteId = targetData.siteId;
@@ -184,6 +319,24 @@ export async function createTarget(
             );
         }
 
+        if (provider && site.orgId && site.orgId !== provider.orgId) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Site must belong to the AI provider organization"
+                )
+            );
+        }
+
+        const resourceId = resource?.resourceId ?? null;
+        const providerId = provider?.providerId ?? null;
+        const targetMode = provider
+            ? "http"
+            : (targetData.mode ?? resource?.mode ?? "http");
+        const targetMethod = provider
+            ? (targetData.method?.toLowerCase() ?? "https")
+            : targetData.method;
+
         const plainToken = generateId(48);
         const encryptedToken = encrypt(
             plainToken,
@@ -197,20 +350,24 @@ export async function createTarget(
             const existingTargets = await trx
                 .select()
                 .from(targets)
-                .where(eq(targets.resourceId, resourceId));
+                .where(
+                    providerId
+                        ? eq(targets.providerId, providerId)
+                        : eq(targets.resourceId, resourceId!)
+                );
 
             const existingTarget = existingTargets.find(
                 (target) =>
                     target.ip === targetData.ip &&
                     target.port === targetData.port &&
-                    target.method === targetData.method &&
+                    target.method === targetMethod &&
                     target.siteId === targetData.siteId
             );
 
             if (existingTarget) {
                 // log a warning
                 logger.warn(
-                    `Target with IP ${targetData.ip}, port ${targetData.port}, method ${targetData.method} already exists for resource ID ${resourceId}`
+                    `Target with IP ${targetData.ip}, port ${targetData.port}, method ${targetMethod} already exists for ${providerId ? `AI provider ID ${providerId}` : `resource ID ${resourceId}`}`
                 );
             }
 
@@ -219,10 +376,10 @@ export async function createTarget(
                     .insert(targets)
                     .values({
                         resourceId,
+                        providerId,
                         ...targetData,
-                        mode: (targetData.mode ??
-                            resource.mode ??
-                            "http") as Target["mode"],
+                        mode: targetMode as Target["mode"],
+                        method: targetMethod,
                         priority: targetData.priority || 100
                     })
                     .returning();
@@ -230,7 +387,7 @@ export async function createTarget(
                 // make sure the target is within the site subnet
                 if (
                     site.type == "wireguard" &&
-                    !isIpInCidr(targetData.ip, site.subnet!)
+                    !isIpInCidr(targetData.ip, site.exitNodeSubnet!)
                 ) {
                     return next(
                         createHttpError(
@@ -256,13 +413,12 @@ export async function createTarget(
                     .insert(targets)
                     .values({
                         resourceId,
+                        providerId,
                         siteId: site.siteId,
                         ip: targetData.ip,
-                        mode: (targetData.mode ??
-                            resource.mode ??
-                            "http") as Target["mode"],
+                        mode: targetMode as Target["mode"],
                         authToken: encryptedToken,
-                        method: targetData.method,
+                        method: targetMethod,
                         port: targetData.port,
                         internalPort,
                         enabled: targetData.enabled,
@@ -288,10 +444,12 @@ export async function createTarget(
             healthCheck = await trx
                 .insert(targetHealthCheck)
                 .values({
-                    orgId: resource.orgId,
+                    orgId: provider?.orgId ?? resource!.orgId,
                     targetId: newTarget[0].targetId,
                     siteId: targetData.siteId,
-                    name: `Resource ${resource.name} - ${targetData.ip}:${targetData.port}`,
+                    name: provider
+                        ? `AI Provider ${provider.name} - ${targetData.ip}:${targetData.port}`
+                        : `Resource ${resource!.name} - ${targetData.ip}:${targetData.port}`,
                     hcEnabled: targetData.hcEnabled ?? false,
                     hcPath: targetData.hcPath ?? null,
                     hcScheme: targetData.hcScheme ?? null,
@@ -366,10 +524,17 @@ export async function createTarget(
                         newt.newtId,
                         newTarget,
                         healthCheck,
-                        resource.mode === "udp" ? "udp" : "tcp",
+                        provider
+                            ? "tcp"
+                            : (resource!.mode as string) === "udp"
+                              ? "udp"
+                              : "tcp",
                         newt.version
                     );
-                } else if (["ssh", "rdp", "vnc"].includes(newTarget[0].mode)) {
+                } else if (
+                    !provider &&
+                    ["ssh", "rdp", "vnc"].includes(newTarget[0].mode)
+                ) {
                     await sendBrowserGatewayTargets(
                         newt.newtId,
                         newTarget,

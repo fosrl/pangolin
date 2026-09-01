@@ -68,13 +68,27 @@ export async function handleSubscriptionUpdated(
         const type = getSubType(fullSubscription);
         const previousType = existingSubscription.type as SubscriptionType | null;
 
+        // If the subscription has been manually overridden, we lock the
+        // status down so Stripe webhooks can no longer change it.
+        const isLocked = existingSubscription.override === true;
+        if (isLocked) {
+            logger.info(
+                `Subscription ${subscription.id} is locked (override=true). Ignoring status change from Stripe (would have been ${subscription.status}).`
+            );
+        }
+        const effectiveStatus = isLocked
+            ? existingSubscription.status
+            : subscription.status;
+
         await db
             .update(subscriptions)
             .set({
-                status: subscription.status,
-                canceledAt: subscription.canceled_at
-                    ? subscription.canceled_at
-                    : null,
+                status: effectiveStatus,
+                canceledAt: isLocked
+                    ? existingSubscription.canceledAt
+                    : subscription.canceled_at
+                      ? subscription.canceled_at
+                      : null,
                 updatedAt: Math.floor(Date.now() / 1000),
                 billingCycleAnchor: subscription.billing_cycle_anchor,
                 type: type
@@ -275,23 +289,23 @@ export async function handleSubscriptionUpdated(
                 // we only need to handle the limit lifecycle for saas subscriptions not for the licenses
                 await handleSubscriptionLifesycle(
                     customer.orgId,
-                    subscription.status,
+                    effectiveStatus,
                     type
                 );
 
                 // Handle feature lifecycle when subscription is canceled or becomes unpaid
                 if (
-                    subscription.status === "canceled" ||
-                    subscription.status === "unpaid" ||
-                    subscription.status === "incomplete_expired"
+                    effectiveStatus === "canceled" ||
+                    effectiveStatus === "unpaid" ||
+                    effectiveStatus === "incomplete_expired"
                 ) {
                     logger.info(
-                        `Subscription ${subscription.id} for org ${customer.orgId} is ${subscription.status}, disabling paid features`
+                        `Subscription ${subscription.id} for org ${customer.orgId} is ${effectiveStatus}, disabling paid features`
                     );
                     await handleTierChange(customer.orgId, null, previousType ?? undefined);
                 }
             } else if (type === "license") {
-                if (subscription.status === "canceled" || subscription.status == "unpaid" || subscription.status == "incomplete_expired") {
+                if (effectiveStatus === "canceled" || effectiveStatus == "unpaid" || effectiveStatus == "incomplete_expired") {
                     try {
                         // WARNING:
                         // this invalidates ALL OF THE ENTERPRISE LICENSES for this orgId

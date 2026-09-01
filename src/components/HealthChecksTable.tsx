@@ -1,6 +1,6 @@
 "use client";
 
-import UptimeMiniBar from "@app/components/UptimeMiniBar";
+import { UptimeMiniBar } from "@app/components/UptimeMiniBar";
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import HealthCheckCredenza, {
@@ -51,6 +51,8 @@ import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { cn } from "@app/lib/cn";
 import { dataTableFilterPopoverContentClassName } from "@app/lib/dataTableFilterPopover";
+import { orgQueries } from "@app/lib/queries";
+import { useQuery } from "@tanstack/react-query";
 
 type StandaloneHealthChecksTableProps = {
     orgId: string;
@@ -80,6 +82,8 @@ function formatTarget(row: HealthCheckRow): string {
     const path = row.hcPath ?? "/";
     return `${scheme}://${host}${port}${path}`;
 }
+
+const HEALTH_CHECK_STATUS_HISTORY_DAYS = 30;
 
 export default function HealthChecksTable({
     orgId,
@@ -156,6 +160,20 @@ export default function HealthChecksTable({
     }, [initialFilterResource, resourceIdQ, resourceIdNum, t]);
 
     const rows = healthChecks;
+
+    const healthCheckIds = useMemo(
+        () => rows.map((r) => r.targetHealthCheckId),
+        [rows]
+    );
+
+    const statusHistoryQuery = useQuery({
+        ...orgQueries.batchedHealthCheckStatusHistory({
+            orgId,
+            healthCheckIds,
+            days: HEALTH_CHECK_STATUS_HISTORY_DAYS
+        }),
+        enabled: healthCheckIds.length > 0
+    });
 
     function refreshList() {
         startRefresh(() => {
@@ -547,9 +565,13 @@ export default function HealthChecksTable({
             cell: ({ row }) => {
                 return (
                     <UptimeMiniBar
-                        orgId={orgId}
-                        healthCheckId={row.original.targetHealthCheckId}
-                        days={30}
+                        isLoading={statusHistoryQuery.isLoading}
+                        data={
+                            statusHistoryQuery.data?.[
+                                row.original.targetHealthCheckId
+                            ]
+                        }
+                        days={HEALTH_CHECK_STATUS_HISTORY_DAYS}
                     />
                 );
             }

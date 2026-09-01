@@ -30,15 +30,20 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
 
     const fullUrl = `${resource.ssl ? "https" : "http"}://${toUnicode(resource.fullDomain || "")}`;
 
+    const isDomainResource = [
+        "http",
+        "ssh",
+        "rdp",
+        "vnc",
+        "inference"
+    ].includes(resource.mode);
     const showCertificate = !!(
-        ["http", "ssh", "rdp", "vnc"].includes(resource.mode) &&
+        isDomainResource &&
         resource.domainId &&
-        resource.fullDomain &&
-        build != "oss"
+        resource.fullDomain
     );
-    const showType = !!(
-        ["http", "ssh", "rdp", "vnc"].includes(resource.mode) && resource.mode
-    );
+    const showType = !!(isDomainResource && resource.mode);
+    const showAuth = resource.mode !== "inference";
     const showHealth =
         !["ssh", "rdp", "vnc"].includes(resource.mode || "") &&
         !!resource.health &&
@@ -47,7 +52,7 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
 
     const numSections = [
         true, // URL or Protocol
-        true, // Authentication or Port
+        showAuth || !isDomainResource, // Authentication or Port
         showType,
         showCertificate,
         showHealth,
@@ -66,7 +71,7 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                             </span>
                         </InfoSectionContent>
                     </InfoSection> */}
-                    {["http", "ssh", "rdp", "vnc"].includes(resource.mode) ? (
+                    {isDomainResource ? (
                         <>
                             <InfoSection>
                                 <InfoSectionTitle>URL</InfoSectionTitle>
@@ -94,33 +99,39 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                                                 ? resource.ssl
                                                     ? "HTTPS"
                                                     : "HTTP"
-                                                : resource.mode?.toUpperCase()}
+                                                : resource.mode === "inference"
+                                                  ? t(
+                                                        "createInternalResourceDialogModeInference"
+                                                    )
+                                                  : resource.mode?.toUpperCase()}
                                         </span>
                                     </InfoSectionContent>
                                 </InfoSection>
                             )}
-                            <InfoSection>
-                                <InfoSectionTitle>
-                                    {t("authentication")}
-                                </InfoSectionTitle>
-                                <InfoSectionContent>
-                                    {authInfo.password ||
-                                    authInfo.pincode ||
-                                    authInfo.sso ||
-                                    authInfo.whitelist ||
-                                    authInfo.headerAuth ? (
-                                        <div className="flex items-center space-x-2">
-                                            <ShieldCheck className="w-4 h-4 flex-shrink-0 text-green-500" />
-                                            <span>{t("protected")}</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center space-x-2">
-                                            <ShieldOff className="w-4 h-4 flex-shrink-0 text-yellow-500" />
-                                            <span>{t("notProtected")}</span>
-                                        </div>
-                                    )}
-                                </InfoSectionContent>
-                            </InfoSection>
+                            {showAuth && (
+                                <InfoSection>
+                                    <InfoSectionTitle>
+                                        {t("authentication")}
+                                    </InfoSectionTitle>
+                                    <InfoSectionContent>
+                                        {authInfo.password ||
+                                        authInfo.pincode ||
+                                        authInfo.sso ||
+                                        authInfo.whitelist ||
+                                        authInfo.headerAuth ? (
+                                            <div className="flex items-center space-x-2">
+                                                <ShieldCheck className="w-4 h-4 flex-shrink-0 text-green-500" />
+                                                <span>{t("protected")}</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center space-x-2">
+                                                <ShieldOff className="w-4 h-4 flex-shrink-0 text-yellow-500" />
+                                                <span>{t("notProtected")}</span>
+                                            </div>
+                                        )}
+                                    </InfoSectionContent>
+                                </InfoSection>
+                            )}
                         </>
                     ) : (
                         <>
@@ -138,7 +149,9 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                                 <InfoSectionTitle>{t("port")}</InfoSectionTitle>
                                 <InfoSectionContent>
                                     <CopyToClipboard
-                                        text={resource.proxyPort!.toString()}
+                                        text={
+                                            resource.proxyPort?.toString() ?? ""
+                                        }
                                         isLink={false}
                                     />
                                 </InfoSectionContent>
@@ -180,7 +193,6 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                                     orgId={resource.orgId}
                                     domainId={resource.domainId!}
                                     fullDomain={resource.fullDomain!}
-                                    autoFetch={true}
                                     showLabel={false}
                                     polling={true}
                                 />

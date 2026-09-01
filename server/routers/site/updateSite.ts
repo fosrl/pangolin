@@ -21,7 +21,6 @@ const updateSiteBodySchema = z
         name: z.string().min(1).max(255).optional(),
         niceId: z.string().min(1).max(255).optional(),
         dockerSocketEnabled: z.boolean().optional(),
-        status: z.enum(["pending", "approved"]).optional(),
         autoUpdateEnabled: z.boolean().optional(),
         autoUpdateOverrideOrg: z.boolean().optional()
     })

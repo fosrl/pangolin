@@ -16,7 +16,7 @@ experimental:
       version: "{{.BadgerVersion}}"
     crowdsec: # CrowdSec plugin configuration added
       moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
-      version: "v1.4.4"
+      version: "v1.7.1"
 
 log:
   level: "INFO"

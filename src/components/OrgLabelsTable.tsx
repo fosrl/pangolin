@@ -21,9 +21,6 @@ import {
     ControlledDataTable,
     type ExtendedColumnDef
 } from "./ui/controlled-data-table";
-import { LabelBadge } from "./label-badge";
-import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
-import { cn } from "@app/lib/cn";
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import { CreateOrgLabelDialog } from "./CreateOrgLabelDialog";
 import { EditOrgLabelDialog } from "./EditOrgLabelDialog";

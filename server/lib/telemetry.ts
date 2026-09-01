@@ -3,6 +3,8 @@ import config from "./config";
 import { getHostMeta } from "./hostMeta";
 import logger from "@server/logger";
 import {
+    aiProviders,
+    aiUsageRecords,
     alertRules,
     apiKeys,
     blueprints,
@@ -11,7 +13,16 @@ import {
     siteResources
 } from "@server/db";
 import { sites, users, orgs, resources, clients, idp } from "@server/db";
-import { eq, count, notInArray, and, isNotNull, isNull } from "drizzle-orm";
+import {
+    eq,
+    count,
+    countDistinct,
+    notInArray,
+    and,
+    isNotNull,
+    isNull,
+    gte
+} from "drizzle-orm";
 import { APP_VERSION } from "./consts";
 import crypto from "crypto";
 import { UserType } from "@server/types/UserTypes";
@@ -172,6 +183,25 @@ class TelemetryClient {
                 .select({ count: count() })
                 .from(blueprints);
 
+            const [aiProvidersCount] = await db
+                .select({ count: count() })
+                .from(aiProviders);
+            const [orgsWithAiProviders] = await db
+                .select({ count: countDistinct(aiProviders.orgId) })
+                .from(aiProviders);
+
+            const usageWindowStart =
+                Math.floor(Date.now() / 1000) -
+                this.collectionIntervalDays * 24 * 60 * 60;
+            const [aiUsageRecordsRecent] = await db
+                .select({ count: count() })
+                .from(aiUsageRecords)
+                .where(gte(aiUsageRecords.createdAt, usageWindowStart));
+            const [orgsWithRecentAiUsage] = await db
+                .select({ count: countDistinct(aiUsageRecords.orgId) })
+                .from(aiUsageRecords)
+                .where(gte(aiUsageRecords.createdAt, usageWindowStart));
+
             const supporterKey = config.getSupporterData();
 
             const allPrivateResources = await db.select().from(siteResources);
@@ -182,6 +212,7 @@ class TelemetryClient {
             let numPrivResourceCidr = 0;
             let numPrivResourceHttp = 0;
             let numPrivResourceSsh = 0;
+            let numPrivResourceInference = 0;
             for (const res of allPrivateResources) {
                 if (res.mode === "host") {
                     numPrivResourceHosts += 1;
@@ -191,6 +222,8 @@ class TelemetryClient {
                     numPrivResourceHttp += 1;
                 } else if (res.mode === "ssh") {
                     numPrivResourceSsh += 1;
+                } else if (res.mode === "inference") {
+                    numPrivResourceInference += 1;
                 }
 
                 if (res.alias) {
@@ -211,6 +244,11 @@ class TelemetryClient {
                 numPrivateResourceCidr: numPrivResourceCidr,
                 numPrivateResourceHttp: numPrivResourceHttp,
                 numPrivateResourceSsh: numPrivResourceSsh,
+                numPrivateResourceInference: numPrivResourceInference,
+                numAiProviders: aiProvidersCount.count,
+                numOrgsWithAiProviders: orgsWithAiProviders.count,
+                numAiUsageRecordsRecent: aiUsageRecordsRecent.count,
+                numOrgsWithRecentAiUsage: orgsWithRecentAiUsage.count,
                 numAlertRules: numAlertRules.count,
                 numUserDevices: userDevicesCount.count,
                 numMachineClients: machineClients.count,
@@ -323,6 +361,17 @@ class TelemetryClient {
                     num_resources_non_http: stats.resources.filter(
                         (r) => r.mode !== "http"
                     ).length,
+                    num_resources_ai_gateway: stats.resources.filter(
+                        (r) => r.mode === "inference"
+                    ).length,
+                    num_private_resources_ai_gateway:
+                        stats.numPrivateResourceInference,
+                    num_ai_providers: stats.numAiProviders,
+                    num_orgs_with_ai_providers: stats.numOrgsWithAiProviders,
+                    num_ai_usage_records_recent:
+                        stats.numAiUsageRecordsRecent,
+                    num_orgs_with_recent_ai_usage:
+                        stats.numOrgsWithRecentAiUsage,
                     num_newt_sites: stats.sites.filter((s) => s.type === "newt")
                         .length,
                     num_local_sites: stats.sites.filter(

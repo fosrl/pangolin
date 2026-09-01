@@ -3,8 +3,10 @@ import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { LogDataTable } from "@app/components/LogDataTable";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import LogRetentionWarning from "@app/components/LogRetentionWarning";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { useEnvContext } from "@app/hooks/useEnvContext";
+import { useOrgContext } from "@app/hooks/useOrgContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { useStoredPageSize } from "@app/hooks/useStoredPageSize";
 import { toast } from "@app/hooks/useToast";
@@ -29,6 +31,7 @@ export default function GeneralPage() {
     const { orgId } = useParams();
     const searchParams = useSearchParams();
 
+    const { org } = useOrgContext();
     const { isPaidUser } = usePaidStatus();
 
     const [isExporting, startTransition] = useTransition();
@@ -133,6 +136,23 @@ export default function GeneralPage() {
 
     const handlePageChange = (newPage: number) => {
         setCurrentPage(newPage);
+    };
+
+    const handleRefresh = () => {
+        // When the end date has no explicit time, it represents an
+        // open-ended "up to now" upper bound. Since dateRange is only
+        // recomputed on user interaction, that upper bound otherwise stays
+        // frozen at whenever the page first loaded, so refreshing would
+        // never surface logs created since then. Bump it to the current
+        // time so the query key changes and refetches the latest window.
+        if (dateRange.endDate?.date && !dateRange.endDate.time) {
+            setDateRange((prev) => ({
+                ...prev,
+                endDate: { date: new Date() }
+            }));
+        } else {
+            refetch();
+        }
     };
 
     const handlePageSizeChange = (newPageSize: number) => {
@@ -286,7 +306,11 @@ export default function GeneralPage() {
                         ) : (
                             <Key className="h-4 w-4" />
                         )}
-                        {row.original.actor}
+                        {row.original.actor || (
+                            <span className="text-xs text-muted-foreground">
+                                -
+                            </span>
+                        )}
                     </span>
                 );
             }
@@ -297,7 +321,11 @@ export default function GeneralPage() {
             cell: ({ row }) => {
                 return (
                     <span className="flex items-center gap-1">
-                        {row.original.actorId}
+                        {row.original.actorId || (
+                            <span className="text-xs text-muted-foreground">
+                                -
+                            </span>
+                        )}
                     </span>
                 );
             }
@@ -334,13 +362,20 @@ export default function GeneralPage() {
 
             <PaidFeaturesAlert tiers={tierMatrix.actionLogs} />
 
+            {org.org.settingsLogRetentionDaysAction === 0 && (
+                <LogRetentionWarning
+                    orgId={orgId as string}
+                    logTypeLabel={t("actionLogs")}
+                />
+            )}
+
             <LogDataTable
                 columns={columns}
                 data={rows}
                 title={t("actionLogs")}
                 searchPlaceholder={t("searchLogs")}
                 searchColumn="action"
-                onRefresh={() => refetch()}
+                onRefresh={handleRefresh}
                 isRefreshing={isFetching}
                 onExport={() => startTransition(exportData)}
                 isExporting={isExporting}

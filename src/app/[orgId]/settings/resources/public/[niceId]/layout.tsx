@@ -82,18 +82,18 @@ export default async function ResourceLayout(props: ResourceLayoutProps) {
         redirect(`/${params.orgId}/settings/resources`);
     }
 
-    const navItems = [
-        {
-            title: t("general"),
-            href: `/{orgId}/settings/resources/public/{niceId}/general`
-        },
-        {
-            title: t(`${resource.mode}Settings`),
-            href: `/{orgId}/settings/resources/public/{niceId}/${resource.mode}`
-        }
-    ];
+        const navItems = [
+              {
+                  title: t("general"),
+                  href: `/{orgId}/settings/resources/public/{niceId}/general`
+              },
+              {
+                  title: t(`${resource.mode}Settings`),
+                  href: `/{orgId}/settings/resources/public/{niceId}/${resource.mode === "inference" ? "ai-gateway" : resource.mode}`
+              }
+          ];
 
-    if (["http", "ssh", "rdp", "vnc"].includes(resource.mode)) {
+    if (["http", "ssh", "rdp", "vnc", "inference"].includes(resource.mode)) {
         navItems.push(
             {
                 title: t("authentication"),
@@ -105,12 +105,19 @@ export default async function ResourceLayout(props: ResourceLayoutProps) {
             }
         );
 
-        if (!env.flags.disableEnterpriseFeatures) {
+        if (!env.flags.disableEnterpriseFeatures && resource.mode !== "inference") {
             navItems.push({
                 title: t("maintenanceMode"),
                 href: `/{orgId}/settings/resources/public/{niceId}/maintenance`
             });
         }
+    }
+
+    if (resource.mode === "inference") {
+        navItems.push({
+            title: t("resourceBudgetSettings"),
+            href: `/{orgId}/settings/resources/public/{niceId}/budget`
+        });
     }
 
     return (

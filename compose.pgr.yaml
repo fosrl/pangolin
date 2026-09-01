@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: postgres # Default user
       POSTGRES_PASSWORD: password # Default password (change for production!)
     volumes:
-      - ./config/postgres:/var/lib/postgresql/data
+      - ${HOME}/.local/share/pangolin-dev/postgres:/var/lib/postgresql/data
     ports:
       - "5432:5432" # Map host port 5432 to container port 5432
     restart: no

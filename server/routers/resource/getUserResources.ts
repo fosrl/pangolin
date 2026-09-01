@@ -363,11 +363,6 @@ export async function getUserResources(
             (r) => r.siteResourceId
         );
 
-        const isLabelFeatureEnabled = await isLicensedOrSubscribed(
-            orgId,
-            tierMatrix.labels
-        );
-
         let labelsForResources: Array<{
             labelId: number;
             name: string;
@@ -381,49 +376,45 @@ export async function getUserResources(
             siteResourceId: number;
         }> = [];
 
-        if (isLabelFeatureEnabled) {
-            [labelsForResources, labelsForSiteResources] = await Promise.all([
-                resourceIdList.length === 0
-                    ? Promise.resolve([])
-                    : db
-                          .select({
-                              labelId: labels.labelId,
-                              name: labels.name,
-                              color: labels.color,
-                              resourceId: resourceLabels.resourceId
-                          })
-                          .from(labels)
-                          .innerJoin(
-                              resourceLabels,
-                              eq(resourceLabels.labelId, labels.labelId)
+        [labelsForResources, labelsForSiteResources] = await Promise.all([
+            resourceIdList.length === 0
+                ? Promise.resolve([])
+                : db
+                      .select({
+                          labelId: labels.labelId,
+                          name: labels.name,
+                          color: labels.color,
+                          resourceId: resourceLabels.resourceId
+                      })
+                      .from(labels)
+                      .innerJoin(
+                          resourceLabels,
+                          eq(resourceLabels.labelId, labels.labelId)
+                      )
+                      .where(inArray(resourceLabels.resourceId, resourceIdList))
+                      .orderBy(asc(resourceLabels.resourceLabelId)),
+            siteResourceIdList.length === 0
+                ? Promise.resolve([])
+                : db
+                      .select({
+                          labelId: labels.labelId,
+                          name: labels.name,
+                          color: labels.color,
+                          siteResourceId: siteResourceLabels.siteResourceId
+                      })
+                      .from(labels)
+                      .innerJoin(
+                          siteResourceLabels,
+                          eq(siteResourceLabels.labelId, labels.labelId)
+                      )
+                      .where(
+                          inArray(
+                              siteResourceLabels.siteResourceId,
+                              siteResourceIdList
                           )
-                          .where(
-                              inArray(resourceLabels.resourceId, resourceIdList)
-                          )
-                          .orderBy(asc(resourceLabels.resourceLabelId)),
-                siteResourceIdList.length === 0
-                    ? Promise.resolve([])
-                    : db
-                          .select({
-                              labelId: labels.labelId,
-                              name: labels.name,
-                              color: labels.color,
-                              siteResourceId: siteResourceLabels.siteResourceId
-                          })
-                          .from(labels)
-                          .innerJoin(
-                              siteResourceLabels,
-                              eq(siteResourceLabels.labelId, labels.labelId)
-                          )
-                          .where(
-                              inArray(
-                                  siteResourceLabels.siteResourceId,
-                                  siteResourceIdList
-                              )
-                          )
-                          .orderBy(asc(siteResourceLabels.siteResourceLabelId))
-            ]);
-        }
+                      )
+                      .orderBy(asc(siteResourceLabels.siteResourceLabelId))
+        ]);
 
         // Check for password, pincode, and whitelist protection for each resource
         const resourcesWithAuth = await Promise.all(

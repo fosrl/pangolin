@@ -90,6 +90,7 @@ export function S3DestinationCredenza({
     const [sendActionLogs, setSendActionLogs] = useState(false);
     const [sendConnectionLogs, setSendConnectionLogs] = useState(false);
     const [sendRequestLogs, setSendRequestLogs] = useState(false);
+    const [sendAISessionLogs, setSendAISessionLogs] = useState(false);
 
     useEffect(() => {
         if (open) {
@@ -98,6 +99,7 @@ export function S3DestinationCredenza({
             setSendActionLogs(editing?.sendActionLogs ?? false);
             setSendConnectionLogs(editing?.sendConnectionLogs ?? false);
             setSendRequestLogs(editing?.sendRequestLogs ?? false);
+            setSendAISessionLogs(editing?.sendAISessionLogs ?? false);
         }
     }, [open, editing]);
 
@@ -121,7 +123,8 @@ export function S3DestinationCredenza({
                 sendAccessLogs,
                 sendActionLogs,
                 sendConnectionLogs,
-                sendRequestLogs
+                sendRequestLogs,
+                sendAISessionLogs
             };
             if (editing) {
                 await api.post(
@@ -506,6 +509,30 @@ export function S3DestinationCredenza({
                                         <p className="text-xs text-muted-foreground mt-0.5">
                                             {t(
                                                 "httpDestRequestLogsDescription"
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3 rounded-md border p-3">
+                                    <Checkbox
+                                        id="s3-log-ai-session"
+                                        checked={sendAISessionLogs}
+                                        onCheckedChange={(v) =>
+                                            setSendAISessionLogs(v === true)
+                                        }
+                                        className="mt-0.5"
+                                    />
+                                    <div>
+                                        <Label
+                                            htmlFor="s3-log-ai-session"
+                                            className="cursor-pointer font-medium"
+                                        >
+                                            {t("httpDestAISessionLogsTitle")}
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            {t(
+                                                "httpDestAISessionLogsDescription"
                                             )}
                                         </p>
                                     </div>

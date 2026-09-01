@@ -339,19 +339,6 @@ export async function calculateUserClientsForOrgs(
                 continue;
             }
 
-            // Get exit nodes for this org
-            const exitNodesList = await getExitNodes(orgId);
-
-            if (exitNodesList.length === 0) {
-                logger.warn(
-                    `Skipping org ${orgId} for OLM ${olm.olmId} (user ${userId}): no exit nodes found`
-                );
-                continue;
-            }
-
-            const randomExitNode =
-                exitNodesList[Math.floor(Math.random() * exitNodesList.length)];
-
             // Get next available subnet
             const { value: newSubnet, release: releaseSubnetLock } =
                 await getNextAvailableClientSubnet(orgId, trx);
@@ -370,7 +357,6 @@ export async function calculateUserClientsForOrgs(
             const newClientData: InferInsertModel<typeof clients> = {
                 userId,
                 orgId: userOrg.orgId,
-                exitNodeId: randomExitNode.exitNodeId,
                 name: olm.name || "User Client",
                 subnet: updatedSubnet,
                 olmId: olm.olmId,

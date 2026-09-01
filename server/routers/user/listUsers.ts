@@ -107,7 +107,7 @@ const listUsersSchema = z.strictObject({
                 .filter((n) => Number.isInteger(n) && n > 0);
             const unique = [...new Set(nums)];
             return unique.length ? unique : undefined;
-        }, z.array(z.number().int().positive()).max(50).optional())
+        }, z.array(z.number().int().positive()).optional())
         .openapi({
             description:
                 "Filter users who have any of these role ids in the organization (repeat query param)"

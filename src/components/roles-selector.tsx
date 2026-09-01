@@ -12,6 +12,7 @@ export type RolesSelectorProps = {
     orgId: string;
     selectedRoles?: SelectedRole[];
     onSelectRoles: (roles: SelectedRole[]) => void;
+    onPopoverOpenChange?: (open: boolean) => void;
     disabled?: boolean;
     restrictAdminRole?: boolean;
     mapRolesByName?: boolean;
@@ -23,6 +24,7 @@ export function RolesSelector({
     orgId,
     selectedRoles = [],
     onSelectRoles,
+    onPopoverOpenChange,
     disabled,
     restrictAdminRole,
     mapRolesByName,
@@ -77,6 +79,7 @@ export function RolesSelector({
             options={rolesShown}
             value={selectedRoles}
             onChange={onSelectRoles}
+            onPopoverOpenChange={onPopoverOpenChange}
             disabled={disabled}
             lockedIds={lockedIds}
         />

@@ -55,11 +55,7 @@ export default function RdpSettingsPage(props: {
 }) {
     const params = use(props.params);
     const { resource, updateResource } = useResourceContext();
-    const { isPaidUser } = usePaidStatus();
     const api = createApiClient(useEnvContext());
-    const disabled = !isPaidUser(
-        tierMatrix[TierFeature.AdvancedPublicResources]
-    );
 
     const { data: targetsResponse, isLoading: isLoadingTargets } = useQuery({
         queryKey: ["resourceTargets", resource.resourceId, params.orgId, "rdp"],
@@ -75,14 +71,10 @@ export default function RdpSettingsPage(props: {
 
     return (
         <SettingsContainer>
-            <PaidFeaturesAlert
-                tiers={tierMatrix[TierFeature.AdvancedPublicResources]}
-            />
             <RdpServerForm
                 orgId={params.orgId}
                 resource={resource}
                 updateResource={updateResource}
-                disabled={disabled}
                 targetsResponse={targetsResponse ?? { targets: [] }}
             />
         </SettingsContainer>
@@ -92,13 +84,11 @@ export default function RdpSettingsPage(props: {
 function RdpServerForm({
     orgId,
     resource,
-    disabled,
     targetsResponse
 }: {
     orgId: string;
     resource: GetResourceResponse;
     updateResource: ResourceContextType["updateResource"];
-    disabled: boolean;
     targetsResponse: ResourceTargetsResponse;
 }) {
     const t = useTranslations();
@@ -215,10 +205,6 @@ function RdpServerForm({
                     {t("rdpServerDescription")}
                 </SettingsSectionDescription>
             </SettingsSectionHeader>
-            <fieldset
-                disabled={disabled}
-                className={disabled ? "opacity-50 pointer-events-none" : ""}
-            >
                 <Form {...form}>
                     <SettingsSectionBody>
                         <SettingsSectionForm variant="half">
@@ -244,7 +230,6 @@ function RdpServerForm({
                         </Button>
                     </form>
                 </Form>
-            </fieldset>
         </SettingsSection>
     );
 }

@@ -77,9 +77,9 @@ export const handleOlmUnRelayMessage: MessageHandler = async (context) => {
         return;
     }
 
-    // update the peer on the exit node
+    // update the peer on the newt
     await newtUpdatePeer(siteId, client.pubKey, {
-        endpoint: clientSiteAssociation.endpoint // this is the endpoint of the client to connect directly to the exit node
+        endpoint: clientSiteAssociation.endpoint // this is the endpoint of the client to connect directly to the newt
     });
 
     return {

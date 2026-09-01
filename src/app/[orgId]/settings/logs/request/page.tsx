@@ -2,13 +2,16 @@
 import { ColumnFilter } from "@app/components/ColumnFilter";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { LogDataTable } from "@app/components/LogDataTable";
+import LogRetentionWarning from "@app/components/LogRetentionWarning";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { Button } from "@app/components/ui/button";
 import { useEnvContext } from "@app/hooks/useEnvContext";
+import { useOrgContext } from "@app/hooks/useOrgContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient } from "@app/lib/api";
 import { useTranslations } from "next-intl";
 import { getSevenDaysAgo } from "@app/lib/getSevenDaysAgo";
+import { getPrivateResourceSettingsHref } from "@app/lib/launcherResourceAdminHref";
 import { logQueries } from "@app/lib/queries";
 import { ColumnDef } from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +23,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useStoredPageSize } from "@app/hooks/useStoredPageSize";
 import type { QueryRequestAuditLogResponse } from "@server/routers/auditLogs/types";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
+import { countryCodeToFlagEmoji } from "@app/lib/countryCodeToFlagEmoji";
+import { ColumnMultiFilterButton } from "@app/components/ColumnMultiFilterButton";
 
 export default function GeneralPage() {
     const router = useRouter();
@@ -27,6 +32,8 @@ export default function GeneralPage() {
     const t = useTranslations();
     const { orgId } = useParams();
     const searchParams = useSearchParams();
+
+    const { org } = useOrgContext();
 
     const [isExporting, startTransition] = useTransition();
 
@@ -42,6 +49,7 @@ export default function GeneralPage() {
         method?: string;
         reason?: string;
         path?: string;
+        ip?: string[];
     }>({
         action: searchParams.get("action") || undefined,
         host: searchParams.get("host") || undefined,
@@ -50,7 +58,8 @@ export default function GeneralPage() {
         actor: searchParams.get("actor") || undefined,
         method: searchParams.get("method") || undefined,
         reason: searchParams.get("reason") || undefined,
-        path: searchParams.get("path") || undefined
+        path: searchParams.get("path") || undefined,
+        ip: searchParams.getAll("ip") || undefined
     });
 
     const getDefaultDateRange = () => {
@@ -150,6 +159,23 @@ export default function GeneralPage() {
         setCurrentPage(newPage);
     };
 
+    const handleRefresh = () => {
+        // When the end date has no explicit time, it represents an
+        // open-ended "up to now" upper bound. Since dateRange is only
+        // recomputed on user interaction, that upper bound otherwise stays
+        // frozen at whenever the page first loaded, so refreshing would
+        // never surface logs created since then. Bump it to the current
+        // time so the query key changes and refetches the latest window.
+        if (dateRange.endDate?.date && !dateRange.endDate.time) {
+            setDateRange((prev) => ({
+                ...prev,
+                endDate: { date: new Date() }
+            }));
+        } else {
+            refetch();
+        }
+    };
+
     const handlePageSizeChange = (newPageSize: number) => {
         setPageSize(newPageSize);
         setCurrentPage(0);
@@ -157,7 +183,7 @@ export default function GeneralPage() {
 
     const handleFilterChange = (
         filterType: keyof typeof filters,
-        value: string | undefined
+        value: string | string[] | undefined
     ) => {
         const newFilters = { ...filters, [filterType]: value };
         setFilters(newFilters);
@@ -175,10 +201,13 @@ export default function GeneralPage() {
     ) => {
         const params = new URLSearchParams(searchParams);
         Object.entries(newFilters).forEach(([key, value]) => {
-            if (value) {
+            params.delete(key);
+            if (typeof value === "string") {
                 params.set(key, value);
-            } else {
-                params.delete(key);
+            } else if (typeof value !== "undefined" && "length" in value) {
+                for (const element of value) {
+                    params.append(key, element);
+                }
             }
         });
         router.replace(`?${params.toString()}`, { scroll: false });
@@ -187,6 +216,7 @@ export default function GeneralPage() {
     const exportData = async () => {
         try {
             // Prepare query params for export
+            const { ip, ...restFilters } = filters;
             const params: any = {
                 timeStart: dateRange.startDate?.date
                     ? new Date(dateRange.startDate.date).toISOString()
@@ -194,11 +224,15 @@ export default function GeneralPage() {
                 timeEnd: dateRange.endDate?.date
                     ? new Date(dateRange.endDate.date).toISOString()
                     : undefined,
-                ...filters
+                ...restFilters
             };
 
+            // axios serializes arrays as `ip[]=…`, which express's query
+            // parser does not read back as `ip`, so pass them in the URL
+            const sp = new URLSearchParams((ip ?? []).map((ip) => ["ip", ip]));
+
             const response = await api.get(
-                `/org/${orgId}/logs/request/export`,
+                `/org/${orgId}/logs/request/export?${sp.toString()}`,
                 {
                     responseType: "blob",
                     params
@@ -246,6 +280,7 @@ export default function GeneralPage() {
     // 106 - Valid email
     // 107 - Valid SSO
     // 108 - Connected Client
+    // 109 - Valid Virtual API Key
 
     // 201 - Resource Not Found
     // 202 - Resource Blocked
@@ -264,6 +299,7 @@ export default function GeneralPage() {
         106: t("validEmail"),
         107: t("validSSO"),
         108: t("connectedClient"),
+        109: t("validVirtualAPIKey"),
         201: t("resourceNotFound"),
         202: t("resourceBlocked"),
         203: t("droppedByRule"),
@@ -327,7 +363,31 @@ export default function GeneralPage() {
         },
         {
             accessorKey: "ip",
-            header: ({ column }) => <span className="px-2">{t("ip")}</span>
+            header: ({ column }) => (
+                <span className="px-2">
+                    <ColumnMultiFilterButton
+                        options={(filters.ip ?? []).map((ip) => ({
+                            label: ip,
+                            value: ip
+                        }))}
+                        label={t("ip")}
+                        allowArbitraryValues
+                        searchPlaceholder={t("ipFilterSearchPlaceholder")}
+                        emptyMessage={t("ipFilterEmptyMessage")}
+                        selectedValues={filters.ip ?? []}
+                        onSelectedValuesChange={(value) =>
+                            handleFilterChange("ip", value)
+                        }
+                    />
+                </span>
+            ),
+            cell: ({ row }) => {
+                return row.original.ip ? (
+                    row.original.ip
+                ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                );
+            }
         },
         {
             accessorKey: "location",
@@ -338,7 +398,7 @@ export default function GeneralPage() {
                             options={filterAttributes.locations.map(
                                 (location) => ({
                                     value: location,
-                                    label: location
+                                    label: `${location} ${countryCodeToFlagEmoji(location)}`
                                 })
                             )}
                             selectedValue={filters.location}
@@ -358,7 +418,8 @@ export default function GeneralPage() {
                     <span className="flex items-center gap-1">
                         {row.original.location ? (
                             <span className="text-muted-foreground text-xs">
-                                {row.original.location}
+                                {row.original.location}{" "}
+                                {countryCodeToFlagEmoji(row.original.location)}
                             </span>
                         ) : (
                             <span className="text-muted-foreground text-xs">
@@ -391,11 +452,22 @@ export default function GeneralPage() {
                 );
             },
             cell: ({ row }) => {
+                if (
+                    !row.original.resourceNiceId ||
+                    !row.original.resourceName
+                ) {
+                    return (
+                        <span className="text-xs text-muted-foreground">-</span>
+                    );
+                }
                 return (
                     <Link
                         href={
                             row.original.reason == 108 // for now the client will only have reason 108 so we know where to go
-                                ? `/${row.original.orgId}/settings/resources/private?query=${row.original.resourceNiceId}`
+                                ? getPrivateResourceSettingsHref(
+                                      row.original.orgId,
+                                      row.original.resourceNiceId
+                                  )
                                 : `/${row.original.orgId}/settings/resources/public/${row.original.resourceNiceId}`
                         }
                         onClick={(e) => e.stopPropagation()}
@@ -430,6 +502,11 @@ export default function GeneralPage() {
                 );
             },
             cell: ({ row }) => {
+                if (!row.original.host) {
+                    return (
+                        <span className="text-xs text-muted-foreground">-</span>
+                    );
+                }
                 return (
                     <span className="flex items-center gap-1">
                         {row.original.tls ? (
@@ -461,6 +538,13 @@ export default function GeneralPage() {
                             emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
+                );
+            },
+            cell: ({ row }) => {
+                return row.original.path ? (
+                    row.original.path
+                ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
                 );
             }
         },
@@ -495,6 +579,13 @@ export default function GeneralPage() {
                             emptyMessage={t("emptySearchOptions")}
                         />
                     </div>
+                );
+            },
+            cell: ({ row }) => {
+                return row.original.method ? (
+                    row.original.method
+                ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
                 );
             }
         },
@@ -538,7 +629,11 @@ export default function GeneralPage() {
             cell: ({ row }) => {
                 return (
                     <span className="flex items-center gap-1">
-                        {reasonMap[row.original.reason]}
+                        {reasonMap[row.original.reason] ?? (
+                            <span className="text-xs text-muted-foreground">
+                                -
+                            </span>
+                        )}
                     </span>
                 );
             }
@@ -577,7 +672,9 @@ export default function GeneralPage() {
                                 {row.original.actor}
                             </>
                         ) : (
-                            <>-</>
+                            <span className="text-xs text-muted-foreground">
+                                -
+                            </span>
                         )}
                     </span>
                 );
@@ -651,13 +748,20 @@ export default function GeneralPage() {
                 description={t("requestLogsDescription")}
             />
 
+            {org.org.settingsLogRetentionDaysRequest === 0 && (
+                <LogRetentionWarning
+                    orgId={orgId as string}
+                    logTypeLabel={t("requestLogs")}
+                />
+            )}
+
             <LogDataTable
                 columns={columns}
                 data={rows}
                 title={t("requestLogs")}
                 searchPlaceholder={t("searchLogs")}
                 searchColumn="host"
-                onRefresh={() => refetch()}
+                onRefresh={handleRefresh}
                 isRefreshing={isFetching}
                 onExport={() => startTransition(exportData)}
                 isExporting={isExporting}

@@ -40,6 +40,32 @@ registry.registerPath({
     method: "get",
     path: "/site-resource/{siteResourceId}/roles",
     description: "List all roles for a site resource.",
+    tags: [OpenAPITags.PrivateResourceLegacy],
+    request: {
+        params: listSiteResourceRolesSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/private-resource/{resourceId}/roles",
+    description: "List all roles for a site resource.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Role],
     request: {
         params: listSiteResourceRolesSchema

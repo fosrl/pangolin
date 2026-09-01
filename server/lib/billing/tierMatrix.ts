@@ -9,8 +9,9 @@ export enum TierFeature {
     AccessLogs = "accessLogs", // set the retention period to none on downgrade
     ActionLogs = "actionLogs", // set the retention period to none on downgrade
     ConnectionLogs = "connectionLogs",
+    AISessionLogs = "aiSessionLogs",
     RotateCredentials = "rotateCredentials",
-    MaintencePage = "maintencePage", // handle downgrade
+    MaintenancePage = "maintenancePage", // handle downgrade
     DevicePosture = "devicePosture",
     TwoFactorEnforcement = "twoFactorEnforcement", // handle downgrade by setting to optional
     SessionDurationPolicies = "sessionDurationPolicies", // handle downgrade by setting to default duration
@@ -23,15 +24,12 @@ export enum TierFeature {
     StandaloneHealthChecks = "standaloneHealthChecks",
     AlertingRules = "alertingRules",
     WildcardSubdomain = "wildcardSubdomain",
-    Labels = "labels",
     NewtAutoUpdate = "newtAutoUpdate",
     ResourcePolicies = "resourcePolicies",
-    AdvancedPublicResources = "advancedPublicResources",
-    AdvancedPrivateResources = "advancedPrivateResources"
+    RoleBasedSSHControls = "roleBasedSSHControls"
 }
 
 export const tierMatrix: Record<TierFeature, Tier[]> = {
-    [TierFeature.Labels]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.OrgOidc]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.LoginPageDomain]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.DeviceApprovals]: ["tier1", "tier3", "enterprise"],
@@ -40,8 +38,9 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.AccessLogs]: ["tier2", "tier3", "enterprise"],
     [TierFeature.ActionLogs]: ["tier2", "tier3", "enterprise"],
     [TierFeature.ConnectionLogs]: ["tier2", "tier3", "enterprise"],
+    [TierFeature.AISessionLogs]: ["tier2", "tier3", "enterprise"],
     [TierFeature.RotateCredentials]: ["tier1", "tier2", "tier3", "enterprise"],
-    [TierFeature.MaintencePage]: ["tier1", "tier2", "tier3", "enterprise"],
+    [TierFeature.MaintenancePage]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.DevicePosture]: ["tier2", "tier3", "enterprise"],
     [TierFeature.TwoFactorEnforcement]: [
         "tier1",
@@ -71,6 +70,5 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.WildcardSubdomain]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.NewtAutoUpdate]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.ResourcePolicies]: ["tier3", "enterprise"],
-    [TierFeature.AdvancedPublicResources]: ["tier3", "enterprise"],
-    [TierFeature.AdvancedPrivateResources]: ["tier3", "enterprise"]
+    [TierFeature.RoleBasedSSHControls]: ["tier3", "enterprise"]
 };

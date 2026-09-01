@@ -42,9 +42,14 @@ export async function getSiteStatusHistory(
 
         const entityType = "site";
         const entityId = parsedParams.data.siteId;
-        const { days } = parsedQuery.data;
+        const { days, tzOffsetMinutes } = parsedQuery.data;
 
-        const data = await getCachedStatusHistory(entityType, entityId, days);
+        const data = await getCachedStatusHistory(
+            entityType,
+            entityId,
+            days,
+            tzOffsetMinutes
+        );
 
         return response<StatusHistoryResponse>(res, {
             data,

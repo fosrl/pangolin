@@ -22,7 +22,7 @@ import { fromError } from "zod-validation-error";
 import { eq, and } from "drizzle-orm";
 import { validateAndConstructDomain } from "@server/lib/domainUtils";
 import { subdomainSchema } from "@server/lib/schemas";
-import { createCertificate } from "#private/routers/certificates/createCertificate";
+import { createCertificate } from "@server/routers/certificates/createCertificate";
 
 import { UpdateLoginPageResponse } from "@server/routers/loginPage/types";
 
@@ -84,7 +84,6 @@ export async function updateLoginPage(
         }
 
         const { loginPageId, orgId } = parsedParams.data;
-
 
         const [existingLoginPage] = await db
             .select()

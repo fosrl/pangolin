@@ -533,18 +533,23 @@ export async function startAuthentication(
 
         // If email is provided, get security keys for that specific user
         if (email) {
-            const [user] = await db
+            const matchingUsers = await db
                 .select()
                 .from(users)
-                .where(eq(users.email, email))
-                .limit(1);
+                .where(
+                    and(
+                        eq(users.email, email.toLowerCase()),
+                        eq(users.type, UserType.Internal)
+                    )
+                );
 
-            if (!user || user.type !== UserType.Internal) {
+            if (matchingUsers.length !== 1) {
                 return next(
                     createHttpError(HttpCode.BAD_REQUEST, "Invalid credentials")
                 );
             }
 
+            const user = matchingUsers[0];
             userId = user.userId;
 
             const userSecurityKeys = await db

@@ -22,6 +22,7 @@ import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsFor
 import { build } from "@server/build";
 import { assignUserToOrg } from "@server/lib/userOrg";
 import { isOrgRebuildRateLimited } from "@server/lib/rebuildClientAssociations";
+import { UserType } from "@server/types/UserTypes";
 
 const acceptInviteBodySchema = z.strictObject({
     token: z.string(),
@@ -66,12 +67,17 @@ export async function acceptInvite(
             );
         }
 
-        const existingUser = await db
+        const [existingInternalUser] = await db
             .select()
             .from(users)
-            .where(eq(users.email, existingInvite.email))
+            .where(
+                and(
+                    eq(users.email, existingInvite.email),
+                    eq(users.type, UserType.Internal)
+                )
+            )
             .limit(1);
-        if (!existingUser.length) {
+        if (!existingInternalUser) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
@@ -80,9 +86,8 @@ export async function acceptInvite(
             );
         }
 
-        const { user, session } = await verifySession(req);
+        const { user } = await verifySession(req);
 
-        // at this point we know the user exists
         if (!user) {
             return next(
                 createHttpError(
@@ -92,11 +97,20 @@ export async function acceptInvite(
             );
         }
 
-        if (user && user.email !== existingInvite.email) {
+        if (user.email !== existingInvite.email) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
                     "Invite is not for this user"
+                )
+            );
+        }
+
+        if (user.type !== UserType.Internal) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Invites can only be accepted by internal users."
                 )
             );
         }
@@ -195,7 +209,7 @@ export async function acceptInvite(
             await assignUserToOrg(
                 org,
                 {
-                    userId: existingUser[0].userId,
+                    userId: user.userId,
                     orgId: existingInvite.orgId
                 },
                 inviteRoleIds,
@@ -208,13 +222,13 @@ export async function acceptInvite(
                 .where(eq(userInvites.inviteId, inviteId));
 
             logger.debug(
-                `User ${existingUser[0].userId} accepted invite to org ${existingInvite.orgId}`
+                `User ${user.userId} accepted invite to org ${existingInvite.orgId}`
             );
         });
 
-        calculateUserClientsForOrgs(existingUser[0].userId).catch((e) => {
+        calculateUserClientsForOrgs(user.userId).catch((e) => {
             logger.error(
-                `Failed to calculate user clients after accepting invite for user ${existingUser[0].userId}: ${e}`
+                `Failed to calculate user clients after accepting invite for user ${user.userId}: ${e}`
             );
         });
 

@@ -1,7 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { resources, resourceWhitelist } from "@server/db";
+import {
+    resources,
+    resourceWhitelist,
+    resourcePolicies,
+    resourcePolicyWhiteList
+} from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -28,6 +33,39 @@ const removeEmailFromResourceWhitelistParamsSchema = z.strictObject({
 registry.registerPath({
     method: "post",
     path: "/resource/{resourceId}/whitelist/remove",
+    description: "Remove a single email from the resource whitelist.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: removeEmailFromResourceWhitelistParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: removeEmailFromResourceWhitelistBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource/{resourceId}/whitelist/remove",
     description: "Remove a single email from the resource whitelist.",
     tags: [OpenAPITags.PublicResource],
     request: {
@@ -102,43 +140,103 @@ export async function removeEmailFromResourceWhitelist(
             );
         }
 
-        if (!resource.emailWhitelistEnabled) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "Email whitelist is not enabled for this resource"
-                )
-            );
+        // A shared policy takes precedence over the resource's inline
+        // (default) policy, which takes precedence over the resource's own
+        // direct whitelist fields. This mirrors the precedence used at
+        // request time in authWithWhitelist.ts / getResourceAuthInfo.ts.
+        const policyId =
+            resource.resourcePolicyId ?? resource.defaultResourcePolicyId;
+
+        if (policyId !== null) {
+            const [policy] = await db
+                .select()
+                .from(resourcePolicies)
+                .where(eq(resourcePolicies.resourcePolicyId, policyId));
+
+            if (!policy) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "Resource policy not found"
+                    )
+                );
+            }
+
+            if (!policy.emailWhitelistEnabled) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Email whitelist is not enabled for this resource"
+                    )
+                );
+            }
+
+            const existingEntry = await db
+                .select()
+                .from(resourcePolicyWhiteList)
+                .where(
+                    and(
+                        eq(resourcePolicyWhiteList.resourcePolicyId, policyId),
+                        eq(resourcePolicyWhiteList.email, email)
+                    )
+                );
+
+            if (existingEntry.length === 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "Email not found in whitelist"
+                    )
+                );
+            }
+
+            await db
+                .delete(resourcePolicyWhiteList)
+                .where(
+                    and(
+                        eq(resourcePolicyWhiteList.resourcePolicyId, policyId),
+                        eq(resourcePolicyWhiteList.email, email)
+                    )
+                );
+        } else {
+            if (!resource.emailWhitelistEnabled) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Email whitelist is not enabled for this resource"
+                    )
+                );
+            }
+
+            // Check if email exists in whitelist
+            const existingEntry = await db
+                .select()
+                .from(resourceWhitelist)
+                .where(
+                    and(
+                        eq(resourceWhitelist.resourceId, resourceId),
+                        eq(resourceWhitelist.email, email)
+                    )
+                );
+
+            if (existingEntry.length === 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "Email not found in whitelist"
+                    )
+                );
+            }
+
+            await db
+                .delete(resourceWhitelist)
+                .where(
+                    and(
+                        eq(resourceWhitelist.resourceId, resourceId),
+                        eq(resourceWhitelist.email, email)
+                    )
+                );
         }
-
-        // Check if email exists in whitelist
-        const existingEntry = await db
-            .select()
-            .from(resourceWhitelist)
-            .where(
-                and(
-                    eq(resourceWhitelist.resourceId, resourceId),
-                    eq(resourceWhitelist.email, email)
-                )
-            );
-
-        if (existingEntry.length === 0) {
-            return next(
-                createHttpError(
-                    HttpCode.NOT_FOUND,
-                    "Email not found in whitelist"
-                )
-            );
-        }
-
-        await db
-            .delete(resourceWhitelist)
-            .where(
-                and(
-                    eq(resourceWhitelist.resourceId, resourceId),
-                    eq(resourceWhitelist.email, email)
-                )
-            );
 
         return response(res, {
             data: {},

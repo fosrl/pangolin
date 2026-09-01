@@ -134,6 +134,17 @@ async function capRetentionDays(
         );
     }
 
+    if (
+        org.settingsLogRetentionDaysAISessions !== null &&
+        org.settingsLogRetentionDaysAISessions > maxRetentionDays
+    ) {
+        updates.settingsLogRetentionDaysAISessions = maxRetentionDays;
+        needsUpdate = true;
+        logger.info(
+            `Capping AI session log retention from ${org.settingsLogRetentionDaysAISessions} to ${maxRetentionDays} days for org ${orgId}`
+        );
+    }
+
     // Apply updates if needed
     if (needsUpdate) {
         await db.update(orgs).set(updates).where(eq(orgs.orgId, orgId));
@@ -280,12 +291,16 @@ async function disableFeature(
                 await disableConnectionLogs(orgId);
                 break;
 
+            case TierFeature.AISessionLogs:
+                await disableAISessionLogs(orgId);
+                break;
+
             case TierFeature.RotateCredentials:
                 await disableRotateCredentials(orgId);
                 break;
 
-            case TierFeature.MaintencePage:
-                await disableMaintencePage(orgId);
+            case TierFeature.MaintenancePage:
+                await disablemaintenancePage(orgId);
                 break;
 
             case TierFeature.DevicePosture:
@@ -306,10 +321,6 @@ async function disableFeature(
 
             case TierFeature.AutoProvisioning:
                 await disableAutoProvisioning(orgId);
-                break;
-
-            case TierFeature.AdvancedPrivateResources:
-                await disableAdvancedPrivateResources(orgId);
                 break;
 
             case TierFeature.FullRbac:
@@ -355,13 +366,6 @@ async function disableDeviceApprovals(orgId: string): Promise<void> {
         .where(eq(roles.orgId, orgId));
 
     logger.info(`Disabled device approvals on all roles for org ${orgId}`);
-}
-
-async function disableAdvancedPrivateResources(orgId: string): Promise<void> {
-    // TODO: implement logic to disable advanced private resourcs like ssh and ssh pam
-    // logger.info(
-    //     `Disabled advanced private resources on all roles and site resources for org ${orgId}`
-    // );
 }
 
 async function disableFullRbac(orgId: string): Promise<void> {
@@ -493,9 +497,18 @@ async function disableConnectionLogs(orgId: string): Promise<void> {
     logger.info(`Disabled connection logs for org ${orgId}`);
 }
 
+async function disableAISessionLogs(orgId: string): Promise<void> {
+    await db
+        .update(orgs)
+        .set({ settingsLogRetentionDaysAISessions: 0 })
+        .where(eq(orgs.orgId, orgId));
+
+    logger.info(`Disabled AI session logs for org ${orgId}`);
+}
+
 async function disableRotateCredentials(orgId: string): Promise<void> {}
 
-async function disableMaintencePage(orgId: string): Promise<void> {
+async function disablemaintenancePage(orgId: string): Promise<void> {
     await db
         .update(resources)
         .set({

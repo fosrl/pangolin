@@ -81,7 +81,27 @@ export const queryAccessAuditLogsQuery = z.strictObject({
         .optional()
         .default("0")
         .transform(Number)
-        .pipe(z.int().nonnegative())
+        .pipe(z.int().nonnegative()),
+    ip: z
+        .preprocess((val) => {
+            if (val === undefined || val === null || val === "") {
+                return undefined;
+            }
+            if (Array.isArray(val)) {
+                return val;
+            }
+            // the array is returned as this
+            if (typeof val === "string") {
+                return val.split(",");
+            }
+            return undefined;
+        }, z.array(z.string()))
+        .optional()
+        .catch([])
+        .openapi({
+            type: "array",
+            description: "Filter by IP adresses"
+        })
 });
 
 export const queryRequestAuditLogsParams = z.object({
@@ -126,6 +146,9 @@ function getWhere(data: Q) {
         data.path ? eq(requestAuditLog.path, data.path) : undefined,
         data.action !== undefined
             ? eq(requestAuditLog.action, data.action)
+            : undefined,
+        data.ip && data.ip.length > 0
+            ? inArray(requestAuditLog.ip, data.ip)
             : undefined
     );
 }
@@ -158,7 +181,7 @@ export function queryRequest(data: Q) {
         })
         .from(requestAuditLog)
         .where(getWhere(data))
-        .orderBy(desc(requestAuditLog.timestamp));
+        .orderBy(desc(requestAuditLog.timestamp), desc(requestAuditLog.id));
 }
 
 async function enrichWithResourceDetails(

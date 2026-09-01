@@ -1,32 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
-import { SidebarNav } from "@app/components/SidebarNav";
-import { OrgSelector } from "@app/components/OrgSelector";
-import { cn } from "@app/lib/cn";
-import { ListUserOrgsResponse } from "@server/routers/org";
-import { Button } from "@app/components/ui/button";
-import { Menu, Server, Settings, SquareMousePointer } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useUserContext } from "@app/hooks/useUserContext";
-import { useTranslations } from "next-intl";
-import ProfileIcon from "@app/components/ProfileIcon";
-import ThemeSwitcher from "@app/components/ThemeSwitcher";
 import type { SidebarNavSection } from "@app/app/navigation";
+import { CommandPaletteTrigger } from "@app/components/command-palette/CommandPaletteTrigger";
+import { OrgSelector } from "@app/components/OrgSelector";
+import ProfileIcon from "@app/components/ProfileIcon";
+import { SidebarNav, type SidebarNavItem } from "@app/components/SidebarNav";
+import ThemeSwitcher from "@app/components/ThemeSwitcher";
+import { Button } from "@app/components/ui/button";
 import {
     Sheet,
     SheetContent,
-    SheetTrigger,
+    SheetDescription,
     SheetTitle,
-    SheetDescription
+    SheetTrigger
 } from "@app/components/ui/sheet";
-import { Abel } from "next/font/google";
+import { cn } from "@app/lib/cn";
+import { ListUserOrgsResponse } from "@server/routers/org";
+import { Menu, Settings } from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useState } from "react";
 
 interface LayoutMobileMenuProps {
     orgId?: string;
     orgs?: ListUserOrgsResponse["orgs"];
     navItems: SidebarNavSection[];
+    launcherNavItems?: SidebarNavItem[];
     showSidebar: boolean;
     showTopBar: boolean;
     launcherMode?: boolean;
@@ -37,24 +36,15 @@ export function LayoutMobileMenu({
     orgId,
     orgs,
     navItems,
+    launcherNavItems = [],
     showSidebar,
     showTopBar,
     launcherMode = false,
     showViewAsAdmin = false
 }: LayoutMobileMenuProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const pathname = usePathname();
-    const isAdminPage = pathname?.startsWith("/admin");
-    const { user } = useUserContext();
     const t = useTranslations();
     const showMobileNav = showSidebar || launcherMode;
-    const currentOrg = orgs?.find((org) => org.orgId === orgId);
-    const isSettingsPage = Boolean(
-        orgId && pathname?.includes(`/${orgId}/settings`)
-    );
-    const canViewResourceLauncher = Boolean(
-        currentOrg?.isAdmin || currentOrg?.isOwner
-    );
 
     const mobileNavLinkClassName = cn(
         "flex items-center rounded transition-colors text-muted-foreground hover:text-foreground text-sm w-full hover:bg-secondary/50 dark:hover:bg-secondary/20 rounded-md px-3 py-1.5"
@@ -95,8 +85,55 @@ export function LayoutMobileMenu({
                                                     />
                                                 </div>
                                             </div>
-                                            {showViewAsAdmin && orgId ? (
-                                                <div className="px-3">
+                                            <div className="px-3">
+                                                {orgId
+                                                    ? launcherNavItems
+                                                          .filter(
+                                                              (item) =>
+                                                                  item.href
+                                                          )
+                                                          .map((item) => {
+                                                              const href =
+                                                                  item.href!.replace(
+                                                                      "{orgId}",
+                                                                      orgId
+                                                                  );
+                                                              return (
+                                                                  <div
+                                                                      key={href}
+                                                                      className="mb-1"
+                                                                  >
+                                                                      <Link
+                                                                          href={
+                                                                              href
+                                                                          }
+                                                                          className={
+                                                                              mobileNavLinkClassName
+                                                                          }
+                                                                          onClick={() =>
+                                                                              setIsMobileMenuOpen(
+                                                                                  false
+                                                                              )
+                                                                          }
+                                                                      >
+                                                                          {item.icon ? (
+                                                                              <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-muted-foreground mr-3">
+                                                                                  {
+                                                                                      item.icon
+                                                                                  }
+                                                                              </span>
+                                                                          ) : null}
+                                                                          <span className="flex-1">
+                                                                              {t(
+                                                                                  item.title
+                                                                              )}
+                                                                          </span>
+                                                                      </Link>
+                                                                  </div>
+                                                              );
+                                                          })
+                                                    : null}
+                                                {showViewAsAdmin && orgId ? (
                                                     <div className="mb-1">
                                                         <Link
                                                             href={`/${orgId}/settings`}
@@ -119,8 +156,8 @@ export function LayoutMobileMenu({
                                                             </span>
                                                         </Link>
                                                     </div>
-                                                </div>
-                                            ) : null}
+                                                ) : null}
+                                            </div>
                                         </>
                                     ) : (
                                         <>
@@ -134,58 +171,6 @@ export function LayoutMobileMenu({
                                             </div>
                                             <div className="flex-1 overflow-y-auto relative">
                                                 <div className="px-3">
-                                                    {!isAdminPage &&
-                                                        isSettingsPage &&
-                                                        canViewResourceLauncher &&
-                                                        orgId && (
-                                                            <div className="mb-1">
-                                                                <Link
-                                                                    href={`/${orgId}`}
-                                                                    className={
-                                                                        mobileNavLinkClassName
-                                                                    }
-                                                                    onClick={() =>
-                                                                        setIsMobileMenuOpen(
-                                                                            false
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-muted-foreground mr-3">
-                                                                        <SquareMousePointer className="h-4 w-4" />
-                                                                    </span>
-                                                                    <span className="flex-1">
-                                                                        {t(
-                                                                            "resourceLauncherTitle"
-                                                                        )}
-                                                                    </span>
-                                                                </Link>
-                                                            </div>
-                                                        )}
-                                                    {!isAdminPage &&
-                                                        user.serverAdmin && (
-                                                            <div className="mb-1">
-                                                                <Link
-                                                                    href="/admin"
-                                                                    className={
-                                                                        mobileNavLinkClassName
-                                                                    }
-                                                                    onClick={() =>
-                                                                        setIsMobileMenuOpen(
-                                                                            false
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-muted-foreground mr-3">
-                                                                        <Server className="h-4 w-4" />
-                                                                    </span>
-                                                                    <span className="flex-1">
-                                                                        {t(
-                                                                            "serverAdmin"
-                                                                        )}
-                                                                    </span>
-                                                                </Link>
-                                                            </div>
-                                                        )}
                                                     <SidebarNav
                                                         sections={navItems}
                                                         onItemClick={() =>
@@ -207,6 +192,11 @@ export function LayoutMobileMenu({
                 {showTopBar && (
                     <div className="ml-auto flex items-center justify-end">
                         <div className="flex items-center space-x-2">
+                            <CommandPaletteTrigger
+                                variant="mobile"
+                                orgId={orgId}
+                                orgs={orgs}
+                            />
                             <ThemeSwitcher />
                             <ProfileIcon />
                         </div>

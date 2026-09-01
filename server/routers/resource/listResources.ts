@@ -124,12 +124,21 @@ const listResourcesSchema = z.strictObject({
                 "Filter resources based on health status of their targets. `healthy` means all targets are healthy. `degraded` means at least one target is unhealthy, but not all are unhealthy. `offline` means all targets are unhealthy. `unknown` means all targets have unknown health status."
         }),
     protocol: z
-        .enum(["http", "https", "tcp", "udp", "ssh", "rdp", "vnc"])
+        .enum(["http", "https", "tcp", "udp", "ssh", "rdp", "vnc", "inference"])
         .optional()
         .catch(undefined)
         .openapi({
             type: "string",
-            enum: ["http", "https", "tcp", "udp", "ssh", "rdp", "vnc"],
+            enum: [
+                "http",
+                "https",
+                "tcp",
+                "udp",
+                "ssh",
+                "rdp",
+                "vnc",
+                "inference"
+            ],
             description:
                 "Filter resources by protocol. `http` and `https` match HTTP resources without and with SSL respectively."
         }),
@@ -138,6 +147,15 @@ const listResourcesSchema = z.strictObject({
         description:
             "When set, only resources that have at least one target on this site are returned"
     }),
+    status: z
+        .enum(["pending", "approved"])
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "string",
+            enum: ["pending", "approved"],
+            description: "Filter by resource status"
+        }),
     labels: z
         .preprocess((val) => {
             if (val === undefined || val === null || val === "") {
@@ -400,6 +418,35 @@ registry.registerPath({
     method: "get",
     path: "/org/{orgId}/resources",
     description: "List resources for an organization.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: z.object({
+            orgId: z.string()
+        }),
+        query: listResourcesSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/org/{orgId}/public-resources",
+    description: "List resources for an organization.",
     tags: [OpenAPITags.PublicResource],
     request: {
         params: z.object({
@@ -451,6 +498,7 @@ export async function listResources(
             sort_by,
             order,
             siteId,
+            status,
             labels: labelFilter
         } = parsedQuery.data;
 
@@ -483,11 +531,6 @@ export async function listResources(
                 )
             );
         }
-
-        const isLabelFeatureEnabled = await isLicensedOrSubscribed(
-            orgId,
-            tierMatrix.labels
-        );
 
         let accessibleResources: Array<{ resourceId: number }>;
         if (req.user) {
@@ -603,11 +646,12 @@ export async function listResources(
                     ${resourcePassword.passwordId}
                 )
             `;
-            const browserGatewayModes = ["http", "ssh", "rdp", "vnc"];
+            const browserGatewayModes = ["http", "ssh", "rdp", "vnc"] as const;
 
             switch (authState) {
                 case "none":
                     conditions.push(
+                        // TODO: Does inference belong here?
                         or(eq(resources.mode, "tcp"), eq(resources.mode, "udp"))
                     );
                     break;
@@ -665,6 +709,10 @@ export async function listResources(
             }
         }
 
+        if (typeof status !== "undefined") {
+            conditions.push(eq(resources.status, status));
+        }
+
         if (siteId != null) {
             const resourcesWithSite = db
                 .select({ resourceId: targets.resourceId })
@@ -676,7 +724,7 @@ export async function listResources(
             );
         }
 
-        if (isLabelFeatureEnabled && labelFilter && labelFilter.length > 0) {
+        if (labelFilter && labelFilter.length > 0) {
             conditions.push(
                 inArray(
                     resources.resourceId,
@@ -697,24 +745,19 @@ export async function listResources(
             const queryList = [
                 like(sql`LOWER(${resources.name})`, q),
                 like(sql`LOWER(${resources.niceId})`, q),
-                like(sql`LOWER(${resources.fullDomain})`, q)
+                like(sql`LOWER(${resources.fullDomain})`, q),
+                inArray(
+                    resources.resourceId,
+                    db
+                        .select({ id: resourceLabels.resourceId })
+                        .from(resourceLabels)
+                        .innerJoin(
+                            labels,
+                            eq(labels.labelId, resourceLabels.labelId)
+                        )
+                        .where(like(sql`LOWER(${labels.name})`, q))
+                )
             ];
-
-            if (isLabelFeatureEnabled) {
-                queryList.push(
-                    inArray(
-                        resources.resourceId,
-                        db
-                            .select({ id: resourceLabels.resourceId })
-                            .from(resourceLabels)
-                            .innerJoin(
-                                labels,
-                                eq(labels.labelId, resourceLabels.labelId)
-                            )
-                            .where(like(sql`LOWER(${labels.name})`, q))
-                    )
-                );
-            }
 
             conditions.push(or(...queryList));
         }
@@ -747,27 +790,23 @@ export async function listResources(
             resourceId: number;
         }> = [];
 
-        if (isLabelFeatureEnabled) {
-            labelsForResources =
-                resourceIdList.length === 0
-                    ? []
-                    : await db
-                          .select({
-                              labelId: labels.labelId,
-                              name: labels.name,
-                              color: labels.color,
-                              resourceId: resourceLabels.resourceId
-                          })
-                          .from(labels)
-                          .innerJoin(
-                              resourceLabels,
-                              eq(resourceLabels.labelId, labels.labelId)
-                          )
-                          .where(
-                              inArray(resourceLabels.resourceId, resourceIdList)
-                          )
-                          .orderBy(asc(resourceLabels.resourceLabelId));
-        }
+        labelsForResources =
+            resourceIdList.length === 0
+                ? []
+                : await db
+                      .select({
+                          labelId: labels.labelId,
+                          name: labels.name,
+                          color: labels.color,
+                          resourceId: resourceLabels.resourceId
+                      })
+                      .from(labels)
+                      .innerJoin(
+                          resourceLabels,
+                          eq(resourceLabels.labelId, labels.labelId)
+                      )
+                      .where(inArray(resourceLabels.resourceId, resourceIdList))
+                      .orderBy(asc(resourceLabels.resourceLabelId));
 
         const allResourceTargets =
             resourceIdList.length === 0

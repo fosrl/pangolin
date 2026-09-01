@@ -30,11 +30,20 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { HorizontalTabs } from "@app/components/HorizontalTabs";
 import { PaidFeaturesAlert } from "./PaidFeaturesAlert";
 import { CheckboxWithLabel } from "./ui/checkbox";
+import {
+    BudgetRowsFields,
+    getBudgetRowsErrors,
+    rowsFromBudgets,
+    type BudgetRow
+} from "@app/components/BudgetsEditor";
+import { aiBudgetQueries } from "@app/lib/queries";
+import type { AiBudgetPeriod, AiBudgetUnit } from "@app/lib/aiBudgetScope";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { Role } from "@server/db";
 
@@ -82,6 +91,13 @@ function hasOnlyAbsoluteSudoCommands(value: string | undefined): boolean {
     });
 }
 
+export type PendingRoleBudget = {
+    budgetId?: number;
+    amount: string;
+    unit: AiBudgetUnit;
+    period: AiBudgetPeriod;
+};
+
 export type RoleFormValues = {
     name: string;
     description?: string;
@@ -91,6 +107,7 @@ export type RoleFormValues = {
     sshSudoCommands?: string;
     sshCreateHomeDir?: boolean;
     sshUnixGroups?: string;
+    budgets?: PendingRoleBudget[];
 };
 
 type RoleFormProps = {
@@ -166,7 +183,7 @@ export function RoleForm({
               description: "",
               requireDeviceApproval: false,
               allowSsh: false,
-              sshSudoMode: "none",
+              sshSudoMode: "full",
               sshSudoCommands: "",
               sshCreateHomeDir: true,
               sshUnixGroups: ""
@@ -195,19 +212,28 @@ export function RoleForm({
         }
     }, [variant, role, form]);
 
-    const sshDisabled = !isPaidUser(tierMatrix.advancedPrivateResources);
+    const sshDisabled = !isPaidUser(tierMatrix.roleBasedSSHControls);
     const sshSudoMode = form.watch("sshSudoMode");
     const isAdminRole = variant === "edit" && role?.isAdmin === true;
     const [pendingImport, setPendingImport] =
         useState<PendingTextImport | null>(null);
     const [dragOverField, setDragOverField] =
         useState<RoleTextImportField | null>(null);
+    const [pendingBudgetRows, setPendingBudgetRows] = useState<BudgetRow[]>([]);
+    const [attemptedBudgetsSave, setAttemptedBudgetsSave] = useState(false);
+
+    const budgetsQuery = useQuery({
+        ...aiBudgetQueries.scoped({
+            scope: { type: "role", id: role?.roleId ?? -1 }
+        }),
+        enabled: variant === "edit" && !!role
+    });
 
     useEffect(() => {
-        if (sshDisabled) {
-            form.setValue("allowSsh", false);
-        }
-    }, [sshDisabled, form]);
+        if (variant !== "edit" || !budgetsQuery.data) return;
+        setPendingBudgetRows(rowsFromBudgets(budgetsQuery.data));
+        setAttemptedBudgetsSave(false);
+    }, [variant, budgetsQuery.data]);
 
     async function handleFileDrop(
         file: File,
@@ -252,6 +278,34 @@ export function RoleForm({
         });
     }
 
+    function handleFormSubmit(values: z.infer<typeof formSchema>) {
+        const { conflictingKeys, invalidAmountKeys } =
+            getBudgetRowsErrors(pendingBudgetRows);
+        if (conflictingKeys.size > 0 || invalidAmountKeys.size > 0) {
+            setAttemptedBudgetsSave(true);
+            toast({
+                variant: "destructive",
+                title: t("aiBudgetErrorSave"),
+                description: conflictingKeys.size
+                    ? t("aiBudgetConflictError")
+                    : t("aiBudgetInvalidAmountError")
+            });
+            return;
+        }
+
+        return onSubmit({
+            ...values,
+            budgets: pendingBudgetRows.map(
+                ({ budgetId, amount, unit, period }) => ({
+                    budgetId,
+                    amount,
+                    unit,
+                    period
+                })
+            )
+        });
+    }
+
     function getTextImportDropHandlers(field: RoleTextImportField) {
         return {
             onDragOver: (event: React.DragEvent<HTMLTextAreaElement>) => {
@@ -284,7 +338,7 @@ export function RoleForm({
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit((values) => onSubmit(values))}
+                onSubmit={form.handleSubmit(handleFormSubmit)}
                 className="space-y-4"
                 id={formId}
             >
@@ -333,7 +387,11 @@ export function RoleForm({
                             { title: t("general"), href: "#" },
                             ...(env.flags.disableEnterpriseFeatures
                                 ? []
-                                : [{ title: t("sshAccess"), href: "#" }])
+                                : [{ title: t("sshAccess"), href: "#" }]),
+                            {
+                                title: t("accessRoleInferenceBudget"),
+                                href: "#"
+                            }
                         ]}
                     >
                         {/* General tab */}
@@ -423,115 +481,157 @@ export function RoleForm({
                             />
                         </div>
 
-                        {/* SSH tab - hidden when enterprise features are disabled */}
-                        {!env.flags.disableEnterpriseFeatures && (
-                            <div className="space-y-4 mt-4">
-                                <PaidFeaturesAlert
-                                    tiers={tierMatrix.advancedPrivateResources}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="allowSsh"
-                                    render={({ field }) => {
-                                        const allowSshOptions: OptionSelectOption<
-                                            "allow" | "disallow"
-                                        >[] = [
-                                            {
-                                                value: "allow",
-                                                label: t("roleAllowSshAllow")
-                                            },
-                                            {
-                                                value: "disallow",
-                                                label: t("roleAllowSshDisallow")
-                                            }
-                                        ];
-                                        return (
-                                            <FormItem>
-                                                <FormLabel>
-                                                    {t("roleAllowSsh")}
-                                                </FormLabel>
-                                                <OptionSelect<
-                                                    "allow" | "disallow"
-                                                >
-                                                    options={allowSshOptions}
-                                                    value={
-                                                        sshDisabled
-                                                            ? "disallow"
-                                                            : field.value
-                                                              ? "allow"
-                                                              : "disallow"
-                                                    }
-                                                    onChange={(v) => {
-                                                        if (sshDisabled) return;
-                                                        field.onChange(
-                                                            v === "allow"
-                                                        );
-                                                    }}
-                                                    cols={2}
-                                                    disabled={sshDisabled}
-                                                />
-                                                <FormDescription>
-                                                    {t(
-                                                        "roleAllowSshDescription"
-                                                    )}
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        );
-                                    }}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="sshSudoMode"
-                                    render={({ field }) => {
-                                        const sudoOptions: OptionSelectOption<SshSudoMode>[] =
-                                            [
-                                                {
-                                                    value: "none",
-                                                    label: t("sshSudoModeNone")
-                                                },
-                                                {
-                                                    value: "full",
-                                                    label: t("sshSudoModeFull")
-                                                },
-                                                {
-                                                    value: "commands",
-                                                    label: t(
-                                                        "sshSudoModeCommands"
-                                                    )
+                        <div className="space-y-4 mt-4">
+                            <FormField
+                                control={form.control}
+                                name="allowSsh"
+                                render={({ field }) => {
+                                    const allowSshOptions: OptionSelectOption<
+                                        "allow" | "disallow"
+                                    >[] = [
+                                        {
+                                            value: "allow",
+                                            label: t("roleAllowSshAllow")
+                                        },
+                                        {
+                                            value: "disallow",
+                                            label: t("roleAllowSshDisallow")
+                                        }
+                                    ];
+                                    return (
+                                        <FormItem>
+                                            <FormLabel>
+                                                {t("roleAllowSsh")}
+                                            </FormLabel>
+                                            <OptionSelect<"allow" | "disallow">
+                                                options={allowSshOptions}
+                                                value={
+                                                    field.value
+                                                        ? "allow"
+                                                        : "disallow"
                                                 }
-                                            ];
-                                        return (
-                                            <FormItem>
-                                                <FormLabel>
-                                                    {t("sshSudoMode")}
-                                                </FormLabel>
-                                                <OptionSelect<SshSudoMode>
-                                                    options={sudoOptions}
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    cols={3}
-                                                    disabled={sshDisabled}
-                                                />
-                                                <FormMessage />
-                                            </FormItem>
-                                        );
-                                    }}
-                                />
-                                {sshSudoMode === "commands" && (
+                                                onChange={(v) => {
+                                                    field.onChange(
+                                                        v === "allow"
+                                                    );
+                                                }}
+                                                cols={2}
+                                            />
+                                            <FormDescription>
+                                                {t("roleAllowSshDescription")}
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    );
+                                }}
+                            />
+                            {/* SSH tab - hidden when enterprise features are disabled */}
+                            {!env.flags.disableEnterpriseFeatures && (
+                                <>
+                                    <PaidFeaturesAlert
+                                        tiers={tierMatrix.roleBasedSSHControls}
+                                    />
                                     <FormField
                                         control={form.control}
-                                        name="sshSudoCommands"
+                                        name="sshSudoMode"
+                                        render={({ field }) => {
+                                            const sudoOptions: OptionSelectOption<SshSudoMode>[] =
+                                                [
+                                                    {
+                                                        value: "none",
+                                                        label: t(
+                                                            "sshSudoModeNone"
+                                                        )
+                                                    },
+                                                    {
+                                                        value: "full",
+                                                        label: t(
+                                                            "sshSudoModeFull"
+                                                        )
+                                                    },
+                                                    {
+                                                        value: "commands",
+                                                        label: t(
+                                                            "sshSudoModeCommands"
+                                                        )
+                                                    }
+                                                ];
+                                            return (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t("sshSudoMode")}
+                                                    </FormLabel>
+                                                    <OptionSelect<SshSudoMode>
+                                                        options={sudoOptions}
+                                                        value={field.value}
+                                                        onChange={
+                                                            field.onChange
+                                                        }
+                                                        cols={3}
+                                                        disabled={sshDisabled}
+                                                    />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            );
+                                        }}
+                                    />
+                                    {sshSudoMode === "commands" && (
+                                        <FormField
+                                            control={form.control}
+                                            name="sshSudoCommands"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t("sshSudoCommands")}
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            {...field}
+                                                            {...getTextImportDropHandlers(
+                                                                "sshSudoCommands"
+                                                            )}
+                                                            placeholder={
+                                                                sshDisabled
+                                                                    ? undefined
+                                                                    : t(
+                                                                          "roleTextFieldPlaceholder"
+                                                                      )
+                                                            }
+                                                            disabled={
+                                                                sshDisabled
+                                                            }
+                                                            className={cn(
+                                                                "h-20 min-h-20",
+                                                                dragOverField ===
+                                                                    "sshSudoCommands" &&
+                                                                    "border-primary"
+                                                            )}
+                                                        />
+                                                    </FormControl>
+                                                    <FormDescription>
+                                                        {t(
+                                                            "sshSudoCommandsDescription"
+                                                        )}
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
+
+                                    <FormField
+                                        control={form.control}
+                                        name="sshUnixGroups"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
-                                                    {t("sshSudoCommands")}
+                                                    {t("sshUnixGroups")}
                                                 </FormLabel>
                                                 <FormControl>
                                                     <Textarea
                                                         {...field}
                                                         {...getTextImportDropHandlers(
-                                                            "sshSudoCommands"
+                                                            "sshUnixGroups"
                                                         )}
                                                         placeholder={
                                                             sshDisabled
@@ -544,97 +644,73 @@ export function RoleForm({
                                                         className={cn(
                                                             "h-20 min-h-20",
                                                             dragOverField ===
-                                                                "sshSudoCommands" &&
+                                                                "sshUnixGroups" &&
                                                                 "border-primary"
                                                         )}
                                                     />
                                                 </FormControl>
                                                 <FormDescription>
                                                     {t(
-                                                        "sshSudoCommandsDescription"
+                                                        "sshUnixGroupsDescription"
                                                     )}
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
                                     />
-                                )}
 
-                                <FormField
-                                    control={form.control}
-                                    name="sshUnixGroups"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>
-                                                {t("sshUnixGroups")}
-                                            </FormLabel>
-                                            <FormControl>
-                                                <Textarea
-                                                    {...field}
-                                                    {...getTextImportDropHandlers(
-                                                        "sshUnixGroups"
-                                                    )}
-                                                    placeholder={
-                                                        sshDisabled
-                                                            ? undefined
-                                                            : t(
-                                                                  "roleTextFieldPlaceholder"
-                                                              )
-                                                    }
-                                                    disabled={sshDisabled}
-                                                    className={cn(
-                                                        "h-20 min-h-20",
-                                                        dragOverField ===
-                                                            "sshUnixGroups" &&
-                                                            "border-primary"
-                                                    )}
-                                                />
-                                            </FormControl>
-                                            <FormDescription>
-                                                {t("sshUnixGroupsDescription")}
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                    <FormField
+                                        control={form.control}
+                                        name="sshCreateHomeDir"
+                                        render={({ field }) => (
+                                            <FormItem className="my-2">
+                                                <FormControl>
+                                                    <CheckboxWithLabel
+                                                        {...field}
+                                                        value="on"
+                                                        checked={form.watch(
+                                                            "sshCreateHomeDir"
+                                                        )}
+                                                        onCheckedChange={(
+                                                            checked
+                                                        ) => {
+                                                            if (
+                                                                checked !==
+                                                                "indeterminate"
+                                                            ) {
+                                                                form.setValue(
+                                                                    "sshCreateHomeDir",
+                                                                    checked
+                                                                );
+                                                            }
+                                                        }}
+                                                        label={t(
+                                                            "sshCreateHomeDir"
+                                                        )}
+                                                        disabled={sshDisabled}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </>
+                            )}
+                        </div>
 
-                                <FormField
-                                    control={form.control}
-                                    name="sshCreateHomeDir"
-                                    render={({ field }) => (
-                                        <FormItem className="my-2">
-                                            <FormControl>
-                                                <CheckboxWithLabel
-                                                    {...field}
-                                                    value="on"
-                                                    checked={form.watch(
-                                                        "sshCreateHomeDir"
-                                                    )}
-                                                    onCheckedChange={(
-                                                        checked
-                                                    ) => {
-                                                        if (
-                                                            checked !==
-                                                            "indeterminate"
-                                                        ) {
-                                                            form.setValue(
-                                                                "sshCreateHomeDir",
-                                                                checked
-                                                            );
-                                                        }
-                                                    }}
-                                                    label={t(
-                                                        "sshCreateHomeDir"
-                                                    )}
-                                                    disabled={sshDisabled}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        )}
+                        <div className="space-y-4 mt-4">
+                            <p className="text-sm text-muted-foreground">
+                                {t("accessRoleInferenceBudgetDescription")}
+                            </p>
+                            <BudgetRowsFields
+                                rows={pendingBudgetRows}
+                                onChange={setPendingBudgetRows}
+                                disabled={
+                                    variant === "edit" && budgetsQuery.isLoading
+                                }
+                                attemptedSave={attemptedBudgetsSave}
+                            />
+                        </div>
                     </HorizontalTabs>
                 )}
             </form>

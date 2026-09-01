@@ -9,7 +9,6 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 
-import { toast } from "@app/hooks/useToast";
 import { useTranslations } from "next-intl";
 
 import type { FieldValues, Path, UseFormReturn } from "react-hook-form";
@@ -18,7 +17,7 @@ import { RolesSelector, type SelectedRole } from "./roles-selector";
 type OrgRolesTagFieldProps<TFieldValues extends FieldValues> = {
     form: Pick<
         UseFormReturn<TFieldValues>,
-        "control" | "getValues" | "setValue"
+        "control" | "getValues" | "setValue" | "clearErrors"
     >;
     orgId: string;
     /** Field in the form that holds Tag[] (role tags). Default: `"roles"`. */
@@ -58,42 +57,42 @@ export default function OrgRolesTagField<TFieldValues extends FieldValues>({
             form.setValue(name, [prev[prev.length - 1]] as never, {
                 shouldDirty: true
             });
-            return;
-        }
-
-        if (next.length === 0) {
-            toast({
-                variant: "destructive",
-                title: t("accessRoleErrorAdd"),
-                description: t("accessRoleSelectPlease")
-            });
+            form.clearErrors(name);
             return;
         }
 
         form.setValue(name, next as never, { shouldDirty: true });
+
+        if (next.length > 0) {
+            form.clearErrors(name);
+        }
     }
 
     return (
         <FormField
             control={form.control}
             name={name}
-            render={({ field }) => (
-                <FormItem className="flex flex-col items-start">
-                    <FormLabel>{label ?? t("roles")}</FormLabel>
-                    <FormControl>
-                        <RolesSelector
-                            orgId={orgId}
-                            selectedRoles={field.value ?? []}
-                            onSelectRoles={setRoleTags}
-                            disabled={disabled}
-                        />
-                    </FormControl>
-                    {showMultiRolePaywallMessage && (
-                        <FormDescription>{paywallMessage}</FormDescription>
-                    )}
-                    <FormMessage />
-                </FormItem>
-            )}
+            render={({ field }) => {
+                const selectedRoles = (field.value ?? []) as SelectedRole[];
+
+                return (
+                    <FormItem className="flex flex-col items-start">
+                        <FormLabel>{label ?? t("roles")}</FormLabel>
+                        <FormControl>
+                            <RolesSelector
+                                orgId={orgId}
+                                selectedRoles={selectedRoles}
+                                onSelectRoles={setRoleTags}
+                                disabled={disabled}
+                            />
+                        </FormControl>
+                        {showMultiRolePaywallMessage && (
+                            <FormDescription>{paywallMessage}</FormDescription>
+                        )}
+                        <FormMessage />
+                    </FormItem>
+                );
+            }}
         />
     );
 }

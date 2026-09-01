@@ -1,6 +1,8 @@
 import { verifySession } from "@app/lib/auth/verifySession";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import OrgProvider from "@app/providers/OrgProvider";
+import { getCachedOrg } from "@app/lib/api/getCachedOrg";
 
 type GeneralSettingsProps = {
     children: React.ReactNode;
@@ -11,6 +13,8 @@ export default async function GeneralSettingsPage({
     children,
     params
 }: GeneralSettingsProps) {
+    const { orgId } = await params;
+
     const getUser = cache(verifySession);
     const user = await getUser();
 
@@ -18,5 +22,13 @@ export default async function GeneralSettingsPage({
         redirect(`/`);
     }
 
-    return children;
+    let org = null;
+    try {
+        const res = await getCachedOrg(orgId);
+        org = res.data.data;
+    } catch {
+        redirect(`/${orgId}`);
+    }
+
+    return <OrgProvider org={org}>{children}</OrgProvider>;
 }

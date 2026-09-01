@@ -1,18 +1,29 @@
-import { validateResourceSessionToken } from "@server/auth/sessions/resource";
+import {
+    createResourceSession,
+    serializeResourceSessionCookie,
+    validateResourceSessionToken
+} from "@server/auth/sessions/resource";
+import { generateSessionToken } from "@server/auth/sessions/app";
 import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
+import {
+    extractVirtualApiKeyCredential,
+    verifyVirtualApiKey
+} from "@server/auth/verifyVirtualApiKey";
 import {
     getResourceByDomain,
     getResourceRules,
     getRoleResourceAccess,
     getUserResourceAccess,
     getOrgLoginPage,
-    getUserSessionWithUser
+    getUserSessionWithUser,
+    getWhitelistEmail
 } from "@server/db/queries/verifySessionQueries";
 import { getUserOrgRoles } from "@server/lib/userOrgRoles";
 import {
     LoginPage,
     Org,
     Resource,
+    ResourceAccessToken,
     ResourceHeaderAuth,
     ResourceHeaderAuthExtendedCompatibility,
     ResourcePassword,
@@ -21,7 +32,10 @@ import {
     ResourcePolicyPassword,
     ResourcePolicyHeaderAuth,
     ResourceRule,
-    ResourceSession
+    ResourceSession,
+    db,
+    resourceAccessToken,
+    users
 } from "@server/db";
 import config from "@server/lib/config";
 import { isIpInCidr, stripPortFromHost } from "@server/lib/ip";
@@ -35,17 +49,24 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { getCountryCodeForIp } from "@server/lib/geoip";
 import { getAsnForIp } from "@server/lib/asn";
+import {
+    buildInferenceAuthClientError,
+    type ClientErrorResponse
+} from "@server/lib/aiGatewayAuthError";
+import { resolveAiCapabilityFromPath } from "@server/lib/aiCapabilities";
 import { verifyPassword } from "@server/auth/password";
 import {
     checkOrgAccessPolicy,
     enforceResourceSessionLength
 } from "#dynamic/lib/checkOrgAccessPolicy";
 import { logRequestAudit } from "./logRequestAudit";
+import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 import { REGIONS } from "@server/db/regions";
 import { localCache } from "#dynamic/lib/cache";
 import { APP_VERSION } from "@server/lib/consts";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { eq } from "drizzle-orm";
 
 const verifyResourceSessionSchema = z.object({
     sessions: z.record(z.string(), z.string()).optional(),
@@ -74,6 +95,15 @@ type BasicUserData = {
     role: string | null;
 };
 
+// Some auth methods (e.g. email whitelist) only know the remote email and
+// have no associated user record to attach userId/username/name/role to.
+type EmailOnlyUserData = {
+    dontStripSession?: boolean;
+    email: string;
+};
+
+export type { ClientErrorResponse };
+
 export type VerifyUserResponse = {
     valid: boolean;
     headerAuthChallenged?: boolean;
@@ -81,7 +111,30 @@ export type VerifyUserResponse = {
     userData?: BasicUserData;
     pangolinVersion?: string;
     dontStripSession?: boolean;
+    clientError?: ClientErrorResponse;
+    // Set independently of userData so a manual virtual API key with no
+    // associated user still gets attributed to the key that authenticated
+    // the request (see the mode === "inference" branch below).
+    virtualApiKeyId?: string;
 };
+
+function notAllowedWithClientError(
+    res: Response,
+    clientError: ClientErrorResponse
+) {
+    const data = {
+        data: {
+            valid: false,
+            clientError,
+            pangolinVersion: APP_VERSION
+        },
+        success: true,
+        error: false,
+        message: "Access denied",
+        status: HttpCode.OK
+    };
+    return response<VerifyUserResponse>(res, data);
+}
 
 export async function verifyResourceSession(
     req: Request,
@@ -115,6 +168,10 @@ export async function verifyResourceSession(
 
         // Extract HTTP Basic Auth credentials if present
         const clientHeaderAuth = extractBasicAuth(headers);
+
+        const clientUserAgent =
+            headers?.["user-agent"] || headers?.["User-Agent"];
+        const clientIsBrowser = isBrowserUserAgent(clientUserAgent);
 
         const clientIp = requestIp
             ? stripPortFromHost(requestIp, badgerVersion)
@@ -208,7 +265,9 @@ export async function verifyResourceSession(
         }
 
         const { blockAccess, mode } = resource;
-        const dontStripSession = ["ssh", "rdp", "vnc"].includes(mode);
+        const dontStripSession = ["ssh", "rdp", "vnc", "inference"].includes(
+            mode
+        );
 
         if (blockAccess) {
             logger.debug("Resource blocked", host);
@@ -286,12 +345,105 @@ export async function verifyResourceSession(
             !emailWhitelistEnabled &&
             !headerAuth
         ) {
-            logger.debug("Resource allowed because no auth");
+            // Public inference always requires a virtual API key.
+            if (mode !== "inference") {
+                logger.debug("Resource allowed because no auth");
+
+                logRequestAudit(
+                    {
+                        action: true,
+                        reason: 101, // allowed no auth
+                        resourceId: resource.resourceId,
+                        orgId: resource.orgId,
+                        location: ipCC
+                    },
+                    parsedBody.data
+                );
+
+                return allowed(res, undefined, dontStripSession);
+            }
+        }
+
+        // Only offer a browser redirect to clients that can actually follow one and log in
+        // (an interactive browser). Non-browser clients (curl, scripts, bots, etc.) just get
+        // an unauthorized response from Badger instead of a login redirect URL.
+        const redirectPath = clientIsBrowser
+            ? `/auth/resource/${encodeURIComponent(
+                  resource.resourceGuid
+              )}?redirect=${encodeURIComponent(originalRequestURL)}`
+            : undefined;
+
+        // Virtual API keys for public inference resources (provider-style auth headers).
+        // Session/SSO may authenticate users elsewhere (e.g. dashboard key pages), but
+        // only a valid virtual API key is allowed through to the AI gateway.
+        if (mode === "inference") {
+            const vakCredential = extractVirtualApiKeyCredential(headers);
+            if (vakCredential) {
+                const {
+                    valid,
+                    error,
+                    key,
+                    userData: vakUserData
+                } = await verifyVirtualApiKey({
+                    credential: vakCredential,
+                    resourceId: resource.resourceId,
+                    orgId: resource.orgId
+                });
+
+                if (error) {
+                    logger.debug("Virtual API key invalid: " + error);
+                }
+
+                if (!valid) {
+                    if (config.getRawConfig().app.log_failed_attempts) {
+                        logger.info(
+                            `Virtual API key is invalid. Resource ID: ${resource.resourceId}. IP: ${clientIp}.`
+                        );
+                    }
+                }
+
+                if (valid && key) {
+                    logRequestAudit(
+                        {
+                            action: true,
+                            reason: 109, // valid virtual API key
+                            resourceId: resource.resourceId,
+                            orgId: resource.orgId,
+                            location: ipCC,
+                            ...(vakUserData
+                                ? {
+                                      user: {
+                                          username: vakUserData.username,
+                                          userId: vakUserData.userId
+                                      }
+                                  }
+                                : {
+                                      apiKey: {
+                                          name: key.name,
+                                          apiKeyId: key.virtualApiKeyId
+                                      }
+                                  }),
+                            metadata: {
+                                virtualApiKeyId: key.virtualApiKeyId,
+                                virtualApiKeyKind: key.kind
+                            }
+                        },
+                        parsedBody.data
+                    );
+
+                    return allowed(
+                        res,
+                        vakUserData,
+                        dontStripSession,
+                        key.virtualApiKeyId
+                    );
+                }
+            }
 
             logRequestAudit(
                 {
-                    action: true,
-                    reason: 101, // allowed no auth
+                    action: false,
+                    reason: 299, // no more auth methods / VAK required
                     resourceId: resource.resourceId,
                     orgId: resource.orgId,
                     location: ipCC
@@ -299,12 +451,17 @@ export async function verifyResourceSession(
                 parsedBody.data
             );
 
-            return allowed(res, undefined, dontStripSession);
-        }
+            // Browsers go to the resource auth / API key page. API clients get
+            // a capability-shaped JSON auth error instead of a redirect.
+            if (clientIsBrowser) {
+                return notAllowed(res, redirectPath, resource.orgId);
+            }
 
-        const redirectPath = `/auth/resource/${encodeURIComponent(
-            resource.resourceGuid
-        )}?redirect=${encodeURIComponent(originalRequestURL)}`;
+            return notAllowedWithClientError(
+                res,
+                buildInferenceAuthClientError(resolveAiCapabilityFromPath(path))
+            );
+        }
 
         // check for access token in headers
         if (
@@ -350,22 +507,15 @@ export async function verifyResourceSession(
             }
 
             if (valid && tokenItem) {
-                logRequestAudit(
-                    {
-                        action: true,
-                        reason: 102, // valid access token
-                        resourceId: resource.resourceId,
-                        orgId: resource.orgId,
-                        location: ipCC,
-                        apiKey: {
-                            name: tokenItem.title,
-                            apiKeyId: tokenItem.accessTokenId
-                        }
-                    },
-                    parsedBody.data
+                return await allowAccessToken(
+                    res,
+                    resource,
+                    tokenItem,
+                    sessions,
+                    dontStripSession,
+                    parsedBody.data,
+                    ipCC
                 );
-
-                return allowed(res, undefined, dontStripSession);
             }
         }
 
@@ -401,27 +551,20 @@ export async function verifyResourceSession(
             }
 
             if (valid && tokenItem) {
-                logRequestAudit(
-                    {
-                        action: true,
-                        reason: 102, // valid access token
-                        resourceId: resource.resourceId,
-                        orgId: resource.orgId,
-                        location: ipCC,
-                        apiKey: {
-                            name: tokenItem.title,
-                            apiKeyId: tokenItem.accessTokenId
-                        }
-                    },
-                    parsedBody.data
+                return await allowAccessToken(
+                    res,
+                    resource,
+                    tokenItem,
+                    sessions,
+                    dontStripSession,
+                    parsedBody.data,
+                    ipCC
                 );
-
-                return allowed(res, undefined, dontStripSession);
             }
         }
 
         // check for HTTP Basic Auth header
-        const clientHeaderAuthKey = `headerAuth:${clientHeaderAuth}`;
+        const clientHeaderAuthKey = `headerAuth:${resource.resourceId}:${clientHeaderAuth}`;
         if (headerAuth && clientHeaderAuth) {
             if (localCache.get(clientHeaderAuthKey)) {
                 logger.debug(
@@ -647,6 +790,18 @@ export async function verifyResourceSession(
                         "Resource allowed because whitelist session is valid"
                     );
 
+                    const whitelistCacheKey = `whitelistEmail:${resourceSession.whitelistId}:${resourceSession.policyWhitelistId}`;
+                    let whitelistEmail: string | null | undefined =
+                        localCache.get(whitelistCacheKey);
+
+                    if (whitelistEmail === undefined) {
+                        whitelistEmail = await getWhitelistEmail(
+                            resourceSession.whitelistId,
+                            resourceSession.policyWhitelistId
+                        );
+                        localCache.set(whitelistCacheKey, whitelistEmail, 12);
+                    }
+
                     logRequestAudit(
                         {
                             action: true,
@@ -658,30 +813,56 @@ export async function verifyResourceSession(
                         parsedBody.data
                     );
 
-                    return allowed(res, undefined, dontStripSession);
+                    return allowed(
+                        res,
+                        whitelistEmail ? { email: whitelistEmail } : undefined,
+                        dontStripSession
+                    );
                 }
 
                 if (resourceSession.accessTokenId) {
+                    const [tokenItem] = await db
+                        .select()
+                        .from(resourceAccessToken)
+                        .where(
+                            eq(
+                                resourceAccessToken.accessTokenId,
+                                resourceSession.accessTokenId
+                            )
+                        )
+                        .limit(1);
+
+                    if (
+                        tokenItem &&
+                        tokenItem.resourceId === resource.resourceId
+                    ) {
+                        logger.debug(
+                            "Resource allowed because access token session is valid"
+                        );
+
+                        const userData = await getAccessTokenUserData(
+                            tokenItem,
+                            resource.orgId
+                        );
+
+                        logAccessTokenRequestAudit(
+                            {
+                                resourceId: resource.resourceId,
+                                orgId: resource.orgId,
+                                location: ipCC,
+                                accessTokenId: resourceSession.accessTokenId,
+                                tokenTitle: tokenItem.title ?? null,
+                                userData
+                            },
+                            parsedBody.data
+                        );
+
+                        return allowed(res, userData, dontStripSession);
+                    }
+
                     logger.debug(
-                        "Resource allowed because access token session is valid"
+                        "Access token session does not belong to this resource"
                     );
-
-                    logRequestAudit(
-                        {
-                            action: true,
-                            reason: 102, // valid access token
-                            resourceId: resource.resourceId,
-                            orgId: resource.orgId,
-                            location: ipCC,
-                            apiKey: {
-                                name: null,
-                                apiKeyId: resourceSession.accessTokenId
-                            }
-                        },
-                        parsedBody.data
-                    );
-
-                    return allowed(res, undefined, dontStripSession);
                 }
 
                 if (resourceSession.userSessionId && sso) {
@@ -736,11 +917,14 @@ export async function verifyResourceSession(
             }
         }
 
-        // If headerAuthExtendedCompatibility is activated but no clientHeaderAuth provided, force client to challenge
+        // If headerAuthExtendedCompatibility is activated but no clientHeaderAuth provided, force client to challenge.
+        // Skip the challenge when SSO is also enabled so browsers get the SSO redirect instead of a native Basic
+        // Auth dialog; clients that proactively send Authorization: Basic are still accepted above.
         if (
             headerAuthExtendedCompatibility &&
             headerAuthExtendedCompatibility.extendedCompatibilityIsActivated &&
-            !clientHeaderAuth
+            !clientHeaderAuth &&
+            !sso
         ) {
             return headerAuthChallenged(res, redirectPath, resource.orgId);
         }
@@ -869,17 +1053,21 @@ async function notAllowed(
 
 function allowed(
     res: Response,
-    userData?: BasicUserData,
-    dontStripSession?: boolean
+    userData?: BasicUserData | EmailOnlyUserData,
+    dontStripSession?: boolean,
+    virtualApiKeyId?: string
 ) {
     const baseData =
         userData !== undefined && userData !== null
             ? { valid: true, ...userData, pangolinVersion: APP_VERSION }
             : { valid: true, pangolinVersion: APP_VERSION };
+    const withVirtualApiKey = virtualApiKeyId
+        ? { ...baseData, virtualApiKeyId }
+        : baseData;
     const data = {
         data: dontStripSession
-            ? { ...baseData, dontStripSession: true }
-            : baseData,
+            ? { ...withVirtualApiKey, dontStripSession: true }
+            : withVirtualApiKey,
         success: true,
         error: false,
         message: "Access allowed",
@@ -887,6 +1075,227 @@ function allowed(
     };
     logger.debug("Access allowed, response data:", data);
     return response<VerifyUserResponse>(res, data);
+}
+
+async function allowAccessToken(
+    res: Response,
+    resource: Resource,
+    tokenItem: ResourceAccessToken,
+    sessions: Record<string, string> | undefined,
+    dontStripSession: boolean | undefined,
+    auditBody: VerifyResourceSessionSchema,
+    location?: string
+) {
+    const userData = await getAccessTokenUserData(tokenItem, resource.orgId);
+
+    logAccessTokenRequestAudit(
+        {
+            resourceId: resource.resourceId,
+            orgId: resource.orgId,
+            location,
+            accessTokenId: tokenItem.accessTokenId,
+            tokenTitle: tokenItem.title,
+            userData
+        },
+        auditBody
+    );
+
+    if (!tokenItem.persistSession) {
+        logAccessTokenAccessAudit(tokenItem, resource, userData, auditBody);
+        return allowed(res, userData, dontStripSession);
+    }
+
+    const resourceSessionToken = extractResourceSessionToken(
+        sessions ?? {},
+        resource.ssl
+    );
+
+    if (resourceSessionToken) {
+        const sessionCacheKey = `session:${resourceSessionToken}`;
+        let resourceSession: ResourceSession | null | undefined =
+            localCache.get(sessionCacheKey);
+
+        if (!resourceSession) {
+            const result = await validateResourceSessionToken(
+                resourceSessionToken,
+                resource.resourceId
+            );
+            resourceSession = result?.resourceSession;
+            localCache.set(sessionCacheKey, resourceSession, 5);
+        }
+
+        if (
+            resourceSession &&
+            !resourceSession.isRequestToken &&
+            resourceSession.accessTokenId === tokenItem.accessTokenId
+        ) {
+            logger.debug(
+                "Resource allowed because existing access token session is valid"
+            );
+            return allowed(res, userData, dontStripSession);
+        }
+    }
+
+    logAccessTokenAccessAudit(tokenItem, resource, userData, auditBody);
+    return await createAccessTokenSession(res, resource, tokenItem, userData);
+}
+
+async function createAccessTokenSession(
+    res: Response,
+    resource: Resource,
+    tokenItem: ResourceAccessToken,
+    userData?: BasicUserData
+) {
+    const token = generateSessionToken();
+    const sess = await createResourceSession({
+        resourceId: resource.resourceId,
+        token,
+        accessTokenId: tokenItem.accessTokenId,
+        sessionLength: tokenItem.sessionLength,
+        expiresAt: tokenItem.expiresAt,
+        doNotExtend: tokenItem.expiresAt ? true : false
+    });
+    const cookieName = config.getRawConfig().server.session_cookie_name;
+    const cookie = serializeResourceSessionCookie(
+        cookieName,
+        resource.fullDomain!,
+        token,
+        !resource.ssl,
+        new Date(sess.expiresAt)
+    );
+    res.appendHeader("Set-Cookie", cookie);
+    logger.debug("Access token is valid, creating new session");
+    return allowed(res, userData);
+}
+
+async function getAccessTokenUserData(
+    tokenItem: ResourceAccessToken,
+    orgId: string
+): Promise<BasicUserData | undefined> {
+    if (!tokenItem.userId) {
+        return undefined;
+    }
+
+    const cacheKey = `accessTokenUser:${tokenItem.userId}:${orgId}`;
+    const cached = localCache.get(cacheKey) as BasicUserData | null | undefined;
+    if (cached !== undefined) {
+        return cached ?? undefined;
+    }
+
+    const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.userId, tokenItem.userId))
+        .limit(1);
+
+    if (!user) {
+        localCache.set(cacheKey, null, 5);
+        return undefined;
+    }
+
+    const userOrgRoles = await getUserOrgRoles(user.userId, orgId);
+    const userData: BasicUserData = {
+        userId: user.userId,
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        role: userOrgRoles.map((r) => r.roleName).join(", ") || null
+    };
+
+    localCache.set(cacheKey, userData, 12);
+    return userData;
+}
+
+function logAccessTokenRequestAudit(
+    data: {
+        resourceId: number;
+        orgId: string;
+        location?: string;
+        accessTokenId: string;
+        tokenTitle: string | null;
+        userData?: BasicUserData;
+    },
+    body: VerifyResourceSessionSchema
+) {
+    if (data.userData) {
+        logRequestAudit(
+            {
+                action: true,
+                reason: 102, // valid access token
+                resourceId: data.resourceId,
+                orgId: data.orgId,
+                location: data.location,
+                user: {
+                    username: data.userData.username,
+                    userId: data.userData.userId
+                },
+                metadata: {
+                    accessTokenId: data.accessTokenId,
+                    accessTokenTitle: data.tokenTitle
+                }
+            },
+            body
+        );
+        return;
+    }
+
+    logRequestAudit(
+        {
+            action: true,
+            reason: 102, // valid access token
+            resourceId: data.resourceId,
+            orgId: data.orgId,
+            location: data.location,
+            apiKey: {
+                name: data.tokenTitle,
+                apiKeyId: data.accessTokenId
+            }
+        },
+        body
+    );
+}
+
+function logAccessTokenAccessAudit(
+    tokenItem: ResourceAccessToken,
+    resource: Resource,
+    userData: BasicUserData | undefined,
+    body: VerifyResourceSessionSchema
+) {
+    const userAgent =
+        body.headers?.["user-agent"] || body.headers?.["User-Agent"];
+
+    if (userData) {
+        logAccessAudit({
+            orgId: resource.orgId,
+            resourceId: resource.resourceId,
+            action: true,
+            type: "accessToken",
+            user: {
+                username: userData.username,
+                userId: userData.userId
+            },
+            metadata: {
+                accessTokenId: tokenItem.accessTokenId,
+                accessTokenTitle: tokenItem.title
+            },
+            userAgent,
+            requestIp: body.requestIp
+        });
+        return;
+    }
+
+    logAccessAudit({
+        orgId: resource.orgId,
+        resourceId: resource.resourceId,
+        action: true,
+        type: "accessToken",
+        apiKey: {
+            name: tokenItem.title,
+            apiKeyId: tokenItem.accessTokenId
+        },
+        userAgent,
+        requestIp: body.requestIp
+    });
 }
 
 async function headerAuthChallenged(
@@ -1054,7 +1463,10 @@ async function checkRules(
             isPathAllowed(rule.value, path)
         ) {
             return rule.action as any;
-        } else if (clientIp && rule.match == "COUNTRY") {
+        } else if (
+            clientIp &&
+            (rule.match === "COUNTRY" || rule.match === "COUNTRY_IS_NOT")
+        ) {
             // COUNTRY=ALL should not affect local/private/CGNAT addresses.
             if (
                 rule.value.toUpperCase() === "ALL" &&
@@ -1063,7 +1475,10 @@ async function checkRules(
                 continue;
             }
 
-            if (await isIpInGeoIP(ipCC, rule.value)) {
+            const inCountry = await isIpInGeoIP(ipCC, rule.value);
+            const matched = rule.match === "COUNTRY" ? inCountry : !inCountry;
+
+            if (matched) {
                 return rule.action as any;
             }
         } else if (clientIp && rule.match == "ASN") {
@@ -1232,6 +1647,46 @@ async function getCountryCodeFromIp(ip: string): Promise<string | undefined> {
     }
 
     return cachedCountryCode;
+}
+
+// Permissive by default: only reject known non-browser clients or a missing
+// User-Agent (real browsers always send one). This avoids blocking real
+// browsers whose UA string doesn't match a hardcoded allow-list.
+const NON_BROWSER_USER_AGENT_PATTERNS = [
+    /curl/,
+    /wget/,
+    /python-requests/,
+    /python-urllib/,
+    /go-http-client/,
+    /okhttp/,
+    /axios/,
+    /node-fetch/,
+    /postmanruntime/,
+    /insomnia/,
+    /libwww-perl/,
+    /java\//,
+    /ruby/,
+    /php/,
+    /bot/,
+    /spider/,
+    /crawler/,
+    /headlesschrome/,
+    /phantomjs/,
+    /httpclient/,
+    /prometheus/,
+    /go-resty/,
+    /apache-httpclient/,
+    /scrapy/
+];
+
+function isBrowserUserAgent(userAgent: string | undefined): boolean {
+    if (!userAgent) {
+        return false;
+    }
+
+    const ua = userAgent.toLowerCase();
+
+    return !NON_BROWSER_USER_AGENT_PATTERNS.some((pattern) => pattern.test(ua));
 }
 
 function extractBasicAuth(

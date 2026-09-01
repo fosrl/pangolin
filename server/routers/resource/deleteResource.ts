@@ -22,6 +22,32 @@ registry.registerPath({
     method: "delete",
     path: "/resource/{resourceId}",
     description: "Delete a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: deleteResourceSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "delete",
+    path: "/public-resource/{resourceId}",
+    description: "Delete a resource.",
     tags: [OpenAPITags.PublicResource],
     request: {
         params: deleteResourceSchema

@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -38,20 +38,19 @@ import { useQuery } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
 import {
     AlertCircle,
-    Building2,
-    Check,
-    CheckCircle2,
+    CheckIcon,
     ChevronsUpDown,
     ExternalLink,
-    KeyRound,
-    Zap
+    Globe,
+    KeyRound
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { usePaidStatus } from "@/hooks/usePaidStatus";
 import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
 import { toUnicode } from "punycode";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserContext } from "@app/hooks/useUserContext";
 
 type AvailableOption = {
@@ -164,8 +163,19 @@ export default function DomainPicker({
     const [selectedProvidedDomain, setSelectedProvidedDomain] =
         useState<AvailableOption | null>(null);
 
+    // Only run the initial base-domain selection once the domains have
+    // loaded. This must not re-run on later `defaultDomainId`/`defaultSubdomain`
+    // changes, because selecting a provided (namespace) domain calls
+    // onDomainChange(null), which the parent form echoes back as
+    // defaultDomainId/defaultSubdomain becoming undefined — re-running this
+    // effect on that change would immediately snap the selector back to the
+    // organization domain, making provided domains unselectable whenever one
+    // was already set.
+    const didSelectInitialDomainRef = useRef(false);
+
     useEffect(() => {
-        if (!loadingDomains) {
+        if (!loadingDomains && !didSelectInitialDomainRef.current) {
+            didSelectInitialDomainRef.current = true;
             let domainOptionToSelect: DomainOption | null = null;
             if (organizationDomains.length > 0) {
                 // Select the first organization domain or the one provided from props
@@ -494,6 +504,30 @@ export default function DomainPicker({
     const hasMoreProvided =
         sortedAvailableOptions.length > providedDomainsShown;
 
+    const noDomainsAvailable =
+        !loadingDomains &&
+        organizationDomains.length === 0 &&
+        (build === "oss" || hideFreeDomain || requiresPaywall);
+
+    if (noDomainsAvailable) {
+        return (
+            <Alert>
+                <Globe className="h-4 w-4" />
+                <AlertTitle>
+                    {t("domainPickerNoDomainsAvailableTitle")}
+                </AlertTitle>
+                <AlertDescription className="space-y-3">
+                    <p>{t("domainPickerNoDomainsAvailableDescription")}</p>
+                    <Button asChild size="sm" variant="outline">
+                        <Link href={`/${orgId}/settings/domains`}>
+                            {t("domainPickerNoDomainsAvailableAction")}
+                        </Link>
+                    </Button>
+                </AlertDescription>
+            </Alert>
+        );
+    }
+
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -557,7 +591,6 @@ export default function DomainPicker({
                                     )}
                                 </p>
                                 <PaidFeaturesAlert
-                                    showBookADemo={false}
                                     tiers={
                                         tierMatrix[
                                             TierFeature.WildcardSubdomain
@@ -573,61 +606,72 @@ export default function DomainPicker({
                     <Popover open={open} onOpenChange={setOpen}>
                         <PopoverTrigger asChild>
                             <Button
+                                type="button"
                                 variant="outline"
                                 role="combobox"
                                 aria-expanded={open}
-                                className="w-full justify-between"
-                            >
-                                {selectedBaseDomain ? (
-                                    <div className="flex items-center gap-x-2 min-w-0 flex-1">
-                                        {selectedBaseDomain.type ===
-                                        "organization" ? null : (
-                                            <Zap className="h-4 w-4 shrink-0" />
-                                        )}
-                                        <span className="truncate">
-                                            {selectedBaseDomain.domain}
-                                        </span>
-                                        {selectedBaseDomain.verified &&
-                                            selectedBaseDomain.domainType !==
-                                                "wildcard" && (
-                                                <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                                            )}
-                                    </div>
-                                ) : (
-                                    t("domainPickerSelectBaseDomain")
+                                className={cn(
+                                    "h-9 w-full justify-between font-normal",
+                                    !selectedBaseDomain &&
+                                        "text-muted-foreground"
                                 )}
+                            >
+                                <span className="truncate text-left">
+                                    {selectedBaseDomain
+                                        ? selectedBaseDomain.domain
+                                        : t("domainPickerSelectBaseDomain")}
+                                </span>
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[400px] p-0" align="start">
-                            <Command className="rounded-lg">
+                        <PopoverContent
+                            className="w-[var(--radix-popover-trigger-width)] p-0"
+                            align="start"
+                        >
+                            <Command>
                                 <CommandInput
                                     placeholder={t("domainPickerSearchDomains")}
-                                    className="border-0 focus:ring-0"
                                 />
-                                <CommandEmpty className="py-6 text-center">
-                                    <div className="text-muted-foreground text-sm">
+                                <CommandList>
+                                    <CommandEmpty>
                                         {t("domainPickerNoDomainsFound")}
-                                    </div>
-                                </CommandEmpty>
-
-                                {organizationDomains.length > 0 && (
-                                    <>
+                                    </CommandEmpty>
+                                    {organizationDomains.length > 0 && (
                                         <CommandGroup
                                             heading={t(
                                                 "domainPickerOrganizationDomains"
                                             )}
-                                            className="py-2"
                                         >
-                                            <CommandList>
-                                                {organizationDomains.map(
-                                                    (orgDomain) => (
+                                            {organizationDomains.map(
+                                                (orgDomain) => {
+                                                    const description =
+                                                        orgDomain.type ===
+                                                        "wildcard"
+                                                            ? t(
+                                                                  "domainPickerManual"
+                                                              )
+                                                            : `${orgDomain.type.toUpperCase()} · ${
+                                                                  orgDomain.verified
+                                                                      ? t(
+                                                                            "domainPickerVerified"
+                                                                        )
+                                                                      : t(
+                                                                            "domainPickerUnverified"
+                                                                        )
+                                                              }`;
+                                                    const optionId = `org-${orgDomain.domainId}`;
+
+                                                    return (
                                                         <CommandItem
-                                                            key={`org-${orgDomain.domainId}`}
+                                                            key={optionId}
+                                                            value={`${orgDomain.baseDomain} ${description}`}
+                                                            disabled={
+                                                                !orgDomain.verified
+                                                            }
                                                             onSelect={() =>
                                                                 handleBaseDomainSelect(
                                                                     {
-                                                                        id: `org-${orgDomain.domainId}`,
+                                                                        id: optionId,
                                                                         domain: orgDomain.baseDomain,
                                                                         type: "organization",
                                                                         verified:
@@ -639,80 +683,63 @@ export default function DomainPicker({
                                                                     }
                                                                 )
                                                             }
-                                                            className="mx-2 rounded-md"
-                                                            disabled={
-                                                                !orgDomain.verified
-                                                            }
                                                         >
-                                                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted mr-3">
-                                                                <Building2 className="h-4 w-4 text-muted-foreground" />
-                                                            </div>
-                                                            <div className="flex flex-col flex-1 min-w-0">
-                                                                <span className="font-medium truncate">
-                                                                    {
-                                                                        orgDomain.baseDomain
-                                                                    }
-                                                                </span>
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {orgDomain.type ===
-                                                                    "wildcard" ? (
-                                                                        t(
-                                                                            "domainPickerManual"
-                                                                        )
-                                                                    ) : (
-                                                                        <>
-                                                                            {orgDomain.type.toUpperCase()}{" "}
-                                                                            •{" "}
-                                                                            {orgDomain.verified
-                                                                                ? t(
-                                                                                      "domainPickerVerified"
-                                                                                  )
-                                                                                : t(
-                                                                                      "domainPickerUnverified"
-                                                                                  )}
-                                                                        </>
-                                                                    )}
-                                                                </span>
-                                                            </div>
-                                                            <Check
+                                                            <CheckIcon
                                                                 className={cn(
-                                                                    "h-4 w-4 text-primary",
+                                                                    "mr-2 h-4 w-4 shrink-0",
                                                                     selectedBaseDomain?.id ===
-                                                                        `org-${orgDomain.domainId}`
+                                                                        optionId
                                                                         ? "opacity-100"
                                                                         : "opacity-0"
                                                                 )}
                                                             />
+                                                            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                                                <span className="truncate">
+                                                                    {
+                                                                        orgDomain.baseDomain
+                                                                    }
+                                                                </span>
+                                                                <span className="text-muted-foreground text-xs leading-snug">
+                                                                    {
+                                                                        description
+                                                                    }
+                                                                </span>
+                                                            </div>
                                                         </CommandItem>
-                                                    )
-                                                )}
-                                            </CommandList>
-                                        </CommandGroup>
-                                        {(build === "saas" ||
-                                            build === "enterprise") &&
-                                            !hideFreeDomain && (
-                                                <CommandSeparator className="my-2" />
+                                                    );
+                                                }
                                             )}
-                                    </>
-                                )}
-
-                                {(build === "saas" || build === "enterprise") &&
-                                    !hideFreeDomain && (
-                                        <CommandGroup
-                                            heading={
-                                                build === "enterprise"
-                                                    ? t(
-                                                          "domainPickerProvidedDomains"
-                                                      )
-                                                    : t(
-                                                          "domainPickerFreeDomains"
-                                                      )
-                                            }
-                                            className="py-2"
-                                        >
-                                            <CommandList>
+                                        </CommandGroup>
+                                    )}
+                                    {organizationDomains.length > 0 &&
+                                        (build === "saas" ||
+                                            build === "enterprise") &&
+                                        !hideFreeDomain && <CommandSeparator />}
+                                    {(build === "saas" ||
+                                        build === "enterprise") &&
+                                        !hideFreeDomain && (
+                                            <CommandGroup
+                                                heading={
+                                                    build === "enterprise"
+                                                        ? t(
+                                                              "domainPickerProvidedDomains"
+                                                          )
+                                                        : t(
+                                                              "domainPickerFreeDomains"
+                                                          )
+                                                }
+                                            >
                                                 <CommandItem
-                                                    key="provided-search"
+                                                    value={`${
+                                                        build === "enterprise"
+                                                            ? t(
+                                                                  "domainPickerProvidedDomain"
+                                                              )
+                                                            : t(
+                                                                  "domainPickerFreeProvidedDomain"
+                                                              )
+                                                    } ${t("domainPickerSearchForAvailableDomains")}`}
+                                                    disabled={requiresPaywall}
                                                     onSelect={() =>
                                                         handleBaseDomainSelect({
                                                             id: "provided-search",
@@ -728,14 +755,18 @@ export default function DomainPicker({
                                                             type: "provided-search"
                                                         })
                                                     }
-                                                    className="mx-2 rounded-md"
-                                                    disabled={requiresPaywall}
                                                 >
-                                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 mr-3">
-                                                        <Zap className="h-4 w-4 text-primary" />
-                                                    </div>
-                                                    <div className="flex flex-col flex-1 min-w-0">
-                                                        <span className="font-medium truncate">
+                                                    <CheckIcon
+                                                        className={cn(
+                                                            "mr-2 h-4 w-4 shrink-0",
+                                                            selectedBaseDomain?.id ===
+                                                                "provided-search"
+                                                                ? "opacity-100"
+                                                                : "opacity-0"
+                                                        )}
+                                                    />
+                                                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                                        <span className="truncate">
                                                             {build ===
                                                             "enterprise"
                                                                 ? t(
@@ -745,25 +776,16 @@ export default function DomainPicker({
                                                                       "domainPickerFreeProvidedDomain"
                                                                   )}
                                                         </span>
-                                                        <span className="text-xs text-muted-foreground">
+                                                        <span className="text-muted-foreground text-xs leading-snug">
                                                             {t(
                                                                 "domainPickerSearchForAvailableDomains"
                                                             )}
                                                         </span>
                                                     </div>
-                                                    <Check
-                                                        className={cn(
-                                                            "h-4 w-4 text-primary",
-                                                            selectedBaseDomain?.id ===
-                                                                "provided-search"
-                                                                ? "opacity-100"
-                                                                : "opacity-0"
-                                                        )}
-                                                    />
                                                 </CommandItem>
-                                            </CommandList>
-                                        </CommandGroup>
-                                    )}
+                                            </CommandGroup>
+                                        )}
+                                </CommandList>
                             </Command>
                         </PopoverContent>
                     </Popover>

@@ -104,7 +104,9 @@ export default async function ClientsPage(props: ClientsPageProps) {
             archived: Boolean(client.archived),
             blocked: Boolean(client.blocked),
             approvalState: client.approvalState,
-            fingerprint
+            fingerprint,
+            firstSeen: client.firstSeen ?? null,
+            lastSeen: client.lastSeen ?? null
         };
     };
 

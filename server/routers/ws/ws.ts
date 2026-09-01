@@ -388,7 +388,7 @@ const setupConnection = async (
                 }
             }
         } catch (error) {
-            logger.error("Message handling error:", error);
+            logger.warn("Message handling error:", error);
             ws.send(
                 JSON.stringify({
                     type: "error",

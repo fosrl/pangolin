@@ -133,13 +133,17 @@ export type ResourceTargetAddressItemProps = {
     updateTarget: (targetId: number, data: Partial<LocalTarget>) => void;
     proxyTarget: LocalTarget;
     isHttp: boolean;
+    allowedMethods?: ("http" | "https" | "h2c")[];
 };
 
 export function ResourceTargetAddressItem({
     updateTarget,
     proxyTarget,
-    isHttp
+    isHttp,
+    allowedMethods = ["http", "https", "h2c"]
 }: ResourceTargetAddressItemProps) {
+    "use no memo";
+
     return (
         <div className="flex items-center w-full" key={proxyTarget.targetId}>
             <div className="flex items-center w-full justify-start py-0 space-x-2 px-0 cursor-default border border-input rounded-md">
@@ -157,9 +161,15 @@ export function ResourceTargetAddressItem({
                             {proxyTarget.method || "http"}
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="http">http</SelectItem>
-                            <SelectItem value="https">https</SelectItem>
-                            <SelectItem value="h2c">h2c</SelectItem>
+                            {allowedMethods.includes("http") && (
+                                <SelectItem value="http">http</SelectItem>
+                            )}
+                            {allowedMethods.includes("https") && (
+                                <SelectItem value="https">https</SelectItem>
+                            )}
+                            {allowedMethods.includes("h2c") && (
+                                <SelectItem value="h2c">h2c</SelectItem>
+                            )}
                         </SelectContent>
                     </Select>
                 )}

@@ -5,26 +5,29 @@ import { runSetupFunctions } from "./setup";
 import { createApiServer } from "./apiServer";
 import { createNextServer } from "./nextServer";
 import { createInternalServer } from "./internalServer";
+import { createAiGatewayServer } from "./aiGatewayServer";
 import { createIntegrationApiServer } from "./integrationApiServer";
 import {
     ApiKey,
     ApiKeyOrg,
+    AiBudget,
+    AiModel,
+    AiProvider,
     RemoteExitNode,
     Session,
     SiteResource,
     User,
-    UserOrg
+    UserOrg,
+    VirtualApiKey
 } from "@server/db";
 import config from "@server/lib/config";
 import { setHostMeta } from "@server/lib/hostMeta";
-import { initTelemetryClient } from "@server/lib/telemetry";
 import { TraefikConfigManager } from "@server/lib/traefik/TraefikConfigManager";
 import { initCleanup } from "#dynamic/cleanup";
+import { startSchedulers } from "#dynamic/startSchedulers";
 import license from "#dynamic/license/license";
-import { initLogCleanupInterval } from "@server/lib/cleanupLogs";
-import { initAcmeCertSync } from "#dynamic/lib/acmeCertSync";
 import { fetchServerIp } from "@server/lib/serverIpService";
-import { startRebuildQueueProcessor } from "@server/lib/rebuildClientAssociations";
+import { initAiModelCatalog } from "@server/lib/aiModelCatalog";
 
 async function startServers() {
     await setHostMeta();
@@ -38,15 +41,14 @@ async function startServers() {
 
     await fetchServerIp();
 
-    initTelemetryClient();
+    await initAiModelCatalog();
 
-    initLogCleanupInterval();
-    initAcmeCertSync();
-    startRebuildQueueProcessor();
+    startSchedulers();
 
     // Start all servers
     const apiServer = createApiServer();
     const internalServer = createInternalServer();
+    const aiGatewayServer = createAiGatewayServer();
 
     const nextServer = await createNextServer();
     if (config.getRawConfig().traefik.file_mode) {
@@ -65,6 +67,7 @@ async function startServers() {
         apiServer,
         nextServer,
         internalServer,
+        aiGatewayServer,
         integrationServer
     };
 }
@@ -83,6 +86,10 @@ declare global {
             userOrgIds?: string[];
             remoteExitNode?: RemoteExitNode;
             siteResource?: SiteResource;
+            aiProvider?: AiProvider;
+            aiModel?: AiModel;
+            aiBudget?: AiBudget;
+            virtualApiKey?: VirtualApiKey;
             orgPolicyAllowed?: boolean;
         }
     }

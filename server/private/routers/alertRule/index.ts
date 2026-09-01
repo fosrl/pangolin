@@ -16,3 +16,4 @@ export * from "./updateAlertRule";
 export * from "./deleteAlertRule";
 export * from "./listAlertRules";
 export * from "./getAlertRule";
+export * from "./testAlertRule";

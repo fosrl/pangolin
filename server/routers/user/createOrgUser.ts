@@ -20,6 +20,7 @@ import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
 import { assignUserToOrg } from "@server/lib/userOrg";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { isOrgRebuildRateLimited } from "@server/lib/rebuildClientAssociations";
+import { idpExistsForOrg } from "@server/lib/idp/idpExistsForOrg";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -235,6 +236,16 @@ export async function createOrgUser(
                     createHttpError(
                         HttpCode.TOO_MANY_REQUESTS,
                         "Too many concurrent rebuild operations for this organization. Please retry after a moment."
+                    )
+                );
+            }
+
+            const providerExists = await idpExistsForOrg(idpId, orgId);
+            if (!providerExists) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Identity provider not found in this organization"
                     )
                 );
             }

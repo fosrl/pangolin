@@ -25,13 +25,19 @@ export type ResourceSelectorProps = {
     selectedResource?: SelectedResource | null;
     onSelectResource: (resource: SelectedResource) => void;
     excludeWildcard?: boolean;
+    showClear?: boolean;
+    onClear?: () => void;
+    protocol?: string;
 };
 
 export function ResourceSelector({
     orgId,
     selectedResource,
     onSelectResource,
-    excludeWildcard = false
+    excludeWildcard = false,
+    showClear = false,
+    onClear,
+    protocol
 }: ResourceSelectorProps) {
     const t = useTranslations();
     const [resourceSearchQuery, setResourceSearchQuery] = useState("");
@@ -39,10 +45,11 @@ export function ResourceSelector({
     const [debouncedSearchQuery] = useDebounce(resourceSearchQuery, 150);
 
     const { data: resources = [] } = useQuery(
-        orgQueries.resources({
+        orgQueries.proxyResources({
             orgId: orgId,
             query: debouncedSearchQuery,
-            perPage: 10
+            perPage: 10,
+            protocol
         })
     );
 
@@ -75,6 +82,14 @@ export function ResourceSelector({
             <CommandList>
                 <CommandEmpty>{t("resourcesNotFound")}</CommandEmpty>
                 <CommandGroup>
+                    {showClear && onClear && (
+                        <CommandItem
+                            onSelect={onClear}
+                            className="text-muted-foreground"
+                        >
+                            {t("accessFilterClear")}
+                        </CommandItem>
+                    )}
                     {resourcesShown.map((r) => (
                         <CommandItem
                             value={`${r.name}:${r.resourceId}`}

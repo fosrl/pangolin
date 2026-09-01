@@ -4,9 +4,13 @@ import { getCachedSubscription } from "./getCachedSubscription";
 import { priv } from ".";
 import { AxiosResponse } from "axios";
 import { GetLicenseStatusResponse } from "@server/routers/license/types";
+import { Tier } from "@server/types/Tiers";
 
-export const isOrgSubscribed = cache(async (orgId: string) => {
+const DEFAULT_PAID_TIERS: Tier[] = ["tier1", "tier2", "tier3", "enterprise"];
+
+export const isOrgSubscribed = cache(async (orgId: string, tiers?: Tier[]) => {
     let subscribed = false;
+    const allowedTiers = tiers ?? DEFAULT_PAID_TIERS;
 
     if (build === "enterprise") {
         try {
@@ -20,7 +24,8 @@ export const isOrgSubscribed = cache(async (orgId: string) => {
         try {
             const subRes = await getCachedSubscription(orgId);
             subscribed =
-                (subRes.data.data.tier == "tier1" || subRes.data.data.tier == "tier2" || subRes.data.data.tier == "tier3" || subRes.data.data.tier == "enterprise") &&
+                !!subRes.data.data.tier &&
+                allowedTiers.includes(subRes.data.data.tier as Tier) &&
                 subRes.data.data.active;
         } catch {}
     }

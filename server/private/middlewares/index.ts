@@ -11,7 +11,6 @@
  * This file is not licensed under the AGPLv3.
  */
 
-export * from "./verifyCertificateAccess";
 export * from "./verifyRemoteExitNodeAccess";
 export * from "./verifyIdpAccess";
 export * from "./verifyLoginPageAccess";

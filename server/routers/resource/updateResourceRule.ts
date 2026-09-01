@@ -9,12 +9,11 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import {
-    isValidCIDR,
-    isValidIP,
-    isValidUrlGlobPattern
+    RESOURCE_RULE_MATCH_TYPES,
+    getResourceRuleValueValidationError,
+    ResourceRuleMatchType
 } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
-import { isValidRegionId } from "@server/db/regions";
 
 // Define Zod schema for request parameters validation
 const updateResourceRuleParamsSchema = z.strictObject({
@@ -22,14 +21,7 @@ const updateResourceRuleParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
 
-const resourceRuleMatchSchema = z.enum([
-    "CIDR",
-    "IP",
-    "PATH",
-    "COUNTRY",
-    "ASN",
-    "REGION"
-]);
+const resourceRuleMatchSchema = z.enum(RESOURCE_RULE_MATCH_TYPES);
 
 // Define Zod schema for request body validation
 const updateResourceRuleSchema = z
@@ -47,6 +39,39 @@ const updateResourceRuleSchema = z
 registry.registerPath({
     method: "post",
     path: "/resource/{resourceId}/rule/{ruleId}",
+    description: "Update a resource rule.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: updateResourceRuleParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: updateResourceRuleSchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource/{resourceId}/rule/{ruleId}",
     description: "Update a resource rule.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.Rule],
     request: {
@@ -139,13 +164,7 @@ export async function updateResourceRule(
             resource.resourcePolicyId === null &&
             resource.defaultResourcePolicyId !== null;
 
-        let existingMatch:
-            | "CIDR"
-            | "IP"
-            | "PATH"
-            | "COUNTRY"
-            | "ASN"
-            | "REGION";
+        let existingMatch: ResourceRuleMatchType;
 
         if (isInlinePolicy) {
             const policyId = resource.defaultResourcePolicyId!;
@@ -229,42 +248,14 @@ export async function updateResourceRule(
         const { value } = updateData;
 
         if (value !== undefined) {
-            if (match === "CIDR") {
-                if (!isValidCIDR(value)) {
-                    return next(
-                        createHttpError(
-                            HttpCode.BAD_REQUEST,
-                            "Invalid CIDR provided"
-                        )
-                    );
-                }
-            } else if (match === "IP") {
-                if (!isValidIP(value)) {
-                    return next(
-                        createHttpError(
-                            HttpCode.BAD_REQUEST,
-                            "Invalid IP provided"
-                        )
-                    );
-                }
-            } else if (match === "PATH") {
-                if (!isValidUrlGlobPattern(value)) {
-                    return next(
-                        createHttpError(
-                            HttpCode.BAD_REQUEST,
-                            "Invalid URL glob pattern provided"
-                        )
-                    );
-                }
-            } else if (match === "REGION") {
-                if (!isValidRegionId(value)) {
-                    return next(
-                        createHttpError(
-                            HttpCode.BAD_REQUEST,
-                            "Invalid region ID provided"
-                        )
-                    );
-                }
+            const valueValidationError = getResourceRuleValueValidationError(
+                match,
+                value
+            );
+            if (valueValidationError) {
+                return next(
+                    createHttpError(HttpCode.BAD_REQUEST, valueValidationError)
+                );
             }
         }
 

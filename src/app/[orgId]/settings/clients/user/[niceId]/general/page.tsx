@@ -195,9 +195,9 @@ export default function GeneralPage() {
         if (agent in latestPlatformVersions) {
             const agentVersion = latestPlatformVersions[agent];
 
-            updateAvailable = semver.lt(
-                client.olmVersion,
-                agentVersion.latestVersion
+            updateAvailable = Boolean(
+                semver.valid(client.olmVersion) &&
+                semver.lt(client.olmVersion, agentVersion.latestVersion)
             );
         }
     }

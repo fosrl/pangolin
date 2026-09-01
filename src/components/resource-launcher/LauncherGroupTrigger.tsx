@@ -2,6 +2,10 @@
 
 import { CollapsibleTrigger } from "@app/components/ui/collapsible";
 import type { LauncherGroup } from "@server/routers/launcher/types";
+import {
+    LAUNCHER_AI_GATEWAY_GROUP_KEY,
+    LAUNCHER_NO_SITE_GROUP_KEY
+} from "@server/routers/launcher/types";
 import { ChevronDown, ChevronLeft } from "lucide-react";
 
 type LauncherGroupTriggerProps = {
@@ -21,6 +25,13 @@ function LauncherGroupStatusDot({ group }: { group: LauncherGroup }) {
     }
 
     if (group.groupType === "site") {
+        if (
+            group.groupKey === LAUNCHER_AI_GATEWAY_GROUP_KEY ||
+            group.groupKey === LAUNCHER_NO_SITE_GROUP_KEY
+        ) {
+            return null;
+        }
+
         if (
             (group.siteType === "newt" || group.siteType === "wireguard") &&
             typeof group.siteOnline === "boolean"
@@ -47,11 +58,11 @@ export function LauncherGroupTrigger({
     title,
     isOpen
 }: LauncherGroupTriggerProps) {
+    const statusDot = <LauncherGroupStatusDot group={group} />;
+
     return (
         <CollapsibleTrigger className="flex w-full items-center gap-2.5 rounded-md bg-accent px-4 py-2.5 text-left transition-colors cursor-pointer">
-            {group.groupType === "site" || group.groupType === "label" ? (
-                <LauncherGroupStatusDot group={group} />
-            ) : null}
+            {statusDot}
             <span className="flex min-w-0 items-center gap-2.5 text-sm font-semibold text-foreground">
                 <span className="truncate">
                     {title} ({group.itemCount})

@@ -1,5 +1,5 @@
 import { cn } from "@app/lib/cn";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 type CopyToClipboardProps = {
     text: string;
     displayText?: string;
+    getCopyText?: () => Promise<string>;
     isLink?: boolean;
     className?: string;
 };
@@ -14,18 +15,31 @@ type CopyToClipboardProps = {
 const CopyToClipboard = ({
     text,
     displayText,
+    getCopyText,
     isLink,
     className
 }: CopyToClipboardProps) => {
     const [copied, setCopied] = useState(false);
+    const [copying, setCopying] = useState(false);
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
+    const handleCopy = async () => {
+        if (copying) {
+            return;
+        }
 
-        setTimeout(() => {
-            setCopied(false);
-        }, 2000);
+        setCopying(true);
+        try {
+            const value = getCopyText ? await getCopyText() : text;
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => {
+                setCopied(false);
+            }, 2000);
+        } catch {
+            // Fetch errors are toasted by the caller; clipboard failures stay silent.
+        } finally {
+            setCopying(false);
+        }
     };
 
     const displayValue = displayText ?? text;
@@ -38,11 +52,14 @@ const CopyToClipboard = ({
                 type="button"
                 className="h-4 w-4 p-0 flex items-center justify-center cursor-pointer flex-shrink-0"
                 onClick={handleCopy}
+                disabled={copying}
             >
-                {!copied ? (
-                    <Copy className="h-4 w-4" />
-                ) : (
+                {copying ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                ) : copied ? (
                     <Check className="text-green-500 h-4 w-4" />
+                ) : (
+                    <Copy className="h-4 w-4" />
                 )}
                 <span className="sr-only">{t("copyText")}</span>
             </button>

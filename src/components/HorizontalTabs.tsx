@@ -47,6 +47,7 @@ export function HorizontalTabs({
             .replace("{userId}", params.userId as string)
             .replace("{clientId}", params.clientId as string)
             .replace("{apiKeyId}", params.apiKeyId as string)
+            .replace("{providerId}", params.providerId as string)
             .replace("{remoteExitNodeId}", params.remoteExitNodeId as string);
     }
 

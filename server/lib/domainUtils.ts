@@ -31,7 +31,6 @@ export async function validateAndConstructDomain(
     subdomain?: string | null
 ): Promise<DomainValidationResult> {
     try {
-        // Query domain with organization access check
         const [domainRes] = await db
             .select()
             .from(domains)
@@ -42,6 +41,10 @@ export async function validateAndConstructDomain(
                     eq(orgDomains.orgId, orgId),
                     eq(orgDomains.domainId, domainId)
                 )
+            )
+            .leftJoin(
+                domainNamespaces,
+                eq(domainNamespaces.domainId, domainId)
             );
 
         // Check if domain exists
@@ -52,8 +55,7 @@ export async function validateAndConstructDomain(
             };
         }
 
-        // Check if organization has access to domain
-        if (domainRes.orgDomains && domainRes.orgDomains.orgId !== orgId) {
+        if (!domainRes.orgDomains && !domainRes.domainNamespaces) {
             return {
                 success: false,
                 error: `Organization does not have access to domain with ID ${domainId}`
@@ -84,19 +86,11 @@ export async function validateAndConstructDomain(
         }
 
         // Wildcard subdomains are not allowed on namespace (provided/free) domains
-        if (isWildcard) {
-            const [namespaceDomain] = await db
-                .select()
-                .from(domainNamespaces)
-                .where(eq(domainNamespaces.domainId, domainId))
-                .limit(1);
-
-            if (namespaceDomain) {
-                return {
-                    success: false,
-                    error: "Wildcard subdomains are not supported for provided or free domains. Use a specific subdomain instead."
-                };
-            }
+        if (isWildcard && domainRes.domainNamespaces) {
+            return {
+                success: false,
+                error: "Wildcard subdomains are not supported for provided or free domains. Use a specific subdomain instead."
+            };
         }
 
         if (

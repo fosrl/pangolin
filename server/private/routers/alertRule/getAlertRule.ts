@@ -48,7 +48,7 @@ registry.registerPath({
     method: "get",
     path: "/org/{orgId}/alert-rule/{alertRuleId}",
     description: "Get a specific alert rule for an organization.",
-    tags: [OpenAPITags.Org],
+    tags: [OpenAPITags.AlertRule],
     request: {
         params: paramsSchema
     },

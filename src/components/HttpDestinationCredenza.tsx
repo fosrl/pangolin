@@ -57,6 +57,7 @@ export interface Destination {
     sendActionLogs: boolean;
     sendConnectionLogs: boolean;
     sendRequestLogs: boolean;
+    sendAISessionLogs: boolean;
     lastError: string | null;
     lastErrorAt: number | null;
     createdAt: number;
@@ -180,6 +181,7 @@ export function HttpDestinationCredenza({
     const [sendActionLogs, setSendActionLogs] = useState(false);
     const [sendConnectionLogs, setSendConnectionLogs] = useState(false);
     const [sendRequestLogs, setSendRequestLogs] = useState(false);
+    const [sendAISessionLogs, setSendAISessionLogs] = useState(false);
 
     useEffect(() => {
         if (open) {
@@ -190,6 +192,7 @@ export function HttpDestinationCredenza({
             setSendActionLogs(editing?.sendActionLogs ?? false);
             setSendConnectionLogs(editing?.sendConnectionLogs ?? false);
             setSendRequestLogs(editing?.sendRequestLogs ?? false);
+            setSendAISessionLogs(editing?.sendAISessionLogs ?? false);
         }
     }, [open, editing]);
 
@@ -226,7 +229,8 @@ export function HttpDestinationCredenza({
                 sendAccessLogs,
                 sendActionLogs,
                 sendConnectionLogs,
-                sendRequestLogs
+                sendRequestLogs,
+                sendAISessionLogs
             };
             if (editing) {
                 await api.post(
@@ -774,6 +778,30 @@ export function HttpDestinationCredenza({
                                         <p className="text-xs text-muted-foreground mt-0.5">
                                             {t(
                                                 "httpDestRequestLogsDescription"
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3 rounded-md border p-3">
+                                    <Checkbox
+                                        id="log-ai-session"
+                                        checked={sendAISessionLogs}
+                                        onCheckedChange={(v) =>
+                                            setSendAISessionLogs(v === true)
+                                        }
+                                        className="mt-0.5"
+                                    />
+                                    <div>
+                                        <label
+                                            htmlFor="log-ai-session"
+                                            className="text-sm font-medium cursor-pointer"
+                                        >
+                                            {t("httpDestAISessionLogsTitle")}
+                                        </label>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            {t(
+                                                "httpDestAISessionLogsDescription"
                                             )}
                                         </p>
                                     </div>

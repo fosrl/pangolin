@@ -20,11 +20,70 @@ const setResourcePolicyPasswordBodySchema = z.strictObject({
 });
 
 registry.registerPath({
-    method: "put",
+    method: "post",
     path: "/resource-policy/{resourcePolicyId}/password",
     description:
         "Set the password for a resource policy. Setting the password to null will remove it.",
-    tags: [OpenAPITags.Policy],
+    tags: [OpenAPITags.PublicResourcePolicyLegacy],
+    request: {
+        params: setResourcePolicyPasswordParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyPasswordBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource-policy/{resourcePolicyId}/password",
+    description:
+        "Set the password for a resource policy. Setting the password to null will remove it.",
+    tags: [OpenAPITags.PublicResourcePolicy],
+    request: {
+        params: setResourcePolicyPasswordParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyPasswordBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/resource-policy/{resourcePolicyId}/password",
+    description:
+        "Set the password for a resource policy. Setting the password to null will remove it. Deprecated: use POST instead.",
+    deprecated: true,
+    tags: [OpenAPITags.PublicResourcePolicyLegacy],
+    request: {
+        params: setResourcePolicyPasswordParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourcePolicyPasswordBodySchema
+                }
+            }
+        }
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/public-resource-policy/{resourcePolicyId}/password",
+    description:
+        "Set the password for a resource policy. Setting the password to null will remove it. Deprecated: use POST instead.",
+    deprecated: true,
+    tags: [OpenAPITags.PublicResourcePolicy],
     request: {
         params: setResourcePolicyPasswordParamsSchema,
         body: {

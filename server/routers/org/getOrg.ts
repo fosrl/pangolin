@@ -16,12 +16,11 @@ const getOrgSchema = z.strictObject({
 });
 
 export type GetOrgResponse = {
-    org: Org;
+    org: Omit<Org, "sshCaPrivateKey">;
 };
 const GetOrgResponseDataSchema = z.object({
     org: z.object({}).passthrough()
 });
-
 
 registry.registerPath({
     method: "get",
@@ -76,9 +75,12 @@ export async function getOrg(
             );
         }
 
+        // sshCaPrivateKey is encrypted anyway but just to be safe
+        const { sshCaPrivateKey: _, ...orgWithoutPrivateKey } = org;
+
         return response<GetOrgResponse>(res, {
             data: {
-                org
+                org: orgWithoutPrivateKey
             },
             success: true,
             error: false,

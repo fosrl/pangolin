@@ -6,12 +6,13 @@ import {
     userResources,
     roleResources,
     resourceAccessToken,
-    sites
+    sites,
+    users
 } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
-import { sql, eq, or, inArray, and, count, isNull, lt, gt } from "drizzle-orm";
+import { sql, eq, or, inArray, and, count, isNull, gt } from "drizzle-orm";
 import logger from "@server/logger";
 import stoi from "@server/lib/stoi";
 import { fromZodError } from "zod-validation-error";
@@ -55,11 +56,16 @@ function queryAccessTokens(
         accessTokenId: resourceAccessToken.accessTokenId,
         orgId: resourceAccessToken.orgId,
         resourceId: resourceAccessToken.resourceId,
+        userId: resourceAccessToken.userId,
+        userName: users.name,
+        username: users.username,
+        userEmail: users.email,
         sessionLength: resourceAccessToken.sessionLength,
         expiresAt: resourceAccessToken.expiresAt,
         tokenHash: resourceAccessToken.tokenHash,
         title: resourceAccessToken.title,
         description: resourceAccessToken.description,
+        persistSession: resourceAccessToken.persistSession,
         createdAt: resourceAccessToken.createdAt,
         resourceName: resources.name,
         resourceNiceId: resources.niceId,
@@ -75,6 +81,7 @@ function queryAccessTokens(
                 eq(resourceAccessToken.resourceId, resources.resourceId)
             )
             .leftJoin(sites, eq(resources.resourceId, sites.siteId))
+            .leftJoin(users, eq(resourceAccessToken.userId, users.userId))
             .where(
                 and(
                     inArray(
@@ -97,6 +104,7 @@ function queryAccessTokens(
                 eq(resourceAccessToken.resourceId, resources.resourceId)
             )
             .leftJoin(sites, eq(resources.resourceId, sites.siteId))
+            .leftJoin(users, eq(resourceAccessToken.userId, users.userId))
             .where(
                 and(
                     inArray(
@@ -150,6 +158,35 @@ registry.registerPath({
 registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/access-tokens",
+    description: "List all access tokens for a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: z.object({
+            resourceId: z.number()
+        }),
+        query: listAccessTokensSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/public-resource/{resourceId}/access-tokens",
     description: "List all access tokens for a resource.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.AccessToken],
     request: {

@@ -8,29 +8,40 @@ import { useTranslations } from "next-intl";
 type CopyTextBoxProps = {
     text?: string;
     displayText?: string;
+    getCopyText?: () => Promise<string>;
     wrapText?: boolean;
     outline?: boolean;
+    centered?: boolean;
 };
 
 export default function CopyTextBox({
     text = "",
     displayText,
+    getCopyText,
     wrapText = false,
-    outline = true
+    outline = true,
+    centered = false
 }: CopyTextBoxProps) {
     const [isCopied, setIsCopied] = useState(false);
+    const [isCopying, setIsCopying] = useState(false);
     const textRef = useRef<HTMLPreElement>(null);
     const t = useTranslations();
 
     const copyToClipboard = async () => {
-        if (textRef.current) {
-            try {
-                await navigator.clipboard.writeText(text);
-                setIsCopied(true);
-                setTimeout(() => setIsCopied(false), 2000);
-            } catch (err) {
-                console.error(t("copyTextFailed"), err);
-            }
+        if (!textRef.current || isCopying) {
+            return;
+        }
+
+        setIsCopying(true);
+        try {
+            const value = getCopyText ? await getCopyText() : text;
+            await navigator.clipboard.writeText(value);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+        } catch (err) {
+            console.error(t("copyTextFailed"), err);
+        } finally {
+            setIsCopying(false);
         }
     };
 
@@ -40,7 +51,9 @@ export default function CopyTextBox({
         >
             <pre
                 ref={textRef}
-                className={`p-4 pr-16 text-sm w-full ${
+                className={`py-4 text-sm w-full ${
+                    centered ? "px-16 text-center" : "pl-4 pr-16"
+                } ${
                     wrapText
                         ? "whitespace-pre-wrap break-words"
                         : "overflow-x-auto"
@@ -54,6 +67,7 @@ export default function CopyTextBox({
                 type="button"
                 className="absolute top-0.5 right-0 z-10 bg-card"
                 onClick={copyToClipboard}
+                loading={isCopying}
                 aria-label={t("copyTextClipboard")}
             >
                 {isCopied ? (

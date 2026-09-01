@@ -10,8 +10,6 @@ import {
     sites,
     userSiteResources
 } from "@server/db";
-import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
-import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
 import { validateAndConstructDomain } from "@server/lib/domainUtils";
 import response from "@server/lib/response";
 import { eq, and, ne, inArray } from "drizzle-orm";
@@ -29,6 +27,9 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
+import { clearSiteResourceAiConfig } from "@server/lib/aiInferenceResource";
+import { build } from "@server/build";
+import { createCertificate } from "../certificates/createCertificate";
 
 const updateSiteResourceParamsSchema = z.strictObject({
     siteResourceId: z.coerce.number().int().positive()
@@ -50,11 +51,11 @@ const updateSiteResourceSchema = z
             )
             .optional(),
         // mode: z.enum(["host", "cidr", "port"]).optional(),
-        mode: z.enum(["host", "cidr", "http", "ssh"]).optional(),
+        mode: z.enum(["host", "cidr", "http", "ssh", "inference"]).optional(),
         ssl: z.boolean().optional(),
         scheme: z.enum(["http", "https"]).nullish(),
         destinationPort: z.int().positive().nullish(),
-        destination: z.string().min(1).optional(),
+        destination: z.string().min(1).nullish(),
         enabled: z.boolean().optional(),
         alias: z
             .string()
@@ -68,9 +69,9 @@ const updateSiteResourceSchema = z
                     "Fully qualified domain name with optional wildcards, e.g., example.internal, *.example.internal, or host-0?.example.internal",
                 example: "service.example.internal"
             }),
-        userIds: z.array(z.string()),
-        roleIds: z.array(z.int()),
-        clientIds: z.array(z.int()),
+        userIds: z.array(z.string()).optional(),
+        roleIds: z.array(z.int()).optional(),
+        clientIds: z.array(z.int()).optional(),
         tcpPortRangeString: portRangeStringSchema,
         udpPortRangeString: portRangeStringSchema,
         disableIcmp: z.boolean().optional(),
@@ -152,21 +153,37 @@ const updateSiteResourceSchema = z
     )
     .refine(
         (data) => {
-            // destination is only optional for ssh mode with native authDaemonMode
-            if (data.mode === "ssh" && data.authDaemonMode === "native") {
+            // this is a partial update; only enforce destination when the
+            // caller is actually changing mode or destination
+            if (data.mode === undefined && data.destination === undefined) {
+                return true;
+            }
+            // destination is only optional for ssh mode with native authDaemonMode or inference
+            if (
+                (data.mode === "ssh" && data.authDaemonMode === "native") ||
+                data.mode == "inference"
+            ) {
                 return true;
             }
             return (
-                data.destination !== undefined && data.destination.trim() !== ""
+                data.destination !== undefined &&
+                data.destination?.trim() !== ""
             );
         },
         {
             message:
-                "Destination is required unless mode is ssh with authDaemonMode native"
+                "Destination is required unless mode is ssh with authDaemonMode native or inference"
         }
     )
     .refine(
         (data) => {
+            if (data.mode == "inference") {
+                return true;
+            }
+            // if neither is provided, the existing site associations are left unchanged
+            if (data.siteIds === undefined && data.siteId === undefined) {
+                return true;
+            }
             return (
                 (data.siteIds !== undefined && data.siteIds.length > 0) ||
                 data.siteId !== undefined
@@ -202,6 +219,39 @@ export type UpdateSiteResourceResponse = SiteResource;
 registry.registerPath({
     method: "post",
     path: "/site-resource/{siteResourceId}",
+    description: "Update a site resource.",
+    tags: [OpenAPITags.PrivateResourceLegacy],
+    request: {
+        params: updateSiteResourceParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: updateSiteResourceSchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/private-resource/{siteResourceId}",
     description: "Update a site resource.",
     tags: [OpenAPITags.PrivateResource],
     request: {
@@ -263,7 +313,7 @@ export async function updateSiteResource(
         const { siteResourceId } = parsedParams.data;
         const {
             name,
-            siteIds: siteIdsInput = [], // because it can change
+            siteIds: siteIdsInput,
             siteId,
             niceId,
             mode,
@@ -287,9 +337,14 @@ export async function updateSiteResource(
         } = parsedBody.data;
 
         // Backward compatibility: merge deprecated siteId into siteIds array
-        const siteIds = [...siteIdsInput];
-        if (siteId !== undefined && !siteIds.includes(siteId)) {
-            siteIds.push(siteId);
+        const siteIdsProvided =
+            siteIdsInput !== undefined || siteId !== undefined;
+        let siteIds: number[] | undefined;
+        if (siteIdsProvided) {
+            siteIds = [...(siteIdsInput ?? [])];
+            if (siteId !== undefined && !siteIds.includes(siteId)) {
+                siteIds.push(siteId);
+            }
         }
 
         // Check if site resource exists
@@ -304,26 +359,6 @@ export async function updateSiteResource(
                 createHttpError(HttpCode.NOT_FOUND, "Site resource not found")
             );
         }
-
-        if (mode == "http") {
-            const hasHttpFeature = await isLicensedOrSubscribed(
-                existingSiteResource.orgId,
-                tierMatrix[TierFeature.AdvancedPrivateResources]
-            );
-            if (!hasHttpFeature) {
-                return next(
-                    createHttpError(
-                        HttpCode.FORBIDDEN,
-                        "HTTP private resources are not included in your current plan. Please upgrade."
-                    )
-                );
-            }
-        }
-
-        const isLicensedSshPam = await isLicensedOrSubscribed(
-            existingSiteResource.orgId,
-            tierMatrix.advancedPrivateResources
-        );
 
         const [org] = await db
             .select()
@@ -356,20 +391,22 @@ export async function updateSiteResource(
         }
 
         // Verify the site exists and belongs to the org
-        const sitesToAssign = await db
-            .select()
-            .from(sites)
-            .where(
-                and(
-                    inArray(sites.siteId, siteIds),
-                    eq(sites.orgId, existingSiteResource.orgId)
-                )
-            );
+        if (siteIds !== undefined) {
+            const sitesToAssign = await db
+                .select()
+                .from(sites)
+                .where(
+                    and(
+                        inArray(sites.siteId, siteIds),
+                        eq(sites.orgId, existingSiteResource.orgId)
+                    )
+                );
 
-        if (sitesToAssign.length !== siteIds.length) {
-            return next(
-                createHttpError(HttpCode.NOT_FOUND, "Some site not found")
-            );
+            if (sitesToAssign.length !== siteIds.length) {
+                return next(
+                    createHttpError(HttpCode.NOT_FOUND, "Some site not found")
+                );
+            }
         }
 
         // Only check if destination is an IP address
@@ -399,8 +436,10 @@ export async function updateSiteResource(
             : [];
         const existingSiteIds = existingSiteNetworks.map((sn) => sn.siteId);
 
-        let fullDomain: string | null = null;
-        let finalSubdomain: string | null = null;
+        // undefined means "leave unchanged" (partial update); only nulled out
+        // when the mode is explicitly being changed away from http
+        let fullDomain: string | null | undefined = undefined;
+        let finalSubdomain: string | null | undefined = undefined;
         if (domainId) {
             // Validate domain and construct full domain
             const domainResult = await validateAndConstructDomain(
@@ -422,7 +461,14 @@ export async function updateSiteResource(
             const [existingDomain] = await db
                 .select()
                 .from(siteResources)
-                .where(eq(siteResources.fullDomain, fullDomain));
+                .where(
+                    and(
+                        eq(siteResources.fullDomain, fullDomain),
+                        mode == "inference"
+                            ? ne(siteResources.mode, "inference")
+                            : eq(siteResources.mode, "inference")
+                    )
+                ); // exclude looking at the ones on exit nodes if this is an inference resource
 
             if (
                 existingDomain &&
@@ -436,6 +482,11 @@ export async function updateSiteResource(
                     )
                 );
             }
+        } else if (mode !== undefined && mode !== "http") {
+            // mode is explicitly changing away from http, so the resource
+            // can no longer have a domain associated with it
+            fullDomain = null;
+            finalSubdomain = null;
         }
 
         // make sure the alias is unique within the org if provided
@@ -463,14 +514,14 @@ export async function updateSiteResource(
         }
 
         let updatedSiteResource: SiteResource | undefined;
-        let updatedSiteIds: number[] = [];
+        // defaults to the existing sites; only overwritten below if siteIds/siteId was provided
+        let updatedSiteIds: number[] = [...existingSiteIds];
         await db.transaction(async (trx) => {
             // Update the site resource
             const sshPamSet =
-                isLicensedSshPam &&
-                (authDaemonPort !== undefined ||
-                    authDaemonMode !== undefined ||
-                    pamMode !== undefined)
+                authDaemonPort !== undefined ||
+                authDaemonMode !== undefined ||
+                pamMode !== undefined
                     ? {
                           ...(authDaemonPort !== undefined && {
                               authDaemonPort
@@ -483,8 +534,9 @@ export async function updateSiteResource(
                           })
                       }
                     : {};
+
             let tcpPortRangeStringAdjusted = tcpPortRangeString;
-            if (mode === "http") {
+            if (mode === "http" || mode === "inference") {
                 tcpPortRangeStringAdjusted = "443,80";
             } else if (mode === "ssh") {
                 tcpPortRangeStringAdjusted = destinationPort
@@ -503,100 +555,154 @@ export async function updateSiteResource(
                     destination: destination,
                     destinationPort: destinationPort,
                     enabled: enabled,
-                    alias: alias ? alias.trim() : null,
+                    alias:
+                        alias !== undefined
+                            ? alias
+                                ? alias.trim()
+                                : null
+                            : undefined,
                     tcpPortRangeString: tcpPortRangeStringAdjusted,
                     udpPortRangeString:
-                        mode == "http" || mode == "ssh"
+                        mode == "http" || mode == "ssh" || mode == "inference"
                             ? ""
                             : udpPortRangeString,
                     disableIcmp:
-                        disableIcmp ||
-                        (mode == "http" || mode == "ssh" ? true : false),
+                        mode !== undefined
+                            ? disableIcmp ||
+                              (mode == "http" ||
+                              mode == "ssh" ||
+                              mode == "inference"
+                                  ? true
+                                  : false)
+                            : disableIcmp,
                     domainId,
                     subdomain: finalSubdomain,
                     fullDomain,
+                    networkId: mode === "inference" ? null : undefined,
+                    requiresExitNodeConnection:
+                        mode !== undefined ? mode === "inference" : undefined,
                     ...sshPamSet
                 })
                 .where(and(eq(siteResources.siteResourceId, siteResourceId)))
                 .returning();
 
+            const effectiveMode = mode ?? existingSiteResource.mode;
+            if (
+                existingSiteResource.mode === "inference" &&
+                effectiveMode !== "inference"
+            ) {
+                await clearSiteResourceAiConfig(siteResourceId, trx);
+            }
+
             //////////////////// update the associations ////////////////////
 
-            // delete the site - site resources associations
-            await trx
-                .delete(siteNetworks)
-                .where(
-                    eq(siteNetworks.networkId, updatedSiteResource.networkId!)
-                );
-
-            for (const siteId of siteIds) {
-                await trx.insert(siteNetworks).values({
-                    siteId: siteId,
-                    networkId: updatedSiteResource.networkId!
-                });
-                updatedSiteIds.push(siteId);
-            }
-
-            await trx
-                .delete(clientSiteResources)
-                .where(eq(clientSiteResources.siteResourceId, siteResourceId));
-
-            if (clientIds.length > 0) {
-                await trx.insert(clientSiteResources).values(
-                    clientIds.map((clientId) => ({
-                        clientId,
-                        siteResourceId
-                    }))
-                );
-            }
-
-            await trx
-                .delete(userSiteResources)
-                .where(eq(userSiteResources.siteResourceId, siteResourceId));
-
-            if (userIds.length > 0) {
-                await trx.insert(userSiteResources).values(
-                    userIds.map((userId) => ({
-                        userId,
-                        siteResourceId
-                    }))
-                );
-            }
-
-            // Get all admin role IDs for this org to exclude from deletion
-            const adminRoles = await trx
-                .select()
-                .from(roles)
-                .where(
-                    and(
-                        eq(roles.isAdmin, true),
-                        eq(roles.orgId, updatedSiteResource.orgId)
-                    )
-                );
-            const adminRoleIds = adminRoles.map((role) => role.roleId);
-
-            if (adminRoleIds.length > 0) {
-                await trx.delete(roleSiteResources).where(
-                    and(
-                        eq(roleSiteResources.siteResourceId, siteResourceId),
-                        ne(roleSiteResources.roleId, adminRoleIds[0]) // delete all but the admin role
-                    )
-                );
-            } else {
+            if (mode === "inference") {
+                // inference resources are not attached to any site network
+                if (existingSiteResource.networkId) {
+                    await trx
+                        .delete(siteNetworks)
+                        .where(
+                            eq(
+                                siteNetworks.networkId,
+                                existingSiteResource.networkId
+                            )
+                        );
+                }
+                updatedSiteIds = [];
+            } else if (siteIds !== undefined) {
+                // delete the site - site resources associations
                 await trx
-                    .delete(roleSiteResources)
+                    .delete(siteNetworks)
                     .where(
-                        eq(roleSiteResources.siteResourceId, siteResourceId)
+                        eq(
+                            siteNetworks.networkId,
+                            updatedSiteResource.networkId!
+                        )
                     );
+
+                updatedSiteIds = [];
+                for (const siteId of siteIds) {
+                    await trx.insert(siteNetworks).values({
+                        siteId: siteId,
+                        networkId: updatedSiteResource.networkId!
+                    });
+                    updatedSiteIds.push(siteId);
+                }
             }
 
-            if (roleIds.length > 0) {
-                await trx.insert(roleSiteResources).values(
-                    roleIds.map((roleId) => ({
-                        roleId,
-                        siteResourceId
-                    }))
-                );
+            if (clientIds !== undefined) {
+                await trx
+                    .delete(clientSiteResources)
+                    .where(
+                        eq(clientSiteResources.siteResourceId, siteResourceId)
+                    );
+
+                if (clientIds.length > 0) {
+                    await trx.insert(clientSiteResources).values(
+                        clientIds.map((clientId) => ({
+                            clientId,
+                            siteResourceId
+                        }))
+                    );
+                }
+            }
+
+            if (userIds !== undefined) {
+                await trx
+                    .delete(userSiteResources)
+                    .where(
+                        eq(userSiteResources.siteResourceId, siteResourceId)
+                    );
+
+                if (userIds.length > 0) {
+                    await trx.insert(userSiteResources).values(
+                        userIds.map((userId) => ({
+                            userId,
+                            siteResourceId
+                        }))
+                    );
+                }
+            }
+
+            if (roleIds !== undefined) {
+                // Get all admin role IDs for this org to exclude from deletion
+                const adminRoles = await trx
+                    .select()
+                    .from(roles)
+                    .where(
+                        and(
+                            eq(roles.isAdmin, true),
+                            eq(roles.orgId, updatedSiteResource.orgId)
+                        )
+                    );
+                const adminRoleIds = adminRoles.map((role) => role.roleId);
+
+                if (adminRoleIds.length > 0) {
+                    await trx.delete(roleSiteResources).where(
+                        and(
+                            eq(
+                                roleSiteResources.siteResourceId,
+                                siteResourceId
+                            ),
+                            ne(roleSiteResources.roleId, adminRoleIds[0]) // delete all but the admin role
+                        )
+                    );
+                } else {
+                    await trx
+                        .delete(roleSiteResources)
+                        .where(
+                            eq(roleSiteResources.siteResourceId, siteResourceId)
+                        );
+                }
+
+                if (roleIds.length > 0) {
+                    await trx.insert(roleSiteResources).values(
+                        roleIds.map((roleId) => ({
+                            roleId,
+                            siteResourceId
+                        }))
+                    );
+                }
             }
 
             logger.info(`Updated site resource ${siteResourceId}`);
@@ -607,6 +713,15 @@ export async function updateSiteResource(
         }
 
         const finalUpdatedSiteResource = updatedSiteResource;
+
+        if (
+            ssl &&
+            (mode === "http" || mode == "inference") &&
+            domainId &&
+            fullDomain
+        ) {
+            await createCertificate(domainId, fullDomain, db);
+        }
 
         rebuildClientAssociationsFromSiteResource(finalUpdatedSiteResource)
             .then(() =>

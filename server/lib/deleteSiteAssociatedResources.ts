@@ -1,6 +1,7 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import {
     db,
+    resources,
     siteNetworks,
     siteResources,
     targets,
@@ -32,9 +33,11 @@ export async function getResourceIdsForSite(
     const rows = await trx
         .selectDistinct({ resourceId: targets.resourceId })
         .from(targets)
-        .where(eq(targets.siteId, siteId));
+        .where(and(eq(targets.siteId, siteId), isNotNull(targets.resourceId)));
 
-    return rows.map((row) => row.resourceId);
+    return rows
+        .map((row) => row.resourceId)
+        .filter((resourceId): resourceId is number => resourceId != null);
 }
 
 export async function getSiteResourceIdsForSite(
@@ -97,6 +100,64 @@ export function exceedsSiteAssociatedResourceDeleteLimit(
     return resourceCount > MAX_SITE_ASSOCIATED_RESOURCES_FOR_BULK_DELETE;
 }
 
+export async function getPendingResourceIdsForSite(
+    siteId: number,
+    trx: Transaction | typeof db = db
+): Promise<number[]> {
+    const resourceIds = await getResourceIdsForSite(siteId, trx);
+    if (resourceIds.length === 0) {
+        return [];
+    }
+
+    const rows = await trx
+        .select({ resourceId: resources.resourceId })
+        .from(resources)
+        .where(
+            and(
+                inArray(resources.resourceId, resourceIds),
+                eq(resources.status, "pending")
+            )
+        );
+
+    return rows.map((row) => row.resourceId);
+}
+
+export async function getPendingSiteResourceIdsForSite(
+    siteId: number,
+    orgId: string,
+    trx: Transaction | typeof db = db
+): Promise<number[]> {
+    const siteResourceIds = await getSiteResourceIdsForSite(siteId, orgId, trx);
+    if (siteResourceIds.length === 0) {
+        return [];
+    }
+
+    const rows = await trx
+        .select({ siteResourceId: siteResources.siteResourceId })
+        .from(siteResources)
+        .where(
+            and(
+                inArray(siteResources.siteResourceId, siteResourceIds),
+                eq(siteResources.status, "pending")
+            )
+        );
+
+    return rows.map((row) => row.siteResourceId);
+}
+
+export async function getPendingAssociatedResourceCountForSite(
+    siteId: number,
+    orgId: string,
+    trx: Transaction | typeof db = db
+): Promise<number> {
+    const [resourceIds, siteResourceIds] = await Promise.all([
+        getPendingResourceIdsForSite(siteId, trx),
+        getPendingSiteResourceIdsForSite(siteId, orgId, trx)
+    ]);
+
+    return resourceIds.length + siteResourceIds.length;
+}
+
 export async function deleteAssociatedResourcesForSite(
     siteId: number,
     orgId: string,
@@ -105,12 +166,32 @@ export async function deleteAssociatedResourcesForSite(
     const resourceIds = await getResourceIdsForSite(siteId, trx);
     const siteResourceIds = await getSiteResourceIdsForSite(siteId, orgId, trx);
 
-    const [resources, siteResourcesDeleted] = await Promise.all([
+    const [deletedResources, siteResourcesDeleted] = await Promise.all([
         performDeleteResources(resourceIds, trx),
         performDeleteSiteResources(siteResourceIds, trx)
     ]);
 
-    return { resources, siteResources: siteResourcesDeleted };
+    return { resources: deletedResources, siteResources: siteResourcesDeleted };
+}
+
+export async function deletePendingAssociatedResourcesForSite(
+    siteId: number,
+    orgId: string,
+    trx: Transaction | typeof db = db
+): Promise<DeleteSiteAssociatedResourcesSideEffects> {
+    const resourceIds = await getPendingResourceIdsForSite(siteId, trx);
+    const siteResourceIds = await getPendingSiteResourceIdsForSite(
+        siteId,
+        orgId,
+        trx
+    );
+
+    const [deletedResources, siteResourcesDeleted] = await Promise.all([
+        performDeleteResources(resourceIds, trx),
+        performDeleteSiteResources(siteResourceIds, trx)
+    ]);
+
+    return { resources: deletedResources, siteResources: siteResourcesDeleted };
 }
 
 export async function runDeleteSiteAssociatedResourcesSideEffects(

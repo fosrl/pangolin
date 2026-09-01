@@ -15,6 +15,8 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { aiBudgetQueries } from "@app/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Role } from "@server/db";
 import type { UpdateRoleBody, UpdateRoleResponse } from "@server/routers/role";
 import { AxiosResponse } from "axios";
@@ -26,6 +28,7 @@ import {
     RoleForm,
     type RoleFormValues
 } from "./RoleForm";
+import { saveBudgetRows } from "./BudgetsEditor";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 type EditRoleFormProps = {
@@ -44,6 +47,7 @@ export default function EditRoleForm({
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
     const api = createApiClient(useEnvContext());
+    const queryClient = useQueryClient();
     const [loading, startTransition] = useTransition();
 
     async function onSubmit(values: RoleFormValues) {
@@ -55,7 +59,7 @@ export default function EditRoleForm({
             payload.name = values.name;
             payload.description = values.description || undefined;
         }
-        if (isPaidUser(tierMatrix.advancedPrivateResources)) {
+        if (isPaidUser(tierMatrix.roleBasedSSHControls)) {
             payload.sshSudoMode = values.sshSudoMode;
             payload.sshCreateHomeDir = values.sshCreateHomeDir;
             payload.sshSudoCommands =
@@ -83,6 +87,31 @@ export default function EditRoleForm({
             });
 
         if (res && res.status === 200) {
+            if (values.budgets) {
+                try {
+                    const scope = { type: "role" as const, id: role.roleId };
+                    const existingBudgets = await queryClient.fetchQuery(
+                        aiBudgetQueries.scoped({ scope })
+                    );
+                    await saveBudgetRows({
+                        api,
+                        orgId: role.orgId,
+                        scope,
+                        existingBudgets,
+                        rows: values.budgets
+                    });
+                    await queryClient.invalidateQueries(
+                        aiBudgetQueries.scoped({ scope })
+                    );
+                } catch (e) {
+                    toast({
+                        variant: "destructive",
+                        title: t("aiBudgetErrorSave"),
+                        description: formatAxiosError(e, t("aiBudgetErrorSave"))
+                    });
+                }
+            }
+
             toast({
                 variant: "default",
                 title: t("accessRoleUpdated"),

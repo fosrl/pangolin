@@ -1,6 +1,5 @@
 import { db, exitNodes, Transaction } from "@server/db";
 import logger from "@server/logger";
-import { ExitNodePingResult } from "@server/routers/newt";
 import { eq } from "drizzle-orm";
 
 export async function verifyExitNodeOrgAccess(
@@ -23,7 +22,10 @@ export async function listExitNodes(
     // Accepted for parity with the enterprise implementation (used there for
     // site-label filtering of remote exit nodes). The OSS build has no remote
     // exit nodes, so it is unused here.
-    siteId?: number
+    siteId?: number,
+    // Same as above: accepted for parity, unused since the OSS build has no
+    // remote exit nodes to exclude.
+    noRemote = false
 ) {
     // TODO: pick which nodes to send and ping better than just all of them that are not remote
     const allExitNodes = await db
@@ -51,6 +53,16 @@ export async function listExitNodes(
 
     return allExitNodes;
 }
+
+export type ExitNodePingResult = {
+    exitNodeId: number;
+    latencyMs: number;
+    weight: number;
+    error?: string;
+    exitNodeName: string;
+    endpoint: string;
+    wasPreviouslyConnected: boolean;
+};
 
 export function selectBestExitNode(
     pingResults: ExitNodePingResult[]

@@ -201,7 +201,7 @@ async function checkSocket(
 ): Promise<{ siteId: number; newtId: string }> {
     const { newt } = await getSiteAndNewt(siteId);
 
-    logger.info(
+    logger.debug(
         `Checking Docker socket for site ${siteId} with Newt ${newt.newtId}`
     );
 

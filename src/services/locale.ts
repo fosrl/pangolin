@@ -2,6 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { Locale, defaultLocale, locales } from "@/i18n/config";
+import { detectLocale } from "@/i18n/detectLocale";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 
@@ -47,12 +48,7 @@ export async function getUserLocale(): Promise<Locale> {
     const acceptLang = headerList.get("accept-language");
 
     if (acceptLang) {
-        const browserLang = acceptLang.split(",")[0];
-        const matched = locales.find((locale) =>
-            browserLang
-                .toLowerCase()
-                .startsWith(locale.split("-")[0].toLowerCase())
-        );
+        const matched = detectLocale(acceptLang);
         if (matched) {
             return matched;
         }

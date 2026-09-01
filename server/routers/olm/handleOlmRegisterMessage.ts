@@ -1,4 +1,4 @@
-import { db, orgs, primaryDb } from "@server/db";
+import { db, ExitNode, exitNodes, orgs, primaryDb } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
 import {
     clients,
@@ -22,6 +22,13 @@ import { canCompress } from "@server/lib/clientVersionChecks";
 import config from "@server/lib/config";
 import cache from "#dynamic/lib/cache"; // not using regional here because we need this in the register message handler before we know where the client is
 import { waitForClientRebuildIdle } from "@server/lib/rebuildClientAssociations";
+import {
+    ExitNodePingResult,
+    selectBestExitNode,
+    verifyExitNodeOrgAccess
+} from "#dynamic/lib/exitNodes";
+import { getUniqueSubnetForExitNode } from "@server/lib/exitNodes";
+import { addPeer, deletePeer } from "../gerbil/peers";
 
 const HOLEPUNCH_STALE_CHAIN_THRESHOLD = 18;
 const HOLEPUNCH_STALE_CHAIN_TTL_SECONDS = 1800;
@@ -49,10 +56,19 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         olmAgent,
         orgId,
         userToken,
+        pingResults,
         fingerprint,
         postures,
+        backwardsCompatible,
         chainId
     } = message.data;
+
+    if (backwardsCompatible) {
+        logger.debug(
+            "[handleOlmRegisterMessage] Backwards compatible mode detected - not sending connect message and waiting for ping response."
+        );
+        return;
+    }
 
     if (!olm.clientId) {
         logger.warn("[handleOlmRegisterMessage] Olm client ID not found");
@@ -284,7 +300,64 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         return;
     }
 
-    if (client.pubKey !== publicKey || client.archived) {
+    let exitNodeId: number | undefined;
+    if (pingResults) {
+        const bestPingResult = selectBestExitNode(
+            pingResults as ExitNodePingResult[]
+        );
+        if (!bestPingResult) {
+            logger.warn("No suitable exit node found based on ping results");
+        }
+        exitNodeId = bestPingResult?.exitNodeId;
+    }
+
+    let clientSubnet = client.exitNodeSubnet;
+    if (
+        exitNodeId &&
+        (client.exitNodeId !== exitNodeId || !client.exitNodeSubnet)
+    ) {
+        const { exitNode, hasAccess } = await verifyExitNodeOrgAccess(
+            exitNodeId,
+            client.orgId
+        );
+
+        if (!exitNode) {
+            logger.warn("[handleOlmRegisterMessage] Exit node not found", {
+                orgId: client.orgId,
+                clientId: client.clientId
+            });
+            return;
+        }
+
+        if (!hasAccess) {
+            logger.warn(
+                "[handleOlmRegisterMessage] Not authorized to use this exit node",
+                { orgId: client.orgId, clientId: client.clientId }
+            );
+            return;
+        }
+
+        // TODO: IF WE DO NOT HAVE AN INFERENCE RESOURCE DO WE NEED TO BE HOLDING A SUBNET ON THE CLIENT?
+
+        const newSubnet = await getUniqueSubnetForExitNode(exitNode);
+
+        if (!newSubnet) {
+            logger.error(
+                `[handleOlmRegisterMessage] No available subnets found for exit node id ${exitNodeId} and client id ${client.clientId}`,
+                { orgId: client.orgId, clientId: client.clientId }
+            );
+            return;
+        }
+
+        clientSubnet = newSubnet;
+    }
+
+    if (
+        client.pubKey !== publicKey ||
+        client.archived ||
+        client.exitNodeId !== exitNodeId ||
+        client.exitNodeSubnet !== clientSubnet
+    ) {
         logger.info(
             "[handleOlmRegisterMessage] Public key mismatch. Updating public key and clearing session info...",
             { orgId: client.orgId, clientId: client.clientId }
@@ -294,7 +367,9 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
             .update(clients)
             .set({
                 pubKey: publicKey,
-                archived: false
+                archived: false,
+                exitNodeId: exitNodeId, // this can be undefined if no exit node was selected, which is fine just means we cant talk to the node or connect to it
+                exitNodeSubnet: clientSubnet
             })
             .where(eq(clients.clientId, client.clientId));
 
@@ -317,6 +392,24 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
                     )
                 )
             );
+    }
+
+    if (client.pubKey && client.pubKey !== publicKey && client.exitNodeId) {
+        // test the old client to see if its different then remove
+        logger.info("Public key mismatch. Deleting old peer...");
+        await deletePeer(client.exitNodeId, client.pubKey);
+    }
+
+    if (clientSubnet && exitNodeId) {
+        try {
+            // add the peer to the exit node so it can connect
+            await addPeer(exitNodeId, {
+                publicKey: publicKey,
+                allowedIps: [clientSubnet]
+            });
+        } catch (error) {
+            logger.error(`Failed to add peer to exit node: ${error}`);
+        }
     }
 
     let staleHolePunchChainCount: number | undefined;
@@ -376,15 +469,29 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         return;
     }
 
+    let exitNode: ExitNode | null = null;
+    if (exitNodeId) {
+        [exitNode] = await db
+            .select()
+            .from(exitNodes)
+            .where(eq(exitNodes.exitNodeId, exitNodeId))
+            .limit(1);
+    }
+
     // NOTE: its important that the client here is the old client and the public key is the new key
     await waitForClientRebuildIdle(olm.clientId);
 
-    const siteConfigurations = await buildSiteConfigurationForOlmClient(
-        client,
-        publicKey,
-        relay,
-        jitMode
-    );
+    const { siteConfigurations, exitNodeAliases } =
+        await buildSiteConfigurationForOlmClient(
+            client,
+            publicKey,
+            relay,
+            jitMode
+        );
+
+    // logger.info(
+    //     `ExitNode Aliases: ${exitNodeAliases}`
+    // );
 
     // Return connect message with all site configurations
     return {
@@ -394,6 +501,17 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
                 sites: siteConfigurations,
                 tunnelIP: client.subnet,
                 utilitySubnet: org.utilitySubnet,
+                exitNode:
+                    exitNode && clientSubnet
+                        ? {
+                              aliases: exitNodeAliases,
+                              connect: exitNodeAliases.length > 0, // we do not need to connect to the exit node if we do not have inference resources and right now all site resources on the exit node have an alias
+                              endpoint: `${exitNode.endpoint}:${exitNode.listenPort}`,
+                              publicKey: exitNode.publicKey,
+                              serverIP: exitNode.address.split("/")[0],
+                              tunnelIP: `${clientSubnet.split("/")[0]}/${exitNode.address.split("/")[1]}` // we need to use the exit node's subnet mask here because the client will be using the exit node's subnet mask for its routing table so we can address it
+                          }
+                        : undefined,
                 chainId: chainId
             }
         },

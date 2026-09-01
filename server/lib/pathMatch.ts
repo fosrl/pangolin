@@ -15,10 +15,41 @@ function getSegmentRegex(patternPart: string): RegExp {
     return regex;
 }
 
+// Decodes percent-encoding (so an encoded slash like `%2F` is treated as a
+// real path separator, matching what most backends will do) and then
+// resolves `.` / `..` segments, so a request like `/public%2F..%2Fadmin/`
+// or `/public/../admin/` is matched as `/admin/`, not as a literal segment
+// or a wildcard-swallowed sequence under `/public/*`.
+function decodeAndResolvePath(p: string): string[] {
+    const rawParts = p.split("/").filter(Boolean);
+
+    const resolved: string[] = [];
+    for (const rawPart of rawParts) {
+        let part: string;
+        try {
+            part = decodeURIComponent(rawPart);
+        } catch {
+            part = rawPart;
+        }
+
+        // an encoded slash can turn one raw segment into several real ones
+        for (const segment of part.split("/").filter(Boolean)) {
+            if (segment === ".") {
+                continue;
+            } else if (segment === "..") {
+                resolved.pop();
+            } else {
+                resolved.push(segment);
+            }
+        }
+    }
+
+    return resolved;
+}
+
 export function isPathAllowed(pattern: string, path: string): boolean {
-    const normalize = (p: string) => p.split("/").filter(Boolean);
-    const patternParts = normalize(pattern);
-    const pathParts = normalize(path);
+    const patternParts = pattern.split("/").filter(Boolean);
+    const pathParts = decodeAndResolvePath(path);
 
     function matchSegments(
         patternIndex: number,

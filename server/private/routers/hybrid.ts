@@ -58,7 +58,8 @@ import {
     resourceRules,
     resourcePolicyRules,
     userOrgRoles,
-    roles
+    roles,
+    resourceAccessToken
 } from "@server/db";
 import { eq, and, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "@server/db";
@@ -81,11 +82,16 @@ import config from "@server/lib/config";
 import { exchangeSession } from "@server/routers/badger";
 import {
     ResourceSessionValidationResult,
+    createResourceSession,
+    serializeResourceSessionCookie,
     validateResourceSessionToken
 } from "@server/auth/sessions/resource";
 import { checkExitNodeOrg, resolveExitNodes } from "#private/lib/exitNodes";
 import { maxmindLookup } from "@server/db/maxmind";
 import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
+import { generateSessionToken } from "@server/auth/sessions/app";
+import { logAccessAudit } from "#private/lib/logAccessAudit";
+import { getUserOrgRoles } from "@server/lib/userOrgRoles";
 import semver from "semver";
 import { maxmindAsnLookup } from "@server/db/maxmindAsn";
 import { checkOrgAccessPolicy } from "@server/lib/checkOrgAccessPolicy";
@@ -177,6 +183,73 @@ const validateResourceAccessTokenBodySchema = z.strictObject({
     resourceId: z.number().optional(),
     accessToken: z.string()
 });
+
+const createAccessTokenSessionParamsSchema = z.strictObject({
+    resourceId: z.coerce.number().int().positive()
+});
+
+const createAccessTokenSessionBodySchema = z.strictObject({
+    accessTokenId: z.string().min(1)
+});
+
+const getAccessTokenParamsSchema = z.strictObject({
+    accessTokenId: z.string().min(1)
+});
+
+const logAccessAuditBodySchema = z.strictObject({
+    action: z.boolean(),
+    type: z.string(),
+    orgId: z.string(),
+    resourceId: z.number().optional(),
+    siteResourceId: z.number().optional(),
+    user: z
+        .object({
+            username: z.string(),
+            userId: z.string()
+        })
+        .optional(),
+    apiKey: z
+        .object({
+            name: z.string().nullable(),
+            apiKeyId: z.string()
+        })
+        .optional(),
+    metadata: z.any().optional(),
+    userAgent: z.string().optional(),
+    requestIp: z.string().optional()
+});
+
+type AccessTokenUserData = {
+    userId: string;
+    username: string;
+    email: string | null;
+    name: string | null;
+    role: string | null;
+};
+
+async function resolveAccessTokenUserData(
+    userId: string,
+    orgId: string
+): Promise<AccessTokenUserData | undefined> {
+    const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.userId, userId))
+        .limit(1);
+
+    if (!user) {
+        return undefined;
+    }
+
+    const userOrgRoles = await getUserOrgRoles(user.userId, orgId);
+    return {
+        userId: user.userId,
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        role: userOrgRoles.map((r) => r.roleName).join(", ") || null
+    };
+}
 
 // Certificates by domains query validation
 const getCertificatesByDomainsQuerySchema = z.strictObject({
@@ -278,6 +351,7 @@ hybridRouter.get(
         }
 
         const pangolinUIUrl = config.getRawConfig().app.dashboard_url; // points to the dashboard to serve from there
+        const aiGatewayUrl = `${config.getRawConfig().app.dashboard_url}/api/v1/ai-gateway`;
 
         try {
             const traefikConfig = await getTraefikConfig(
@@ -286,8 +360,9 @@ hybridRouter.get(
                 true, // But don't allow domain namespace resources
                 false, // Dont include login pages,
                 true, // allow raw resources
-                pangolinUIUrl, // dont generate maintenance page
-                pangolinUIUrl // generate browser gateway targets
+                pangolinUIUrl, // generate maintenance page
+                pangolinUIUrl, // generate browser gateway targets
+                null // dont generate ai gateway resources
             );
 
             return response(res, {
@@ -1695,6 +1770,7 @@ hybridRouter.get(
             ) {
                 for (const rule of rules) {
                     if (rule.match == "COUNTRY") {
+                        // @ts-expect-error this is for backward compatibility
                         rule.match = "GEOIP";
                     }
                 }
@@ -1828,8 +1904,23 @@ hybridRouter.post(
                 resourceId
             });
 
+            let userData: AccessTokenUserData | undefined;
+            if (
+                result.valid &&
+                result.tokenItem?.userId &&
+                result.tokenItem.orgId
+            ) {
+                userData = await resolveAccessTokenUserData(
+                    result.tokenItem.userId,
+                    result.tokenItem.orgId
+                );
+            }
+
             return response(res, {
-                data: result,
+                data: {
+                    ...result,
+                    userData
+                },
                 success: true,
                 error: false,
                 message: result.valid
@@ -1843,6 +1934,233 @@ hybridRouter.post(
                 createHttpError(
                     HttpCode.INTERNAL_SERVER_ERROR,
                     "Failed to validate resource session token"
+                )
+            );
+        }
+    }
+);
+
+// Create a resource session from a valid access token (for remote nodes)
+hybridRouter.post(
+    "/resource/:resourceId/session/create-access-token",
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const parsedParams = createAccessTokenSessionParamsSchema.safeParse(
+                req.params
+            );
+            if (!parsedParams.success) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        fromError(parsedParams.error).toString()
+                    )
+                );
+            }
+
+            const parsedBody = createAccessTokenSessionBodySchema.safeParse(
+                req.body
+            );
+            if (!parsedBody.success) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        fromError(parsedBody.error).toString()
+                    )
+                );
+            }
+
+            const { resourceId } = parsedParams.data;
+            const { accessTokenId } = parsedBody.data;
+
+            const [tokenItem] = await db
+                .select()
+                .from(resourceAccessToken)
+                .where(eq(resourceAccessToken.accessTokenId, accessTokenId))
+                .limit(1);
+
+            if (!tokenItem || tokenItem.resourceId !== resourceId) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "Access token not found"
+                    )
+                );
+            }
+
+            if (!tokenItem.persistSession) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Access token does not allow session persistence"
+                    )
+                );
+            }
+
+            const [resource] = await db
+                .select()
+                .from(resources)
+                .where(eq(resources.resourceId, resourceId))
+                .limit(1);
+
+            if (!resource || !resource.fullDomain) {
+                return next(
+                    createHttpError(HttpCode.NOT_FOUND, "Resource not found")
+                );
+            }
+
+            const token = generateSessionToken();
+            const sess = await createResourceSession({
+                resourceId: resource.resourceId,
+                token,
+                accessTokenId: tokenItem.accessTokenId,
+                sessionLength: tokenItem.sessionLength,
+                expiresAt: tokenItem.expiresAt,
+                doNotExtend: tokenItem.expiresAt ? true : false
+            });
+
+            const cookieName = config.getRawConfig().server.session_cookie_name;
+            const cookie = serializeResourceSessionCookie(
+                cookieName,
+                resource.fullDomain,
+                token,
+                !resource.ssl,
+                new Date(sess.expiresAt)
+            );
+
+            return response(res, {
+                data: { cookie },
+                success: true,
+                error: false,
+                message: "Access token session created successfully",
+                status: HttpCode.OK
+            });
+        } catch (error) {
+            logger.error(error);
+            return next(
+                createHttpError(
+                    HttpCode.INTERNAL_SERVER_ERROR,
+                    "Failed to create access token session"
+                )
+            );
+        }
+    }
+);
+
+// Resolve access token metadata for remote nodes (cookie session path)
+hybridRouter.get(
+    "/resource/access-token/:accessTokenId",
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const parsedParams = getAccessTokenParamsSchema.safeParse(
+                req.params
+            );
+            if (!parsedParams.success) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        fromError(parsedParams.error).toString()
+                    )
+                );
+            }
+
+            const { accessTokenId } = parsedParams.data;
+
+            const [tokenItem] = await db
+                .select()
+                .from(resourceAccessToken)
+                .where(eq(resourceAccessToken.accessTokenId, accessTokenId))
+                .limit(1);
+
+            if (!tokenItem) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        "Access token not found"
+                    )
+                );
+            }
+
+            let userData: AccessTokenUserData | undefined;
+            if (tokenItem.userId) {
+                userData = await resolveAccessTokenUserData(
+                    tokenItem.userId,
+                    tokenItem.orgId
+                );
+            }
+
+            return response(res, {
+                data: { tokenItem, userData },
+                success: true,
+                error: false,
+                message: "Access token retrieved successfully",
+                status: HttpCode.OK
+            });
+        } catch (error) {
+            logger.error(error);
+            return next(
+                createHttpError(
+                    HttpCode.INTERNAL_SERVER_ERROR,
+                    "Failed to get access token"
+                )
+            );
+        }
+    }
+);
+
+// Access audit log from remote nodes
+hybridRouter.post(
+    "/logs/access",
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const parsedBody = logAccessAuditBodySchema.safeParse(req.body);
+            if (!parsedBody.success) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        fromError(parsedBody.error).toString()
+                    )
+                );
+            }
+
+            const remoteExitNode = req.remoteExitNode;
+            if (!remoteExitNode || !remoteExitNode.exitNodeId) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Remote exit node not found"
+                    )
+                );
+            }
+
+            if (
+                await checkExitNodeOrg(
+                    remoteExitNode.exitNodeId,
+                    parsedBody.data.orgId
+                )
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Exit node not allowed for this organization"
+                    )
+                );
+            }
+
+            await logAccessAudit(parsedBody.data);
+
+            return response(res, {
+                data: null,
+                success: true,
+                error: false,
+                message: "Access audit log saved successfully",
+                status: HttpCode.OK
+            });
+        } catch (error) {
+            logger.error(error);
+            return next(
+                createHttpError(
+                    HttpCode.INTERNAL_SERVER_ERROR,
+                    "Failed to save access audit log"
                 )
             );
         }

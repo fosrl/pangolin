@@ -29,7 +29,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { eq, and } from "drizzle-orm";
 import { validateAndConstructDomain } from "@server/lib/domainUtils";
-import { createCertificate } from "#private/routers/certificates/createCertificate";
+import { createCertificate } from "@server/routers/certificates/createCertificate";
 
 import { CreateLoginPageResponse } from "@server/routers/loginPage/types";
 

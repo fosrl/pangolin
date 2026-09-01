@@ -16,8 +16,11 @@ import LoginCardHeader from "@app/components/LoginCardHeader";
 import { priv } from "@app/lib/api";
 import { AxiosResponse } from "axios";
 import { LoginFormIDP } from "@app/components/LoginForm";
-import { ListIdpsResponse } from "@server/routers/idp";
+import { ListIdpsResponse, type GetIdpResponse } from "@server/routers/idp";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { LAST_USED_IDP_COOKIE_NAME } from "@app/lib/consts";
+import z from "zod";
 
 export const metadata: Metadata = {
     title: "Log In"
@@ -29,8 +32,9 @@ export default async function Page(props: {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
     const searchParams = await props.searchParams;
-    const getUser = cache(verifySession);
-    const user = await getUser({ skipCheckVerifyEmail: true });
+    const user = await verifySession({ skipCheckVerifyEmail: true });
+
+    const lastUsedIdpCookie = (await cookies()).get(LAST_USED_IDP_COOKIE_NAME);
 
     const isInvite = searchParams?.redirect?.includes("/invite");
     const forceLoginParam = searchParams?.forceLogin;
@@ -85,18 +89,47 @@ export default async function Page(props: {
         (build === "enterprise" && env.app.identityProviderMode === "org");
 
     let loginIdps: LoginFormIDP[] = [];
+    let lastUsedIdpForSmartLogin: (LoginFormIDP & { orgId?: string }) | null =
+        null;
+
     if (!useSmartLogin) {
         // Load IdPs for DashboardLoginForm (OSS or org-only IdP mode)
         if (build === "oss" || env.app.identityProviderMode !== "org") {
-            const idpsRes = await cache(
-                async () =>
-                    await priv.get<AxiosResponse<ListIdpsResponse>>("/idp")
-            )();
+            const idpsRes =
+                await priv.get<AxiosResponse<ListIdpsResponse>>("/idp");
             loginIdps = idpsRes.data.data.idps.map((idp) => ({
                 idpId: idp.idpId,
                 name: idp.name,
-                variant: idp.type
+                variant: idp.variant ?? idp.type
             })) as LoginFormIDP[];
+        }
+    } else {
+        if (lastUsedIdpCookie) {
+            const lastUsedIdpSchema = z.object({
+                orgId: z.string().optional(),
+                idpId: z.number()
+            });
+            try {
+                const persistedData = lastUsedIdpSchema.parse(
+                    JSON.parse(lastUsedIdpCookie.value)
+                );
+
+                const idpRes = await priv.get<AxiosResponse<GetIdpResponse>>(
+                    `/idp/${persistedData.idpId}`
+                );
+
+                const res = idpRes.data.data;
+
+                lastUsedIdpForSmartLogin = {
+                    idpId: res.idp.idpId,
+                    name: res.idp.name,
+                    variant: res.idpOidcConfig?.variant ?? res.idp.type,
+                    orgId: persistedData.orgId,
+                    lastUsed: true
+                };
+            } catch (error) {
+                // the idp might not exist or the data is malformatted, skip this
+            }
         }
     }
 
@@ -160,6 +193,10 @@ export default async function Page(props: {
                                 redirect={redirectUrl}
                                 forceLogin={forceLogin}
                                 defaultUser={defaultUser}
+                                inviteMode={isInvite}
+                                lastUsedIdp={
+                                    isInvite ? null : lastUsedIdpForSmartLogin
+                                }
                                 orgSignIn={
                                     !isInvite &&
                                     (build === "saas" ||
@@ -179,7 +216,7 @@ export default async function Page(props: {
             ) : (
                 <DashboardLoginForm
                     redirect={redirectUrl}
-                    idps={loginIdps}
+                    idps={isInvite ? [] : loginIdps}
                     forceLogin={forceLogin}
                     showOrgLogin={
                         !isInvite &&

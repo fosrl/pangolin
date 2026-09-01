@@ -25,8 +25,21 @@ export type GetResourcePoliciesResponse = {
 registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/policies",
-    description: "Get the inline and shared policies associated with a resource.",
-    tags: [OpenAPITags.PublicResource, OpenAPITags.Policy],
+    description:
+        "Get the inline and shared policies associated with a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: getResourcePoliciesParamsSchema
+    },
+    responses: {}
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/public-resource/{resourceId}/policies",
+    description:
+        "Get the inline and shared policies associated with a resource.",
+    tags: [OpenAPITags.PublicResource, OpenAPITags.PublicResourcePolicy],
     request: {
         params: getResourcePoliciesParamsSchema
     },

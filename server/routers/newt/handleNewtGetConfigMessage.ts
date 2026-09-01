@@ -7,7 +7,11 @@ import { eq } from "drizzle-orm";
 import { sendToExitNode } from "#dynamic/lib/exitNodes";
 import { buildClientConfigurationForNewtClient } from "./buildConfiguration";
 import { convertTargetsIfNecessary } from "../client/targets";
-import { canCompress } from "@server/lib/clientVersionChecks";
+import {
+    canCompress,
+    supportsCertReferences
+} from "@server/lib/clientVersionChecks";
+import { dedupeCertsForTargets } from "@server/lib/ip";
 import config from "@server/lib/config";
 import { waitForSiteRebuildIdle } from "@server/lib/rebuildClientAssociations";
 
@@ -29,7 +33,7 @@ export const handleNewtGetConfigMessage: MessageHandler = async (context) => {
         return;
     }
 
-    const { publicKey, port, chainId } = message.data;
+    const { publicKey, port, localEndpoints, chainId } = message.data;
     const siteId = newt.siteId;
 
     // Get the current site data
@@ -69,7 +73,10 @@ export const handleNewtGetConfigMessage: MessageHandler = async (context) => {
         .update(sites)
         .set({
             publicKey,
-            listenPort: port
+            listenPort: port,
+            localEndpoints: localEndpoints
+                ? JSON.stringify(localEndpoints)
+                : null
         })
         .where(eq(sites.siteId, siteId))
         .returning();
@@ -88,16 +95,16 @@ export const handleNewtGetConfigMessage: MessageHandler = async (context) => {
             .limit(1);
         if (
             exitNode.reachableAt &&
-            existingSite.subnet &&
+            existingSite.exitNodeSubnet &&
             existingSite.listenPort
         ) {
             const payload = {
                 oldDestination: {
-                    destinationIP: existingSite.subnet?.split("/")[0],
+                    destinationIP: existingSite.exitNodeSubnet?.split("/")[0],
                     destinationPort: existingSite.listenPort || 1 // this satisfies gerbil for now but should be reevaluated
                 },
                 newDestination: {
-                    destinationIP: site.subnet?.split("/")[0],
+                    destinationIP: site.exitNodeSubnet?.split("/")[0],
                     destinationPort: site.listenPort || 1 // this satisfies gerbil for now but should be reevaluated
                 }
             };
@@ -116,7 +123,19 @@ export const handleNewtGetConfigMessage: MessageHandler = async (context) => {
         exitNode
     );
 
-    const targetsToSend = await convertTargetsIfNecessary(newt.newtId, targets); // for backward compatibility with old newt versions that don't support the new target format
+    // Older newt clients only understand inline tlsCert/tlsKey on each
+    // target, so only switch to certId references once we know the client
+    // can resolve them.
+    let dedupedTargets = targets;
+    let certs: { id: string; cert: string; key: string }[] = [];
+    if (supportsCertReferences(newt.version)) {
+        ({ targets: dedupedTargets, certs } = dedupeCertsForTargets(targets));
+    }
+
+    const targetsToSend = await convertTargetsIfNecessary(
+        newt.newtId,
+        dedupedTargets
+    ); // for backward compatibility with old newt versions that don't support the new target format
 
     return {
         message: {
@@ -125,6 +144,7 @@ export const handleNewtGetConfigMessage: MessageHandler = async (context) => {
                 ipAddress: site.address,
                 peers,
                 targets: targetsToSend,
+                certs,
                 chainId: chainId
             }
         },

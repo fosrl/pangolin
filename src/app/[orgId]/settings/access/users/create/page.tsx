@@ -237,10 +237,13 @@ export default function Page() {
                 return;
             }
 
+            const useOrgIdps =
+                build === "saas" || env.app.identityProviderMode === "org";
+
             const res = await api
                 .get<
                     AxiosResponse<ListIdpsResponse>
-                >(build === "saas" ? `/org/${orgId}/idp` : "/idp")
+                >(useOrgIdps ? `/org/${orgId}/idp` : "/idp")
                 .catch((e) => {
                     console.error(e);
                     toast({
@@ -301,8 +304,7 @@ export default function Page() {
     );
     const [isSubmittingExternal, setIsSubmittingExternal] = useState(false);
 
-    const loading =
-        isSubmittingInternal || isSubmittingExternal;
+    const loading = isSubmittingInternal || isSubmittingExternal;
 
     async function onSubmitInternal() {
         const isValid = await internalForm.trigger();

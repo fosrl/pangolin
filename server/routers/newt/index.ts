@@ -5,7 +5,7 @@ export * from "./handleNewtRegisterMessage";
 export * from "./handleReceiveBandwidthMessage";
 export * from "./handleNewtGetConfigMessage";
 export * from "./handleSocketMessages";
-export * from "./handleNewtPingRequestMessage";
+export * from "./handleNewtExitNodesRequestMessage";
 export * from "./handleApplyBlueprintMessage";
 export * from "./handleNewtPingMessage";
 export * from "./handleNewtDisconnectingMessage";

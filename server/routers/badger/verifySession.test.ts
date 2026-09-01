@@ -236,6 +236,38 @@ function runTests() {
         "Root path should not match non-root path"
     );
 
+    // Path traversal / encoded-slash bypass regression tests
+    assertEquals(
+        isPathAllowed("public/*", "public/../admin"),
+        false,
+        "Literal .. traversal out of an allowed prefix must not match"
+    );
+    assertEquals(
+        isPathAllowed("public/*", "public%2F..%2Fadmin"),
+        false,
+        "Encoded-slash traversal out of an allowed prefix must not match"
+    );
+    assertEquals(
+        isPathAllowed("public/*", "public%2f..%2fadmin%2ffile"),
+        false,
+        "Encoded-slash traversal is case-insensitively decoded before matching"
+    );
+    assertEquals(
+        isPathAllowed("admin/*", "public/../admin/secret"),
+        true,
+        ".. traversal INTO a restricted path should still be caught by its own rule"
+    );
+    assertEquals(
+        isPathAllowed("public/*", "public%2Ffoo"),
+        true,
+        "Encoded slash without traversal should still resolve and match normally"
+    );
+    assertEquals(
+        isPathAllowed("public/*", "public/./foo"),
+        true,
+        "Single-dot segments are a no-op and should not affect matching"
+    );
+
     console.log("All path matching tests passed!");
 }
 

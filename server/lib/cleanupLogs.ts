@@ -3,12 +3,14 @@ import { cleanUpOldLogs as cleanUpOldAccessLogs } from "#dynamic/lib/logAccessAu
 import { cleanUpOldLogs as cleanUpOldActionLogs } from "#dynamic/middlewares/logActionAudit";
 import { cleanUpOldLogs as cleanUpOldRequestLogs } from "@server/routers/badger/logRequestAudit";
 import { cleanUpOldLogs as cleanUpOldConnectionLogs } from "#dynamic/routers/newt";
+import { cleanUpOldLogs as cleanUpOldAiSessionLogs } from "@server/routers/aiGateway/logAiSession";
 import { gt, or } from "drizzle-orm";
 import { cleanUpOldFingerprintSnapshots } from "@server/routers/olm/fingerprintingUtils";
 import { build } from "@server/build";
 
 export function initLogCleanupInterval() {
-    if (build == "saas") { // skip log cleanup for saas builds
+    if (build == "saas") {
+        // skip log cleanup for saas builds
         return null;
     }
     return setInterval(
@@ -23,7 +25,9 @@ export function initLogCleanupInterval() {
                     settingsLogRetentionDaysRequest:
                         orgs.settingsLogRetentionDaysRequest,
                     settingsLogRetentionDaysConnection:
-                        orgs.settingsLogRetentionDaysConnection
+                        orgs.settingsLogRetentionDaysConnection,
+                    settingsLogRetentionDaysAISessions:
+                        orgs.settingsLogRetentionDaysAISessions
                 })
                 .from(orgs)
                 .where(
@@ -31,7 +35,8 @@ export function initLogCleanupInterval() {
                         gt(orgs.settingsLogRetentionDaysAction, 0),
                         gt(orgs.settingsLogRetentionDaysAccess, 0),
                         gt(orgs.settingsLogRetentionDaysRequest, 0),
-                        gt(orgs.settingsLogRetentionDaysConnection, 0)
+                        gt(orgs.settingsLogRetentionDaysConnection, 0),
+                        gt(orgs.settingsLogRetentionDaysAISessions, 0)
                     )
                 );
 
@@ -42,7 +47,8 @@ export function initLogCleanupInterval() {
                     settingsLogRetentionDaysAction,
                     settingsLogRetentionDaysAccess,
                     settingsLogRetentionDaysRequest,
-                    settingsLogRetentionDaysConnection
+                    settingsLogRetentionDaysConnection,
+                    settingsLogRetentionDaysAISessions
                 } = org;
 
                 if (settingsLogRetentionDaysAction > 0) {
@@ -70,6 +76,13 @@ export function initLogCleanupInterval() {
                     await cleanUpOldConnectionLogs(
                         orgId,
                         settingsLogRetentionDaysConnection
+                    );
+                }
+
+                if (settingsLogRetentionDaysAISessions > 0) {
+                    await cleanUpOldAiSessionLogs(
+                        orgId,
+                        settingsLogRetentionDaysAISessions
                     );
                 }
             }

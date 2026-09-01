@@ -18,6 +18,7 @@ interface StrategySelectProps<TValue extends string> {
     defaultValue?: TValue;
     onChange?: (value: TValue) => void;
     cols?: number;
+    idPrefix?: string;
 }
 
 export function StrategySelect<TValue extends string>({
@@ -25,7 +26,8 @@ export function StrategySelect<TValue extends string>({
     value: controlledValue,
     defaultValue,
     onChange,
-    cols = 1
+    cols = 1,
+    idPrefix = "strategy"
 }: StrategySelectProps<TValue>) {
     const [uncontrolledSelected, setUncontrolledSelected] = useState<
         TValue | undefined
@@ -49,43 +51,49 @@ export function StrategySelect<TValue extends string>({
             }}
             className="grid md:grid-cols-(--cols) gap-4"
         >
-            {options.map((option: StrategyOption<TValue>) => (
-                <label
-                    key={option.id}
-                    htmlFor={option.id}
-                    data-state={
-                        selected === option.id ? "checked" : "unchecked"
-                    }
-                    className={cn(
-                        "relative flex rounded-lg border p-4 transition-colors cursor-pointer",
-                        option.disabled
-                            ? "border-input text-muted-foreground cursor-not-allowed opacity-50"
-                            : selected === option.id
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-input hover:bg-accent"
-                    )}
-                >
-                    <RadioGroupItem
-                        value={option.id}
-                        id={option.id}
-                        disabled={option.disabled}
-                        className="absolute left-4 top-5 h-4 w-4 border-primary text-primary"
-                    />
-                    <div className="flex gap-3 pl-7">
-                        {option.icon && (
-                            <div className="mt-1">{option.icon}</div>
+            {options.map((option: StrategyOption<TValue>) => {
+                const optionId = `${idPrefix}-${option.id}`;
+
+                return (
+                    <label
+                        key={option.id}
+                        htmlFor={optionId}
+                        data-state={
+                            selected === option.id ? "checked" : "unchecked"
+                        }
+                        className={cn(
+                            "relative flex rounded-lg border p-4 transition-colors cursor-pointer",
+                            option.disabled
+                                ? "border-input text-muted-foreground cursor-not-allowed opacity-50"
+                                : selected === option.id
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-input hover:bg-accent"
                         )}
-                        <div className="flex-1">
-                            <div className="font-medium">{option.title}</div>
-                            <div className="text-sm text-muted-foreground">
-                                {typeof option.description === "string"
-                                    ? option.description
-                                    : option.description}
+                    >
+                        <RadioGroupItem
+                            value={option.id}
+                            id={optionId}
+                            disabled={option.disabled}
+                            className="absolute left-4 top-5 h-4 w-4 border-primary text-primary"
+                        />
+                        <div className="flex gap-3 pl-7">
+                            {option.icon && (
+                                <div className="mt-1">{option.icon}</div>
+                            )}
+                            <div className="flex-1">
+                                <div className="font-medium">
+                                    {option.title}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                    {typeof option.description === "string"
+                                        ? option.description
+                                        : option.description}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </label>
-            ))}
+                    </label>
+                );
+            })}
         </RadioGroup>
     );
 }

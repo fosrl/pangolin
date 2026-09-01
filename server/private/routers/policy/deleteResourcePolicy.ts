@@ -31,7 +31,7 @@ registry.registerPath({
     method: "delete",
     path: "/resource-policy/{resourcePolicyId}",
     description: "Delete a resource policy.",
-    tags: [OpenAPITags.Policy],
+    tags: [OpenAPITags.PublicResourcePolicy],
     request: {
         params: deleteResourcePolicySchema
     },

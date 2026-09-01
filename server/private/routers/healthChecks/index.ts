@@ -16,3 +16,4 @@ export * from "./createHealthCheck";
 export * from "./updateHealthCheck";
 export * from "./deleteHealthCheck";
 export * from "./getStatusHistory";
+export * from "./getBatchedStatusHistory";

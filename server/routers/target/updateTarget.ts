@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, targetHealthCheck } from "@server/db";
-import { newts, resources, sites, targets } from "@server/db";
+import { aiProviders, newts, resources, sites, targets } from "@server/db";
 import { eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -147,19 +147,66 @@ export async function updateTarget(
             );
         }
 
-        // get the resource
-        const [resource] = await db
-            .select()
-            .from(resources)
-            .where(eq(resources.resourceId, target.resourceId!));
-
-        if (!resource) {
+        if (
+            (!target.resourceId && !target.providerId) ||
+            (target.resourceId && target.providerId)
+        ) {
             return next(
                 createHttpError(
-                    HttpCode.NOT_FOUND,
-                    `Resource with ID ${target.resourceId} not found`
+                    HttpCode.INTERNAL_SERVER_ERROR,
+                    `Target with ID ${targetId} has invalid ownership`
                 )
             );
+        }
+
+        let resource: typeof resources.$inferSelect | undefined;
+        let provider: typeof aiProviders.$inferSelect | undefined;
+
+        if (target.resourceId) {
+            [resource] = await db
+                .select()
+                .from(resources)
+                .where(eq(resources.resourceId, target.resourceId))
+                .limit(1);
+
+            if (!resource) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Resource with ID ${target.resourceId} not found`
+                    )
+                );
+            }
+        } else {
+            [provider] = await db
+                .select()
+                .from(aiProviders)
+                .where(eq(aiProviders.providerId, target.providerId!))
+                .limit(1);
+
+            if (!provider) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `AI provider with ID ${target.providerId} not found`
+                    )
+                );
+            }
+
+            if (
+                parsedBody.data.method !== undefined &&
+                (!parsedBody.data.method ||
+                    !["http", "https"].includes(
+                        parsedBody.data.method.toLowerCase()
+                    ))
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "AI provider target method must be http or https"
+                    )
+                );
+            }
         }
 
         const [site] = await db
@@ -173,6 +220,15 @@ export async function updateTarget(
                 createHttpError(
                     HttpCode.NOT_FOUND,
                     `Site with ID ${siteId} not found`
+                )
+            );
+        }
+
+        if (provider && site.orgId && site.orgId !== provider.orgId) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Site must belong to the AI provider organization"
                 )
             );
         }
@@ -221,8 +277,13 @@ export async function updateTarget(
         }
 
         const pathMatchTypeRemoved = parsedBody.data.pathMatchType === null;
-        const nextMode =
-            parsedBody.data.mode === null ? undefined : parsedBody.data.mode;
+        const nextMode = provider
+            ? parsedBody.data.mode !== undefined
+                ? "http"
+                : undefined
+            : parsedBody.data.mode === null
+              ? undefined
+              : parsedBody.data.mode;
 
         let updatedTarget: any;
         let updatedHc: any;
@@ -233,7 +294,10 @@ export async function updateTarget(
                     siteId: parsedBody.data.siteId,
                     ip: parsedBody.data.ip,
                     mode: nextMode,
-                    method: parsedBody.data.method,
+                    method:
+                        provider && parsedBody.data.method
+                            ? parsedBody.data.method.toLowerCase()
+                            : parsedBody.data.method,
                     port: parsedBody.data.port,
                     internalPort,
                     enabled: parsedBody.data.enabled,
@@ -368,15 +432,25 @@ export async function updateTarget(
                     .where(eq(newts.siteId, site.siteId))
                     .limit(1);
 
-                if (["http", "tcp", "udp"].includes(updatedTarget.mode)) {
+                if (
+                    provider ||
+                    ["http", "tcp", "udp"].includes(updatedTarget.mode)
+                ) {
                     await addTargets(
                         newt.newtId,
                         [updatedTarget],
                         [updatedHc],
-                        resource.mode === "udp" ? "udp" : "tcp",
+                        provider
+                            ? "tcp"
+                            : (resource!.mode as string) === "udp"
+                              ? "udp"
+                              : "tcp",
                         newt.version
                     );
-                } else if (["ssh", "rdp", "vnc"].includes(updatedTarget.mode)) {
+                } else if (
+                    !provider &&
+                    ["ssh", "rdp", "vnc"].includes(updatedTarget.mode)
+                ) {
                     await sendBrowserGatewayTargets(
                         newt.newtId,
                         [updatedTarget],

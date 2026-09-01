@@ -4,7 +4,7 @@ import type { GetSiteResourceResponse } from "@server/routers/siteResource/getSi
 
 export type PublicAuthState = "protected" | "not_protected" | "none";
 
-const BROWSER_MODES = ["http", "ssh", "rdp", "vnc"];
+const BROWSER_MODES = ["http", "ssh", "rdp", "vnc", "inference"];
 
 export function derivePublicAuthState(
     mode: string | null,
@@ -35,6 +35,10 @@ export function formatPublicResourceType(
 ): string {
     if (resource.mode === "http") {
         return resource.ssl ? "HTTPS" : "HTTP";
+    }
+
+    if (resource.mode === "inference") {
+        return "AI Gateway";
     }
 
     const mode = (resource.mode || "").toLowerCase();

@@ -399,7 +399,7 @@ function AuthPageSettings({
                                         </div>
                                     )}
 
-                                    {build !== "oss" && (build === "enterprise" ||
+                                    {(build === "enterprise" ||
                                         !isPaidUser(
                                             tierMatrix.loginPageDomain
                                         )) &&
@@ -412,7 +412,6 @@ function AuthPageSettings({
                                                 fullDomain={
                                                     loginPage.fullDomain
                                                 }
-                                                autoFetch={true}
                                                 showLabel={true}
                                                 polling={true}
                                             />

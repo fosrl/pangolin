@@ -18,7 +18,7 @@ const getSiteResourceParamsSchema = z.strictObject({
         .pipe(z.int().positive().optional())
         .optional(),
     niceId: z.string().optional(),
-    orgId: z.string()
+    orgId: z.string().optional()
 });
 
 async function query(siteResourceId?: number, niceId?: string, orgId?: string) {
@@ -32,6 +32,13 @@ async function query(siteResourceId?: number, niceId?: string, orgId?: string) {
                     eq(siteResources.orgId, orgId)
                 )
             )
+            .limit(1);
+        return siteResource;
+    } else if (siteResourceId) {
+        const [siteResource] = await db
+            .select()
+            .from(siteResources)
+            .where(eq(siteResources.siteResourceId, siteResourceId))
             .limit(1);
         return siteResource;
     } else if (niceId && orgId) {
@@ -57,12 +64,38 @@ registry.registerPath({
     method: "get",
     path: "/site-resource/{siteResourceId}",
     description: "Get a specific site resource by siteResourceId.",
+    tags: [OpenAPITags.PrivateResourceLegacy],
+    request: {
+        params: z.object({
+            siteResourceId: z.number()
+        })
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/private-resource/{siteResourceId}",
+    description: "Get a specific site resource by siteResourceId.",
     tags: [OpenAPITags.PrivateResource],
     request: {
         params: z.object({
-            siteResourceId: z.number(),
-            siteId: z.number(),
-            orgId: z.string()
+            siteResourceId: z.number()
         })
     },
     responses: {

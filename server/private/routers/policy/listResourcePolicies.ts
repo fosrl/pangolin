@@ -79,7 +79,7 @@ registry.registerPath({
     method: "get",
     path: "/org/{orgId}/resource-policies",
     description: "List resource policies for an organization.",
-    tags: [OpenAPITags.Org, OpenAPITags.Policy],
+    tags: [OpenAPITags.PublicResourcePolicy],
     request: {
         params: z.object({
             orgId: z.string()

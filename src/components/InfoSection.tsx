@@ -12,7 +12,7 @@ export function InfoSections({
     cols?: number;
     /** content (default): fixed gap, columns hug content, left-aligned; fill: equal-width columns across the row */
     columnSizing?: "fill" | "content";
-    /** panel: 2 columns until xl for narrow containers such as side panels */
+    /** panel: fixed 2-column grid for narrow containers such as side panels */
     layout?: "default" | "panel";
 }) {
     const n = cols || 1;
@@ -24,11 +24,11 @@ export function InfoSections({
             className={cn(
                 "grid w-full min-w-0 gap-4",
                 layout === "panel"
-                    ? "grid-cols-2 xl:grid-cols-(--columns) xl:items-start xl:space-x-16"
+                    ? "grid-cols-2 items-start"
                     : "grid-cols-2 md:grid-cols-(--columns) md:items-start md:space-x-16",
                 columnSizing === "content" &&
                     (layout === "panel"
-                        ? "xl:justify-items-start xl:justify-start"
+                        ? "justify-items-start justify-start"
                         : "md:justify-items-start md:justify-start")
             )}
             style={{

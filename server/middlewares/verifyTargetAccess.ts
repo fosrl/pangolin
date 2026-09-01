@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "@server/db";
-import { resources, targets, userOrgs } from "@server/db";
+import { aiProviders, resources, targets, userOrgs } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
@@ -25,9 +25,7 @@ export async function verifyTargetAccess(
     }
 
     if (isNaN(targetId)) {
-        return next(
-            createHttpError(HttpCode.BAD_REQUEST, "Invalid organization ID")
-        );
+        return next(createHttpError(HttpCode.BAD_REQUEST, "Invalid target ID"));
     }
 
     const target = await db
@@ -45,73 +43,88 @@ export async function verifyTargetAccess(
         );
     }
 
-    const resourceId = target[0].resourceId;
+    const { resourceId, providerId } = target[0];
 
-    if (!resourceId) {
+    if ((!resourceId && !providerId) || (resourceId && providerId)) {
         return next(
             createHttpError(
                 HttpCode.INTERNAL_SERVER_ERROR,
-                `Target with ID ${targetId} does not have a resource ID`
+                `Target with ID ${targetId} has invalid ownership`
             )
         );
     }
 
     try {
-        const resource = await db
-            .select()
-            .from(resources)
-            .where(eq(resources.resourceId, resourceId!))
-            .limit(1);
+        let orgId: string;
 
-        if (resource.length === 0) {
-            return next(
-                createHttpError(
-                    HttpCode.NOT_FOUND,
-                    `Resource with ID ${resourceId} not found`
-                )
-            );
-        }
+        if (resourceId) {
+            const [resource] = await db
+                .select()
+                .from(resources)
+                .where(eq(resources.resourceId, resourceId))
+                .limit(1);
 
-        if (!resource[0].orgId) {
-            return next(
-                createHttpError(
-                    HttpCode.INTERNAL_SERVER_ERROR,
-                    `resource with ID ${resourceId} does not have an organization ID`
-                )
-            );
+            if (!resource) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Resource with ID ${resourceId} not found`
+                    )
+                );
+            }
+
+            if (!resource.orgId) {
+                return next(
+                    createHttpError(
+                        HttpCode.INTERNAL_SERVER_ERROR,
+                        `Resource with ID ${resourceId} does not have an organization ID`
+                    )
+                );
+            }
+
+            orgId = resource.orgId;
+        } else {
+            const [provider] = await db
+                .select()
+                .from(aiProviders)
+                .where(eq(aiProviders.providerId, providerId!))
+                .limit(1);
+
+            if (!provider) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `AI provider with ID ${providerId} not found`
+                    )
+                );
+            }
+
+            orgId = provider.orgId;
         }
 
         if (!req.userOrg) {
-            const res = await db
+            const userOrgResult = await db
                 .select()
                 .from(userOrgs)
                 .where(
-                    and(
-                        eq(userOrgs.userId, userId),
-                        eq(userOrgs.orgId, resource[0].orgId)
-                    )
+                    and(eq(userOrgs.userId, userId), eq(userOrgs.orgId, orgId))
                 );
-            req.userOrg = res[0];
+            req.userOrg = userOrgResult[0];
         }
 
-        if (!req.userOrg) {
-            next(
+        if (!req.userOrg || req.userOrg.orgId !== orgId) {
+            return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,
                     "User does not have access to this organization"
                 )
             );
-        } else {
-            req.userOrgRoleIds = await getUserOrgRoleIds(
-                req.userOrg.userId,
-                resource[0].orgId!
-            );
-            req.userOrgId = resource[0].orgId!;
         }
 
-        const orgId = req.userOrg.orgId;
+        req.userOrgRoleIds = await getUserOrgRoleIds(req.userOrg.userId, orgId);
+        req.userOrgId = orgId;
 
-        if (req.orgPolicyAllowed === undefined && orgId) {
+        if (req.orgPolicyAllowed === undefined) {
             const policyCheck = await checkOrgAccessPolicy({
                 orgId,
                 userId,
@@ -128,22 +141,24 @@ export async function verifyTargetAccess(
             }
         }
 
-        const resourceAllowed = await canUserAccessResource({
-            userId,
-            resourceId,
-            roleIds: req.userOrgRoleIds ?? []
-        });
+        if (resourceId) {
+            const resourceAllowed = await canUserAccessResource({
+                userId,
+                resourceId,
+                roleIds: req.userOrgRoleIds ?? []
+            });
 
-        if (!resourceAllowed) {
-            return next(
-                createHttpError(
-                    HttpCode.FORBIDDEN,
-                    "User does not have access to this resource"
-                )
-            );
+            if (!resourceAllowed) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "User does not have access to this resource"
+                    )
+                );
+            }
         }
 
-        next();
+        return next();
     } catch (e) {
         return next(
             createHttpError(

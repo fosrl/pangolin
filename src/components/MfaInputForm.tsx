@@ -13,7 +13,7 @@ import {
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { useTranslations } from "next-intl";
-import { REGEXP_ONLY_DIGITS } from "input-otp";
+import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
 
 const MFA_OTP_INPUT_ID = "mfa-otp-code";
 
@@ -82,9 +82,11 @@ export default function MfaInputForm({
                                             maxLength={6}
                                             {...field}
                                             autoComplete="one-time-code"
-                                            inputMode="numeric"
+                                            inputMode="text"
                                             autoFocus
-                                            pattern={REGEXP_ONLY_DIGITS}
+                                            pattern={
+                                                REGEXP_ONLY_DIGITS_AND_CHARS
+                                            }
                                             onChange={(value: string) => {
                                                 field.onChange(value);
                                                 if (value.length === 6) {

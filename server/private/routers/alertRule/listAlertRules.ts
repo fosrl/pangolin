@@ -90,7 +90,7 @@ registry.registerPath({
     method: "get",
     path: "/org/{orgId}/alert-rules",
     description: "List all alert rules for a specific organization.",
-    tags: [OpenAPITags.Org],
+    tags: [OpenAPITags.AlertRule],
     request: {
         query: querySchema,
         params: paramsSchema

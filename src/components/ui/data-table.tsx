@@ -35,7 +35,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@app/components/ui/input";
 import { DataTablePagination } from "@app/components/DataTablePagination";
 import { dataTableFilterDropdownContentClassName } from "@app/lib/dataTableFilterPopover";
-import { ChevronDown, Plus, Search, RefreshCw, Columns, Filter } from "lucide-react";
+import {
+    ChevronDown,
+    Plus,
+    Search,
+    RefreshCw,
+    Columns,
+    Filter
+} from "lucide-react";
 import {
     Card,
     CardContent,
@@ -523,29 +530,33 @@ export function DataTable<TData, TValue>({
         addButtonText && ((addActions && addActions.length > 0) || onAdd)
     );
     const showAddActionInEmptyState = !hasRows && hasAddAction;
-    const addAction = addActions && addActions.length > 0 && addButtonText ? (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button disabled={addButtonDisabled}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {addButtonText}
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                {addActions.map((action, i) => (
-                    <DropdownMenuItem key={i} onSelect={() => action.onSelect()}>
-                        {action.label}
-                    </DropdownMenuItem>
-                ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
-    ) : onAdd && addButtonText ? (
-        <Button onClick={onAdd} disabled={addButtonDisabled}>
-            <Plus className="mr-2 h-4 w-4" />
-            {addButtonText}
-        </Button>
-    ) : null;
+    const addAction =
+        addActions && addActions.length > 0 && addButtonText ? (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button disabled={addButtonDisabled}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        {addButtonText}
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    {addActions.map((action, i) => (
+                        <DropdownMenuItem
+                            key={i}
+                            onSelect={() => action.onSelect()}
+                        >
+                            {action.label}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        ) : onAdd && addButtonText ? (
+            <Button onClick={onAdd} disabled={addButtonDisabled}>
+                <Plus className="mr-2 h-4 w-4" />
+                {addButtonText}
+            </Button>
+        ) : null;
 
     return (
         <div className="container mx-auto max-w-12xl">
@@ -674,7 +685,9 @@ export function DataTable<TData, TValue>({
                                 <Button
                                     variant="outline"
                                     onClick={onRefresh}
-                                    disabled={isRefreshing || refreshButtonDisabled}
+                                    disabled={
+                                        isRefreshing || refreshButtonDisabled
+                                    }
                                 >
                                     <RefreshCw
                                         className={`mr-0 sm:mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
@@ -757,13 +770,6 @@ export function DataTable<TData, TValue>({
                                                                     align="end"
                                                                     className="w-48"
                                                                 >
-                                                                    <DropdownMenuLabel>
-                                                                        {t(
-                                                                            "toggleColumns"
-                                                                        ) ||
-                                                                            "Toggle columns"}
-                                                                    </DropdownMenuLabel>
-                                                                    <DropdownMenuSeparator />
                                                                     {table
                                                                         .getAllColumns()
                                                                         .filter(
@@ -891,13 +897,11 @@ export function DataTable<TData, TValue>({
                                     <DataTableEmptyState
                                         colSpan={columns.length}
                                         action={
-                                            showAddActionInEmptyState
-                                                ? (
-                                                      <div className="hidden sm:block">
-                                                          {addAction}
-                                                      </div>
-                                                  )
-                                                : undefined
+                                            showAddActionInEmptyState ? (
+                                                <div className="hidden sm:block">
+                                                    {addAction}
+                                                </div>
+                                            ) : undefined
                                         }
                                     />
                                 )}

@@ -8,6 +8,8 @@ import ExitNodesTable, {
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
+import { build } from "@server/build";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
     title: "Remote Exit Nodes"
@@ -22,6 +24,10 @@ export const dynamic = "force-dynamic";
 export default async function RemoteExitNodesPage(
     props: RemoteExitNodesPageProps
 ) {
+    if (build != "saas") {
+        redirect("/");
+    }
+
     const params = await props.params;
     let remoteExitNodes: ListRemoteExitNodesResponse["remoteExitNodes"] = [];
     try {

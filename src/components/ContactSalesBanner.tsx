@@ -24,16 +24,18 @@ export function ContactSalesBanner() {
                             <ExternalLink className="size-3.5 shrink-0" />
                         </Link>
                         {" " + t("contactSalesOr") + " "}
-                        <Link
-                            href="https://pangolin.net/contact"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 font-medium text-black-600 underline"
-                        >
-                            {t("contactSalesContactUs")}
-                            <ExternalLink className="size-3.5 shrink-0" />
-                        </Link>
-                        .
+                        <span className="whitespace-nowrap">
+                            <Link
+                                href="https://pangolin.net/contact"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-medium text-black-600 underline"
+                            >
+                                {t("contactSalesContactUs")}
+                                <ExternalLink className="size-3.5 shrink-0" />
+                            </Link>
+                            .
+                        </span>
                     </span>
                 </div>
             </div>

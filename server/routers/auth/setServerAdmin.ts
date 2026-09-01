@@ -42,54 +42,62 @@ export async function setServerAdmin(
 
         const { email, password, setupToken } = parsedBody.data;
 
-        // Validate setup token
-        const [validToken] = await db
-            .select()
-            .from(setupTokens)
-            .where(
-                and(
-                    eq(setupTokens.token, setupToken),
-                    eq(setupTokens.used, false)
-                )
-            );
-
-        if (!validToken) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "Invalid or expired setup token"
-                )
-            );
-        }
-
-        const [existing] = await db
-            .select()
-            .from(users)
-            .where(eq(users.serverAdmin, true));
-
-        if (existing) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "Server admin already exists"
-                )
-            );
-        }
-
         const passwordHash = await hashPassword(password);
         const userId = generateId(15);
 
         await db.transaction(async (trx) => {
-            // Mark the token as used
-            await trx
+            const consumed = await trx
                 .update(setupTokens)
                 .set({
                     used: true,
                     dateUsed: moment().toISOString()
                 })
-                .where(eq(setupTokens.tokenId, validToken.tokenId));
+                .where(
+                    and(
+                        eq(setupTokens.token, setupToken),
+                        eq(setupTokens.used, false)
+                    )
+                )
+                .returning({ tokenId: setupTokens.tokenId });
 
-            // Create the server admin user
+            if (!consumed.length) {
+                throw createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Invalid setup token"
+                );
+            }
+
+            const [existingAdmin] = await trx
+                .select({ userId: users.userId })
+                .from(users)
+                .where(eq(users.serverAdmin, true))
+                .limit(1);
+
+            if (existingAdmin) {
+                throw createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Server admin already exists"
+                );
+            }
+
+            const [existingUser] = await trx
+                .select({ userId: users.userId })
+                .from(users)
+                .where(
+                    and(
+                        eq(users.email, email),
+                        eq(users.type, UserType.Internal)
+                    )
+                )
+                .limit(1);
+
+            if (existingUser) {
+                throw createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "A user with that email address already exists"
+                );
+            }
+
             await trx.insert(users).values({
                 userId: userId,
                 email: email,
@@ -111,6 +119,9 @@ export async function setServerAdmin(
             status: HttpCode.OK
         });
     } catch (e) {
+        if (createHttpError.isHttpError(e)) {
+            return next(e);
+        }
         logger.error(e);
         return next(
             createHttpError(

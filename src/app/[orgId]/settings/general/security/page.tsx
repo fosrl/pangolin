@@ -80,7 +80,8 @@ const SecurityFormSchema = z.object({
     settingsLogRetentionDaysRequest: z.number(),
     settingsLogRetentionDaysAccess: z.number(),
     settingsLogRetentionDaysAction: z.number(),
-    settingsLogRetentionDaysConnection: z.number()
+    settingsLogRetentionDaysConnection: z.number(),
+    settingsLogRetentionDaysAISessions: z.number()
 });
 
 const LOG_RETENTION_OPTIONS = [
@@ -122,7 +123,8 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
                 settingsLogRetentionDaysRequest: true,
                 settingsLogRetentionDaysAccess: true,
                 settingsLogRetentionDaysAction: true,
-                settingsLogRetentionDaysConnection: true
+                settingsLogRetentionDaysConnection: true,
+                settingsLogRetentionDaysAISessions: true
             })
         ),
         defaultValues: {
@@ -133,7 +135,9 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
             settingsLogRetentionDaysAction:
                 org.settingsLogRetentionDaysAction ?? 15,
             settingsLogRetentionDaysConnection:
-                org.settingsLogRetentionDaysConnection ?? 15
+                org.settingsLogRetentionDaysConnection ?? 15,
+            settingsLogRetentionDaysAISessions:
+                org.settingsLogRetentionDaysAISessions ?? 15
         },
         mode: "onChange"
     });
@@ -161,7 +165,9 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
                 settingsLogRetentionDaysAction:
                     data.settingsLogRetentionDaysAction,
                 settingsLogRetentionDaysConnection:
-                    data.settingsLogRetentionDaysConnection
+                    data.settingsLogRetentionDaysConnection,
+                settingsLogRetentionDaysAISessions:
+                    data.settingsLogRetentionDaysAISessions
             } as any;
 
             // Update organization
@@ -561,6 +567,131 @@ function LogRetentionSectionForm({ org }: SectionFormProps) {
                                                     <FormLabel>
                                                         {t(
                                                             "logRetentionConnectionLabel"
+                                                        )}
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Select
+                                                            value={field.value.toString()}
+                                                            onValueChange={(
+                                                                value
+                                                            ) => {
+                                                                if (
+                                                                    !isDisabled
+                                                                ) {
+                                                                    field.onChange(
+                                                                        parseInt(
+                                                                            value,
+                                                                            10
+                                                                        )
+                                                                    );
+                                                                }
+                                                            }}
+                                                            disabled={
+                                                                isDisabled
+                                                            }
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue
+                                                                    placeholder={t(
+                                                                        "selectLogRetention"
+                                                                    )}
+                                                                />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {LOG_RETENTION_OPTIONS.filter(
+                                                                    (
+                                                                        option
+                                                                    ) => {
+                                                                        if (
+                                                                            build !=
+                                                                            "saas"
+                                                                        ) {
+                                                                            return true;
+                                                                        }
+
+                                                                        let maxDays: number;
+
+                                                                        if (
+                                                                            !subscriptionTier
+                                                                        ) {
+                                                                            // No tier
+                                                                            maxDays = 3;
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "enterprise"
+                                                                        ) {
+                                                                            // Enterprise - no limit
+                                                                            return true;
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier3"
+                                                                        ) {
+                                                                            maxDays = 90;
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier2"
+                                                                        ) {
+                                                                            maxDays = 30;
+                                                                        } else if (
+                                                                            subscriptionTier ==
+                                                                            "tier1"
+                                                                        ) {
+                                                                            maxDays = 7;
+                                                                        } else {
+                                                                            // Default to most restrictive
+                                                                            maxDays = 3;
+                                                                        }
+
+                                                                        // Filter out options that exceed the max
+                                                                        // Special values: -1 (forever) and 9001 (end of year) should be filtered
+                                                                        if (
+                                                                            option.value <
+                                                                                0 ||
+                                                                            option.value >
+                                                                                maxDays
+                                                                        ) {
+                                                                            return false;
+                                                                        }
+
+                                                                        return true;
+                                                                    }
+                                                                ).map(
+                                                                    (
+                                                                        option
+                                                                    ) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                option.value
+                                                                            }
+                                                                            value={option.value.toString()}
+                                                                        >
+                                                                            {t(
+                                                                                option.label
+                                                                            )}
+                                                                        </SelectItem>
+                                                                    )
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            );
+                                        }}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="settingsLogRetentionDaysAISessions"
+                                        render={({ field }) => {
+                                            const isDisabled = !isPaidUser(
+                                                tierMatrix.aiSessionLogs
+                                            );
+
+                                            return (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t(
+                                                            "logRetentionAISessionsLabel"
                                                         )}
                                                     </FormLabel>
                                                     <FormControl>

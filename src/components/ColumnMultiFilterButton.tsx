@@ -35,6 +35,7 @@ type ColumnMultiFilterButtonProps = {
     emptyMessage?: string;
     className?: string;
     label: string;
+    allowArbitraryValues?: boolean;
 };
 
 export function ColumnMultiFilterButton({
@@ -44,10 +45,25 @@ export function ColumnMultiFilterButton({
     searchPlaceholder = "Search...",
     emptyMessage = "No options found",
     className,
-    label
+    label,
+    allowArbitraryValues
 }: ColumnMultiFilterButtonProps) {
     const [open, setOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const t = useTranslations();
+
+    const visibleOptions = useMemo<FilterOption[]>(() => {
+        const newOptions = [...options];
+
+        if (allowArbitraryValues && searchQuery.trim().length > 0) {
+            newOptions.push({
+                label: searchQuery,
+                value: searchQuery
+            });
+        }
+
+        return newOptions;
+    }, [options, allowArbitraryValues, searchQuery]);
 
     const selectedSet = useMemo(
         () => new Set(selectedValues),
@@ -64,7 +80,7 @@ export function ColumnMultiFilterButton({
                 selectedValues[0]
             );
         }
-        return t("accessUsersRoleFilterCount", {
+        return t("multiSelectFilterCount", {
             count: selectedValues.length
         });
     }, [selectedValues, options, t]);
@@ -108,7 +124,11 @@ export function ColumnMultiFilterButton({
                 align="start"
             >
                 <Command>
-                    <CommandInput placeholder={searchPlaceholder} />
+                    <CommandInput
+                        placeholder={searchPlaceholder}
+                        value={searchQuery}
+                        onValueChange={setSearchQuery}
+                    />
                     <CommandList>
                         <CommandEmpty>{emptyMessage}</CommandEmpty>
                         <CommandGroup>
@@ -123,7 +143,7 @@ export function ColumnMultiFilterButton({
                                     {t("accessFilterClear")}
                                 </CommandItem>
                             )}
-                            {options.map((option) => (
+                            {visibleOptions.map((option) => (
                                 <CommandItem
                                     key={option.value}
                                     value={option.label}

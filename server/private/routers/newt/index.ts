@@ -12,4 +12,3 @@
  */
 
 export * from "./handleConnectionLogMessage";
-export * from "./handleRequestLogMessage";

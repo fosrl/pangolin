@@ -31,9 +31,24 @@ export type AlertNotificationProps = {
     orgId: string;
     data: Record<string, unknown>;
     dashboardLink: string;
+    isTestAlert?: boolean;
 };
 
-function getEventMeta(eventType: AlertEventType): {
+function getEventMeta(
+    eventType: AlertEventType,
+    isTestAlert: boolean = false
+): {
+    heading: string;
+    previewText: string;
+    summary: string;
+    statusLabel: string | null;
+    statusColor: string | null;
+} {
+    const meta = getBaseEventMeta(eventType);
+    return isTestAlert ? { ...meta, heading: `[TEST] ${meta.heading}` } : meta;
+}
+
+function getBaseEventMeta(eventType: AlertEventType): {
     heading: string;
     previewText: string;
     summary: string;
@@ -180,8 +195,14 @@ function formatDataItems(
 }
 
 export const AlertNotification = (props: AlertNotificationProps) => {
-    const { eventType, orgId, data, dashboardLink } = props;
-    const meta = getEventMeta(eventType);
+    const {
+        eventType,
+        orgId,
+        data,
+        dashboardLink,
+        isTestAlert = false
+    } = props;
+    const meta = getEventMeta(eventType, isTestAlert);
     const dataItems = formatDataItems(data);
 
     const isToggle =
@@ -242,6 +263,12 @@ export const AlertNotification = (props: AlertNotificationProps) => {
                             Open your dashboard to view more details and manage
                             your alert rules.
                         </EmailText>
+                        {isTestAlert && (
+                            <EmailText>
+                                This is a test alert. No action is required,
+                                and no real event has occurred.
+                            </EmailText>
+                        )}
 
                         <EmailSection>
                             <ButtonLink href={dashboardLink}>

@@ -287,7 +287,7 @@ export async function inviteUser(
                     )
                 );
 
-            const inviteLink = `${config.getRawConfig().app.dashboard_url}/invite?token=${inviteId}-${token}&email=${email}`;
+            const inviteLink = `${config.getRawConfig().app.dashboard_url}/invite?token=${inviteId}-${token}&email=${encodeURIComponent(email)}`;
 
             if (doEmail) {
                 await sendEmail(
@@ -341,7 +341,7 @@ export async function inviteUser(
                 .values(uniqueRoleIds.map((roleId) => ({ inviteId, roleId })));
         });
 
-        const inviteLink = `${config.getRawConfig().app.dashboard_url}/invite?token=${inviteId}-${token}&email=${email}`;
+        const inviteLink = `${config.getRawConfig().app.dashboard_url}/invite?token=${inviteId}-${token}&email=${encodeURIComponent(email)}`;
 
         if (doEmail) {
             await sendEmail(

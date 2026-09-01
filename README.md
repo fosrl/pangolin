@@ -41,7 +41,7 @@
     </strong>
 </p>
 
-Pangolin is an open-source, identity-based remote access platform built on WireGuard® that enables secure, seamless connectivity to private and public resources. Pangolin combines reverse proxy and VPN capabilities into one platform, providing browser-based access to web applications and client-based access to any private resources with NAT traversal, all with granular access controls.
+Pangolin is an open-source, identity-based remote access platform built on WireGuard® that enables secure connectivity to infrastructure anywhere. It combines reverse-proxy and VPN capabilities into one platform, providing browser-based access to web applications and client-based access to private resources with NAT traversal, all with granular access control.
 
 ## Installation
 
@@ -63,11 +63,26 @@ Pangolin is an open-source, identity-based remote access platform built on WireG
 
 Pangolin's site connectors provide gateways into networks so you can access any networked resources. Sites use outbound tunnels and intelligent NAT traversal to make networks behind restrictive firewalls available for authorized access without public IPs or open ports. Easily deploy a site as a binary or container on any platform.
 
+* Lightweight user-space connector runs anywhere
+* Punches through any firewall
+* Doesn't require open ports or a public IP
+* Strict network segmentation
+* WireGuard-based
+* Get alerts when a device or network resource goes down
+
 <img src="public/screenshots/sites.png" alt="Sites" width="100%" />
 
 ### Browser-based reverse proxy access
 
-Expose web applications through identity and context-aware tunneled reverse proxies. Users access applications through any web browser with authentication and granular access control without installing a client. Pangolin handles routing, load balancing, health checking, and automatic SSL certificates without exposing your network directly to the internet.
+Expose HTTPS web applications and connect to VNC, RDP, and SSH entirely in the browser through identity and context-aware tunneled reverse proxies. Users access resources with authentication and granular access control without installing a client. Pangolin handles routing, load balancing, health checking, and automatic SSL certificates without exposing your network directly to the internet.
+
+* Expose a web panel anywhere
+* Access via any web browser
+* Single sign-on across all resources
+* HTTPS resources
+* Remote desktop in the browser with VNC and RDP
+* In-browser SSH terminal with privileged access management (PAM)
+* PIN codes, passcodes, email OTP, geoblocking, allow-lists, and more
 
 <img src="public/clip.gif" alt="Reverse proxy access" width="100%" />
 
@@ -75,13 +90,47 @@ Expose web applications through identity and context-aware tunneled reverse prox
 
 Access private resources like SSH servers, databases, RDP, and entire network ranges through Pangolin clients. Intelligent NAT traversal enables connections even through restrictive firewalls, while DNS aliases provide friendly names and fast connections to resources across all your sites. Add redundancy by routing traffic through multiple connectors in your network.
 
+* Peer-to-peer with intelligent NAT traversal
+* Hosts/IPs and port ranges
+* Network ranges/CIDRs
+* Friendly DNS aliases for network addresses
+* Privileged access management (PAM) with SSH resources
+* Private HTTPS resources only accessible on the private network
+
 <img src="public/screenshots/private-resources.png" alt="Private resources" width="100%" />
+
+### Identity-aware AI gateway
+
+Put an identity-aware proxy in front of public cloud (OpenAI, Anthropic, Gemini, etc.) and self-hosted model servers (Ollama, vLLM, Mistral, etc.) so coding agents and AI clients call a single Pangolin URL. Publish it as a public resource with personal API keys, or keep it private on a client tunnel where the connected client is the credential for keyless access. Budgets, session history, and usage analytics sit in front of every call.
+
+* Access self-hosted models (vLLM, Ollama, etc) alongside cloud models (OpenAI, Anthropic, etc) in one place
+* Keyless access by authenticating users with the Pangolin desktop client
+* Or, provide users with personal API keys
+* Control costs and token usage by setting budgets
+* Audit with detailed session history and analytics
+* Integrate AI clients and coding agents (Claude Code, Codex, OpenCode, etc)
+
+<img src="public/screenshots/expanded-session-logs.png" alt="AI Session Logs" width="100%" />
 
 ### Give users and roles access to resources
 
-Use Pangolin's built in users or bring your own identity provider and set up role based access control (RBAC). Grant users access to specific resources, not entire networks. Unlike traditional VPNs that expose full network access, Pangolin's zero-trust model ensures users can only reach the applications, services, and routes you explicitly define.
+Use Pangolin's built-in users or bring your own identity provider and set up role-based access control (RBAC). Grant users access to specific resources, not entire networks. Unlike traditional VPNs that expose full network access, Pangolin's zero-trust model ensures users can only reach the applications, services, and routes you explicitly define.
+
+* Bring your existing identity provider (IdP) or use Pangolin identities
+* Sync users and roles from your IdP
+* User- and role-based access control
+* Full network audit and access logs
 
 <img src="public/screenshots/users.png" alt="Users from identity provider with roles" width="100%" />
+
+### Find and launch resources from a personalized home page
+
+Give users a landing page to quickly find and open the resources they can access. Resources are grouped by site or label, searchable, and filterable, with grid or list views. Saved views capture filters, grouping, and layout as personal or organization-wide defaults.
+
+* Single place for admins and non-admins to see accessible resources
+* Create reusable views for common access patterns
+
+<img src="public/screenshots/resource-launcher.png" alt="Resource Launcher" width="100%" />
 
 ## Download Clients
 

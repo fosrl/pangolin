@@ -18,9 +18,9 @@ import {
 } from "@app/components/Settings";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import {
-    OptionSelect,
-    type OptionSelectOption
-} from "@app/components/OptionSelect";
+    DescribedSelect,
+    type DescribedSelectOption
+} from "@app/components/DescribedSelect";
 import {
     StrategySelect,
     type StrategyOption
@@ -50,8 +50,6 @@ import {
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { toast } from "@app/hooks/useToast";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
-import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import {
     createBrowserGatewayTargetFormSchema,
@@ -59,7 +57,6 @@ import {
     selectedSiteSchema,
     type SshSettingsFormValues
 } from "@app/lib/browserGatewayTargetFormSchema";
-import { DockerManager, DockerState } from "@app/lib/docker";
 import { orgQueries } from "@app/lib/queries";
 import { finalizeSubdomainSanitize } from "@app/lib/subdomain-utils";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -72,6 +69,10 @@ import {
     LocalTarget,
     ProxyResourceTargetsForm
 } from "@app/app/[orgId]/settings/resources/public/ProxyResourceTargetsForm";
+import {
+    AiProvidersSelector,
+    type SelectedAiProvider
+} from "@app/components/AiProvidersSelector";
 import { AxiosResponse } from "axios";
 import { ChevronsUpDown, ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -206,7 +207,7 @@ function createAddTargetSchema(t: TranslateFn) {
         );
 }
 
-type NewResourceType = "http" | "ssh" | "rdp" | "vnc" | "tcp" | "udp";
+type NewResourceType = "http" | "ssh" | "rdp" | "vnc" | "tcp" | "udp" | "inference";
 
 type CreateBgTargetFormValues = SshSettingsFormValues;
 
@@ -235,16 +236,11 @@ export default function Page() {
     // Resource type state
     const [resourceType, setResourceType] = useState<NewResourceType>("http");
 
-    const isBrowserGatewayType =
-        resourceType === "ssh" ||
-        resourceType === "rdp" ||
-        resourceType === "vnc";
-    const browserGatewayDisabled =
-        isBrowserGatewayType &&
-        !isPaidUser(tierMatrix[TierFeature.AdvancedPublicResources]);
-
     // Target management state (managed by ProxyResourceTargetsForm; mirrored here for onSubmit)
     const [targets, setTargets] = useState<LocalTarget[]>([]);
+    const [selectedProviders, setSelectedProviders] = useState<
+        SelectedAiProvider[]
+    >([]);
 
     // SSH-specific state
     const [sshServerMode, setSshServerMode] = useState<"standard" | "native">(
@@ -329,19 +325,20 @@ export default function Page() {
     const rawResourcesAllowed =
         env.flags.allowRawResources &&
         (build !== "saas" || remoteExitNodes.length > 0);
-    const enterpriseModesAllowed =
-        !env.flags.disableEnterpriseFeatures;
 
     const availableTypes = useMemo((): NewResourceType[] => {
-        const base: NewResourceType[] = ["http"];
-        if (enterpriseModesAllowed) {
-            base.push("ssh", "rdp", "vnc");
-        }
+        const base: NewResourceType[] = [
+            "http",
+            "inference",
+            "ssh",
+            "rdp",
+            "vnc"
+        ];
         if (rawResourcesAllowed) {
             base.push("tcp", "udp");
         }
         return base;
-    }, [enterpriseModesAllowed, rawResourcesAllowed]);
+    }, [rawResourcesAllowed]);
 
     useEffect(() => {
         if (!availableTypes.includes(resourceType)) {
@@ -478,29 +475,41 @@ export default function Page() {
                     ? finalizeSubdomainSanitize(httpData.subdomain, true)
                     : undefined;
 
-                const effectiveMode = isNative
-                    ? "native"
-                    : standardDaemonLocation;
-                const portVal = sshDaemonPortForm.getValues().authDaemonPort;
-                const effectivePort =
-                    !isNative &&
-                    standardDaemonLocation === "remote" &&
-                    pamMode === "push" &&
-                    portVal
-                        ? Number(portVal)
-                        : undefined;
-
                 Object.assign(payload, {
                     subdomain: sanitizedSubdomain
                         ? toASCII(sanitizedSubdomain)
                         : undefined,
                     domainId: httpData.domainId,
                     protocol: "tcp",
-                    mode: resourceType,
-                    pamMode,
-                    authDaemonMode: effectiveMode,
-                    authDaemonPort: effectivePort || undefined
+                    mode: resourceType
                 });
+
+                if (resourceType === "inference") {
+                    Object.assign(payload, {
+                        aiProviders: selectedProviders.map((provider) => ({
+                            providerId: parseInt(provider.id, 10)
+                        }))
+                    });
+                } else if (resourceType === "ssh") {
+                    const effectiveMode = isNative
+                        ? "native"
+                        : standardDaemonLocation;
+                    const portVal =
+                        sshDaemonPortForm.getValues().authDaemonPort;
+                    const effectivePort =
+                        !isNative &&
+                        standardDaemonLocation === "remote" &&
+                        pamMode === "push" &&
+                        portVal
+                            ? Number(portVal)
+                            : undefined;
+
+                    Object.assign(payload, {
+                        pamMode,
+                        authDaemonMode: effectiveMode,
+                        authDaemonPort: effectivePort || undefined
+                    });
+                }
             } else {
                 const tcpUdpData = tcpUdpForm.getValues();
                 Object.assign(payload, {
@@ -529,7 +538,11 @@ export default function Page() {
                 const newNiceId = res.data.data.niceId;
                 setNiceId(newNiceId);
 
-                if (resourceType === "http") {
+                if (resourceType === "inference") {
+                    router.push(
+                        `/${orgId}/settings/resources/public/${newNiceId}/general`
+                    );
+                } else if (resourceType === "http") {
                     if (targets.length > 0) {
                         try {
                             for (const target of targets) {
@@ -752,33 +765,53 @@ export default function Page() {
         }
     ];
 
-    let typeLabels: Partial<Record<NewResourceType, string>> = {
-        http: "HTTP",
-        tcp: "TCP",
-        udp: "UDP"
+    const typeMeta: Record<
+        NewResourceType,
+        { title: string; description: string }
+    > = {
+        http: {
+            title: t("createInternalResourceDialogModeHttp"),
+            description: t("resourceTypeHttpDescription")
+        },
+        inference: {
+            title: t("createInternalResourceDialogModeInference"),
+            description: t("resourceTypeInferenceDescription")
+        },
+        ssh: {
+            title: t("createInternalResourceDialogModeSsh"),
+            description: t("resourceTypeSshDescription")
+        },
+        rdp: {
+            title: t("rdpTitle"),
+            description: t("resourceTypeRdpDescription")
+        },
+        vnc: {
+            title: t("vncTitle"),
+            description: t("resourceTypeVncDescription")
+        },
+        tcp: {
+            title: t("createInternalResourceDialogTcp"),
+            description: t("resourceTypeTcpDescription")
+        },
+        udp: {
+            title: t("createInternalResourceDialogUdp"),
+            description: t("resourceTypeUdpDescription")
+        }
     };
 
-    if (enterpriseModesAllowed) {
-        typeLabels = {  
-            ...typeLabels,
-            ssh: "SSH",
-            rdp: "RDP",
-            vnc: "VNC",
-        };
-    }
-
-    const typeOptions: OptionSelectOption<NewResourceType>[] =
+    const typeOptions: DescribedSelectOption<NewResourceType>[] =
         availableTypes.map((type) => ({
             value: type,
-            label: typeLabels[type] ?? type.toUpperCase()
+            title: typeMeta[type].title,
+            description: typeMeta[type].description
         }));
 
     return (
         <>
             <div className="flex justify-between">
                 <HeaderTitle
-                    title={t("resourceCreate")}
-                    description={t("resourceCreateDescription")}
+                    title={t("resourcePublicCreate")}
+                    description={t("resourcePublicCreateDescription")}
                 />
                 <Button
                     variant="outline"
@@ -807,6 +840,35 @@ export default function Page() {
                                 <SettingsSectionBody>
                                     <SettingsSectionForm variant="half">
                                         <SettingsFormGrid>
+                                            <SettingsFormCell span="half">
+                                                <div className="grid gap-2">
+                                                    <Label>
+                                                        {t("type")}
+                                                    </Label>
+                                                    <DescribedSelect<NewResourceType>
+                                                        options={typeOptions}
+                                                        value={resourceType}
+                                                        onChange={
+                                                            setResourceType
+                                                        }
+                                                        searchPlaceholder={t(
+                                                            "resourceTypeSearch"
+                                                        )}
+                                                        emptyMessage={t(
+                                                            "resourceTypeNotFound"
+                                                        )}
+                                                        placeholder={t(
+                                                            "noneSelected"
+                                                        )}
+                                                    />
+                                                    <p className="text-muted-foreground text-sm">
+                                                        {t(
+                                                            "resourceTypeDescription"
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </SettingsFormCell>
+
                                             <SettingsFormCell span="half">
                                                 <Form {...baseForm}>
                                                     <form
@@ -852,27 +914,6 @@ export default function Page() {
                                                 </Form>
                                             </SettingsFormCell>
 
-                                            <SettingsFormCell span="full">
-                                                <div className="space-y-2">
-                                                    <p className="text-sm font-medium">
-                                                        {t("type")}
-                                                    </p>
-                                                    <OptionSelect<NewResourceType>
-                                                        options={typeOptions}
-                                                        value={resourceType}
-                                                        onChange={
-                                                            setResourceType
-                                                        }
-                                                        cols={6}
-                                                    />
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {t(
-                                                            "resourceTypeDescription"
-                                                        )}
-                                                    </p>
-                                                </div>
-                                            </SettingsFormCell>
-
                                             {isHttpResource && (
                                                 <SettingsFormCell span="full">
                                                     <Form {...httpForm}>
@@ -885,7 +926,8 @@ export default function Page() {
                                                                 <FormItem>
                                                                     <DomainPicker
                                                                         allowWildcard={
-                                                                            true
+                                                                            resourceType !==
+                                                                            "inference"
                                                                         }
                                                                         orgId={
                                                                             orgId as string
@@ -1005,14 +1047,6 @@ export default function Page() {
                             {/* SSH Server Section */}
                             {resourceType === "ssh" && (
                                 <SettingsSection>
-                                    <PaidFeaturesAlert
-                                        tiers={
-                                            tierMatrix[
-                                                TierFeature
-                                                    .AdvancedPublicResources
-                                            ]
-                                        }
-                                    />
                                     <SettingsSectionHeader>
                                         <SettingsSectionTitle>
                                             {t("sshServer")}
@@ -1021,14 +1055,7 @@ export default function Page() {
                                             {t("sshServerDescription")}
                                         </SettingsSectionDescription>
                                     </SettingsSectionHeader>
-                                    <fieldset
-                                        disabled={browserGatewayDisabled}
-                                        className={
-                                            browserGatewayDisabled
-                                                ? "opacity-50 pointer-events-none"
-                                                : ""
-                                        }
-                                    >
+           
                                     <SettingsSectionBody>
                                         <SettingsSectionForm variant="half">
                                             <SettingsFormGrid>
@@ -1267,21 +1294,12 @@ export default function Page() {
                                             </SettingsFormGrid>
                                         </SettingsSectionForm>
                                     </SettingsSectionBody>
-                                    </fieldset>
                                 </SettingsSection>
                             )}
 
                             {/* RDP Server Section */}
                             {resourceType === "rdp" && (
                                 <SettingsSection>
-                                    <PaidFeaturesAlert
-                                        tiers={
-                                            tierMatrix[
-                                                TierFeature
-                                                    .AdvancedPublicResources
-                                            ]
-                                        }
-                                    />
                                     <SettingsSectionHeader>
                                         <SettingsSectionTitle>
                                             {t("rdpServer")}
@@ -1290,14 +1308,6 @@ export default function Page() {
                                             {t("rdpServerDescription")}
                                         </SettingsSectionDescription>
                                     </SettingsSectionHeader>
-                                    <fieldset
-                                        disabled={browserGatewayDisabled}
-                                        className={
-                                            browserGatewayDisabled
-                                                ? "opacity-50 pointer-events-none"
-                                                : ""
-                                        }
-                                    >
                                     <SettingsSectionBody>
                                         <SettingsSectionForm variant="half">
                                             <Form {...bgTargetForm}>
@@ -1314,21 +1324,12 @@ export default function Page() {
                                             </Form>
                                         </SettingsSectionForm>
                                     </SettingsSectionBody>
-                                    </fieldset>
                                 </SettingsSection>
                             )}
 
                             {/* VNC Server Section */}
                             {resourceType === "vnc" && (
                                 <SettingsSection>
-                                    <PaidFeaturesAlert
-                                        tiers={
-                                            tierMatrix[
-                                                TierFeature
-                                                    .AdvancedPublicResources
-                                            ]
-                                        }
-                                    />
                                     <SettingsSectionHeader>
                                         <SettingsSectionTitle>
                                             {t("vncServer")}
@@ -1337,14 +1338,7 @@ export default function Page() {
                                             {t("vncServerDescription")}
                                         </SettingsSectionDescription>
                                     </SettingsSectionHeader>
-                                    <fieldset
-                                        disabled={browserGatewayDisabled}
-                                        className={
-                                            browserGatewayDisabled
-                                                ? "opacity-50 pointer-events-none"
-                                                : ""
-                                        }
-                                    >
+                                    
                                     <SettingsSectionBody>
                                         <SettingsSectionForm variant="half">
                                             <Form {...bgTargetForm}>
@@ -1361,7 +1355,6 @@ export default function Page() {
                                             </Form>
                                         </SettingsSectionForm>
                                     </SettingsSectionBody>
-                                    </fieldset>
                                 </SettingsSection>
                             )}
 
@@ -1374,6 +1367,51 @@ export default function Page() {
                                     isHttp={resourceType === "http"}
                                     onChange={setTargets}
                                 />
+                            )}
+
+                            {resourceType === "inference" && (
+                                <SettingsSection>
+                                    <SettingsSectionHeader>
+                                        <SettingsSectionTitle>
+                                            {t("aiResourceProviders")}
+                                        </SettingsSectionTitle>
+                                        <SettingsSectionDescription>
+                                            {t(
+                                                "aiResourceProvidersDescription"
+                                            )}
+                                        </SettingsSectionDescription>
+                                    </SettingsSectionHeader>
+                                    <SettingsSectionBody>
+                                        <SettingsSectionForm variant="half">
+                                            <SettingsFormGrid>
+                                                <SettingsFormCell span="full">
+                                                    <div className="space-y-2">
+                                                        <Label>
+                                                            {t(
+                                                                "aiResourceProviders"
+                                                            )}
+                                                        </Label>
+                                                        <AiProvidersSelector
+                                                            orgId={
+                                                                orgId as string
+                                                            }
+                                                            selectedProviders={
+                                                                selectedProviders
+                                                            }
+                                                            onSelectProviders={(
+                                                                providers
+                                                            ) => {
+                                                                setSelectedProviders(
+                                                                    providers
+                                                                );
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </SettingsFormCell>
+                                            </SettingsFormGrid>
+                                        </SettingsSectionForm>
+                                    </SettingsSectionBody>
+                                </SettingsSection>
                             )}
 
                             <div className="flex justify-end space-x-2 mt-8">
@@ -1429,7 +1467,10 @@ export default function Page() {
                                         }
                                     }}
                                     loading={createLoading}
-                                    disabled={!areAllTargetsValid() || browserGatewayDisabled || createLoading}
+                                    disabled={
+                                        !areAllTargetsValid() ||
+                                        createLoading
+                                    }
                                 >
                                     {t("resourceCreate")}
                                 </Button>

@@ -26,6 +26,8 @@ import {
 import logger from "@server/logger";
 import { hashPassword } from "@server/auth/password";
 import type { CreateSiteProvisioningKeyResponse } from "@server/routers/siteProvisioning/types";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
+import { OpenAPITags, registry } from "@server/openApi";
 
 const paramsSchema = z.object({
     orgId: z.string().nonempty()
@@ -34,10 +36,17 @@ const paramsSchema = z.object({
 const bodySchema = z
     .strictObject({
         name: z.string().min(1).max(255),
-        maxBatchSize: z.union([
-            z.null(),
-            z.coerce.number().int().positive().max(1_000_000)
-        ]),
+        maxBatchSize: z
+            .union([
+                z.null(),
+                z.coerce.number().int().positive().max(1_000_000)
+            ])
+            .openapi({
+                type: "number",
+                default: null,
+                description:
+                    "Maximum number of sites that can be provisioned in a single batch. If null, there is no limit."
+            }),
         validUntil: z.string().max(255).optional(),
         approveNewSites: z.boolean().optional().default(true)
     })
@@ -56,6 +65,49 @@ const bodySchema = z
     });
 
 export type CreateSiteProvisioningKeyBody = z.infer<typeof bodySchema>;
+
+const CreateSiteProvisioningKeyResponseDataSchema = z.object({
+    siteProvisioningKeyId: z.string(),
+    orgId: z.string(),
+    name: z.string(),
+    siteProvisioningKey: z.string(),
+    lastChars: z.string(),
+    createdAt: z.string(),
+    lastUsed: z.string().nullable(),
+    maxBatchSize: z.number().nullable(),
+    numUsed: z.number(),
+    validUntil: z.string().nullable(),
+    approveNewSites: z.boolean()
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/org/{orgId}/site-provisioning-key",
+    description: "Create a new site provisioning key for the organization.",
+    tags: [OpenAPITags.SiteProvisioningKey],
+    request: {
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: bodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        201: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: createApiResponseSchema(
+                        CreateSiteProvisioningKeyResponseDataSchema
+                    )
+                }
+            }
+        }
+    }
+});
 
 export async function createSiteProvisioningKey(
     req: Request,

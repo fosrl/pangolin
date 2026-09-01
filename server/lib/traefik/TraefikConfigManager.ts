@@ -8,7 +8,7 @@ import { db, exitNodes } from "@server/db";
 import { eq } from "drizzle-orm";
 import { getCurrentExitNodeId } from "@server/lib/exitNodes";
 import { getTraefikConfig } from "#dynamic/lib/traefik";
-import { getValidCertificatesForDomains } from "#dynamic/lib/certificates";
+import { getValidCertificatesForDomains } from "@server/lib/certificates";
 import { sendToExitNode } from "#dynamic/lib/exitNodes";
 import { build } from "@server/build";
 
@@ -516,6 +516,11 @@ export class TraefikConfigManager {
             const maintenanceHost =
                 config.getRawConfig().server.internal_hostname;
             const pangolinUIUrl = `http://${maintenanceHost}:${maintenancePort}`;
+            const aiGatewayUrl =
+                config.getRawConfig().server.ai_gateway_override ||
+                `http://${maintenanceHost}:${
+                    config.getRawConfig().server.ai_gateway_port
+                }`;
 
             // logger.debug(`Fetching traefik config for exit node: ${currentExitNode}`);
             traefikConfig = await getTraefikConfig(
@@ -528,7 +533,8 @@ export class TraefikConfigManager {
                     ? false
                     : config.getRawConfig().traefik.allow_raw_resources, // dont allow raw resources on saas otherwise use config
                 pangolinUIUrl, // generate maintenance pages on cloud and hybrid
-                pangolinUIUrl // generate browser gateway targets on cloud and hybrid
+                pangolinUIUrl, // generate browser gateway targets on cloud and hybrid
+                aiGatewayUrl
             );
 
             const domains = new Set<string>();
@@ -599,7 +605,30 @@ export class TraefikConfigManager {
 
                             resourceSessionRequestParam:
                                 config.getRawConfig().server
-                                    .resource_session_request_param
+                                    .resource_session_request_param,
+
+                            remoteUserIdHeader:
+                                config.getRawConfig().server.remote_headers
+                                    .user_id,
+
+                            remoteVirtualApiKeyIdHeader:
+                                config.getRawConfig().server.remote_headers
+                                    .virtual_api_key_id,
+
+                            remoteUserHeader:
+                                config.getRawConfig().server.remote_headers
+                                    .user,
+
+                            remoteEmailHeader:
+                                config.getRawConfig().server.remote_headers
+                                    .email,
+
+                            remoteNameHeader:
+                                config.getRawConfig().server.remote_headers
+                                    .name,
+
+                            remoteRoleHeader:
+                                config.getRawConfig().server.remote_headers.role
                         }
                     }
                 };

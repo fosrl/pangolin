@@ -164,6 +164,14 @@ export async function exchangeSession(
                 )
                 .limit(1);
             if (res) {
+                if (res.resourceId !== resource.resourceId) {
+                    return next(
+                        createHttpError(
+                            HttpCode.UNAUTHORIZED,
+                            "Invalid request token"
+                        )
+                    );
+                }
                 await createResourceSession({
                     token,
                     resourceId: resource.resourceId,

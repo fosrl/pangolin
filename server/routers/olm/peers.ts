@@ -18,6 +18,7 @@ export async function addPeer(
         serverPort: number | null;
         remoteSubnets: string[] | null; // optional, comma-separated list of subnets that this site can access
         aliases: Alias[];
+        localEndpoints?: string[]; // optional, list of local endpoints for the peer
     },
     olmId?: string,
     version?: string | null
@@ -44,6 +45,7 @@ export async function addPeer(
                 name: peer.name,
                 publicKey: peer.publicKey,
                 endpoint: peer.endpoint,
+                localEndpoints: peer.localEndpoints,
                 relayEndpoint: peer.relayEndpoint,
                 serverIP: peer.serverIP,
                 serverPort: peer.serverPort,

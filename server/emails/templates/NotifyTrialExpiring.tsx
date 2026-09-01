@@ -30,14 +30,14 @@ export const NotifyTrialExpiring = ({
     const isLastDay = daysRemaining === 1;
 
     const previewText = hasEnded
-        ? `Your trial for ${orgName} has ended.`
+        ? `Your cloud trial for ${orgName} has ended.`
         : isLastDay
-          ? `Your trial for ${orgName} ends tomorrow.`
-          : `Your trial for ${orgName} ends in ${daysRemaining} days.`;
+          ? `Your cloud trial for ${orgName} ends tomorrow.`
+          : `Your cloud trial for ${orgName} ends in ${daysRemaining} days.`;
 
     const heading = hasEnded
-        ? "Your Trial Ended"
-        : "Your Trial is Ending Soon";
+        ? "Your Cloud Trial Ended"
+        : "Your Cloud Trial is Ending Soon";
 
     return (
         <Html>
@@ -55,7 +55,7 @@ export const NotifyTrialExpiring = ({
                         {hasEnded ? (
                             <>
                                 <EmailText>
-                                    Your free trial for{" "}
+                                    Your cloud free trial for{" "}
                                     <strong>{orgName}</strong> ended on{" "}
                                     <strong>{trialEndsAt}</strong>. Your account
                                     has been moved to the free plan, which
@@ -64,10 +64,11 @@ export const NotifyTrialExpiring = ({
 
                                 <EmailText>
                                     Some features and resources may now be
-                                    restricted. To restore full
-                                    access and continue using all the features
-                                    you had during your trial, please upgrade to
-                                    a paid plan.
+                                    restricted. To restore full access and
+                                    continue using all the features you had
+                                    during your trial, please upgrade to a paid
+                                    plan. This does not effect any self hosted
+                                    licenses.
                                 </EmailText>
 
                                 <EmailText>
@@ -93,7 +94,8 @@ export const NotifyTrialExpiring = ({
                                 <EmailText>
                                     After your trial ends, your account will be
                                     moved to the free plan and some
-                                    functionality may be restricted.
+                                    functionality may be restricted. This does
+                                    not effect any self hosted licenses.
                                 </EmailText>
 
                                 <EmailText>

@@ -1,9 +1,11 @@
+import type { Domain } from "@server/db";
+
 export type GetCertificateResponse = {
     certId: number;
     domain: string;
     domainId: string;
     wildcard: boolean;
-    domainType: string;
+    domainType: Domain["type"];
     status: string; // pending, requested, valid, expired, failed
     expiresAt: string | null;
     lastRenewalAttempt: Date | null;
@@ -12,3 +14,8 @@ export type GetCertificateResponse = {
     errorMessage?: string | null;
     renewalCount: number;
 };
+
+export type GetBatchedCertificateResponse = Record<
+    string,
+    GetCertificateResponse | null
+>;

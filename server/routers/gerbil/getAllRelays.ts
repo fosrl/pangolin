@@ -100,7 +100,7 @@ export async function generateRelayMappings(exitNode: ExitNode) {
     // Filter to sites with the required fields up front so the rest of the
     // function can safely treat endpoint/subnet/listenPort as defined.
     const validSites = sitesRes.filter(
-        (s) => s.endpoint && s.subnet && s.listenPort
+        (s) => s.endpoint && s.exitNodeSubnet && s.listenPort
     );
 
     if (validSites.length === 0) {
@@ -136,7 +136,7 @@ export async function generateRelayMappings(exitNode: ExitNode) {
         if (
             peer.orgId == null ||
             !peer.endpoint ||
-            !peer.subnet ||
+            !peer.exitNodeSubnet ||
             !peer.listenPort
         ) {
             continue;
@@ -183,7 +183,7 @@ export async function generateRelayMappings(exitNode: ExitNode) {
     // Process each site using the pre-fetched data.
     for (const site of validSites) {
         const siteDestination: PeerDestination = {
-            destinationIP: site.subnet!.split("/")[0],
+            destinationIP: site.exitNodeSubnet!.split("/")[0],
             destinationPort: site.listenPort! || 1 // this satisfies gerbil for now but should be reevaluated
         };
 
@@ -207,7 +207,7 @@ export async function generateRelayMappings(exitNode: ExitNode) {
                         continue;
                     }
                     addDestination(site.endpoint!, {
-                        destinationIP: peer.subnet!.split("/")[0],
+                        destinationIP: peer.exitNodeSubnet!.split("/")[0],
                         destinationPort: peer.listenPort! || 1 // this satisfies gerbil for now but should be reevaluated
                     });
                 }

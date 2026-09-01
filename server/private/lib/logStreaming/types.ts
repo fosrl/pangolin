@@ -15,13 +15,14 @@
 // Log type identifiers
 // ---------------------------------------------------------------------------
 
-export type LogType = "request" | "action" | "access" | "connection";
+export type LogType = "request" | "action" | "access" | "connection" | "aiSession";
 
 export const LOG_TYPES: LogType[] = [
     "request",
     "action",
     "access",
-    "connection"
+    "connection",
+    "aiSession"
 ];
 
 // ---------------------------------------------------------------------------

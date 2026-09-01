@@ -52,7 +52,6 @@ import { ChevronsUpDown } from "lucide-react";
 import { Checkbox } from "@app/components/ui/checkbox";
 import { GenerateAccessTokenResponse } from "@server/routers/accessToken";
 import { constructShareLink } from "@app/lib/shareLinks";
-import { ShareLinkRow } from "@app/components/ShareLinksTable";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import {
     Collapsible,
@@ -63,11 +62,26 @@ import AccessTokenSection from "@app/components/AccessTokenUsage";
 import { useTranslations } from "next-intl";
 import { toUnicode } from "punycode";
 import { ResourceSelector, type SelectedResource } from "./resource-selector";
+import { UserSelector, type SelectedUser } from "@app/components/user-selector";
+
+type CreatedShareLink = {
+    accessTokenId: string;
+    resourceId: number;
+    resourceName: string;
+    resourceNiceId: string;
+    title: string | null;
+    createdAt: number;
+    expiresAt: number | null;
+    userId?: string | null;
+    userName?: string | null;
+    username?: string | null;
+    userEmail?: string | null;
+};
 
 type FormProps = {
     open: boolean;
     setOpen: (open: boolean) => void;
-    onCreated?: (result: ShareLinkRow) => void;
+    onCreated?: (result: CreatedShareLink) => void;
 };
 
 export default function CreateShareLinkForm({
@@ -85,12 +99,14 @@ export default function CreateShareLinkForm({
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [neverExpire, setNeverExpire] = useState(false);
+    const [persistSession, setPersistSession] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null);
 
     const [isOpen, setIsOpen] = useState(false);
     const t = useTranslations();
 
     const { data: allResources = [] } = useQuery(
-        orgQueries.resources({ orgId: org?.org.orgId ?? "" })
+        orgQueries.proxyResources({ orgId: org?.org.orgId ?? "" })
     );
 
     const [selectedResource, setSelectedResource] =
@@ -175,7 +191,9 @@ export default function CreateShareLinkForm({
                                 values.resourceName ||
                                 "Resource" + values.resourceId
                         }),
-                    path: values.path
+                    path: values.path,
+                    persistSession,
+                    userId: selectedUser?.id
                 }
             )
             .catch((e) => {
@@ -205,7 +223,11 @@ export default function CreateShareLinkForm({
                 resourceNiceId: selectedResource ? selectedResource.niceId : "",
                 title: token.title,
                 createdAt: token.createdAt,
-                expiresAt: token.expiresAt
+                expiresAt: token.expiresAt,
+                userId: token.userId,
+                userName: selectedUser?.text ?? null,
+                username: null,
+                userEmail: null
             });
         }
 
@@ -220,6 +242,9 @@ export default function CreateShareLinkForm({
                     setOpen(val);
                     setLink(null);
                     setLoading(false);
+                    setNeverExpire(false);
+                    setPersistSession(false);
+                    setSelectedUser(null);
                     form.reset();
                 }}
             >
@@ -344,6 +369,48 @@ export default function CreateShareLinkForm({
                                             )}
                                         />
 
+                                        <div className="space-y-2">
+                                            <FormLabel>
+                                                {t(
+                                                    "shareAssociateUserOptional"
+                                                )}
+                                            </FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className={cn(
+                                                            "w-full justify-between",
+                                                            !selectedUser &&
+                                                                "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        {selectedUser?.text
+                                                            ? selectedUser.text
+                                                            : t("userSelect")}
+                                                        <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
+                                                    <UserSelector
+                                                        orgId={org.org.orgId}
+                                                        selectedUser={
+                                                            selectedUser
+                                                        }
+                                                        onSelectUser={
+                                                            setSelectedUser
+                                                        }
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
+                                            <p className="text-sm text-muted-foreground">
+                                                {t(
+                                                    "shareAssociateUserDescription"
+                                                )}
+                                            </p>
+                                        </div>
+
                                         <div className="space-y-4">
                                             <div className="space-y-2">
                                                 <FormLabel>
@@ -435,6 +502,34 @@ export default function CreateShareLinkForm({
                                                 >
                                                     {t("neverExpire")}
                                                 </label>
+                                            </div>
+
+                                            <div className="flex items-start space-x-2">
+                                                <Checkbox
+                                                    id="persist-session"
+                                                    checked={persistSession}
+                                                    onCheckedChange={(val) =>
+                                                        setPersistSession(
+                                                            val as boolean
+                                                        )
+                                                    }
+                                                    className="mt-0.5"
+                                                />
+                                                <div className="space-y-1">
+                                                    <label
+                                                        htmlFor="persist-session"
+                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                    >
+                                                        {t(
+                                                            "sharePersistSession"
+                                                        )}
+                                                    </label>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {t(
+                                                            "sharePersistSessionDescription"
+                                                        )}
+                                                    </p>
+                                                </div>
                                             </div>
 
                                             <p className="text-sm text-muted-foreground">

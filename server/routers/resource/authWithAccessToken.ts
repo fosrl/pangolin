@@ -1,6 +1,5 @@
 import { generateSessionToken } from "@server/auth/sessions/app";
-import { db } from "@server/db";
-import { Resource, resources } from "@server/db";
+import { db, users } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import response from "@server/lib/response";
 import { eq } from "drizzle-orm";
@@ -65,82 +64,35 @@ export async function authWithAccessToken(
     const { accessToken, accessTokenId } = parsedBody.data;
 
     try {
-        let valid;
-        let tokenItem;
-        let error;
-        let resource: Resource | undefined;
-
-        if (accessTokenId) {
-            if (!resourceId) {
-                return next(
-                    createHttpError(
-                        HttpCode.BAD_REQUEST,
-                        "Resource ID is required"
-                    )
-                );
-            }
-
-            const [foundResource] = await db
-                .select()
-                .from(resources)
-                .where(eq(resources.resourceId, resourceId))
-                .limit(1);
-
-            if (!foundResource) {
-                return next(
-                    createHttpError(HttpCode.NOT_FOUND, "Resource not found")
-                );
-            }
-
-            const res = await verifyResourceAccessToken({
+        const { valid, tokenItem, error, resource } =
+            await verifyResourceAccessToken({
+                accessToken,
                 accessTokenId,
-                accessToken
+                resourceId
             });
 
-            valid = res.valid;
-            tokenItem = res.tokenItem;
-            error = res.error;
-            resource = foundResource;
-        } else {
-            const res = await verifyResourceAccessToken({
-                accessToken
-            });
+        if (!valid || !tokenItem || !resource) {
+            if (resource) {
+                if (config.getRawConfig().app.log_failed_attempts) {
+                    logger.info(
+                        `Resource access token invalid. Resource ID: ${resource.resourceId}. IP: ${req.ip}.`
+                    );
+                }
 
-            valid = res.valid;
-            tokenItem = res.tokenItem;
-            error = res.error;
-            resource = res.resource;
-        }
-
-        if (!tokenItem || !resource) {
-            return next(
-                createHttpError(
-                    HttpCode.UNAUTHORIZED,
-                    "Access token does not exist for resource"
-                )
-            );
-        }
-
-        if (!valid) {
-            if (config.getRawConfig().app.log_failed_attempts) {
-                logger.info(
-                    `Resource access token invalid. Resource ID: ${resource.resourceId}. IP: ${req.ip}.`
-                );
+                logAccessAudit({
+                    orgId: resource.orgId,
+                    resourceId: resource.resourceId,
+                    action: false,
+                    type: "accessToken",
+                    userAgent: req.headers["user-agent"],
+                    requestIp: req.ip
+                });
             }
 
-            logAccessAudit({
-                orgId: resource.orgId,
-                resourceId: resource.resourceId,
-                action: false,
-                type: "accessToken",
-                userAgent: req.headers["user-agent"],
-                requestIp: req.ip
-            });
-
             return next(
                 createHttpError(
                     HttpCode.UNAUTHORIZED,
-                    error || "Invalid access token"
+                    error || "Access token does not exist for resource"
                 )
             );
         }
@@ -156,11 +108,42 @@ export async function authWithAccessToken(
             doNotExtend: true
         });
 
+        let accessAuditUser: { username: string; userId: string } | undefined;
+        if (tokenItem.userId) {
+            const [associatedUser] = await db
+                .select({
+                    userId: users.userId,
+                    username: users.username
+                })
+                .from(users)
+                .where(eq(users.userId, tokenItem.userId))
+                .limit(1);
+            if (associatedUser) {
+                accessAuditUser = {
+                    userId: associatedUser.userId,
+                    username: associatedUser.username
+                };
+            }
+        }
+
         logAccessAudit({
             orgId: resource.orgId,
             resourceId: resource.resourceId,
             action: true,
             type: "accessToken",
+            apiKey: accessAuditUser
+                ? undefined
+                : {
+                      name: tokenItem.title,
+                      apiKeyId: tokenItem.accessTokenId
+                  },
+            user: accessAuditUser,
+            metadata: accessAuditUser
+                ? {
+                      accessTokenId: tokenItem.accessTokenId,
+                      accessTokenTitle: tokenItem.title
+                  }
+                : undefined,
             userAgent: req.headers["user-agent"],
             requestIp: req.ip
         });

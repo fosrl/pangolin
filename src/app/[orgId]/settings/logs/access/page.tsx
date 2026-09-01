@@ -12,17 +12,22 @@ import { DateTimeValue } from "@app/components/DateTimePicker";
 import { ArrowUpRight, Key, User } from "lucide-react";
 import Link from "next/link";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
+import { ColumnMultiFilterButton } from "@app/components/ColumnMultiFilterButton";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { build } from "@server/build";
 import { getSevenDaysAgo } from "@app/lib/getSevenDaysAgo";
+import { getPrivateResourceSettingsHref } from "@app/lib/launcherResourceAdminHref";
 import axios from "axios";
 import { useStoredPageSize } from "@app/hooks/useStoredPageSize";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import LogRetentionWarning from "@app/components/LogRetentionWarning";
+import { useOrgContext } from "@app/hooks/useOrgContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { logQueries } from "@app/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import type { QueryAccessAuditLogResponse } from "@server/routers/auditLogs/types";
+import { countryCodeToFlagEmoji } from "@app/lib/countryCodeToFlagEmoji";
 
 export default function GeneralPage() {
     const router = useRouter();
@@ -31,6 +36,7 @@ export default function GeneralPage() {
     const t = useTranslations();
     const { orgId } = useParams();
 
+    const { org } = useOrgContext();
     const { isPaidUser } = usePaidStatus();
 
     const [isExporting, startTransition] = useTransition();
@@ -41,12 +47,14 @@ export default function GeneralPage() {
         resourceId?: string;
         location?: string;
         actor?: string;
+        ip?: string[];
     }>({
         action: searchParams.get("action") || undefined,
         type: searchParams.get("type") || undefined,
         resourceId: searchParams.get("resourceId") || undefined,
         location: searchParams.get("location") || undefined,
-        actor: searchParams.get("actor") || undefined
+        actor: searchParams.get("actor") || undefined,
+        ip: searchParams.getAll("ip") || undefined
     });
 
     const [currentPage, setCurrentPage] = useState<number>(0);
@@ -148,6 +156,23 @@ export default function GeneralPage() {
         setCurrentPage(newPage);
     };
 
+    const handleRefresh = () => {
+        // When the end date has no explicit time, it represents an
+        // open-ended "up to now" upper bound. Since dateRange is only
+        // recomputed on user interaction, that upper bound otherwise stays
+        // frozen at whenever the page first loaded, so refreshing would
+        // never surface logs created since then. Bump it to the current
+        // time so the query key changes and refetches the latest window.
+        if (dateRange.endDate?.date && !dateRange.endDate.time) {
+            setDateRange((prev) => ({
+                ...prev,
+                endDate: { date: new Date() }
+            }));
+        } else {
+            refetch();
+        }
+    };
+
     const handlePageSizeChange = (newPageSize: number) => {
         setPageSize(newPageSize);
         setCurrentPage(0);
@@ -155,7 +180,7 @@ export default function GeneralPage() {
 
     const handleFilterChange = (
         filterType: keyof typeof filters,
-        value: string | undefined
+        value: string | string[] | undefined
     ) => {
         const newFilters = { ...filters, [filterType]: value };
         setFilters(newFilters);
@@ -173,10 +198,13 @@ export default function GeneralPage() {
     ) => {
         const params = new URLSearchParams(searchParams);
         Object.entries(newFilters).forEach(([key, value]) => {
-            if (value) {
+            params.delete(key);
+            if (typeof value === "string") {
                 params.set(key, value);
-            } else {
-                params.delete(key);
+            } else if (typeof value !== "undefined" && "length" in value) {
+                for (const element of value) {
+                    params.append(key, element);
+                }
             }
         });
         router.replace(`?${params.toString()}`, { scroll: false });
@@ -184,6 +212,7 @@ export default function GeneralPage() {
 
     const exportData = async () => {
         try {
+            const { ip, ...restFilters } = filters;
             const params: any = {
                 timeStart: dateRange.startDate?.date
                     ? new Date(dateRange.startDate.date).toISOString()
@@ -191,13 +220,20 @@ export default function GeneralPage() {
                 timeEnd: dateRange.endDate?.date
                     ? new Date(dateRange.endDate.date).toISOString()
                     : undefined,
-                ...filters
+                ...restFilters
             };
 
-            const response = await api.get(`/org/${orgId}/logs/access/export`, {
-                responseType: "blob",
-                params
-            });
+            // axios serializes arrays as `ip[]=…`, which express's query
+            // parser does not read back as `ip`, so pass them in the URL
+            const sp = new URLSearchParams((ip ?? []).map((ip) => ["ip", ip]));
+
+            const response = await api.get(
+                `/org/${orgId}/logs/access/export?${sp.toString()}`,
+                {
+                    responseType: "blob",
+                    params
+                }
+            );
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement("a");
@@ -276,7 +312,31 @@ export default function GeneralPage() {
         },
         {
             accessorKey: "ip",
-            header: () => <span className="px-2">{t("ip")}</span>
+            header: () => (
+                <span className="px-2">
+                    <ColumnMultiFilterButton
+                        options={(filters.ip ?? []).map((ip) => ({
+                            label: ip,
+                            value: ip
+                        }))}
+                        label={t("ip")}
+                        allowArbitraryValues
+                        searchPlaceholder={t("ipFilterSearchPlaceholder")}
+                        emptyMessage={t("ipFilterEmptyMessage")}
+                        selectedValues={filters.ip ?? []}
+                        onSelectedValuesChange={(value) =>
+                            handleFilterChange("ip", value)
+                        }
+                    />
+                </span>
+            ),
+            cell: ({ row }) => {
+                return row.original.ip ? (
+                    row.original.ip
+                ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                );
+            }
         },
         {
             accessorKey: "location",
@@ -287,7 +347,7 @@ export default function GeneralPage() {
                             options={filterAttributes.locations.map(
                                 (location) => ({
                                     value: location,
-                                    label: location
+                                    label: `${location} ${countryCodeToFlagEmoji(location)}`
                                 })
                             )}
                             label={t("location")}
@@ -306,7 +366,8 @@ export default function GeneralPage() {
                     <span className="flex items-center gap-1">
                         {row.original.location ? (
                             <span className="text-muted-foreground text-xs">
-                                {row.original.location}
+                                {row.original.location}{" "}
+                                {countryCodeToFlagEmoji(row.original.location)}
                             </span>
                         ) : (
                             <span className="text-muted-foreground text-xs">
@@ -339,11 +400,22 @@ export default function GeneralPage() {
                 );
             },
             cell: ({ row }) => {
+                if (
+                    !row.original.resourceNiceId ||
+                    !row.original.resourceName
+                ) {
+                    return (
+                        <span className="text-xs text-muted-foreground">-</span>
+                    );
+                }
                 return (
                     <Link
                         href={
                             row.original.siteResourceId != null
-                                ? `/${row.original.orgId}/settings/resources/private?query=${row.original.resourceNiceId}`
+                                ? getPrivateResourceSettingsHref(
+                                      row.original.orgId,
+                                      row.original.resourceNiceId
+                                  )
                                 : `/${row.original.orgId}/settings/resources/public/${row.original.resourceNiceId}`
                         }
                     >
@@ -385,14 +457,19 @@ export default function GeneralPage() {
                 );
             },
             cell: ({ row }) => {
-                const typeLabel =
-                    row.original.type === "ssh" ||
-                    row.original.type === "rdp" ||
-                    row.original.type === "vnc"
+                const typeLabel = row.original.type
+                    ? row.original.type === "ssh" ||
+                      row.original.type === "rdp" ||
+                      row.original.type === "vnc"
                         ? row.original.type.toUpperCase()
                         : row.original.type.charAt(0).toUpperCase() +
-                          row.original.type.slice(1);
-                return <span>{typeLabel || "-"}</span>;
+                          row.original.type.slice(1)
+                    : null;
+                return typeLabel ? (
+                    <span>{typeLabel}</span>
+                ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                );
             }
         },
         {
@@ -429,7 +506,9 @@ export default function GeneralPage() {
                                 {row.original.actor}
                             </>
                         ) : (
-                            <>-</>
+                            <span className="text-xs text-muted-foreground">
+                                -
+                            </span>
                         )}
                     </span>
                 );
@@ -440,7 +519,9 @@ export default function GeneralPage() {
             header: () => <span className="px-2">{t("actorId")}</span>,
             cell: ({ row }) => (
                 <span className="flex items-center gap-1">
-                    {row.original.actorId || "-"}
+                    {row.original.actorId || (
+                        <span className="text-xs text-muted-foreground">-</span>
+                    )}
                 </span>
             )
         }
@@ -484,11 +565,18 @@ export default function GeneralPage() {
 
             <PaidFeaturesAlert tiers={tierMatrix.accessLogs} />
 
+            {org.org.settingsLogRetentionDaysAccess === 0 && (
+                <LogRetentionWarning
+                    orgId={orgId as string}
+                    logTypeLabel={t("accessLogs")}
+                />
+            )}
+
             <LogDataTable
                 columns={columns}
                 data={rows}
                 title={t("accessLogs")}
-                onRefresh={() => refetch()}
+                onRefresh={handleRefresh}
                 isRefreshing={isFetching}
                 onExport={() => startTransition(exportData)}
                 isExporting={isExporting}

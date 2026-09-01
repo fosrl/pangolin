@@ -109,7 +109,7 @@ registry.registerPath({
     method: "post",
     path: "/org/{orgId}/health-check/{healthCheckId}",
     description: "Update a health check for a specific organization.",
-    tags: [OpenAPITags.Org],
+    tags: [OpenAPITags.HealthCheck],
     request: {
         params: paramsSchema,
         body: {

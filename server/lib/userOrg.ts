@@ -2,6 +2,7 @@ import {
     db,
     Org,
     orgs,
+    resourceAccessToken,
     resources,
     siteResources,
     sites,
@@ -82,6 +83,15 @@ export async function removeUserFromOrg(
     await trx
         .delete(userOrgs)
         .where(and(eq(userOrgs.userId, userId), eq(userOrgs.orgId, org.orgId)));
+
+    await trx
+        .delete(resourceAccessToken)
+        .where(
+            and(
+                eq(resourceAccessToken.userId, userId),
+                eq(resourceAccessToken.orgId, org.orgId)
+            )
+        );
 
     await trx.delete(userResources).where(
         and(

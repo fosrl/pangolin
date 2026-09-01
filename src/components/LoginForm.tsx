@@ -30,10 +30,7 @@ import Link from "next/link";
 import { GenerateOidcUrlResponse } from "@server/routers/idp";
 import { Separator } from "./ui/separator";
 import { useTranslations } from "next-intl";
-import {
-    generateOidcUrlProxy,
-    loginProxy
-} from "@app/actions/server";
+import { generateOidcUrlProxy, loginProxy } from "@app/actions/server";
 import { redirect as redirectTo } from "next/navigation";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import IdpTypeIcon from "@app/components/IdpTypeIcon";
@@ -41,11 +38,13 @@ import IdpTypeIcon from "@app/components/IdpTypeIcon";
 import { loadReoScript } from "reodotdev";
 import { build } from "@server/build";
 import MfaInputForm from "@app/components/MfaInputForm";
+import { useLocalStorage } from "@app/hooks/useLocalStorage";
 
 export type LoginFormIDP = {
     idpId: number;
     name: string;
     variant?: string;
+    lastUsed?: boolean;
 };
 
 type LoginFormProps = {
@@ -105,7 +104,6 @@ export default function LoginForm({
         }
     }, []);
 
-
     const formSchema = z.object({
         email: z.string().email({ message: t("emailInvalid") }),
         password: z.string().min(8, { message: t("passwordRequirementsChars") })
@@ -130,11 +128,16 @@ export default function LoginForm({
         }
     });
 
+    const [lastUsedIdpId, setLastUsedIdpId] = useLocalStorage<string | null>(
+        "login:last-used-idp",
+        null
+    );
 
     async function onSubmit(values: any) {
         const { email, password } = form.getValues();
         const { code } = mfaForm.getValues();
 
+        setLastUsedIdpId(null);
         setLoading(true);
         setError(null);
 
@@ -179,8 +182,7 @@ export default function LoginForm({
             if (data.useSecurityKey) {
                 setError(
                     t("securityKeyRequired", {
-                        defaultValue:
-                            "Please use your security key to sign in."
+                        defaultValue: "Please use your security key to sign in."
                     })
                 );
                 return;
@@ -242,6 +244,8 @@ export default function LoginForm({
 
     async function loginWithIdp(idpId: number) {
         let redirectUrl: string | undefined;
+
+        setLastUsedIdpId(idpId.toString());
         try {
             const data = await generateOidcUrlProxy(
                 idpId,
@@ -356,7 +360,6 @@ export default function LoginForm({
             )}
 
             <div className="space-y-4">
-
                 {!mfaRequested && (
                     <>
                         <SecurityKeyAuthButton
@@ -385,25 +388,41 @@ export default function LoginForm({
                                         idp.variant || idp.name.toLowerCase();
 
                                     return (
-                                        <Button
+                                        <div
+                                            className="w-full relative"
                                             key={idp.idpId}
-                                            type="button"
-                                            variant="outline"
-                                            className="w-full inline-flex items-center space-x-2"
-                                            onClick={() => {
-                                                loginWithIdp(idp.idpId);
-                                            }}
                                         >
-                                            <IdpTypeIcon type={effectiveType} size={16} />
-                                            <span>{idp.name}</span>
-                                        </Button>
+                                            <Button
+                                                key={idp.idpId}
+                                                type="button"
+                                                variant="outline"
+                                                className="w-full inline-flex items-center space-x-2 after:absolute after:inset-0 after:z-10"
+                                                onClick={() => {
+                                                    loginWithIdp(idp.idpId);
+                                                }}
+                                            >
+                                                <IdpTypeIcon
+                                                    type={effectiveType}
+                                                    size={16}
+                                                />
+                                                <span>{idp.name}</span>
+                                            </Button>
+
+                                            {lastUsedIdpId ===
+                                                idp.idpId.toString() && (
+                                                <div className="absolute inset-0">
+                                                    <span className="absolute top-0 right-0 text-xs bg-primary text-primary-foreground rounded-bl-sm rounded-tr-sm px-2 py-0.5">
+                                                        {t("idpLastUsed")}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </>
                         )}
                     </>
                 )}
-
             </div>
         </div>
     );

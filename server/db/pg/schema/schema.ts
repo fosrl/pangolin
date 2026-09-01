@@ -3,6 +3,7 @@ import { InferSelectModel, sql } from "drizzle-orm";
 import {
     bigint,
     boolean,
+    check,
     index,
     integer,
     pgTable,
@@ -11,6 +12,7 @@ import {
     serial,
     text,
     unique,
+    uniqueIndex,
     varchar
 } from "drizzle-orm/pg-core";
 
@@ -18,7 +20,7 @@ export const domains = pgTable("domains", {
     domainId: varchar("domainId").primaryKey(),
     baseDomain: varchar("baseDomain").notNull(),
     configManaged: boolean("configManaged").notNull().default(false),
-    type: varchar("type"), // "ns", "cname", "wildcard"
+    type: varchar("type").$type<"ns" | "cname" | "wildcard">(),
     verified: boolean("verified").notNull().default(false),
     failed: boolean("failed").notNull().default(false),
     tries: integer("tries").notNull().default(0),
@@ -63,6 +65,11 @@ export const orgs = pgTable("orgs", {
     ) // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
         .notNull()
         .default(0),
+    settingsLogRetentionDaysAISessions: integer(
+        "settingsLogRetentionDaysAISessions"
+    ) // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
+        .notNull()
+        .default(0),
     sshCaPrivateKey: text("sshCaPrivateKey"), // Encrypted SSH CA private key (PEM format)
     sshCaPublicKey: text("sshCaPublicKey"), // SSH CA public key (OpenSSH format)
     isBillingOrg: boolean("isBillingOrg"),
@@ -98,7 +105,7 @@ export const sites = pgTable(
         }),
         name: varchar("name").notNull(),
         pubKey: varchar("pubKey"),
-        subnet: varchar("subnet"),
+        exitNodeSubnet: text("exitNodeSubnet"), // this is the subnet when connecting to an exit node and INCLUDES THE CIDR
         megabytesIn: real("bytesIn").default(0),
         megabytesOut: real("bytesOut").default(0),
         lastBandwidthUpdate: varchar("lastBandwidthUpdate"),
@@ -107,6 +114,7 @@ export const sites = pgTable(
         lastPing: integer("lastPing"),
         address: varchar("address"),
         endpoint: varchar("endpoint"),
+        localEndpoints: varchar("localEndpoints"), // JSON encoded list of string ips on the local machine to try to connect to
         publicKey: varchar("publicKey"),
         lastHolePunch: bigint("lastHolePunch", { mode: "number" }),
         listenPort: integer("listenPort"),
@@ -194,14 +202,22 @@ export const resources = pgTable(
         postAuthPath: text("postAuthPath"),
         health: varchar("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: boolean("wildcard").notNull().default(false),
-        mode: text("mode").default("http").notNull(), // rdp, ssh, http, vnc
+        mode: text("mode")
+            .default("http")
+            .$type<
+                "rdp" | "ssh" | "http" | "vnc" | "inference" | "tcp" | "udp"
+            >()
+            .notNull(),
         pamMode: varchar("pamMode", { length: 32 })
             .$type<"passthrough" | "push">()
             .default("passthrough"),
         authDaemonMode: varchar("authDaemonMode", { length: 32 })
             .$type<"site" | "remote" | "native">()
             .default("site"),
-        authDaemonPort: integer("authDaemonPort").default(22123)
+        authDaemonPort: integer("authDaemonPort").default(22123),
+        status: varchar("status")
+            .$type<"pending" | "approved">()
+            .default("approved")
     },
     (t) => [
         index("idx_resources_fulldomain")
@@ -212,16 +228,55 @@ export const resources = pgTable(
     ]
 );
 
-export const labels = pgTable("labels", {
-    labelId: serial("labelId").primaryKey(),
-    name: varchar("name").notNull(),
-    color: varchar("color").notNull(),
-    orgId: varchar("orgId")
-        .references(() => orgs.orgId, {
-            onDelete: "cascade"
-        })
-        .notNull()
-});
+export const resourceAiProviders = pgTable(
+    "resourceAiProviders",
+    {
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" }),
+        providerId: integer("providerId")
+            .notNull()
+            .references(() => aiProviders.providerId, { onDelete: "cascade" }),
+        accessMode: varchar("accessMode")
+            .$type<"inherit" | "select">()
+            .notNull()
+            .default("inherit"),
+        enabled: boolean("enabled").notNull().default(true)
+    },
+    (t) => [primaryKey({ columns: [t.resourceId, t.providerId] })]
+);
+
+export const resourceAiModels = pgTable(
+    "resourceAiModels",
+    {
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" }),
+        modelId: integer("modelId")
+            .notNull()
+            .references(() => aiModels.modelId, { onDelete: "cascade" }),
+        listType: varchar("listType")
+            .$type<"allow" | "block">()
+            .notNull()
+            .default("allow")
+    },
+    (t) => [primaryKey({ columns: [t.resourceId, t.modelId] })]
+);
+
+export const labels = pgTable(
+    "labels",
+    {
+        labelId: serial("labelId").primaryKey(),
+        name: varchar("name").notNull(),
+        color: varchar("color").notNull(),
+        orgId: varchar("orgId")
+            .references(() => orgs.orgId, {
+                onDelete: "cascade"
+            })
+            .notNull()
+    },
+    (t) => [index("idx_labels_orgid").on(t.orgId)]
+);
 
 export const launcherViews = pgTable("launcherViews", {
     viewId: serial("viewId").primaryKey(),
@@ -314,11 +369,18 @@ export const targets = pgTable(
     "targets",
     {
         targetId: serial("targetId").primaryKey(),
-        resourceId: integer("resourceId")
-            .references(() => resources.resourceId, {
+        resourceId: integer("resourceId").references(
+            () => resources.resourceId,
+            {
                 onDelete: "cascade"
-            })
-            .notNull(),
+            }
+        ),
+        providerId: integer("providerId").references(
+            () => aiProviders.providerId,
+            {
+                onDelete: "cascade"
+            }
+        ),
         siteId: integer("siteId")
             .references(() => sites.siteId, {
                 onDelete: "cascade"
@@ -342,6 +404,7 @@ export const targets = pgTable(
     },
     (t) => [
         index("idx_targets_resourceid_siteid").on(t.resourceId, t.siteId),
+        index("idx_targets_providerid_siteid").on(t.providerId, t.siteId),
         index("idx_targets_site_enabled_priority_target_resource")
             .on(t.siteId, t.priority.desc(), t.targetId, t.resourceId)
             .where(sql`${t.enabled} = true`)
@@ -421,11 +484,14 @@ export const siteResources = pgTable(
                 onDelete: "restrict"
             }
         ),
+        requiresExitNodeConnection: boolean("requiresExitNodeConnection")
+            .notNull()
+            .default(false),
         niceId: varchar("niceId").notNull(),
         name: varchar("name").notNull(),
         ssl: boolean("ssl").notNull().default(false),
         mode: varchar("mode")
-            .$type<"host" | "cidr" | "http" | "ssh">()
+            .$type<"host" | "cidr" | "http" | "ssh" | "inference">()
             .notNull(), // "host" | "cidr" | "http"
         scheme: varchar("scheme").$type<"http" | "https">(), // only for when we are doing https or http mode
         proxyPort: integer("proxyPort"), // only for port mode
@@ -452,9 +518,51 @@ export const siteResources = pgTable(
             onDelete: "set null"
         }),
         subdomain: varchar("subdomain"),
-        fullDomain: varchar("fullDomain")
+        fullDomain: varchar("fullDomain"),
+        status: varchar("status")
+            .$type<"pending" | "approved">()
+            .default("approved")
     },
     (t) => [index("idx_siteresources_orgid_niceid").on(t.orgId, t.niceId)]
+);
+
+export const siteResourceAiProviders = pgTable(
+    "siteResourceAiProviders",
+    {
+        siteResourceId: integer("siteResourceId")
+            .notNull()
+            .references(() => siteResources.siteResourceId, {
+                onDelete: "cascade"
+            }),
+        providerId: integer("providerId")
+            .notNull()
+            .references(() => aiProviders.providerId, { onDelete: "cascade" }),
+        accessMode: varchar("accessMode")
+            .$type<"inherit" | "select">()
+            .notNull()
+            .default("inherit"),
+        enabled: boolean("enabled").notNull().default(true)
+    },
+    (t) => [primaryKey({ columns: [t.siteResourceId, t.providerId] })]
+);
+
+export const siteResourceAiModels = pgTable(
+    "siteResourceAiModels",
+    {
+        siteResourceId: integer("siteResourceId")
+            .notNull()
+            .references(() => siteResources.siteResourceId, {
+                onDelete: "cascade"
+            }),
+        modelId: integer("modelId")
+            .notNull()
+            .references(() => aiModels.modelId, { onDelete: "cascade" }),
+        listType: varchar("listType")
+            .$type<"allow" | "block">()
+            .notNull()
+            .default("allow")
+    },
+    (t) => [primaryKey({ columns: [t.siteResourceId, t.modelId] })]
 );
 
 export const networks = pgTable(
@@ -590,15 +698,19 @@ export const twoFactorBackupCodes = pgTable("twoFactorBackupCodes", {
     codeHash: varchar("codeHash").notNull()
 });
 
-export const sessions = pgTable("session", {
-    sessionId: varchar("id").primaryKey(),
-    userId: varchar("userId")
-        .notNull()
-        .references(() => users.userId, { onDelete: "cascade" }),
-    expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
-    issuedAt: bigint("issuedAt", { mode: "number" }),
-    deviceAuthUsed: boolean("deviceAuthUsed").notNull().default(false)
-});
+export const sessions = pgTable(
+    "session",
+    {
+        sessionId: varchar("id").primaryKey(),
+        userId: varchar("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+        issuedAt: bigint("issuedAt", { mode: "number" }),
+        deviceAuthUsed: boolean("deviceAuthUsed").notNull().default(false)
+    },
+    (t) => [index("idx_sessions_userid").on(t.userId)]
+);
 
 export const newtSessions = pgTable("newtSession", {
     sessionId: varchar("id").primaryKey(),
@@ -608,19 +720,26 @@ export const newtSessions = pgTable("newtSession", {
     expiresAt: bigint("expiresAt", { mode: "number" }).notNull()
 });
 
-export const userOrgs = pgTable("userOrgs", {
-    userId: varchar("userId")
-        .notNull()
-        .references(() => users.userId, { onDelete: "cascade" }),
-    orgId: varchar("orgId")
-        .references(() => orgs.orgId, {
-            onDelete: "cascade"
-        })
-        .notNull(),
-    isOwner: boolean("isOwner").notNull().default(false),
-    autoProvisioned: boolean("autoProvisioned").default(false),
-    pamUsername: varchar("pamUsername") // cleaned username for ssh and such
-});
+export const userOrgs = pgTable(
+    "userOrgs",
+    {
+        userId: varchar("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        orgId: varchar("orgId")
+            .references(() => orgs.orgId, {
+                onDelete: "cascade"
+            })
+            .notNull(),
+        isOwner: boolean("isOwner").notNull().default(false),
+        autoProvisioned: boolean("autoProvisioned").default(false),
+        pamUsername: varchar("pamUsername") // cleaned username for ssh and such
+    },
+    (t) => [
+        index("idx_userOrgs_userid").on(t.userId),
+        index("idx_userOrgs_orgid").on(t.orgId)
+    ]
+);
 
 export const emailVerificationCodes = pgTable("emailVerificationCodes", {
     codeId: serial("id").primaryKey(),
@@ -648,22 +767,26 @@ export const actions = pgTable("actions", {
     description: varchar("description")
 });
 
-export const roles = pgTable("roles", {
-    roleId: serial("roleId").primaryKey(),
-    orgId: varchar("orgId")
-        .references(() => orgs.orgId, {
-            onDelete: "cascade"
-        })
-        .notNull(),
-    isAdmin: boolean("isAdmin"),
-    name: varchar("name").notNull(),
-    description: varchar("description"),
-    requireDeviceApproval: boolean("requireDeviceApproval").default(false),
-    sshSudoMode: varchar("sshSudoMode", { length: 32 }).default("none"), // "none" | "full" | "commands"
-    sshSudoCommands: text("sshSudoCommands").default("[]"),
-    sshCreateHomeDir: boolean("sshCreateHomeDir").default(true),
-    sshUnixGroups: text("sshUnixGroups").default("[]")
-});
+export const roles = pgTable(
+    "roles",
+    {
+        roleId: serial("roleId").primaryKey(),
+        orgId: varchar("orgId")
+            .references(() => orgs.orgId, {
+                onDelete: "cascade"
+            })
+            .notNull(),
+        isAdmin: boolean("isAdmin"),
+        name: varchar("name").notNull(),
+        description: varchar("description"),
+        requireDeviceApproval: boolean("requireDeviceApproval").default(false),
+        sshSudoMode: varchar("sshSudoMode", { length: 32 }).default("full"), // "none" | "full" | "commands"
+        sshSudoCommands: text("sshSudoCommands").default("[]"),
+        sshCreateHomeDir: boolean("sshCreateHomeDir").default(true),
+        sshUnixGroups: text("sshUnixGroups").default("[]")
+    },
+    (t) => [index("idx_roles_orgid").on(t.orgId)]
+);
 
 export const userOrgRoles = pgTable(
     "userOrgRoles",
@@ -900,12 +1023,16 @@ export const resourceAccessToken = pgTable("resourceAccessToken", {
     resourceId: integer("resourceId")
         .notNull()
         .references(() => resources.resourceId, { onDelete: "cascade" }),
+    userId: varchar("userId").references(() => users.userId, {
+        onDelete: "cascade"
+    }),
     path: varchar("path"),
     tokenHash: varchar("tokenHash").notNull(),
     sessionLength: bigint("sessionLength", { mode: "number" }).notNull(),
     expiresAt: bigint("expiresAt", { mode: "number" }),
     title: varchar("title"),
     description: varchar("description"),
+    persistSession: boolean("persistSession").notNull().default(false),
     createdAt: bigint("createdAt", { mode: "number" }).notNull()
 });
 
@@ -1000,7 +1127,17 @@ export const resourceRules = pgTable("resourceRules", {
     enabled: boolean("enabled").notNull().default(true),
     priority: integer("priority").notNull(),
     action: varchar("action").notNull(), // ACCEPT, DROP, PASS
-    match: varchar("match").notNull(), // CIDR, PATH, IP
+    match: varchar("match")
+        .$type<
+            | "CIDR"
+            | "PATH"
+            | "IP"
+            | "COUNTRY"
+            | "COUNTRY_IS_NOT"
+            | "ASN"
+            | "REGION"
+        >()
+        .notNull(), // CIDR, PATH, IP
     value: varchar("value").notNull()
 });
 
@@ -1015,7 +1152,15 @@ export const resourcePolicyRules = pgTable("resourcePolicyRules", {
     priority: integer("priority").notNull(),
     action: varchar("action").$type<"ACCEPT" | "DROP" | "PASS">().notNull(),
     match: varchar("match")
-        .$type<"CIDR" | "PATH" | "IP" | "COUNTRY" | "ASN" | "REGION">()
+        .$type<
+            | "CIDR"
+            | "PATH"
+            | "IP"
+            | "COUNTRY"
+            | "COUNTRY_IS_NOT"
+            | "ASN"
+            | "REGION"
+        >()
         .notNull(),
     value: varchar("value").notNull()
 });
@@ -1122,6 +1267,52 @@ export const apiKeyOrg = pgTable("apiKeyOrg", {
         .notNull()
 });
 
+export const virtualApiKeys = pgTable(
+    "virtualApiKeys",
+    {
+        virtualApiKeyId: varchar("virtualApiKeyId").primaryKey(),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        kind: varchar("kind").$type<"user" | "manual">().notNull(),
+        userId: varchar("userId").references(() => users.userId, {
+            onDelete: "cascade"
+        }),
+        name: varchar("name"),
+        description: varchar("description"),
+        token: varchar("token").notNull(),
+        lastChars: varchar("lastChars").notNull(),
+        allResources: boolean("allResources").notNull().default(false),
+        expiresAt: bigint("expiresAt", { mode: "number" }),
+        lastUsedAt: bigint("lastUsedAt", { mode: "number" }),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+        createdByUserId: varchar("createdByUserId").references(
+            () => users.userId,
+            { onDelete: "set null" }
+        )
+    },
+    (t) => [
+        uniqueIndex("virtual_api_key_user_identity_uniq")
+            .on(t.orgId, t.userId)
+            .where(sql`${t.kind} = 'user'`)
+    ]
+);
+
+export const virtualApiKeyResources = pgTable(
+    "virtualApiKeyResources",
+    {
+        virtualApiKeyId: varchar("virtualApiKeyId")
+            .notNull()
+            .references(() => virtualApiKeys.virtualApiKeyId, {
+                onDelete: "cascade"
+            }),
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" })
+    },
+    (t) => [primaryKey({ columns: [t.virtualApiKeyId, t.resourceId] })]
+);
+
 export const idpOrg = pgTable("idpOrg", {
     idpId: integer("idpId")
         .notNull()
@@ -1154,6 +1345,7 @@ export const clients = pgTable(
         name: varchar("name").notNull(),
         pubKey: varchar("pubKey"),
         subnet: varchar("subnet").notNull(),
+        exitNodeSubnet: varchar("exitNodeSubnet"), // INCLUDES THE CIDR
         megabytesIn: real("bytesIn"),
         megabytesOut: real("bytesOut"),
         lastBandwidthUpdate: varchar("lastBandwidthUpdate"),
@@ -1237,7 +1429,10 @@ export const olms = pgTable(
         }),
         archived: boolean("archived").notNull().default(false)
     },
-    (t) => [index("idx_olms_clientid").on(t.clientId)]
+    (t) => [
+        index("idx_olms_clientid").on(t.clientId),
+        index("idx_olms_userid").on(t.userId)
+    ]
 );
 
 export const currentFingerprint = pgTable("currentFingerprint", {
@@ -1512,6 +1707,358 @@ export const statusHistory = pgTable(
     ]
 );
 
+export const aiProviders = pgTable(
+    "aiProviders",
+    {
+        providerId: serial("providerId").primaryKey(),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        name: varchar("name").notNull(),
+        niceId: varchar("niceId").notNull(),
+        type: varchar("type")
+            .$type<
+                | "openai"
+                | "anthropic"
+                | "googleGemini"
+                | "vertexAi"
+                | "bedrock"
+                | "microsoftFoundry"
+                | "openRouter"
+                | "vercelAiGateway"
+                | "custom"
+            >()
+            .notNull(),
+        upstreamUrl: text("upstreamUrl"),
+        apiKey: text("apiKey"),
+        apiKeyLastChars: varchar("apiKeyLastChars"),
+        authType: varchar("authType")
+            .$type<
+                | "bearer"
+                | "x-api-key"
+                | "x-goog-api-key"
+                | "hec"
+                | "cf-aig-authorization"
+                | "none"
+                | "passthrough"
+            >()
+            .notNull(),
+        routingMode: varchar("routingMode")
+            .$type<"url" | "target">()
+            .notNull()
+            .default("url"),
+        capabilities: text("capabilities").notNull().default("[]"),
+        headers: text("headers"), // JSON array of { name, value }
+        skipTlsVerification: boolean("skipTlsVerification")
+            .notNull()
+            .default(false),
+        enabled: boolean("enabled").notNull().default(true),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+        updatedAt: bigint("updatedAt", { mode: "number" }).notNull()
+    },
+    (t) => [index("idx_aiProviders_orgId_niceId").on(t.orgId, t.niceId)]
+);
+
+export const aiModels = pgTable(
+    "aiModels",
+    {
+        modelId: serial("modelId").primaryKey(),
+        providerId: integer("providerId")
+            .notNull()
+            .references(() => aiProviders.providerId, { onDelete: "cascade" }),
+        modelKey: varchar("modelKey").notNull(),
+        name: varchar("name").notNull(),
+        listType: varchar("listType")
+            .$type<"allow" | "block">()
+            .notNull()
+            .default("allow"),
+        enabled: boolean("enabled").notNull().default(true),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+        updatedAt: bigint("updatedAt", { mode: "number" }).notNull()
+    },
+    (t) => [unique("ai_model_provider_key_uniq").on(t.providerId, t.modelKey)]
+);
+
+export const aiBudgets = pgTable(
+    "aiBudgets",
+    {
+        budgetId: serial("budgetId").primaryKey(),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        providerId: integer("providerId").references(
+            () => aiProviders.providerId,
+            { onDelete: "cascade" }
+        ),
+        modelId: integer("modelId").references(() => aiModels.modelId, {
+            onDelete: "cascade"
+        }),
+        resourceId: integer("resourceId").references(
+            () => resources.resourceId,
+            { onDelete: "cascade" }
+        ),
+        siteResourceId: integer("siteResourceId").references(
+            () => siteResources.siteResourceId,
+            { onDelete: "cascade" }
+        ),
+        roleId: integer("roleId").references(() => roles.roleId, {
+            onDelete: "cascade"
+        }),
+        virtualApiKeyId: varchar("virtualApiKeyId").references(
+            () => virtualApiKeys.virtualApiKeyId,
+            { onDelete: "cascade" }
+        ),
+        amount: real("amount").notNull(),
+        unit: varchar("unit").$type<"usd" | "tokens">().notNull(),
+        period: varchar("period")
+            .$type<
+                | "monthly"
+                | "yearly"
+                | "lifetime"
+                | "daily"
+                | "hourly"
+                | "weekly"
+            >()
+            .notNull()
+            .default("monthly"),
+        enforcement: varchar("enforcement")
+            .$type<"hard" | "soft">()
+            .notNull()
+            .default("hard"),
+        enabled: boolean("enabled").notNull().default(true),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+        updatedAt: bigint("updatedAt", { mode: "number" }).notNull()
+    },
+    (t) => [
+        unique("ai_budget_provider_uniq").on(t.providerId, t.unit, t.period),
+        unique("ai_budget_model_uniq").on(t.modelId, t.unit, t.period),
+        unique("ai_budget_resource_uniq").on(t.resourceId, t.unit, t.period),
+        unique("ai_budget_site_resource_uniq").on(
+            t.siteResourceId,
+            t.unit,
+            t.period
+        ),
+        unique("ai_budget_role_uniq").on(t.roleId, t.unit, t.period),
+        unique("ai_budget_virtual_api_key_uniq").on(
+            t.virtualApiKeyId,
+            t.unit,
+            t.period
+        )
+    ]
+);
+
+export const aiUsageRecords = pgTable(
+    "aiUsageRecords",
+    {
+        id: serial("id").primaryKey(),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        providerId: integer("providerId").references(
+            () => aiProviders.providerId,
+            { onDelete: "set null" }
+        ),
+        resourceId: integer("resourceId").references(
+            () => resources.resourceId,
+            { onDelete: "set null" }
+        ),
+        siteResourceId: integer("siteResourceId").references(
+            () => siteResources.siteResourceId,
+            { onDelete: "set null" }
+        ),
+        userId: varchar("userId").references(() => users.userId, {
+            onDelete: "set null"
+        }),
+        virtualApiKeyId: varchar("virtualApiKeyId").references(
+            () => virtualApiKeys.virtualApiKeyId,
+            { onDelete: "set null" }
+        ),
+        // Links this usage record back to the aiSessionLog row for the same
+        // request (aiSessionLog.sessionId), so token/cost usage can be shown
+        // alongside the session transcript. Not a DB-level FK - aiSessionLog
+        // lives in the separate logs database. Nullable because the session
+        // log may be disabled (retention set to 0) while usage tracking
+        // stays on.
+        sessionId: varchar("sessionId"),
+        requestedModel: varchar("requestedModel").notNull(),
+        promptTokens: integer("promptTokens").notNull().default(0),
+        cacheReadTokens: integer("cacheReadTokens").notNull().default(0),
+        cacheWriteTokens: integer("cacheWriteTokens").notNull().default(0),
+        completionTokens: integer("completionTokens").notNull().default(0),
+        reasoningTokens: integer("reasoningTokens").notNull().default(0),
+        totalTokens: integer("totalTokens").notNull().default(0),
+        costUsd: real("costUsd"),
+        estimated: boolean("estimated").notNull().default(false),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull()
+    },
+    (t) => [
+        index("idx_ai_usage_records_org_provider_created").on(
+            t.orgId,
+            t.providerId,
+            t.createdAt
+        ),
+        index("idx_ai_usage_records_org_resource_created").on(
+            t.orgId,
+            t.resourceId,
+            t.createdAt
+        ),
+        index("idx_ai_usage_records_org_site_resource_created").on(
+            t.orgId,
+            t.siteResourceId,
+            t.createdAt
+        ),
+        index("idx_ai_usage_records_org_user_created").on(
+            t.orgId,
+            t.userId,
+            t.createdAt
+        ),
+        index("idx_ai_usage_records_org_virtual_api_key_created").on(
+            t.orgId,
+            t.virtualApiKeyId,
+            t.createdAt
+        ),
+        index("idx_ai_usage_records_session").on(t.sessionId)
+    ]
+);
+
+export const aiBudgetBreachEvents = pgTable(
+    "aiBudgetBreachEvents",
+    {
+        id: serial("id").primaryKey(),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        budgetId: integer("budgetId")
+            .notNull()
+            .references(() => aiBudgets.budgetId, { onDelete: "cascade" }),
+        enforcement: varchar("enforcement").$type<"hard" | "soft">().notNull(),
+        unit: varchar("unit").$type<"usd" | "tokens">().notNull(),
+        period: varchar("period")
+            .$type<
+                | "monthly"
+                | "yearly"
+                | "lifetime"
+                | "daily"
+                | "hourly"
+                | "weekly"
+            >()
+            .notNull(),
+        amount: real("amount").notNull(),
+        usageAmount: real("usageAmount").notNull(),
+        blocked: boolean("blocked").notNull(),
+        requestUserId: varchar("requestUserId").references(() => users.userId, {
+            onDelete: "set null"
+        }),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull()
+    },
+    (t) => [
+        index("idx_ai_budget_breach_events_budget_created").on(
+            t.budgetId,
+            t.createdAt
+        )
+    ]
+);
+
+// Logs the aggregated prompt + response for a single AI gateway request, for
+// session replay. One row per request (not per streaming chunk). `sessionId`
+// is a fresh random id per row for now - no cross-request correlation yet,
+// but the column exists so a future pass can link multiple rows into a real
+// multi-turn session.
+export const aiSessionLog = pgTable(
+    "aiSessionLog",
+    {
+        id: serial("id").primaryKey(),
+        sessionId: varchar("sessionId").notNull(),
+        orgId: varchar("orgId").references(() => orgs.orgId, {
+            onDelete: "cascade"
+        }),
+        providerId: integer("providerId").references(
+            () => aiProviders.providerId,
+            { onDelete: "set null" }
+        ),
+        capability: varchar("capability").notNull(),
+        resourceId: integer("resourceId").references(
+            () => resources.resourceId,
+            { onDelete: "set null" }
+        ),
+        siteResourceId: integer("siteResourceId").references(
+            () => siteResources.siteResourceId,
+            { onDelete: "set null" }
+        ),
+        userId: varchar("userId").references(() => users.userId, {
+            onDelete: "set null"
+        }),
+        virtualApiKeyId: varchar("virtualApiKeyId").references(
+            () => virtualApiKeys.virtualApiKeyId,
+            { onDelete: "set null" }
+        ),
+        requestedModel: varchar("requestedModel"),
+        isStream: boolean("isStream").notNull().default(false),
+        requestBody: text("requestBody"),
+        responseBody: text("responseBody"),
+        // Capability-agnostic message transcript (JSON-encoded
+        // NormalizedAiMessage[] from server/lib/aiMessageNormalization.ts),
+        // computed at write time so search/display never need per-capability
+        // parsing logic. Null when normalization couldn't recognize the
+        // shape - callers fall back to requestBody/responseBody.
+        normalizedRequest: text("normalizedRequest"),
+        normalizedResponse: text("normalizedResponse"),
+        // True if any of the request/response (raw or normalized) fields
+        // were cut short at AI_SESSION_LOG_MAX_BODY_CHARS before storage.
+        truncated: boolean("truncated").notNull().default(false),
+        statusCode: integer("statusCode"),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull() // epoch seconds
+    },
+    (t) => [
+        index("idx_ai_session_log_org_created").on(t.orgId, t.createdAt),
+        index("idx_ai_session_log_org_provider_created").on(
+            t.orgId,
+            t.providerId,
+            t.createdAt
+        ),
+        index("idx_ai_session_log_org_resource_created").on(
+            t.orgId,
+            t.resourceId,
+            t.createdAt
+        ),
+        index("idx_ai_session_log_org_site_resource_created").on(
+            t.orgId,
+            t.siteResourceId,
+            t.createdAt
+        ),
+        index("idx_ai_session_log_org_user_created").on(
+            t.orgId,
+            t.userId,
+            t.createdAt
+        ),
+        index("idx_ai_session_log_org_virtual_api_key_created").on(
+            t.orgId,
+            t.virtualApiKeyId,
+            t.createdAt
+        ),
+        index("idx_ai_session_log_session").on(t.sessionId)
+    ]
+);
+
+export const certificates = pgTable("certificates", {
+    certId: serial("certId").primaryKey(),
+    domain: varchar("domain", { length: 255 }).notNull().unique(),
+    domainId: varchar("domainId").references(() => domains.domainId, {
+        onDelete: "cascade"
+    }),
+    wildcard: boolean("wildcard").default(false),
+    status: varchar("status", { length: 50 }).notNull().default("pending"), // pending, requested, valid, expired, failed
+    expiresAt: bigint("expiresAt", { mode: "number" }),
+    lastRenewalAttempt: bigint("lastRenewalAttempt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+    orderId: varchar("orderId", { length: 500 }),
+    errorMessage: text("errorMessage"),
+    renewalCount: integer("renewalCount").default(0),
+    certFile: text("certFile"),
+    keyFile: text("keyFile")
+});
+
 export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
@@ -1567,6 +2114,10 @@ export type Idp = InferSelectModel<typeof idp>;
 export type ApiKey = InferSelectModel<typeof apiKeys>;
 export type ApiKeyAction = InferSelectModel<typeof apiKeyActions>;
 export type ApiKeyOrg = InferSelectModel<typeof apiKeyOrg>;
+export type VirtualApiKey = InferSelectModel<typeof virtualApiKeys>;
+export type VirtualApiKeyResource = InferSelectModel<
+    typeof virtualApiKeyResources
+>;
 export type Client = InferSelectModel<typeof clients>;
 export type ClientSite = InferSelectModel<typeof clientSitesAssociationsCache>;
 export type Olm = InferSelectModel<typeof olms>;
@@ -1595,3 +2146,17 @@ export type LauncherView = InferSelectModel<typeof launcherViews>;
 export type ResourcePolicy = InferSelectModel<typeof resourcePolicies>;
 export type RolePolicy = InferSelectModel<typeof rolePolicies>;
 export type UserPolicy = InferSelectModel<typeof userPolicies>;
+export type ResourcePolicyRule = InferSelectModel<typeof resourcePolicyRules>;
+export type AiProvider = InferSelectModel<typeof aiProviders>;
+export type AiModel = InferSelectModel<typeof aiModels>;
+export type AiBudget = InferSelectModel<typeof aiBudgets>;
+export type AiUsageRecord = InferSelectModel<typeof aiUsageRecords>;
+export type AiBudgetBreachEvent = InferSelectModel<typeof aiBudgetBreachEvents>;
+export type AiSessionLog = InferSelectModel<typeof aiSessionLog>;
+export type ResourceAiProvider = InferSelectModel<typeof resourceAiProviders>;
+export type SiteResourceAiProvider = InferSelectModel<
+    typeof siteResourceAiProviders
+>;
+export type ResourceAiModel = InferSelectModel<typeof resourceAiModels>;
+export type SiteResourceAiModel = InferSelectModel<typeof siteResourceAiModels>;
+export type Certificate = InferSelectModel<typeof certificates>;

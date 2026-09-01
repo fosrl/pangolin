@@ -29,6 +29,39 @@ registry.registerPath({
     method: "post",
     path: "/resource/{resourceId}/roles/remove",
     description: "Remove a single role from a resource.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: removeRoleFromResourceParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: removeRoleFromResourceBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource/{resourceId}/roles/remove",
+    description: "Remove a single role from a resource.",
     tags: [OpenAPITags.PublicResource, OpenAPITags.Role],
     request: {
         params: removeRoleFromResourceParamsSchema,

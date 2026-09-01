@@ -112,7 +112,9 @@ export async function updateHolePunch(
             destinations: destinations
         });
     } catch (error) {
-        logger.error(error);
+        if (!(error instanceof Error && error.message === "Exit node not allowed")) {
+            logger.error(error);
+        }
         return next(
             createHttpError(
                 HttpCode.INTERNAL_SERVER_ERROR,
@@ -186,7 +188,7 @@ export async function updateAndGenerateEndpointDestinations(
             .select({
                 siteId: sites.siteId,
                 newtId: newts.newtId,
-                subnet: sites.subnet,
+                subnet: sites.exitNodeSubnet,
                 listenPort: sites.listenPort,
                 publicKey: sites.publicKey,
                 endpoint: clientSitesAssociationsCache.endpoint,

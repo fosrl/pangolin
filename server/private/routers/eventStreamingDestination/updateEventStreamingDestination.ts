@@ -40,7 +40,8 @@ const bodySchema = z.strictObject({
     sendConnectionLogs: z.boolean().optional(),
     sendRequestLogs: z.boolean().optional(),
     sendActionLogs: z.boolean().optional(),
-    sendAccessLogs: z.boolean().optional()
+    sendAccessLogs: z.boolean().optional(),
+    sendAISessionLogs: z.boolean().optional()
 });
 
 export type UpdateEventStreamingDestinationResponse = {
@@ -55,7 +56,7 @@ registry.registerPath({
     method: "post",
     path: "/org/{orgId}/event-streaming-destination/{destinationId}",
     description: "Update an event streaming destination for a specific organization.",
-    tags: [OpenAPITags.Org],
+    tags: [OpenAPITags.EventStreamingDestination],
     request: {
         params: paramsSchema,
         body: {
@@ -125,7 +126,7 @@ export async function updateEventStreamingDestination(
             );
         }
 
-        const { type, config: configToUpdate, enabled, sendAccessLogs, sendActionLogs, sendConnectionLogs, sendRequestLogs } = parsedBody.data;
+        const { type, config: configToUpdate, enabled, sendAccessLogs, sendActionLogs, sendConnectionLogs, sendRequestLogs, sendAISessionLogs } = parsedBody.data;
 
         const updateData: Record<string, unknown> = {
             updatedAt: Date.now()
@@ -141,6 +142,7 @@ export async function updateEventStreamingDestination(
         if (sendActionLogs !== undefined) updateData.sendActionLogs = sendActionLogs;
         if (sendConnectionLogs !== undefined) updateData.sendConnectionLogs = sendConnectionLogs;
         if (sendRequestLogs !== undefined) updateData.sendRequestLogs = sendRequestLogs;
+        if (sendAISessionLogs !== undefined) updateData.sendAISessionLogs = sendAISessionLogs;
 
         await db
             .update(eventStreamingDestinations)

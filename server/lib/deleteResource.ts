@@ -14,8 +14,6 @@ import {
 } from "@server/db";
 import logger from "@server/logger";
 import { removeTargets } from "@server/routers/newt/targets";
-import createHttpError from "http-errors";
-import HttpCode from "@server/types/HttpCode";
 
 export type DeleteResourceResult = {
     deletedResource: Resource;
@@ -66,13 +64,20 @@ export async function performDeleteResources(
 
     const targetsByResourceId = new Map<number, Target[]>();
     for (const target of targetsToBeRemoved) {
+        if (target.resourceId == null) {
+            continue;
+        }
         const existing = targetsByResourceId.get(target.resourceId) ?? [];
         existing.push(target);
         targetsByResourceId.set(target.resourceId, existing);
     }
 
     const targetIdToResourceId = new Map(
-        targetsToBeRemoved.map((target) => [target.targetId, target.resourceId])
+        targetsToBeRemoved.flatMap((target) =>
+            target.resourceId == null
+                ? []
+                : [[target.targetId, target.resourceId] as const]
+        )
     );
 
     const healthChecksByResourceId = new Map<number, TargetHealthCheck[]>();
@@ -117,10 +122,10 @@ export async function runResourceDeleteSideEffects(
             .limit(1);
 
         if (!site) {
-            throw createHttpError(
-                HttpCode.NOT_FOUND,
-                `Site with ID ${target.siteId} not found`
+            logger.debug(
+                `Site with ID ${target.siteId} not found during resource delete side effects; skipping target removal`
             );
+            continue;
         }
 
         if (site.pubKey && site.type === "newt") {

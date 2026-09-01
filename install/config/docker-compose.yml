@@ -50,7 +50,7 @@ services:
       - 80:80{{end}}
 
   traefik:
-    image: docker.io/traefik:v3.6
+    image: docker.io/traefik:v3.7
     container_name: traefik
     restart: unless-stopped
     {{if .InstallGerbil}}network_mode: service:gerbil # Ports appear on the gerbil service{{end}}{{if not .InstallGerbil}}

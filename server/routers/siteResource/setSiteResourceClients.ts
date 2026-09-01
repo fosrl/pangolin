@@ -33,6 +33,40 @@ registry.registerPath({
     path: "/site-resource/{siteResourceId}/clients",
     description:
         "Set clients for a site resource. This will replace all existing clients. Clients with a userId cannot be added.",
+    tags: [OpenAPITags.PrivateResourceLegacy],
+    request: {
+        params: setSiteResourceClientsParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setSiteResourceClientsBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/private-resource/{resourceId}/clients",
+    description:
+        "Set clients for a site resource. This will replace all existing clients. Clients with a userId cannot be added.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Client],
     request: {
         params: setSiteResourceClientsParamsSchema,

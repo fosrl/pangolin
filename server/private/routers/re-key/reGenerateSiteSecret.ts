@@ -178,7 +178,7 @@ export async function reGenerateSiteSecret(
                     );
                 }
 
-                if (site.exitNodeId && site.subnet) {
+                if (site.exitNodeId && site.exitNodeSubnet) {
                     await deletePeer(site.exitNodeId, site.pubKey!); // the old pubkey
                     await addPeer(site.exitNodeId, {
                         publicKey: pubKey,

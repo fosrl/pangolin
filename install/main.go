@@ -76,7 +76,7 @@ var redisFlag *bool
 func main() {
 
 	crowdsecFlag := flag.Bool("crowdsec", false, "Enable the CrowdSec installation prompt")
-	redisFlag = flag.Bool("redis", false, "Install Redis as cacheing solution. Required for HA. Not required for the Enterprise version.")
+	redisFlag = flag.Bool("redis", false, "Install Redis as caching solution. Required for HA. Not required for the Enterprise version.")
 	flag.Parse()
 
 	// print a banner about prerequisites - opening port 80, 443, 51820, and 21820 on the VPS and firewall and pointing your domain to the VPS IP with a records. Docs are at http://localhost:3000/Getting%20Started/dns-networking

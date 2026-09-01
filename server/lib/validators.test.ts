@@ -1,10 +1,29 @@
 import {
     getResourceRuleValueValidationError,
+    isValidDomain,
     isValidUrlGlobPattern
 } from "./validators";
 import { assertEquals } from "@test/assert";
 
 function runTests() {
+    console.log("Running domain validation tests...");
+
+    assertEquals(
+        isValidDomain("example.com"),
+        true,
+        "Standard ASCII domain should be valid"
+    );
+    assertEquals(
+        isValidDomain("xn--e1afmkfd.xn--p1ai"),
+        true,
+        "Punycode IDN domain should be valid"
+    );
+    assertEquals(
+        isValidDomain("example.invalid-tld"),
+        false,
+        "Domain with unknown TLD should be invalid"
+    );
+
     console.log("Running URL pattern validation tests...");
 
     // Test valid patterns

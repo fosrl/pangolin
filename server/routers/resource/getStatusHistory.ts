@@ -42,9 +42,14 @@ export async function getResourceStatusHistory(
 
         const entityType = "resource";
         const entityId = parsedParams.data.resourceId;
-        const { days } = parsedQuery.data;
+        const { days, tzOffsetMinutes } = parsedQuery.data;
 
-        const data = await getCachedStatusHistory(entityType, entityId, days);
+        const data = await getCachedStatusHistory(
+            entityType,
+            entityId,
+            days,
+            tzOffsetMinutes
+        );
 
         return response<StatusHistoryResponse>(res, {
             data,

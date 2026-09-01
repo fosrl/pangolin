@@ -13,21 +13,44 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import {
-    db,
-    siteProvisioningKeyOrg,
-    siteProvisioningKeys
-} from "@server/db";
+import { db, siteProvisioningKeyOrg, siteProvisioningKeys } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { OpenAPITags, registry } from "@server/openApi";
 
 const paramsSchema = z.object({
     siteProvisioningKeyId: z.string().nonempty(),
     orgId: z.string().nonempty()
+});
+
+registry.registerPath({
+    method: "delete",
+    path: "/org/{orgId}/site-provisioning-key/{siteProvisioningKeyId}",
+    description: "Delete a site provisioning key.",
+    tags: [OpenAPITags.SiteProvisioningKey],
+    request: {
+        params: paramsSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function deleteSiteProvisioningKey(

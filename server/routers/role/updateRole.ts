@@ -144,7 +144,7 @@ export async function updateRole(
 
         const isLicensedSshPam = await isLicensedOrSubscribed(
             orgId,
-            tierMatrix.advancedPrivateResources
+            tierMatrix.roleBasedSSHControls
         );
         if (!isLicensedSshPam) {
             delete updateData.sshSudoMode;

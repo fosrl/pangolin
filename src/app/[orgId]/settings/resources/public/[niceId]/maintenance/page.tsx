@@ -161,7 +161,7 @@ export default function ResourceMaintenancePage() {
         return null;
     }
 
-    const isMaintenanceDisabled = !isPaidUser(tierMatrix.maintencePage);
+    const isMaintenanceDisabled = !isPaidUser(tierMatrix.maintenancePage);
 
     const maintenanceModeTypeOptions: StrategyOption<
         "automatic" | "forced"
@@ -180,7 +180,7 @@ export default function ResourceMaintenancePage() {
 
     return (
         <>
-            <PaidFeaturesAlert tiers={tierMatrix.maintencePage} />
+            <PaidFeaturesAlert tiers={tierMatrix.maintenancePage} />
             <div
                 className={
                     isMaintenanceDisabled

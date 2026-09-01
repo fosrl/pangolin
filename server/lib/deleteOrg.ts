@@ -93,6 +93,9 @@ export async function deleteOrgById(
             await trx.delete(sites).where(eq(sites.siteId, site.siteId));
         }
         for (const client of orgClients) {
+            if (client.exitNodeId && client.pubKey) {
+                await deletePeer(client.exitNodeId, client.pubKey);
+            }
             const [olm] = await trx
                 .select()
                 .from(olms)

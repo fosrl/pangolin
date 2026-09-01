@@ -31,6 +31,40 @@ registry.registerPath({
     path: "/resource/{resourceId}/header-auth",
     description:
         "Set or update the header authentication for a resource. If user and password is not provided, it will remove the header authentication.",
+    tags: [OpenAPITags.PublicResourceLegacy],
+    request: {
+        params: setResourceAuthMethodsParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: setResourceAuthMethodsBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/public-resource/{resourceId}/header-auth",
+    description:
+        "Set or update the header authentication for a resource. If user and password is not provided, it will remove the header authentication.",
     tags: [OpenAPITags.PublicResource],
     request: {
         params: setResourceAuthMethodsParamsSchema,

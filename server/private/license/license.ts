@@ -104,11 +104,18 @@ LQIDAQAB
     }
 
     public async forceRecheck() {
-        this.statusCache.flushAll();
-        this.licenseKeyCache.flushAll();
         this.phoneHomeFailureCount = 0;
 
-        return await this.check();
+        // Force a fresh check without discarding the last known good cache
+        // up front — check() only replaces the cache once it has a fresh
+        // result, so a failed recheck (e.g. a transient server error) won't
+        // leave listKeys()/status looking empty in the meantime.
+        this.doRecheck = true;
+        try {
+            return await this.check();
+        } finally {
+            this.doRecheck = false;
+        }
     }
 
     public async isUnlocked(): Promise<boolean> {
@@ -142,12 +149,8 @@ LQIDAQAB
         }
 
         // Count used sites and users for license comparison
-        const [siteCountRes] = await db
-            .select({ value: count() })
-            .from(sites);
-        const [userCountRes] = await db
-            .select({ value: count() })
-            .from(users);
+        const [siteCountRes] = await db.select({ value: count() }).from(sites);
+        const [userCountRes] = await db.select({ value: count() }).from(users);
 
         const status: LicenseStatus = {
             hostId: this.hostMeta.hostMetaId,
@@ -181,16 +184,25 @@ LQIDAQAB
             }
 
             let foundHostKey = false;
+            // Keys that fully decrypted, to phone home with. A row that
+            // fails to decrypt (e.g. stored under a different server
+            // secret) is marked invalid below but excluded here, so it
+            // can't take down validation for every other key in the batch.
+            const keys: { licenseKey: string; instanceId: string }[] = [];
             // Validate stored license keys
             for (const key of allKeysRes) {
                 try {
-                    // Decrypt the license key and token
+                    // Decrypt the license key, token, and instance ID
                     const decryptedKey = decrypt(
                         key.licenseKeyId,
                         this.serverSecret
                     );
                     const decryptedToken = decrypt(
                         key.token,
+                        this.serverSecret
+                    );
+                    const decryptedInstanceId = decrypt(
+                        key.instanceId,
                         this.serverSecret
                     );
 
@@ -214,6 +226,11 @@ LQIDAQAB
                     if (payload.type === "host") {
                         foundHostKey = true;
                     }
+
+                    keys.push({
+                        licenseKey: decryptedKey,
+                        instanceId: decryptedInstanceId
+                    });
                 } catch (e) {
                     logger.error(
                         `Error validating license key: ${key.licenseKeyId}`
@@ -233,37 +250,39 @@ LQIDAQAB
                 status.isHostLicensed = false;
             }
 
-            const keys = allKeysRes.map((key) => ({
-                licenseKey: decrypt(key.licenseKeyId, this.serverSecret),
-                instanceId: decrypt(key.instanceId, this.serverSecret)
-            }));
-
             let apiResponse: ValidateLicenseAPIResponse | undefined;
-            try {
-                // Phone home to validate license keys
-                apiResponse = await this.phoneHome(keys, false);
+            if (keys.length > 0) {
+                try {
+                    // Phone home to validate license keys
+                    apiResponse = await this.phoneHome(keys, false);
 
-                if (!apiResponse?.success) {
-                    throw new Error(apiResponse?.error);
-                }
-                // Reset failure count on success
-                this.phoneHomeFailureCount = 0;
-            } catch (e) {
-                this.phoneHomeFailureCount++;
-                if (this.phoneHomeFailureCount === 1) {
-                    // First failure: fail silently
-                    logger.error("Error communicating with license server:");
-                    logger.error(e);
-                    logger.error(
-                        `Allowing failure. Will retry one more time at next run interval.`
-                    );
-                    // return last known good status
-                    return this.statusCache.get(
-                        this.statusKey
-                    ) as LicenseStatus;
-                } else {
-                    // Subsequent failures: fail abruptly
-                    throw e;
+                    if (!apiResponse?.success) {
+                        throw new Error(apiResponse?.error);
+                    }
+                    // Reset failure count on success
+                    this.phoneHomeFailureCount = 0;
+                } catch (e) {
+                    this.phoneHomeFailureCount++;
+                    if (this.phoneHomeFailureCount === 1) {
+                        // First failure: fail silently
+                        logger.error(
+                            "Error communicating with license server:"
+                        );
+                        logger.error(e);
+                        logger.error(
+                            `Allowing failure. Will retry one more time at next run interval.`
+                        );
+                        // Fall back to last known good status if we have
+                        // one cached; otherwise return the freshly built
+                        // status (with defaults) rather than undefined.
+                        const lastKnownStatus = this.statusCache.get(
+                            this.statusKey
+                        ) as LicenseStatus | undefined;
+                        return lastKnownStatus ?? status;
+                    } else {
+                        // Subsequent failures: fail abruptly
+                        throw e;
+                    }
                 }
             }
 
@@ -348,10 +367,7 @@ LQIDAQAB
                 }
 
                 // Only consider quantity if defined and >= 0 (quantity = users, quantity_2 = sites)
-                if (
-                    cached.quantity_2 !== undefined &&
-                    cached.quantity_2 >= 0
-                ) {
+                if (cached.quantity_2 !== undefined && cached.quantity_2 >= 0) {
                     status.maxSites =
                         (status.maxSites ?? 0) + cached.quantity_2;
                 }
@@ -541,7 +557,7 @@ LQIDAQAB
                     // Calculate exponential backoff delay
                     const retryDelay = Math.floor(
                         initialRetryDelay *
-                        Math.pow(exponentialFactor, attempt - 1)
+                            Math.pow(exponentialFactor, attempt - 1)
                     );
 
                     logger.debug(

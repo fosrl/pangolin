@@ -5,6 +5,8 @@ import PublicResourcesBanner from "@app/components/PublicResourcesBanner";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import OrgProvider from "@app/providers/OrgProvider";
+import { build } from "@server/build";
+import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import type { GetOrgResponse } from "@server/routers/org";
 import type { ListResourcesResponse } from "@server/routers/resource";
 import { GetSiteResponse } from "@server/routers/site/getSite";
@@ -38,6 +40,7 @@ export default async function ProxyResourcesPage(
     const params = await props.params;
     const t = await getTranslations();
     const searchParams = new URLSearchParams(await props.searchParams);
+    searchParams.set("status", "approved");
 
     let resources: ListResourcesResponse["resources"] = [];
     let pagination: ListResourcesResponse["pagination"] = {
@@ -59,29 +62,7 @@ export default async function ProxyResourcesPage(
         searchParams.get("siteId") ?? undefined
     );
 
-    let initialFilterSite: {
-        siteId: number;
-        name: string;
-        type: string;
-    } | null = null;
-    if (siteIdParam) {
-        try {
-            const siteRes = await internal.get(
-                `/site/${siteIdParam}`,
-                await authCookieHeader()
-            );
-            const s = (siteRes.data as ResponseT<GetSiteResponse>).data;
-            if (s && s.orgId === params.orgId) {
-                initialFilterSite = {
-                    siteId: s.siteId,
-                    name: s.name,
-                    type: s.type
-                };
-            }
-        } catch {
-            // leave null
-        }
-    }
+
 
     let org = null;
     try {
@@ -139,6 +120,34 @@ export default async function ProxyResourcesPage(
             health: (resource.health as ResourceRow["health"]) ?? undefined
         };
     });
+    // Prefetched in one batched call so the table doesn't fire a separate
+    // certificate request per visible row once it mounts on the client.
+    const certDomains = Array.from(
+        new Set(
+            resourceRows
+                .filter((r) => r.ssl && r.fullDomain)
+                .map((r) => r.fullDomain as string)
+        )
+    );
+
+    let initialCertificates: GetBatchedCertificateResponse | undefined;
+    if (build !== "oss" && certDomains.length > 0) {
+        try {
+            const certSearchParams = new URLSearchParams(
+                certDomains.map((domain) => ["domains", domain])
+            );
+            const certRes = await internal.get<
+                AxiosResponse<GetBatchedCertificateResponse>
+            >(
+                `/org/${params.orgId}/batched-certificates?${certSearchParams.toString()}`,
+                await authCookieHeader()
+            );
+            initialCertificates = certRes.data.data;
+        } catch {
+            // leave undefined so each row falls back to fetching its own
+        }
+    }
+
     return (
         <>
             <SettingsSectionTitle
@@ -157,7 +166,7 @@ export default async function ProxyResourcesPage(
                         pageIndex: pagination.page - 1,
                         pageSize: pagination.pageSize
                     }}
-                    initialFilterSite={initialFilterSite}
+                    initialCertificates={initialCertificates}
                 />
             </OrgProvider>
         </>
