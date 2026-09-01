@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "添加CIDR范围（例如10.0.0.0/8）",
     "remoteExitNodeNetworkingSubnetsLoadError": "无法加载子网",
     "remoteExitNodeNetworkingLabelsTitle": "首选标签",
-    "remoteExitNodeNetworkingLabelsDescription": "拥有这些标签的站点将强制通过此远程出口节点连接。",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "选择标签……",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "搜索标签……",
     "remoteExitNodeNetworkingLabelsLoadError": "无法加载标签",
