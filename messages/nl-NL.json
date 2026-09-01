@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Voeg een CIDR-bereik toe (bijv. 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Kon subnets niet laden",
     "remoteExitNodeNetworkingLabelsTitle": "Voorkeurslabels",
-    "remoteExitNodeNetworkingLabelsDescription": "Sites met deze labels worden verplicht om verbinding te maken via dit externe exit-knooppunt.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Selecteer labels...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Labels zoeken...",
     "remoteExitNodeNetworkingLabelsLoadError": "Kon labels niet laden",
