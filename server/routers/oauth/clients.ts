@@ -109,7 +109,15 @@ function getBackchannelLogoutValidationError(
         return null;
     }
 
-    return validateBackchannelLogoutUri(backchannelLogoutUri);
+    try {
+        validateBackchannelLogoutUri(backchannelLogoutUri);
+    } catch (error) {
+        return error instanceof Error
+            ? error.message
+            : "Invalid backchannel logout URI";
+    }
+
+    return null;
 }
 
 export async function createOAuthClient(

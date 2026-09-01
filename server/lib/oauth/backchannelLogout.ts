@@ -11,13 +11,14 @@ import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import { signLogoutToken } from "@server/lib/oauth/tokens";
 import { generateIdFromEntropySize } from "@server/auth/sessions/app";
 import logger from "@server/logger";
-import { assertBackchannelLogoutDestinationAllowed } from "@server/lib/oauth/backchannelLogoutSecurity";
 import {
     CLIENT_BACKCHANNEL_MAX_RETRIES,
     CLIENT_BACKCHANNEL_RETRY_INTERVAL_MS,
     CLIENT_BACKCHANNEL_RETRY_LIFETIME_MS
 } from "./lifetimes";
+import https from "node:https";
 import HttpCode from "@server/types/HttpCode";
+import { lookupBackchannelUri } from "./backchannelLogoutSecurity";
 
 type BackchannelLogoutClient = {
     clientId: string;
@@ -133,21 +134,10 @@ export async function dispatchBackchannelLogout(
                     signingKey.keyId
                 );
 
-                const logoutUrl =
-                    await assertBackchannelLogoutDestinationAllowed(
-                        client.backchannelLogoutUri
-                    );
-                const res = await fetch(logoutUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    body: new URLSearchParams({
-                        logout_token: logoutToken
-                    }).toString(),
-                    signal: AbortSignal.timeout(10000),
-                    redirect: "error"
-                });
+                const res = await filteredFetch(
+                    client.backchannelLogoutUri,
+                    logoutToken
+                );
 
                 if (shouldRetryBackchannel(res.status)) {
                     ++client.retryAttempt;
@@ -253,4 +243,53 @@ function shouldRetryBackchannel(status: number): boolean {
         status === HttpCode.REQUEST_TIMEOUT ||
         status === HttpCode.TOO_MANY_REQUESTS
     );
+}
+
+async function filteredFetch(logoutUrl: string, logoutToken: string) {
+    const filteredLookup = lookupBackchannelUri(logoutUrl);
+    if (typeof filteredLookup !== "function") {
+        throw new Error(filteredLookup);
+    }
+
+    const url = new URL(logoutUrl);
+    const agent = new https.Agent({ lookup: filteredLookup });
+    const bodyData = new URLSearchParams({
+        logout_token: logoutToken
+    }).toString();
+
+    const options: https.RequestOptions = {
+        method: "POST",
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: url.pathname + url.search,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": Buffer.byteLength(bodyData)
+        },
+        signal: AbortSignal.timeout(2_000),
+        agent: agent
+    };
+
+    return new Promise<{ status: HttpCode }>((resolve, reject) => {
+        const req = https.request(options, (res) => {
+            // Read the stream to mitigate memory leaks
+            res.resume();
+
+            if (!res.statusCode) {
+                return reject(new Error("FetchError: Response invalid"));
+            }
+
+            // Emulate 'redirect: "error"' option
+            if (res.statusCode >= 300 && res.statusCode < 400) {
+                return reject(new Error("FetchError: Redirect encountered"));
+            }
+
+            return resolve({ status: res.statusCode });
+        });
+
+        req.on("error", (err) => reject(err));
+
+        // Send data and cleanup
+        req.end(bodyData);
+    });
 }

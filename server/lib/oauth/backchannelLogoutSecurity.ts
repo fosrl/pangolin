@@ -1,5 +1,6 @@
-import { lookup } from "node:dns/promises";
-import { BlockList, isIP } from "node:net";
+import { LookupAddress, LookupOptions } from "node:dns";
+import { lookup } from "node:dns";
+import { BlockList, isIP, LookupFunction } from "node:net";
 
 const blockList = new BlockList();
 
@@ -31,86 +32,93 @@ blockList.addSubnet("2001:db8::",   32, "ipv6"); // Documentation
 blockList.addSubnet("2001:2::",     48, "ipv6"); // Benchmarking
 blockList.addSubnet("100::",        64, "ipv6"); // Discard-Only
 
-function normalizeHostname(hostname: string): string {
-    const lower = hostname.trim().toLowerCase();
-    return lower.endsWith(".") ? lower.slice(0, -1) : lower;
-}
+export function validateBackchannelLogoutUri(uri: string): URL {
+    const url = URL.parse(uri);
 
-function validateBackchannelLogoutUrlShape(url: URL): string | null {
+    if (!url) {
+        throw new Error("URL must be valid");
+    }
     if (url.protocol !== "https:") {
-        return "backchannelLogoutUri must use https";
+        throw new Error("URL must use https");
     }
 
     if (url.username || url.password) {
-        return "backchannelLogoutUri must not include credentials";
+        throw new Error("URL must not include credentials");
     }
 
-    const hostname = normalizeHostname(url.hostname);
-    const ipFamily = isIP(hostname);
-
-    if (hostname === "localhost" || hostname.endsWith(".localhost")) {
-        return "backchannelLogoutUri must not target localhost";
+    if (url.hostname === "localhost" || url.hostname.endsWith(".localhost")) {
+        throw new Error("URL must not target localhost");
     }
 
-    if (hostname.endsWith(".local")) {
-        return "backchannelLogoutUri must not target local-only hostnames";
+    if (url.hostname.endsWith(".local")) {
+        throw new Error("URL must not target local-only hostnames");
     }
 
-    if (ipFamily && blockList.check(hostname, ipFamily === 4 ? "ipv4" : "ipv6")) {
-        return "backchannelLogoutUri must not target a private or reserved IP address";
-    }
-
-    return null;
-}
-
-export function validateBackchannelLogoutUri(uri: string): string | null {
-    let url: URL;
-
-    try {
-        url = new URL(uri);
-    } catch {
-        return "backchannelLogoutUri must be a valid URL";
-    }
-
-    return validateBackchannelLogoutUrlShape(url);
-}
-
-export async function assertBackchannelLogoutDestinationAllowed(
-    uri: string
-): Promise<URL> {
-    const validationError = validateBackchannelLogoutUri(uri);
-    if (validationError) {
-        throw new Error(validationError);
-    }
-
-    const url = new URL(uri);
-    const hostname = normalizeHostname(url.hostname);
-
-    // Hostname is an IP address – no need to resolve
-    if (isIP(hostname) !== 0) {
-        return url;
-    }
-
-    const resolvedAddresses = await lookup(hostname, {
-        all: true,
-        verbatim: true
-    });
-
-    if (resolvedAddresses.length === 0) {
-        throw new Error(
-            "backchannelLogoutUri did not resolve to any destination address"
-        );
-    }
-
-    const blockedAddress = resolvedAddresses.find((record) =>
-        blockList.check(record.address, record.family === 4 ? "ipv4" : "ipv6")
-    );
-
-    if (blockedAddress) {
-        throw new Error(
-            "backchannelLogoutUri resolves to a private or reserved IP address"
-        );
+    const normalizedHost = normalizeHostname(url.hostname);
+    const ipFamily = isIP(normalizedHost);
+    if (
+        ipFamily &&
+        blockList.check(normalizedHost, ipFamily === 4 ? "ipv4" : "ipv6")
+    ) {
+        throw new Error("URL must not target a private or reserved IP address");
     }
 
     return url;
+}
+
+type LookupCallback = (
+    err: NodeJS.ErrnoException | null,
+    // NodeJS types are false: address is undefined if an error occurred
+    address: string | LookupAddress[],
+    family?: number
+) => void;
+
+export function lookupBackchannelUri(uri: string): LookupFunction {
+    const url = validateBackchannelLogoutUri(uri);
+
+    return (
+        hostname: string,
+        options: LookupOptions,
+        callback: LookupCallback
+    ): void => {
+        if (hostname !== url.hostname) {
+            return callback(
+                new Error("Hostname does not equal pinned hostname"),
+                undefined as any
+            );
+        }
+
+        const normalizedHost = normalizeHostname(hostname);
+        lookup(normalizedHost, options, (error, result, family) => {
+            if (error) {
+                return callback(error, result, family);
+            }
+
+            const addresses = Array.isArray(result)
+                ? result
+                : [{ address: result, family: family }];
+            const blocked = addresses.find((record) =>
+                blockList.check(
+                    record.address,
+                    record.family === 4 ? "ipv4" : "ipv6"
+                )
+            );
+
+            if (blocked) {
+                return callback(
+                    new Error(
+                        "Hostname resolves to a private or reserved IP address"
+                    ),
+                    undefined as any
+                );
+            }
+
+            return callback(error, result, family);
+        });
+    };
+}
+
+function normalizeHostname(hostname: string): string {
+    // Remove IPv6 brackets, NodeJS apis fail if present
+    return hostname.replace(/^\[|\]$/g, "");
 }
