@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Добавить диапазон CIDR (например, 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Не удалось загрузить подсети",
     "remoteExitNodeNetworkingLabelsTitle": "Этикетки предпочтений",
-    "remoteExitNodeNetworkingLabelsDescription": "Сайты с этими метками будут обязаны подключаться через этот удаленный узел выхода.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Выберите метки...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Поиск меток...",
     "remoteExitNodeNetworkingLabelsLoadError": "Не удалось загрузить метки",
