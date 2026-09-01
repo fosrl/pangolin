@@ -1754,7 +1754,7 @@ export const oauthClients = sqliteTable(
     "oauthClients",
     {
         clientId: text("clientId").primaryKey(),
-        clientSecretHash: text("clientSecretHash"),
+        clientSecret: text("clientSecret"), // Encrypted with server secret
         lastChars: text("lastChars").notNull().default(""),
         clientName: text("clientName").notNull(),
         clientUri: text("clientUri"),

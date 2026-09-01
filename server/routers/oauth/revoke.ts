@@ -3,10 +3,11 @@ import { and, eq } from "drizzle-orm";
 import { db, oauthAccessTokens, oauthRefreshTokens } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { hashToken } from "@server/lib/oauth/tokens";
+import { sendOAuthError } from "@server/routers/oauth/token";
 import {
     authenticateClient,
     getBodyValue,
-    sendOAuthError
+    OAuthClientWithSecret
 } from "@server/lib/oauth/clientAuth";
 import logger from "@server/logger";
 
@@ -15,20 +16,20 @@ export async function revokeToken(
     res: Response
 ): Promise<Response | void> {
     try {
-        const authResult = await authenticateClient(req);
-
-        if (!("client" in authResult)) {
+        let client: OAuthClientWithSecret;
+        try {
+            client = await authenticateClient(req);
+        } catch (error) {
+            logger.warn(error);
             if (req.headers.authorization) {
                 res.setHeader("WWW-Authenticate", "Basic");
             }
-            return sendOAuthError(
-                res,
-                authResult.status,
-                authResult.oauthError
-            );
+            return sendOAuthError(res, HttpCode.UNAUTHORIZED, {
+                error: "invalid_client",
+                error_description: "Invalid client credentials"
+            });
         }
 
-        const client = authResult.client;
         const token = getBodyValue(req.body, "token");
         const tokenTypeHint = getBodyValue(req.body, "token_type_hint");
 

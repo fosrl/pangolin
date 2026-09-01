@@ -1,62 +1,161 @@
-import type { Request, Response } from "express";
-import { eq } from "drizzle-orm";
-import { verifyPassword } from "@server/auth/password";
+import type { Request } from "express";
+import { sha256 } from "@oslojs/crypto/sha2";
+import { timingSafeEqual } from "crypto";
+import jsonwebtoken from "jsonwebtoken";
+import config from "@server/lib/config";
+import { decrypt } from "@server/lib/crypto";
 import { db, oauthClients } from "@server/db";
-import HttpCode from "@server/types/HttpCode";
+import { eq, InferSelectModel } from "drizzle-orm";
+import type { JwtPayload } from "jsonwebtoken";
+import { getIssuerUrl } from "@server/lib/oauth/issuer";
+import { CLIENT_JWT_CLOCK_TOLERANCE_SECONDS, CLIENT_JWT_MAX_AGE_SECONDS } from "./lifetimes";
 
-type OAuthClientRecord = typeof oauthClients.$inferSelect;
+export type OAuthClientRecord = InferSelectModel<typeof oauthClients>;
+export type OAuthClientWithSecret = OAuthClientRecord & { storedSecret: string };
 
-export type OAuthError = {
-    error: string;
-    error_description: string;
-};
-
-export function getBodyValue(body: unknown, key: string): string | undefined {
-    if (!body || typeof body !== "object") {
-        return undefined;
+export async function authenticateClient(req: Request): Promise<OAuthClientWithSecret> {
+    if (getBodyValue(req.body, "client_assertion")) {
+        return authenticateClientAssertion(req);
+    } else if (req.headers.authorization) {
+        return authenticateClientSecretBasic(req);
+    } else if (getBodyValue(req.body, "client_secret")) {
+        return authenticateClientSecretPost(req);
     }
+    throw new Error("Missing client credentials");
+}
 
-    const value = Reflect.get(body, key);
-
-    if (typeof value === "string") {
-        return value;
+async function authenticateClientAssertion(req: Request): Promise<OAuthClientWithSecret> {
+    const assertion = getBodyValue(req.body, "client_assertion");
+    const assertionType = getBodyValue(req, "client_assertion_type");
+    const formClientId = getBodyValue(req.body, "client_id");
+    if (!assertion) {
+        throw new Error("client_secret_jwt: Missing client_assertion in request body");
     }
 
     if (
-        Array.isArray(value) &&
-        value.length > 0 &&
-        typeof value[0] === "string"
+        assertionType !==
+        "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
     ) {
-        return value[0];
+        throw new Error(
+            "client_secret_jwt: Unsupported or missing client_assertion_type"
+        );
     }
 
-    return undefined;
-}
+    const decodedAssertion = jsonwebtoken.decode(assertion);
+    if (!decodedAssertion || typeof decodedAssertion !== "object") {
+        throw new Error("client_secret_jwt: not a valid JWT");
+    }
 
-export function sendOAuthError(
-    res: Response,
-    status: number,
-    oauthError: OAuthError
-): void {
-    res.status(status).json(oauthError);
-}
+    // RFC 7523, Section 3:
+    // "The client MUST verify that the value of the iss (issuer) claim matches the value of the sub (subject) claim."
+    if (decodedAssertion.iss !== decodedAssertion.sub ||
+        typeof decodedAssertion.iss !== "string" ||
+        typeof decodedAssertion.sub !== "string"
+    ) {
+        throw new Error("client_secret_jwt: iss and/or sub claims invalid");
+    }
+    const clientId = decodedAssertion.iss;
 
-export function parseBasicAuth(
-    authorizationHeader: string | undefined
-): { clientId: string; clientSecret: string } | null {
-    if (!authorizationHeader || !authorizationHeader.startsWith("Basic ")) {
-        return null;
+    // RFC 7521, Section 4.2:
+    // "If present, the value of the client_id parameter MUST identify the same client as is identified by the client assertion."
+    if (formClientId && formClientId !== clientId) {
+        throw new Error("client_secret_jwt: client_id does not match client_assertion");
+    }
+
+    const client = await getClientWithSecret(clientId);
+    if (!client) {
+        throw new Error("client_secret_jwt: client not found");
     }
 
     try {
-        const decoded = Buffer.from(
-            authorizationHeader.slice("Basic ".length),
-            "base64"
-        ).toString("utf8");
-        const separatorIndex = decoded.indexOf(":");
+        const result = jsonwebtoken.verify(assertion, client.storedSecret, {
+            algorithms: ["HS256"],
+            maxAge: CLIENT_JWT_MAX_AGE_SECONDS,
+            clockTolerance: CLIENT_JWT_CLOCK_TOLERANCE_SECONDS,
+            audience: getIssuerUrl(),
+            issuer: clientId,
+            subject: clientId,
+        }) as JwtPayload;
 
-        if (separatorIndex < 0) {
-            return null;
+        if (!result || typeof result !== "object") {
+            throw new Error("client_secret_jwt: failed to verify JWT");
+        }
+    } catch {
+        throw new Error("client_secret_jwt: failed to verify JWT");
+    }
+
+    return client;
+}
+
+async function authenticateClientSecretPost(req: Request): Promise<OAuthClientWithSecret> {
+    const clientId = getBodyValue(req.body, "client_id");
+    const clientSecret = getBodyValue(req.body, "client_secret");
+
+    if (!clientId || !clientSecret) {
+        throw new Error("client_secret_post: Missing client_id or client_secret in request body");
+    }
+
+    const client = await getClientWithSecret(clientId);
+    if (constantTimeEquals(clientSecret, client.storedSecret)) {
+        return client;
+    }
+    throw new Error("client_secret_post: Invalid client credentials");
+}
+
+async function authenticateClientSecretBasic(req: Request): Promise<OAuthClientWithSecret> {
+    const basicCredentials = parseBasicAuth(req?.headers?.authorization ?? "");
+    const client = await getClientWithSecret(basicCredentials.clientId);
+    if (constantTimeEquals(basicCredentials.clientSecret, client.storedSecret)) {
+        return client;
+    }
+    throw new Error("client_secret_basic: Invalid client credentials");
+}
+
+async function getClientWithSecret(clientId: string): Promise<OAuthClientWithSecret> {
+    const [client] = await db
+        .select()
+        .from(oauthClients)
+        .where(eq(oauthClients.clientId, clientId))
+        .limit(1) as OAuthClientWithSecret[];
+
+    if (!client || !client.enabled || !client.clientSecret) {
+        throw new Error("Client not found or disabled");
+    }
+
+    client.storedSecret = decrypt(
+        client.clientSecret,
+        config.getRawConfig().server.secret!
+    );
+
+    if (!client.storedSecret) {
+        throw new Error("Failed to decrypt client secret");
+    }
+
+    return client;
+}
+
+export function getBodyValue(body: unknown, key: string): string | undefined {
+    const bodyRecord = body as Record<string, unknown>;
+
+    if (!bodyRecord || typeof bodyRecord !== "object") {
+        return undefined;
+    }
+
+    const value = bodyRecord[key];
+    return typeof value === "string" ? value : undefined;
+}
+
+export function parseBasicAuth(header: string): { clientId: string; clientSecret: string } {
+    const parts = header?.split(" ");
+    if (!parts || parts.length !== 2 || parts[0] !== "Basic") {
+        throw new Error("Invalid or missing Basic Authorization header");
+    }
+
+    try {
+        const decoded = Buffer.from(parts[1], "base64").toString("utf8");
+        const separatorIndex = decoded.indexOf(":");
+        if (separatorIndex === -1) {
+            throw new Error("Invalid Basic Authorization header format");
         }
 
         return {
@@ -64,82 +163,15 @@ export function parseBasicAuth(
             clientSecret: decodeURIComponent(decoded.slice(separatorIndex + 1))
         };
     } catch {
-        return null;
+        throw new Error("Failed to parse Basic Authorization header");
     }
 }
 
-export async function authenticateClient(
-    req: Request
-): Promise<
-    { client: OAuthClientRecord } | { status: number; oauthError: OAuthError }
-> {
-    const basicCredentials = parseBasicAuth(req.headers.authorization);
-
-    const clientId =
-        basicCredentials?.clientId || getBodyValue(req.body, "client_id");
-    const clientSecret =
-        basicCredentials?.clientSecret ||
-        getBodyValue(req.body, "client_secret");
-
-    if (!clientId) {
-        return {
-            status: HttpCode.UNAUTHORIZED,
-            oauthError: {
-                error: "invalid_client",
-                error_description: "Missing client_id"
-            }
-        };
-    }
-
-    const [client] = await db
-        .select()
-        .from(oauthClients)
-        .where(eq(oauthClients.clientId, clientId))
-        .limit(1);
-
-    if (!client || !client.enabled) {
-        return {
-            status: HttpCode.UNAUTHORIZED,
-            oauthError: {
-                error: "invalid_client",
-                error_description: "Invalid client credentials"
-            }
-        };
-    }
-
-    if (!client.clientSecretHash) {
-        return {
-            status: HttpCode.UNAUTHORIZED,
-            oauthError: {
-                error: "invalid_client",
-                error_description: "Invalid client configuration"
-            }
-        };
-    }
-
-    if (!clientSecret) {
-        return {
-            status: HttpCode.UNAUTHORIZED,
-            oauthError: {
-                error: "invalid_client",
-                error_description: "Missing client_secret"
-            }
-        };
-    }
-
-    const validSecret = await verifyPassword(
-        clientSecret,
-        client.clientSecretHash
+export function constantTimeEquals(candidate: string, expected: string): boolean {
+    // Hashing both sides first makes the comparison inputs uniformly 32 bytes, so
+    // wrong-length (attacker-controlled) input can never make timingSafeEqual throw.
+    return timingSafeEqual(
+        sha256(new TextEncoder().encode(candidate)),
+        sha256(new TextEncoder().encode(expected))
     );
-    if (!validSecret) {
-        return {
-            status: HttpCode.UNAUTHORIZED,
-            oauthError: {
-                error: "invalid_client",
-                error_description: "Invalid client credentials"
-            }
-        };
-    }
-
-    return { client };
 }

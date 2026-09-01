@@ -20,6 +20,7 @@ export function openidConfiguration(_: Request, res: Response): void {
         id_token_signing_alg_values_supported: ["RS256"],
         scopes_supported: [...validScopes],
         token_endpoint_auth_methods_supported: [
+            "client_secret_jwt",
             "client_secret_basic",
             "client_secret_post"
         ],

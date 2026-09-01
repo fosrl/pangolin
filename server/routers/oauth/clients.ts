@@ -3,7 +3,8 @@ import createHttpError from "http-errors";
 import { and, eq, isNull } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import { z } from "zod";
-import { hashPassword } from "@server/auth/password";
+import config from "@server/lib/config";
+import { encrypt } from "@server/lib/crypto";
 import {
     db,
     oauthClients,
@@ -137,10 +138,11 @@ export async function createOAuthClient(
 
         const clientId = generateIdFromEntropySize(25);
         const clientSecret = generateIdFromEntropySize(32);
+        const key = config.getRawConfig().server.secret!;
 
         await db.insert(oauthClients).values({
             clientId,
-            clientSecretHash: await hashPassword(clientSecret),
+            clientSecret: encrypt(clientSecret, key),
             lastChars: clientSecret.slice(-4),
             clientName: body.clientName,
             clientUri: body.clientUri,
@@ -369,11 +371,10 @@ export async function updateOAuthClient(
             for (const consent of consents) {
                 const normalizedScopes = normalizeScopes(
                     consent.scope.split(" "),
-                    existingClient.scopes.split(" ")
+                    (updatedScopes ?? existingClient.scopes).split(" ")
                 );
 
-                if (normalizedScopes === consent.scope)
-                    continue;
+                if (normalizedScopes === consent.scope) continue;
 
                 await trx
                     .update(oauthConsents)
@@ -516,13 +517,14 @@ export async function rotateOAuthClientSecret(
         }
 
         const nextClientSecret = generateIdFromEntropySize(32);
+        const key = config.getRawConfig().server.secret!;
         const now = Date.now();
 
         await db.transaction(async (trx) => {
             await trx
                 .update(oauthClients)
                 .set({
-                    clientSecretHash: await hashPassword(nextClientSecret),
+                    clientSecret: encrypt(nextClientSecret, key),
                     lastChars: nextClientSecret.slice(-4),
                     updatedAt: now
                 })

@@ -31,10 +31,18 @@ import {
 import {
     authenticateClient,
     getBodyValue,
-    sendOAuthError
+    OAuthClientWithSecret
 } from "@server/lib/oauth/clientAuth";
 import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
 import logger from "@server/logger";
+
+export function sendOAuthError(
+    res: Response,
+    status: number,
+    oauthError: { error: string; error_description?: string }
+): void {
+    res.status(status).json(oauthError);
+}
 
 function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
     const hash = createHash("sha256").update(codeVerifier).digest();
@@ -130,16 +138,18 @@ export async function issueToken(
     res: Response
 ): Promise<Response | void> {
     try {
-        const authResult = await authenticateClient(req);
-        if (!("client" in authResult)) {
+        let client: OAuthClientWithSecret;
+        try {
+            client = await authenticateClient(req);
+        } catch (error) {
+            logger.warn(error);
             if (req.headers.authorization) {
                 res.setHeader("WWW-Authenticate", "Basic");
             }
-            return sendOAuthError(
-                res,
-                authResult.status,
-                authResult.oauthError
-            );
+            return sendOAuthError(res, HttpCode.UNAUTHORIZED, {
+                error: "invalid_client",
+                error_description: "Invalid client credentials"
+            });
         }
 
         const grantType = getBodyValue(req.body, "grant_type");
@@ -173,7 +183,7 @@ export async function issueToken(
                         eq(oauthAuthorizationCodes.codeHash, hashToken(code)),
                         eq(
                             oauthAuthorizationCodes.clientId,
-                            authResult.client.clientId
+                            client.clientId
                         )
                     )
                 )
@@ -281,7 +291,7 @@ export async function issueToken(
                         ),
                         eq(
                             oauthRefreshTokens.clientId,
-                            authResult.client.clientId
+                            client.clientId
                         ),
                         isNull(oauthRefreshTokens.revokedAt)
                     )
@@ -310,7 +320,7 @@ export async function issueToken(
                     error_description: "Requested scope is not a subset"
                 });
             }
-            if (!isScopeSubset(finalScope, authResult.client.scopes)) {
+            if (!isScopeSubset(finalScope, client.scopes)) {
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
                     error: "invalid_scope",
                     error_description:

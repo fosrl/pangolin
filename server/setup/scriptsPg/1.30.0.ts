@@ -12,7 +12,7 @@ export default async function migration() {
         await db.execute(sql`
             CREATE TABLE IF NOT EXISTS "oauthClients" (
                 "clientId" text PRIMARY KEY NOT NULL,
-                "clientSecretHash" text,
+                "clientSecret" text,
                 "lastChars" text DEFAULT '' NOT NULL,
                 "clientName" text NOT NULL,
                 "clientUri" text,
