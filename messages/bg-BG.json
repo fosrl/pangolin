@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Добавете CIDR диапазон (напр. 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Неуспешно зареждане на подмрежи",
     "remoteExitNodeNetworkingLabelsTitle": "Етикети за Предпочитания",
-    "remoteExitNodeNetworkingLabelsDescription": "Сайтове с тези етикети ще бъдат принудени да се свържат чрез този отдалечен край.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Изберете етикети...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Търсене на етикети...",
     "remoteExitNodeNetworkingLabelsLoadError": "Неуспешно зареждане на етикети",
