@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "CIDR 범위 추가 (예: 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "서브넷 로드 실패",
     "remoteExitNodeNetworkingLabelsTitle": "우선순위 레이블",
-    "remoteExitNodeNetworkingLabelsDescription": "이 레이블이 있는 사이트는 이 원격 출구 노드를 통해 연결됩니다.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "레이블 선택...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "레이블 검색...",
     "remoteExitNodeNetworkingLabelsLoadError": "레이블 로드 실패",
