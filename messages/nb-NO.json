@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Legg til et CIDR-område (f.eks. 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Feil ved lasting av subnett",
     "remoteExitNodeNetworkingLabelsTitle": "Preferanseetiketter",
-    "remoteExitNodeNetworkingLabelsDescription": "Områder med disse etikettene vil bli tvunget til å koble gjennom denne fjerne utgangsnoden.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Velg etiketter...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Søk etiketter...",
     "remoteExitNodeNetworkingLabelsLoadError": "Feil ved lasting av etiketter",
