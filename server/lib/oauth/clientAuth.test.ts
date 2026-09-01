@@ -8,23 +8,36 @@ import jsonwebtoken from "jsonwebtoken";
 import type { Request, Response } from "express";
 import { eq, inArray } from "drizzle-orm";
 import config from "@server/lib/config";
+import logger from "@server/logger";
 import { encrypt } from "@server/lib/crypto";
 import HttpCode from "@server/types/HttpCode";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import { updateOAuthClient } from "@server/routers/oauth/clients";
-import { sendOAuthError } from "@server/routers/oauth/token";
 import { assertEquals, assertEqualsObj } from "@test/assert";
 import type { ClientAuthenticationMethod } from "./clientAuthMethods";
 import { CLIENT_JWT_MAX_AGE_SECONDS } from "./lifetimes";
-import {
-    authenticateClient,
-    constantTimeEquals,
-    OAuthClientWithSecret
-} from "./clientAuth";
+import { verifyOauthClient } from "@server/middlewares";
+import { constantTimeEquals, OAuthClientWithSecret } from "./clientAuth";
 import {
     parseBasicAuthString,
     getBodyValueFromRecords
 } from "@server/lib/requestParams";
+
+// Silence winston for this script's lifetime: the middleware under test logs a warning on every intentional failure path,
+// and those would drown out the actual results. Test-only — production logging is untouched.
+logger.silent = true;
+
+// A failing run must still be visible: with winston silenced, server/logger.ts's own exception handlers would let this
+// script die with no output at all (verified by probe). Plain console bypasses winston — report first, then exit 1.
+const reportTestFailure = (reason: unknown): never => {
+    const e = reason instanceof Error ? reason : new Error(String(reason));
+    console.error(`\nclientAuth.test.ts FAILED:\n${e.stack ?? e.message}\n`);
+    process.exit(1);
+};
+process.prependListener("uncaughtException", (err) => reportTestFailure(err));
+process.prependListener("unhandledRejection", (reason) =>
+    reportTestFailure(reason)
+);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -69,26 +82,16 @@ type AuthOutcome =
     | { kind: "success"; client: OAuthClientWithSecret }
     | { kind: "failure"; res: MockOAuthRes };
 
-// Mirrors the exact call-site snippet in server/routers/oauth/token.ts and
-// revoke.ts, so wire-level assertions below cover what real callers observe.
+// Drives the real verifyOauthClient middleware against mock request/response objects so wire-level assertions cover exactly what Express handlers observe.
 async function runClientAuth(req: Request): Promise<AuthOutcome> {
-    try {
-        const client = await authenticateClient(req);
-        return { kind: "success", client };
-    } catch {
-        // Call sites log the error; tests assert on wire output only.
-        const res = new MockOAuthRes();
+    const res = new MockOAuthRes();
 
-        if (req.headers.authorization) {
-            res.setHeader("WWW-Authenticate", "Basic");
-        }
-        sendOAuthError(res as unknown as Response, HttpCode.UNAUTHORIZED, {
-            error: "invalid_client",
-            error_description: "Invalid client credentials"
-        });
+    await verifyOauthClient(req, res as unknown as Response, () => undefined);
 
-        return { kind: "failure", res };
+    if (req.oauthClient) {
+        return { kind: "success", client: req.oauthClient };
     }
+    return { kind: "failure", res };
 }
 
 function expectSuccess(
@@ -138,7 +141,11 @@ function expectFailure(
 
     const wwwAuthenticate = res.headers["WWW-Authenticate"];
     if (hadAuthorizationHeader) {
-        assertEquals(wwwAuthenticate, "Basic", "WWW-Authenticate header");
+        assertEquals(
+            wwwAuthenticate,
+            'Basic error="invalid_client", error_description="Invalid client credentials"',
+            "WWW-Authenticate header"
+        );
     } else if (wwwAuthenticate !== undefined) {
         throw new Error(
             "WWW-Authenticate must not be set when no Authorization header was sent"
@@ -148,21 +155,6 @@ function expectFailure(
 
 const errorMessage = (error: unknown): string =>
     error instanceof Error ? error.message : String(error);
-
-async function expectAuthError(
-    req: Request,
-    expectedMessage: string
-): Promise<void> {
-    try {
-        await authenticateClient(req);
-    } catch (error) {
-        assertEquals(errorMessage(error), expectedMessage, "thrown message");
-        return;
-    }
-    throw new Error(
-        `expected error "${expectedMessage}" but authentication succeeded`
-    );
-}
 
 function assertSyncError(fn: () => unknown, expectedMessage: string): void {
     try {
@@ -246,8 +238,8 @@ function handcraftedHs256(
     );
     assertEquals(
         getBodyValueFromRecords({ other: "x" }, "client_secret"),
-        undefined,
-        "missing key returns undefined"
+        null,
+        "missing key returns null"
     );
 
     // Body values are strictly strings now — arrays and numbers no longer fall back to a member/coerce.
@@ -256,13 +248,13 @@ function handcraftedHs256(
             { client_secret: ["a", "b"] } as Record<string, unknown>,
             "client_secret"
         ),
-        undefined,
-        "array value returns undefined"
+        null,
+        "array value returns null"
     );
     assertEquals(
         getBodyValueFromRecords({ client_id: 123 }, "client_id"),
-        undefined,
-        "number value returns undefined"
+        null,
+        "number value returns null"
     );
 }
 
@@ -326,9 +318,10 @@ const seededClientIds: string[] = [
     defaultMethodClientId
 ];
 
-// 32 chars — the canonical minimum for a client secret.
-const validSecret = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";
-const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
+// 52 chars — production stores client secrets as Base32(32 bytes) without padding, and getClientWithSecret rejects any other length after decryption.
+const validSecret = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRST";
+const wrongSameLengthSecret =
+    "BCDEFGHIJKLMNOPQRSTUVWXYZA234567ABCDEFGHIJKLMNOPQRST";
 
 {
     const testOrgId = `clientAuth-test-org-${runId}`;
@@ -405,7 +398,11 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
 
         // --- Dispatch / credential-source selection -------------------------
 
-        await expectAuthError(makeRequest({}), "Missing client credentials");
+        {
+            const req = makeRequest({});
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
 
         {
             const assertion = signHs256(jwtClaimsFor(jwtClientId), validSecret);
@@ -421,13 +418,14 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
 
         // Stricter than before: a non-Basic Authorization header now rejects the request instead of
         // falling through to POST body credentials.
-        await expectAuthError(
-            makeRequest(
+        {
+            const req = makeRequest(
                 { client_id: validClientId, client_secret: validSecret },
                 "Bearer x"
-            ),
-            "Invalid or missing Basic Authorization header"
-        );
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
 
         // --- client_secret_basic -------------------------------------------
 
@@ -438,43 +436,64 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             expectSuccess(outcome, validClientId, validSecret);
         }
 
-        await expectAuthError(
-            makeRequest(
+        {
+            const req = makeRequest(
                 {},
                 basicAuthHeader(validClientId, wrongSameLengthSecret)
-            ),
-            "client_secret_basic: Invalid client credentials"
-        );
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
 
-        // Length mismatch must not throw out of the comparison itself.
-        await expectAuthError(
-            makeRequest({}, basicAuthHeader(validClientId, "tooshort")),
-            "client_secret_basic: Invalid client credentials"
-        );
+        {
+            // Length mismatch must not throw out of the comparison itself.
+            const req = makeRequest(
+                {},
+                basicAuthHeader(validClientId, "tooshort")
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
 
-        const unknownBasicId = `clientAuth-test-${runId}-unknown`;
-        await expectAuthError(
-            makeRequest({}, basicAuthHeader(unknownBasicId, validSecret)),
-            "Client not found or disabled"
-        );
+        {
+            const unknownBasicId = `clientAuth-test-${runId}-unknown`;
+            const req = makeRequest(
+                {},
+                basicAuthHeader(unknownBasicId, validSecret)
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
 
         // Disabled and NULL-secret rows are indistinguishable from unknown clients.
-        await expectAuthError(
-            makeRequest({}, basicAuthHeader(disabledClientId, validSecret)),
-            "Client not found or disabled"
-        );
-        await expectAuthError(
-            makeRequest({}, basicAuthHeader(nullCredClientId, validSecret)),
-            "Client not found or disabled"
-        );
+        {
+            const req = makeRequest(
+                {},
+                basicAuthHeader(disabledClientId, validSecret)
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
+        {
+            const req = makeRequest(
+                {},
+                basicAuthHeader(nullCredClientId, validSecret)
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
 
-        // Corrupted-ciphertext row: decryption of unsalted garbage is nondeterministic (random salt per call) —
-        // either "" via the empty-result guard or a caught CryptoJS throw; both map to this explicit error,
-        // still a uniform 401 invalid_client on the wire.
-        await expectAuthError(
-            makeRequest({}, basicAuthHeader(brokenKeyClientId, validSecret)),
-            "Failed to decrypt client secret"
-        );
+        {
+            // Corrupted-ciphertext row: decryption of unsalted garbage is nondeterministic (random salt per call) —
+            // either "" via the empty-result guard or a caught CryptoJS throw; both map to this explicit error,
+            // still a uniform 401 invalid_client on the wire.
+            const req = makeRequest(
+                {},
+                basicAuthHeader(brokenKeyClientId, validSecret)
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
 
         // --- client_secret_post --------------------------------------------
 
@@ -488,27 +507,30 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             expectSuccess(outcome, postClientId, validSecret);
         }
 
-        // No Authorization header and no client_assertion → dispatch falls through to "missing credentials"
-        // before the post-mode guard can fire.
-        await expectAuthError(
-            makeRequest({ client_id: validClientId }),
-            "Missing client credentials"
-        );
+        {
+            // No Authorization header and no client_assertion → dispatch falls through to "missing credentials"
+            // before the post-mode guard can fire.
+            const req = makeRequest({ client_id: validClientId });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
 
-        // The post-mode guard still fires when a secret is present but no client_id.
-        await expectAuthError(
-            makeRequest({ client_secret: validSecret }),
-            "client_secret_post: Missing client_id or client_secret in request body"
-        );
+        {
+            // The post-mode guard still fires when a secret is present but no client_id.
+            const req = makeRequest({ client_secret: validSecret });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
 
-        const unknownPostId = `clientAuth-test-${runId}-unknownpost`;
-        await expectAuthError(
-            makeRequest({
+        {
+            const unknownPostId = `clientAuth-test-${runId}-unknownpost`;
+            const req = makeRequest({
                 client_id: unknownPostId,
                 client_secret: validSecret
-            }),
-            "Client not found or disabled"
-        );
+            });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
 
         // --- client_secret_jwt ---------------------------------------------
 
@@ -540,109 +562,119 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             expectSuccess(outcome, jwtClientId);
         }
 
-        await expectAuthError(
-            makeRequest({ client_assertion: "not-a-jwt" }),
-            "client_secret_jwt: not a valid JWT"
-        );
+        {
+            const req = makeRequest({ client_assertion: "not-a-jwt" });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
 
         {
             const mismatched = jwtClaimsFor(validClientId);
             delete mismatched.sub;
-            await expectAuthError(
-                makeRequest({
+            {
+                const req = makeRequest({
                     client_assertion: signHs256(mismatched, validSecret)
-                }),
-                "client_secret_jwt: iss and/or sub claims invalid"
-            );
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
 
             const noIss = jwtClaimsFor(validClientId);
             delete noIss.iss;
-            await expectAuthError(
-                makeRequest({
+            {
+                const req = makeRequest({
                     client_assertion: signHs256(noIss, validSecret)
-                }),
-                "client_secret_jwt: iss and/or sub claims invalid"
-            );
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
 
             const crossSubject = jwtClaimsFor(validClientId);
             crossSubject.sub = `clientAuth-test-${runId}-other`;
-            await expectAuthError(
-                makeRequest({
+            {
+                const req = makeRequest({
                     client_assertion: signHs256(crossSubject, validSecret)
-                }),
-                "client_secret_jwt: iss and/or sub claims invalid"
-            );
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
         }
 
-        // Form-level client_id must match the assertion's issuer when present.
-        await expectAuthError(
-            makeRequest({
+        {
+            // Form-level client_id must match the assertion's issuer when present.
+            const req = makeRequest({
                 client_assertion: signHs256(
                     jwtClaimsFor(validClientId),
                     validSecret
                 ),
                 client_id: `clientAuth-test-${runId}-mismatch`
-            }),
-            "client_secret_jwt: client_id does not match client_assertion"
-        );
+            });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
 
         const wrongJwtKey = "fedcba9876543210fedcba9876543210";
-        await expectAuthError(
-            makeRequest({
+        {
+            const req = makeRequest({
                 client_assertion: signHs256(
                     jwtClaimsFor(jwtClientId),
                     wrongJwtKey
                 )
-            }),
-            "client_secret_jwt: failed to verify JWT"
-        );
+            });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
 
         {
             const expired = jwtClaimsFor(jwtClientId);
             // Far outside the 30-second clockTolerance window.
             expired.iat = nowSec() - 7200;
             expired.exp = nowSec() - 3600;
-            await expectAuthError(
-                makeRequest({
+            {
+                const req = makeRequest({
                     client_assertion: signHs256(expired, validSecret)
-                }),
-                "client_secret_jwt: failed to verify JWT"
-            );
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
 
             const tooOld = jwtClaimsFor(jwtClientId);
             // iat is far beyond maxAge (even with clockTolerance), exp still in the future.
             tooOld.iat = nowSec() - CLIENT_JWT_MAX_AGE_SECONDS * 10;
             tooOld.exp = nowSec() + 600;
-            await expectAuthError(
-                makeRequest({
+            {
+                const req = makeRequest({
                     client_assertion: signHs256(tooOld, validSecret)
-                }),
-                "client_secret_jwt: failed to verify JWT"
-            );
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
 
             // No iat/exp in the payload at all — maxAge verification requires iat.
             const noTimestampsClaims = jwtClaimsFor(jwtClientId);
             delete noTimestampsClaims.iat;
             delete noTimestampsClaims.exp;
-            await expectAuthError(
-                makeRequest({
+            {
+                const req = makeRequest({
                     client_assertion: handcraftedHs256(
                         noTimestampsClaims,
                         validSecret
                     )
-                }),
-                "client_secret_jwt: failed to verify JWT"
-            );
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
 
             // Missing aud fails closed against the audience option.
             const missingAud = jwtClaimsFor(jwtClientId);
             delete missingAud.aud;
-            await expectAuthError(
-                makeRequest({
+            {
+                const req = makeRequest({
                     client_assertion: signHs256(missingAud, validSecret)
-                }),
-                "client_secret_jwt: failed to verify JWT"
-            );
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
 
             // Standard jsonwebtoken containment semantics: an aud array containing the identifier is accepted.
             const multiAud = jwtClaimsFor(jwtClientId);
@@ -660,15 +692,16 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             const unknownIssuerClaims = jwtClaimsFor(
                 `clientAuth-test-${runId}-unknownjwt`
             );
-            await expectAuthError(
-                makeRequest({
+            {
+                const req = makeRequest({
                     client_assertion: signHs256(
                         unknownIssuerClaims,
                         validSecret
                     )
-                }),
-                "Client not found or disabled"
-            );
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
         }
 
         // alg=none tokens are rejected because the verifier only allows HS256.
@@ -679,10 +712,13 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             const payload = Buffer.from(
                 JSON.stringify(jwtClaimsFor(jwtClientId))
             ).toString("base64url");
-            await expectAuthError(
-                makeRequest({ client_assertion: `${header}.${payload}.` }),
-                "client_secret_jwt: failed to verify JWT"
-            );
+            {
+                const req = makeRequest({
+                    client_assertion: `${header}.${payload}.`
+                });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
         }
 
         // RS256-signed tokens are rejected (HS256-only allowlist) — no algorithm confusion.
@@ -697,10 +733,11 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                     algorithm: "RS256"
                 }
             ) as string;
-            await expectAuthError(
-                makeRequest({ client_assertion: rsaToken }),
-                "client_secret_jwt: failed to verify JWT"
-            );
+            {
+                const req = makeRequest({ client_assertion: rsaToken });
+                const outcome = await runClientAuth(req);
+                expectFailure(outcome, false);
+            }
         }
 
         // --- Wire contract (mirrors token.ts / revoke.ts call sites) --------
@@ -744,7 +781,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         // --- Cross-mode pinning rejections ----------------------------------
         // Presenting a mode different from the stored pin must fail with the same uniform wire contract as
         // every other auth failure in this suite (401 invalid_client, WWW-Authenticate only when an
-        // Authorization header was sent). The thrown message names the pinned method on purpose: it is
+        // Authorization header was sent). The middleware's internal error names the pinned method; it is
         // logged server-side (token.ts logger.warn) and never reaches the wire.
 
         {
@@ -753,10 +790,6 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                 client_id: validClientId,
                 client_secret: validSecret
             });
-            await expectAuthError(
-                req,
-                "client_secret_post: Client is pinned to 'client_secret_basic' as authentication method"
-            );
             const outcome = await runClientAuth(req);
             expectFailure(outcome, false);
         }
@@ -769,10 +802,6 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                     validSecret
                 )
             });
-            await expectAuthError(
-                req,
-                "client_secret_jwt: Client is pinned to 'client_secret_basic' as authentication method"
-            );
             const outcome = await runClientAuth(req);
             expectFailure(outcome, false);
         }
@@ -782,10 +811,6 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             const req = makeRequest(
                 {},
                 basicAuthHeader(postClientId, validSecret)
-            );
-            await expectAuthError(
-                req,
-                "client_secret_basic: Client is pinned to 'client_secret_post' as authentication method"
             );
             const outcome = await runClientAuth(req);
             expectFailure(outcome, true);
@@ -799,10 +824,6 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                     validSecret
                 )
             });
-            await expectAuthError(
-                req,
-                "client_secret_jwt: Client is pinned to 'client_secret_post' as authentication method"
-            );
             const outcome = await runClientAuth(req);
             expectFailure(outcome, false);
         }
@@ -812,10 +833,6 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             const req = makeRequest(
                 {},
                 basicAuthHeader(jwtClientId, validSecret)
-            );
-            await expectAuthError(
-                req,
-                "client_secret_basic: Client is pinned to 'client_secret_jwt' as authentication method"
             );
             const outcome = await runClientAuth(req);
             expectFailure(outcome, true);
@@ -827,10 +844,6 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                 client_id: jwtClientId,
                 client_secret: validSecret
             });
-            await expectAuthError(
-                req,
-                "client_secret_post: Client is pinned to 'client_secret_jwt' as authentication method"
-            );
             const outcome = await runClientAuth(req);
             expectFailure(outcome, false);
         }
@@ -865,15 +878,11 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             );
             expectSuccess(outcome, postClientId, validSecret);
 
-            // ...and the previously pinned mode is rejected with the pinning error.
+            // ...and the previously pinned mode is now rejected on the wire.
             const oldModeReq = makeRequest({
                 client_id: postClientId,
                 client_secret: validSecret
             });
-            await expectAuthError(
-                oldModeReq,
-                "client_secret_post: Client is pinned to 'client_secret_basic' as authentication method"
-            );
             const oldModeOutcome = await runClientAuth(oldModeReq);
             expectFailure(oldModeOutcome, false);
         }

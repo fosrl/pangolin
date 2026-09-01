@@ -28,21 +28,11 @@ import {
     ACCESS_TOKEN_LIFETIME_SECONDS,
     REFRESH_TOKEN_LIFETIME_MS
 } from "@server/lib/oauth/lifetimes";
-import {
-    authenticateClient,
-    OAuthClientWithSecret
-} from "@server/lib/oauth/clientAuth";
+import { JsonHttpError, sendOAuthClientError } from "@server/middlewares";
 import { getBodyValue } from "@server/lib/requestParams";
 import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
 import logger from "@server/logger";
-
-export function sendOAuthError(
-    res: Response,
-    status: number,
-    oauthError: { error: string; error_description?: string }
-): void {
-    res.status(status).json(oauthError);
-}
+import type { OAuthClientWithSecret } from "@server/lib/oauth/clientAuth";
 
 function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
     const hash = createHash("sha256").update(codeVerifier).digest();
@@ -53,18 +43,17 @@ function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
     return timingSafeEqual(hash, expected);
 }
 
-async function insertTokenPair(
-    trx: Transaction,
-    params: {
-        grantId: string;
-        accessToken: string;
-        refreshToken?: string;
-        clientId: string;
-        userId: string;
-        scope: string;
-        now: number;
-    }
-) {
+type insetTokenPairParams = {
+    grantId: string;
+    accessToken: string;
+    refreshToken?: string;
+    clientId: string;
+    userId: string;
+    scope: string;
+    now: number;
+};
+
+async function insertTokenPair(trx: Transaction, params: insetTokenPairParams) {
     await trx.insert(oauthAccessTokens).values({
         accessTokenId: generateIdFromEntropySize(12),
         grantId: params.grantId,
@@ -90,16 +79,18 @@ async function insertTokenPair(
     }
 }
 
+type sendTokenResponseParams = {
+    accessToken: string;
+    refreshToken?: string;
+    scope: string;
+    userId: string;
+    clientId: string;
+    nonce?: string;
+};
+
 async function sendTokenResponse(
     res: Response,
-    params: {
-        accessToken: string;
-        refreshToken?: string;
-        scope: string;
-        userId: string;
-        clientId: string;
-        nonce?: string;
-    }
+    params: sendTokenResponseParams
 ): Promise<Response> {
     const responseBody: Record<string, unknown> = {
         access_token: params.accessToken,
@@ -138,146 +129,174 @@ export async function issueToken(
     res: Response
 ): Promise<Response | void> {
     try {
-        let client: OAuthClientWithSecret;
-        try {
-            client = await authenticateClient(req);
-        } catch (error) {
-            logger.warn(error);
-            if (req.headers.authorization) {
-                res.setHeader("WWW-Authenticate", "Basic");
-            }
-            return sendOAuthError(res, HttpCode.UNAUTHORIZED, {
-                error: "invalid_client",
-                error_description: "Invalid client credentials"
-            });
-        }
-
+        const client = req.oauthClient!;
         const grantType = getBodyValue(req, "grant_type");
 
         if (!grantType) {
-            return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+            return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
                 error: "invalid_request",
                 error_description: "Missing grant_type"
             });
         }
 
         if (grantType === "authorization_code") {
-            const code = getBodyValue(req, "code");
-            const redirectUri = getBodyValue(req, "redirect_uri");
-            const codeVerifier = getBodyValue(req, "code_verifier");
-
-            if (!code || !redirectUri) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                    error: "invalid_request",
-                    error_description: "Missing code or redirect_uri"
-                });
-            }
-
-            // Atomically consume the auth code to prevent race conditions (TOCTOU).
-            // Per RFC 6749 Section 10.5, a code presented with invalid params
-            // after atomic deletion is correctly invalidated.
-            const [authCode] = await db
-                .delete(oauthAuthorizationCodes)
-                .where(
-                    and(
-                        eq(oauthAuthorizationCodes.codeHash, hashToken(code)),
-                        eq(oauthAuthorizationCodes.clientId, client.clientId)
-                    )
-                )
-                .returning();
-
-            if (!authCode) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                    error: "invalid_grant",
-                    error_description: "Authorization code is invalid"
-                });
-            }
-
-            if (Date.now() > authCode.expiresAt) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                    error: "invalid_grant",
-                    error_description: "Authorization code has expired"
-                });
-            }
-
-            if (authCode.redirectUri !== redirectUri) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                    error: "invalid_grant",
-                    error_description: "redirect_uri does not match"
-                });
-            }
-
-            if (authCode.codeChallenge) {
-                if (!codeVerifier) {
-                    return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                        error: "invalid_grant",
-                        error_description: "Missing PKCE code_verifier"
-                    });
-                }
-
-                if (
-                    authCode.codeChallengeMethod &&
-                    authCode.codeChallengeMethod !== "S256"
-                ) {
-                    return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                        error: "invalid_grant",
-                        error_description: "Unsupported code_challenge_method"
-                    });
-                }
-
-                if (!verifyPkce(codeVerifier, authCode.codeChallenge)) {
-                    return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                        error: "invalid_grant",
-                        error_description: "Invalid PKCE code_verifier"
-                    });
-                }
-            }
-
-            const now = Date.now();
-            const grantId = generateIdFromEntropySize(12);
-            const accessToken = generateAccessToken();
-            const refreshToken = hasScope(authCode.scope, OFFLINE_ACCESS_SCOPE)
-                ? generateRefreshToken()
-                : undefined;
-
-            await db.transaction(async (trx) => {
-                await insertTokenPair(trx, {
-                    grantId,
-                    accessToken,
-                    refreshToken,
-                    clientId: authCode.clientId,
-                    userId: authCode.userId,
-                    scope: authCode.scope,
-                    now
-                });
-            });
-
-            return sendTokenResponse(res, {
-                accessToken,
-                refreshToken,
-                scope: authCode.scope,
-                userId: authCode.userId,
-                clientId: authCode.clientId,
-                nonce: authCode.nonce ?? undefined
-            });
+            return await issueAuthorizationCode(req, res, client);
         }
 
         if (grantType === "refresh_token") {
-            const refreshToken = getBodyValue(req, "refresh_token");
-            const scope = getBodyValue(req, "scope");
+            return await issueRefreshToken(req, res, client);
+        }
 
-            if (!refreshToken) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                    error: "invalid_request",
-                    error_description: "Missing refresh_token"
-                });
-            }
+        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            error: "unsupported_grant_type",
+            error_description: "Unsupported grant_type"
+        });
+    } catch (error) {
+        logger.error(error);
+        return sendOAuthClientError(res, HttpCode.INTERNAL_SERVER_ERROR, {
+            error: "server_error",
+            error_description: "An internal server error occurred"
+        });
+    }
+}
 
-            const now = Date.now();
+async function issueAuthorizationCode(
+    req: Request,
+    res: Response,
+    client: OAuthClientWithSecret
+): Promise<Response> {
+    const code = getBodyValue(req, "code");
+    const redirectUri = getBodyValue(req, "redirect_uri");
+    const codeVerifier = getBodyValue(req, "code_verifier");
 
-            // Atomically revoke the refresh token to prevent reuse race conditions.
-            // Same pattern as auth code consumption above (DELETE...RETURNING).
-            const [existingRefreshToken] = await db
+    if (!code || !redirectUri) {
+        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            error: "invalid_request",
+            error_description: "Missing code or redirect_uri"
+        });
+    }
+
+    // Atomically consume the auth code to prevent race conditions (TOCTOU).
+    // Per RFC 6749 Section 10.5, a code presented with invalid params
+    // after atomic deletion is correctly invalidated.
+    const [authCode] = await db
+        .delete(oauthAuthorizationCodes)
+        .where(
+            and(
+                eq(oauthAuthorizationCodes.codeHash, hashToken(code)),
+                eq(oauthAuthorizationCodes.clientId, client.clientId)
+            )
+        )
+        .returning();
+
+    if (!authCode) {
+        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            error: "invalid_grant",
+            error_description: "Authorization code is invalid"
+        });
+    }
+
+    if (Date.now() > authCode.expiresAt) {
+        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            error: "invalid_grant",
+            error_description: "Authorization code has expired"
+        });
+    }
+
+    if (authCode.redirectUri !== redirectUri) {
+        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            error: "invalid_grant",
+            error_description: "redirect_uri does not match"
+        });
+    }
+
+    if (authCode.codeChallenge) {
+        if (!codeVerifier) {
+            return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+                error: "invalid_grant",
+                error_description: "Missing PKCE code_verifier"
+            });
+        }
+
+        if (
+            authCode.codeChallengeMethod &&
+            authCode.codeChallengeMethod !== "S256"
+        ) {
+            return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+                error: "invalid_grant",
+                error_description: "Unsupported code_challenge_method"
+            });
+        }
+
+        if (!verifyPkce(codeVerifier, authCode.codeChallenge)) {
+            return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+                error: "invalid_grant",
+                error_description: "Invalid PKCE code_verifier"
+            });
+        }
+    }
+
+    if (!isScopeSubset(authCode.scope, client.scopes)) {
+        return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
+            error: "invalid_scope",
+            error_description:
+                "Requested scope is no longer allowed for this client"
+        });
+    }
+
+    const now = Date.now();
+    const grantId = generateIdFromEntropySize(12);
+    const accessToken = generateAccessToken();
+    const refreshToken = hasScope(authCode.scope, OFFLINE_ACCESS_SCOPE)
+        ? generateRefreshToken()
+        : undefined;
+
+    await db.transaction(async (trx) => {
+        await insertTokenPair(trx, {
+            grantId,
+            accessToken,
+            refreshToken,
+            clientId: authCode.clientId,
+            userId: authCode.userId,
+            scope: authCode.scope,
+            now
+        });
+    });
+
+    return sendTokenResponse(res, {
+        accessToken,
+        refreshToken,
+        scope: authCode.scope,
+        userId: authCode.userId,
+        clientId: authCode.clientId,
+        nonce: authCode.nonce ?? undefined
+    });
+}
+
+async function issueRefreshToken(
+    req: Request,
+    res: Response,
+    client: OAuthClientWithSecret
+): Promise<Response | void> {
+    const refreshToken = getBodyValue(req, "refresh_token");
+    const scope = getBodyValue(req, "scope");
+
+    if (!refreshToken) {
+        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            error: "invalid_request",
+            error_description: "Missing refresh_token"
+        });
+    }
+
+    const now = Date.now();
+
+    // Atomically revoke the refresh token to prevent reuse race conditions.
+    // Same pattern as auth code consumption above (DELETE...RETURNING).
+    try {
+        const result = await db.transaction<
+            Promise<sendTokenResponseParams | JsonHttpError>
+        >(async (trx) => {
+            const [existingRefreshToken] = await trx
                 .update(oauthRefreshTokens)
                 .set({ revokedAt: now })
                 .where(
@@ -293,50 +312,52 @@ export async function issueToken(
                 .returning();
 
             if (!existingRefreshToken) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+                return new JsonHttpError(HttpCode.BAD_REQUEST, {
                     error: "invalid_grant",
                     error_description: "Refresh token is invalid"
                 });
             }
 
             if (now > existingRefreshToken.expiresAt) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+                return new JsonHttpError(HttpCode.BAD_REQUEST, {
                     error: "invalid_grant",
                     error_description: "Refresh token has expired"
+                });
+            }
+
+            if (
+                !(await userBelongsToClientOrg(
+                    existingRefreshToken.userId,
+                    existingRefreshToken.clientId,
+                    trx
+                ))
+            ) {
+                return new JsonHttpError(HttpCode.BAD_REQUEST, {
+                    error: "invalid_grant",
+                    error_description:
+                        "User no longer belongs to this client's organization"
                 });
             }
 
             const finalScope = scope || existingRefreshToken.scope;
 
             if (scope && !isScopeSubset(scope, existingRefreshToken.scope)) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+                throw new JsonHttpError(HttpCode.BAD_REQUEST, {
                     error: "invalid_scope",
                     error_description: "Requested scope is not a subset"
                 });
             }
             if (!isScopeSubset(finalScope, client.scopes)) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+                throw new JsonHttpError(HttpCode.BAD_REQUEST, {
                     error: "invalid_scope",
                     error_description:
                         "Requested scope is no longer allowed for this client"
                 });
             }
             if (!hasScope(finalScope, "openid")) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
+                throw new JsonHttpError(HttpCode.BAD_REQUEST, {
                     error: "invalid_scope",
                     error_description: "openid scope is required"
-                });
-            }
-            if (
-                !(await userBelongsToClientOrg(
-                    existingRefreshToken.userId,
-                    existingRefreshToken.clientId
-                ))
-            ) {
-                return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-                    error: "invalid_grant",
-                    error_description:
-                        "User no longer belongs to this client's organization"
                 });
             }
 
@@ -345,34 +366,37 @@ export async function issueToken(
                 ? generateRefreshToken()
                 : undefined;
 
-            await db.transaction(async (trx) => {
-                await insertTokenPair(trx, {
-                    grantId: existingRefreshToken.grantId,
-                    accessToken: nextAccessToken,
-                    refreshToken: nextRefreshToken,
-                    clientId: existingRefreshToken.clientId,
-                    userId: existingRefreshToken.userId,
-                    scope: finalScope,
-                    now
-                });
+            await insertTokenPair(trx, {
+                grantId: existingRefreshToken.grantId,
+                accessToken: nextAccessToken,
+                refreshToken: nextRefreshToken,
+                clientId: existingRefreshToken.clientId,
+                userId: existingRefreshToken.userId,
+                scope: finalScope,
+                now
             });
 
-            return sendTokenResponse(res, {
+            return {
                 accessToken: nextAccessToken,
                 refreshToken: nextRefreshToken,
                 scope: finalScope,
                 userId: existingRefreshToken.userId,
                 clientId: existingRefreshToken.clientId
-            });
+            } as sendTokenResponseParams;
+        });
+
+        if (result instanceof JsonHttpError) {
+            return sendOAuthClientError(res, result.code, result.jsonError);
         }
 
-        return sendOAuthError(res, HttpCode.BAD_REQUEST, {
-            error: "unsupported_grant_type",
-            error_description: "Unsupported grant_type"
-        });
-    } catch (error) {
+        return sendTokenResponse(res, result);
+    } catch (error: JsonHttpError | any) {
+        if (error instanceof JsonHttpError) {
+            return sendOAuthClientError(res, error.code, error.jsonError);
+        }
+
         logger.error(error);
-        return sendOAuthError(res, HttpCode.INTERNAL_SERVER_ERROR, {
+        return sendOAuthClientError(res, HttpCode.INTERNAL_SERVER_ERROR, {
             error: "server_error",
             error_description: "An internal server error occurred"
         });

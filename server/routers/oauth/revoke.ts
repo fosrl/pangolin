@@ -3,33 +3,16 @@ import { and, eq } from "drizzle-orm";
 import { db, oauthAccessTokens, oauthRefreshTokens } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { hashToken } from "@server/lib/oauth/tokens";
-import { sendOAuthError } from "@server/routers/oauth/token";
-import {
-    authenticateClient,
-    OAuthClientWithSecret
-} from "@server/lib/oauth/clientAuth";
 import { getBodyValue } from "@server/lib/requestParams";
 import logger from "@server/logger";
+import { sendOAuthClientError } from "@server/middlewares";
 
 export async function revokeToken(
     req: Request,
     res: Response
 ): Promise<Response | void> {
     try {
-        let client: OAuthClientWithSecret;
-        try {
-            client = await authenticateClient(req);
-        } catch (error) {
-            logger.warn(error);
-            if (req.headers.authorization) {
-                res.setHeader("WWW-Authenticate", "Basic");
-            }
-            return sendOAuthError(res, HttpCode.UNAUTHORIZED, {
-                error: "invalid_client",
-                error_description: "Invalid client credentials"
-            });
-        }
-
+        const client = req.oauthClient!;
         const token = getBodyValue(req, "token");
         const tokenTypeHint = getBodyValue(req, "token_type_hint");
 
@@ -130,9 +113,14 @@ export async function revokeToken(
         return res.status(HttpCode.OK).json({});
     } catch (error) {
         logger.error(error);
-        return sendOAuthError(res, HttpCode.INTERNAL_SERVER_ERROR, {
-            error: "server_error",
-            error_description: "An internal server error occurred"
-        });
+        return sendOAuthClientError(
+            res,
+            HttpCode.INTERNAL_SERVER_ERROR,
+            {
+                error: "server_error",
+                error_description: "An internal server error occurred"
+            },
+            !!req.headers.authorization
+        );
     }
 }
