@@ -4,8 +4,11 @@ import { and, eq, lt, sql } from "drizzle-orm";
 import cache from "#dynamic/lib/cache";
 import { calculateCutoffTimestamp } from "@server/lib/cleanupLogs";
 import { stripPortFromHost } from "@server/lib/ip";
-
-import { sanitizeString } from "@server/lib/sanitize";
+import {
+    buildAuditLogEntry,
+    type LogRequestAuditBody,
+    type LogRequestAuditData
+} from "./auditLogEntry";
 
 /**
 
@@ -50,6 +53,9 @@ const auditLogBuffer: Array<{
     method: string;
     ip?: string;
     tls: boolean;
+    userAgent?: string;
+    headers?: string;
+    query?: string;
 }> = [];
 
 const BATCH_SIZE = 100; // Write to DB every 100 logs
@@ -186,31 +192,11 @@ export async function cleanUpOldLogs(orgId: string, retentionDays: number) {
     }
 }
 
+export type { LogRequestAuditData, LogRequestAuditBody };
+
 export async function logRequestAudit(
-    data: {
-        action: boolean;
-        reason: number;
-        resourceId?: number;
-        siteResourceId?: number;
-        orgId?: string;
-        location?: string;
-        user?: { username: string; userId: string };
-        apiKey?: { name: string | null; apiKeyId: string };
-        metadata?: any;
-        // userAgent?: string;
-    },
-    body: {
-        path: string;
-        originalRequestURL: string;
-        scheme: string;
-        host: string;
-        method: string;
-        tls: boolean;
-        sessions?: Record<string, string>;
-        headers?: Record<string, string>;
-        query?: Record<string, string>;
-        requestIp?: string;
-    }
+    data: LogRequestAuditData,
+    body: LogRequestAuditBody
 ) {
     try {
         // Check retention before buffering any logs
@@ -222,34 +208,6 @@ export async function logRequestAudit(
             }
         }
 
-        let actorType: string | undefined;
-        let actor: string | undefined;
-        let actorId: string | undefined;
-
-        const user = data.user;
-        if (user) {
-            actorType = "user";
-            actor = user.username;
-            actorId = user.userId;
-        }
-        const apiKey = data.apiKey;
-        if (apiKey) {
-            actorType = "apiKey";
-            actor = apiKey.name || apiKey.apiKeyId;
-            actorId = apiKey.apiKeyId;
-        }
-
-        const timestamp = Math.floor(Date.now() / 1000);
-
-        let metadata = null;
-        if (data.metadata) {
-            metadata = JSON.stringify(data.metadata);
-        }
-
-        const clientIp = body.requestIp
-            ? stripPortFromHost(body.requestIp)
-            : undefined;
-
         // Prevent unbounded buffer growth - drop oldest entries if buffer is too large
         if (auditLogBuffer.length >= MAX_BUFFER_SIZE) {
             const dropped = auditLogBuffer.splice(0, BATCH_SIZE);
@@ -258,27 +216,12 @@ export async function logRequestAudit(
             );
         }
 
+        const clientIp = body.requestIp
+            ? stripPortFromHost(body.requestIp)
+            : undefined;
+
         // Add to buffer instead of writing directly to DB
-        auditLogBuffer.push({
-            timestamp,
-            orgId: sanitizeString(data.orgId),
-            actorType: sanitizeString(actorType),
-            actor: sanitizeString(actor),
-            actorId: sanitizeString(actorId),
-            metadata: sanitizeString(metadata),
-            action: data.action,
-            resourceId: data.resourceId,
-            siteResourceId: data.siteResourceId,
-            reason: data.reason,
-            location: sanitizeString(data.location),
-            originalRequestURL: sanitizeString(body.originalRequestURL) ?? "",
-            scheme: sanitizeString(body.scheme) ?? "",
-            host: sanitizeString(body.host) ?? "",
-            path: sanitizeString(body.path) ?? "",
-            method: sanitizeString(body.method) ?? "",
-            ip: sanitizeString(clientIp),
-            tls: body.tls
-        });
+        auditLogBuffer.push(buildAuditLogEntry(data, body, clientIp));
         // Flush immediately if buffer is full, otherwise schedule a flush
         if (auditLogBuffer.length >= BATCH_SIZE) {
             // Fire and forget - don't block the caller
