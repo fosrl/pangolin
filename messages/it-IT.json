@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Aggiungi un intervallo CIDR (ad esempio 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Caricamento sottoreti fallito",
     "remoteExitNodeNetworkingLabelsTitle": "Etichette Preferenze",
-    "remoteExitNodeNetworkingLabelsDescription": "I siti con queste etichette saranno collegati attraverso questo nodo di uscita remoto.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Seleziona etichette...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Cerca etichette...",
     "remoteExitNodeNetworkingLabelsLoadError": "Caricamento etichette fallito",
