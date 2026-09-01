@@ -16,7 +16,7 @@ import { updateOAuthClient } from "@server/routers/oauth/clients";
 import { assertEquals, assertEqualsObj } from "@test/assert";
 import type { ClientAuthenticationMethod } from "./clientAuthMethods";
 import { CLIENT_JWT_MAX_AGE_SECONDS } from "./lifetimes";
-import { verifyOauthClient } from "@server/middlewares";
+import { verifyOAuthClient } from "@server/middlewares";
 import { constantTimeEquals, OAuthClientWithSecret } from "./clientAuth";
 import {
     parseBasicAuthString,
@@ -86,7 +86,7 @@ type AuthOutcome =
 async function runClientAuth(req: Request): Promise<AuthOutcome> {
     const res = new MockOAuthRes();
 
-    await verifyOauthClient(req, res as unknown as Response, () => undefined);
+    await verifyOAuthClient(req, res as unknown as Response, () => undefined);
 
     if (req.oauthClient) {
         return { kind: "success", client: req.oauthClient };

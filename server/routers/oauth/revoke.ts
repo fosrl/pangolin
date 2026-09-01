@@ -5,7 +5,7 @@ import HttpCode from "@server/types/HttpCode";
 import { hashToken } from "@server/lib/oauth/tokens";
 import { getBodyValue } from "@server/lib/requestParams";
 import logger from "@server/logger";
-import { sendOAuthClientError } from "@server/middlewares";
+import { sendJsonHttpError } from "@server/middlewares";
 
 export async function revokeToken(
     req: Request,
@@ -113,14 +113,9 @@ export async function revokeToken(
         return res.status(HttpCode.OK).json({});
     } catch (error) {
         logger.error(error);
-        return sendOAuthClientError(
-            res,
-            HttpCode.INTERNAL_SERVER_ERROR,
-            {
-                error: "server_error",
-                error_description: "An internal server error occurred"
-            },
-            !!req.headers.authorization
-        );
+        return sendJsonHttpError(res, HttpCode.INTERNAL_SERVER_ERROR, {
+            error: "server_error",
+            error_description: "An internal server error occurred"
+        });
     }
 }

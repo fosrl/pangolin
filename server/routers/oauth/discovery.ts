@@ -9,18 +9,29 @@ export function openidConfiguration(_: Request, res: Response): void {
 
     res.status(HttpCode.OK).json({
         issuer,
-        authorization_endpoint: `${issuer}/oauth/authorize`,
-        token_endpoint: `${issuer}/api/v1/oauth/token`,
-        userinfo_endpoint: `${issuer}/api/v1/oauth/userinfo`,
+
+        // Public (no verification)
         jwks_uri: `${issuer}/api/v1/oauth/jwks`,
-        revocation_endpoint: `${issuer}/api/v1/oauth/revoke`,
-        end_session_endpoint: `${issuer}/api/v1/oauth/logout`,
+
+        // verifySessionUserMiddleware (Pangolin user verification)
+        authorization_endpoint: `${issuer}/oauth/authorize`,
+        end_session_endpoint: `${issuer}/oauth/logout`,
+
+        // verifyOAuthClient middleware (client secret)
+        token_endpoint: `${issuer}/api/v1/oauth/token/issue`,
+        revocation_endpoint: `${issuer}/api/v1/oauth/token/revoke`,
+        // introspection_endpoint: `${issuer}/api/v1/oauth/token/introspect`,
+
+        // verifyOAuthBearerAccess middleware (user bearer token via client)
+        userinfo_endpoint: `${issuer}/api/v1/oauth/userinfo`,
+
+        scopes_supported: [...validScopes],
+        token_endpoint_auth_methods_supported: CLIENT_AUTH_METHODS,
+
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "refresh_token"],
         subject_types_supported: ["public"],
         id_token_signing_alg_values_supported: ["RS256"],
-        scopes_supported: [...validScopes],
-        token_endpoint_auth_methods_supported: CLIENT_AUTH_METHODS,
         code_challenge_methods_supported: ["S256"],
         backchannel_logout_supported: true,
         backchannel_logout_session_supported: false,

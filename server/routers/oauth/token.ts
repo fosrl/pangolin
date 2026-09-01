@@ -28,7 +28,7 @@ import {
     ACCESS_TOKEN_LIFETIME_SECONDS,
     REFRESH_TOKEN_LIFETIME_MS
 } from "@server/lib/oauth/lifetimes";
-import { JsonHttpError, sendOAuthClientError } from "@server/middlewares";
+import { JsonHttpError, sendJsonHttpError } from "@server/middlewares";
 import { getBodyValue } from "@server/lib/requestParams";
 import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
 import logger from "@server/logger";
@@ -133,7 +133,7 @@ export async function issueToken(
         const grantType = getBodyValue(req, "grant_type");
 
         if (!grantType) {
-            return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
                 error: "invalid_request",
                 error_description: "Missing grant_type"
             });
@@ -147,13 +147,13 @@ export async function issueToken(
             return await issueRefreshToken(req, res, client);
         }
 
-        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+        return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
             error: "unsupported_grant_type",
             error_description: "Unsupported grant_type"
         });
     } catch (error) {
         logger.error(error);
-        return sendOAuthClientError(res, HttpCode.INTERNAL_SERVER_ERROR, {
+        return sendJsonHttpError(res, HttpCode.INTERNAL_SERVER_ERROR, {
             error: "server_error",
             error_description: "An internal server error occurred"
         });
@@ -170,7 +170,7 @@ async function issueAuthorizationCode(
     const codeVerifier = getBodyValue(req, "code_verifier");
 
     if (!code || !redirectUri) {
-        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+        return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
             error: "invalid_request",
             error_description: "Missing code or redirect_uri"
         });
@@ -190,21 +190,21 @@ async function issueAuthorizationCode(
         .returning();
 
     if (!authCode) {
-        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+        return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
             error: "invalid_grant",
             error_description: "Authorization code is invalid"
         });
     }
 
     if (Date.now() > authCode.expiresAt) {
-        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+        return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
             error: "invalid_grant",
             error_description: "Authorization code has expired"
         });
     }
 
     if (authCode.redirectUri !== redirectUri) {
-        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+        return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
             error: "invalid_grant",
             error_description: "redirect_uri does not match"
         });
@@ -212,24 +212,21 @@ async function issueAuthorizationCode(
 
     if (authCode.codeChallenge) {
         if (!codeVerifier) {
-            return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
                 error: "invalid_grant",
                 error_description: "Missing PKCE code_verifier"
             });
         }
 
-        if (
-            authCode.codeChallengeMethod &&
-            authCode.codeChallengeMethod !== "S256"
-        ) {
-            return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+        if (authCode.codeChallengeMethod !== "S256") {
+            return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
                 error: "invalid_grant",
                 error_description: "Unsupported code_challenge_method"
             });
         }
 
         if (!verifyPkce(codeVerifier, authCode.codeChallenge)) {
-            return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+            return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
                 error: "invalid_grant",
                 error_description: "Invalid PKCE code_verifier"
             });
@@ -282,7 +279,7 @@ async function issueRefreshToken(
     const scope = getBodyValue(req, "scope");
 
     if (!refreshToken) {
-        return sendOAuthClientError(res, HttpCode.BAD_REQUEST, {
+        return sendJsonHttpError(res, HttpCode.BAD_REQUEST, {
             error: "invalid_request",
             error_description: "Missing refresh_token"
         });
@@ -386,17 +383,17 @@ async function issueRefreshToken(
         });
 
         if (result instanceof JsonHttpError) {
-            return sendOAuthClientError(res, result.code, result.jsonError);
+            return sendJsonHttpError(res, result.code, result.jsonError);
         }
 
         return sendTokenResponse(res, result);
     } catch (error: JsonHttpError | any) {
         if (error instanceof JsonHttpError) {
-            return sendOAuthClientError(res, error.code, error.jsonError);
+            return sendJsonHttpError(res, error.code, error.jsonError);
         }
 
         logger.error(error);
-        return sendOAuthClientError(res, HttpCode.INTERNAL_SERVER_ERROR, {
+        return sendJsonHttpError(res, HttpCode.INTERNAL_SERVER_ERROR, {
             error: "server_error",
             error_description: "An internal server error occurred"
         });

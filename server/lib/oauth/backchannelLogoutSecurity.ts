@@ -83,7 +83,7 @@ export async function assertBackchannelLogoutDestinationAllowed(
         throw new Error(validationError);
     }
 
-    const url = new URL(uri)
+    const url = new URL(uri);
     const hostname = normalizeHostname(url.hostname);
 
     // Hostname is an IP address – no need to resolve

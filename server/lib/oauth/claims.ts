@@ -1,4 +1,12 @@
-import { db, orgs, roles, userOrgs, userOrgRoles, users, oauthClients } from "@server/db";
+import {
+    db,
+    orgs,
+    roles,
+    userOrgs,
+    userOrgRoles,
+    users,
+    oauthClients
+} from "@server/db";
 import { eq, and } from "drizzle-orm";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
 import { hasScope } from "@server/lib/oauth/scopes";
