@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Adicione um intervalo de CIDR (por exemplo, 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Falha ao carregar sub-redes",
     "remoteExitNodeNetworkingLabelsTitle": "Etiquetas de Preferência",
-    "remoteExitNodeNetworkingLabelsDescription": "Os sites com essas etiquetas serão forçados a se conectar através deste nó de saída remoto.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Selecionar etiquetas...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Pesquisar etiquetas...",
     "remoteExitNodeNetworkingLabelsLoadError": "Falha ao carregar etiquetas",
