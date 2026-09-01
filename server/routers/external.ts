@@ -57,7 +57,8 @@ import {
     verifyCertificateAccess,
     verifyAdmin,
     verifyOAuthClient,
-    verifyOAuthBearerTokenAccess
+    verifyOAuthBearerTokenAccess,
+    verifyOAuthUserTokenAccess
 } from "@server/middlewares";
 import { ActionsEnum } from "@server/auth/actions";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -124,11 +125,13 @@ unauthenticated.post(
 unauthenticated.get(
     "/oauth/logout",
     oauthTokenRateLimit,
+    verifyOAuthUserTokenAccess,
     oauth.handleEndSession
 );
 unauthenticated.post(
     "/oauth/logout",
     oauthTokenRateLimit,
+    verifyOAuthUserTokenAccess,
     express.urlencoded({ extended: false }),
     oauth.handleEndSession
 );

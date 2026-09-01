@@ -85,7 +85,7 @@ export async function getActiveSigningKey(): Promise<OAuthDecryptedSigningKey> {
 }
 
 export async function getActiveSigningPublicKeys(): Promise<
-    Omit<OauthSigningKey, "privateKeyPem">[]
+    OAuthPublicSigningKey[]
 > {
     const activeKeys = await selectActiveSigningKeys();
     return activeKeys.map(toPublicSigningKey);

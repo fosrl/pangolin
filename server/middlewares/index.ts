@@ -41,3 +41,4 @@ export * from "./verifyResourcePolicyAccess";
 export * from "./verifyCertificateAccess";
 export * from "./verifyOAuthClient";
 export * from "./verifyOAuthBearerTokenAccess";
+export * from "./verifyOAuthUserTokenAccess";
