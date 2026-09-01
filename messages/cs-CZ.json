@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Přidejte rozsah CIDR (např. 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Nepodařilo se načíst podsítě",
     "remoteExitNodeNetworkingLabelsTitle": "Názvy preferencí",
-    "remoteExitNodeNetworkingLabelsDescription": "Weby s těmito názvy budou nuceny připojit se tímto vzdáleným výstupním uzlem.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Vyberte názvy...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Hledat názvy...",
     "remoteExitNodeNetworkingLabelsLoadError": "Nepodařilo se načíst názvy",
