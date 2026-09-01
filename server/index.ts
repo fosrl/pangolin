@@ -19,7 +19,8 @@ import {
     Redirect,
     User,
     UserOrg,
-    VirtualApiKey
+    VirtualApiKey,
+    OauthClient
 } from "@server/db";
 import config from "@server/lib/config";
 import { setHostMeta } from "@server/lib/hostMeta";
@@ -101,7 +102,7 @@ declare global {
             aiBudget?: AiBudget;
             virtualApiKey?: VirtualApiKey;
             redirect?: Redirect;
-            oauthClient?: OAuthClientWithSecret;
+            oauthClient?: OAuthClientWithSecret | OauthClient;
             oauthBearerToken?: OAuthValidatedToken;
             oauthIdToken?: OAuthSessionTokenIds;
             orgPolicyAllowed?: boolean;

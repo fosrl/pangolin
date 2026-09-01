@@ -38,14 +38,14 @@ export default function CreateOAuthClientPage() {
     const [creating, setCreating] = useState(false);
     const [createdSecret, setCreatedSecret] = useState<{
         clientId: string;
-        clientSecret: string;
+        clientSecret?: string;
     } | null>(null);
 
     async function handleCreate(data: OAuthClientFormData) {
         setCreating(true);
         try {
             const res = await api.post<
-                ResponseT<{ clientId: string; clientSecret: string }>
+                ResponseT<{ clientId: string; clientSecret?: string }>
             >(`/org/${orgId}/oauth-clients`, {
                 clientName: data.clientName,
                 redirectUris: data.redirectUris,
@@ -113,11 +113,22 @@ export default function CreateOAuthClientPage() {
                 <CredenzaContent>
                     <CredenzaHeader>
                         <CredenzaTitle>
-                            {t("oauthClientSecretDialogTitle")}
+                            {t(
+                                createdSecret?.clientSecret
+                                    ? "oauthClientSecretDialogTitle"
+                                    : "oauthClientCreateSuccessTitle"
+                            )}
                         </CredenzaTitle>
-                        <CredenzaDescription>
-                            {t("oauthClientSecretDialogDescription")}
-                        </CredenzaDescription>
+                        {createdSecret?.clientSecret && (
+                            <CredenzaDescription>
+                                {t("oauthClientSecretDialogDescription")}
+                            </CredenzaDescription>
+                        )}
+                        {!createdSecret?.clientSecret && createdSecret && (
+                            <CredenzaDescription>
+                                {t("oauthClientPublicCreateSuccessDescription")}
+                            </CredenzaDescription>
+                        )}
                     </CredenzaHeader>
                     <CredenzaBody>
                         {createdSecret && (
@@ -130,11 +141,19 @@ export default function CreateOAuthClientPage() {
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label>{t("oauthClientSecretLabel")}</Label>
-                                    <CopyTextBox
-                                        text={createdSecret.clientSecret}
-                                        wrapText
-                                    />
+                                    {createdSecret.clientSecret && (
+                                        <>
+                                            <Label>
+                                                {t("oauthClientSecretLabel")}
+                                            </Label>
+                                            <CopyTextBox
+                                                text={
+                                                    createdSecret.clientSecret
+                                                }
+                                                wrapText
+                                            />
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}

@@ -30,11 +30,11 @@ import CopyTextBox from "@app/components/CopyTextBox";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { useTranslations } from "next-intl";
 import type { PublicOAuthClient } from "@server/lib/oauth/clientAuth";
-import { ResponseT } from "@server/types/Response";
 import { OFFLINE_ACCESS_SCOPE } from "@server/lib/oauth/scopes";
 import OAuthClientForm, {
     type OAuthClientFormData
 } from "@app/components/OAuthClientForm";
+import { AxiosResponse } from "axios";
 
 function parseScopes(scopeString: string): Set<string> {
     return new Set(
@@ -77,7 +77,7 @@ export default function EditOAuthClientPage() {
 
             try {
                 const res = await api.get<
-                    ResponseT<{ client: PublicOAuthClient }>
+                    AxiosResponse<{ client: PublicOAuthClient }>
                 >(`/org/${orgId}/oauth-clients/${clientId}`);
 
                 if (!res?.data?.data?.client) {
@@ -103,7 +103,9 @@ export default function EditOAuthClientPage() {
     async function handleSave(data: OAuthClientFormData) {
         setSaving(true);
         try {
-            await api.patch(`/org/${orgId}/oauth-clients/${clientId}`, {
+            const res = await api.patch<
+                AxiosResponse<{ clientSecret?: string }>
+            >(`/org/${orgId}/oauth-clients/${clientId}`, {
                 clientName: data.clientName,
                 redirectUris: data.redirectUris,
                 clientUri: data.clientUri || null,
@@ -121,10 +123,29 @@ export default function EditOAuthClientPage() {
                     data.logoutTerminatesPangolinSession
             });
 
+            const generatedSecret = res?.data?.data?.clientSecret;
+
+            setClient((current) => {
+                if (!current) {
+                    return current;
+                }
+                return {
+                    ...current,
+                    clientName: data.clientName,
+                    pkceRequired: data.pkceRequired,
+                    enabled: data.enabled,
+                    clientAuthenticationMethod: data.clientAuthenticationMethod
+                };
+            });
+
             toast({
                 title: t("oauthClientUpdateSuccessTitle"),
                 description: t("oauthClientUpdateSuccessDescription")
             });
+
+            if (generatedSecret) {
+                setRotatedSecret({ clientId, clientSecret: generatedSecret });
+            }
         } catch (error) {
             toast({
                 variant: "destructive",
@@ -139,7 +160,7 @@ export default function EditOAuthClientPage() {
     async function rotateSecret() {
         try {
             const res = await api.post<
-                ResponseT<{ clientId: string; clientSecret: string }>
+                AxiosResponse<{ clientId: string; clientSecret: string }>
             >(`/org/${orgId}/oauth-clients/${clientId}/rotate-secret`);
 
             if (!res?.data?.data) {
@@ -332,6 +353,9 @@ export default function EditOAuthClientPage() {
                     footerExtra={
                         <Button
                             variant="outline"
+                            disabled={
+                                client.clientAuthenticationMethod === "none"
+                            }
                             onClick={() => setIsRotateModalOpen(true)}
                         >
                             {t("oauthClientRotateButton")}

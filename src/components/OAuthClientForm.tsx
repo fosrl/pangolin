@@ -106,6 +106,11 @@ export default function OAuthClientForm({
         useState<ClientAuthenticationMethod>(
             initialValues?.clientAuthenticationMethod ?? "client_secret_jwt"
         );
+    // Remembers the PKCE setting while a public client ("none") is selected,
+    // since its switch is force-enabled and disabled in that mode.
+    const [previousPkceRequired, setPreviousPkceRequired] = useState<
+        boolean | null
+    >(null);
     const [enabled, setEnabled] = useState(initialValues?.enabled ?? true);
     const [
         logoutTerminatesPangolinSession,
@@ -155,6 +160,10 @@ export default function OAuthClientForm({
         client_secret_jwt: {
             label: t("oauthClientAuthMethodJwtLabel"),
             description: t("oauthClientAuthMethodJwtDescription")
+        },
+        none: {
+            label: t("oauthClientAuthMethodNoneLabel"),
+            description: t("oauthClientAuthMethodNoneDescription")
         }
     };
 
@@ -176,6 +185,21 @@ export default function OAuthClientForm({
 
     function removePostLogoutRedirectUri(index: number) {
         setPostLogoutRedirectUris((prev) => prev.filter((_, i) => i !== index));
+    }
+
+    // Public clients ("none") always require PKCE. Selecting "none" saves the
+    // previous switch state and forces it on; deselecting restores that value.
+    function handleAuthMethodChange(value: string) {
+        const next = value as ClientAuthenticationMethod;
+        setClientAuthenticationMethod(next);
+
+        if (next === "none") {
+            setPreviousPkceRequired(pkceRequired);
+            setPkceRequired(true);
+        } else {
+            setPreviousPkceRequired(null);
+            setPkceRequired(previousPkceRequired ?? pkceRequired);
+        }
     }
 
     function handleSubmit() {
@@ -451,11 +475,7 @@ export default function OAuthClientForm({
                         </p>
                         <RadioGroup
                             value={clientAuthenticationMethod}
-                            onValueChange={(value) =>
-                                setClientAuthenticationMethod(
-                                    value as ClientAuthenticationMethod
-                                )
-                            }
+                            onValueChange={handleAuthMethodChange}
                             className="gap-3 pt-1"
                         >
                             {CLIENT_AUTH_METHODS.map((method) => (
@@ -487,20 +507,6 @@ export default function OAuthClientForm({
                         <Label>{t("oauthClientOptionsTitle")}</Label>
                         <div className="flex items-center justify-between">
                             <Label
-                                htmlFor="pkce-required"
-                                className="font-normal"
-                            >
-                                {t("oauthClientRequirePkceLabel")}
-                            </Label>
-                            <Switch
-                                id="pkce-required"
-                                checked={pkceRequired}
-                                onCheckedChange={setPkceRequired}
-                            />
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <Label
                                 htmlFor="client-enabled"
                                 className="font-normal"
                             >
@@ -512,6 +518,24 @@ export default function OAuthClientForm({
                                 onCheckedChange={setEnabled}
                             />
                         </div>
+
+                        <div className="flex items-center justify-between">
+                            <Label
+                                htmlFor="pkce-required"
+                                className="font-normal"
+                            >
+                                {t("oauthClientRequirePkceLabel")}
+                            </Label>
+                            <Switch
+                                id="pkce-required"
+                                checked={pkceRequired}
+                                onCheckedChange={setPkceRequired}
+                                disabled={clientAuthenticationMethod === "none"}
+                            />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {t("oauthClientRequirePkceDescription")}
+                        </p>
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between gap-4">

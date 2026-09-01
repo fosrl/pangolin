@@ -5,6 +5,7 @@ import {
     db,
     oauthAccessTokens,
     oauthAuthorizationCodes,
+    OauthClient,
     oauthRefreshTokens,
     Transaction
 } from "@server/db";
@@ -32,7 +33,6 @@ import { JsonHttpError, sendJsonHttpError } from "@server/middlewares";
 import { getBodyValue } from "@server/lib/requestParams";
 import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
 import logger from "@server/logger";
-import type { OAuthClientWithSecret } from "@server/lib/oauth/clientAuth";
 
 function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
     const hash = createHash("sha256").update(codeVerifier).digest();
@@ -163,7 +163,7 @@ export async function issueToken(
 async function issueAuthorizationCode(
     req: Request,
     res: Response,
-    client: OAuthClientWithSecret
+    client: OauthClient
 ): Promise<Response> {
     const code = getBodyValue(req, "code");
     const redirectUri = getBodyValue(req, "redirect_uri");
@@ -273,7 +273,7 @@ async function issueAuthorizationCode(
 async function issueRefreshToken(
     req: Request,
     res: Response,
-    client: OAuthClientWithSecret
+    client: OauthClient
 ): Promise<Response | void> {
     const refreshToken = getBodyValue(req, "refresh_token");
     const scope = getBodyValue(req, "scope");

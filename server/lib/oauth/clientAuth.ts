@@ -4,7 +4,7 @@ import { timingSafeEqual } from "crypto";
 import jsonwebtoken from "jsonwebtoken";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
-import { db, oauthClients } from "@server/db";
+import { db, OauthClient, oauthClients } from "@server/db";
 import { eq, InferSelectModel } from "drizzle-orm";
 import type { JwtPayload } from "jsonwebtoken";
 import { getIssuerUrl } from "@server/lib/oauth/issuer";
@@ -23,7 +23,7 @@ export type PublicOAuthClient = Omit<OAuthClientRecord, "clientSecret">;
 
 export async function authenticateClient(
     req: Request
-): Promise<OAuthClientWithSecret> {
+): Promise<OAuthClientWithSecret | OauthClient> {
     if (getBodyValue(req, "client_assertion")) {
         return authenticateClientAssertion(req);
     } else if (req.headers.authorization) {
@@ -31,7 +31,11 @@ export async function authenticateClient(
     } else if (getBodyValue(req, "client_secret")) {
         return authenticateClientSecretPost(req);
     }
-    throw new Error("Missing client credentials");
+
+    // No client credentials are presented at all. That is only legitimate for public clients pinned to
+    // "none" (RFC 8252): such clients must protect authorization codes with PKCE instead, which the
+    // token endpoint enforces independently of this check.
+    return authenticateClientNone(req);
 }
 
 async function authenticateClientAssertion(
@@ -80,9 +84,6 @@ async function authenticateClientAssertion(
     }
 
     const client = await getClientWithSecret(clientId);
-    if (!client) {
-        throw new Error("client_secret_jwt: client not found");
-    }
     verifyAuthMethod(client, "client_secret_jwt");
 
     try {
@@ -139,17 +140,43 @@ async function authenticateClientSecretBasic(
     throw new Error("client_secret_basic: Client secret does not match");
 }
 
-async function getClientWithSecret(
-    clientId: string
-): Promise<OAuthClientWithSecret> {
-    const [client] = (await db
+async function authenticateClientNone(req: Request): Promise<OauthClient> {
+    const clientId = getBodyValue(req, "client_id");
+    if (!clientId) {
+        throw new Error("none: Missing client_id in request body");
+    }
+
+    const client = await getClient(clientId);
+    verifyAuthMethod(client, "none");
+
+    // Public clients have no stored secret; consumers must tolerate its absence.
+    return client;
+}
+
+async function getClient(clientId: string): Promise<OauthClient> {
+    if (!clientId) {
+        throw new Error("Missing client_id");
+    }
+
+    const [client] = await db
         .select()
         .from(oauthClients)
         .where(eq(oauthClients.clientId, clientId))
-        .limit(1)) as OAuthClientWithSecret[];
+        .limit(1);
 
-    if (!client || !client.enabled || !client.clientSecret) {
+    if (!client || !client.enabled) {
         throw new Error("Client not found or disabled");
+    }
+
+    return client;
+}
+
+async function getClientWithSecret(
+    clientId: string
+): Promise<OAuthClientWithSecret> {
+    const client = (await getClient(clientId)) as OAuthClientWithSecret;
+    if (!client.clientSecret) {
+        throw new Error("Client has no stored secret");
     }
 
     try {
@@ -183,10 +210,7 @@ export function constantTimeEquals(
     );
 }
 
-function verifyAuthMethod(
-    client: OAuthClientWithSecret,
-    usedMethod: string
-): void {
+function verifyAuthMethod(client: OauthClient, usedMethod: string): void {
     const pinned = client.clientAuthenticationMethod;
     if (pinned !== usedMethod) {
         throw new Error(

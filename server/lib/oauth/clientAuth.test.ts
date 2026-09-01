@@ -89,7 +89,10 @@ async function runClientAuth(req: Request): Promise<AuthOutcome> {
     await verifyOAuthClient(req, res as unknown as Response, () => undefined);
 
     if (req.oauthClient) {
-        return { kind: "success", client: req.oauthClient };
+        return {
+            kind: "success",
+            client: req.oauthClient as OAuthClientWithSecret
+        };
     }
     return { kind: "failure", res };
 }
@@ -306,8 +309,14 @@ const brokenKeyClientId = `clientAuth-test-${runId}-brokenkey`;
 // Pinning is per-client, so the post/jwt scenarios need their own rows — one shared client can only be pinned to a single method.
 const postClientId = `clientAuth-test-${runId}-post`;
 const jwtClientId = `clientAuth-test-${runId}-jwt`;
+// Public (RFC 8252) row — no stored secret, pinned to "none": authenticates with a bare body client_id.
+// pkceRequired is false here because this suite tests client authentication in isolation; the router enforces PKCE
+// for public clients at create/update time instead.
+const publicClientId = `clientAuth-test-${runId}-public`;
 // Row inserted without clientAuthenticationMethod to prove the DDL default at the persistence level.
 const defaultMethodClientId = `clientAuth-test-${runId}-defaultmethod`;
+// Used exclusively by the secret-transition section: exercises leaving and re-entering "none" through updateOAuthClient.
+const transitionClientId = `clientAuth-test-${runId}-transition`;
 const seededClientIds: string[] = [
     validClientId,
     disabledClientId,
@@ -315,7 +324,9 @@ const seededClientIds: string[] = [
     brokenKeyClientId,
     postClientId,
     jwtClientId,
-    defaultMethodClientId
+    publicClientId,
+    defaultMethodClientId,
+    transitionClientId
 ];
 
 // 52 chars — production stores client secrets as Base32(32 bytes) without padding, and getClientWithSecret rejects any other length after decryption.
@@ -395,6 +406,9 @@ const wrongSameLengthSecret =
             encrypt(validSecret, config.getRawConfig().server.secret!),
             "client_secret_jwt"
         );
+
+        // Public client: NULL secret column + pinned to "none".
+        await insertClient(publicClientId, true, null, "none");
 
         // --- Dispatch / credential-source selection -------------------------
 
@@ -508,8 +522,8 @@ const wrongSameLengthSecret =
         }
 
         {
-            // No Authorization header and no client_assertion → dispatch falls through to "missing credentials"
-            // before the post-mode guard can fire.
+            // No Authorization header and no client_assertion → dispatch reaches the "none" arm. The row below is pinned to
+            // client_secret_basic, so the pinning check rejects it — same uniform wire contract as before this suite existed.
             const req = makeRequest({ client_id: validClientId });
             const outcome = await runClientAuth(req);
             expectFailure(outcome, false);
@@ -848,6 +862,63 @@ const wrongSameLengthSecret =
             expectFailure(outcome, false);
         }
 
+        // --- none (public client) -----------------------------------------------
+
+        {
+            // A public client presents nothing but a body client_id — exactly what its PKCE token exchange does.
+            const req = makeRequest({ client_id: publicClientId });
+            const outcome = await runClientAuth(req);
+            expectSuccess(outcome, publicClientId);
+            if (outcome.kind === "success") {
+                assertEquals(
+                    outcome.client.storedSecret,
+                    undefined,
+                    "public clients must not expose a stored secret"
+                );
+            }
+        }
+
+        {
+            // Public client presenting basic credentials → pinning rejection.
+            const req = makeRequest(
+                {},
+                basicAuthHeader(publicClientId, validSecret)
+            );
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, true);
+        }
+
+        {
+            // Public client presenting post-body credentials → pinning rejection.
+            const req = makeRequest({
+                client_id: publicClientId,
+                client_secret: validSecret
+            });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
+
+        {
+            // Public client presenting a jwt assertion → pinning rejection fires before signature or secret handling.
+            const req = makeRequest({
+                client_assertion: signHs256(
+                    jwtClaimsFor(publicClientId),
+                    validSecret
+                )
+            });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
+
+        {
+            // The none arm still fails closed for an unknown client_id.
+            const req = makeRequest({
+                client_id: `clientAuth-test-${runId}-unknown-none`
+            });
+            const outcome = await runClientAuth(req);
+            expectFailure(outcome, false);
+        }
+
         // --- Re-pin through updateOAuthClient ---------------------------------
         // Simulate an administrator changing the stored method via the real router handler with stubbed
         // req/res/next (MockOAuthRes.send covers response()'s res.status().send() call). The partial body
@@ -885,6 +956,161 @@ const wrongSameLengthSecret =
             });
             const oldModeOutcome = await runClientAuth(oldModeReq);
             expectFailure(oldModeOutcome, false);
+        }
+
+        // --- Secret lifecycle across auth-method transitions -------------------
+        // The admin form can switch a client between "none" and secret-based methods. Both directions must keep the
+        // stored-secret state consistent: leaving "none" generates + reveals a fresh secret (so logins work immediately),
+        // re-entering "none" wipes it — and neither direction may leak anything in extra responses.
+
+        {
+            await insertClient(transitionClientId, true, null, "none");
+
+            // Direction 1: none -> client_secret_basic must generate a stored secret returned exactly once...
+            const noneToBasicRes = new MockOAuthRes();
+            const noneToBasicErrors: unknown[] = [];
+            await updateOAuthClient(
+                {
+                    params: { orgId: testOrgId, clientId: transitionClientId },
+                    body: {
+                        clientAuthenticationMethod: "client_secret_basic",
+                        pkceRequired: true
+                    }
+                } as unknown as Request,
+                noneToBasicRes as unknown as Response,
+                (error) => {
+                    noneToBasicErrors.push(error);
+                }
+            );
+            assertEquals(
+                noneToBasicErrors.length,
+                0,
+                "none -> client_secret_basic update must not forward an error"
+            );
+
+            const noneToBasicPayload = (noneToBasicRes.jsonBody ?? {
+                data: null
+            }) as unknown as {
+                data?: { clientSecret?: string } | null;
+            };
+            assertEquals(
+                typeof noneToBasicPayload.data?.clientSecret,
+                "string",
+                "leaving 'none' must reveal the generated secret once"
+            );
+            const transitionedSecret = noneToBasicPayload.data!.clientSecret!;
+            if (transitionedSecret.length === 0) {
+                throw new Error("revealed transition secret is empty");
+            }
+
+            // ...and persist it encrypted with a matching lastChars tail.
+            const [basicRow] = await db
+                .select()
+                .from(oauthClients)
+                .where(eq(oauthClients.clientId, transitionClientId))
+                .limit(1);
+            if (!basicRow) {
+                throw new Error(
+                    "transition client row not found after none -> basic update"
+                );
+            }
+            assertEquals(
+                basicRow.clientAuthenticationMethod,
+                "client_secret_basic",
+                "method persisted on transition out of 'none'"
+            );
+            assertEquals(
+                basicRow.pkceRequired,
+                true,
+                "PKCE stays enforced when leaving 'none'"
+            );
+            assertEquals(
+                basicRow.clientSecret === null,
+                false,
+                "'none' -> secret method must create a stored encrypted secret"
+            );
+            assertEquals(
+                basicRow.lastChars,
+                transitionedSecret.slice(-4),
+                "stored lastChars must match the tail of the revealed secret"
+            );
+
+            // ...and it must authenticate on the wire immediately — no broken-login window until manual rotation.
+            const liveOutcome = await runClientAuth(
+                makeRequest(
+                    {},
+                    basicAuthHeader(transitionClientId, transitionedSecret)
+                )
+            );
+            expectSuccess(liveOutcome, transitionClientId, transitionedSecret);
+
+            // Direction 2: client_secret_basic -> none must wipe the secret...
+            const basicToNoneRes = new MockOAuthRes();
+            const basicToNoneErrors: unknown[] = [];
+            await updateOAuthClient(
+                {
+                    params: { orgId: testOrgId, clientId: transitionClientId },
+                    body: {
+                        clientAuthenticationMethod: "none",
+                        pkceRequired: true
+                    }
+                } as unknown as Request,
+                basicToNoneRes as unknown as Response,
+                (error) => {
+                    basicToNoneErrors.push(error);
+                }
+            );
+            assertEquals(
+                basicToNoneErrors.length,
+                0,
+                "client_secret_basic -> none update must not forward an error"
+            );
+
+            // ...and the response must NOT re-expose it in any form.
+            const wipedResponseJson = JSON.stringify(
+                basicToNoneRes.jsonBody ?? null
+            );
+            assertEquals(
+                wipedResponseJson.includes(transitionedSecret),
+                false,
+                "response to '-> none' update must not leak the wiped secret"
+            );
+
+            // ...while leaving no usable credential in the database.
+            const [wipedRow] = await db
+                .select()
+                .from(oauthClients)
+                .where(eq(oauthClients.clientId, transitionClientId))
+                .limit(1);
+            if (!wipedRow) {
+                throw new Error(
+                    "transition client row not found after -> none update"
+                );
+            }
+            assertEquals(
+                wipedRow.clientAuthenticationMethod,
+                "none",
+                "method wiped back to 'none'"
+            );
+            assertEquals(
+                wipedRow.pkceRequired,
+                true,
+                "'-> none' must keep PKCE enforced (public)"
+            );
+            assertEquals(
+                wipedRow.clientSecret === null && wipedRow.lastChars === "",
+                true,
+                "transitioning to 'none' must clear stored secret and lastChars"
+            );
+
+            // The old credential is rejected on the wire again.
+            const wipedOutcome = await runClientAuth(
+                makeRequest(
+                    {},
+                    basicAuthHeader(transitionClientId, transitionedSecret)
+                )
+            );
+            expectFailure(wipedOutcome, true);
         }
 
         // --- DDL default persistence -----------------------------------------
