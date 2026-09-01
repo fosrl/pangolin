@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Añadir un rango CIDR (e.g. 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Error al cargar las subredes",
     "remoteExitNodeNetworkingLabelsTitle": "Etiquetas de Preferencias",
-    "remoteExitNodeNetworkingLabelsDescription": "Los sitios con estas etiquetas se verán obligados a conectarse a través de este nodo de salida remoto.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Seleccionar etiquetas...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Buscar etiquetas...",
     "remoteExitNodeNetworkingLabelsLoadError": "Error al cargar las etiquetas",
