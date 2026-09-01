@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Dodaj zakres CIDR (np. 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Nie udało się załadować podsieci",
     "remoteExitNodeNetworkingLabelsTitle": "Etykiety preferencji",
-    "remoteExitNodeNetworkingLabelsDescription": "Strony z tymi etykietami będą zmuszone do połączenia się przez ten zdalny węzeł wyjściowy.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Wybierz etykiety...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Szukaj etykiet...",
     "remoteExitNodeNetworkingLabelsLoadError": "Nie udało się załadować etykiet",
