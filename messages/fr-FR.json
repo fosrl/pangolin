@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Ajouter une plage CIDR (par exemple 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Échec du chargement des sous-réseaux",
     "remoteExitNodeNetworkingLabelsTitle": "Étiquettes de préférences",
-    "remoteExitNodeNetworkingLabelsDescription": "Les sites avec ces étiquettes devront se connecter via ce nœud de sortie distant.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Sélectionner des étiquettes...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Chercher des étiquettes...",
     "remoteExitNodeNetworkingLabelsLoadError": "Échec du chargement des étiquettes",
