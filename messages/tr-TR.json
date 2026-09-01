@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Bir CIDR aralığı ekle (örneğin, 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Alt ağlar yüklenemedi",
     "remoteExitNodeNetworkingLabelsTitle": "Tercih Etiketleri",
-    "remoteExitNodeNetworkingLabelsDescription": "Bu etiketlere sahip siteler, bu uzak çıkış düğümü üzerinden bağlantı kurmaya zorlanacaktır.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Etiketleri seç...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Etiketleri ara...",
     "remoteExitNodeNetworkingLabelsLoadError": "Etiketler yüklenemedi",
