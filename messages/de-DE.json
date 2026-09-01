@@ -2996,7 +2996,7 @@
     "remoteExitNodeNetworkingSubnetsPlaceholder": "Fügen Sie einen CIDR-Bereich hinzu (z.B. 10.0.0.0/8)",
     "remoteExitNodeNetworkingSubnetsLoadError": "Fehler beim Laden der Subnetze",
     "remoteExitNodeNetworkingLabelsTitle": "Präferenzetiketten",
-    "remoteExitNodeNetworkingLabelsDescription": "Standorte mit diesen Etiketten werden gezwungen, über diesen Remote Exit Node zu verbinden.",
+    "remoteExitNodeNetworkingLabelsDescription": "Sites with these labels will prefer to connect through this remote exit node.",
     "remoteExitNodeNetworkingLabelsButtonText": "Etiketten auswählen...",
     "remoteExitNodeNetworkingLabelsSearchPlaceholder": "Etiketten suchen...",
     "remoteExitNodeNetworkingLabelsLoadError": "Fehler beim Laden der Etiketten",
