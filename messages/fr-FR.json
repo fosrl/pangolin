@@ -2717,6 +2717,7 @@
     "healthScheme": "Méthode",
     "healthSelectScheme": "Sélectionnez la méthode",
     "healthCheckPortInvalid": "Le port doit être compris entre 1 et 65535",
+    "healthCheckHostnameInvalid": "Hostname must not contain whitespace",
     "healthCheckPath": "Chemin d'accès",
     "healthHostname": "IP / Hôte",
     "healthPort": "Port",
