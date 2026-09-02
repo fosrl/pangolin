@@ -2717,6 +2717,7 @@
     "healthScheme": "方法",
     "healthSelectScheme": "选择方法",
     "healthCheckPortInvalid": "端口必须在 1 和 65535 之间",
+    "healthCheckHostnameInvalid": "Hostname must not contain whitespace",
     "healthCheckPath": "路径",
     "healthHostname": "IP / 主机",
     "healthPort": "端口",
