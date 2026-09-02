@@ -2717,6 +2717,7 @@
     "healthScheme": "Yöntem",
     "healthSelectScheme": "Yöntem Seç",
     "healthCheckPortInvalid": "Bağlantı noktası 1 ile 65535 arasında olmalıdır",
+    "healthCheckHostnameInvalid": "Hostname must not contain whitespace",
     "healthCheckPath": "Yol",
     "healthHostname": "IP / Hostname",
     "healthPort": "Bağlantı Noktası",
