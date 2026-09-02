@@ -2717,6 +2717,7 @@
     "healthScheme": "Метод",
     "healthSelectScheme": "Избор на метод",
     "healthCheckPortInvalid": "Портът трябва да бъде между 1 и 65535",
+    "healthCheckHostnameInvalid": "Hostname must not contain whitespace",
     "healthCheckPath": "Път",
     "healthHostname": "IP / Хост",
     "healthPort": "Порт",
