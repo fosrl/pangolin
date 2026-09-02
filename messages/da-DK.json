@@ -2717,6 +2717,7 @@
     "healthScheme": "Metode",
     "healthSelectScheme": "Vælg metode",
     "healthCheckPortInvalid": "Porten skal være mellem 1 og 65535",
+    "healthCheckHostnameInvalid": "Hostname must not contain whitespace",
     "healthCheckPath": "Sti",
     "healthHostname": "IP / Vært",
     "healthPort": "Port",
