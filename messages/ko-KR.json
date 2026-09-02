@@ -2717,6 +2717,7 @@
     "healthScheme": "방법",
     "healthSelectScheme": "방법 선택",
     "healthCheckPortInvalid": "포트는 1에서 65535 사이여야 합니다",
+    "healthCheckHostnameInvalid": "Hostname must not contain whitespace",
     "healthCheckPath": "경로",
     "healthHostname": "IP / 호스트",
     "healthPort": "포트",
