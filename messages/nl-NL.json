@@ -2717,6 +2717,7 @@
     "healthScheme": "Methode",
     "healthSelectScheme": "Selecteer methode",
     "healthCheckPortInvalid": "Poort moet tussen 1 en 65535 zijn",
+    "healthCheckHostnameInvalid": "Hostname must not contain whitespace",
     "healthCheckPath": "Pad",
     "healthHostname": "IP / Hostnaam",
     "healthPort": "Poort",
