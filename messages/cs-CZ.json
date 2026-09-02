@@ -2717,6 +2717,7 @@
     "healthScheme": "Způsob",
     "healthSelectScheme": "Vybrat metodu",
     "healthCheckPortInvalid": "Port musí být mezi 1 a 65535",
+    "healthCheckHostnameInvalid": "Hostname must not contain whitespace",
     "healthCheckPath": "Cesta",
     "healthHostname": "IP / Hostitel",
     "healthPort": "Přístav",
