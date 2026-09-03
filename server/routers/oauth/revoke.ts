@@ -6,9 +6,9 @@ import { hashToken } from "@server/lib/oauth/tokens";
 import { sendOAuthError } from "@server/routers/oauth/token";
 import {
     authenticateClient,
-    getBodyValue,
     OAuthClientWithSecret
 } from "@server/lib/oauth/clientAuth";
+import { getBodyValue } from "@server/lib/requestParams";
 import logger from "@server/logger";
 
 export async function revokeToken(
@@ -30,8 +30,8 @@ export async function revokeToken(
             });
         }
 
-        const token = getBodyValue(req.body, "token");
-        const tokenTypeHint = getBodyValue(req.body, "token_type_hint");
+        const token = getBodyValue(req, "token");
+        const tokenTypeHint = getBodyValue(req, "token_type_hint");
 
         if (!token) {
             return res.status(HttpCode.OK).json({});

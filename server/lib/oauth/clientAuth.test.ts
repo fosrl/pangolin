@@ -1,6 +1,8 @@
 // Co-located plain-script tests for server/lib/oauth/clientAuth.ts — run directly with tsx, no test framework required:
 //   NODE_ENV=development ENVIRONMENT=dev npx tsx server/lib/oauth/clientAuth.test.ts
+// The "@server/db" import below must stay first: it settles a config<->db module-init cycle (without it this file crashes in logger on direct runs).
 
+import { db, oauthClients, orgs } from "@server/db";
 import { createHmac, generateKeyPairSync, randomUUID } from "crypto";
 import jsonwebtoken from "jsonwebtoken";
 import type { Request, Response } from "express";
@@ -17,9 +19,12 @@ import { CLIENT_JWT_MAX_AGE_SECONDS } from "./lifetimes";
 import {
     authenticateClient,
     constantTimeEquals,
-    parseBasicAuth,
-    getBodyValue
+    OAuthClientWithSecret
 } from "./clientAuth";
+import {
+    parseBasicAuthString,
+    getBodyValueFromRecords
+} from "@server/lib/requestParams";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -198,7 +203,9 @@ function handcraftedHs256(
 // ---------------------------------------------------------------------------
 
 {
-    const result = parseBasicAuth(basicAuthHeader("client-abc", "s3cr3t"));
+    const result = parseBasicAuthString(
+        basicAuthHeader("client-abc", "s3cr3t")
+    );
     assertEqualsObj(
         result,
         { clientId: "client-abc", clientSecret: "s3cr3t" },
@@ -207,40 +214,40 @@ function handcraftedHs256(
 
     // Non-Basic schemes no longer return null — they throw so the caller can map them to invalid_client.
     assertSyncError(
-        () => parseBasicAuth("Bearer abc"),
+        () => parseBasicAuthString("Bearer abc"),
         "Invalid or missing Basic Authorization header"
     );
     assertSyncError(
-        () => parseBasicAuth(""),
+        () => parseBasicAuthString(""),
         "Invalid or missing Basic Authorization header"
     );
 
     const noColon = `Basic ${Buffer.from("no-colon-here").toString("base64")}`;
     assertSyncError(
-        () => parseBasicAuth(noColon),
+        () => parseBasicAuthString(noColon),
         "Failed to parse Basic Authorization header"
     );
 }
 
 // ---------------------------------------------------------------------------
-// getBodyValue (unit — pure function, no DB)
+// getBodyValueFromRecords (unit — pure function, no DB)
 // ---------------------------------------------------------------------------
 
 {
     assertEquals(
-        getBodyValue({ client_secret: "abc" }, "client_secret"),
+        getBodyValueFromRecords({ client_secret: "abc" }, "client_secret"),
         "abc",
         "string body value"
     );
     assertEquals(
-        getBodyValue({ other: "x" }, "client_secret"),
+        getBodyValueFromRecords({ other: "x" }, "client_secret"),
         undefined,
         "missing key returns undefined"
     );
 
     // Body values are strictly strings now — arrays and numbers no longer fall back to a member/coerce.
     assertEquals(
-        getBodyValue(
+        getBodyValueFromRecords(
             { client_secret: ["a", "b"] } as Record<string, unknown>,
             "client_secret"
         ),
@@ -248,7 +255,7 @@ function handcraftedHs256(
         "array value returns undefined"
     );
     assertEquals(
-        getBodyValue({ client_id: 123 }, "client_id"),
+        getBodyValueFromRecords({ client_id: 123 }, "client_id"),
         undefined,
         "number value returns undefined"
     );
@@ -299,11 +306,15 @@ const validClientId = `clientAuth-test-${runId}-valid`;
 const disabledClientId = `clientAuth-test-${runId}-disabled`;
 const nullCredClientId = `clientAuth-test-${runId}-nullcred`;
 const brokenKeyClientId = `clientAuth-test-${runId}-brokenkey`;
+const postClientId = `clientAuth-test-${runId}-post`;
+const jwtClientId = `clientAuth-test-${runId}-jwt`;
 const seededClientIds: string[] = [
     validClientId,
     disabledClientId,
     nullCredClientId,
-    brokenKeyClientId
+    brokenKeyClientId,
+    postClientId,
+    jwtClientId,
 ];
 
 // 32 chars — the canonical minimum for a client secret.
@@ -353,8 +364,10 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         await insertClient(nullCredClientId, true, null);
 
         // Corrupted/mismatched ciphertext column (e.g. after rotation ran against a key that never encrypted
-        // these rows): decryption of this unparseable value yields "", so getClientWithSecret's empty-result
-        // guard fails closed with an explicit error — uniform 401 invalid_client on the wire.
+        // these rows). This value has no "Salted__" prefix, so crypto-js derives the AES key/IV from a fresh
+        // random salt on EVERY decrypt call: the result is nondeterministic — usually an empty string (tripping
+        // getClientWithSecret's empty-result guard), occasionally a CryptoJS "Malformed UTF-8 data" throw.
+        // Both paths fail closed with an explicit error → uniform 401 invalid_client on the wire.
         await insertClient(
             brokenKeyClientId,
             true,
@@ -366,10 +379,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         await expectAuthError(makeRequest({}), "Missing client credentials");
 
         {
-            const assertion = signHs256(
-                jwtClaimsFor(validClientId),
-                validSecret
-            );
+            const assertion = signHs256(jwtClaimsFor(jwtClientId), validSecret);
             // A present client_assertion takes precedence over the Authorization header.
             const outcome = await runClientAuth(
                 makeRequest(
@@ -377,7 +387,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                     basicAuthHeader(disabledClientId, "x")
                 )
             );
-            expectSuccess(outcome, validClientId, validSecret);
+            expectSuccess(outcome, jwtClientId, validSecret);
         }
 
         // Stricter than before: a non-Basic Authorization header now rejects the request instead of
@@ -429,7 +439,8 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             "Client not found or disabled"
         );
 
-        // Corrupted-ciphertext row: decryption yields "", tripping getClientWithSecret's empty-result guard —
+        // Corrupted-ciphertext row: decryption of unsalted garbage is nondeterministic (random salt per call) —
+        // either "" via the empty-result guard or a caught CryptoJS throw; both map to this explicit error,
         // still a uniform 401 invalid_client on the wire.
         await expectAuthError(
             makeRequest({}, basicAuthHeader(brokenKeyClientId, validSecret)),
@@ -441,11 +452,11 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         {
             const outcome = await runClientAuth(
                 makeRequest({
-                    client_id: validClientId,
+                    client_id: postClientId,
                     client_secret: validSecret
                 })
             );
-            expectSuccess(outcome, validClientId, validSecret);
+            expectSuccess(outcome, postClientId, validSecret);
         }
 
         // No Authorization header and no client_assertion → dispatch falls through to "missing credentials"
@@ -476,12 +487,12 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             const outcome = await runClientAuth(
                 makeRequest({
                     client_assertion: signHs256(
-                        jwtClaimsFor(validClientId),
+                        jwtClaimsFor(jwtClientId),
                         validSecret
                     )
                 })
             );
-            expectSuccess(outcome, validClientId, validSecret);
+            expectSuccess(outcome, jwtClientId, validSecret);
         }
 
         {
@@ -489,15 +500,15 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             const outcome = await runClientAuth(
                 makeRequest({
                     client_assertion: signHs256(
-                        jwtClaimsFor(validClientId),
+                        jwtClaimsFor(jwtClientId),
                         validSecret
                     ),
-                    client_id: validClientId,
+                    client_id: jwtClientId,
                     client_assertion_type:
                         "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
                 })
             );
-            expectSuccess(outcome, validClientId);
+            expectSuccess(outcome, jwtClientId);
         }
 
         await expectAuthError(
@@ -550,7 +561,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         await expectAuthError(
             makeRequest({
                 client_assertion: signHs256(
-                    jwtClaimsFor(validClientId),
+                    jwtClaimsFor(jwtClientId),
                     wrongJwtKey
                 )
             }),
@@ -558,7 +569,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         );
 
         {
-            const expired = jwtClaimsFor(validClientId);
+            const expired = jwtClaimsFor(jwtClientId);
             // Far outside the 30-second clockTolerance window.
             expired.iat = nowSec() - 7200;
             expired.exp = nowSec() - 3600;
@@ -569,7 +580,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                 "client_secret_jwt: failed to verify JWT"
             );
 
-            const tooOld = jwtClaimsFor(validClientId);
+            const tooOld = jwtClaimsFor(jwtClientId);
             // iat is far beyond maxAge (even with clockTolerance), exp still in the future.
             tooOld.iat = nowSec() - CLIENT_JWT_MAX_AGE_SECONDS * 10;
             tooOld.exp = nowSec() + 600;
@@ -581,7 +592,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             );
 
             // No iat/exp in the payload at all — maxAge verification requires iat.
-            const noTimestampsClaims = jwtClaimsFor(validClientId);
+            const noTimestampsClaims = jwtClaimsFor(jwtClientId);
             delete noTimestampsClaims.iat;
             delete noTimestampsClaims.exp;
             await expectAuthError(
@@ -595,7 +606,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             );
 
             // Missing aud fails closed against the audience option.
-            const missingAud = jwtClaimsFor(validClientId);
+            const missingAud = jwtClaimsFor(jwtClientId);
             delete missingAud.aud;
             await expectAuthError(
                 makeRequest({
@@ -605,14 +616,14 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
             );
 
             // Standard jsonwebtoken containment semantics: an aud array containing the identifier is accepted.
-            const multiAud = jwtClaimsFor(validClientId);
+            const multiAud = jwtClaimsFor(jwtClientId);
             (multiAud.aud as string[]).push("some-other-audience");
             const outcome = await runClientAuth(
                 makeRequest({
                     client_assertion: signHs256(multiAud, validSecret)
                 })
             );
-            expectSuccess(outcome, validClientId);
+            expectSuccess(outcome, jwtClientId);
         }
 
         // Unknown issuer → DB lookup runs before signature verification.
@@ -637,7 +648,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                 JSON.stringify({ alg: "none", typ: "JWT" })
             ).toString("base64url");
             const payload = Buffer.from(
-                JSON.stringify(jwtClaimsFor(validClientId))
+                JSON.stringify(jwtClaimsFor(jwtClientId))
             ).toString("base64url");
             await expectAuthError(
                 makeRequest({ client_assertion: `${header}.${payload}.` }),
@@ -651,7 +662,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
                 modulusLength: 2048
             });
             const rsaToken = jsonwebtoken.sign(
-                jwtClaimsFor(validClientId),
+                jwtClaimsFor(jwtClientId),
                 privateKey,
                 {
                     algorithm: "RS256"
@@ -684,7 +695,7 @@ const wrongSameLengthSecret = "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6";
         }
 
         {
-            const expired = jwtClaimsFor(validClientId);
+            const expired = jwtClaimsFor(jwtClientId);
             expired.iat = nowSec() - 7200;
             expired.exp = nowSec() - 3600;
             const outcome = await runClientAuth(

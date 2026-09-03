@@ -6,14 +6,17 @@ import HttpCode from "@server/types/HttpCode";
 import { hashToken } from "@server/lib/oauth/tokens";
 import { buildUserinfoClaims } from "@server/lib/oauth/claims";
 import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
+import * as reqParam from "@server/lib/requestParams";
 
-function extractBearerToken(req: Request): string | null {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return null;
-    }
+function extractToken(req: Request): string | null {
+    let bearer = reqParam.extractBearerToken(req);
+    let form = reqParam.getBodyValue(req, "access_token");
+    let param = reqParam.getFirstString(req.params?.access_token);
 
-    return authHeader.slice("Bearer ".length).trim();
+    if ((bearer && form) || (bearer && param) || (form && param))
+        throw new Error("The client provided multiple authentication methods.");
+
+    return bearer ?? form ?? param ?? null;
 }
 
 export async function handleUserinfoRequest(
@@ -22,7 +25,7 @@ export async function handleUserinfoRequest(
     next: NextFunction
 ): Promise<Response | void> {
     try {
-        const token = extractBearerToken(req);
+        const token = extractToken(req);
 
         if (!token) {
             res.setHeader("WWW-Authenticate", "Bearer");

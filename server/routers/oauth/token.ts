@@ -30,9 +30,9 @@ import {
 } from "@server/lib/oauth/lifetimes";
 import {
     authenticateClient,
-    getBodyValue,
     OAuthClientWithSecret
 } from "@server/lib/oauth/clientAuth";
+import { getBodyValue } from "@server/lib/requestParams";
 import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
 import logger from "@server/logger";
 
@@ -152,7 +152,7 @@ export async function issueToken(
             });
         }
 
-        const grantType = getBodyValue(req.body, "grant_type");
+        const grantType = getBodyValue(req, "grant_type");
 
         if (!grantType) {
             return sendOAuthError(res, HttpCode.BAD_REQUEST, {
@@ -162,9 +162,9 @@ export async function issueToken(
         }
 
         if (grantType === "authorization_code") {
-            const code = getBodyValue(req.body, "code");
-            const redirectUri = getBodyValue(req.body, "redirect_uri");
-            const codeVerifier = getBodyValue(req.body, "code_verifier");
+            const code = getBodyValue(req, "code");
+            const redirectUri = getBodyValue(req, "redirect_uri");
+            const codeVerifier = getBodyValue(req, "code_verifier");
 
             if (!code || !redirectUri) {
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
@@ -181,10 +181,7 @@ export async function issueToken(
                 .where(
                     and(
                         eq(oauthAuthorizationCodes.codeHash, hashToken(code)),
-                        eq(
-                            oauthAuthorizationCodes.clientId,
-                            client.clientId
-                        )
+                        eq(oauthAuthorizationCodes.clientId, client.clientId)
                     )
                 )
                 .returning();
@@ -266,8 +263,8 @@ export async function issueToken(
         }
 
         if (grantType === "refresh_token") {
-            const refreshToken = getBodyValue(req.body, "refresh_token");
-            const scope = getBodyValue(req.body, "scope");
+            const refreshToken = getBodyValue(req, "refresh_token");
+            const scope = getBodyValue(req, "scope");
 
             if (!refreshToken) {
                 return sendOAuthError(res, HttpCode.BAD_REQUEST, {
@@ -289,10 +286,7 @@ export async function issueToken(
                             oauthRefreshTokens.tokenHash,
                             hashToken(refreshToken)
                         ),
-                        eq(
-                            oauthRefreshTokens.clientId,
-                            client.clientId
-                        ),
+                        eq(oauthRefreshTokens.clientId, client.clientId),
                         isNull(oauthRefreshTokens.revokedAt)
                     )
                 )
