@@ -56,7 +56,8 @@ import {
     logActionAudit,
     verifyCertificateAccess,
     verifyAdmin,
-    verifyOAuthClient
+    verifyOAuthClient,
+    verifyOAuthBearerTokenAccess
 } from "@server/middlewares";
 import { ActionsEnum } from "@server/auth/actions";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -103,8 +104,16 @@ unauthenticated.post(
     oauth.issueToken
 );
 unauthenticated.get("/oauth/jwks", oauth.getJwks);
-unauthenticated.get("/oauth/userinfo", oauth.handleUserinfoRequest);
-unauthenticated.post("/oauth/userinfo", oauth.handleUserinfoRequest);
+unauthenticated.get(
+    "/oauth/userinfo",
+    verifyOAuthBearerTokenAccess,
+    oauth.handleUserinfoRequest
+);
+unauthenticated.post(
+    "/oauth/userinfo",
+    verifyOAuthBearerTokenAccess,
+    oauth.handleUserinfoRequest
+);
 unauthenticated.post(
     "/oauth/token/revoke",
     oauthTokenRateLimit,

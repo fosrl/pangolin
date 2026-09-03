@@ -4,20 +4,10 @@ import { eq } from "drizzle-orm";
 import { db, oauthAccessTokens, oauthClients } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { hashToken } from "@server/lib/oauth/tokens";
+import logger from "@server/logger";
 import { buildUserinfoClaims } from "@server/lib/oauth/claims";
 import { userBelongsToClientOrg } from "@server/lib/oauth/clientMembership";
-import * as reqParam from "@server/lib/requestParams";
-
-function extractToken(req: Request): string | null {
-    let bearer = reqParam.extractBearerToken(req);
-    let form = reqParam.getBodyValue(req, "access_token");
-    let param = reqParam.getFirstString(req.params?.access_token);
-
-    if ((bearer && form) || (bearer && param) || (form && param))
-        throw new Error("The client provided multiple authentication methods.");
-
-    return bearer ?? form ?? param ?? null;
-}
+import { sendOAuthInvalidTokenError } from "@server/middlewares";
 
 export async function handleUserinfoRequest(
     req: Request,
@@ -25,15 +15,7 @@ export async function handleUserinfoRequest(
     next: NextFunction
 ): Promise<Response | void> {
     try {
-        const token = extractToken(req);
-
-        if (!token) {
-            res.setHeader("WWW-Authenticate", "Bearer");
-            return next(
-                createHttpError(HttpCode.UNAUTHORIZED, "Missing bearer token")
-            );
-        }
-
+        const token = req.oauthBearerToken!;
         const [accessToken] = await db
             .select({
                 userId: oauthAccessTokens.userId,
@@ -55,27 +37,16 @@ export async function handleUserinfoRequest(
             Date.now() > accessToken.expiresAt ||
             !accessToken.clientEnabled
         ) {
-            res.setHeader("WWW-Authenticate", 'Bearer error="invalid_token"');
-            return next(
-                createHttpError(
-                    HttpCode.UNAUTHORIZED,
-                    "Invalid or expired token"
-                )
-            );
+            return sendOAuthInvalidTokenError(res);
         }
+
         if (
             !(await userBelongsToClientOrg(
                 accessToken.userId,
                 accessToken.clientId
             ))
         ) {
-            res.setHeader("WWW-Authenticate", 'Bearer error="invalid_token"');
-            return next(
-                createHttpError(
-                    HttpCode.UNAUTHORIZED,
-                    "Invalid or expired token"
-                )
-            );
+            return sendOAuthInvalidTokenError(res);
         }
 
         const claims = await buildUserinfoClaims(
@@ -84,9 +55,11 @@ export async function handleUserinfoRequest(
             accessToken.scope
         );
 
-        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Pragma", "no-cache");
         res.status(HttpCode.OK).json(claims);
-    } catch {
+    } catch (error) {
+        logger.error(error);
         return next(
             createHttpError(
                 HttpCode.INTERNAL_SERVER_ERROR,

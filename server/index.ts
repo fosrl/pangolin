@@ -100,6 +100,7 @@ declare global {
             virtualApiKey?: VirtualApiKey;
             redirect?: Redirect;
             oauthClient?: OAuthClientWithSecret;
+            oauthBearerToken?: string;
             orgPolicyAllowed?: boolean;
         }
     }
