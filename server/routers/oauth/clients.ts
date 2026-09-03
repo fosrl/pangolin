@@ -363,9 +363,34 @@ export async function updateOAuthClient(
 
             if (isDisablingClient) {
                 await trx
+                    .delete(oauthInteractions)
+                    .where(
+                        eq(oauthInteractions.clientId, existingClient.clientId)
+                    );
+                await trx
+                    .delete(oauthAuthorizationCodes)
+                    .where(
+                        eq(
+                            oauthAuthorizationCodes.clientId,
+                            existingClient.clientId
+                        )
+                    );
+                await trx
                     .delete(oauthAccessTokens)
                     .where(
                         eq(oauthAccessTokens.clientId, existingClient.clientId)
+                    );
+                await trx
+                    .update(oauthRefreshTokens)
+                    .set({ revokedAt: Date.now() })
+                    .where(
+                        and(
+                            eq(
+                                oauthRefreshTokens.clientId,
+                                existingClient.clientId
+                            ),
+                            isNull(oauthRefreshTokens.revokedAt)
+                        )
                     );
             }
 

@@ -55,6 +55,7 @@ export default function EditOAuthClientPage() {
     const orgId = params.orgId as string;
     const clientId = params.clientId as string;
 
+    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [client, setClient] = useState<PublicOAuthClient | null>(null);
@@ -72,18 +73,25 @@ export default function EditOAuthClientPage() {
             }
 
             setLoading(true);
+            setError(null);
 
             try {
                 const res = await api.get<
                     ResponseT<{ client: PublicOAuthClient }>
                 >(`/org/${orgId}/oauth-clients/${clientId}`);
-                setClient(res.data.data!.client);
+
+                if (!res?.data?.data?.client) {
+                    throw new Error(t("oauthClientLoadErrorDescription"));
+                }
+
+                setClient(res.data.data.client);
             } catch (error) {
                 toast({
                     variant: "destructive",
                     title: t("oauthClientLoadErrorTitle"),
                     description: formatAxiosError(error)
                 });
+                setError(formatAxiosError(error));
             } finally {
                 setLoading(false);
             }
@@ -134,6 +142,10 @@ export default function EditOAuthClientPage() {
                 ResponseT<{ clientId: string; clientSecret: string }>
             >(`/org/${orgId}/oauth-clients/${clientId}/rotate-secret`);
 
+            if (!res?.data?.data) {
+                throw new Error(t("oauthClientRotateErrorDescription"));
+            }
+
             setRotatedSecret(res.data.data);
             toast({
                 title: t("oauthClientRotateSuccessTitle"),
@@ -165,7 +177,7 @@ export default function EditOAuthClientPage() {
         }
     }
 
-    if (loading || !client) {
+    if (loading || error || !client) {
         return (
             <>
                 <SettingsHeaderTitle
@@ -173,7 +185,7 @@ export default function EditOAuthClientPage() {
                     description={t("oauthClientEditDescription")}
                 />
                 <p className="text-sm text-muted-foreground">
-                    {t("oauthClientLoading")}
+                    {error || t("oauthClientLoading")}
                 </p>
             </>
         );

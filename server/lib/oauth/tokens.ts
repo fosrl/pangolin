@@ -7,6 +7,10 @@ import {
     oauthAccessTokens,
     oauthClients
 } from "@server/db";
+import {
+    ID_TOKEN_LIFETIME,
+    LOGOUT_TOKEN_LIFETIME
+} from "@server/lib/oauth/lifetimes";
 import { eq } from "drizzle-orm";
 import jsonwebtoken from "jsonwebtoken";
 
@@ -39,7 +43,7 @@ export function signIdToken(
     return jsonwebtoken.sign(claims, privateKeyPem, {
         algorithm: "RS256",
         keyid: kid,
-        expiresIn: "1h"
+        expiresIn: ID_TOKEN_LIFETIME
     });
 }
 
@@ -67,7 +71,7 @@ export function signLogoutToken(
         {
             algorithm: "RS256",
             keyid: kid,
-            expiresIn: 120
+            expiresIn: LOGOUT_TOKEN_LIFETIME
         }
     );
 }

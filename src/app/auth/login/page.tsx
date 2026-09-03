@@ -246,7 +246,7 @@ export default async function Page(props: {
                         href={
                             !redirectUrl
                                 ? `/auth/signup`
-                                : `/auth/signup?redirect=${redirectUrl}`
+                                : `/auth/signup${buildQueryString({ redirect: redirectUrl })}`
                         }
                         className="underline"
                     >

@@ -64,6 +64,10 @@ export default function CreateOAuthClientPage() {
                     data.logoutTerminatesPangolinSession
             });
 
+            if (!res?.data?.data) {
+                throw new Error(t("oauthClientCreateErrorDescription"));
+            }
+
             setCreatedSecret(res.data.data);
             toast({
                 title: t("oauthClientCreateSuccessTitle"),

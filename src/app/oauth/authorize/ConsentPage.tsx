@@ -19,6 +19,7 @@ import ClientAvatar from "@app/components/ClientAvatar";
 import { OFFLINE_ACCESS_SCOPE } from "@server/lib/oauth/scopes";
 import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
+import axios, { HttpStatusCode } from "axios";
 
 type OauthAuthorizeParams = {
     response_type?: string;
@@ -122,20 +123,6 @@ export default function ConsentPage({
             try {
                 const res = await api.post("/oauth/authorize/initiate", params);
 
-                if (res.status === 401) {
-                    const redirectPath = `${window.location.pathname}${window.location.search}`;
-                    window.location.href = `/auth/login?redirect=${encodeURIComponent(redirectPath)}`;
-                    return;
-                }
-
-                if (res.status !== 200) {
-                    if (cancelled) return;
-                    setError(
-                        res.data?.message || t("oauthAuthorizeInitFailed")
-                    );
-                    return;
-                }
-
                 const parsedPayload = initiateResponseSchema.safeParse(
                     res.data
                 );
@@ -156,8 +143,21 @@ export default function ConsentPage({
                 if (!cancelled) {
                     setInteraction(payload.data);
                 }
-            } catch {
-                if (!cancelled) {
+            } catch (err) {
+                if (axios.isAxiosError(err)) {
+                    const res = err.response;
+                    if (res?.status === HttpStatusCode.Unauthorized) {
+                        const redirectPath = `${window.location.pathname}${window.location.search}`;
+                        window.location.href = `/auth/login?redirect=${encodeURIComponent(redirectPath)}`;
+                        return;
+                    }
+
+                    if (!cancelled) {
+                        setError(
+                            res?.data?.message || t("oauthAuthorizeInitFailed")
+                        );
+                    }
+                } else if (!cancelled) {
                     setError(t("oauthAuthorizeConnectionFailed"));
                 }
             } finally {
@@ -188,12 +188,6 @@ export default function ConsentPage({
                 approved
             });
 
-            if (res.status !== 200) {
-                setError(res.data?.message || t("oauthAuthorizeConsentFailed"));
-                setConsentLoading(false);
-                return;
-            }
-
             const parsedPayload = consentResponseSchema.safeParse(res.data);
 
             if (!parsedPayload.success) {
@@ -203,8 +197,15 @@ export default function ConsentPage({
             }
 
             window.location.href = parsedPayload.data.data.redirectTo;
-        } catch {
-            setError(t("oauthAuthorizeSubmitFailed"));
+        } catch (err) {
+            if (axios.isAxiosError(err)) {
+                const res = err.response;
+                setError(
+                    res?.data?.message || t("oauthAuthorizeConsentFailed")
+                );
+            } else {
+                setError(t("oauthAuthorizeSubmitFailed"));
+            }
             setConsentLoading(false);
         }
     }

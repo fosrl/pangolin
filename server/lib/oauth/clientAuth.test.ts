@@ -918,11 +918,10 @@ const wrongSameLengthSecret =
                 "DDL default for clientAuthenticationMethod"
             );
         }
-
+    } finally {
         await db
             .delete(oauthClients)
             .where(inArray(oauthClients.clientId, seededClientIds));
-    } finally {
         await db.delete(orgs).where(eq(orgs.orgId, testOrgId));
     }
 }

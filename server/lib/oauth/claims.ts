@@ -84,6 +84,7 @@ async function buildBaseClaims(
                         eq(userOrgRoles.orgId, userOrgs.orgId)
                     )
                 )
+                .innerJoin(roles, eq(userOrgRoles.roleId, roles.roleId))
                 .where(
                     and(
                         eq(userOrgs.userId, user.userId),

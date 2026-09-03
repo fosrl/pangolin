@@ -1,4 +1,4 @@
-import { internal } from "@app/lib/api";
+import { formatAxiosError, internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import OAuthClientsTable, {
@@ -24,7 +24,9 @@ export default async function OAuthClientsPage(props: OAuthClientsPageProps) {
             ResponseT<{ clients: PublicOAuthClient[] }>
         >(`/org/${params.orgId}/oauth-clients`, await authCookieHeader());
         clients = res.data.data?.clients || [];
-    } catch (e) {}
+    } catch (error) {
+        console.log(formatAxiosError(error));
+    }
 
     const rows: OAuthClientRow[] = clients.map((client) => ({
         clientId: client.clientId,

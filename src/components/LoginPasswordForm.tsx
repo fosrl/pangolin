@@ -45,7 +45,9 @@ export default function LoginPasswordForm({
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [mfaRequested, setMfaRequested] = useState(false);
+
     const cleanRedirectOptions = cleanOAuthRedirectOptions(redirect ?? "");
+    redirect = cleanRedirect(redirect ?? "", cleanRedirectOptions);
 
     // Check if identifier is a valid email
     const isEmail = (() => {
@@ -85,13 +87,7 @@ export default function LoginPasswordForm({
     });
 
     const redirectAfterLogin = () => {
-        if (redirect) {
-            const safe = cleanRedirect(redirect, cleanRedirectOptions);
-            router.replace(safe);
-            return;
-        }
-
-        router.replace("/");
+        router.replace(redirect || "/");
     };
 
     const handleSetupRequirements = (data: LoginResponse): boolean => {
@@ -105,12 +101,15 @@ export default function LoginPasswordForm({
                 return true;
             }
 
+            const verifyEmailUrl = new URL(
+                "/auth/verify-email",
+                env.app.dashboardUrl
+            );
             if (redirect) {
-                router.push(`/auth/verify-email?redirect=${redirect}`);
-            } else {
-                router.push("/auth/verify-email");
+                verifyEmailUrl.searchParams.set("redirect", redirect);
             }
 
+            router.push(verifyEmailUrl.toString());
             return true;
         }
 
@@ -124,8 +123,10 @@ export default function LoginPasswordForm({
                 return true;
             }
 
-            const setupUrl = `/auth/2fa/setup?email=${encodeURIComponent(identifier)}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`;
-            router.push(setupUrl);
+            const setupUrl = new URL("/auth/2fa/setup", env.app.dashboardUrl);
+            setupUrl.searchParams.set("email", identifier);
+            setupUrl.searchParams.set("redirect", redirect);
+            router.push(setupUrl.toString());
             return true;
         }
 
@@ -258,6 +259,13 @@ export default function LoginPasswordForm({
         );
     }
 
+    const resetPasswordLink = new URL(
+        "/auth/reset-password",
+        env.app.dashboardUrl
+    );
+    if (isEmail) resetPasswordLink.searchParams.set("email", identifier);
+    if (redirect) resetPasswordLink.searchParams.set("redirect", redirect);
+
     return (
         <div className="space-y-4">
             <Form {...form}>
@@ -293,7 +301,7 @@ export default function LoginPasswordForm({
 
                     <div className="text-center">
                         <Link
-                            href={`${env.app.dashboardUrl}/auth/reset-password${isEmail ? `?email=${encodeURIComponent(identifier)}` : ""}${redirect ? `${isEmail ? "&" : "?"}redirect=${encodeURIComponent(redirect)}` : ""}`}
+                            href={resetPasswordLink}
                             className="text-sm text-muted-foreground"
                         >
                             {t("passwordForgot")}

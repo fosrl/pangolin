@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@app/lib/cn";
 
 const sizes = {
@@ -19,14 +20,16 @@ export default function ClientAvatar({
     size = "md",
     className
 }: ClientAvatarProps) {
+    const [logoLoadFailed, setLogoLoadFailed] = useState(false);
     const { box, text } = sizes[size];
 
-    if (logoUri && /^https?:\/\//.test(logoUri)) {
+    if (logoUri && /^https?:\/\//.test(logoUri) && !logoLoadFailed) {
         return (
             <img
                 src={logoUri}
                 alt={name}
                 className={cn(box, "rounded object-contain", className)}
+                onError={() => setLogoLoadFailed(true)}
             />
         );
     }

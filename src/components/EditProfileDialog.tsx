@@ -38,6 +38,9 @@ export default function EditProfileDialog({
     const [username, setUsername] = useState(user.username || "");
     const [loading, setLoading] = useState(false);
 
+    const trimmedName = name.trim();
+    const normalizedUsername = username.trim().toLowerCase();
+
     useEffect(() => {
         if (open) {
             setName(user.name || "");
@@ -48,9 +51,23 @@ export default function EditProfileDialog({
     async function handleSave() {
         setLoading(true);
         try {
+            if (!trimmedName || !normalizedUsername) {
+                return;
+            }
+
             const body: Record<string, string> = {};
-            if (name.trim()) body.name = name.trim();
-            if (username.trim()) body.username = username.trim();
+            if (trimmedName !== user.name) {
+                body.name = trimmedName;
+            }
+            if (normalizedUsername !== user.username) {
+                body.username = normalizedUsername;
+            }
+
+            if (!body.name && !body.username) {
+                // No changes to save
+                setOpen(false);
+                return;
+            }
 
             await api.patch("/user", body);
             updateUser({ ...user, ...body });
@@ -63,10 +80,7 @@ export default function EditProfileDialog({
             toast({
                 variant: "destructive",
                 title: t("profileUpdateError"),
-                description: formatAxiosError(
-                    error,
-                    t("profileUpdateError")
-                )
+                description: formatAxiosError(error, t("profileUpdateError"))
             });
         } finally {
             setLoading(false);
@@ -74,10 +88,7 @@ export default function EditProfileDialog({
     }
 
     return (
-        <Credenza
-            open={open}
-            onOpenChange={setOpen}
-        >
+        <Credenza open={open} onOpenChange={setOpen}>
             <CredenzaContent>
                 <CredenzaHeader>
                     <CredenzaTitle>{t("editProfile")}</CredenzaTitle>
@@ -118,7 +129,9 @@ export default function EditProfileDialog({
                     <Button
                         onClick={handleSave}
                         loading={loading}
-                        disabled={loading || (!name.trim() && !username.trim())}
+                        disabled={
+                            loading || !trimmedName || !normalizedUsername
+                        }
                     >
                         {t("save")}
                     </Button>

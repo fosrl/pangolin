@@ -69,7 +69,7 @@ export type BasicAuthString = {
 
 export function extractBearerToken(req: Request): string | null {
     const authHeader = req?.headers?.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
         return null;
     }
 

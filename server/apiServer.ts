@@ -68,8 +68,6 @@ export function createApiServer() {
         apiServer.use(corsWithLoginPageSupport(corsConfig));
     }
 
-    apiServer.get("/.well-known/openid-configuration", openidConfiguration);
-
     if (!dev) {
         apiServer.use(helmet());
         apiServer.use(csrfProtectionMiddleware);
@@ -112,6 +110,7 @@ export function createApiServer() {
     // API routes
     apiServer.use(prefix, unauthenticated);
     apiServer.use(prefix, authenticated);
+    apiServer.get("/.well-known/openid-configuration", openidConfiguration);
 
     // WebSocket routes
     apiServer.use(prefix, wsRouter);
