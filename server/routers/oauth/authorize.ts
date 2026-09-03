@@ -360,23 +360,6 @@ export async function handleAuthorizationConsent(
             );
         }
 
-        if (!approved) {
-            const redirectTo = appendOAuthParams(interaction.redirectUri, {
-                error: "access_denied",
-                state: interaction.state
-            });
-
-            return response<{ redirectTo: string }>(res, {
-                data: {
-                    redirectTo
-                },
-                success: true,
-                error: false,
-                message: "Authorization denied",
-                status: HttpCode.OK
-            });
-        }
-
         const [client] = await db
             .select({
                 orgId: oauthClients.orgId,
@@ -402,6 +385,24 @@ export async function handleAuthorizationConsent(
                     "OAuth client configuration changed. Please restart authorization."
                 )
             );
+        }
+
+        if (!approved) {
+            // redirectUri is valid, but user denied consent. Redirect back with error.
+            const redirectTo = appendOAuthParams(interaction.redirectUri, {
+                error: "access_denied",
+                state: interaction.state
+            });
+
+            return response<{ redirectTo: string }>(res, {
+                data: {
+                    redirectTo
+                },
+                success: true,
+                error: false,
+                message: "Authorization denied",
+                status: HttpCode.OK
+            });
         }
 
         const isClientOrgMember = await userBelongsToOrg(
