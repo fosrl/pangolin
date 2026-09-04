@@ -565,7 +565,17 @@ export async function getTraefikConfig(
                 return true;
             });
 
-            const hasHealthyServers = availableServers.length > 0;
+            const loadBalancerServers = buildHttpLoadBalancerServers(targets);
+
+            // A Traefik loadBalancer with an empty servers list answers every
+            // request with a 500, so "nothing left to route to" has to count
+            // as unhealthy when deciding whether to show the maintenance
+            // page. availableServers on its own is not enough: it and the
+            // load balancer apply different filters, so a target can survive
+            // this one and still be dropped there for missing connection
+            // details.
+            const hasHealthyServers =
+                availableServers.length > 0 && loadBalancerServers.length > 0;
 
             let showMaintenancePage = false;
             if (resource.maintenanceModeEnabled) {
@@ -662,8 +672,36 @@ export async function getTraefikConfig(
                         ...(resource.ssl ? { tls } : {})
                     };
 
+                // The HTTP -> HTTPS redirect router was registered above
+                // pointing at the resource's normal service, but we skip
+                // building that service below, which leaves the router
+                // referencing a service that does not exist. Point it at the
+                // maintenance service instead; the redirect middleware runs
+                // before the service is ever reached.
+                if (resource.ssl) {
+                    config_output.http.routers![
+                        routerName + "-redirect"
+                    ].service = maintenanceServiceName;
+                }
+
                 // logger.info(`Maintenance mode active for ${fullDomain}`);
 
+                continue;
+            }
+
+            if (showMaintenancePage) {
+                // Maintenance mode is on but there is no UI to send the
+                // request to. Falling through would build a service with an
+                // empty servers list, which Traefik answers with a 500, so
+                // skip the resource and make the misconfiguration visible.
+                logger.warn(
+                    `Resource ${resource.name} (${fullDomain}) is in maintenance mode but no maintenance page URL is configured, skipping Traefik config`
+                );
+                if (resource.ssl) {
+                    delete config_output.http.routers![
+                        routerName + "-redirect"
+                    ];
+                }
                 continue;
             }
 
@@ -710,7 +748,7 @@ export async function getTraefikConfig(
 
             config_output.http.services![serviceName] = {
                 loadBalancer: {
-                    servers: buildHttpLoadBalancerServers(targets),
+                    servers: loadBalancerServers,
                     ...(resource.stickySession
                         ? buildStickySessionCookie(resource.ssl)
                         : {})

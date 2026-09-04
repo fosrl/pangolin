@@ -280,6 +280,16 @@ export function buildBrowserGatewayConfig(params: {
                 ...(bgResource.ssl ? { tls } : {})
             };
 
+            // The HTTP -> HTTPS redirect router above points at the UI
+            // service, which we skip building below. Point it at the
+            // maintenance service so it does not reference a service that
+            // does not exist.
+            if (bgResource.ssl) {
+                config_output.http.routers![
+                    `bg-r${bgResource.resourceId}-redirect`
+                ].service = bgMaintenanceServiceName;
+            }
+
             continue;
         }
 
