@@ -568,7 +568,7 @@ export async function getTraefikConfig(
             const loadBalancerServers = buildHttpLoadBalancerServers(targets);
 
             // A Traefik loadBalancer with an empty servers list answers every
-            // request with a 500, so "nothing left to route to" has to count
+            // request with a 503, so "nothing left to route to" has to count
             // as unhealthy when deciding whether to show the maintenance
             // page. availableServers on its own is not enough: it and the
             // load balancer apply different filters, so a target can survive
@@ -692,7 +692,7 @@ export async function getTraefikConfig(
             if (showMaintenancePage) {
                 // Maintenance mode is on but there is no UI to send the
                 // request to. Falling through would build a service with an
-                // empty servers list, which Traefik answers with a 500, so
+                // empty servers list, which Traefik answers with a 503, so
                 // skip the resource and make the misconfiguration visible.
                 logger.warn(
                     `Resource ${resource.name} (${fullDomain}) is in maintenance mode but no maintenance page URL is configured, skipping Traefik config`
