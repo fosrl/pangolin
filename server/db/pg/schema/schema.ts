@@ -1136,6 +1136,7 @@ export const resourceRules = pgTable("resourceRules", {
             | "ASN"
             | "REGION"
             | "METHOD"
+            | "AND"
         >()
         .notNull(), // CIDR, PATH, IP
     value: varchar("value").notNull()
@@ -1161,6 +1162,7 @@ export const resourcePolicyRules = pgTable("resourcePolicyRules", {
             | "ASN"
             | "REGION"
             | "METHOD"
+            | "AND"
         >()
         .notNull(),
     value: varchar("value").notNull()

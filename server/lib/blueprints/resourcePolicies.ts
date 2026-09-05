@@ -14,7 +14,7 @@ import {
     users
 } from "@server/db";
 import { eq, and } from "drizzle-orm";
-import { Config, ResourcePolicyData } from "./types";
+import { Config, getRuleValue, ResourcePolicyData } from "./types";
 import logger from "@server/logger";
 import { getUniqueResourcePolicyName } from "@server/db/names";
 import { hashPassword } from "@server/auth/password";
@@ -57,24 +57,24 @@ export async function updateResourcePolicies(
 
         // Validate rules
         for (const rule of policyData.rules) {
-            if (rule.match === "cidr" && !isValidCIDR(rule.value)) {
+            if (rule.match === "cidr" && !isValidCIDR(rule.value ?? "")) {
                 throw new Error(
                     `Invalid CIDR provided in resource policy '${policyNiceId}': ${rule.value}`
                 );
-            } else if (rule.match === "ip" && !isValidIP(rule.value)) {
+            } else if (rule.match === "ip" && !isValidIP(rule.value ?? "")) {
                 throw new Error(
                     `Invalid IP provided in resource policy '${policyNiceId}': ${rule.value}`
                 );
             } else if (
                 rule.match === "path" &&
-                !isValidUrlGlobPattern(rule.value)
+                !isValidUrlGlobPattern(rule.value ?? "")
             ) {
                 throw new Error(
                     `Invalid URL glob pattern provided in resource policy '${policyNiceId}': ${rule.value}`
                 );
             } else if (
                 rule.match === "method" &&
-                !isValidHttpMethodList(rule.value)
+                !isValidHttpMethodList(rule.value ?? "")
             ) {
                 throw new Error(
                     `Invalid HTTP method provided in resource policy '${policyNiceId}': ${rule.value}`
@@ -328,7 +328,7 @@ export async function updateResourcePolicies(
                         resourcePolicyId,
                         action: getRuleAction(rule.action),
                         match: getRuleMatch(rule.match),
-                        value: rule.value,
+                        value: getRuleValue(rule),
                         priority: rule.priority ?? index + 1,
                         enabled: rule.enabled ?? true
                     }))
@@ -615,7 +615,7 @@ async function syncPolicyRules(
                 .set({
                     action: getRuleAction(rule.action),
                     match: getRuleMatch(rule.match),
-                    value: rule.value,
+                    value: getRuleValue(rule),
                     priority: intendedPriority,
                     enabled: rule.enabled ?? true
                 })
@@ -625,7 +625,7 @@ async function syncPolicyRules(
                 resourcePolicyId: policyId,
                 action: getRuleAction(rule.action),
                 match: getRuleMatch(rule.match),
-                value: rule.value,
+                value: getRuleValue(rule),
                 priority: intendedPriority,
                 enabled: rule.enabled ?? true
             });

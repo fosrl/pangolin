@@ -2,7 +2,9 @@ import {
     getResourceRuleValueValidationError,
     isValidDomain,
     isValidUrlGlobPattern,
-    parseHttpMethodList
+    parseHttpMethodList,
+    parseRuleConditions,
+    serializeRuleConditions
 } from "./validators";
 import { assertEquals, assertEqualsObj } from "@test/assert";
 
@@ -332,6 +334,70 @@ function runTests() {
         parseHttpMethodList(" get ,post, "),
         ["GET", "POST"],
         "Method list should be normalized to uppercase without empty entries"
+    );
+
+    // Conditional (AND) rule validation tests
+    const conditions = serializeRuleConditions([
+        { match: "PATH", value: "/api/*" },
+        { match: "METHOD", value: "POST,PUT" }
+    ]);
+
+    assertEquals(
+        getResourceRuleValueValidationError("AND", conditions),
+        null,
+        "Rule with two valid conditions should be valid"
+    );
+    assertEqualsObj(
+        parseRuleConditions(conditions),
+        [
+            { match: "PATH", value: "/api/*" },
+            { match: "METHOD", value: "POST,PUT" }
+        ],
+        "Conditions should round-trip through serialize and parse"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError(
+            "AND",
+            serializeRuleConditions([{ match: "PATH", value: "/api/*" }])
+        ),
+        "A conditional rule needs at least two conditions",
+        "Rule with a single condition should return an error"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError(
+            "AND",
+            JSON.stringify([
+                { match: "PATH", value: "/api/*" },
+                { match: "IP", value: "not-an-ip" }
+            ])
+        ),
+        "Invalid IP provided",
+        "Rule with an invalid condition value should return that error"
+    );
+    assertEquals(
+        parseRuleConditions("not json"),
+        null,
+        "Conditions that are not JSON should not parse"
+    );
+    assertEquals(
+        parseRuleConditions('{"match":"PATH","value":"/"}'),
+        null,
+        "Conditions that are not an array should not parse"
+    );
+    assertEquals(
+        parseRuleConditions('[{"match":"NOPE","value":"/"}]'),
+        null,
+        "Conditions with an unknown match type should not parse"
+    );
+    assertEquals(
+        parseRuleConditions('[{"match":"AND","value":"[]"}]'),
+        null,
+        "Conditions must not nest another AND rule"
+    );
+    assertEquals(
+        parseRuleConditions('[{"match":"PATH"}]'),
+        null,
+        "Conditions without a value should not parse"
     );
 
     console.log("All tests passed!");
