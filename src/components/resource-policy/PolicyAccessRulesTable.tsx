@@ -37,7 +37,10 @@ import { cn } from "@app/lib/cn";
 import { MAJOR_ASNS } from "@server/db/asns";
 import { COUNTRIES } from "@server/db/countries";
 import { REGIONS, getRegionNameById } from "@server/db/regions";
-import { HTTP_METHODS, parseHttpMethodList } from "@server/lib/validators";
+import {
+    parseRuleConditions,
+    serializeRuleConditions
+} from "@server/lib/validators";
 import {
     ColumnDef,
     flexRender,
@@ -67,6 +70,8 @@ import {
     validatePolicyRuleValue,
     type PolicyRuleMatchType
 } from "./policy-access-rule-validation";
+import { RuleConditionsCredenza } from "./RuleConditionsCredenza";
+import { RuleMethodSelect } from "./RuleMethodSelect";
 import {
     buildDisplayPrioritiesForResourceOverlay,
     reorderPolicyRules,
@@ -114,77 +119,58 @@ function getColumnClassName(columnId: string) {
     return "";
 }
 
-// A METHOD rule stores its methods as a comma-separated list in rule.value,
-// e.g. "POST,PUT". Only the common methods are offered here; a value set
-// through a blueprint or the API may contain other methods (the WebDAV verbs,
-// for instance), so those are kept and shown rather than dropped on edit.
-function RuleMethodSelect({
+// An AND rule keeps its conditions as a JSON array in rule.value. A new one
+// starts out matching every GET, which is valid and harmless until edited.
+const DEFAULT_CONDITIONS_VALUE = serializeRuleConditions([
+    { match: "PATH", value: "/" },
+    { match: "METHOD", value: "GET" }
+]);
+
+function RuleConditionsCell({
     value,
     disabled,
-    placeholder,
-    onChange
+    onChange,
+    isMaxmindAvailable,
+    isMaxmindAsnAvailable,
+    includeRegionMatch
 }: {
     value: string;
     disabled: boolean;
-    placeholder: string;
     onChange: (value: string) => void;
+    isMaxmindAvailable: boolean;
+    isMaxmindAsnAvailable: boolean;
+    includeRegionMatch: boolean;
 }) {
-    const selected = parseHttpMethodList(value);
-    const knownMethods: readonly string[] = HTTP_METHODS;
-    const options = [
-        ...knownMethods,
-        ...selected.filter((method) => !knownMethods.includes(method))
-    ];
+    const t = useTranslations();
+    const [open, setOpen] = useState(false);
 
-    function toggle(method: string) {
-        const next = selected.includes(method)
-            ? selected.filter((m) => m !== method)
-            : [...selected, method];
-
-        // keep a stable order so the stored value does not churn on every edit
-        onChange(options.filter((m) => next.includes(m)).join(","));
-    }
+    const conditions = parseRuleConditions(value) ?? [];
+    const summary = conditions
+        .map((condition) => `${condition.match} ${condition.value}`)
+        .join(" + ");
 
     return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    role="combobox"
-                    disabled={disabled}
-                    className="w-full min-w-0 justify-between"
-                >
-                    <span className="truncate">
-                        {selected.length > 0 ? selected.join(", ") : placeholder}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="min-w-50 p-0">
-                <Command>
-                    <CommandList>
-                        <CommandGroup>
-                            {options.map((method) => (
-                                <CommandItem
-                                    key={method}
-                                    value={method}
-                                    onSelect={() => toggle(method)}
-                                >
-                                    <Check
-                                        className={`mr-2 h-4 w-4 ${
-                                            selected.includes(method)
-                                                ? "opacity-100"
-                                                : "opacity-0"
-                                        }`}
-                                    />
-                                    {method}
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
+        <>
+            <Button
+                variant="outline"
+                disabled={disabled}
+                className="w-full min-w-0 justify-start font-normal"
+                onClick={() => setOpen(true)}
+            >
+                <span className="truncate">
+                    {summary || t("rulesConditionsEdit")}
+                </span>
+            </Button>
+            <RuleConditionsCredenza
+                open={open}
+                setOpen={setOpen}
+                value={value}
+                onChange={onChange}
+                isMaxmindAvailable={isMaxmindAvailable}
+                isMaxmindAsnAvailable={isMaxmindAsnAvailable}
+                includeRegionMatch={includeRegionMatch}
+            />
+        </>
     );
 }
 
@@ -310,7 +296,8 @@ export function PolicyAccessRulesTable({
             COUNTRY_IS_NOT: t("countryIsNot"),
             ASN: "ASN",
             REGION: t("region"),
-            METHOD: t("method")
+            METHOD: t("method"),
+            AND: t("rulesMatchAll")
         }),
         [t]
     );
@@ -528,7 +515,9 @@ export function PolicyAccessRulesTable({
                                             ? "021"
                                             : value === "METHOD"
                                               ? "GET"
-                                              : row.original.value
+                                              : value === "AND"
+                                                ? DEFAULT_CONDITIONS_VALUE
+                                                : row.original.value
                             })
                         }
                     >
@@ -546,6 +535,7 @@ export function PolicyAccessRulesTable({
                             <SelectItem value="METHOD">
                                 {RuleMatch.METHOD}
                             </SelectItem>
+                            <SelectItem value="AND">{RuleMatch.AND}</SelectItem>
                             {isMaxmindAvailable && (
                                 <>
                                     <SelectItem value="COUNTRY">
@@ -852,6 +842,17 @@ export function PolicyAccessRulesTable({
                                 </Command>
                             </PopoverContent>
                         </Popover>
+                    ) : row.original.match === "AND" ? (
+                        <RuleConditionsCell
+                            value={row.original.value}
+                            disabled={readonly || isRuleLocked(row.original)}
+                            onChange={(value) =>
+                                updateRule(row.original.ruleId, { value })
+                            }
+                            isMaxmindAvailable={isMaxmindAvailable}
+                            isMaxmindAsnAvailable={isMaxmindAsnAvailable}
+                            includeRegionMatch={includeRegionMatch}
+                        />
                     ) : row.original.match === "METHOD" ? (
                         <RuleMethodSelect
                             value={row.original.value}

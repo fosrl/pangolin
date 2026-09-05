@@ -1410,6 +1410,7 @@ export const resourceRules = sqliteTable("resourceRules", {
             | "ASN"
             | "REGION"
             | "METHOD"
+            | "AND"
         >()
         .notNull(), // CIDR, PATH, IP
     value: text("value").notNull()
@@ -1467,6 +1468,7 @@ export const resourcePolicyRules = sqliteTable("resourcePolicyRules", {
             | "ASN"
             | "REGION"
             | "METHOD"
+            | "AND"
         >()
         .notNull(),
     value: text("value").notNull()

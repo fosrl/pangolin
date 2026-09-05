@@ -4,7 +4,8 @@ import {
     isValidCIDR,
     isValidHttpMethodList,
     isValidIP,
-    isValidUrlGlobPattern
+    isValidUrlGlobPattern,
+    parseRuleConditions
 } from "@server/lib/validators";
 import z from "zod";
 
@@ -21,7 +22,8 @@ export const POLICY_RULE_MATCH_TYPES = [
     "COUNTRY_IS_NOT",
     "ASN",
     "REGION",
-    "METHOD"
+    "METHOD",
+    "AND"
 ] as const;
 
 export type PolicyRuleMatchType = (typeof POLICY_RULE_MATCH_TYPES)[number];
@@ -89,6 +91,33 @@ export function createPolicyRuleValueSchema(t: TranslateFn, match: string) {
         case "METHOD":
             return required.refine(isValidHttpMethodList, {
                 message: t("rulesErrorInvalidMethodDescription")
+            });
+        case "AND":
+            return required.superRefine((value, ctx) => {
+                const conditions = parseRuleConditions(value);
+                if (!conditions || conditions.length < 2) {
+                    ctx.addIssue({
+                        code: "custom",
+                        message: t("rulesErrorConditionsRequiredDescription")
+                    });
+                    return;
+                }
+
+                for (const condition of conditions) {
+                    const result = createPolicyRuleValueSchema(
+                        t,
+                        condition.match
+                    ).safeParse(condition.value);
+                    if (!result.success) {
+                        ctx.addIssue({
+                            code: "custom",
+                            message:
+                                result.error.issues[0]?.message ??
+                                t("rulesErrorValueRequired")
+                        });
+                        return;
+                    }
+                }
             });
         case "ASN":
             return required.refine(
@@ -228,7 +257,11 @@ export function validatePolicyRuleValue(
                     ? "rulesErrorInvalidCountry"
                     : match === "ASN"
                       ? "rulesErrorInvalidAsn"
-                      : "rulesErrorValidation";
+                      : match === "METHOD"
+                        ? "rulesErrorInvalidMethod"
+                        : match === "AND"
+                          ? "rulesErrorConditionsRequired"
+                          : "rulesErrorValidation";
 
     return {
         success: false,
