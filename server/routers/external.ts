@@ -2496,11 +2496,25 @@ unauthenticated.use("/oauth", oauthRouter);
 oauthRouter.use(express.urlencoded());
 
 // OIDC: Rate limits
+//
+// The rate limits are split between user-facing and backchannel routes.
+// The user-facing routes are rate limited by the user token, the backchannel routes by the client id.
+// To address unauthenticated requests, the backchannel routes fall back to the IP address and are skipped after authentication.
+// The public routes are not rate limited.
+
 const oauthUserRateLimit = rateLimit({
     windowMs: OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
     max: OAUTH_TOKEN_RATE_LIMIT_MAX,
     message: `You can only make ${OAUTH_TOKEN_RATE_LIMIT_MAX} authorization requests every ${OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES} minutes. Please try again later.`,
-    keyGenerator: (req) => `oauthToken:${ipKeyGenerator(req.ip || "")}`
+    keyGenerator: (req) => `oauthUser:${ipKeyGenerator(req.ip || "")}`
+});
+
+const oauthClientFallbackRateLimit = rateLimit({
+    windowMs: OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+    max: OAUTH_TOKEN_RATE_LIMIT_MAX,
+    message: `You can only make ${OAUTH_TOKEN_RATE_LIMIT_MAX} token requests every ${OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES} minutes. Please try again later.`,
+    keyGenerator: (req) => `oauthClient:${ipKeyGenerator(req.ip || "")}`,
+    skip: (req) => !!(req.oauthClient || req.oauthBearerToken)
 });
 
 const oauthClientRateLimit = rateLimit({
@@ -2508,7 +2522,7 @@ const oauthClientRateLimit = rateLimit({
     max: OAUTH_TOKEN_RATE_LIMIT_MAX,
     message: `You can only make ${OAUTH_TOKEN_RATE_LIMIT_MAX} token requests every ${OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES} minutes. Please try again later.`,
     keyGenerator: (req) =>
-        `oauthToken:${(req.oauthClient ?? req.oauthBearerToken)?.clientId ?? ipKeyGenerator(req.ip || "")}`
+        `oauthClient:${(req.oauthClient ?? req.oauthBearerToken)?.clientId}`
 });
 
 // OIDC: Public endpoints - unauthenticated, no rate limit
@@ -2517,6 +2531,7 @@ oauthRouter.get("/jwks", oauth.getJwks);
 // OIDC: Userinfo endpoint - verifyOAuthBearerTokenAccess
 export const oauthUserInfoRouter = Router();
 oauthRouter.use("/userinfo", oauthUserInfoRouter);
+oauthUserInfoRouter.use(oauthClientFallbackRateLimit);
 oauthUserInfoRouter.use(verifyOAuthBearerTokenAccess);
 oauthUserInfoRouter.use(oauthClientRateLimit);
 oauthUserInfoRouter
@@ -2544,6 +2559,7 @@ oauthUserConsentRouter.post("/consent", oauth.handleAuthorizationConsent);
 // OIDC: Backchannel - client credentials are validated by the verifyOauthClientMiddleware running before each handler.
 export const oauthTokenRouter = Router();
 oauthRouter.use("/token", oauthTokenRouter);
+oauthTokenRouter.use(oauthClientFallbackRateLimit);
 oauthTokenRouter.use(verifyOAuthClient);
 oauthTokenRouter.use(oauthClientRateLimit);
 oauthTokenRouter.post("/issue", oauth.issueToken);
