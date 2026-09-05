@@ -18,6 +18,7 @@ import { recordSitePing } from "@server/routers/newt/pingAccumulator";
 import { validateNewtSessionToken } from "@server/auth/sessions/newt";
 import { validateOlmSessionToken } from "@server/auth/sessions/olm";
 import { messageHandlers } from "./messageHandlers";
+import { sweepAllConnections } from "./heartbeat";
 import logger from "@server/logger";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -50,6 +51,27 @@ const connectedClients: Map<string, AuthenticatedWebSocket[]> = new Map();
 const clientConfigVersions: Map<string, number> = new Map();
 // Helper to get map key
 const getClientMapKey = (clientId: string) => clientId;
+
+// How often to ping tracked connections to detect ones that died without a
+// clean TCP close (network drop, sleep, killed process, silent NAT/firewall
+// drop). These sockets have no OS-level TCP keepalive configured, so
+// without this sweep a dead connection stays in connectedClients
+// indefinitely - sendToClient/broadcastToAllExcept "succeed" into a socket
+// that goes nowhere, and hasActiveConnections() never notices.
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
+let heartbeatTimer: NodeJS.Timeout | null = null;
+
+const startHeartbeat = (): void => {
+    if (heartbeatTimer) return;
+    heartbeatTimer = setInterval(() => {
+        // Sweep each client's connection array directly rather than
+        // building a flattened copy of every tracked connection - avoids a
+        // full allocation (and its GC cost) on every interval tick.
+        connectedClients.forEach((clients) => sweepAllConnections(clients));
+    }, HEARTBEAT_INTERVAL_MS);
+};
+startHeartbeat();
 
 // Helper functions for client management
 const addClient = async (
@@ -332,6 +354,10 @@ const setupConnection = async (
 
     ws.client = client;
     ws.clientType = clientType;
+    ws.isAlive = true;
+    ws.on("pong", () => {
+        ws.isAlive = true;
+    });
 
     // Add client to tracking
     const clientId =
@@ -551,6 +577,11 @@ const disconnectClient = async (clientId: string): Promise<boolean> => {
 // Cleanup function for graceful shutdown
 const cleanup = async (): Promise<void> => {
     try {
+        if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
+
         // Close all WebSocket connections
         connectedClients.forEach((clients) => {
             clients.forEach((client) => {
