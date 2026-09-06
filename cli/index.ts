@@ -2,8 +2,8 @@
 
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { setAdminCredentials } from "@cli/commands/setAdminCredentials";
-import { resetUserSecurityKeys } from "@cli/commands/resetUserSecurityKeys";
+import { setAdminCredentials } from "./commands/setAdminCredentials";
+import { resetUserSecurityKeys } from "./commands/resetUserSecurityKeys";
 import { clearExitNodes } from "./commands/clearExitNodes";
 import { rotateServerSecret } from "./commands/rotateServerSecret";
 import { clearLicenseKeys } from "./commands/clearLicenseKeys";
