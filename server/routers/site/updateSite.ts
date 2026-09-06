@@ -113,7 +113,7 @@ export async function updateSite(
                 .where(
                     and(
                         eq(sites.niceId, updateData.niceId),
-                        eq(sites.orgId, sites.orgId),
+                        eq(sites.orgId, existingSite.orgId),
                         ne(sites.siteId, siteId)
                     )
                 )
