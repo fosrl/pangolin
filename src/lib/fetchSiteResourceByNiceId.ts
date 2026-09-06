@@ -46,6 +46,7 @@ export async function fetchSiteResourceByNiceId(
         tcpPortRangeString: match.tcpPortRangeString ?? null,
         udpPortRangeString: match.udpPortRangeString ?? null,
         disableIcmp: match.disableIcmp || false,
+        advertiseDestination: match.advertiseDestination ?? true,
         authDaemonMode: match.authDaemonMode ?? null,
         authDaemonPort: match.authDaemonPort ?? null,
         pamMode: match.pamMode ?? null,

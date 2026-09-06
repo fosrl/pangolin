@@ -2907,6 +2907,8 @@
     "privateResourceAllowIcmpPing": "Allow ICMP Ping",
     "privateResourceNetworkAccess": "Network Access",
     "privateResourceNetworkAccessDescription": "Control TCP/UDP port access and whether ICMP ping is allowed for this resource.",
+    "privateResourceAdvertiseDestination": "Advertise Destination as a Client Route",
+    "privateResourceAdvertiseDestinationDescription": "Adds a route to the destination address on connected clients. Turn this off if clients already reach the destination another way; the resource stays reachable through its alias address.",
     "hostSettings": "Host",
     "cidrSettings": "CIDR",
     "createInternalResourceDialogResourceProperties": "Resource Properties",

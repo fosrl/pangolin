@@ -30,6 +30,7 @@ export type PrivateResourceFormValues = {
     tcpPortRangeString?: string | null;
     udpPortRangeString?: string | null;
     disableIcmp?: boolean;
+    advertiseDestination?: boolean;
     authDaemonMode?: "site" | "remote" | "native" | null;
     authDaemonPort?: number | null;
     pamMode?: "passthrough" | "push" | null;
@@ -232,6 +233,9 @@ export function buildCreateSiteResourcePayload(
             udpPortRangeString: data.udpPortRangeString,
             disableIcmp: data.disableIcmp ?? false
         }),
+        ...((data.mode === "host" || data.mode === "ssh") && {
+            advertiseDestination: data.advertiseDestination ?? true
+        }),
         roleIds: data.roles ? data.roles.map((r) => parseInt(r.id)) : [],
         userIds: data.users ? data.users.map((u) => u.id) : [],
         clientIds: data.clients ? data.clients.map((c) => c.clientId) : []
@@ -319,6 +323,9 @@ export function buildUpdateSiteResourcePayload(
             udpPortRangeString: data.udpPortRangeString,
             disableIcmp: data.disableIcmp ?? false
         }),
+        ...((data.mode === "host" || data.mode === "ssh") && {
+            advertiseDestination: data.advertiseDestination ?? true
+        }),
         roleIds: access.roleIds,
         userIds: access.userIds,
         clientIds: access.clientIds
@@ -354,6 +361,7 @@ export function siteResourceToFormValues(
         tcpPortRangeString: resource.tcpPortRangeString ?? "*",
         udpPortRangeString: resource.udpPortRangeString ?? "*",
         disableIcmp: resource.disableIcmp ?? false,
+        advertiseDestination: resource.advertiseDestination ?? true,
         authDaemonMode:
             resource.authDaemonMode === "native"
                 ? "native"
@@ -449,7 +457,8 @@ export function createCreateFormSchema(t: TranslateFn) {
             tcpPortRangeString: createPortRangeStringSchema(t),
             udpPortRangeString: createPortRangeStringSchema(t),
             disableIcmp: z.boolean().optional(),
-            providerIds: z.array(z.number().int().positive()).optional()
+            providerIds: z.array(z.number().int().positive()).optional(),
+            advertiseDestination: z.boolean().optional()
         })
         .superRefine((data, ctx) => {
             const isNativeSsh =
@@ -604,6 +613,7 @@ export function createHostFormSchema(t: TranslateFn) {
             tcpPortRangeString: createPortRangeStringSchema(t),
             udpPortRangeString: createPortRangeStringSchema(t),
             disableIcmp: z.boolean().optional(),
+            advertiseDestination: z.boolean().optional(),
             authDaemonMode: z
                 .enum(["site", "remote", "native"])
                 .optional()
@@ -688,7 +698,8 @@ export function createSshFormSchema(
                 .nullable(),
             pamMode: z.enum(["passthrough", "push"]),
             standardDaemonLocation: z.enum(["site", "remote"]),
-            authDaemonPort: z.string()
+            authDaemonPort: z.string(),
+            advertiseDestination: z.boolean().optional()
         })
         .superRefine((data, ctx) => {
             destinationRefine(

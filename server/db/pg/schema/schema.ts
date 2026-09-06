@@ -506,6 +506,12 @@ export const siteResources = pgTable(
             .notNull()
             .default("*"),
         disableIcmp: boolean("disableIcmp").notNull().default(false),
+        // When false, host/ssh resources are still reachable through their
+        // aliasAddress but their destination is not sent to clients as a
+        // route. Lets a client keep a pre-existing path to the destination.
+        advertiseDestination: boolean("advertiseDestination")
+            .notNull()
+            .default(true),
         authDaemonPort: integer("authDaemonPort").default(22123),
         pamMode: varchar("pamMode", { length: 32 })
             .$type<"passthrough" | "push">()

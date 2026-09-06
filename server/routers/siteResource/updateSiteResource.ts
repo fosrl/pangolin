@@ -75,6 +75,11 @@ const updateSiteResourceSchema = z
         tcpPortRangeString: portRangeStringSchema,
         udpPortRangeString: portRangeStringSchema,
         disableIcmp: z.boolean().optional(),
+        advertiseDestination: z.boolean().optional().openapi({
+            description:
+                "Only applies to host and ssh resources. When false the resource is still reachable through its alias address, but its destination is not installed as a route on the client. Defaults to true.",
+            example: true
+        }),
         authDaemonPort: z.int().positive().nullish(),
         authDaemonMode: z.enum(["site", "remote", "native"]).optional(),
         pamMode: z.enum(["passthrough", "push"]).optional(),
@@ -329,6 +334,7 @@ export async function updateSiteResource(
             tcpPortRangeString,
             udpPortRangeString,
             disableIcmp,
+            advertiseDestination,
             authDaemonPort,
             authDaemonMode,
             pamMode,
@@ -575,6 +581,7 @@ export async function updateSiteResource(
                                   ? true
                                   : false)
                             : disableIcmp,
+                    advertiseDestination,
                     domainId,
                     subdomain: finalSubdomain,
                     fullDomain,

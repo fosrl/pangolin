@@ -21,7 +21,10 @@ import { useActionState, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { PrivateResourceSitesField } from "@app/components/PrivateResourceSitesField";
-import { PrivateResourceHostDestinationFields } from "@app/components/PrivateResourceDestinationFields";
+import {
+    PrivateResourceAdvertiseDestinationField,
+    PrivateResourceHostDestinationFields
+} from "@app/components/PrivateResourceDestinationFields";
 import { PrivateResourcePortRanges } from "@app/components/PrivateResourcePortRanges";
 import { useSaveSiteResource } from "@app/hooks/useSaveSiteResource";
 import {
@@ -51,6 +54,7 @@ export default function PrivateResourceHostPage() {
             tcpPortRangeString: siteResource.tcpPortRangeString ?? "*",
             udpPortRangeString: siteResource.udpPortRangeString ?? "*",
             disableIcmp: siteResource.disableIcmp ?? false,
+            advertiseDestination: siteResource.advertiseDestination ?? true,
             authDaemonMode: siteResource.authDaemonMode ?? "site",
             authDaemonPort: siteResource.authDaemonPort ?? null
         }
@@ -69,6 +73,7 @@ export default function PrivateResourceHostPage() {
             tcpPortRangeString: data.tcpPortRangeString,
             udpPortRangeString: data.udpPortRangeString,
             disableIcmp: data.disableIcmp,
+            advertiseDestination: data.advertiseDestination,
             authDaemonMode: data.authDaemonMode,
             authDaemonPort: data.authDaemonPort
         });
@@ -109,6 +114,12 @@ export default function PrivateResourceHostPage() {
                                         <PrivateResourceHostDestinationFields
                                             control={asAnyControl(form.control)}
                                             watch={asAnyWatch(form.watch)}
+                                        />
+                                    </SettingsFormCell>
+
+                                    <SettingsFormCell span="full">
+                                        <PrivateResourceAdvertiseDestinationField
+                                            control={asAnyControl(form.control)}
                                         />
                                     </SettingsFormCell>
 

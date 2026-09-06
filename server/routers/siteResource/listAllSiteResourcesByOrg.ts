@@ -205,6 +205,7 @@ function querySiteResourcesBase() {
             tcpPortRangeString: siteResources.tcpPortRangeString,
             udpPortRangeString: siteResources.udpPortRangeString,
             disableIcmp: siteResources.disableIcmp,
+            advertiseDestination: siteResources.advertiseDestination,
             authDaemonMode: siteResources.authDaemonMode,
             authDaemonPort: siteResources.authDaemonPort,
             pamMode: siteResources.pamMode,

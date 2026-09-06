@@ -91,6 +91,7 @@ export default async function ClientResourcesPage(
                 tcpPortRangeString: siteResource.tcpPortRangeString ?? null,
                 udpPortRangeString: siteResource.udpPortRangeString ?? null,
                 disableIcmp: siteResource.disableIcmp || false,
+                advertiseDestination: siteResource.advertiseDestination ?? true,
                 authDaemonMode: siteResource.authDaemonMode ?? null,
                 authDaemonPort: siteResource.authDaemonPort ?? null,
                 pamMode: siteResource.pamMode ?? null,
