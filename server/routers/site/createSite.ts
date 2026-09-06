@@ -263,7 +263,7 @@ export async function createSite(
             const { value: newClientAddress, release } =
                 await getNextAvailableClientSubnet(orgId);
             releaseSubnetLock = release;
-            updatedAddress = newClientAddress.split("/")[0];
+            updatedAddress = `${newClientAddress.split("/")[0]}/${org.subnet ? org.subnet.split("/")[1] : "32"}`;
         }
 
         let newSite: Site | undefined;
