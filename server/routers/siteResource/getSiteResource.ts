@@ -10,7 +10,7 @@ import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
 
-const getSiteResourceParamsSchema = z.strictObject({
+export const getSiteResourceParamsSchema = z.strictObject({
     siteResourceId: z
         .string()
         .optional()
@@ -22,15 +22,17 @@ const getSiteResourceParamsSchema = z.strictObject({
 });
 
 async function query(siteResourceId?: number, niceId?: string, orgId?: string) {
-    if (siteResourceId && orgId) {
+    if (siteResourceId) {
         const [siteResource] = await db
             .select()
             .from(siteResources)
             .where(
-                and(
-                    eq(siteResources.siteResourceId, siteResourceId),
-                    eq(siteResources.orgId, orgId)
-                )
+                orgId
+                    ? and(
+                          eq(siteResources.siteResourceId, siteResourceId),
+                          eq(siteResources.orgId, orgId)
+                      )
+                    : eq(siteResources.siteResourceId, siteResourceId)
             )
             .limit(1);
         return siteResource;
