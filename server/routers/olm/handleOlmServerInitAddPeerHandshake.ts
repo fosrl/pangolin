@@ -97,6 +97,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
             logger.error(
                 `handleOlmServerInitAddPeerHandshake: Multiple resources found matching the criteria`
             );
+            await sendCancel();
             return;
         }
 
