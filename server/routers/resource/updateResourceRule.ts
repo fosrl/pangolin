@@ -13,6 +13,7 @@ import {
     getResourceRuleValueValidationError,
     ResourceRuleMatchType
 } from "@server/lib/validators";
+import { invalidateRulesCache } from "@server/lib/badgerCacheInvalidation";
 import { OpenAPITags, registry } from "@server/openApi";
 
 // Define Zod schema for request parameters validation
@@ -284,6 +285,8 @@ export async function updateResourceRule(
                       )
                   )
                   .returning();
+
+        invalidateRulesCache(resourceId);
 
         return response(res, {
             data: updatedRule,

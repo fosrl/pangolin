@@ -9,6 +9,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { invalidateRulesCache } from "@server/lib/badgerCacheInvalidation";
 
 const deleteResourceRuleSchema = z.strictObject({
     ruleId: z.coerce.number().int().positive(),
@@ -118,6 +119,8 @@ export async function deleteResourceRule(
                 );
             }
 
+            invalidateRulesCache(resourceId);
+
             return response(res, {
                 data: null,
                 success: true,
@@ -141,6 +144,8 @@ export async function deleteResourceRule(
                 )
             );
         }
+
+        invalidateRulesCache(resourceId);
 
         return response(res, {
             data: null,

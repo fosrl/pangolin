@@ -13,6 +13,7 @@ import {
 } from "@server/lib/deleteResource";
 import { LimitId } from "@server/lib/billing";
 import { usageService } from "@server/lib/billing/usageService";
+import { invalidateResourceCache } from "@server/lib/badgerCacheInvalidation";
 
 const deleteResourceSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -88,18 +89,17 @@ export async function deleteResource(
 
         const { resourceId } = parsedParams.data;
 
-        let deleteResult = null;
-
-        await db.transaction(async (trx) => {
-            deleteResult = await performDeleteResource(resourceId, trx);
-            if (deleteResult?.deletedResource?.orgId) {
+        const deleteResult = await db.transaction(async (trx) => {
+            const result = await performDeleteResource(resourceId, trx);
+            if (result?.deletedResource?.orgId) {
                 await usageService.add(
-                    deleteResult?.deletedResource?.orgId,
+                    result.deletedResource.orgId,
                     LimitId.PUBLIC_RESOURCES,
                     -1,
                     trx
                 );
             }
+            return result;
         });
 
         if (!deleteResult) {
@@ -112,6 +112,7 @@ export async function deleteResource(
         }
 
         await runResourceDeleteSideEffects(deleteResult);
+        invalidateResourceCache(deleteResult.deletedResource?.fullDomain);
 
         return response(res, {
             data: null,

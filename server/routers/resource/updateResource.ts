@@ -48,6 +48,11 @@ import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { applyInlinePolicyFields } from "./inlinePolicyFields";
+import {
+    invalidateResourceCache,
+    invalidateHeaderAuthCache,
+    invalidateUserAccessCache
+} from "@server/lib/badgerCacheInvalidation";
 
 const updateResourceParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -767,6 +772,10 @@ async function updateHttpResource(
             );
         }
 
+        invalidateResourceCache(resource.fullDomain);
+        invalidateHeaderAuthCache(resource.resourceId);
+        invalidateUserAccessCache(resource.resourceId);
+
         return response(res, {
             data: applyInlinePolicyFields(updatedResource[0], inlinePolicy),
             success: true,
@@ -790,6 +799,10 @@ async function updateHttpResource(
             )
         );
     }
+
+    invalidateResourceCache(resource.fullDomain);
+    invalidateHeaderAuthCache(resource.resourceId);
+    invalidateUserAccessCache(resource.resourceId);
 
     return response(res, {
         data: updatedResource[0],
