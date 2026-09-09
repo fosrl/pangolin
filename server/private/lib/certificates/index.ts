@@ -18,17 +18,26 @@ import { jobScheduler } from "./scheduler";
 
 export async function startCertificateManager() {
     const acmeConfig = privateConfig.getRawPrivateConfig().acme;
-    if (!acmeConfig || acmeConfig.cert_mode !== "pangolin") {
-        return;
+    if (
+        acmeConfig &&
+        acmeConfig.cert_mode === "pangolin" &&
+        acmeConfig.enable_acme_client
+    ) {
+        logger.info("Starting certificate management server...");
+
+        // Initialize ACME client
+        await acmeClientManager.initialize();
+
+        // Start certificate issuance/renewal jobs
+        await jobScheduler.start();
     }
 
-    logger.info("Starting certificate management server...");
-
-    // Initialize ACME client
-    await acmeClientManager.initialize();
-
-    // Start job scheduler
-    await jobScheduler.start();
+    if (privateConfig.getRawPrivateConfig().flags.use_pangolin_dns) {
+        // DNS record validation/reverification doesn't require certs, so it
+        // runs whenever Pangolin is acting as the authoritative DNS server,
+        // independent of the cert manager above.
+        await jobScheduler.startDnsJobs();
+    }
 }
 
 export async function stopCertificateManager() {

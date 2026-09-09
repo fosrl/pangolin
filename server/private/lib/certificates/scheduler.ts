@@ -28,8 +28,10 @@ import { domainReverifier } from "./domain-reverifier";
 const RUN_EXCLUSIVE_TIMEOUT_MS = 30 * 60 * 1000;
 
 export class JobScheduler {
-    private intervals: NodeJS.Timeout[] = [];
-    private running = false;
+    private certIntervals: NodeJS.Timeout[] = [];
+    private dnsIntervals: NodeJS.Timeout[] = [];
+    private certRunning = false;
+    private dnsRunning = false;
 
     // Guards against a slow batch (e.g. 10 certs whose DNS challenges take a
     // while) still being processed when the next interval tick fires -
@@ -59,19 +61,19 @@ export class JobScheduler {
         };
     }
 
+    // Certificate issuance/renewal - requires an ACME client, so this is
+    // only started when Pangolin is actually managing certs.
     async start(): Promise<void> {
-        if (this.running) {
-            logger.warn("Scheduler is already running");
+        if (this.certRunning) {
+            logger.warn("Certificate job scheduler is already running");
             return;
         }
 
-        this.running = true;
-        logger.info("Starting job scheduler");
+        this.certRunning = true;
+        logger.info("Starting certificate job scheduler");
 
         const newCertState = { active: false };
         const renewalState = { active: false };
-        const dnsValidationState = { active: false };
-        const reverifyState = { active: false };
 
         const runNewCertCheck = this.runExclusive(
             () => certificateService.processPendingCertificates(),
@@ -82,16 +84,6 @@ export class JobScheduler {
             () => certificateService.processRenewalCandidates(),
             renewalState,
             "processing renewal candidates"
-        );
-        const runDnsValidation = this.runExclusive(
-            () => dnsValidator.validateAll(),
-            dnsValidationState,
-            "validating DNS records"
-        );
-        const runReverify = this.runExclusive(
-            () => domainReverifier.reverifyAll(),
-            reverifyState,
-            "reverifying domains"
         );
 
         // Schedule new certificate processing
@@ -106,10 +98,51 @@ export class JobScheduler {
             config.getRawConfig().acme!.renewal_check_interval_ms
         );
 
+        this.certIntervals.push(newCertInterval, renewalInterval);
+
+        // Run initial checks
+        setTimeout(async () => {
+            try {
+                await runNewCertCheck();
+                // await runRenewalCheck();
+            } catch (error) {
+                logger.error("Error in initial certificate processing:", error);
+            }
+        }, 1000); // Wait 1 second after startup
+
+        logger.info("Certificate job scheduler started successfully");
+    }
+
+    // DNS record validation/reverification - doesn't touch certs at all, so
+    // this runs independently whenever Pangolin is acting as the
+    // authoritative DNS server, regardless of cert_mode.
+    async startDnsJobs(): Promise<void> {
+        if (this.dnsRunning) {
+            logger.warn("DNS validation job scheduler is already running");
+            return;
+        }
+
+        this.dnsRunning = true;
+        logger.info("Starting DNS validation job scheduler");
+
+        const dnsValidationState = { active: false };
+        const reverifyState = { active: false };
+
+        const runDnsValidation = this.runExclusive(
+            () => dnsValidator.validateAll(),
+            dnsValidationState,
+            "validating DNS records"
+        );
+        const runReverify = this.runExclusive(
+            () => domainReverifier.reverifyAll(),
+            reverifyState,
+            "reverifying domains"
+        );
+
         // Schedule DNS validation
         const dnsValidationInterval = setInterval(
             runDnsValidation,
-            config.getRawConfig().acme?.dns_check_interval_ms
+            config.getRawConfig().acme?.dns_check_interval_ms ?? 60000
         );
 
         // Schedule periodic reverification of already-verified domains
@@ -119,44 +152,38 @@ export class JobScheduler {
                 3600000
         );
 
-        this.intervals.push(
-            newCertInterval,
-            renewalInterval,
-            dnsValidationInterval,
-            reverifyInterval
-        );
+        this.dnsIntervals.push(dnsValidationInterval, reverifyInterval);
 
-        // Run initial checks
+        // Run an initial validation pass shortly after startup
         setTimeout(async () => {
             try {
-                await runNewCertCheck();
-                // await runRenewalCheck();
                 await runDnsValidation();
             } catch (error) {
-                logger.error("Error in initial certificate processing:", error);
+                logger.error("Error in initial DNS validation:", error);
             }
-        }, 1000); // Wait 5 seconds after startup
+        }, 1000);
 
-        logger.info("Job scheduler started successfully");
+        logger.info("DNS validation job scheduler started successfully");
     }
 
     async stop(): Promise<void> {
-        if (!this.running) {
-            return;
+        if (this.certRunning) {
+            logger.info("Stopping certificate job scheduler");
+            this.certRunning = false;
+            this.certIntervals.forEach((interval) => clearInterval(interval));
+            this.certIntervals = [];
         }
 
-        logger.info("Stopping job scheduler");
-        this.running = false;
-
-        // Clear all intervals
-        this.intervals.forEach((interval) => clearInterval(interval));
-        this.intervals = [];
-
-        logger.info("Job scheduler stopped");
+        if (this.dnsRunning) {
+            logger.info("Stopping DNS validation job scheduler");
+            this.dnsRunning = false;
+            this.dnsIntervals.forEach((interval) => clearInterval(interval));
+            this.dnsIntervals = [];
+        }
     }
 
     isRunning(): boolean {
-        return this.running;
+        return this.certRunning || this.dnsRunning;
     }
 }
 

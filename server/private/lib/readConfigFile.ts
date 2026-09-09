@@ -195,6 +195,7 @@ export const privateConfigSchema = z
                     .enum(["traefik", "pangolin"])
                     .optional()
                     .default("traefik"),
+                enable_acme_client: z.boolean().optional().default(false),
                 // @deprecated Moved to the public config file
                 // (server/lib/readConfigFile.ts). Kept here only so existing private
                 // config files keep parsing; any value set here is migrated into the
