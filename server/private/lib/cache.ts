@@ -97,11 +97,11 @@ class AdaptiveCache {
                 const value = await redisManager.get(key);
 
                 if (value !== null) {
-                    logger.debug(`Cache hit in Redis: ${key}`);
+                    // logger.debug(`Cache hit in Redis: ${key}`);
                     return JSON.parse(value) as T;
                 }
 
-                logger.debug(`Cache miss in Redis: ${key}`);
+                // logger.debug(`Cache miss in Redis: ${key}`);
                 return undefined;
             } catch (error) {
                 logger.error(`Redis get error for key ${key}:`, error);
@@ -134,7 +134,7 @@ class AdaptiveCache {
                     const success = await redisManager.del(k);
                     if (success) {
                         deletedCount++;
-                        logger.debug(`Deleted key from Redis: ${k}`);
+                        // logger.debug(`Deleted key from Redis: ${k}`);
                     }
                 }
 
@@ -161,7 +161,7 @@ class AdaptiveCache {
             const success = localCache.del(k);
             if (success > 0) {
                 deletedCount++;
-                logger.debug(`Deleted key from local cache: ${k}`);
+                // logger.debug(`Deleted key from local cache: ${k}`);
             }
         }
 
@@ -229,7 +229,7 @@ class AdaptiveCache {
         }
 
         localCache.flushAll();
-        logger.debug("Flushed local cache");
+        // logger.debug("Flushed local cache");
     }
 
     /**
@@ -332,7 +332,7 @@ class RegionalAdaptiveCache {
                     redisTtl
                 );
                 if (success) {
-                    logger.debug(`[regional] Set key in Redis: ${key}`);
+                    // logger.debug(`[regional] Set key in Redis: ${key}`);
                     return true;
                 }
             } catch (error) {
@@ -353,10 +353,10 @@ class RegionalAdaptiveCache {
             try {
                 const value = await regionalRedisManager.get(key);
                 if (value !== null) {
-                    logger.debug(`[regional] Cache hit in Redis: ${key}`);
+                    // logger.debug(`[regional] Cache hit in Redis: ${key}`);
                     return JSON.parse(value) as T;
                 }
-                logger.debug(`[regional] Cache miss in Redis: ${key}`);
+                // logger.debug(`[regional] Cache miss in Redis: ${key}`);
                 return undefined;
             } catch (error) {
                 logger.error(
@@ -385,7 +385,7 @@ class RegionalAdaptiveCache {
                     const success = await regionalRedisManager.del(k);
                     if (success) {
                         deletedCount++;
-                        logger.debug(`[regional] Deleted key from Redis: ${k}`);
+                        // logger.debug(`[regional] Deleted key from Redis: ${k}`);
                     }
                 }
                 if (deletedCount === keys.length) return deletedCount;
@@ -400,7 +400,7 @@ class RegionalAdaptiveCache {
             const count = regionalLocalCache.del(k);
             if (count > 0) {
                 deletedCount++;
-                logger.debug(`[regional] Deleted key from local cache: ${k}`);
+                // logger.debug(`[regional] Deleted key from local cache: ${k}`);
             }
         }
         return deletedCount;
