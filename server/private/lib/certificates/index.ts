@@ -12,29 +12,25 @@
  */
 
 import logger from "@server/logger";
+import { privateConfig } from "#private/lib/config";
 import { acmeClientManager } from "./acme-client";
 import { jobScheduler } from "./scheduler";
 
-// Request a new certificate
-// await certificateService.addCertificateRequest(domain);
+export async function startCertificateManager() {
+    const acmeConfig = privateConfig.getRawPrivateConfig().acme;
+    if (!acmeConfig || acmeConfig.cert_mode !== "pangolin") {
+        return;
+    }
 
-logger.info("Starting certificate management server...");
+    logger.info("Starting certificate management server...");
 
-// Initialize ACME client
-await acmeClientManager.initialize();
+    // Initialize ACME client
+    await acmeClientManager.initialize();
 
-// Start job scheduler
-await jobScheduler.start();
+    // Start job scheduler
+    await jobScheduler.start();
+}
 
-// Graceful shutdown
-process.on("SIGTERM", async () => {
-    logger.info("Received SIGTERM, shutting down gracefully");
+export async function stopCertificateManager() {
     await jobScheduler.stop();
-    process.exit(0);
-});
-
-process.on("SIGINT", async () => {
-    logger.info("Received SIGINT, shutting down gracefully");
-    await jobScheduler.stop();
-    process.exit(0);
-});
+}

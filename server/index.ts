@@ -26,6 +26,7 @@ import { TraefikConfigManager } from "@server/lib/traefik/TraefikConfigManager";
 import { initCleanup } from "#dynamic/cleanup";
 import { startSchedulers } from "#dynamic/startSchedulers";
 import { startDnsServer } from "#dynamic/dns";
+import { startCertificateManager } from "#dynamic/certificates";
 import license from "#dynamic/license/license";
 import { fetchServerIp } from "@server/lib/serverIpService";
 import { initAiModelCatalog } from "@server/lib/aiModelCatalog";
@@ -47,6 +48,8 @@ async function startServers() {
     startSchedulers();
 
     await startDnsServer();
+
+    await startCertificateManager();
 
     // Start all servers
     const apiServer = createApiServer();

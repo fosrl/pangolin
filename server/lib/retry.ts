@@ -1,4 +1,4 @@
-import logger from "@lib/logger";
+import logger from "@server/logger";
 
 export async function withRetry<T>(
     fn: () => Promise<T>,
