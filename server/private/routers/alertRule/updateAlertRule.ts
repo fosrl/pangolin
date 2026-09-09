@@ -33,8 +33,11 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
-import { HC_EVENT_TYPES, SITE_EVENT_TYPES, RESOURCE_EVENT_TYPES } from "./createAlertRule";
-import { invalidateAllRemoteExitNodeSessions } from "@server/private/auth/sessions/remoteExitNode";
+import {
+    HC_EVENT_TYPES,
+    SITE_EVENT_TYPES,
+    RESOURCE_EVENT_TYPES
+} from "./createAlertRule";
 
 const paramsSchema = z
     .object({
@@ -85,35 +88,57 @@ const bodySchema = z
         const isHcEvent = (HC_EVENT_TYPES as readonly string[]).includes(
             val.eventType
         );
-        const isResourceEvent = (RESOURCE_EVENT_TYPES as readonly string[]).includes(
-            val.eventType
-        );
+        const isResourceEvent = (
+            RESOURCE_EVENT_TYPES as readonly string[]
+        ).includes(val.eventType);
 
-        if (isSiteEvent && val.siteIds !== undefined && val.siteIds.length === 0 && !val.allSites) {
+        if (
+            isSiteEvent &&
+            val.siteIds !== undefined &&
+            val.siteIds.length === 0 &&
+            !val.allSites
+        ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: "At least one siteId is required for site event types when allSites is false",
+                message:
+                    "At least one siteId is required for site event types when allSites is false",
                 path: ["siteIds"]
             });
         }
 
-        if (isHcEvent && val.healthCheckIds !== undefined && val.healthCheckIds.length === 0 && !val.allHealthChecks) {
+        if (
+            isHcEvent &&
+            val.healthCheckIds !== undefined &&
+            val.healthCheckIds.length === 0 &&
+            !val.allHealthChecks
+        ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: "At least one healthCheckId is required for health check event types when allHealthChecks is false",
+                message:
+                    "At least one healthCheckId is required for health check event types when allHealthChecks is false",
                 path: ["healthCheckIds"]
             });
         }
 
-        if (isResourceEvent && val.resourceIds !== undefined && val.resourceIds.length === 0 && !val.allResources) {
+        if (
+            isResourceEvent &&
+            val.resourceIds !== undefined &&
+            val.resourceIds.length === 0 &&
+            !val.allResources
+        ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: "At least one resourceId is required for resource event types when allResources is false",
+                message:
+                    "At least one resourceId is required for resource event types when allResources is false",
                 path: ["resourceIds"]
             });
         }
 
-        if (isSiteEvent && val.healthCheckIds !== undefined && val.healthCheckIds.length > 0) {
+        if (
+            isSiteEvent &&
+            val.healthCheckIds !== undefined &&
+            val.healthCheckIds.length > 0
+        ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "healthCheckIds must not be set for site event types",
@@ -129,7 +154,11 @@ const bodySchema = z
             });
         }
 
-        if (isResourceEvent && val.siteIds !== undefined && val.siteIds.length > 0) {
+        if (
+            isResourceEvent &&
+            val.siteIds !== undefined &&
+            val.siteIds.length > 0
+        ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "siteIds must not be set for resource event types",
@@ -137,10 +166,15 @@ const bodySchema = z
             });
         }
 
-        if (isResourceEvent && val.healthCheckIds !== undefined && val.healthCheckIds.length > 0) {
+        if (
+            isResourceEvent &&
+            val.healthCheckIds !== undefined &&
+            val.healthCheckIds.length > 0
+        ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: "healthCheckIds must not be set for resource event types",
+                message:
+                    "healthCheckIds must not be set for resource event types",
                 path: ["healthCheckIds"]
             });
         }
@@ -152,7 +186,6 @@ export type UpdateAlertRuleResponse = {
 const UpdateAlertRuleResponseDataSchema = z.object({
     alertRuleId: z.number()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -174,7 +207,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateAlertRuleResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateAlertRuleResponseDataSchema
+                    )
                 }
             }
         }
@@ -250,9 +285,11 @@ export async function updateAlertRule(
         if (name !== undefined) updateData.name = name;
         if (eventType !== undefined) updateData.eventType = eventType;
         if (enabled !== undefined) updateData.enabled = enabled;
-        if (cooldownSeconds !== undefined) updateData.cooldownSeconds = cooldownSeconds;
+        if (cooldownSeconds !== undefined)
+            updateData.cooldownSeconds = cooldownSeconds;
         if (allSites !== undefined) updateData.allSites = allSites;
-        if (allHealthChecks !== undefined) updateData.allHealthChecks = allHealthChecks;
+        if (allHealthChecks !== undefined)
+            updateData.allHealthChecks = allHealthChecks;
         if (allResources !== undefined) updateData.allResources = allResources;
 
         await db
@@ -273,7 +310,11 @@ export async function updateAlertRule(
 
             // Only insert junction rows when allSites is not true
             const effectiveAllSites = allSites ?? false;
-            if (!effectiveAllSites && siteIds !== undefined && siteIds.length > 0) {
+            if (
+                !effectiveAllSites &&
+                siteIds !== undefined &&
+                siteIds.length > 0
+            ) {
                 await db.insert(alertSites).values(
                     siteIds.map((siteId) => ({
                         alertRuleId,
@@ -290,7 +331,11 @@ export async function updateAlertRule(
                 .where(eq(alertHealthChecks.alertRuleId, alertRuleId));
 
             const effectiveAllHealthChecks = allHealthChecks ?? false;
-            if (!effectiveAllHealthChecks && healthCheckIds !== undefined && healthCheckIds.length > 0) {
+            if (
+                !effectiveAllHealthChecks &&
+                healthCheckIds !== undefined &&
+                healthCheckIds.length > 0
+            ) {
                 await db.insert(alertHealthChecks).values(
                     healthCheckIds.map((healthCheckId) => ({
                         alertRuleId,
@@ -307,7 +352,11 @@ export async function updateAlertRule(
                 .where(eq(alertResources.alertRuleId, alertRuleId));
 
             const effectiveAllResources = allResources ?? false;
-            if (!effectiveAllResources && resourceIds !== undefined && resourceIds.length > 0) {
+            if (
+                !effectiveAllResources &&
+                resourceIds !== undefined &&
+                resourceIds.length > 0
+            ) {
                 await db.insert(alertResources).values(
                     resourceIds.map((resourceId) => ({
                         alertRuleId,
@@ -392,7 +441,10 @@ export async function updateAlertRule(
                     webhookActions.map((wa) => ({
                         alertRuleId,
                         webhookUrl: wa.webhookUrl,
-                        config: wa.config != null ? encrypt(wa.config, serverSecret) : null,
+                        config:
+                            wa.config != null
+                                ? encrypt(wa.config, serverSecret)
+                                : null,
                         enabled: wa.enabled
                     }))
                 );

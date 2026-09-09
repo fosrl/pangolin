@@ -78,13 +78,16 @@ export default function GenerateLicenseKeysTable({
             );
             toast({
                 title: t("success"),
-                description: "Instance name cleared successfully"
+                description: "Server ID cleared successfully"
             });
             await refreshData();
         } catch (error) {
             toast({
                 title: t("error"),
-                description: formatAxiosError(error, "Failed to clear instance name"),
+                description: formatAxiosError(
+                    error,
+                    "Failed to clear server ID"
+                ),
                 variant: "destructive"
             });
         } finally {
@@ -291,7 +294,7 @@ export default function GenerateLicenseKeysTable({
                                         clearInstanceName(key.licenseKey)
                                     }
                                 >
-                                    Clear Instance Name
+                                    {t("clearInstanceName")}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>

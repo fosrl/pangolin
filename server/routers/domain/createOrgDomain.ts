@@ -300,12 +300,15 @@ export async function createOrgDomain(
                     {
                         value: `${domainId}.${config.getRawConfig().dns.cname_extension}`,
                         baseDomain: baseDomain
-                    },
-                    {
-                        value: `_acme-challenge.${domainId}.${config.getRawConfig().dns.cname_extension}`,
-                        baseDomain: `_acme-challenge.${baseDomain}`
                     }
                 ];
+
+                if (build == "saas") {
+                    cnameRecords.push({
+                        value: `_acme-challenge.${domainId}.${config.getRawConfig().dns.cname_extension}`,
+                        baseDomain: `_acme-challenge.${baseDomain}`
+                    });
+                }
 
                 // Save CNAME records to database
                 for (const cnameRecord of cnameRecords) {

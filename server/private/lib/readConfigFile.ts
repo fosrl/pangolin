@@ -209,7 +209,65 @@ export const privateConfigSchema = z
                 // (server/lib/readConfigFile.ts). Kept here only so existing private
                 // config files keep parsing; any value set here is migrated into the
                 // public config at startup by PrivateConfig (server/private/lib/config.ts).
-                sync_interval_ms: z.number().optional()
+                sync_interval_ms: z.number().optional(),
+                acme_directory_url: z
+                    .string()
+                    .url()
+                    .default("https://acme-v02.api.letsencrypt.org/directory"),
+                contact_email: z.string().email(),
+                acme_account_key_path: z
+                    .string()
+                    .default("./config/account.key"),
+                challenge_ttl_ms: z.number().int().positive().default(300000),
+                renewal_check_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(3600000),
+                new_cert_check_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(60000),
+                // Kept safely under Let's Encrypt's ~20 req/s limit since this
+                // budget is shared across all pops workers and only covers the
+                // request-issuing calls we make directly (not every request
+                // acme-client makes internally, e.g. while polling for
+                // challenge/order status).
+                acme_requests_per_second: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(15),
+                dns_check_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(60000),
+                domain_reverification_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(3600000), // 1 hour — how often to run the reverification pass
+                domain_reverification_window_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(259200000), // 72 hours — how old checkedAt must be before rechecking
+                domain_reverification_batch_size: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(20), // max domains to recheck per pass
+                dns_resolvers: z
+                    .array(z.string())
+                    .optional()
+                    .default([
+                        "8.8.8.8",
+                        "1.1.1.1",
+                        "9.9.9.9",
+                        "208.67.222.222"
+                    ])
             })
             .optional(),
         branding: z
