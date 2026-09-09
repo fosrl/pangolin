@@ -1,3 +1,4 @@
+import { build } from "@server/build";
 import { Env } from "./types/env";
 
 export function pullEnv(): Env {
@@ -34,9 +35,7 @@ export function pullEnv(): Env {
                         : false
             },
             identityProviderMode: process.env.IDENTITY_PROVIDER_MODE as
-                | "org"
-                | "global"
-                | undefined
+                "org" | "global" | undefined
         },
         email: {
             emailEnabled: process.env.EMAIL_ENABLED === "true" ? true : false

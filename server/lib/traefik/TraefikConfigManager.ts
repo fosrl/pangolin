@@ -358,7 +358,7 @@ export class TraefikConfigManager {
                 this.lastActiveDomains = new Set(domains);
             }
 
-            if (process.env.USE_PANGOLIN_DNS === "true" && build != "oss") {
+            if (process.env.CERT_MODE === "pangolin" && build != "oss") {
                 // Scan current local certificate state
                 this.lastLocalCertificateState =
                     await this.scanLocalCertificateState();

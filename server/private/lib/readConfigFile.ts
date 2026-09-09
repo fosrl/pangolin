@@ -97,6 +97,7 @@ export const privateConfigSchema = z
             .optional(),
         dns: z
             .object({
+                enabled: z.boolean().optional().default(false),
                 listen_port: z.number(),
                 nameserver_name: z.string(),
                 cname_extension: z.string(),
@@ -188,14 +189,26 @@ export const privateConfigSchema = z
             })
             .optional()
             .prefault({}),
-        // @deprecated Moved to the public config file as `acme`
-        // (server/lib/readConfigFile.ts). Kept here only so existing private
-        // config files keep parsing; any value set here is migrated into the
-        // public config at startup by PrivateConfig (server/private/lib/config.ts).
         acme: z
             .object({
+                cert_mode: z
+                    .enum(["traefik", "pangolin"])
+                    .optional()
+                    .default("traefik"),
+                // @deprecated Moved to the public config file
+                // (server/lib/readConfigFile.ts). Kept here only so existing private
+                // config files keep parsing; any value set here is migrated into the
+                // public config at startup by PrivateConfig (server/private/lib/config.ts).
                 acme_json_path: z.string().optional(),
+                // @deprecated Moved to the public config file
+                // (server/lib/readConfigFile.ts). Kept here only so existing private
+                // config files keep parsing; any value set here is migrated into the
+                // public config at startup by PrivateConfig (server/private/lib/config.ts).
                 acme_http_endpoint: z.string().optional(),
+                // @deprecated Moved to the public config file
+                // (server/lib/readConfigFile.ts). Kept here only so existing private
+                // config files keep parsing; any value set here is migrated into the
+                // public config at startup by PrivateConfig (server/private/lib/config.ts).
                 sync_interval_ms: z.number().optional()
             })
             .optional(),
