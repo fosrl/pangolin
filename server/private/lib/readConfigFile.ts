@@ -98,10 +98,10 @@ export const privateConfigSchema = z
         dns: z
             .object({
                 enabled: z.boolean().optional().default(false),
-                listen_port: z.number(),
+                listen_port: z.number().int().positive().optional().default(53),
                 nameserver_name: z.string(),
                 cname_extension: z.string(),
-                site_extension: z.string(),
+                site_extension: z.string().optional(),
                 cname_alternate_extensions: z
                     .array(z.string())
                     .optional()
