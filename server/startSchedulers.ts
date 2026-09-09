@@ -6,6 +6,7 @@ import { initTelemetryClient } from "@server/lib/telemetry";
 import { initLogCleanupInterval } from "@server/lib/cleanupLogs";
 import { initAcmeCertSync } from "@server/lib/acmeCertSync";
 import { startRebuildQueueProcessor } from "@server/lib/rebuildClientAssociations";
+import { initBackchannelLogoutRetryInterval } from "./lib/oauth/backchannelLogout";
 
 export function startSchedulers() {
     // Start the ping accumulator for all builds - it batches per-site online/lastPing
@@ -22,4 +23,5 @@ export function startSchedulers() {
     initLogCleanupInterval();
     initAcmeCertSync();
     startRebuildQueueProcessor();
+    initBackchannelLogoutRetryInterval();
 }

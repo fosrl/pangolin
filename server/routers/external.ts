@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import config from "@server/lib/config";
 import * as site from "./site";
 import * as org from "./org";
@@ -22,6 +22,7 @@ import * as newt from "./newt";
 import * as olm from "./olm";
 import * as ssh from "./ssh";
 import * as serverInfo from "./serverInfo";
+import * as oauth from "./oauth";
 import HttpCode from "@server/types/HttpCode";
 import {
     verifyAccessTokenAccess,
@@ -52,7 +53,11 @@ import {
     verifyAiBudgetAccess,
     verifyVirtualApiKeyAccess,
     logActionAudit,
-    verifyCertificateAccess
+    verifyCertificateAccess,
+    verifyAdmin,
+    verifyOAuthClient,
+    verifyOAuthBearerTokenAccess,
+    verifyOAuthUserTokenAccess
 } from "@server/middlewares";
 import { ActionsEnum } from "@server/auth/actions";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -65,6 +70,10 @@ import * as aiProvider from "@server/routers/aiProvider";
 import * as aiBudget from "@server/routers/aiBudget";
 import * as virtualApiKey from "@server/routers/virtualApiKey";
 import * as certificates from "@server/routers/certificates";
+import {
+    OAUTH_TOKEN_RATE_LIMIT_MAX,
+    OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES
+} from "@server/lib/oauth/lifetimes";
 
 function rateLimitIdentityKey(value: unknown): string {
     return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -1175,6 +1184,7 @@ unauthenticated.get(
 // );
 
 unauthenticated.get("/user", verifySessionMiddleware, user.getUser);
+unauthenticated.patch("/user", verifySessionMiddleware, user.updateSelf);
 unauthenticated.post(
     "/user/locale",
     verifySessionMiddleware,
@@ -2323,4 +2333,141 @@ authenticated.post(
         store: createStore()
     }),
     auth.verifyDeviceWebAuth
+);
+
+// OpenID Connect (OIDC) routes
+//
+// There are multiple authentication types with OIDC routes:
+// 1. Backchannel routes (client secret) - used by OIDC clients (not users) to manage tokens (issue / refresh / revoke / introspect)
+// 2. UserInfo (Bearer token = user token) - can be used by apps directly - client does not need to provide it's secret
+// 3. User-facing routes (token / authenticated with Pangolin) - used by OIDC clients to initiate authorization and handle consent.
+//      3.1. Consent pages: authenticated with Pangolin
+//      3.2. Logout: authenticated with token that will be invalidated (even if not authenticated with Pangolin)
+// 4. Public routes (unauthenticated) - these are used by the OIDC client to get public keys and user info. They do not require authentication.
+//      4.1. JWKs: List of public keys
+//      4.2. Discovery: OIDC metadata and endpoints (see @server/routers/oauth/discovery.ts)
+//
+// Pangolin config:
+// 5. Admin routes (authenticated, isAdmin) - used by Pangolin admins to manage OIDC clients of organizations.
+// 6. User configuration routes (authenticated) - used by Pangolin users to manage their consents for OIDC clients.
+
+export const oauthRouter = Router();
+unauthenticated.use("/oauth", oauthRouter);
+oauthRouter.use(express.urlencoded());
+
+// OIDC: Rate limits
+//
+// The rate limits are split between user-facing and backchannel routes.
+// The user-facing routes are rate limited by the user token, the backchannel routes by the client id.
+// To address unauthenticated requests, the backchannel routes fall back to the IP address and are skipped after authentication.
+// The public routes are not rate limited.
+
+const oauthUserRateLimit = rateLimit({
+    windowMs: OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+    max: OAUTH_TOKEN_RATE_LIMIT_MAX,
+    message: `You can only make ${OAUTH_TOKEN_RATE_LIMIT_MAX} authorization requests every ${OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES} minutes. Please try again later.`,
+    keyGenerator: (req) => `oauthUser:${ipKeyGenerator(req.ip || "")}`
+});
+
+const oauthClientFallbackRateLimit = rateLimit({
+    windowMs: OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+    max: OAUTH_TOKEN_RATE_LIMIT_MAX,
+    message: `You can only make ${OAUTH_TOKEN_RATE_LIMIT_MAX} token requests every ${OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES} minutes. Please try again later.`,
+    keyGenerator: (req) => `oauthClient:${ipKeyGenerator(req.ip || "")}`,
+    skip: (req) => !!(req.oauthClient || req.oauthBearerToken)
+});
+
+const oauthClientRateLimit = rateLimit({
+    windowMs: OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+    max: OAUTH_TOKEN_RATE_LIMIT_MAX,
+    message: `You can only make ${OAUTH_TOKEN_RATE_LIMIT_MAX} token requests every ${OAUTH_TOKEN_RATE_LIMIT_WINDOW_MINUTES} minutes. Please try again later.`,
+    keyGenerator: (req) =>
+        `oauthClient:${(req.oauthClient ?? req.oauthBearerToken)?.clientId}`
+});
+
+// OIDC: Public endpoints - unauthenticated, no rate limit
+oauthRouter.get("/jwks", oauth.getJwks);
+
+// OIDC: Userinfo endpoint - verifyOAuthBearerTokenAccess
+export const oauthUserInfoRouter = Router();
+oauthRouter.use("/userinfo", oauthUserInfoRouter);
+oauthUserInfoRouter.use(oauthClientFallbackRateLimit);
+oauthUserInfoRouter.use(verifyOAuthBearerTokenAccess);
+oauthUserInfoRouter.use(oauthClientRateLimit);
+oauthUserInfoRouter
+    .route("")
+    .get(oauth.handleUserinfoRequest)
+    .post(oauth.handleUserinfoRequest);
+
+// OIDC: User facing - jsonwebtoken.verify() -> verifyOAuthUserTokenAccess
+export const oauthLogoutRouter = Router();
+oauthRouter.use("/logout", oauthLogoutRouter);
+oauthLogoutRouter.use(oauthUserRateLimit);
+oauthLogoutRouter.use(verifyOAuthUserTokenAccess);
+oauthLogoutRouter
+    .route("")
+    .get(oauth.handleEndSession)
+    .post(oauth.handleEndSession);
+
+// OIDC: User facing - authenticated endpoints
+export const oauthUserConsentRouter = Router();
+authenticated.use("/oauth/authorize", oauthUserConsentRouter);
+oauthUserConsentRouter.use(oauthUserRateLimit);
+oauthUserConsentRouter.post("/initiate", oauth.initiateAuthorization);
+oauthUserConsentRouter.post("/consent", oauth.handleAuthorizationConsent);
+
+// OIDC: Backchannel - client credentials are validated by the verifyOauthClientMiddleware running before each handler.
+export const oauthTokenRouter = Router();
+oauthRouter.use("/token", oauthTokenRouter);
+oauthTokenRouter.use(oauthClientFallbackRateLimit);
+oauthTokenRouter.use(verifyOAuthClient);
+oauthTokenRouter.use(oauthClientRateLimit);
+oauthTokenRouter.post("/issue", oauth.issueToken);
+oauthTokenRouter.post("/revoke", oauth.revokeToken);
+oauthTokenRouter.post("/introspect", oauth.introspectToken);
+
+// OIDC: Consent configuration routes (Pangolin user panel)
+export const oauthUserRouter = Router();
+authenticated.use("/user/oauth", oauthUserRouter);
+oauthUserRouter.get("/consents", oauth.listUserConsents);
+oauthUserRouter.delete("/consent/:consentId", oauth.deleteUserConsent);
+
+// OIDC: Administration routes (Pangolin organizations)
+export const oauthOrgRouter = Router({ mergeParams: true });
+authenticated.use("/org/:orgId/oauth-clients", oauthOrgRouter);
+oauthOrgRouter.use(verifyOrgAccess);
+oauthOrgRouter.use(verifyAdmin);
+oauthOrgRouter.post(
+    "",
+    verifyUserHasAction(ActionsEnum.createOAuthClient),
+    logActionAudit(ActionsEnum.createOAuthClient),
+    oauth.createOAuthClient
+);
+oauthOrgRouter.get(
+    "",
+    verifyUserHasAction(ActionsEnum.listOAuthClients),
+    oauth.listOAuthClients
+);
+oauthOrgRouter.get(
+    "/:clientId",
+    verifyUserHasAction(ActionsEnum.getOAuthClient),
+    oauth.getOAuthClient
+);
+oauthOrgRouter.patch(
+    "/:clientId",
+    verifyUserHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
+    oauth.updateOAuthClient
+);
+oauthOrgRouter.delete(
+    "/:clientId",
+    verifyUserHasAction(ActionsEnum.deleteOAuthClient),
+    logActionAudit(ActionsEnum.deleteOAuthClient),
+    oauth.deleteOAuthClient
+);
+oauthOrgRouter.post(
+    "/:clientId/rotate-secret",
+    verifyUserHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
+    oauth.rotateOAuthClientSecret
 );

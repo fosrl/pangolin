@@ -34,6 +34,11 @@ const nextConfig: NextConfig = {
                 source: "/:orgId/settings/resources/client/:path*",
                 destination: "/:orgId/settings/resources/private/:path*",
                 permanent: true
+            },
+            {
+                source: "/oauth/logout",
+                destination: "/api/v1/oauth/logout",
+                permanent: false
             }
         ];
     }

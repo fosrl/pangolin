@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 import { InferSelectModel, sql } from "drizzle-orm";
 import {
-    check,
     index,
     integer,
     primaryKey,
@@ -11,6 +10,7 @@ import {
     unique,
     uniqueIndex
 } from "drizzle-orm/sqlite-core";
+import type { ClientAuthenticationMethod } from "@server/lib/oauth/clientAuthMethods";
 
 export const domains = sqliteTable("domains", {
     domainId: text("domainId").primaryKey(),
@@ -1624,6 +1624,193 @@ export const virtualApiKeyResources = sqliteTable(
     (t) => [primaryKey({ columns: [t.virtualApiKeyId, t.resourceId] })]
 );
 
+export const oauthClients = sqliteTable(
+    "oauthClients",
+    {
+        clientId: text("clientId").primaryKey(),
+        clientSecret: text("clientSecret"), // Encrypted with server secret
+        lastChars: text("lastChars").notNull().default(""),
+        clientAuthenticationMethod: text("clientAuthenticationMethod")
+            .notNull()
+            .$type<ClientAuthenticationMethod>()
+            .default("client_secret_jwt"),
+        clientName: text("clientName").notNull(),
+        clientUri: text("clientUri"),
+        logoUri: text("logoUri"),
+        redirectUris: text("redirectUris", { mode: "json" })
+            .notNull()
+            .$type<string[]>(),
+        scopes: text("scopes").notNull().default("openid profile email"),
+        pkceRequired: integer("pkceRequired", { mode: "boolean" })
+            .notNull()
+            .default(true),
+        enabled: integer("enabled", { mode: "boolean" })
+            .notNull()
+            .default(true),
+        logoutTerminatesPangolinSession: integer(
+            "logoutTerminatesPangolinSession",
+            { mode: "boolean" }
+        )
+            .notNull()
+            .default(false),
+        orgId: text("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        backchannelLogoutUri: text("backchannelLogoutUri"),
+        postLogoutRedirectUris: text("postLogoutRedirectUris", {
+            mode: "json"
+        }).$type<string[] | null>(),
+        createdAt: integer("createdAt").notNull(),
+        updatedAt: integer("updatedAt").notNull()
+    },
+    (table) => [
+        index("idx_oauthClients_orgId").on(table.orgId),
+        index("idx_oauthClients_enabled").on(table.enabled)
+    ]
+);
+
+export const oauthInteractions = sqliteTable(
+    "oauthInteractions",
+    {
+        interactionId: text("interactionId").primaryKey(),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        state: text("state").notNull(),
+        nonce: text("nonce"),
+        redirectUri: text("redirectUri").notNull(),
+        codeChallenge: text("codeChallenge"),
+        codeChallengeMethod: text("codeChallengeMethod"),
+        responseType: text("responseType").notNull(),
+        expiresAt: integer("expiresAt").notNull(),
+        createdAt: integer("createdAt").notNull()
+    },
+    (table) => [
+        index("idx_oauthInteractions_expiresAt").on(table.expiresAt),
+        index("idx_oauthInteractions_clientId").on(table.clientId),
+        index("idx_oauthInteractions_userId").on(table.userId)
+    ]
+);
+
+export const oauthAuthorizationCodes = sqliteTable(
+    "oauthAuthorizationCodes",
+    {
+        codeId: text("codeId").primaryKey(),
+        codeHash: text("codeHash").notNull(),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        redirectUri: text("redirectUri").notNull(),
+        codeChallenge: text("codeChallenge"),
+        codeChallengeMethod: text("codeChallengeMethod"),
+        nonce: text("nonce"),
+        expiresAt: integer("expiresAt").notNull(),
+        createdAt: integer("createdAt").notNull()
+    },
+    (table) => [
+        uniqueIndex("uidx_oauthAuthorizationCodes_codeHash").on(table.codeHash),
+        index("idx_oauthAuthorizationCodes_expiresAt").on(table.expiresAt),
+        index("idx_oauthAuthorizationCodes_clientId").on(table.clientId),
+        index("idx_oauthAuthorizationCodes_userId").on(table.userId)
+    ]
+);
+
+export const oauthAccessTokens = sqliteTable(
+    "oauthAccessTokens",
+    {
+        accessTokenId: text("accessTokenId").primaryKey(),
+        grantId: text("grantId").notNull(),
+        tokenHash: text("tokenHash").notNull(),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        expiresAt: integer("expiresAt").notNull(),
+        createdAt: integer("createdAt").notNull()
+    },
+    (table) => [
+        uniqueIndex("uidx_oauthAccessTokens_tokenHash").on(table.tokenHash),
+        index("idx_oauthAccessTokens_expiresAt").on(table.expiresAt),
+        index("idx_oauthAccessTokens_grantId").on(table.grantId),
+        index("idx_oauthAccessTokens_clientId").on(table.clientId),
+        index("idx_oauthAccessTokens_userId").on(table.userId)
+    ]
+);
+
+export const oauthRefreshTokens = sqliteTable(
+    "oauthRefreshTokens",
+    {
+        refreshTokenId: text("refreshTokenId").primaryKey(),
+        grantId: text("grantId").notNull(),
+        tokenHash: text("tokenHash").notNull(),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        expiresAt: integer("expiresAt").notNull(),
+        revokedAt: integer("revokedAt"),
+        createdAt: integer("createdAt").notNull()
+    },
+    (table) => [
+        uniqueIndex("uidx_oauthRefreshTokens_tokenHash").on(table.tokenHash),
+        index("idx_oauthRefreshTokens_expiresAt").on(table.expiresAt),
+        index("idx_oauthRefreshTokens_grantId").on(table.grantId),
+        index("idx_oauthRefreshTokens_clientId").on(table.clientId),
+        index("idx_oauthRefreshTokens_userId").on(table.userId),
+        index("idx_oauthRefreshTokens_revokedAt").on(table.revokedAt)
+    ]
+);
+
+export const oauthConsents = sqliteTable(
+    "oauthConsents",
+    {
+        consentId: text("consentId").primaryKey(),
+        userId: text("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" }),
+        clientId: text("clientId")
+            .notNull()
+            .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+        scope: text("scope").notNull(),
+        createdAt: integer("createdAt").notNull(),
+        updatedAt: integer("updatedAt").notNull()
+    },
+    (table) => [
+        uniqueIndex("uidx_oauthConsents_userId_clientId").on(
+            table.userId,
+            table.clientId
+        ),
+        index("idx_oauthConsents_clientId").on(table.clientId)
+    ]
+);
+
+export const oauthSigningKeys = sqliteTable(
+    "oauthSigningKeys",
+    {
+        keyId: text("keyId").primaryKey(),
+        algorithm: text("algorithm").notNull(),
+        publicKeyPem: text("publicKeyPem").notNull(),
+        privateKeyPem: text("privateKeyPem").notNull(),
+        active: integer("active", { mode: "boolean" }).notNull().default(true),
+        createdAt: integer("createdAt").notNull()
+    },
+    (table) => [index("idx_oauthSigningKeys_active").on(table.active)]
+);
+
 export const idpOrg = sqliteTable("idpOrg", {
     idpId: integer("idpId")
         .notNull()
@@ -2073,6 +2260,15 @@ export type VirtualApiKey = InferSelectModel<typeof virtualApiKeys>;
 export type VirtualApiKeyResource = InferSelectModel<
     typeof virtualApiKeyResources
 >;
+export type OauthClient = InferSelectModel<typeof oauthClients>;
+export type OauthInteraction = InferSelectModel<typeof oauthInteractions>;
+export type OauthAuthorizationCode = InferSelectModel<
+    typeof oauthAuthorizationCodes
+>;
+export type OauthAccessToken = InferSelectModel<typeof oauthAccessTokens>;
+export type OauthRefreshToken = InferSelectModel<typeof oauthRefreshTokens>;
+export type OauthConsent = InferSelectModel<typeof oauthConsents>;
+export type OauthSigningKey = InferSelectModel<typeof oauthSigningKeys>;
 export type SiteResource = InferSelectModel<typeof siteResources>;
 export type Network = InferSelectModel<typeof networks>;
 export type OrgDomains = InferSelectModel<typeof orgDomains>;
