@@ -95,6 +95,69 @@ export const privateConfigSchema = z
                     .optional()
             })
             .optional(),
+        dns: z
+            .object({
+                listen_port: z.number(),
+                nameserver_name: z.string(),
+                cname_extension: z.string(),
+                site_extension: z.string(),
+                cname_alternate_extensions: z
+                    .array(z.string())
+                    .optional()
+                    .default([]),
+                alternate_nameservers: z
+                    .array(z.string())
+                    .optional()
+                    .default([]),
+                rate_limit: z
+                    .object({
+                        enabled: z.boolean().optional().default(true),
+                        window_ms: z
+                            .number()
+                            .int()
+                            .min(1000)
+                            .max(600000)
+                            .optional()
+                            .default(60000),
+                        max_requests: z
+                            .number()
+                            .int()
+                            .min(50)
+                            .max(100000)
+                            .optional()
+                            .default(1200),
+                        max_requests_per_query_type: z
+                            .number()
+                            .int()
+                            .min(10)
+                            .max(50000)
+                            .optional()
+                            .default(600)
+                    })
+                    .default({
+                        enabled: true,
+                        window_ms: 60000,
+                        max_requests: 1200,
+                        max_requests_per_query_type: 600
+                    }),
+                static_records: z
+                    .array(
+                        z.object({
+                            domain: z.string(),
+                            type: z.enum(["TXT", "CNAME", "A", "NS"]),
+                            value: z.string(),
+                            ttl: z
+                                .number()
+                                .int()
+                                .positive()
+                                .optional()
+                                .default(300)
+                        })
+                    )
+                    .optional()
+                    .default([])
+            })
+            .optional(),
         gerbil: z
             .object({
                 local_exit_node_reachable_at: z

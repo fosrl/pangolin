@@ -25,6 +25,7 @@ import { setHostMeta } from "@server/lib/hostMeta";
 import { TraefikConfigManager } from "@server/lib/traefik/TraefikConfigManager";
 import { initCleanup } from "#dynamic/cleanup";
 import { startSchedulers } from "#dynamic/startSchedulers";
+import { startDnsServer } from "#dynamic/dns";
 import license from "#dynamic/license/license";
 import { fetchServerIp } from "@server/lib/serverIpService";
 import { initAiModelCatalog } from "@server/lib/aiModelCatalog";
@@ -44,6 +45,8 @@ async function startServers() {
     await initAiModelCatalog();
 
     startSchedulers();
+
+    await startDnsServer();
 
     // Start all servers
     const apiServer = createApiServer();

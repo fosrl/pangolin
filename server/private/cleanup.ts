@@ -20,6 +20,7 @@ import { flushSiteBandwidthToDb } from "@server/routers/gerbil/receiveBandwidth"
 import { stopPingAccumulator } from "@server/routers/newt/pingAccumulator";
 import { shutdownUsageRecorder } from "@server/lib/aiBudgetEnforcement";
 import { shutdownAiSessionLogger } from "@server/routers/aiGateway/logAiSession";
+import { stopDnsServer } from "./dns";
 
 async function cleanup() {
     await stopPingAccumulator();
@@ -31,6 +32,7 @@ async function cleanup() {
     await rateLimitService.cleanup();
     await wsCleanup();
     await logStreamingManager.shutdown();
+    await stopDnsServer();
 
     process.exit(0);
 }

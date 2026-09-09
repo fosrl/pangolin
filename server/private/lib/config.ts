@@ -152,6 +152,10 @@ export class PrivateConfig {
         return this.rawPrivateConfig;
     }
 
+    public getRawConfig() {
+        return this.getRawPrivateConfig();
+    }
+
     // `flags.enable_acme_cert_sync`, `flags.disable_private_http_placeholder`,
     // and `acme` used to live in the private config file. They now live in
     // the public config file. If an operator still has them set in the
