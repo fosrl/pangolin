@@ -253,7 +253,7 @@ export const redirects = sqliteTable("redirects", {
     resourceId: integer("resourceId").references(() => resources.resourceId, {
         onDelete: "cascade"
     }),
-    domainId: integer("domainId").references(() => domains.domainId, {
+    domainId: text("domainId").references(() => domains.domainId, {
         onDelete: "cascade"
     }),
     niceId: text("niceId").notNull(),
@@ -2127,6 +2127,7 @@ export type ResourcePolicyHeaderAuth = InferSelectModel<
 >;
 export type RolePolicy = InferSelectModel<typeof rolePolicies>;
 export type UserPolicy = InferSelectModel<typeof userPolicies>;
+export type Redirect = InferSelectModel<typeof redirects>;
 export type AiProvider = InferSelectModel<typeof aiProviders>;
 export type AiModel = InferSelectModel<typeof aiModels>;
 export type AiBudget = InferSelectModel<typeof aiBudgets>;

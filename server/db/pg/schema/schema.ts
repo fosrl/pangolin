@@ -237,7 +237,7 @@ export const redirects = pgTable("redirects", {
     resourceId: integer("resourceId").references(() => resources.resourceId, {
         onDelete: "cascade"
     }),
-    domainId: integer("domainId").references(() => domains.domainId, {
+    domainId: varchar("domainId").references(() => domains.domainId, {
         onDelete: "cascade"
     }),
     niceId: text("niceId").notNull(),
@@ -2086,6 +2086,7 @@ export type ResourcePolicy = InferSelectModel<typeof resourcePolicies>;
 export type RolePolicy = InferSelectModel<typeof rolePolicies>;
 export type UserPolicy = InferSelectModel<typeof userPolicies>;
 export type ResourcePolicyRule = InferSelectModel<typeof resourcePolicyRules>;
+export type Redirect = InferSelectModel<typeof redirects>;
 export type AiProvider = InferSelectModel<typeof aiProviders>;
 export type AiModel = InferSelectModel<typeof aiModels>;
 export type AiBudget = InferSelectModel<typeof aiBudgets>;
