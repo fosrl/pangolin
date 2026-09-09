@@ -1,7 +1,5 @@
-/**
- * Build the Host()/HostRegexp() Traefik rule for a resource's domain.
- * Wildcard resources match any single subdomain via HostRegexp.
- */
+// Build the Host()/HostRegexp() Traefik rule for a resource's domain.
+// Wildcard resources match any single subdomain via HostRegexp.
 export function buildHostRule(
     fullDomain: string,
     wildcard?: boolean | null
@@ -14,10 +12,8 @@ export function buildHostRule(
     return `Host(\`${fullDomain}\`)`;
 }
 
-/**
- * Append a path-matching clause to a Traefik rule based on the resource's
- * configured path and pathMatchType.
- */
+// Append a path-matching clause to a Traefik rule based on the resource's
+// configured path and pathMatchType.
 export function appendPathMatch(
     rule: string,
     path: string | null | undefined,
@@ -40,10 +36,8 @@ export function appendPathMatch(
     return rule;
 }
 
-/**
- * Compute the router priority for a resource, favoring an explicit override
- * and otherwise deriving it from the path match specificity.
- */
+// Compute the router priority for a resource, favoring an explicit override
+// and otherwise deriving it from the path match specificity.
 export function computeRoutePriority(
     priority: number | null | undefined,
     path: string | null | undefined,

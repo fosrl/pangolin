@@ -17,6 +17,12 @@ import { privateConfig } from "#private/lib/config";
 let dnsServer: AuthoritativeDNSServer | undefined;
 
 export async function startDnsServer() {
+    const use_pangolin_dns =
+        privateConfig.getRawPrivateConfig().flags.use_pangolin_dns;
+    if (!use_pangolin_dns) {
+        return;
+    }
+
     const dnsConfig = privateConfig.getRawPrivateConfig().dns;
     if (!dnsConfig) {
         return;
@@ -29,10 +35,7 @@ export async function startDnsServer() {
     };
 
     // Create DNS server
-    dnsServer = new AuthoritativeDNSServer(
-        dnsConfig.listen_port,
-        cacheOptions
-    );
+    dnsServer = new AuthoritativeDNSServer(dnsConfig.listen_port, cacheOptions);
 
     await dnsServer.start();
 }
