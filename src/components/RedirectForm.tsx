@@ -41,7 +41,6 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { cn } from "@app/lib/cn";
-import { orgQueries } from "@app/lib/queries";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type {
@@ -49,7 +48,6 @@ import type {
     GetRedirectResponse
 } from "@server/routers/redirect";
 import type { AxiosResponse } from "axios";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -63,9 +61,10 @@ import {
     PathRewriteModal
 } from "@app/components/PathMatchRenameModal";
 import { Plus } from "lucide-react";
+import DomainPicker from "@app/components/DomainPicker";
 import Link from "next/link";
 
-const DEFAULT_MATCH_PATH = "*";
+const DEFAULT_MATCH_PATH = ".*";
 const DEFAULT_PATH_MATCH_TYPE = "regex" as const;
 
 export type ExistingRedirect = GetRedirectResponse["redirect"];
@@ -95,8 +94,6 @@ export default function RedirectForm({
     const [selectedResource, setSelectedResource] =
         useState<SelectedResource | null>(initialResource);
 
-    const { data: domains = [] } = useQuery(orgQueries.domains({ orgId }));
-
     const formSchema = useMemo(
         () =>
             z
@@ -107,6 +104,7 @@ export default function RedirectForm({
                         .min(1, { message: t("nameRequired") }),
                     attachTo: z.enum(["domain", "resource"]),
                     domainId: z.string().nullable(),
+                    subdomain: z.string().nullable(),
                     resourceId: z.number().int().positive().nullable(),
                     destinationDomain: z
                         .string()
@@ -163,6 +161,7 @@ export default function RedirectForm({
             name: redirect?.name ?? "",
             attachTo: redirect?.resourceId ? "resource" : "domain",
             domainId: redirect?.domainId ?? null,
+            subdomain: redirect?.subdomain ?? null,
             resourceId: redirect?.resourceId ?? null,
             destinationDomain: redirect?.destinationDomain ?? "",
             pathMatchType: redirect?.pathMatchType ?? DEFAULT_PATH_MATCH_TYPE,
@@ -190,6 +189,8 @@ export default function RedirectForm({
         const body = {
             name: values.name.trim(),
             domainId: values.attachTo === "domain" ? values.domainId : null,
+            subdomain:
+                values.attachTo === "domain" ? values.subdomain || null : null,
             resourceId:
                 values.attachTo === "resource" ? values.resourceId : null,
             destinationDomain: values.destinationDomain.trim(),
@@ -283,7 +284,7 @@ export default function RedirectForm({
             )}
 
             <SettingsContainer>
-                <SettingsSection>
+                <SettingsSection className="pb-10">
                     <SettingsSectionHeader>
                         <SettingsSectionTitle>
                             {t("general")}
@@ -301,6 +302,35 @@ export default function RedirectForm({
                                     id="redirect-form"
                                 >
                                     <SettingsFormGrid>
+                                        <SettingsFormCell span="full">
+                                            <FormField
+                                                control={form.control}
+                                                name="enabled"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormControl>
+                                                            <SwitchInput
+                                                                id="redirect-enabled"
+                                                                label={t(
+                                                                    "enabled"
+                                                                )}
+                                                                description={t(
+                                                                    "redirectEnabledDescription"
+                                                                )}
+                                                                checked={
+                                                                    field.value
+                                                                }
+                                                                onCheckedChange={
+                                                                    field.onChange
+                                                                }
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </SettingsFormCell>
+
                                         <SettingsFormCell span="full">
                                             <FormField
                                                 control={form.control}
@@ -368,56 +398,41 @@ export default function RedirectForm({
                                             />
                                         </SettingsFormCell>
                                         {attachTo === "domain" ? (
-                                            <SettingsFormCell span="half">
+                                            <SettingsFormCell span="full">
                                                 <FormField
                                                     control={form.control}
                                                     name="domainId"
-                                                    render={({ field }) => (
+                                                    render={() => (
                                                         <FormItem>
-                                                            <FormLabel>
-                                                                {t(
-                                                                    "selectedRedirectDomain"
-                                                                )}
-                                                            </FormLabel>
-                                                            <Select
-                                                                value={
-                                                                    field.value ??
-                                                                    undefined
+                                                            <DomainPicker
+                                                                orgId={orgId}
+                                                                cols={1}
+                                                                hideFreeDomain
+                                                                defaultDomainId={
+                                                                    redirect?.domainId
                                                                 }
-                                                                onValueChange={
-                                                                    field.onChange
+                                                                allowWildcard
+                                                                defaultSubdomain={
+                                                                    redirect?.subdomain
                                                                 }
-                                                            >
-                                                                <FormControl>
-                                                                    <SelectTrigger>
-                                                                        <SelectValue
-                                                                            placeholder={t(
-                                                                                "redirectDomainSelect"
-                                                                            )}
-                                                                        />
-                                                                    </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent>
-                                                                    {domains.map(
-                                                                        (
-                                                                            domain
-                                                                        ) => (
-                                                                            <SelectItem
-                                                                                key={
-                                                                                    domain.domainId
-                                                                                }
-                                                                                value={
-                                                                                    domain.domainId
-                                                                                }
-                                                                            >
-                                                                                {
-                                                                                    domain.baseDomain
-                                                                                }
-                                                                            </SelectItem>
-                                                                        )
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
+                                                                onDomainChange={(
+                                                                    res
+                                                                ) => {
+                                                                    form.setValue(
+                                                                        "domainId",
+                                                                        res?.domainId ??
+                                                                            null,
+                                                                        {
+                                                                            shouldValidate: true
+                                                                        }
+                                                                    );
+                                                                    form.setValue(
+                                                                        "subdomain",
+                                                                        res?.subdomain ||
+                                                                            null
+                                                                    );
+                                                                }}
+                                                            />
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
@@ -484,6 +499,33 @@ export default function RedirectForm({
                                                 />
                                             </SettingsFormCell>
                                         )}
+
+                                        {attachTo === "resource" && (
+                                            <SettingsFormCell span="full">
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t("resourceDomain")}
+                                                    </FormLabel>
+                                                    <Input
+                                                        disabled
+                                                        readOnly
+                                                        value={
+                                                            selectedResource?.fullDomain ??
+                                                            ""
+                                                        }
+                                                        placeholder={
+                                                            selectedResource
+                                                                ? t(
+                                                                      "redirectResourceNoDomain"
+                                                                  )
+                                                                : t(
+                                                                      "resourceSelect"
+                                                                  )
+                                                        }
+                                                    />
+                                                </FormItem>
+                                            </SettingsFormCell>
+                                        )}
                                     </SettingsFormGrid>
                                 </form>
                             </Form>
@@ -491,7 +533,7 @@ export default function RedirectForm({
                     </SettingsSectionBody>
                 </SettingsSection>
 
-                <SettingsSection>
+                <SettingsSection className="pb-10">
                     <SettingsSectionHeader>
                         <SettingsSectionTitle>
                             {t("redirectSettings")}
@@ -504,33 +546,9 @@ export default function RedirectForm({
                     <SettingsSectionBody>
                         <SettingsSectionForm variant="half">
                             <Form {...form}>
-                                <form
-                                    onSubmit={form.handleSubmit(onSubmit)}
-                                    id="redirect-form"
-                                >
+                                <form onSubmit={form.handleSubmit(onSubmit)}>
                                     <SettingsFormGrid>
                                         <SettingsFormCell span="full">
-                                            <FormField
-                                                control={form.control}
-                                                name="name"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>
-                                                            {t("name")}
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <Input
-                                                                autoComplete="off"
-                                                                {...field}
-                                                            />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </SettingsFormCell>
-
-                                        <SettingsFormCell span="half">
                                             <FormField
                                                 control={form.control}
                                                 name="destinationDomain"

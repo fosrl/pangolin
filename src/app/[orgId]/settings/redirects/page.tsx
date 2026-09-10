@@ -55,6 +55,7 @@ export default async function RedirectIndexPage(props: RedirectIndexPageProps) {
                     redirectId: redirect.redirectId,
                     niceId: redirect.niceId,
                     name: redirect.name,
+                    subdomain: redirect.subdomain,
                     destinationDomain: redirect.destinationDomain,
                     pathMatchType: redirect.pathMatchType,
                     matchPath: redirect.matchPath,

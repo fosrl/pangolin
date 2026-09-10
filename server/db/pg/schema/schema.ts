@@ -248,7 +248,7 @@ export const redirects = pgTable("redirects", {
         .$type<"exact" | "prefix" | "regex">()
         .notNull()
         .default("regex"), // exact, prefix, regex
-    matchPath: varchar("matchPath").notNull().default("*"),
+    matchPath: varchar("matchPath").notNull().default(".*"),
     rewritePath: varchar("rewritePath"), // if set, rewrites the path to this value,
     //  else, the original path will be kept
     rewritePathType: varchar("rewritePathType").$type<

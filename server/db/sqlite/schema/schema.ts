@@ -258,6 +258,7 @@ export const redirects = sqliteTable("redirects", {
     }),
     niceId: text("niceId").notNull(),
     name: text("name").notNull(),
+    subdomain: text("subdomain"),
     destinationDomain: text("destinationDomain").notNull(),
     pathMatchType: text("pathMatchType")
         .$type<"exact" | "prefix" | "regex">()

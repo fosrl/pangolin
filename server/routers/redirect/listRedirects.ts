@@ -16,6 +16,7 @@ export type ListRedirectsResponse = PaginatedResponse<{
         orgId: string;
         niceId: string;
         name: string;
+        subdomain: string | null;
         destinationDomain: string;
         pathMatchType: "exact" | "prefix" | "regex";
         matchPath: string;
@@ -137,6 +138,7 @@ export async function listRedirects(
                 orgId: redirects.orgId,
                 niceId: redirects.niceId,
                 name: redirects.name,
+                subdomain: redirects.subdomain,
                 destinationDomain: redirects.destinationDomain,
                 pathMatchType: redirects.pathMatchType,
                 matchPath: redirects.matchPath,

@@ -31,6 +31,7 @@ const bodySchema = z.strictObject({
     niceId: redirectNiceIdSchema.optional(),
     resourceId: z.number().int().positive().optional().nullable(),
     domainId: z.string().nonempty().optional().nullable(),
+    subdomain: z.string().nonempty().optional().nullable(),
     destinationDomain: z.string().nonempty().optional(),
     pathMatchType: redirectPathMatchTypeSchema.optional(),
     matchPath: redirectMatchPathSchema.optional(),
@@ -195,6 +196,9 @@ export async function updateRedirect(
         }
         if (body.domainId !== undefined) {
             updateData.domainId = body.domainId;
+        }
+        if (body.subdomain !== undefined) {
+            updateData.subdomain = body.subdomain;
         }
         if (body.destinationDomain !== undefined) {
             updateData.destinationDomain = body.destinationDomain;

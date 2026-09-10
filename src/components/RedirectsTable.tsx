@@ -30,6 +30,7 @@ export type RedirectRow = {
     redirectId: number;
     niceId: string;
     name: string;
+    subdomain: string | null;
     destinationDomain: string;
     pathMatchType: "exact" | "prefix" | "regex";
     matchPath: string;
@@ -200,8 +201,14 @@ export default function RedirectsTable({
                 ),
                 cell: ({ row }) => {
                     const redirect = row.original;
-                    const host =
-                        redirect.resourceFullDomain ?? redirect.baseDomain;
+                    // A domain-attached redirect may target a specific host
+                    // under the base domain, e.g. old.example.com.
+                    const domainHost = redirect.baseDomain
+                        ? [redirect.subdomain, redirect.baseDomain]
+                              .filter(Boolean)
+                              .join(".")
+                        : null;
+                    const host = redirect.resourceFullDomain ?? domainHost;
 
                     return (
                         <div className="flex items-center gap-2">
@@ -237,7 +244,13 @@ export default function RedirectsTable({
                     }
 
                     if (redirect.baseDomain) {
-                        return <span>{redirect.baseDomain}</span>;
+                        return (
+                            <span>
+                                {[redirect.subdomain, redirect.baseDomain]
+                                    .filter(Boolean)
+                                    .join(".")}
+                            </span>
+                        );
                     }
 
                     return <span>-</span>;
