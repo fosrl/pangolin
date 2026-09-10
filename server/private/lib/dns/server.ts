@@ -33,6 +33,7 @@ import * as dnsResolver from "dns";
 import logger from "@server/logger";
 import { listExitNodes } from "../exitNodes";
 import { rateLimitService } from "../rateLimit";
+import license from "#private/license/license";
 
 type DNSRecord = {
     id: number;
@@ -56,6 +57,13 @@ export class AuthoritativeDNSServer {
     // never hits the database once the set is warm.
     private allDomains: Set<string> = new Set();
     private domainRefreshInterval: NodeJS.Timeout | null = null;
+
+    // Cached license/subscription status. license.isUnlocked() does a DB
+    // round-trip on every call, so it can't be checked per-query on a UDP
+    // server that may see very high query volume - instead it's polled on
+    // the same cadence as the domain set refresh and read from memory here.
+    private isLicensed: boolean = false;
+    private licenseRefreshInterval: NodeJS.Timeout | null = null;
 
     // Cache for per-queryName zone resolution and SOA records
     private authoritativeDomainCache: NodeCache = new NodeCache({
@@ -118,6 +126,15 @@ export class AuthoritativeDNSServer {
         }
 
         if (!packet.questions || packet.questions.length === 0) {
+            return;
+        }
+
+        if (!this.isLicensed) {
+            logger.debug(
+                "Refusing DNS query - license is not subscribed"
+            );
+            // REFUSED (rcode=5) indicates a policy refusal by this nameserver.
+            this.sendResponse(packet, [], rinfo, false, 5, []);
             return;
         }
 
@@ -1027,12 +1044,26 @@ export class AuthoritativeDNSServer {
         }
     }
 
+    private async refreshLicenseStatus(): Promise<void> {
+        try {
+            this.isLicensed = await license.isUnlocked();
+        } catch (error) {
+            logger.error("Failed to refresh license status:", error);
+            this.isLicensed = false;
+        }
+    }
+
     public async start(): Promise<void> {
         await this.loadAllDomains();
         this.domainRefreshInterval = setInterval(() => {
             this.loadAllDomains().catch((err) =>
                 logger.error("Domain refresh failed:", err)
             );
+        }, 60_000);
+
+        await this.refreshLicenseStatus();
+        this.licenseRefreshInterval = setInterval(() => {
+            this.refreshLicenseStatus();
         }, 60_000);
 
         return new Promise((resolve, reject) => {
@@ -1049,6 +1080,9 @@ export class AuthoritativeDNSServer {
     public async stop(): Promise<void> {
         if (this.domainRefreshInterval) {
             clearInterval(this.domainRefreshInterval);
+        }
+        if (this.licenseRefreshInterval) {
+            clearInterval(this.licenseRefreshInterval);
         }
         return new Promise((resolve) => {
             this.server.close(() => {

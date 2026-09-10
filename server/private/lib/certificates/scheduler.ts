@@ -17,6 +17,7 @@ import { certificateService } from "./certificate-service";
 import { privateConfig as config } from "#private/lib/config";
 import { dnsValidator } from "./dns-validator";
 import { domainReverifier } from "./domain-reverifier";
+import license from "#private/license/license";
 
 // Backstop for runExclusive: no single job's own internal timeouts (e.g.
 // certificate-service's per-cert issuance timeout) are relied on here. This
@@ -44,6 +45,12 @@ export class JobScheduler {
         label: string
     ): () => Promise<void> {
         return async () => {
+            if (!(await license.isUnlocked())) {
+                logger.debug(
+                    `Skipping ${label} tick - license is not subscribed`
+                );
+                return;
+            }
             if (state.active) {
                 logger.debug(
                     `Skipping ${label} tick - previous run still in progress`
