@@ -2095,6 +2095,7 @@
     "resourceBudgetSettings": "Budget",
     "resourceBudgetSettingsDescription": "Configure how this AI gateway restricts usage based on spending or token limits",
     "sidebarApiKeys": "API Keys",
+    "sidebarRedirects": "Redirects",
     "sidebarProvisioning": "Provisioning",
     "sidebarSettings": "Settings",
     "sidebarAllUsers": "All Users",

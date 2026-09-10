@@ -25,6 +25,7 @@ import {
     MonitorUp,
     Plug,
     ReceiptText,
+    Repeat,
     ScanEye,
     Server,
     Settings,
@@ -322,6 +323,11 @@ export const orgNavSections = (
                         title: "sidebarApiKeys",
                         href: "/{orgId}/settings/api-keys",
                         icon: <KeyRound className="size-4 flex-none" />
+                    },
+                    {
+                        title: "sidebarRedirects",
+                        href: "/{orgId}/settings/redirects",
+                        icon: <Repeat className="size-4 flex-none" />
                     },
                     ...(!env?.flags.disableEnterpriseFeatures
                         ? [
