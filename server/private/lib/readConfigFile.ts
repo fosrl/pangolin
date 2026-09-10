@@ -229,7 +229,7 @@ export const privateConfigSchema = z
                     .number()
                     .int()
                     .positive()
-                    .default(60000),
+                    .default(5000),
                 // Kept safely under Let's Encrypt's ~20 req/s limit since this
                 // budget is shared across all pops workers and only covers the
                 // request-issuing calls we make directly (not every request

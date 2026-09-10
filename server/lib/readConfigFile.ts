@@ -493,23 +493,6 @@ export const configSchema = z
                     .prefault({})
             })
             .optional()
-            .prefault({}),
-        dns: z
-            .object({
-                nameservers: z
-                    .array(z.string().optional().optional())
-                    .optional()
-                    .default([
-                        "ns1.pangolin.net",
-                        "ns2.pangolin.net",
-                        "ns3.pangolin.net"
-                    ]),
-                cname_extension: z
-                    .string()
-                    .optional()
-                    .default("cname.pangolin.net")
-            })
-            .optional()
             .prefault({})
     })
     .refine(

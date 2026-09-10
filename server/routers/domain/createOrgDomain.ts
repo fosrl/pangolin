@@ -21,6 +21,7 @@ import { LimitId } from "@server/lib/billing";
 import { isSecondLevelDomain, isValidDomain } from "@server/lib/validators";
 import { build } from "@server/build";
 import config from "@server/lib/config";
+import { createNs, createCname } from "#dynamic/lib/dns/generateDomains";
 
 const paramsSchema = z.strictObject({
     orgId: z.string()
@@ -283,8 +284,7 @@ export async function createOrgDomain(
 
             // TODO: This needs to be cross region and not hardcoded
             if (type === "ns") {
-                nsRecords = config.getRawConfig().dns.nameservers as string[];
-
+                nsRecords = createNs();
                 // Save NS records to database
                 for (const nsValue of nsRecords) {
                     recordsToInsert.push({
@@ -296,19 +296,7 @@ export async function createOrgDomain(
                     });
                 }
             } else if (type === "cname") {
-                cnameRecords = [
-                    {
-                        value: `${domainId}.${config.getRawConfig().dns.cname_extension}`,
-                        baseDomain: baseDomain
-                    }
-                ];
-
-                if (build == "saas") {
-                    cnameRecords.push({
-                        value: `_acme-challenge.${domainId}.${config.getRawConfig().dns.cname_extension}`,
-                        baseDomain: `_acme-challenge.${baseDomain}`
-                    });
-                }
+                cnameRecords = createCname(domainId, baseDomain);
 
                 // Save CNAME records to database
                 for (const cnameRecord of cnameRecords) {
