@@ -6,7 +6,10 @@ import * as yaml from "js-yaml";
 import axios from "axios";
 import { db, exitNodes } from "@server/db";
 import { eq } from "drizzle-orm";
-import { getCurrentExitNodeId } from "@server/lib/exitNodes";
+import {
+    getCurrentExitNodeId,
+    hasExitNodeCheckedIn
+} from "@server/lib/exitNodes";
 import { getTraefikConfig } from "#dynamic/lib/traefik";
 import { getValidCertificatesForDomains } from "@server/lib/certificates";
 import { sendToExitNode } from "#dynamic/lib/exitNodes";
@@ -466,32 +469,46 @@ export class TraefikConfigManager {
             await this.writeTraefikDynamicConfig(traefikConfig);
 
             // Send domains to SNI proxy
+            let exitNodeForSni: (typeof exitNodes.$inferSelect) | undefined;
             try {
-                let exitNode;
                 if (config.getRawConfig().gerbil.exit_node_name) {
                     const exitNodeName =
                         config.getRawConfig().gerbil.exit_node_name!;
-                    [exitNode] = await db
+                    [exitNodeForSni] = await db
                         .select()
                         .from(exitNodes)
                         .where(eq(exitNodes.name, exitNodeName))
                         .limit(1);
                 } else {
-                    [exitNode] = await db.select().from(exitNodes).limit(1);
+                    [exitNodeForSni] = await db
+                        .select()
+                        .from(exitNodes)
+                        .limit(1);
                 }
-                if (exitNode) {
-                    await sendToExitNode(exitNode, {
+                if (exitNodeForSni) {
+                    await sendToExitNode(exitNodeForSni, {
                         localPath: "/update-local-snis",
                         method: "POST",
                         data: { fullDomains: Array.from(domains) }
                     });
                 } else {
-                    logger.error(
+                    logger.warn(
                         "No exit node found. Has gerbil registered yet?"
                     );
                 }
             } catch (err) {
-                logger.error("Failed to post domains to SNI proxy:", err);
+                // sendToExitNode already logs the underlying connection
+                // error at the appropriate level (warn before the exit node
+                // has checked in since startup, error after), so avoid
+                // double-logging it as an error here.
+                if (
+                    exitNodeForSni &&
+                    !hasExitNodeCheckedIn(exitNodeForSni.exitNodeId)
+                ) {
+                    logger.warn("Failed to post domains to SNI proxy:", err);
+                } else {
+                    logger.error("Failed to post domains to SNI proxy:", err);
+                }
             }
 
             // Update active domains tracking
