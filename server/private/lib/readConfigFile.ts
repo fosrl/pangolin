@@ -215,7 +215,7 @@ export const privateConfigSchema = z
                     .string()
                     .url()
                     .default("https://acme-v02.api.letsencrypt.org/directory"),
-                contact_email: z.string().email(),
+                contact_email: z.string().email().optional(),
                 acme_account_key_path: z
                     .string()
                     .default("./config/account.key"),
