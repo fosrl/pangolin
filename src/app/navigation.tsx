@@ -6,6 +6,7 @@ import {
     Bot,
     Boxes,
     Building2,
+    Building2Icon,
     Cable,
     ChartLine,
     Coins,
@@ -381,6 +382,11 @@ export const adminNavSections = (env?: Env): SidebarNavSection[] => [
                 href: "/admin/api-keys",
                 icon: <KeyRound className="size-4 flex-none" />
             },
+            {
+                title: "sidebarOrgs",
+                href: "/admin/organizations",
+                icon: <Building2Icon className="size-4 flex-none" />
+            },
             ...(build === "oss" ||
             env?.app.identityProviderMode === "global" ||
             env?.app.identityProviderMode === undefined
@@ -392,7 +398,7 @@ export const adminNavSections = (env?: Env): SidebarNavSection[] => [
                       }
                   ]
                 : []),
-            ...(build == "enterprise"
+            ...(build === "enterprise"
                 ? [
                       {
                           title: "sidebarLicense",

@@ -9,3 +9,5 @@ export * from "./listOrgs";
 export * from "./pickOrgDefaults";
 export * from "./checkOrgUserAccess";
 export * from "./resetOrgBandwidth";
+export * from "./adminListOrgs";
+export * from "./adminDeleteOrg";

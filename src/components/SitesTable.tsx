@@ -52,7 +52,6 @@ import {
 } from "./ui/controlled-data-table";
 
 import { useOptimisticLabels } from "@app/hooks/useOptimisticLabels";
-import { durationToMs } from "@app/lib/durationToMs";
 import { orgQueries, productUpdatesQueries } from "@app/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import semver from "semver";
