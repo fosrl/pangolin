@@ -1,19 +1,18 @@
 "use client";
 
 import {
-    DropdownMenu,
-    DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuTrigger
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger
 } from "@app/components/ui/dropdown-menu";
-import { Button } from "@app/components/ui/button";
-import { Check, Globe, Languages } from "lucide-react";
-import clsx from "clsx";
+import { Check, Languages } from "lucide-react";
 import { useTransition } from "react";
 import { Locale } from "@/i18n/config";
 import { setUserLocale } from "@/services/locale";
 import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
+import { cn } from "@app/lib/cn";
 
 type Props = {
     defaultValue: string;
@@ -43,23 +42,18 @@ export default function LocaleSwitcherSelect({
     const selected = items.find((item) => item.value === defaultValue);
 
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    variant="ghost"
-                    className={clsx(
-                        "w-full rounded-sm h-8 gap-2 justify-start font-normal",
-                        isPending && "pointer-events-none"
-                    )}
-                    aria-label={label}
-                >
-                    <Languages className="text-muted-foreground h-4 w-4" />
-                    <span className="text-left flex-1">
-                        {selected?.label ?? label}
-                    </span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[8rem]">
+        <DropdownMenuSub>
+            <DropdownMenuSubTrigger
+                className={cn(
+                    "[&_svg:not([class*='text-'])]:text-muted-foreground",
+                    isPending && "pointer-events-none"
+                )}
+                aria-label={label}
+            >
+                <Languages className="mr-2 h-4 w-4" />
+                <span>{selected?.label ?? label}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="min-w-[8rem]">
                 {items.map((item) => (
                     <DropdownMenuItem
                         key={item.value}
@@ -72,7 +66,7 @@ export default function LocaleSwitcherSelect({
                         <span>{item.label}</span>
                     </DropdownMenuItem>
                 ))}
-            </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuSubContent>
+        </DropdownMenuSub>
     );
 }

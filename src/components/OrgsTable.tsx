@@ -104,6 +104,11 @@ export default function OrgsTable({
                 header: () => sortableHeader("name", t("name"))
             },
             {
+                accessorKey: "orgId",
+                friendlyName: t("orgId"),
+                header: () => <span className="p-3">{t("orgId")}</span>
+            },
+            {
                 accessorKey: "createdAt",
                 friendlyName: t("createdAt"),
                 header: () => sortableHeader("createdAt", t("createdAt")),
@@ -142,11 +147,6 @@ export default function OrgsTable({
                 }
             },
             {
-                accessorKey: "orgId",
-                friendlyName: t("orgId"),
-                header: () => <span className="p-3">{t("orgId")}</span>
-            },
-            {
                 accessorKey: "subnet",
                 friendlyName: t("subnet"),
                 header: () => <span className="p-3">{t("subnet")}</span>,
@@ -164,31 +164,19 @@ export default function OrgsTable({
                 accessorKey: "userCount",
                 friendlyName: t("users"),
                 header: () => <span className="p-3">{t("users")}</span>,
-                cell: ({ row }) => (
-                    <span className="tabular-nums">
-                        {row.original.userCount}
-                    </span>
-                )
+                cell: ({ row }) => <span>{row.original.userCount}</span>
             },
             {
                 accessorKey: "siteCount",
                 friendlyName: t("sites"),
                 header: () => <span className="p-3">{t("sites")}</span>,
-                cell: ({ row }) => (
-                    <span className="tabular-nums">
-                        {row.original.siteCount}
-                    </span>
-                )
+                cell: ({ row }) => <span>{row.original.siteCount}</span>
             },
             {
                 accessorKey: "resourceCount",
                 friendlyName: t("resources"),
                 header: () => <span className="p-3">{t("resources")}</span>,
-                cell: ({ row }) => (
-                    <span className="tabular-nums">
-                        {row.original.resourceCount}
-                    </span>
-                )
+                cell: ({ row }) => <span>{row.original.resourceCount}</span>
             },
 
             {
@@ -205,7 +193,6 @@ export default function OrgsTable({
                                     setIsDeleteModalOpen(true);
                                 }}
                                 variant="outline"
-                                className="text-red-400 focus:text-destructive "
                             >
                                 {t("delete")}
                             </Button>
@@ -288,8 +275,7 @@ export default function OrgsTable({
                 rowCount={rowCount}
                 columnVisibility={{
                     subnet: false,
-                    utilitySubnet: false,
-                    orgId: false
+                    utilitySubnet: false
                 }}
                 enableColumnVisibility
                 stickyLeftColumn="name"

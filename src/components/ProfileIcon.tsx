@@ -9,13 +9,16 @@ import {
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { formatAxiosError } from "@app/lib/api";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
-import { Laptop, LogOut, Moon, Sun, Smartphone, Trash2 } from "lucide-react";
+import { Check, Laptop, Moon, Sun, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -149,42 +152,49 @@ export default function ProfileIcon() {
                             >
                                 <span>{t("changePassword")}</span>
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                         </>
                     )}
                     <DropdownMenuItem onClick={() => setOpenViewDevices(true)}>
-                        <Smartphone className="mr-2 h-4 w-4" />
                         <span>{t("viewDevices") || "View Devices"}</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>{t("theme")}</DropdownMenuLabel>
-                    {(["light", "dark", "system"] as const).map(
-                        (themeOption) => (
-                            <DropdownMenuItem
-                                key={themeOption}
-                                onClick={() => handleThemeChange(themeOption)}
-                            >
-                                {themeOption === "light" && (
-                                    <Sun className="mr-2 h-4 w-4" />
-                                )}
-                                {themeOption === "dark" && (
-                                    <Moon className="mr-2 h-4 w-4" />
-                                )}
-                                {themeOption === "system" && (
-                                    <Laptop className="mr-2 h-4 w-4" />
-                                )}
-                                <span className="capitalize">
-                                    {t(themeOption)}
-                                </span>
-                                {userTheme === themeOption && (
-                                    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
-                                        <span className="h-2 w-2 rounded-full bg-primary"></span>
-                                    </span>
-                                )}
-                            </DropdownMenuItem>
-                        )
-                    )}
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="[&_svg:not([class*='text-'])]:text-muted-foreground">
+                            {userTheme === "light" && (
+                                <Sun className="mr-2 h-4 w-4" />
+                            )}
+                            {userTheme === "dark" && (
+                                <Moon className="mr-2 h-4 w-4" />
+                            )}
+                            {userTheme === "system" && (
+                                <Laptop className="mr-2 h-4 w-4" />
+                            )}
+                            <span className="capitalize">{t(userTheme)}</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="min-w-[8rem]">
+                            {(["light", "dark", "system"] as const).map(
+                                (themeOption) => (
+                                    <DropdownMenuItem
+                                        key={themeOption}
+                                        onClick={() =>
+                                            handleThemeChange(themeOption)
+                                        }
+                                        className="flex items-center gap-2"
+                                    >
+                                        {userTheme === themeOption && (
+                                            <Check className="h-4 w-4" />
+                                        )}
+                                        <span className="capitalize">
+                                            {t(themeOption)}
+                                        </span>
+                                    </DropdownMenuItem>
+                                )
+                            )}
+                        </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                     <DropdownMenuSeparator />
+                    <DropdownMenuLabel>{t("language")}</DropdownMenuLabel>
                     <LocaleSwitcher />
                     <DropdownMenuSeparator />
                     {user?.type === UserType.Internal && !user?.serverAdmin && (

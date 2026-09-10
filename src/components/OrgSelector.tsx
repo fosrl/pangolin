@@ -27,15 +27,7 @@ export function OrgSelector({
     const selectedOrg = orgs?.find((org) => org.orgId === orgId);
 
     const picker = (
-        <OrgPicker
-            orgId={orgId}
-            orgs={orgs}
-            contentClassName={
-                isCollapsed
-                    ? "w-[320px]"
-                    : "w-[var(--radix-popover-trigger-width)]"
-            }
-        >
+        <OrgPicker orgId={orgId} orgs={orgs} contentClassName="w-[320px]">
             <div
                 role="combobox"
                 className={cn(
