@@ -11,17 +11,11 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import NodeCache from "node-cache";
 import logger from "@server/logger";
+import { createLocalCache } from "@server/lib/createLocalCache";
 import { redisManager, regionalRedisManager } from "@server/private/lib/redis";
 
-// Create local cache with maxKeys limit to prevent memory leaks
-// With ~10k requests/day and 5min TTL, 10k keys should be more than sufficient
-export const localCache = new NodeCache({
-    stdTTL: 3600,
-    checkperiod: 120,
-    maxKeys: 10000
-});
+export const localCache = createLocalCache();
 
 // Log cache statistics periodically for monitoring
 // setInterval(() => {
@@ -301,15 +295,11 @@ export default cache;
 
 /**
  * Regional adaptive cache backed by the in-cluster Redis instance.
- * Falls back to a local NodeCache when the regional Redis is unavailable.
+ * Falls back to a local LRU cache when the regional Redis is unavailable.
  * Use this for data that is regional in nature (e.g. status history) so
  * reads are served from the same cluster the user is hitting.
  */
-const regionalLocalCache = new NodeCache({
-    stdTTL: 3600,
-    checkperiod: 120,
-    maxKeys: 10000
-});
+const regionalLocalCache = createLocalCache();
 
 class RegionalAdaptiveCache {
     private useRedis(): boolean {

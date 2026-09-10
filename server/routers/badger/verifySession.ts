@@ -691,7 +691,9 @@ export async function verifyResourceSession(
                 );
 
                 resourceSession = result?.resourceSession;
-                localCache.set(sessionCacheKey, resourceSession, 5);
+                if (resourceSession) {
+                    localCache.set(sessionCacheKey, resourceSession, 5);
+                }
             }
 
             if (resourceSession?.isRequestToken) {
@@ -1121,7 +1123,9 @@ async function allowAccessToken(
                 resource.resourceId
             );
             resourceSession = result?.resourceSession;
-            localCache.set(sessionCacheKey, resourceSession, 5);
+            if (resourceSession) {
+                localCache.set(sessionCacheKey, resourceSession, 5);
+            }
         }
 
         if (

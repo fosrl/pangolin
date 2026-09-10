@@ -14,7 +14,7 @@
 import { db, HostMeta, sites, users } from "@server/db";
 import { hostMeta, licenseKey } from "@server/db";
 import logger from "@server/logger";
-import NodeCache from "node-cache";
+import { createLocalCache } from "@server/lib/createLocalCache";
 import { validateJWT } from "./licenseJwt";
 import { count, eq } from "drizzle-orm";
 import moment from "moment";
@@ -65,8 +65,8 @@ export class License {
     private validationServerUrl = `${this.serverBaseUrl}/api/v1/license/enterprise/validate`;
     private activationServerUrl = `${this.serverBaseUrl}/api/v1/license/enterprise/activate`;
 
-    private statusCache = new NodeCache();
-    private licenseKeyCache = new NodeCache();
+    private statusCache = createLocalCache();
+    private licenseKeyCache = createLocalCache();
 
     private statusKey = "status";
     private serverSecret!: string;
@@ -179,7 +179,7 @@ LQIDAQAB
                 status.isHostLicensed = false;
                 // Invalidate all and set new cache (empty)
                 this.licenseKeyCache.flushAll();
-                this.statusCache.set(this.statusKey, status);
+                this.statusCache.set(this.statusKey, status, 0);
                 return status;
             }
 
@@ -389,7 +389,7 @@ LQIDAQAB
             // Invalidate old cache and set new cache
             this.licenseKeyCache.flushAll();
             for (const [key, value] of newCache.entries()) {
-                this.licenseKeyCache.set<LicenseKeyCache>(key, value);
+                this.licenseKeyCache.set(key, value, 0);
             }
         } catch (error) {
             logger.error("Error checking license status:");
@@ -398,7 +398,7 @@ LQIDAQAB
             this.checkInProgress = false;
         }
 
-        this.statusCache.set(this.statusKey, status);
+        this.statusCache.set(this.statusKey, status, 0);
         return status;
     }
 
