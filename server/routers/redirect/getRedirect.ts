@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { redirects, db } from "@server/db";
-import type { Redirect } from "@server/db";
+import { domains, redirects, resources, db } from "@server/db";
 import response from "@server/lib/response";
 import stoi from "@server/lib/stoi";
 import HttpCode from "@server/types/HttpCode";
@@ -12,7 +11,49 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq } from "drizzle-orm";
 
 export type GetRedirectResponse = {
-    redirect: Redirect;
+    redirect: {
+        redirectId: number;
+        orgId: string;
+        niceId: string;
+        name: string;
+        destinationDomain: string;
+        pathMatchType: "exact" | "prefix" | "regex";
+        matchPath: string;
+        rewritePath: string | null;
+        rewritePathType: "exact" | "prefix" | "regex" | "stripPrefix" | null;
+        permanent: boolean;
+        enabled: boolean;
+        resourceId: number | null;
+        resourceName: string | null;
+        resourceNiceId: string | null;
+        resourceFullDomain: string | null;
+        resourceSsl: boolean | null;
+        resourceWildcard: boolean | null;
+        domainId: string | null;
+        baseDomain: string | null;
+    };
+};
+
+const redirectColumns = {
+    redirectId: redirects.redirectId,
+    orgId: redirects.orgId,
+    niceId: redirects.niceId,
+    name: redirects.name,
+    destinationDomain: redirects.destinationDomain,
+    pathMatchType: redirects.pathMatchType,
+    matchPath: redirects.matchPath,
+    rewritePath: redirects.rewritePath,
+    rewritePathType: redirects.rewritePathType,
+    permanent: redirects.permanent,
+    enabled: redirects.enabled,
+    resourceId: redirects.resourceId,
+    resourceName: resources.name,
+    resourceNiceId: resources.niceId,
+    resourceFullDomain: resources.fullDomain,
+    resourceSsl: resources.ssl,
+    resourceWildcard: resources.wildcard,
+    domainId: redirects.domainId,
+    baseDomain: domains.baseDomain
 };
 
 const paramsSchema = z.strictObject({
@@ -29,8 +70,10 @@ const paramsSchema = z.strictObject({
 async function query(orgId: string, redirectId?: number, niceId?: string) {
     if (redirectId) {
         const [res] = await db
-            .select()
+            .select(redirectColumns)
             .from(redirects)
+            .leftJoin(resources, eq(resources.resourceId, redirects.resourceId))
+            .leftJoin(domains, eq(domains.domainId, redirects.domainId))
             .where(
                 and(
                     eq(redirects.redirectId, redirectId),
@@ -41,8 +84,10 @@ async function query(orgId: string, redirectId?: number, niceId?: string) {
         return res;
     } else if (niceId) {
         const [res] = await db
-            .select()
+            .select(redirectColumns)
             .from(redirects)
+            .leftJoin(resources, eq(resources.resourceId, redirects.resourceId))
+            .leftJoin(domains, eq(domains.domainId, redirects.domainId))
             .where(
                 and(eq(redirects.niceId, niceId), eq(redirects.orgId, orgId))
             )

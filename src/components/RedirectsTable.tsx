@@ -30,8 +30,11 @@ export type RedirectRow = {
     redirectId: number;
     niceId: string;
     name: string;
-    sourcePath: string;
-    destinationUrl: string | null;
+    destinationDomain: string;
+    pathMatchType: "exact" | "prefix" | "regex";
+    matchPath: string;
+    rewritePath: string | null;
+    rewritePathType: "exact" | "prefix" | "regex" | "stripPrefix" | null;
     permanent: boolean;
     enabled: boolean;
     resourceId: number | null;
@@ -99,6 +102,24 @@ export default function RedirectsTable({
         searchParams.delete("page");
         filter({ searchParams });
     }, 300);
+
+    function matchTypeLabel(type: RedirectRow["pathMatchType"]) {
+        return {
+            prefix: t("pathMatchPrefix"),
+            exact: t("pathMatchExact"),
+            regex: t("pathMatchRegex")
+        }[type];
+    }
+
+    function rewriteTypeLabel(type: RedirectRow["rewritePathType"]) {
+        if (!type) return "";
+        return {
+            prefix: t("pathRewritePrefix"),
+            exact: t("pathRewriteExact"),
+            regex: t("pathRewriteRegex"),
+            stripPrefix: t("pathRewriteStrip")
+        }[type];
+    }
 
     async function toggleEnabled(row: RedirectRow, enabled: boolean) {
         setRows((prev) =>
@@ -182,19 +203,16 @@ export default function RedirectsTable({
                     const host =
                         redirect.resourceFullDomain ?? redirect.baseDomain;
 
-                    if (!host) {
-                        return (
-                            <span className="font-mono text-sm">
-                                {redirect.sourcePath}
-                            </span>
-                        );
-                    }
-
                     return (
-                        <span className="font-mono text-sm">
-                            {host}
-                            {redirect.sourcePath}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="shrink-0">
+                                {matchTypeLabel(redirect.pathMatchType)}
+                            </Badge>
+                            <code className="text-sm truncate">
+                                {host ?? ""}
+                                {redirect.matchPath}
+                            </code>
+                        </div>
                     );
                 }
             },
@@ -226,16 +244,45 @@ export default function RedirectsTable({
                 }
             },
             {
-                accessorKey: "destinationUrl",
-                friendlyName: t("redirectDestination"),
+                accessorKey: "destinationDomain",
+                friendlyName: t("redirectDestinationDomain"),
                 header: () => (
-                    <span className="p-3">{t("redirectDestination")}</span>
+                    <span className="p-3">
+                        {t("redirectDestinationDomain")}
+                    </span>
                 ),
                 cell: ({ row }) => (
-                    <span className="font-mono text-sm">
-                        {row.original.destinationUrl ?? "-"}
-                    </span>
+                    <code className="text-sm">
+                        {row.original.destinationDomain}
+                    </code>
                 )
+            },
+            {
+                id: "rewritePath",
+                accessorKey: "rewritePath",
+                friendlyName: t("rewritePath"),
+                header: () => <span className="p-3">{t("rewritePath")}</span>,
+                cell: ({ row }) => {
+                    const redirect = row.original;
+                    const hasRewrite =
+                        Boolean(redirect.rewritePath) ||
+                        redirect.rewritePathType === "stripPrefix";
+
+                    if (!hasRewrite) {
+                        return <span>-</span>;
+                    }
+
+                    return (
+                        <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="shrink-0">
+                                {rewriteTypeLabel(redirect.rewritePathType)}
+                            </Badge>
+                            <code className="text-sm truncate">
+                                {redirect.rewritePath ?? ""}
+                            </code>
+                        </div>
+                    );
+                }
             },
             {
                 accessorKey: "permanent",
@@ -356,7 +403,8 @@ export default function RedirectsTable({
                 isRefreshing={isRefreshing || isFiltering}
                 rowCount={rowCount}
                 columnVisibility={{
-                    attachedTo: false
+                    attachedTo: false,
+                    rewritePath: false
                 }}
                 enableColumnVisibility
                 stickyLeftColumn="name"

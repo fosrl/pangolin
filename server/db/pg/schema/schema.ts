@@ -242,8 +242,19 @@ export const redirects = pgTable("redirects", {
     }),
     niceId: text("niceId").notNull(),
     name: varchar("name").notNull(),
-    sourcePath: varchar("sourcePath").notNull(),
-    destinationUrl: varchar("destinationUrl"),
+    subdomain: varchar("subdomain"),
+    destinationDomain: varchar("destinationDomain").notNull(),
+    pathMatchType: varchar("pathMatchType")
+        .$type<"exact" | "prefix" | "regex">()
+        .notNull()
+        .default("regex"), // exact, prefix, regex
+    matchPath: varchar("matchPath").notNull().default("*"),
+    rewritePath: varchar("rewritePath"), // if set, rewrites the path to this value,
+    //  else, the original path will be kept
+    rewritePathType: varchar("rewritePathType").$type<
+        "exact" | "prefix" | "regex" | "stripPrefix"
+    >(), // exact, prefix, regex, stripPrefix
+
     permanent: boolean("permanent").notNull().default(false),
     enabled: boolean("enabled").notNull().default(true)
 });

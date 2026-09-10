@@ -9,7 +9,12 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq } from "drizzle-orm";
-import { redirectSourcePathSchema } from "@server/routers/redirect/validation";
+import {
+    redirectMatchPathSchema,
+    redirectPathMatchTypeSchema,
+    redirectRewritePathSchema,
+    redirectRewritePathTypeSchema
+} from "@server/routers/redirect/validation";
 import { getUniqueRedirectName } from "@server/db/names";
 
 export type CreateRedirectResponse = {
@@ -24,11 +29,26 @@ const bodySchema = z.strictObject({
     name: z.string().nonempty(),
     resourceId: z.number().int().positive().optional().nullable(),
     domainId: z.string().nonempty().optional().nullable(),
-    sourcePath: redirectSourcePathSchema,
-    destinationUrl: z.url().optional().nullable(),
+    destinationDomain: z.string().nonempty(),
+    pathMatchType: redirectPathMatchTypeSchema.optional(),
+    matchPath: redirectMatchPathSchema,
+    rewritePath: redirectRewritePathSchema.optional().nullable(),
+    rewritePathType: redirectRewritePathTypeSchema.optional().nullable(),
     permanent: z.boolean().optional(),
     enabled: z.boolean().optional()
-});
+}).refine(
+    (data) =>
+        // stripPrefix removes the matched prefix and needs no replacement
+        // value; every other rewrite type is meaningless without one.
+        !data.rewritePathType ||
+        data.rewritePathType === "stripPrefix" ||
+        Boolean(data.rewritePath),
+    {
+        message:
+            "rewritePath is required unless rewritePathType is stripPrefix",
+        path: ["rewritePath"]
+    }
+);
 
 registry.registerPath({
     method: "put",
@@ -83,8 +103,11 @@ export async function createRedirect(
             name,
             resourceId,
             domainId,
-            sourcePath,
-            destinationUrl,
+            destinationDomain,
+            pathMatchType,
+            matchPath,
+            rewritePath,
+            rewritePathType,
             permanent,
             enabled
         } = parsedBody.data;
@@ -147,8 +170,11 @@ export async function createRedirect(
                 niceId,
                 resourceId: resourceId ?? null,
                 domainId: domainId ?? null,
-                sourcePath,
-                destinationUrl: destinationUrl ?? null,
+                destinationDomain,
+                pathMatchType: pathMatchType ?? "regex",
+                matchPath,
+                rewritePath: rewritePath ?? null,
+                rewritePathType: rewritePathType ?? null,
                 permanent: permanent ?? false,
                 enabled: enabled ?? true
             })

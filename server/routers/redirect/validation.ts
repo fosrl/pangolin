@@ -9,8 +9,15 @@ export const redirectNiceIdSchema = z
         "niceId can only contain letters, numbers, and dashes"
     );
 
-export const redirectSourcePathSchema = z
-    .string()
-    .nonempty()
-    .regex(/^\//, "sourcePath must start with a /")
-    .default("/*");
+export const redirectPathMatchTypeSchema = z.enum(["exact", "prefix", "regex"]);
+
+export const redirectRewritePathTypeSchema = z.enum([
+    "exact",
+    "prefix",
+    "regex",
+    "stripPrefix"
+]);
+
+export const redirectMatchPathSchema = z.string().nonempty().default("*");
+
+export const redirectRewritePathSchema = z.string().nonempty();

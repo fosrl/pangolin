@@ -77,7 +77,7 @@ export function SettingsFormCell({
                 "min-w-0",
                 span === "quarter" && "md:col-span-1",
                 span === "half" && "md:col-span-2",
-                span === "full" && "md:col-span-4",
+                span === "full" && "col-span-full",
                 className
             )}
         >

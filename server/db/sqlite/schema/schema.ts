@@ -258,8 +258,18 @@ export const redirects = sqliteTable("redirects", {
     }),
     niceId: text("niceId").notNull(),
     name: text("name").notNull(),
-    sourcePath: text("sourcePath").notNull(),
-    destinationUrl: text("destinationUrl"),
+    destinationDomain: text("destinationDomain").notNull(),
+    pathMatchType: text("pathMatchType")
+        .$type<"exact" | "prefix" | "regex">()
+        .notNull()
+        .default("regex"), // exact, prefix, regex
+    matchPath: text("matchPath").notNull().default("*"),
+    rewritePath: text("rewritePath"), // if set, rewrites the path to this value,
+    //  else, the original path will be kept
+    rewritePathType: text("rewritePathType").$type<
+        "exact" | "prefix" | "regex" | "stripPrefix"
+    >(), // exact, prefix, regex, stripPrefix
+
     permanent: integer("permanent", { mode: "boolean" })
         .notNull()
         .default(false),

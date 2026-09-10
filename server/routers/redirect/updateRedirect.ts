@@ -11,7 +11,10 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq, ne } from "drizzle-orm";
 import {
     redirectNiceIdSchema,
-    redirectSourcePathSchema
+    redirectMatchPathSchema,
+    redirectPathMatchTypeSchema,
+    redirectRewritePathSchema,
+    redirectRewritePathTypeSchema
 } from "@server/routers/redirect/validation";
 
 export type UpdateRedirectResponse = {
@@ -28,8 +31,11 @@ const bodySchema = z.strictObject({
     niceId: redirectNiceIdSchema.optional(),
     resourceId: z.number().int().positive().optional().nullable(),
     domainId: z.string().nonempty().optional().nullable(),
-    sourcePath: redirectSourcePathSchema.optional(),
-    destinationUrl: z.url().optional().nullable(),
+    destinationDomain: z.string().nonempty().optional(),
+    pathMatchType: redirectPathMatchTypeSchema.optional(),
+    matchPath: redirectMatchPathSchema.optional(),
+    rewritePath: redirectRewritePathSchema.optional().nullable(),
+    rewritePathType: redirectRewritePathTypeSchema.optional().nullable(),
     permanent: z.boolean().optional(),
     enabled: z.boolean().optional()
 });
@@ -190,11 +196,20 @@ export async function updateRedirect(
         if (body.domainId !== undefined) {
             updateData.domainId = body.domainId;
         }
-        if (body.sourcePath !== undefined) {
-            updateData.sourcePath = body.sourcePath;
+        if (body.destinationDomain !== undefined) {
+            updateData.destinationDomain = body.destinationDomain;
         }
-        if (body.destinationUrl !== undefined) {
-            updateData.destinationUrl = body.destinationUrl;
+        if (body.pathMatchType !== undefined) {
+            updateData.pathMatchType = body.pathMatchType;
+        }
+        if (body.matchPath !== undefined) {
+            updateData.matchPath = body.matchPath;
+        }
+        if (body.rewritePath !== undefined) {
+            updateData.rewritePath = body.rewritePath;
+        }
+        if (body.rewritePathType !== undefined) {
+            updateData.rewritePathType = body.rewritePathType;
         }
         if (body.permanent !== undefined) {
             updateData.permanent = body.permanent;
