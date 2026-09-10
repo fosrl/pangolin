@@ -1,18 +1,32 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { redirects, db } from "@server/db";
-import type { Redirect } from "@server/db";
+import { domains, redirects, resources, db } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { and, asc, eq, like, sql } from "drizzle-orm";
+import { and, asc, eq, like, or, sql } from "drizzle-orm";
 import type { PaginatedResponse } from "@server/types/Pagination";
 
 export type ListRedirectsResponse = PaginatedResponse<{
-    redirects: Redirect[];
+    redirects: Array<{
+        redirectId: number;
+        orgId: string;
+        niceId: string;
+        name: string;
+        sourcePath: string;
+        destinationUrl: string | null;
+        permanent: boolean;
+        enabled: boolean;
+        resourceId: number | null;
+        resourceName: string | null;
+        resourceNiceId: string | null;
+        resourceFullDomain: string | null;
+        domainId: string | null;
+        baseDomain: string | null;
+    }>;
 }>;
 
 const paramsSchema = z.strictObject({
@@ -104,17 +118,36 @@ export async function listRedirects(
         const conditions = [eq(redirects.orgId, orgId)];
 
         if (query) {
+            const term = "%" + query.toLowerCase() + "%";
             conditions.push(
-                like(
-                    sql`LOWER(${redirects.name})`,
-                    "%" + query.toLowerCase() + "%"
-                )
+                or(
+                    like(sql`LOWER(${redirects.name})`, term),
+                    like(sql`LOWER(${redirects.sourcePath})`, term),
+                    like(sql`LOWER(${redirects.destinationUrl})`, term)
+                )!
             );
         }
 
         const baseQuery = db
-            .select()
+            .select({
+                redirectId: redirects.redirectId,
+                orgId: redirects.orgId,
+                niceId: redirects.niceId,
+                name: redirects.name,
+                sourcePath: redirects.sourcePath,
+                destinationUrl: redirects.destinationUrl,
+                permanent: redirects.permanent,
+                enabled: redirects.enabled,
+                resourceId: redirects.resourceId,
+                resourceName: resources.name,
+                resourceNiceId: resources.niceId,
+                resourceFullDomain: resources.fullDomain,
+                domainId: redirects.domainId,
+                baseDomain: domains.baseDomain
+            })
             .from(redirects)
+            .leftJoin(resources, eq(resources.resourceId, redirects.resourceId))
+            .leftJoin(domains, eq(domains.domainId, redirects.domainId))
             .where(and(...conditions));
 
         const countQuery = db.$count(
