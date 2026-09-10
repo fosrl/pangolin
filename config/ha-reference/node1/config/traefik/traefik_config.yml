@@ -1,0 +1,41 @@
+providers:
+  file:
+    directory: "/var/dynamic"
+    watch: true
+
+experimental:
+  plugins:
+    badger:
+      moduleName: "github.com/fosrl/badger"
+      version: "v1.7.0"
+
+log:
+  level: "INFO"
+  format: "common"
+  maxSize: 100
+  maxBackups: 3
+  maxAge: 3
+  compress: true
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+    proxyProtocol: # Just accept everything for now!
+      trustedIPs:
+        - 0.0.0.0/0
+        - ::1/128
+    transport:
+      respondingTimeouts:
+        readTimeout: "30m"
+    http:
+      encodedCharacters:
+        allowEncodedSlash: true
+        allowEncodedQuestionMark: true
+
+serversTransport:
+  insecureSkipVerify: true
+
+ping:
+  entryPoint: "web"

@@ -1,0 +1,69 @@
+name: pangolin
+services:
+  pangolin:
+    image: docker.io/fosrl/pangolin:ee-latest
+    container_name: pangolin
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 512m
+    ports:
+      - 53:53/udp # DNS
+      - 3000:3000 # Pangolin UI
+    volumes:
+      - ./config:/app/config
+      - ./config/certificates:/var/certificates
+      - ./config/dynamic:/var/dynamic
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/"]
+      interval: "10s"
+      timeout: "10s"
+      retries: 15
+
+  gerbil:
+    image: docker.io/fosrl/gerbil:latest
+    container_name: gerbil
+    restart: unless-stopped
+    depends_on:
+      pangolin:
+        condition: service_healthy
+    command:
+      - --reachableAt=http://<NODE1_INTERNAL_IP>:3004
+      - --generateAndSaveKeyTo=/var/config/key
+      - --remoteConfig=http://pangolin:3001/api/v1/
+      - --trusted-upstreams=<NODE1_EXTERNAL_IP>,<NODE2_EXTERNAL_IP>
+    volumes:
+      - ./config/:/var/config
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    ports:
+      - 51820:51820/udp # wireguard
+      - 21820:21820/udp # relay
+      - 443:8443 # resources
+      - 80:80 # web
+      - 3004:3004 # gerbil api
+
+  traefik:
+    image: docker.io/traefik:v3.7.11
+    container_name: traefik
+    restart: unless-stopped
+    network_mode: service:gerbil # Ports appear on the gerbil service
+    depends_on:
+      pangolin:
+        condition: service_healthy
+    command:
+      - --configFile=/etc/traefik/traefik_config.yml
+    volumes:
+      - ./config/traefik:/etc/traefik:ro
+      - ./config/traefik/logs:/var/log/traefik
+      - ./config/certificates:/var/certificates:ro
+      - ./config/dynamic:/var/dynamic:ro
+
+networks:
+  default:
+    driver: bridge
+    name: pangolin
