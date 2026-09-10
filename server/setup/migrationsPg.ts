@@ -66,6 +66,12 @@ const migrations = [
 
 await run();
 
+// The pg Pool is created with allowExitOnIdle: false (see poolConfig.ts) so
+// its sockets keep the event loop alive even when idle. Without an explicit
+// exit here, this one-shot script would hang until the pool's
+// idleTimeoutMillis elapses before the process could terminate.
+process.exit(0);
+
 async function run() {
     // run the migrations
     await runMigrations();
