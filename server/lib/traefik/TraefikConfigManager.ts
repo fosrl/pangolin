@@ -344,10 +344,6 @@ export class TraefikConfigManager {
 
             const { domains, traefikConfig } = getTraefikConfig;
 
-            // Add static domains from config
-            // const staticDomains = [config.getRawConfig().app.dashboard_url];
-            // staticDomains.forEach((domain) => domains.add(domain));
-
             // Log if domains changed
             if (
                 this.lastActiveDomains.size !== domains.size ||
@@ -442,13 +438,13 @@ export class TraefikConfigManager {
                     // Always ensure all existing certificates (including wildcards) are in the config
                     await this.updateDynamicConfigFromLocalCerts(domains);
                 } else {
-                    const timeSinceLastFetch = this.lastCertificateFetch
-                        ? Math.round(
-                              (Date.now() -
-                                  this.lastCertificateFetch.getTime()) /
-                                  (1000 * 60)
-                          )
-                        : 0;
+                    // const timeSinceLastFetch = this.lastCertificateFetch
+                    //     ? Math.round(
+                    //           (Date.now() -
+                    //               this.lastCertificateFetch.getTime()) /
+                    //               (1000 * 60)
+                    //       )
+                    //     : 0;
 
                     // logger.debug(
                     //     `Skipping certificate fetch - no changes detected and within 24-hour window (last fetch: ${timeSinceLastFetch} minutes ago)`
@@ -469,7 +465,7 @@ export class TraefikConfigManager {
             await this.writeTraefikDynamicConfig(traefikConfig);
 
             // Send domains to SNI proxy
-            let exitNodeForSni: (typeof exitNodes.$inferSelect) | undefined;
+            let exitNodeForSni: typeof exitNodes.$inferSelect | undefined;
             try {
                 if (config.getRawConfig().gerbil.exit_node_name) {
                     const exitNodeName =
@@ -489,7 +485,12 @@ export class TraefikConfigManager {
                     await sendToExitNode(exitNodeForSni, {
                         localPath: "/update-local-snis",
                         method: "POST",
-                        data: { fullDomains: Array.from(domains) }
+                        data: {
+                            fullDomains: [
+                                ...Array.from(domains),
+                                ...config.getRawConfig().traefik.static_domains
+                            ]
+                        }
                     });
                 } else {
                     logger.warn(
