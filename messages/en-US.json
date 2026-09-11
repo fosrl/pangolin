@@ -4279,6 +4279,8 @@
     "resourceLauncherSitesDescription": "The resource is accessible via the following sites.",
     "resourceLauncherViewSiteAsAdmin": "View Site as Admin",
     "resourceLauncherFilterBySite": "Filter by Site",
+    "resourceLauncherSshCommand": "SSH Command",
+    "resourceLauncherSshCommandDescription": "Use the Pangolin CLI to open an SSH session to this resource.",
     "resourceLauncherAuthMethodsDescription": "Authentication methods enabled for this resource.",
     "resourceLauncherPrivateClientRequired": "Connect with a client on your device to access this resource privately.",
     "resourceLauncherPrivateClientRequiredTitle": "Client Connection Required",

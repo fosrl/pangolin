@@ -1,6 +1,8 @@
 "use client";
 
 import { AiClientConfigSection } from "@app/components/ai-client-config/AiClientConfigSection";
+import { AiConfigBlocks } from "@app/components/ai-client-config/AiConfigBlocks";
+import CopyTextBox from "@app/components/CopyTextBox";
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import {
     InfoSection,
@@ -43,6 +45,7 @@ import {
     TableRow
 } from "@app/components/ui/table";
 import { useMyVirtualApiKeySecret } from "@app/hooks/useMyVirtualApiKeySecret";
+import type { AiConfigBlock } from "@app/lib/aiClientConfig";
 import { cn } from "@app/lib/cn";
 import {
     derivePublicAuthState,
@@ -259,82 +262,160 @@ function LauncherResourceSitesSection({
                 </SettingsSectionDescription>
             </SettingsSectionHeader>
             <SettingsSectionBody>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>
-                                <Button
-                                    variant="ghost"
-                                    className="h-8 px-3"
-                                    onClick={() => toggleSort("name")}
+                <div className="min-w-0 overflow-x-auto overflow-y-hidden">
+                    <Table sticky>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="whitespace-nowrap">
+                                    <Button
+                                        variant="ghost"
+                                        className="h-8 px-3"
+                                        onClick={() => toggleSort("name")}
+                                    >
+                                        {t("name")}
+                                        <ChevronsUpDown className="ml-2 size-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead className="whitespace-nowrap">
+                                    <Button
+                                        variant="ghost"
+                                        className="h-8 px-3"
+                                        onClick={() => toggleSort("status")}
+                                    >
+                                        {t("status")}
+                                        <ChevronsUpDown className="ml-2 size-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead
+                                    className={cn(
+                                        "whitespace-nowrap text-right",
+                                        "sticky right-0 z-10 w-auto min-w-fit bg-card",
+                                        "[mask-image:linear-gradient(to_right,transparent_0%,black_20px)]"
+                                    )}
                                 >
-                                    {t("name")}
-                                    <ChevronsUpDown className="ml-2 size-4" />
-                                </Button>
-                            </TableHead>
-                            <TableHead>
-                                <Button
-                                    variant="ghost"
-                                    className="h-8 px-3"
-                                    onClick={() => toggleSort("status")}
-                                >
-                                    {t("status")}
-                                    <ChevronsUpDown className="ml-2 size-4" />
-                                </Button>
-                            </TableHead>
-                            <TableHead className="w-12">
-                                <span className="sr-only">{t("actions")}</span>
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {sortedSites.map((site) => (
-                            <TableRow key={site.siteId}>
-                                <TableCell>{site.name}</TableCell>
-                                <TableCell>
-                                    <SiteStatusCell site={site} />
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                className="h-8 w-8 p-0"
-                                            >
-                                                <span className="sr-only">
-                                                    {t("openMenu")}
-                                                </span>
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            {isAdmin ? (
-                                                <DropdownMenuItem asChild>
-                                                    <Link
-                                                        href={`/${orgId}/settings/sites/${site.niceId}`}
-                                                    >
-                                                        {t(
-                                                            "resourceLauncherViewSiteAsAdmin"
-                                                        )}
-                                                    </Link>
-                                                </DropdownMenuItem>
-                                            ) : null}
-                                            <DropdownMenuItem
-                                                onClick={() =>
-                                                    onFilterBySite(site)
-                                                }
-                                            >
-                                                {t(
-                                                    "resourceLauncherFilterBySite"
-                                                )}
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
+                                    <span className="sr-only">
+                                        {t("actions")}
+                                    </span>
+                                </TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedSites.map((site) => (
+                                <TableRow key={site.siteId}>
+                                    <TableCell className="whitespace-nowrap">
+                                        {site.name}
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap">
+                                        <SiteStatusCell site={site} />
+                                    </TableCell>
+                                    <TableCell
+                                        className={cn(
+                                            "whitespace-nowrap text-right",
+                                            "sticky right-0 z-10 w-auto min-w-fit bg-card",
+                                            "[mask-image:linear-gradient(to_right,transparent_0%,black_20px)]"
+                                        )}
+                                    >
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <span className="sr-only">
+                                                        {t("openMenu")}
+                                                    </span>
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {isAdmin ? (
+                                                    <DropdownMenuItem asChild>
+                                                        <Link
+                                                            href={`/${orgId}/settings/sites/${site.niceId}`}
+                                                        >
+                                                            {t(
+                                                                "resourceLauncherViewSiteAsAdmin"
+                                                            )}
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                ) : null}
+                                                <DropdownMenuItem
+                                                    onClick={() =>
+                                                        onFilterBySite(site)
+                                                    }
+                                                >
+                                                    {t(
+                                                        "resourceLauncherFilterBySite"
+                                                    )}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </SettingsSectionBody>
+        </SettingsSection>
+    );
+}
+
+function LauncherPrivateSshCommandSection({
+    alias,
+    niceId,
+    pamMode
+}: {
+    alias?: string | null;
+    niceId: string;
+    pamMode?: string | null;
+}) {
+    const t = useTranslations();
+    const trimmedAlias = alias?.trim() || null;
+    const hasDistinctAlias = Boolean(trimmedAlias && trimmedAlias !== niceId);
+    const useUserPrefix = pamMode !== "push";
+
+    function formatSshTarget(target: string) {
+        return useUserPrefix ? `user@${target}` : target;
+    }
+
+    const blocks: AiConfigBlock[] = hasDistinctAlias
+        ? [
+              {
+                  id: "alias",
+                  label: t("editInternalResourceDialogAlias"),
+                  displayText: `pangolin ssh ${formatSshTarget(trimmedAlias!)}`
+              },
+              {
+                  id: "niceId",
+                  label: t("identifier"),
+                  displayText: `pangolin ssh ${formatSshTarget(niceId)}`
+              }
+          ]
+        : [
+              {
+                  id: "niceId",
+                  label: t("identifier"),
+                  displayText: `pangolin ssh ${formatSshTarget(niceId)}`
+              }
+          ];
+
+    return (
+        <SettingsSection>
+            <SettingsSectionHeader>
+                <SettingsSectionTitle>
+                    {t("resourceLauncherSshCommand")}
+                </SettingsSectionTitle>
+                <SettingsSectionDescription>
+                    {t("resourceLauncherSshCommandDescription")}
+                </SettingsSectionDescription>
+            </SettingsSectionHeader>
+            <SettingsSectionBody>
+                {hasDistinctAlias ? (
+                    <AiConfigBlocks blocks={blocks} relation="options" />
+                ) : (
+                    <CopyTextBox text={blocks[0].displayText} />
+                )}
             </SettingsSectionBody>
         </SettingsSection>
     );
@@ -572,6 +653,7 @@ function PrivateResourceDetails({
 }) {
     const t = useTranslations();
     const isInference = resource.mode === "inference";
+    const isSsh = resource.mode === "ssh";
 
     return (
         <div className="space-y-4">
@@ -624,6 +706,13 @@ function PrivateResourceDetails({
                 isAdmin={isAdmin}
                 onFilterBySite={onFilterBySite}
             />
+            {isSsh ? (
+                <LauncherPrivateSshCommandSection
+                    alias={resource.alias}
+                    niceId={resource.niceId}
+                    pamMode={resource.pamMode}
+                />
+            ) : null}
             {isInference ? (
                 <>
                     <LauncherInferenceModelsSection
