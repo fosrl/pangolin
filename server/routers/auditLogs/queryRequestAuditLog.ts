@@ -19,6 +19,7 @@ import { QueryRequestAuditLogResponse } from "@server/routers/auditLogs/types";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { getSevenDaysAgo } from "@app/lib/getSevenDaysAgo";
+import { regionalCache as cache } from "#dynamic/lib/cache";
 
 export const queryAccessAuditLogsQuery = z.strictObject({
     // iso string just validate its a parseable date
@@ -304,11 +305,52 @@ registry.registerPath({
     }
 });
 
+const FACETS_CACHE_TTL_SECONDS = 60;
+const FACETS_CACHE_KEY_BUCKET_SECONDS = 60;
+const FACETS_CACHE_KEY_VERSION = "v1";
+
+type FacetsResult = {
+    actors: string[];
+    resources: Array<{ id: number; name: string | null }>;
+    locations: string[];
+    hosts: string[];
+    paths: string[];
+};
+
+// Bucket timestamps to FACETS_CACHE_KEY_BUCKET_SECONDS boundaries so
+// dashboard refreshes within the same minute hit cache. Combined with the
+// 60s TTL, this means facet dropdowns are approximate to within ~60s, not
+// strictly fresh. The version segment guards against future shape changes.
+function buildFacetsCacheKey(
+    orgId: string,
+    timeStart: number,
+    timeEnd: number
+): string {
+    const startBucket =
+        Math.floor(timeStart / FACETS_CACHE_KEY_BUCKET_SECONDS) *
+        FACETS_CACHE_KEY_BUCKET_SECONDS;
+    const endBucket =
+        Math.floor(timeEnd / FACETS_CACHE_KEY_BUCKET_SECONDS) *
+        FACETS_CACHE_KEY_BUCKET_SECONDS;
+    return `cache:audit-log-facets:${FACETS_CACHE_KEY_VERSION}:${orgId}:${startBucket}:${endBucket}`;
+}
+
 async function queryUniqueFilterAttributes(
     timeStart: number,
     timeEnd: number,
     orgId: string
-) {
+): Promise<FacetsResult> {
+    const cacheKey = buildFacetsCacheKey(orgId, timeStart, timeEnd);
+
+    // Cache read - never fail the request on cache error.
+    let cached: FacetsResult | undefined;
+    try {
+        cached = await cache.get<FacetsResult>(cacheKey);
+    } catch (err) {
+        logger.warn(`Facets cache get failed for ${cacheKey}`, err);
+    }
+    if (cached !== undefined) return cached;
+
     const baseConditions = and(
         gt(requestAuditLog.timestamp, timeStart),
         lt(requestAuditLog.timestamp, timeEnd),
@@ -423,7 +465,7 @@ async function queryUniqueFilterAttributes(
         ];
     }
 
-    return {
+    const result: FacetsResult = {
         actors: uniqueActors
             .map((row) => row.actor)
             .filter((actor): actor is string => actor !== null),
@@ -438,6 +480,14 @@ async function queryUniqueFilterAttributes(
             .map((row) => row.paths)
             .filter((path): path is string => path !== null)
     };
+
+    // Cache write - never fail the request on cache error.
+    try {
+        await cache.set(cacheKey, result, FACETS_CACHE_TTL_SECONDS);
+    } catch (err) {
+        logger.warn(`Facets cache set failed for ${cacheKey}`, err);
+    }
+    return result;
 }
 
 export async function queryRequestAuditLogs(
