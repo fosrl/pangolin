@@ -25,12 +25,6 @@ export const dynamic = "force-dynamic";
 export default async function RemoteExitNodesPage(
     props: RemoteExitNodesPageProps
 ) {
-    const { env } = useEnvContext();
-
-    if (!env?.flags.usePangolinDns) {
-        redirect("/");
-    }
-
     const params = await props.params;
     let remoteExitNodes: ListRemoteExitNodesResponse["remoteExitNodes"] = [];
     try {
