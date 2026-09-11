@@ -10,6 +10,7 @@ import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import { build } from "@server/build";
 import { redirect } from "next/navigation";
+import { useEnvContext } from "@app/hooks/useEnvContext";
 
 export const metadata: Metadata = {
     title: "Remote Exit Nodes"
@@ -24,7 +25,9 @@ export const dynamic = "force-dynamic";
 export default async function RemoteExitNodesPage(
     props: RemoteExitNodesPageProps
 ) {
-    if (build != "saas") {
+    const { env } = useEnvContext();
+
+    if (!env?.flags.usePangolinDns) {
         redirect("/");
     }
 
