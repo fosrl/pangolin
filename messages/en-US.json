@@ -830,7 +830,7 @@
     "rulesErrorDuplicatePriorityDescription": "Each rule must have a unique priority number.",
     "rulesErrorValidation": "Invalid rules",
     "rulesErrorValidationRuleDescription": "Rule {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, or ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "Enter a value for this rule.",
     "rulesErrorInvalidCountry": "Invalid country",
     "rulesErrorInvalidCountryDescription": "Select a valid country.",
@@ -4391,5 +4391,8 @@
     "rdpUnicodeKeyboardMode": "Unicode keyboard mode",
     "sessionToolbarShow": "Show toolbar",
     "sessionToolbarHide": "Hide toolbar",
-    "actionUpdateSiteApprovals": "Update Site Approvals"
+    "actionUpdateSiteApprovals": "Update Site Approvals",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }

@@ -48,7 +48,13 @@ import { defaultRoleAllowedActions } from "@server/routers/role/createRole";
 import { pickPort } from "@server/routers/target/helpers";
 import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
 import { tierMatrix } from "../billing/tierMatrix";
-import { isValidCIDR, isValidIP, isValidUrlGlobPattern } from "../validators";
+import {
+    isValidCIDR,
+    isValidHttpMethodList,
+    isValidIP,
+    isValidUrlGlobPattern,
+    parseHttpMethodList
+} from "../validators";
 import { Config, isTargetsOnlyResource, TargetData } from "./types";
 import { getOrCreateLabelIds, syncResourceLabels } from "./labels";
 import { findOrgUsersByIdentifier } from "./findOrgUser";
@@ -1453,6 +1459,10 @@ function getRuleValue(match: string, value: string) {
     if (match === "COUNTRY" || match === "COUNTRY_IS_NOT") {
         return value.toUpperCase();
     }
+    // normalize the method list so it is stored as "POST,PUT"
+    if (match === "METHOD") {
+        return parseHttpMethodList(value).join(",");
+    }
     return value;
 }
 
@@ -1472,6 +1482,10 @@ function validateRule(rule: any) {
     } else if (rule.match === "region") {
         if (!isValidRegionId(rule.value)) {
             throw new Error(`Invalid region ID provided: ${rule.value}`);
+        }
+    } else if (rule.match === "method") {
+        if (!isValidHttpMethodList(rule.value)) {
+            throw new Error(`Invalid HTTP method provided: ${rule.value}`);
         }
     }
 }

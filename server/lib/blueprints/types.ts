@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { portRangeStringSchema } from "@server/lib/ip";
 import { MaintenanceSchema } from "#dynamic/lib/blueprints/MaintenanceSchema";
 import { isValidRegionId } from "@server/db/regions";
+import { isValidHttpMethodList } from "@server/lib/validators";
 import { wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import {
@@ -127,7 +128,16 @@ export const AuthSchema = z.object({
 export const RuleSchema = z
     .object({
         action: z.enum(["allow", "deny", "pass"]),
-        match: z.enum(["cidr", "path", "ip", "country", "country_is_not", "asn", "region"]),
+        match: z.enum([
+            "cidr",
+            "path",
+            "ip",
+            "country",
+            "country_is_not",
+            "asn",
+            "region",
+            "method"
+        ]),
         value: z.coerce.string(),
         priority: z.int().optional(),
         enabled: z.boolean().optional().default(true)
@@ -206,6 +216,19 @@ export const RuleSchema = z
             path: ["value"],
             message:
                 "Value must be a valid UN M.49 region or subregion ID when match is 'region'"
+        }
+    )
+    .refine(
+        (rule) => {
+            if (rule.match === "method") {
+                return isValidHttpMethodList(rule.value);
+            }
+            return true;
+        },
+        {
+            path: ["value"],
+            message:
+                "Value must be a comma-separated list of HTTP methods when match is 'method', e.g. 'POST,PUT'"
         }
     );
 

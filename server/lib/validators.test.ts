@@ -1,9 +1,10 @@
 import {
     getResourceRuleValueValidationError,
     isValidDomain,
-    isValidUrlGlobPattern
+    isValidUrlGlobPattern,
+    parseHttpMethodList
 } from "./validators";
-import { assertEquals } from "@test/assert";
+import { assertEquals, assertEqualsObj } from "@test/assert";
 
 function runTests() {
     console.log("Running domain validation tests...");
@@ -293,6 +294,44 @@ function runTests() {
         getResourceRuleValueValidationError("ASN", "not-an-asn"),
         "Invalid ASN provided",
         "Invalid ASN should return an error"
+    );
+
+    // HTTP method validation tests
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", "POST"),
+        null,
+        "Single HTTP method should be valid"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", " post , Put "),
+        null,
+        "Method list should be valid with mixed case and whitespace"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", "PROPFIND"),
+        null,
+        "Extension methods such as the WebDAV verbs should be valid"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", ""),
+        "Invalid HTTP method provided",
+        "Empty method list should return an error"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", ",,"),
+        "Invalid HTTP method provided",
+        "Method list of only separators should return an error"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", "GET POST"),
+        "Invalid HTTP method provided",
+        "Space separated methods should return an error"
+    );
+
+    assertEqualsObj(
+        parseHttpMethodList(" get ,post, "),
+        ["GET", "POST"],
+        "Method list should be normalized to uppercase without empty entries"
     );
 
     console.log("All tests passed!");
