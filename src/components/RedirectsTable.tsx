@@ -110,6 +110,12 @@ export default function RedirectsTable({
         filter({ searchParams });
     }, 300);
 
+    // Prefix matches/rewrites cover everything beneath the path, so show the
+    // implied glob rather than the bare prefix.
+    function withPrefixGlob(path: string) {
+        return path.endsWith("/") ? `${path}*` : `${path}/*`;
+    }
+
     async function toggleEnabled(row: RedirectRow, enabled: boolean) {
         setRows((prev) =>
             prev.map((r) =>
@@ -218,10 +224,6 @@ export default function RedirectsTable({
                         );
                     }
 
-                    console.log({
-                        redirect
-                    });
-
                     if (redirect.domainId) {
                         return (
                             <Button
@@ -266,7 +268,9 @@ export default function RedirectsTable({
                         <code className="text-sm truncate">
                             {host ?? ""}
                             <span className="text-muted-foreground">
-                                {redirect.matchPath}
+                                {redirect.pathMatchType === "prefix"
+                                    ? withPrefixGlob(redirect.matchPath)
+                                    : redirect.matchPath}
                             </span>
                         </code>
                     );
@@ -286,7 +290,9 @@ export default function RedirectsTable({
                             {redirect.destinationDomain}
                             {redirect.rewritePath && (
                                 <span className="text-muted-foreground">
-                                    {redirect.rewritePath}
+                                    {redirect.rewritePathType === "prefix"
+                                        ? withPrefixGlob(redirect.rewritePath)
+                                        : redirect.rewritePath}
                                 </span>
                             )}
                         </code>

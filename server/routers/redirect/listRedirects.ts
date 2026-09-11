@@ -7,7 +7,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { and, asc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import type { PaginatedResponse } from "@server/types/Pagination";
 
 export type ListRedirectsResponse = PaginatedResponse<{
@@ -171,7 +171,7 @@ export async function listRedirects(
             baseQuery
                 .limit(pageSize)
                 .offset(pageSize * (page - 1))
-                .orderBy(asc(redirects.name))
+                .orderBy(desc(redirects.redirectId))
         ]);
 
         return response<ListRedirectsResponse>(res, {
