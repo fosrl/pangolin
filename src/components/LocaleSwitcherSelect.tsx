@@ -60,10 +60,10 @@ export default function LocaleSwitcherSelect({
                         onClick={() => onChange(item.value)}
                         className="flex items-center gap-2"
                     >
-                        {item.value === defaultValue && (
-                            <Check className="h-4 w-4" />
-                        )}
                         <span>{item.label}</span>
+                        {item.value === defaultValue && (
+                            <Check className="ml-auto h-4 w-4" />
+                        )}
                     </DropdownMenuItem>
                 ))}
             </DropdownMenuSubContent>

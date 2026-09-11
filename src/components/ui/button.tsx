@@ -81,15 +81,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                         <span className="absolute inset-0 flex items-center justify-center">
                             <span className="flex items-center gap-1.5">
                                 <span
-                                    className="h-1 w-1 bg-current animate-dot-pulse"
+                                    className="h-1 w-1 rounded-full bg-current animate-dot-pulse"
                                     style={{ animationDelay: "0ms" }}
                                 />
                                 <span
-                                    className="h-1 w-1 bg-current animate-dot-pulse"
+                                    className="h-1 w-1 rounded-full bg-current animate-dot-pulse"
                                     style={{ animationDelay: "200ms" }}
                                 />
                                 <span
-                                    className="h-1 w-1 bg-current animate-dot-pulse"
+                                    className="h-1 w-1 rounded-full bg-current animate-dot-pulse"
                                     style={{ animationDelay: "400ms" }}
                                 />
                             </span>

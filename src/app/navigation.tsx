@@ -378,14 +378,14 @@ export const adminNavSections = (env?: Env): SidebarNavSection[] => [
                 icon: <Users className="size-4 flex-none" />
             },
             {
-                title: "sidebarApiKeys",
-                href: "/admin/api-keys",
-                icon: <KeyRound className="size-4 flex-none" />
-            },
-            {
                 title: "sidebarOrgs",
                 href: "/admin/organizations",
                 icon: <Building2Icon className="size-4 flex-none" />
+            },
+            {
+                title: "sidebarApiKeys",
+                href: "/admin/api-keys",
+                icon: <KeyRound className="size-4 flex-none" />
             },
             ...(build === "oss" ||
             env?.app.identityProviderMode === "global" ||

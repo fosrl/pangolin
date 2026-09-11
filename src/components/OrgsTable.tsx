@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
+import CopyToClipboard from "./CopyToClipboard";
 
 type OrgTableProps = {
     orgs: AdminOrgRow[];
@@ -106,7 +107,10 @@ export default function OrgsTable({
             {
                 accessorKey: "orgId",
                 friendlyName: t("orgId"),
-                header: () => <span className="p-3">{t("orgId")}</span>
+                header: () => <span className="p-3">{t("orgId")}</span>,
+                cell: ({ row }) => (
+                    <CopyToClipboard text={row.original.orgId} isLink={false} />
+                )
             },
             {
                 accessorKey: "createdAt",

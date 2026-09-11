@@ -182,12 +182,12 @@ export default function ProfileIcon() {
                                         }
                                         className="flex items-center gap-2"
                                     >
-                                        {userTheme === themeOption && (
-                                            <Check className="h-4 w-4" />
-                                        )}
                                         <span className="capitalize">
                                             {t(themeOption)}
                                         </span>
+                                        {userTheme === themeOption && (
+                                            <Check className="ml-auto h-4 w-4" />
+                                        )}
                                     </DropdownMenuItem>
                                 )
                             )}
