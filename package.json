@@ -139,7 +139,7 @@
     "devDependencies": {
         "@dotenvx/dotenvx": "2.23.0",
         "@esbuild-plugins/tsconfig-paths": "0.1.2",
-        "@react-email/ui": "^6.9.3",
+        "@react-email/ui": "^6.9.5",
         "@tailwindcss/postcss": "4.3.3",
         "@tanstack/react-query-devtools": "5.102.8",
         "@types/better-sqlite3": "7.6.13",
