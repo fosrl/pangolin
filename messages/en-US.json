@@ -4398,12 +4398,12 @@
     "redirectGoBack": "Back to Redirects",
     "redirectCreated": "Redirect created successfully",
     "redirectErrorCreate": "Failed to create redirect",
-    "redirectSettings": "Redirect Settings",
+    "redirectSettings": "Redirect Rule",
     "selectedRedirectDomain": "Selected Domain",
     "selectedRedirectResource": "Selected Resource",
     "redirectResourceNoDomain": "This resource has no domain",
-    "redirectSettingsGeneralDescription": "Configure the basic redirect settings",
-    "redirectSettingsDescription": "Configure where requests come from and where they are sent",
+    "redirectSourceSectionDescription": "Choose the domain or resource this redirect applies to",
+    "redirectSettingsDescription": "Set which paths to match and where to send them",
     "redirectEnabledDescription": "Turn the redirect off to stop forwarding requests without deleting it",
     "redirectAttachedToDescription": "Choose whether this redirect applies to a whole domain or a single resource",
     "redirectAttachDomain": "Domain",
@@ -4411,6 +4411,5 @@
     "redirectDomainRequired": "Select a domain to attach this redirect to",
     "redirectResourceRequired": "Select a resource to attach this redirect to",
     "redirectPermanent": "Permanent Redirect",
-    "redirectPermanentDescription": "Respond with 308 instead of 307. Permanent redirects are cached by browsers.",
-    "redirectDangerSectionDescription": "Permanently remove this redirect. This cannot be undone."
+    "redirectPermanentDescription": "Respond with 308 instead of 307. Permanent redirects are cached by browsers."
 }

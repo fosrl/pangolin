@@ -322,10 +322,10 @@ export default function RedirectForm({
                 <SettingsSection className="pb-10">
                     <SettingsSectionHeader>
                         <SettingsSectionTitle>
-                            {t("general")}
+                            {t("redirectSource")}
                         </SettingsSectionTitle>
                         <SettingsSectionDescription>
-                            {t("redirectSettingsGeneralDescription")}
+                            {t("redirectSourceSectionDescription")}
                         </SettingsSectionDescription>
                     </SettingsSectionHeader>
 
@@ -812,9 +812,6 @@ export default function RedirectForm({
                             <SettingsSectionTitle>
                                 {t("dangerSection")}
                             </SettingsSectionTitle>
-                            <SettingsSectionDescription>
-                                {t("redirectDangerSectionDescription")}
-                            </SettingsSectionDescription>
                         </SettingsSectionHeader>
                         <SettingsSectionFooter>
                             <Button
