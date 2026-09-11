@@ -470,7 +470,8 @@ export default function SitesTable({
                             "saturn",
                             "uranus",
                             "neptune",
-                            "pluto"
+                            "pluto",
+                            "erid"
                         ].includes(originalRow.exitNodeName.toLowerCase());
 
                     if (isCloudNode) {
