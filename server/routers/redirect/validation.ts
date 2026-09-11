@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidDomain } from "@server/lib/validators";
 
 export const redirectNiceIdSchema = z
     .string()
@@ -21,3 +22,10 @@ export const redirectRewritePathTypeSchema = z.enum([
 export const redirectMatchPathSchema = z.string().nonempty().default("*");
 
 export const redirectRewritePathSchema = z.string().nonempty();
+
+export const redirectDestinationDomainSchema = z
+    .string()
+    .nonempty()
+    .refine(isValidDomain, {
+        message: "Invalid domain"
+    });

@@ -19,7 +19,13 @@ import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import type { PaginationState } from "@tanstack/react-table";
-import { ArrowRight, MoreHorizontal } from "lucide-react";
+import {
+    ArrowRight,
+    ArrowUpRight,
+    GlobeIcon,
+    MoreHorizontal,
+    WaypointsIcon
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -194,34 +200,13 @@ export default function RedirectsTable({
                 )
             },
             {
-                id: "source",
-                friendlyName: t("redirectSource"),
-                header: () => (
-                    <span className="p-3">{t("redirectSource")}</span>
-                ),
-                cell: ({ row }) => {
-                    const redirect = row.original;
-                    // A domain-attached redirect may target a specific host
-                    // under the base domain, e.g. old.example.com.
-                    const domainHost = redirect.baseDomain
-                        ? [redirect.subdomain, redirect.baseDomain]
-                              .filter(Boolean)
-                              .join(".")
-                        : null;
-                    const host = redirect.resourceFullDomain ?? domainHost;
-
-                    return (
-                        <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="shrink-0">
-                                {matchTypeLabel(redirect.pathMatchType)}
-                            </Badge>
-                            <code className="text-sm truncate">
-                                {host ?? ""}
-                                {redirect.matchPath}
-                            </code>
-                        </div>
-                    );
-                }
+                id: "niceId",
+                accessorKey: "niceId",
+                friendlyName: t("identifier"),
+                header: () => <span className="p-3">{t("identifier")}</span>,
+                cell: ({ row }) => (
+                    <code className="text-sm">{row.original.niceId}</code>
+                )
             },
             {
                 id: "attachedTo",
@@ -234,28 +219,94 @@ export default function RedirectsTable({
 
                     if (redirect.resourceId && redirect.resourceNiceId) {
                         return (
-                            <Link
-                                href={`/${orgId}/settings/resources/${redirect.resourceNiceId}`}
-                                className="hover:underline"
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="inline-flex items-center gap-1.5"
                             >
-                                {redirect.resourceName}
-                            </Link>
+                                <Link
+                                    href={`/${orgId}/settings/resources/${redirect.resourceNiceId}`}
+                                >
+                                    <WaypointsIcon className="size-3 text-muted-foreground" />
+                                    {redirect.resourceName}
+                                    <ArrowUpRight className="size-3" />
+                                </Link>
+                            </Button>
                         );
                     }
 
-                    if (redirect.baseDomain) {
+                    console.log({
+                        redirect
+                    });
+
+                    if (redirect.domainId) {
                         return (
-                            <span>
-                                {[redirect.subdomain, redirect.baseDomain]
-                                    .filter(Boolean)
-                                    .join(".")}
-                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="inline-flex items-center gap-1.5"
+                            >
+                                <Link
+                                    href={`/${orgId}/settings/domains/${redirect.domainId}`}
+                                >
+                                    <GlobeIcon className="size-3 text-muted-foreground" />
+                                    {redirect.baseDomain}
+                                    <ArrowUpRight className="size-3" />
+                                </Link>
+                            </Button>
                         );
                     }
 
                     return <span>-</span>;
                 }
             },
+
+            {
+                id: "sourceDomain",
+                friendlyName: t("redirectSourceDomain"),
+                header: () => (
+                    <span className="p-3">{t("redirectSourceDomain")}</span>
+                ),
+                cell: ({ row }) => {
+                    const redirect = row.original;
+                    // A domain-attached redirect may target a specific host
+                    // under the base domain, e.g. old.example.com.
+                    const domainHost = redirect.baseDomain
+                        ? [redirect.subdomain, redirect.baseDomain]
+                              .filter(Boolean)
+                              .join(".")
+                        : null;
+                    const host = redirect.resourceFullDomain ?? domainHost;
+
+                    return host ? (
+                        <code className="text-sm">{host}</code>
+                    ) : (
+                        <span>-</span>
+                    );
+                }
+            },
+            {
+                id: "matchPath",
+                accessorKey: "matchPath",
+                friendlyName: t("matchPath"),
+                header: () => <span className="p-3">{t("matchPath")}</span>,
+                cell: ({ row }) => {
+                    const redirect = row.original;
+                    return (
+                        <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="shrink-0">
+                                {matchTypeLabel(redirect.pathMatchType)}
+                            </Badge>
+                            <code className="text-sm truncate">
+                                {redirect.matchPath}
+                            </code>
+                        </div>
+                    );
+                }
+            },
+
             {
                 accessorKey: "destinationDomain",
                 friendlyName: t("redirectDestinationDomain"),
@@ -417,7 +468,7 @@ export default function RedirectsTable({
                 rowCount={rowCount}
                 columnVisibility={{
                     attachedTo: false,
-                    rewritePath: false
+                    niceId: false
                 }}
                 enableColumnVisibility
                 stickyLeftColumn="name"

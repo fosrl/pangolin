@@ -141,6 +141,11 @@ export const orgNavSections = (
                 href: "/{orgId}/settings/domains",
                 icon: <Globe className="size-4 flex-none" />
             },
+            {
+                title: "sidebarRedirects",
+                href: "/{orgId}/settings/redirects",
+                icon: <Repeat className="size-4 flex-none" />
+            },
             ...(build === "saas"
                 ? [
                       {
@@ -324,11 +329,6 @@ export const orgNavSections = (
                         href: "/{orgId}/settings/api-keys",
                         icon: <KeyRound className="size-4 flex-none" />
                     },
-                    {
-                        title: "sidebarRedirects",
-                        href: "/{orgId}/settings/redirects",
-                        icon: <Repeat className="size-4 flex-none" />
-                    },
                     ...(!env?.flags.disableEnterpriseFeatures
                         ? [
                               {
@@ -466,6 +466,11 @@ export const commandBarNavSections = (
                 href: "/{orgId}/settings/clients/machine",
                 title: "commandMachineClients",
                 icon: <Server className="size-4 flex-none" />
+            },
+            {
+                title: "sidebarRedirects",
+                href: "/{orgId}/settings/redirects",
+                icon: <Repeat className="size-4 flex-none" />
             },
             ...(build === "saas"
                 ? [

@@ -11,6 +11,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq, ne } from "drizzle-orm";
 import {
     redirectNiceIdSchema,
+    redirectDestinationDomainSchema,
     redirectMatchPathSchema,
     redirectPathMatchTypeSchema,
     redirectRewritePathSchema,
@@ -32,7 +33,7 @@ const bodySchema = z.strictObject({
     resourceId: z.number().int().positive().optional().nullable(),
     domainId: z.string().nonempty().optional().nullable(),
     subdomain: z.string().nonempty().optional().nullable(),
-    destinationDomain: z.string().nonempty().optional(),
+    destinationDomain: redirectDestinationDomainSchema.optional(),
     pathMatchType: redirectPathMatchTypeSchema.optional(),
     matchPath: redirectMatchPathSchema.optional(),
     rewritePath: redirectRewritePathSchema.optional().nullable(),

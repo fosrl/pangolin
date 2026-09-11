@@ -40,6 +40,7 @@ import {
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { isValidDomain } from "@server/lib/validators";
 import { cn } from "@app/lib/cn";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,7 +51,7 @@ import type {
 import type { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ResourceSelector, type SelectedResource } from "./resource-selector";
@@ -88,7 +89,7 @@ export default function RedirectForm({
     const router = useRouter();
     const t = useTranslations();
 
-    const [saveLoading, setSaveLoading] = useState(false);
+    const [, formAction, saveLoading] = useActionState(onSubmit, null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedResource, setSelectedResource] =
@@ -111,6 +112,9 @@ export default function RedirectForm({
                         .trim()
                         .min(1, {
                             message: t("redirectDestinationDomainRequired")
+                        })
+                        .refine(isValidDomain, {
+                            message: t("redirectDestinationDomainInvalid")
                         }),
                     pathMatchType: z.enum(["exact", "prefix", "regex"]),
                     matchPath: z.string().trim().min(1),
@@ -181,8 +185,10 @@ export default function RedirectForm({
     const hasRewrite =
         Boolean(rewritePath) || rewritePathType === "stripPrefix";
 
-    async function onSubmit(values: RedirectFormValues) {
-        setSaveLoading(true);
+    async function onSubmit() {
+        if (!(await form.trigger())) return;
+
+        const values = form.getValues();
 
         // Only one of the two attachment points is ever persisted; clear the
         // other so switching between them doesn't leave a stale reference.
@@ -221,9 +227,7 @@ export default function RedirectForm({
                     title: t("success"),
                     description: t("redirectCreated")
                 });
-                router.push(
-                    `/${orgId}/settings/redirects/${res.data.data.redirect.niceId}`
-                );
+                router.push(`/${orgId}/settings/redirects/`);
             }
         } catch (e) {
             toast({
@@ -238,8 +242,6 @@ export default function RedirectForm({
                         : t("redirectErrorCreate")
                 )
             });
-        } finally {
-            setSaveLoading(false);
         }
     }
 
@@ -297,10 +299,7 @@ export default function RedirectForm({
                     <SettingsSectionBody>
                         <SettingsSectionForm variant="half">
                             <Form {...form}>
-                                <form
-                                    onSubmit={form.handleSubmit(onSubmit)}
-                                    id="redirect-form"
-                                >
+                                <form action={formAction} id="redirect-form">
                                     <SettingsFormGrid>
                                         <SettingsFormCell span="full">
                                             <FormField
@@ -546,7 +545,7 @@ export default function RedirectForm({
                     <SettingsSectionBody>
                         <SettingsSectionForm variant="half">
                             <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)}>
+                                <form action={formAction}>
                                     <SettingsFormGrid>
                                         <SettingsFormCell span="full">
                                             <FormField
