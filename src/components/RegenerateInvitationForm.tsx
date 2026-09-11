@@ -52,9 +52,11 @@ export default function RegenerateInvitationForm({
 }: RegenerateInvitationFormProps) {
     const [loading, setLoading] = useState(false);
     const [inviteLink, setInviteLink] = useState<string | null>(null);
-    const [sendEmail, setSendEmail] = useState(true);
+    const [expiresInDays, setExpiresInDays] = useState(3);
+    const { env } = useEnvContext();
+    const [sendEmail, setSendEmail] = useState(env.email.emailEnabled);
     const [validHours, setValidHours] = useState(72);
-    const api = createApiClient(useEnvContext());
+    const api = createApiClient({ env });
     const { org } = useOrgContext();
 
     const t = useTranslations();
@@ -71,10 +73,11 @@ export default function RegenerateInvitationForm({
 
     useEffect(() => {
         if (open) {
-            setSendEmail(true);
+            setSendEmail(env.email.emailEnabled);
             setValidHours(72);
+            setExpiresInDays(3);
         }
-    }, [open]);
+    }, [open, env.email.emailEnabled]);
 
     async function handleRegenerate() {
         if (!invitation) return;
@@ -96,15 +99,16 @@ export default function RegenerateInvitationForm({
                 email: invitation.email,
                 roleIds: invitation.roleIds,
                 validHours,
-                sendEmail,
+                sendEmail: env.email.emailEnabled && sendEmail,
                 regenerate: true
             });
 
             if (res.status === 200) {
                 const link = res.data.data.inviteLink;
                 setInviteLink(link);
+                setExpiresInDays(validHours / 24);
 
-                if (sendEmail) {
+                if (sendEmail && env.email.emailEnabled) {
                     toast({
                         variant: "default",
                         title: t("inviteRegenerated"),
@@ -127,9 +131,7 @@ export default function RegenerateInvitationForm({
                 onRegenerate({
                     id: invitation.id,
                     email: invitation.email,
-                    expiresAt: new Date(
-                        res.data.data.expiresAt
-                    ).toISOString(),
+                    expiresAt: new Date(res.data.data.expiresAt).toISOString(),
                     roleLabels: invitation.roleLabels,
                     roleIds: invitation.roleIds
                 });
@@ -174,33 +176,47 @@ export default function RegenerateInvitationForm({
         >
             <CredenzaContent>
                 <CredenzaHeader>
-                    <CredenzaTitle>{t("inviteRegenerate")}</CredenzaTitle>
+                    <CredenzaTitle>
+                        {inviteLink
+                            ? t("inviteRegenerated")
+                            : t("inviteRegenerate")}
+                    </CredenzaTitle>
                     <CredenzaDescription>
-                        {t("inviteRegenerateDescription")}
+                        {inviteLink
+                            ? sendEmail && env.email.emailEnabled
+                                ? t("inviteEmailSentDescription")
+                                : t("inviteSentDescription")
+                            : t("inviteRegenerateDescription")}
                     </CredenzaDescription>
                 </CredenzaHeader>
                 <CredenzaBody>
                     {!inviteLink ? (
-                        <div>
-                            <p>
-                                {t("inviteQuestionRegenerate", {
-                                    email: invitation?.email || ""
-                                })}
-                            </p>
-                            <div className="flex items-center space-x-2 mt-4">
-                                <Checkbox
-                                    id="send-email"
-                                    checked={sendEmail}
-                                    onCheckedChange={(e) =>
-                                        setSendEmail(e as boolean)
-                                    }
-                                />
-                                <label htmlFor="send-email">
-                                    {t("inviteSentEmail")}
-                                </label>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>{t("email")}</Label>
+                                <p className="text-sm">{invitation?.email}</p>
                             </div>
-                            <div className="mt-4 space-y-2">
-                                <Label>{t("inviteValidityPeriod")}</Label>
+
+                            {env.email.emailEnabled && (
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="send-email"
+                                        checked={sendEmail}
+                                        onCheckedChange={(e) =>
+                                            setSendEmail(e as boolean)
+                                        }
+                                    />
+                                    <label
+                                        htmlFor="send-email"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        {t("inviteEmailSent")}
+                                    </label>
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                <Label>{t("inviteValid")}</Label>
                                 <Select
                                     value={validHours.toString()}
                                     onValueChange={(value) =>
@@ -209,9 +225,7 @@ export default function RegenerateInvitationForm({
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue
-                                            placeholder={t(
-                                                "inviteValidityPeriodSelect"
-                                            )}
+                                            placeholder={t("selectDuration")}
                                         />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -228,9 +242,13 @@ export default function RegenerateInvitationForm({
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-4 max-w-md">
-                            <p>{t("inviteRegenerateMessage")}</p>
-                            <CopyTextBox text={inviteLink} wrapText={false} />
+                        <div className="space-y-4">
+                            <p>
+                                {t("inviteExpiresIn", {
+                                    days: expiresInDays
+                                })}
+                            </p>
+                            {inviteLink && <CopyTextBox text={inviteLink} />}
                         </div>
                     )}
                 </CredenzaBody>
@@ -249,7 +267,7 @@ export default function RegenerateInvitationForm({
                         </>
                     ) : (
                         <CredenzaClose asChild>
-                            <Button variant="outline">{t("close")}</Button>
+                            <Button>{t("done")}</Button>
                         </CredenzaClose>
                     )}
                 </CredenzaFooter>
