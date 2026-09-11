@@ -51,7 +51,7 @@ import type {
 import type { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ResourceSelector, type SelectedResource } from "./resource-selector";
@@ -94,6 +94,16 @@ export default function RedirectForm({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedResource, setSelectedResource] =
         useState<SelectedResource | null>(initialResource);
+
+    // DomainPicker only hands back the composed host through its callback, so
+    // keep it locally; seed from the saved redirect for the edit case.
+    const [domainFullDomain, setDomainFullDomain] = useState<string | null>(
+        redirect?.baseDomain
+            ? [redirect.subdomain, redirect.baseDomain]
+                  .filter(Boolean)
+                  .join(".")
+            : null
+    );
 
     const formSchema = useMemo(
         () =>
@@ -178,6 +188,29 @@ export default function RedirectForm({
     });
 
     const attachTo = form.watch("attachTo");
+
+    const sourceFullDomain =
+        attachTo === "domain"
+            ? domainFullDomain
+            : (selectedResource?.fullDomain ?? null);
+
+    // Mirror is UI-only state; on edit, infer it from whether the saved
+    // destination already equals the source host.
+    const [sameDomainAsSource, setSameDomainAsSource] = useState(
+        Boolean(
+            redirect &&
+                sourceFullDomain &&
+                redirect.destinationDomain === sourceFullDomain
+        )
+    );
+
+    useEffect(() => {
+        if (sameDomainAsSource && sourceFullDomain) {
+            form.setValue("destinationDomain", sourceFullDomain, {
+                shouldValidate: true
+            });
+        }
+    }, [sameDomainAsSource, sourceFullDomain, form]);
     const pathMatchType = form.watch("pathMatchType");
     const rewritePath = form.watch("rewritePath");
     const rewritePathType = form.watch("rewritePathType");
@@ -430,6 +463,10 @@ export default function RedirectForm({
                                                                         res?.subdomain ||
                                                                             null
                                                                     );
+                                                                    setDomainFullDomain(
+                                                                        res?.fullDomain ??
+                                                                            null
+                                                                    );
                                                                 }}
                                                             />
                                                             <FormMessage />
@@ -548,6 +585,22 @@ export default function RedirectForm({
                                 <form action={formAction}>
                                     <SettingsFormGrid>
                                         <SettingsFormCell span="full">
+                                            <SwitchInput
+                                                id="redirect-same-domain"
+                                                label={t(
+                                                    "redirectSameDomainAsSource"
+                                                )}
+                                                description={t(
+                                                    "redirectSameDomainAsSourceDescription"
+                                                )}
+                                                checked={sameDomainAsSource}
+                                                onCheckedChange={
+                                                    setSameDomainAsSource
+                                                }
+                                            />
+                                        </SettingsFormCell>
+
+                                        <SettingsFormCell span="full">
                                             <FormField
                                                 control={form.control}
                                                 name="destinationDomain"
@@ -562,6 +615,9 @@ export default function RedirectForm({
                                                             <Input
                                                                 autoComplete="off"
                                                                 placeholder="example.com"
+                                                                readOnly={
+                                                                    sameDomainAsSource
+                                                                }
                                                                 {...field}
                                                             />
                                                         </FormControl>
