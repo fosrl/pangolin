@@ -88,6 +88,15 @@ const listUsersSchema = z.strictObject({
             type: "boolean",
             description:
                 "Filter by 2FA state matching: enabled if twoFactorEnabled or twoFactorSetupRequested"
+        }),
+    server_admin: z
+        .enum(["true", "false"])
+        .transform((v) => v === "true")
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "boolean",
+            description: "Filter by server admin status"
         })
 });
 
@@ -177,7 +186,8 @@ export async function adminListUsers(
             sort_by,
             order,
             idp_id,
-            two_factor: twoFactorFilter
+            two_factor: twoFactorFilter,
+            server_admin: serverAdminFilter
         } = parsedQuery.data;
 
         if (typeof idp_id === "number") {
@@ -231,6 +241,10 @@ export async function adminListUsers(
                     )!
                 );
             }
+        }
+
+        if (typeof serverAdminFilter === "boolean") {
+            conditions.push(eq(users.serverAdmin, serverAdminFilter));
         }
 
         const whereClause = and(...conditions);

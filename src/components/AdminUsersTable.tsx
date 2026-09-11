@@ -44,7 +44,6 @@ import {
     CredenzaClose
 } from "@app/components/Credenza";
 import CopyToClipboard from "@app/components/CopyToClipboard";
-import { Badge } from "./ui/badge";
 import {
     Tooltip,
     TooltipContent,
@@ -119,6 +118,11 @@ export default function UsersTable({
         .catch(undefined);
 
     const twoFactorFilterSchema = z
+        .enum(["true", "false"])
+        .optional()
+        .catch(undefined);
+
+    const serverAdminFilterSchema = z
         .enum(["true", "false"])
         .optional()
         .catch(undefined);
@@ -310,19 +314,16 @@ export default function UsersTable({
                         </>
                     )}
                     {row.original.serverAdmin && (
-                        <>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <ShieldUserIcon className="text-primary size-5 flex-none" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        {t("serverAdmin")}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            {/*  <Badge>{t("serverAdmin")}</Badge> */}
-                        </>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <ShieldUserIcon className="text-primary size-4 flex-none" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {t("serverAdmin")}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     )}
                 </span>
             )
@@ -432,6 +433,37 @@ export default function UsersTable({
             }
         },
         {
+            accessorKey: "serverAdmin",
+            friendlyName: t("serverAdmin"),
+            header: () => (
+                <ColumnFilterButton
+                    options={[
+                        { value: "true", label: t("yes") },
+                        { value: "false", label: t("no") }
+                    ]}
+                    selectedValue={serverAdminFilterSchema.parse(
+                        searchParams.get("server_admin") ?? undefined
+                    )}
+                    onValueChange={(value) =>
+                        handleFilterChange("server_admin", value)
+                    }
+                    searchPlaceholder={t("searchPlaceholder")}
+                    emptyMessage={t("emptySearchOptions")}
+                    label={t("serverAdmin")}
+                    className="p-3"
+                />
+            ),
+            cell: ({ row }) => (
+                <span>
+                    {row.original.serverAdmin ? (
+                        <span>{t("yes")}</span>
+                    ) : (
+                        <span>{t("no")}</span>
+                    )}
+                </span>
+            )
+        },
+        {
             id: "actions",
             enableHiding: false,
             header: () => <span className="p-3"></span>,
@@ -459,7 +491,7 @@ export default function UsersTable({
                                         {t("generatePasswordResetCode")}
                                     </DropdownMenuItem>
                                 )}
-                                {!r.serverAdmin && (
+                                {r.type === "internal" && !r.serverAdmin && (
                                     <DropdownMenuItem
                                         onClick={() => {
                                             setPromoting(r);
@@ -469,16 +501,18 @@ export default function UsersTable({
                                         {t("promoteServerAdmin")}
                                     </DropdownMenuItem>
                                 )}
-                                {r.serverAdmin && r.id !== user.user.userId && (
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setDemoting(r);
-                                            setIsDemoteModalOpen(true);
-                                        }}
-                                    >
-                                        {t("demoteServerAdmin")}
-                                    </DropdownMenuItem>
-                                )}
+                                {r.type === "internal" &&
+                                    r.serverAdmin &&
+                                    r.id !== user.user.userId && (
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                setDemoting(r);
+                                                setIsDemoteModalOpen(true);
+                                            }}
+                                        >
+                                            {t("demoteServerAdmin")}
+                                        </DropdownMenuItem>
+                                    )}
                                 <DropdownMenuItem
                                     onClick={() => {
                                         setSelected(r);

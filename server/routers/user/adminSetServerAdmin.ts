@@ -31,7 +31,8 @@ const AdminSetServerAdminResponseDataSchema = z.object({
 registry.registerPath({
     method: "post",
     path: "/user/{userId}/server-admin",
-    description: "Promote or demote a user's server admin status (server admin).",
+    description:
+        "Promote or demote a user's server admin status (server admin).",
     tags: [OpenAPITags.User],
     request: {
         params: setServerAdminParamsSchema,
@@ -63,9 +64,7 @@ export async function adminSetServerAdmin(
     next: NextFunction
 ): Promise<any> {
     try {
-        const parsedParams = setServerAdminParamsSchema.safeParse(
-            req.params
-        );
+        const parsedParams = setServerAdminParamsSchema.safeParse(req.params);
         if (!parsedParams.success) {
             return next(
                 createHttpError(
@@ -91,7 +90,8 @@ export async function adminSetServerAdmin(
         const [existingUser] = await db
             .select({
                 userId: users.userId,
-                serverAdmin: users.serverAdmin
+                serverAdmin: users.serverAdmin,
+                type: users.type
             })
             .from(users)
             .where(eq(users.userId, userId))
@@ -99,6 +99,15 @@ export async function adminSetServerAdmin(
 
         if (!existingUser) {
             return next(createHttpError(HttpCode.NOT_FOUND, "User not found"));
+        }
+
+        if (existingUser.type !== "internal") {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Server admin status can only be changed for internal users"
+                )
+            );
         }
 
         if (!serverAdmin && req.user?.userId === userId) {
