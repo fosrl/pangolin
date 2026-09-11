@@ -78,12 +78,13 @@ export default async function UsersPage(props: UsersPageProps) {
         rolesRes && rolesRes.status === 200
             ? (rolesRes.data.data.roles ?? [])
             : [];
-    const roleFilterOptions = orgRoles.map(
-        (r: ListRolesResponse["roles"][number]) => ({
+    const roleFilterOptions = [
+        { value: "owner", label: t("accessRoleOwner") },
+        ...orgRoles.map((r: ListRolesResponse["roles"][number]) => ({
             value: String(r.roleId),
             label: r.name
-        })
-    );
+        }))
+    ];
 
     const invitationsRes = await internal
         .get(
@@ -126,14 +127,12 @@ export default async function UsersPage(props: UsersPageProps) {
             idpId: user.idpId,
             idpName: user.idpName || t("idpNameInternal"),
             status: t("userConfirmed"),
-            roleLabels: user.isOwner
-                ? [t("accessRoleOwner")]
-                : (() => {
-                      const names = (user.roles ?? [])
-                          .map((r) => r.roleName)
-                          .filter((n): n is string => Boolean(n?.length));
-                      return names.length ? names : [t("accessRoleMember")];
-                  })(),
+            roleLabels: (() => {
+                const names = (user.roles ?? [])
+                    .map((r) => r.roleName)
+                    .filter((n): n is string => Boolean(n?.length));
+                return names.length ? names : [t("accessRoleMember")];
+            })(),
             isOwner: user.isOwner || false
         };
     });

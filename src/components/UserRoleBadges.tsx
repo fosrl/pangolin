@@ -8,27 +8,32 @@ import {
     PopoverTrigger
 } from "@app/components/ui/popover";
 import { cn } from "@app/lib/cn";
+import { useTranslations } from "next-intl";
 
 const MAX_ROLE_BADGES = 3;
 
 export default function UserRoleBadges({
-    roleLabels
+    roleLabels,
+    isOwner
 }: {
     roleLabels: string[];
+    isOwner?: boolean;
 }) {
+    const t = useTranslations();
     const visible = roleLabels.slice(0, MAX_ROLE_BADGES);
     const overflow = roleLabels.slice(MAX_ROLE_BADGES);
 
     return (
         <div className="flex flex-wrap items-center gap-1">
+            {isOwner && (
+                <Badge variant="secondary">{t("accessRoleOwner")}</Badge>
+            )}
             {visible.map((label, i) => (
                 <Badge key={`${label}-${i}`} variant="secondary">
                     {label}
                 </Badge>
             ))}
-            {overflow.length > 0 && (
-                <OverflowRolesPopover labels={overflow} />
-            )}
+            {overflow.length > 0 && <OverflowRolesPopover labels={overflow} />}
         </div>
     );
 }

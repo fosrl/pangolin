@@ -1,6 +1,6 @@
 "use client";
 
-import CopyToClipboard from "@app/components/CopyToClipboard";
+import CopyTextBox from "@app/components/CopyTextBox";
 import {
     Credenza,
     CredenzaBody,
@@ -894,12 +894,7 @@ export default function Page() {
                                     days: expiresInDays
                                 })}
                             </p>
-                            {inviteLink && (
-                                <CopyToClipboard
-                                    text={inviteLink}
-                                    isLink={true}
-                                />
-                            )}
+                            {inviteLink && <CopyTextBox text={inviteLink} />}
                         </div>
                     </CredenzaBody>
                     <CredenzaFooter>

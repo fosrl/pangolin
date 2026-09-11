@@ -22,6 +22,7 @@ import {
     ArrowRight,
     ArrowUp10Icon,
     ChevronsUpDownIcon,
+    Crown,
     MoreHorizontal
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -34,10 +35,18 @@ import { ColumnFilterButton } from "./ColumnFilterButton";
 import { ColumnMultiFilterButton } from "./ColumnMultiFilterButton";
 import IdpTypeBadge from "./IdpTypeBadge";
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from "./ui/tooltip";
+import {
     ControlledDataTable,
     type ExtendedColumnDef
 } from "./ui/controlled-data-table";
 import UserRoleBadges from "./UserRoleBadges";
+
+const OWNER_FILTER_VALUE = "owner";
 
 export type UserRow = {
     id: string;
@@ -95,7 +104,13 @@ export default function UsersTable({
     const roleIdsFromSearchParams = useMemo(() => {
         const sp = new URLSearchParams(searchParams);
         return [
-            ...new Set(sp.getAll("role_id").filter((id) => /^\d+$/.test(id)))
+            ...new Set(
+                sp
+                    .getAll("role_id")
+                    .filter(
+                        (id) => /^\d+$/.test(id) || id === OWNER_FILTER_VALUE
+                    )
+            )
         ];
     }, [searchParams.toString()]);
 
@@ -126,7 +141,7 @@ export default function UsersTable({
         sp.delete("role_id");
         sp.delete("page");
         for (const id of values) {
-            if (/^\d+$/.test(id)) {
+            if (/^\d+$/.test(id) || id === OWNER_FILTER_VALUE) {
                 sp.append("role_id", id);
             }
         }
@@ -183,6 +198,18 @@ export default function UsersTable({
                             <span className="text-primary">you</span>
                         </>
                     )}
+                    {row.original.isOwner && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Crown className="text-primary size-4 flex-none" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {t("accessRoleOwner")}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
                 </span>
             )
         },
@@ -235,7 +262,12 @@ export default function UsersTable({
                 );
             },
             cell: ({ row }) => {
-                return <UserRoleBadges roleLabels={row.original.roleLabels} />;
+                return (
+                    <UserRoleBadges
+                        roleLabels={row.original.roleLabels}
+                        isOwner={row.original.isOwner}
+                    />
+                );
             }
         },
         {

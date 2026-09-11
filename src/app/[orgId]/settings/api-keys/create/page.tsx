@@ -43,10 +43,18 @@ import {
 } from "@app/components/InfoSection";
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import moment from "moment";
-import CopyCodeBox from "@server/emails/templates/components/CopyCodeBox";
 import CopyTextBox from "@app/components/CopyTextBox";
 import PermissionsSelectBox from "@app/components/PermissionsSelectBox";
 import { useTranslations } from "next-intl";
+import {
+    Credenza,
+    CredenzaBody,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle
+} from "@app/components/Credenza";
 
 export default function Page() {
     const { env } = useEnvContext();
@@ -58,6 +66,7 @@ export default function Page() {
     const [loadingPage, setLoadingPage] = useState(true);
     const [createLoading, setCreateLoading] = useState(false);
     const [apiKey, setApiKey] = useState<CreateOrgApiKeyResponse | null>(null);
+    const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
     const [selectedPermissions, setSelectedPermissions] = useState<
         Record<string, boolean>
     >({});
@@ -75,22 +84,6 @@ export default function Page() {
 
     type CreateFormValues = z.infer<typeof createFormSchema>;
 
-    const copiedFormSchema = z
-        .object({
-            copied: z.boolean()
-        })
-        .refine(
-            (data) => {
-                return data.copied;
-            },
-            {
-                message: t("apiKeysConfirmCopy2"),
-                path: ["copied"]
-            }
-        );
-
-    type CopiedFormValues = z.infer<typeof copiedFormSchema>;
-
     const form = useForm({
         resolver: zodResolver(createFormSchema),
         defaultValues: {
@@ -98,12 +91,9 @@ export default function Page() {
         }
     });
 
-    const copiedForm = useForm({
-        resolver: zodResolver(copiedFormSchema),
-        defaultValues: {
-            copied: true
-        }
-    });
+    function goToApiKeysList() {
+        router.push(`/${orgId}/settings/api-keys`);
+    }
 
     async function onSubmit(data: CreateFormValues) {
         setCreateLoading(true);
@@ -113,9 +103,10 @@ export default function Page() {
         };
 
         const res = await api
-            .put<
-                AxiosResponse<CreateOrgApiKeyResponse>
-            >(`/org/${orgId}/api-key/`, payload)
+            .put<AxiosResponse<CreateOrgApiKeyResponse>>(
+                `/org/${orgId}/api-key/`,
+                payload
+            )
             .catch((e) => {
                 toast({
                     variant: "destructive",
@@ -125,16 +116,10 @@ export default function Page() {
             });
 
         if (res && res.status === 201) {
-            const data = res.data.data;
-
-            console.log({
-                actionIds: Object.keys(selectedPermissions).filter(
-                    (key) => selectedPermissions[key]
-                )
-            });
+            const created = res.data.data;
 
             const actionsRes = await api
-                .post(`/org/${orgId}/api-key/${data.apiKeyId}/actions`, {
+                .post(`/org/${orgId}/api-key/${created.apiKeyId}/actions`, {
                     actionIds: Object.keys(selectedPermissions).filter(
                         (key) => selectedPermissions[key]
                     )
@@ -149,26 +134,13 @@ export default function Page() {
                 });
 
             if (actionsRes) {
-                setApiKey(data);
+                setApiKey(created);
+                setIsApiKeyDialogOpen(true);
             }
         }
 
         setCreateLoading(false);
     }
-
-    async function onCopiedSubmit(data: CopiedFormValues) {
-        if (!data.copied) {
-            return;
-        }
-
-        router.push(`/${orgId}/settings/api-keys`);
-    }
-
-    const formatLabel = (str: string) => {
-        return str
-            .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-            .replace(/^./, (char) => char.toUpperCase());
-    };
 
     useEffect(() => {
         const load = async () => {
@@ -185,12 +157,7 @@ export default function Page() {
                     title={t("apiKeysCreate")}
                     description={t("apiKeysCreateDescription")}
                 />
-                <Button
-                    variant="outline"
-                    onClick={() => {
-                        router.push(`/${orgId}/settings/api-keys`);
-                    }}
-                >
+                <Button variant="outline" onClick={goToApiKeysList}>
                     {t("apiKeysSeeAll")}
                 </Button>
             </div>
@@ -198,206 +165,152 @@ export default function Page() {
             {!loadingPage && (
                 <div>
                     <SettingsContainer>
-                        {!apiKey && (
-                            <>
-                                <SettingsSection>
-                                    <SettingsSectionHeader>
-                                        <SettingsSectionTitle>
-                                            {t("apiKeysTitle")}
-                                        </SettingsSectionTitle>
-                                    </SettingsSectionHeader>
-                                    <SettingsSectionBody>
-                                        <SettingsSectionForm>
-                                            <Form {...form}>
-                                                <form
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "Enter") {
-                                                            e.preventDefault(); // block default enter refresh
-                                                        }
-                                                    }}
-                                                    className="space-y-4"
-                                                    id="create-site-form"
-                                                >
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="name"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>
-                                                                    {t("name")}
-                                                                </FormLabel>
-                                                                <FormControl>
-                                                                    <Input
-                                                                        autoComplete="off"
-                                                                        {...field}
-                                                                    />
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                </form>
-                                            </Form>
-                                        </SettingsSectionForm>
-                                    </SettingsSectionBody>
-                                </SettingsSection>
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("apiKeysTitle")}
+                                </SettingsSectionTitle>
+                            </SettingsSectionHeader>
+                            <SettingsSectionBody>
+                                <SettingsSectionForm>
+                                    <Form {...form}>
+                                        <form
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                }
+                                            }}
+                                            className="space-y-4"
+                                            id="create-site-form"
+                                        >
+                                            <FormField
+                                                control={form.control}
+                                                name="name"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("name")}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                autoComplete="off"
+                                                                {...field}
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </form>
+                                    </Form>
+                                </SettingsSectionForm>
+                            </SettingsSectionBody>
+                        </SettingsSection>
 
-                                <SettingsSection>
-                                    <SettingsSectionHeader>
-                                        <SettingsSectionTitle>
-                                            {t("apiKeysGeneralSettings")}
-                                        </SettingsSectionTitle>
-                                        <SettingsSectionDescription>
-                                            {t(
-                                                "apiKeysGeneralSettingsDescription"
-                                            )}
-                                        </SettingsSectionDescription>
-                                    </SettingsSectionHeader>
-                                    <SettingsSectionBody>
-                                        <PermissionsSelectBox
-                                            selectedPermissions={
-                                                selectedPermissions
-                                            }
-                                            onChange={setSelectedPermissions}
-                                        />
-                                    </SettingsSectionBody>
-                                </SettingsSection>
-                            </>
-                        )}
-
-                        {apiKey && (
-                            <SettingsSection>
-                                <SettingsSectionHeader>
-                                    <SettingsSectionTitle>
-                                        {t("apiKeysList")}
-                                    </SettingsSectionTitle>
-                                </SettingsSectionHeader>
-                                <SettingsSectionBody>
-                                    <InfoSections cols={2}>
-                                        <InfoSection>
-                                            <InfoSectionTitle>
-                                                {t("name")}
-                                            </InfoSectionTitle>
-                                            <InfoSectionContent>
-                                                <CopyToClipboard
-                                                    text={apiKey.name}
-                                                />
-                                            </InfoSectionContent>
-                                        </InfoSection>
-                                        <InfoSection>
-                                            <InfoSectionTitle>
-                                                {t("created")}
-                                            </InfoSectionTitle>
-                                            <InfoSectionContent>
-                                                {moment(
-                                                    apiKey.createdAt
-                                                ).format("lll")}
-                                            </InfoSectionContent>
-                                        </InfoSection>
-                                    </InfoSections>
-
-                                    <Alert variant="neutral">
-                                        <InfoIcon className="h-4 w-4" />
-                                        <AlertTitle className="font-semibold">
-                                            {t("apiKeysSave")}
-                                        </AlertTitle>
-                                        <AlertDescription>
-                                            {t("apiKeysSaveDescription")}
-                                        </AlertDescription>
-                                    </Alert>
-
-                                    {/* <h4 className="font-semibold"> */}
-                                    {/*     {t('apiKeysInfo')} */}
-                                    {/* </h4> */}
-
-                                    <CopyTextBox
-                                        text={`${apiKey.apiKeyId}.${apiKey.apiKey}`}
-                                    />
-
-                                    {/* <Form {...copiedForm}> */}
-                                    {/*     <form */}
-                                    {/*         className="space-y-4" */}
-                                    {/*         id="copied-form" */}
-                                    {/*     > */}
-                                    {/*         <FormField */}
-                                    {/*             control={copiedForm.control} */}
-                                    {/*             name="copied" */}
-                                    {/*             render={({ field }) => ( */}
-                                    {/*                 <FormItem> */}
-                                    {/*                     <div className="flex items-center space-x-2"> */}
-                                    {/*                         <Checkbox */}
-                                    {/*                             id="terms" */}
-                                    {/*                             defaultChecked={ */}
-                                    {/*                                 copiedForm.getValues( */}
-                                    {/*                                     "copied" */}
-                                    {/*                                 ) as boolean */}
-                                    {/*                             } */}
-                                    {/*                             onCheckedChange={( */}
-                                    {/*                                 e */}
-                                    {/*                             ) => { */}
-                                    {/*                                 copiedForm.setValue( */}
-                                    {/*                                     "copied", */}
-                                    {/*                                     e as boolean */}
-                                    {/*                                 ); */}
-                                    {/*                             }} */}
-                                    {/*                         /> */}
-                                    {/*                         <label */}
-                                    {/*                             htmlFor="terms" */}
-                                    {/*                             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" */}
-                                    {/*                         > */}
-                                    {/*                             {t('apiKeysConfirmCopy')} */}
-                                    {/*                         </label> */}
-                                    {/*                     </div> */}
-                                    {/*                     <FormMessage /> */}
-                                    {/*                 </FormItem> */}
-                                    {/*             )} */}
-                                    {/*         /> */}
-                                    {/*     </form> */}
-                                    {/* </Form> */}
-                                </SettingsSectionBody>
-                            </SettingsSection>
-                        )}
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("apiKeysGeneralSettings")}
+                                </SettingsSectionTitle>
+                                <SettingsSectionDescription>
+                                    {t("apiKeysGeneralSettingsDescription")}
+                                </SettingsSectionDescription>
+                            </SettingsSectionHeader>
+                            <SettingsSectionBody>
+                                <PermissionsSelectBox
+                                    selectedPermissions={selectedPermissions}
+                                    onChange={setSelectedPermissions}
+                                />
+                            </SettingsSectionBody>
+                        </SettingsSection>
                     </SettingsContainer>
 
                     <div className="flex justify-end space-x-2 mt-8">
-                        {!apiKey && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                disabled={createLoading || apiKey !== null}
-                                onClick={() => {
-                                    router.push(`/${orgId}/settings/api-keys`);
-                                }}
-                            >
-                                {t("cancel")}
-                            </Button>
-                        )}
-                        {!apiKey && (
-                            <Button
-                                type="button"
-                                loading={createLoading}
-                                disabled={createLoading || apiKey !== null}
-                                onClick={() => {
-                                    form.handleSubmit(onSubmit)();
-                                }}
-                            >
-                                {t("generate")}
-                            </Button>
-                        )}
-
-                        {apiKey && (
-                            <Button
-                                type="button"
-                                onClick={() => {
-                                    copiedForm.handleSubmit(onCopiedSubmit)();
-                                }}
-                            >
-                                {t("done")}
-                            </Button>
-                        )}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={createLoading || apiKey !== null}
+                            onClick={goToApiKeysList}
+                        >
+                            {t("cancel")}
+                        </Button>
+                        <Button
+                            type="button"
+                            loading={createLoading}
+                            disabled={createLoading || apiKey !== null}
+                            onClick={() => {
+                                form.handleSubmit(onSubmit)();
+                            }}
+                        >
+                            {t("generate")}
+                        </Button>
                     </div>
                 </div>
             )}
+
+            <Credenza
+                open={isApiKeyDialogOpen}
+                onOpenChange={(open) => {
+                    setIsApiKeyDialogOpen(open);
+                    if (!open && apiKey) {
+                        goToApiKeysList();
+                    }
+                }}
+            >
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>{t("apiKeysList")}</CredenzaTitle>
+                        <CredenzaDescription>
+                            {t("apiKeysSaveDescription")}
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaBody>
+                        {apiKey && (
+                            <div className="space-y-4">
+                                <InfoSections cols={2}>
+                                    <InfoSection>
+                                        <InfoSectionTitle>
+                                            {t("name")}
+                                        </InfoSectionTitle>
+                                        <InfoSectionContent>
+                                            <CopyToClipboard
+                                                text={apiKey.name}
+                                            />
+                                        </InfoSectionContent>
+                                    </InfoSection>
+                                    <InfoSection>
+                                        <InfoSectionTitle>
+                                            {t("created")}
+                                        </InfoSectionTitle>
+                                        <InfoSectionContent>
+                                            {moment(apiKey.createdAt).format(
+                                                "lll"
+                                            )}
+                                        </InfoSectionContent>
+                                    </InfoSection>
+                                </InfoSections>
+
+                                <Alert variant="neutral">
+                                    <InfoIcon className="h-4 w-4" />
+                                    <AlertTitle className="font-semibold">
+                                        {t("apiKeysSave")}
+                                    </AlertTitle>
+                                    <AlertDescription>
+                                        {t("apiKeysSaveDescription")}
+                                    </AlertDescription>
+                                </Alert>
+
+                                <CopyTextBox
+                                    text={`${apiKey.apiKeyId}.${apiKey.apiKey}`}
+                                />
+                            </div>
+                        )}
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <Button onClick={goToApiKeysList}>{t("done")}</Button>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
         </>
     );
 }

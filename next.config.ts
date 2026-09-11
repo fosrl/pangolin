@@ -34,6 +34,11 @@ const nextConfig: NextConfig = {
                 source: "/:orgId/settings/resources/client/:path*",
                 destination: "/:orgId/settings/resources/private/:path*",
                 permanent: true
+            },
+            {
+                source: "/:orgId/settings/access/users/:userId/access-controls",
+                destination: "/:orgId/settings/access/users/:userId/general",
+                permanent: false
             }
         ];
     }
