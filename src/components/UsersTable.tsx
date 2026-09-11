@@ -171,7 +171,20 @@ export default function UsersTable({
                         <Icon className="ml-2 h-4 w-4" />
                     </Button>
                 );
-            }
+            },
+            cell: ({ row }) => (
+                <span className="inline-flex gap-1 items-center">
+                    {row.original.displayUsername}{" "}
+                    {row.original.id === user.userId && (
+                        <>
+                            <span className="text-muted-foreground">
+                                &middot;
+                            </span>{" "}
+                            <span className="text-primary">you</span>
+                        </>
+                    )}
+                </span>
+            )
         },
         {
             accessorKey: "idpName",

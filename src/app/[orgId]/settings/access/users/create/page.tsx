@@ -1,24 +1,20 @@
 "use client";
 
+import CopyToClipboard from "@app/components/CopyToClipboard";
 import {
-    SettingsContainer,
-    SettingsSection,
-    SettingsSectionBody,
-    SettingsSectionDescription,
-    SettingsSectionForm,
-    SettingsSectionHeader,
-    SettingsSectionTitle
-} from "@app/components/Settings";
-import { StrategyOption, StrategySelect } from "@app/components/StrategySelect";
+    Credenza,
+    CredenzaBody,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle
+} from "@app/components/Credenza";
+import { StrategySelect } from "@app/components/StrategySelect";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import { Button } from "@app/components/ui/button";
 import { useParams, useRouter } from "next/navigation";
-import {
-    useActionState,
-    useRef,
-    useState,
-    startTransition
-} from "react";
+import { useActionState, useRef, useState, startTransition } from "react";
 import {
     Form,
     FormControl,
@@ -42,7 +38,6 @@ import { AxiosResponse } from "axios";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import CopyTextBox from "@app/components/CopyTextBox";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { ListRolesResponse } from "@server/routers/role";
 import { formatAxiosError } from "@app/lib/api";
@@ -55,7 +50,15 @@ import IdpTypeIcon from "@app/components/IdpTypeIcon";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import OrgRolesTagField from "@app/components/OrgRolesTagField";
-import CopyToClipboard from "@app/components/CopyToClipboard";
+import {
+    SettingsContainer,
+    SettingsSection,
+    SettingsSectionBody,
+    SettingsSectionDescription,
+    SettingsSectionForm,
+    SettingsSectionHeader,
+    SettingsSectionTitle
+} from "@app/components/Settings";
 
 type UserType = "internal" | "oidc";
 
@@ -96,6 +99,7 @@ export default function Page() {
         "internal"
     );
     const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
     const [expiresInDays, setExpiresInDays] = useState(1);
     const [roles, setRoles] = useState<{ roleId: number; name: string }[]>([]);
@@ -246,9 +250,9 @@ export default function Page() {
                 build === "saas" || env.app.identityProviderMode === "org";
 
             const res = await api
-                .get<
-                    AxiosResponse<ListIdpsResponse>
-                >(useOrgIdps ? `/org/${orgId}/idp` : "/idp")
+                .get<AxiosResponse<ListIdpsResponse>>(
+                    useOrgIdps ? `/org/${orgId}/idp` : "/idp"
+                )
                 .catch((e) => {
                     console.error(e);
                     toast({
@@ -350,13 +354,13 @@ export default function Page() {
 
         if (res && res.status === 200) {
             setInviteLink(res.data.data.inviteLink);
+            setExpiresInDays(parseInt(values.validForHours) / 24);
+            setIsInviteDialogOpen(true);
             toast({
                 variant: "default",
                 title: t("userInvited"),
                 description: t("userInvitedDescription")
             });
-
-            setExpiresInDays(parseInt(values.validForHours) / 24);
         }
     }
 
@@ -460,6 +464,7 @@ export default function Page() {
             setSendEmail(env.email.emailEnabled);
             internalForm.reset();
             setInviteLink(null);
+            setIsInviteDialogOpen(false);
             setExpiresInDays(1);
         } else {
             googleAzureForm.reset();
@@ -486,7 +491,7 @@ export default function Page() {
 
             <div>
                 <SettingsContainer>
-                    {!inviteLink && userOptions.length > 1 ? (
+                    {userOptions.length > 1 ? (
                         <SettingsSection>
                             <SettingsSectionHeader>
                                 <SettingsSectionTitle>
@@ -508,177 +513,132 @@ export default function Page() {
                     ) : null}
 
                     {selectedOption === "internal" && dataLoaded && (
-                        <>
-                            {!inviteLink ? (
-                                <SettingsSection>
-                                    <SettingsSectionHeader>
-                                        <SettingsSectionTitle>
-                                            {t("userSettings")}
-                                        </SettingsSectionTitle>
-                                        <SettingsSectionDescription>
-                                            {t("userSettingsDescription")}
-                                        </SettingsSectionDescription>
-                                    </SettingsSectionHeader>
-                                    <SettingsSectionBody>
-                                        <SettingsSectionForm>
-                                            <Form {...internalForm}>
-                                                <form
-                                                    onSubmit={(e) => {
-                                                        e.preventDefault();
-                                                        startTransition(() => {
-                                                            submitInternalAction();
-                                                        });
-                                                    }}
-                                                    className="space-y-4"
-                                                    id="create-user-form"
-                                                >
-                                                    <FormField
-                                                        control={
-                                                            internalForm.control
-                                                        }
-                                                        name="email"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>
-                                                                    {t("email")}
-                                                                </FormLabel>
-                                                                <FormControl>
-                                                                    <Input
-                                                                        {...field}
-                                                                    />
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-
-                                                    <FormField
-                                                        control={
-                                                            internalForm.control
-                                                        }
-                                                        name="validForHours"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>
-                                                                    {t(
-                                                                        "inviteValid"
-                                                                    )}
-                                                                </FormLabel>
-                                                                <Select
-                                                                    onValueChange={
-                                                                        field.onChange
-                                                                    }
-                                                                    defaultValue={
-                                                                        field.value
-                                                                    }
-                                                                >
-                                                                    <FormControl>
-                                                                        <SelectTrigger className="w-full">
-                                                                            <SelectValue
-                                                                                placeholder={t(
-                                                                                    "selectDuration"
-                                                                                )}
-                                                                            />
-                                                                        </SelectTrigger>
-                                                                    </FormControl>
-                                                                    <SelectContent>
-                                                                        {validFor.map(
-                                                                            (
-                                                                                option
-                                                                            ) => (
-                                                                                <SelectItem
-                                                                                    key={
-                                                                                        option.hours
-                                                                                    }
-                                                                                    value={option.hours.toString()}
-                                                                                >
-                                                                                    {
-                                                                                        option.name
-                                                                                    }
-                                                                                </SelectItem>
-                                                                            )
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-
-                                                    <OrgRolesTagField
-                                                        form={internalForm}
-                                                        name="roles"
-                                                        orgId={orgId as string}
-                                                        supportsMultipleRolesPerUser={
-                                                            supportsMultipleRolesPerUser
-                                                        }
-                                                        showMultiRolePaywallMessage={
-                                                            showMultiRolePaywallMessage
-                                                        }
-                                                        paywallMessage={
-                                                            invitePaywallMessage
-                                                        }
-                                                    />
-
-                                                    {env.email.emailEnabled && (
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id="send-email"
-                                                                checked={
-                                                                    sendEmail
-                                                                }
-                                                                onCheckedChange={(
-                                                                    e
-                                                                ) =>
-                                                                    setSendEmail(
-                                                                        e as boolean
-                                                                    )
-                                                                }
-                                                            />
-                                                            <label
-                                                                htmlFor="send-email"
-                                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                                            >
-                                                                {t(
-                                                                    "inviteEmailSent"
-                                                                )}
-                                                            </label>
-                                                        </div>
-                                                    )}
-                                                </form>
-                                            </Form>
-                                        </SettingsSectionForm>
-                                    </SettingsSectionBody>
-                                </SettingsSection>
-                            ) : (
-                                <SettingsSection>
-                                    <SettingsSectionHeader>
-                                        <SettingsSectionTitle>
-                                            {t("userInvited")}
-                                        </SettingsSectionTitle>
-                                        <SettingsSectionDescription>
-                                            {sendEmail
-                                                ? t(
-                                                      "inviteEmailSentDescription"
-                                                  )
-                                                : t("inviteSentDescription")}
-                                        </SettingsSectionDescription>
-                                    </SettingsSectionHeader>
-                                    <SettingsSectionBody>
-                                        <div className="space-y-4">
-                                            <p>
-                                                {t("inviteExpiresIn", {
-                                                    days: expiresInDays
-                                                })}
-                                            </p>
-                                            <CopyToClipboard
-                                                text={inviteLink}
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("userSettings")}
+                                </SettingsSectionTitle>
+                                <SettingsSectionDescription>
+                                    {t("userSettingsDescription")}
+                                </SettingsSectionDescription>
+                            </SettingsSectionHeader>
+                            <SettingsSectionBody>
+                                <SettingsSectionForm>
+                                    <Form {...internalForm}>
+                                        <form
+                                            onSubmit={(e) => {
+                                                e.preventDefault();
+                                                startTransition(() => {
+                                                    submitInternalAction();
+                                                });
+                                            }}
+                                            className="space-y-4"
+                                            id="create-user-form"
+                                        >
+                                            <FormField
+                                                control={internalForm.control}
+                                                name="email"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("email")}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
                                             />
-                                        </div>
-                                    </SettingsSectionBody>
-                                </SettingsSection>
-                            )}
-                        </>
+
+                                            {env.email.emailEnabled && (
+                                                <div className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id="send-email"
+                                                        checked={sendEmail}
+                                                        onCheckedChange={(e) =>
+                                                            setSendEmail(
+                                                                e as boolean
+                                                            )
+                                                        }
+                                                    />
+                                                    <label
+                                                        htmlFor="send-email"
+                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                    >
+                                                        {t("inviteEmailSent")}
+                                                    </label>
+                                                </div>
+                                            )}
+
+                                            <FormField
+                                                control={internalForm.control}
+                                                name="validForHours"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("inviteValid")}
+                                                        </FormLabel>
+                                                        <Select
+                                                            onValueChange={
+                                                                field.onChange
+                                                            }
+                                                            defaultValue={
+                                                                field.value
+                                                            }
+                                                        >
+                                                            <FormControl>
+                                                                <SelectTrigger className="w-full">
+                                                                    <SelectValue
+                                                                        placeholder={t(
+                                                                            "selectDuration"
+                                                                        )}
+                                                                    />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {validFor.map(
+                                                                    (
+                                                                        option
+                                                                    ) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                option.hours
+                                                                            }
+                                                                            value={option.hours.toString()}
+                                                                        >
+                                                                            {
+                                                                                option.name
+                                                                            }
+                                                                        </SelectItem>
+                                                                    )
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <OrgRolesTagField
+                                                form={internalForm}
+                                                name="roles"
+                                                orgId={orgId as string}
+                                                supportsMultipleRolesPerUser={
+                                                    supportsMultipleRolesPerUser
+                                                }
+                                                showMultiRolePaywallMessage={
+                                                    showMultiRolePaywallMessage
+                                                }
+                                                paywallMessage={
+                                                    invitePaywallMessage
+                                                }
+                                            />
+                                        </form>
+                                    </Form>
+                                </SettingsSectionForm>
+                            </SettingsSectionBody>
+                        </SettingsSection>
                     )}
 
                     {selectedOption &&
@@ -898,24 +858,61 @@ export default function Page() {
                 <div className="flex justify-end space-x-2 mt-8">
                     {selectedOption && dataLoaded && (
                         <Button
-                            type={inviteLink ? "button" : "submit"}
-                            form={inviteLink ? undefined : "create-user-form"}
+                            type="submit"
+                            form="create-user-form"
                             loading={loading}
                             disabled={loading}
-                            onClick={
-                                inviteLink
-                                    ? () =>
-                                          router.push(
-                                              `/${orgId}/settings/access/users`
-                                          )
-                                    : undefined
-                            }
                         >
-                            {inviteLink ? t("done") : t("accessUserCreate")}
+                            {t("accessUserCreate")}
                         </Button>
                     )}
                 </div>
             </div>
+
+            <Credenza
+                open={isInviteDialogOpen}
+                onOpenChange={(open) => {
+                    setIsInviteDialogOpen(open);
+                    if (!open) {
+                        setInviteLink(null);
+                    }
+                }}
+            >
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>{t("userInvited")}</CredenzaTitle>
+                        <CredenzaDescription>
+                            {sendEmail
+                                ? t("inviteEmailSentDescription")
+                                : t("inviteSentDescription")}
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaBody>
+                        <div className="space-y-4">
+                            <p>
+                                {t("inviteExpiresIn", {
+                                    days: expiresInDays
+                                })}
+                            </p>
+                            {inviteLink && (
+                                <CopyToClipboard
+                                    text={inviteLink}
+                                    isLink={true}
+                                />
+                            )}
+                        </div>
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <Button
+                            onClick={() =>
+                                router.push(`/${orgId}/settings/access/users`)
+                            }
+                        >
+                            {t("done")}
+                        </Button>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
         </>
     );
 }
