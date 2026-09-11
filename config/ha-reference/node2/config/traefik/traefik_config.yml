@@ -22,7 +22,7 @@ entryPoints:
     address: ":80"
   websecure:
     address: ":443"
-    proxyProtocol: # Just accept everything for now!
+    proxyProtocol: # We trust gerbil upstream
       trustedIPs:
         - 0.0.0.0/0
         - ::1/128
