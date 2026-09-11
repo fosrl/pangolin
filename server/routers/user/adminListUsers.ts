@@ -4,7 +4,7 @@ import { db, idp, users } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
-import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
@@ -196,7 +196,7 @@ export async function adminListUsers(
             }
         }
 
-        const conditions = [eq(users.serverAdmin, false)];
+        const conditions: Array<SQL<unknown> | undefined> = [];
 
         if (query) {
             const q = "%" + query.toLowerCase() + "%";

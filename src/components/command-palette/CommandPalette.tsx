@@ -155,12 +155,12 @@ export function CommandPalette({ orgId, orgs, navItems }: CommandPaletteProps) {
                 }
             />
             <CommandList className="max-h-118 min-h-0  h-(--cmdk-list-height) scroll-pb-4 scroll-pt-2 transition-[height] duration-250 ease-in-out">
-                <CommandEmpty>{t("commandPaletteNoResults")}</CommandEmpty>
-
                 <CommandGroup
                     heading={t("commandActionModeInfo")}
                     className="[&_[cmdk-group-heading]]:text-sm"
                 />
+
+                <CommandEmpty>{t("commandPaletteNoResults")}</CommandEmpty>
 
                 {!isActionMode &&
                     navigationGroups.map((group, groupIndex) => (
