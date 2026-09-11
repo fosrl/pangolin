@@ -522,6 +522,7 @@ async function fetchLabelsForResources(
 type SiteGroupRow = {
     siteId: number;
     name: string;
+    niceId: string;
     type: string;
     online: boolean;
     itemCount: number;
@@ -556,6 +557,7 @@ async function listSiteGroups(
             .select({
                 siteId: sites.siteId,
                 name: sites.name,
+                niceId: sites.niceId,
                 type: sites.type,
                 online: sites.online,
                 itemCount: countDistinct(resources.resourceId)
@@ -576,7 +578,13 @@ async function listSiteGroups(
 
         const publicRows = await publicQuery
             .where(and(...publicConditions))
-            .groupBy(sites.siteId, sites.name, sites.type, sites.online);
+            .groupBy(
+                sites.siteId,
+                sites.name,
+                sites.niceId,
+                sites.type,
+                sites.online
+            );
 
         for (const row of publicRows) {
             const existing = siteCountMap.get(row.siteId);
@@ -586,6 +594,7 @@ async function listSiteGroups(
                 siteCountMap.set(row.siteId, {
                     siteId: row.siteId,
                     name: row.name,
+                    niceId: row.niceId,
                     type: row.type,
                     online: row.online,
                     itemCount: Number(row.itemCount)
@@ -612,6 +621,7 @@ async function listSiteGroups(
             .select({
                 siteId: sites.siteId,
                 name: sites.name,
+                niceId: sites.niceId,
                 type: sites.type,
                 online: sites.online,
                 itemCount: countDistinct(siteResources.siteResourceId)
@@ -638,7 +648,13 @@ async function listSiteGroups(
 
         const siteRows = await siteResourceQuery
             .where(and(...siteConditions))
-            .groupBy(sites.siteId, sites.name, sites.type, sites.online);
+            .groupBy(
+                sites.siteId,
+                sites.name,
+                sites.niceId,
+                sites.type,
+                sites.online
+            );
 
         for (const row of siteRows) {
             const existing = siteCountMap.get(row.siteId);
@@ -648,6 +664,7 @@ async function listSiteGroups(
                 siteCountMap.set(row.siteId, {
                     siteId: row.siteId,
                     name: row.name,
+                    niceId: row.niceId,
                     type: row.type,
                     online: row.online,
                     itemCount: Number(row.itemCount)
@@ -1061,6 +1078,43 @@ export async function listLauncherGroupsForUser(
     };
 }
 
+function toLauncherSiteInfo(row: {
+    siteId: number | null;
+    siteName: string | null;
+    siteNiceId: string | null;
+    siteType: string | null;
+    siteOnline: boolean | null;
+}): LauncherSiteInfo | null {
+    if (
+        row.siteId == null ||
+        row.siteName == null ||
+        row.siteNiceId == null ||
+        row.siteType == null
+    ) {
+        return null;
+    }
+    return {
+        siteId: row.siteId,
+        name: row.siteName,
+        niceId: row.siteNiceId,
+        type: row.siteType,
+        online: row.siteOnline ?? undefined
+    };
+}
+
+function pickPrimarySite(
+    sites: LauncherSiteInfo[],
+    siteIdFilter?: number
+): LauncherSiteInfo | undefined {
+    if (sites.length === 0) {
+        return undefined;
+    }
+    if (siteIdFilter != null) {
+        return sites.find((site) => site.siteId === siteIdFilter) ?? sites[0];
+    }
+    return sites[0];
+}
+
 async function mapPublicResources(
     orgId: string,
     resourceIds: number[],
@@ -1084,6 +1138,7 @@ async function mapPublicResources(
             enabled: resources.enabled,
             siteId: sites.siteId,
             siteName: sites.name,
+            siteNiceId: sites.niceId,
             siteType: sites.type,
             siteOnline: sites.online,
             exitNodeEndpoint: exitNodes.endpoint
@@ -1097,56 +1152,65 @@ async function mapPublicResources(
                 inArray(resources.resourceId, resourceIds),
                 eq(resources.orgId, orgId),
                 eq(resources.enabled, true),
-                eq(resources.status, "approved"),
-                siteIdFilter != null
-                    ? eq(sites.siteId, siteIdFilter)
-                    : undefined
+                eq(resources.status, "approved")
             )
         );
 
-    const seen = new Set<string>();
-    const result: LauncherResource[] = [];
+    const byKey = new Map<string, LauncherResource>();
+    const siteIdsByKey = new Map<string, Set<number>>();
 
     for (const row of rows) {
         const key = `public:${row.resourceId}`;
-        if (seen.has(key)) {
+        let item = byKey.get(key);
+
+        if (!item) {
+            const access = formatPublicResourceAccess({
+                mode: row.mode,
+                fullDomain: row.fullDomain,
+                ssl: row.ssl,
+                proxyPort: row.proxyPort,
+                wildcard: row.wildcard,
+                exitNodeEndpoint: row.exitNodeEndpoint
+            });
+
+            item = {
+                launcherResourceKey: key,
+                resourceType: "public",
+                resourceId: row.resourceId,
+                niceId: row.niceId,
+                name: row.name,
+                ...access,
+                iconUrl: null,
+                enabled: row.enabled,
+                mode: row.mode,
+                labels: labelMaps.byResourceId.get(row.resourceId) ?? [],
+                sites: []
+            };
+            byKey.set(key, item);
+            siteIdsByKey.set(key, new Set());
+        }
+
+        const site = toLauncherSiteInfo(row);
+        if (!site) {
             continue;
         }
-        seen.add(key);
 
-        const access = formatPublicResourceAccess({
-            mode: row.mode,
-            fullDomain: row.fullDomain,
-            ssl: row.ssl,
-            proxyPort: row.proxyPort,
-            wildcard: row.wildcard,
-            exitNodeEndpoint: row.exitNodeEndpoint
-        });
-
-        result.push({
-            launcherResourceKey: key,
-            resourceType: "public",
-            resourceId: row.resourceId,
-            niceId: row.niceId,
-            name: row.name,
-            ...access,
-            iconUrl: null,
-            enabled: row.enabled,
-            mode: row.mode,
-            labels: labelMaps.byResourceId.get(row.resourceId) ?? [],
-            site:
-                row.siteId != null
-                    ? {
-                          siteId: row.siteId,
-                          name: row.siteName!,
-                          type: row.siteType!,
-                          online: row.siteOnline ?? undefined
-                      }
-                    : undefined
-        });
+        const seenSiteIds = siteIdsByKey.get(key)!;
+        if (seenSiteIds.has(site.siteId)) {
+            continue;
+        }
+        seenSiteIds.add(site.siteId);
+        item.sites.push(site);
     }
 
-    return result;
+    for (const item of byKey.values()) {
+        item.sites.sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        );
+        item.site = pickPrimarySite(item.sites, siteIdFilter);
+    }
+
+    return Array.from(byKey.values());
 }
 
 async function mapSiteResources(
@@ -1175,6 +1239,7 @@ async function mapSiteResources(
             enabled: siteResources.enabled,
             siteId: sites.siteId,
             siteName: sites.name,
+            siteNiceId: sites.niceId,
             siteType: sites.type,
             siteOnline: sites.online
         })
@@ -1189,59 +1254,69 @@ async function mapSiteResources(
                 inArray(siteResources.siteResourceId, siteResourceIds),
                 eq(siteResources.orgId, orgId),
                 eq(siteResources.enabled, true),
-                eq(siteResources.status, "approved"),
-                siteIdFilter != null
-                    ? eq(sites.siteId, siteIdFilter)
-                    : undefined
+                eq(siteResources.status, "approved")
             )
         );
 
-    const seen = new Set<string>();
-    const result: LauncherResource[] = [];
+    const byKey = new Map<string, LauncherResource>();
+    const siteIdsByKey = new Map<string, Set<number>>();
 
     for (const row of rows) {
         const key = `site:${row.siteResourceId}`;
-        if (seen.has(key)) {
+        let item = byKey.get(key);
+
+        if (!item) {
+            const access = formatSiteResourceAccess({
+                mode: row.mode,
+                destination: row.destination,
+                destinationPort: row.destinationPort,
+                scheme: row.scheme,
+                ssl: row.ssl,
+                fullDomain: row.fullDomain,
+                alias: row.alias,
+                aliasAddress: row.aliasAddress
+            });
+
+            item = {
+                launcherResourceKey: key,
+                resourceType: "site",
+                resourceId: row.siteResourceId,
+                siteResourceId: row.siteResourceId,
+                niceId: row.niceId,
+                name: row.name,
+                ...access,
+                iconUrl: null,
+                enabled: row.enabled,
+                mode: row.mode,
+                labels:
+                    labelMaps.bySiteResourceId.get(row.siteResourceId) ?? [],
+                sites: []
+            };
+            byKey.set(key, item);
+            siteIdsByKey.set(key, new Set());
+        }
+
+        const site = toLauncherSiteInfo(row);
+        if (!site) {
             continue;
         }
-        seen.add(key);
 
-        const access = formatSiteResourceAccess({
-            mode: row.mode,
-            destination: row.destination,
-            destinationPort: row.destinationPort,
-            scheme: row.scheme,
-            ssl: row.ssl,
-            fullDomain: row.fullDomain,
-            alias: row.alias,
-            aliasAddress: row.aliasAddress
-        });
-
-        result.push({
-            launcherResourceKey: key,
-            resourceType: "site",
-            resourceId: row.siteResourceId,
-            siteResourceId: row.siteResourceId,
-            niceId: row.niceId,
-            name: row.name,
-            ...access,
-            iconUrl: null,
-            enabled: row.enabled,
-            mode: row.mode,
-            labels: labelMaps.bySiteResourceId.get(row.siteResourceId) ?? [],
-            site:
-                row.siteId != null
-                    ? {
-                          siteId: row.siteId,
-                          name: row.siteName!,
-                          type: row.siteType!,
-                          online: row.siteOnline ?? undefined
-                      }
-                    : undefined
-        });
+        const seenSiteIds = siteIdsByKey.get(key)!;
+        if (seenSiteIds.has(site.siteId)) {
+            continue;
+        }
+        seenSiteIds.add(site.siteId);
+        item.sites.push(site);
     }
 
-    return result;
+    for (const item of byKey.values()) {
+        item.sites.sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        );
+        item.site = pickPrimarySite(item.sites, siteIdFilter);
+    }
+
+    return Array.from(byKey.values());
 }
 
 function filterResourcesBySite(
@@ -1252,13 +1327,17 @@ function filterResourcesBySite(
         return items.filter((item) => item.mode === "inference");
     }
     if (groupKey === LAUNCHER_NO_SITE_GROUP_KEY) {
-        return items.filter((item) => !item.site && item.mode !== "inference");
+        return items.filter(
+            (item) => item.sites.length === 0 && item.mode !== "inference"
+        );
     }
     const siteId = Number.parseInt(groupKey, 10);
     if (!Number.isFinite(siteId)) {
         return items;
     }
-    return items.filter((item) => item.site?.siteId === siteId);
+    return items.filter((item) =>
+        item.sites.some((site) => site.siteId === siteId)
+    );
 }
 
 function filterResourcesByLabel(
@@ -1499,6 +1578,7 @@ async function collectAccessibleSites(
             .select({
                 siteId: sites.siteId,
                 name: sites.name,
+                niceId: sites.niceId,
                 type: sites.type,
                 online: sites.online,
                 itemCount: countDistinct(resources.resourceId)
@@ -1507,7 +1587,13 @@ async function collectAccessibleSites(
             .innerJoin(resources, eq(targets.resourceId, resources.resourceId))
             .innerJoin(sites, eq(targets.siteId, sites.siteId))
             .where(and(...publicConditions))
-            .groupBy(sites.siteId, sites.name, sites.type, sites.online);
+            .groupBy(
+                sites.siteId,
+                sites.name,
+                sites.niceId,
+                sites.type,
+                sites.online
+            );
 
         for (const row of publicRows) {
             const existing = siteCountMap.get(row.siteId);
@@ -1517,6 +1603,7 @@ async function collectAccessibleSites(
                 siteCountMap.set(row.siteId, {
                     siteId: row.siteId,
                     name: row.name,
+                    niceId: row.niceId,
                     type: row.type,
                     online: row.online,
                     itemCount: Number(row.itemCount)
@@ -1540,6 +1627,7 @@ async function collectAccessibleSites(
             .select({
                 siteId: sites.siteId,
                 name: sites.name,
+                niceId: sites.niceId,
                 type: sites.type,
                 online: sites.online,
                 itemCount: countDistinct(siteResources.siteResourceId)
@@ -1551,7 +1639,13 @@ async function collectAccessibleSites(
             )
             .innerJoin(sites, eq(siteNetworks.siteId, sites.siteId))
             .where(and(...siteConditions))
-            .groupBy(sites.siteId, sites.name, sites.type, sites.online);
+            .groupBy(
+                sites.siteId,
+                sites.name,
+                sites.niceId,
+                sites.type,
+                sites.online
+            );
 
         for (const row of siteRows) {
             const existing = siteCountMap.get(row.siteId);
@@ -1561,6 +1655,7 @@ async function collectAccessibleSites(
                 siteCountMap.set(row.siteId, {
                     siteId: row.siteId,
                     name: row.name,
+                    niceId: row.niceId,
                     type: row.type,
                     online: row.online,
                     itemCount: Number(row.itemCount)
@@ -1675,6 +1770,7 @@ export async function listAccessibleLauncherSitesForUser(
         .map((row) => ({
             siteId: row.siteId,
             name: row.name,
+            niceId: row.niceId,
             type: row.type,
             online: row.online
         }))
