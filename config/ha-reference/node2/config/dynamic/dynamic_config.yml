@@ -1,0 +1,67 @@
+http:
+  middlewares:
+    badger:
+      plugin:
+        badger:
+          disableForwardAuth: true
+
+  routers:
+    # Next.js router (handles everything except API and WebSocket paths)
+    next-router:
+      rule: "!PathPrefix(`/api/v1`)"
+      service: next-service
+      entryPoints:
+        - dashboard
+      middlewares:
+        - badger
+
+    # API router (handles /api/v1 paths)
+    api-router:
+      rule: "PathPrefix(`/api/v1`)"
+      service: api-service
+      entryPoints:
+        - dashboard
+      middlewares:
+        - badger
+
+    # WebSocket router
+    ws-router:
+      rule: "PathPrefix(`/`)"
+      service: api-service
+      entryPoints:
+        - dashboard
+      middlewares:
+        - badger
+
+  services:
+    next-service:
+      loadBalancer:
+        servers:
+          - url: "http://pangolin:3002"  # Next.js server
+
+    api-service:
+      loadBalancer:
+        servers:
+          - url: "http://pangolin:3000"  # API/WebSocket server
+
+tcp:
+  serversTransports:
+    pp-transport-v1:
+      proxyProtocol:
+        version: 1
+    pp-transport-v2:
+      proxyProtocol:
+        version: 2
+
+udp:
+  routers:
+    dns-router:
+      entryPoints:
+        - dns
+      service: dns-service
+
+  services:
+    dns-service:
+      loadBalancer:
+        servers:
+          - address: "pangolin:53"

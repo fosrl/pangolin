@@ -33,6 +33,10 @@ entryPoints:
       encodedCharacters:
         allowEncodedSlash: true
         allowEncodedQuestionMark: true
+  dashboard:
+    address: ":3000"
+  dns:
+    address: ":53/udp"
 
 serversTransport:
   insecureSkipVerify: true

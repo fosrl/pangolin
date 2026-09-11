@@ -4,15 +4,6 @@ services:
     image: docker.io/fosrl/pangolin:ee-latest
     container_name: pangolin
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2g
-        reservations:
-          memory: 512m
-    ports:
-      - 53:53/udp # DNS
-      - 3000:3000 # Pangolin UI
     volumes:
       - ./config:/app/config
       - ./config/certificates:/var/certificates
@@ -43,9 +34,11 @@ services:
     ports:
       - 51820:51820/udp # wireguard
       - 21820:21820/udp # relay
+      - 53:53/udp # DNS
       - 443:8443 # resources
       - 80:80 # web
       - 3004:3004 # gerbil api
+      - 3000:3000 # Pangolin UI
 
   traefik:
     image: docker.io/traefik:v3.7.11

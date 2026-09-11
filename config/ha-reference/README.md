@@ -3,6 +3,23 @@ you need 3 instances at a minimum: node1 running pangolin, node 2 running pangol
 the two pangolin nodes need to have public STATIC ips accessible on the internet <NODE1_EXTERNAL_IP> AND <NODE2_EXTERNAL_IP>
 the two nodes need tp be able to address each other <NODE1_INTERNAL_IP> and <NODE2_INTERNAL_IP>
 
+update these values in the `docker-compose.yml` file under the gerbil section:
+
+```yaml
+  gerbil:
+    image: docker.io/fosrl/gerbil:latest
+    container_name: gerbil
+    restart: unless-stopped
+    depends_on:
+      pangolin:
+        condition: service_healthy
+    command:
+      - --reachableAt=http://<NODE1_INTERNAL_IP>:3004
+      - --generateAndSaveKeyTo=/var/config/key
+      - --remoteConfig=http://pangolin:3001/api/v1/
+      - --trusted-upstreams=<NODE1_EXTERNAL_IP>,<NODE2_EXTERNAL_IP> # All trusted nodes in the cluster
+```
+
 open ports should look like this
 
 **Outbound Rules**
@@ -28,11 +45,48 @@ add your email address for acme into <CONTACT_EMAIL>
 
 only one of the nodes - in this case node1 - should be configured to run the acme client. the other node should have acme disabled. this is because only one node should be responsible for generating and renewing certificates. the other node will use the same certificates from the database. this is controlled with `acme.enable_acme_client`
 
+delegating domains:
+
+you need to create a namesever dns record. this is an a record pointing at the cluster for the DNS nameserver. 
+
+in the example config, this is ns.example.com. you can replace example.com with your domain or choose a any subdomain. Create an A record pointing at your cluster's load ballencer:
+
+| Name | Type | Value |
+| --- | --- | --- |
+| ns.example.com | A | <LOAD_BALANCER_IP> |
+
+if you plan to support cname delegation to the server you will need to add an additional cname record for the cluster. this is an example of a cname record pointing at the cluster for the DNS nameserver.
+
+| Name | Type | Value |
+| --- | --- | --- |
+| cname.example.com | NS | ns.example.com |
+
+finally, if you would like to support site-to-cloud networking, you can delegate a domain to be able to resolve site addresses withing a cloud encironement to address them through remote nodes. this looks like the above
+
+| Name | Type | Value |
+| --- | --- | --- |
+| site.example.com | NS | ns.example.com |
+
+update all three of these values in the privateConfig dns section: 
+
+```yaml
+dns:
+  enabled: true
+  nameserver_name: "ns.example.com"
+  cname_extension: "cname.example.com"
+  site_extension: "site.example.com" # Optional
+```
 
 --
 
 when  you start for the first time pick one node to start first. This node will init the database and print out the init token to the logs. Use this token to visit the UI and login to create the first user. Then bring up the other nodes
 
+
+notes:
+
+traefik uses file_mode: true. this is different than the  regular pangolin instrall which scrapes the http api.  the file mode writes the traefik config into the dynamic directory - the routers and certs. This is because traefik will only pull cert config files from a file and not from an api. ensure there is a shared volume beteeen pangolin and traefik 
+
+be sure to download and keep up to date the maxmind databases for geoip and asn. these are used for geolocation and asn lookups. (reference the geoblocking docs here) and place them into the config directory GeoLite2-ASN.mmdb and GeoLite2-Country.mmdb 
 
 --
 
