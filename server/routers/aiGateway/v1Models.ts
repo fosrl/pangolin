@@ -15,8 +15,12 @@ import {
     isAiGatewayTrustHeaderValid
 } from "@server/lib/aiGatewayTrust";
 import { resolveEffectiveLists } from "@server/lib/aiInferenceResource";
-import { listCatalogEntriesForType } from "@server/lib/aiModelCatalog";
 import {
+    aiModelCatalog,
+    listCatalogEntriesForType
+} from "@server/lib/aiModelCatalog";
+import {
+    capabilitiesFromCatalog,
     listPermittedModels,
     paginateModels,
     MODEL_PAGE_DEFAULT_LIMIT,
@@ -25,6 +29,7 @@ import {
     type ConfiguredModel,
     type ModelDiscoveryProvider
 } from "@server/lib/aiModelDiscovery";
+import { isAllowedByLists } from "@server/lib/aiModelKeyMatch";
 import type { AiProviderType } from "@server/lib/aiProviderDefaults";
 import {
     resolveGatewayHost,
@@ -118,7 +123,11 @@ function catalogMetadataForType(
     type: AiProviderType
 ): Map<string, CatalogModelMetadata> {
     const metadata = new Map<string, CatalogModelMetadata>();
-    for (const entry of listCatalogEntriesForType(type)) {
+    const entries =
+        type === "custom" || type === "openRouter" || type === "vercelAiGateway"
+            ? aiModelCatalog.getAll()
+            : listCatalogEntriesForType(type);
+    for (const entry of entries) {
         metadata.set(entry.model, {
             maxInputTokens: entry.limits.input,
             maxOutputTokens: entry.limits.output,
@@ -229,26 +238,46 @@ export async function handleV1Models(
         const lists = await loadProviderModelLists(
             capableAttachments.map((a) => a.provider.providerId)
         );
-        const models = listPermittedModels(
-            buildDiscoveryProviders(
-                capableAttachments,
-                target.resourceListsByProvider,
-                lists
-            )
+        const discoveryProviders = buildDiscoveryProviders(
+            capableAttachments,
+            target.resourceListsByProvider,
+            lists
         );
+        const models = listPermittedModels(discoveryProviders);
 
         // `GET /v1/models/{id}` - a single model, 404 when this resource
         // doesn't permit it.
         const requestedModel = req.params?.model;
         if (typeof requestedModel === "string" && requestedModel.length > 0) {
-            const model = models.find((m) => m.id === requestedModel);
+            let model = models.find((m) => m.id === requestedModel);
             if (!model) {
-                return errorResponse(
-                    res,
-                    HttpCode.NOT_FOUND,
-                    "not_found",
-                    `Model "${requestedModel}" is not available on this resource`
+                const matchingProvider = discoveryProviders.find((p) =>
+                    isAllowedByLists(requestedModel, p.allows, p.blocks)
                 );
+                if (!matchingProvider) {
+                    return errorResponse(
+                        res,
+                        HttpCode.NOT_FOUND,
+                        "not_found",
+                        `Model "${requestedModel}" is not available on this resource`
+                    );
+                }
+                const configured =
+                    matchingProvider.configured.get(requestedModel);
+                const catalog = matchingProvider.catalog.get(requestedModel);
+                model = {
+                    type: "model",
+                    id: requestedModel,
+                    display_name: configured?.name || requestedModel,
+                    created_at: configured
+                        ? new Date(configured.createdAt).toISOString()
+                        : new Date(0).toISOString(),
+                    max_input_tokens: catalog?.maxInputTokens ?? null,
+                    max_tokens: catalog?.maxOutputTokens ?? null,
+                    capabilities: catalog
+                        ? capabilitiesFromCatalog(catalog.capabilities)
+                        : null
+                };
             }
             return res.status(HttpCode.OK).json(model);
         }

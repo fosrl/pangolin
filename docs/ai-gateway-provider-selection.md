@@ -90,9 +90,10 @@ provider against the known model catalog:
 
 | Score | Meaning |
 |------:|---------|
-| 2 | Typed provider whose catalog contains the model (`openai` → openai catalog, `anthropic` → anthropic, etc.) |
-| 1 | Aggregator or custom (`openRouter`, `vercelAiGateway`, `custom`) and the model exists somewhere in the catalog |
-| 0 | No ownership signal (typed catalog miss, or unknown model on aggregator/custom) |
+| 3 | Typed provider whose catalog contains the model (`openai` → openai catalog, `anthropic` → anthropic, etc.) |
+| 2 | Aggregator or custom (`openRouter`, `vercelAiGateway`, `custom`) and the model exists somewhere in the catalog |
+| 1 | Aggregator or custom for an unknown/custom model not in any catalog |
+| 0 | Typed provider catalog miss (typed provider cannot serve this model) |
 
 Model id lookup tries the raw id, then a stripped `vendor/model` form
 (e.g. `openai/gpt-4o` → also try `gpt-4o`).
@@ -325,9 +326,8 @@ split across resources.
 
 1. Capability → both
 2. Allow / specificity → tie
-3. Catalog → both score `0` (typed miss + unknown aggregator model)
-4. Class → OpenAI (`2`) beats OpenRouter (`1`)
-5. Result → **OpenAI**
+3. Catalog → OpenRouter scores `1` (custom/unknown model on aggregator), OpenAI scores `0` (typed catalog miss)
+4. Result → **OpenRouter**
 
 ## Practical Guidance
 

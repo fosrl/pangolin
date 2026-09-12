@@ -46,9 +46,10 @@ function modelKnownInAnyCatalog(modelId: string): boolean {
 /**
  * How strongly a provider "owns" a requested model id via the known catalog.
  *
- * 2 - Typed provider whose catalog contains the model
- * 1 - Aggregator/custom that can proxy a catalog-known model
- * 0 - No ownership signal (typed miss, or unknown model on aggregator/custom)
+ * 3 - Typed provider whose catalog contains the model
+ * 2 - Aggregator/custom that can proxy a catalog-known model
+ * 1 - Aggregator/custom for an unknown/custom model not in any catalog
+ * 0 - Typed provider catalog miss (typed provider cannot serve this model)
  */
 export function catalogOwnershipScore(
     type: AiProviderType,
@@ -56,9 +57,9 @@ export function catalogOwnershipScore(
 ): number {
     const catalogProvider = getCatalogProviderForType(type);
     if (catalogProvider != null) {
-        return catalogOwnsModel(catalogProvider, modelId) ? 2 : 0;
+        return catalogOwnsModel(catalogProvider, modelId) ? 3 : 0;
     }
-    return modelKnownInAnyCatalog(modelId) ? 1 : 0;
+    return modelKnownInAnyCatalog(modelId) ? 2 : 1;
 }
 
 /**
