@@ -1,4 +1,4 @@
-import { db, sites } from "@server/db";
+import { clientSitesAssociationsCache, db, sites } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
 import { clients, Olm } from "@server/db";
 import { and, eq } from "drizzle-orm";
@@ -53,6 +53,18 @@ export const handleOlmLocalMessage: MessageHandler = async (context) => {
         logger.warn("Site not found or has no exit node");
         return;
     }
+
+    await db
+        .update(clientSitesAssociationsCache)
+        .set({
+            isRelayed: false
+        })
+        .where(
+            and(
+                eq(clientSitesAssociationsCache.clientId, olm.clientId),
+                eq(clientSitesAssociationsCache.siteId, siteId)
+            )
+        );
 
     // update the peer on the newt
     await newtUpdatePeer(siteId, client.pubKey, {
