@@ -28,6 +28,7 @@
         "start": "ENVIRONMENT=prod node dist/migrations.mjs && ENVIRONMENT=prod NODE_ENV=development node --enable-source-maps dist/server.mjs",
         "email": "email dev --dir server/emails/templates --port 3005",
         "build:cli": "node esbuild.mjs -e cli/index.ts -o dist/cli.mjs",
+        "test": "tsx test/run.ts",
         "format:check": "prettier --check .",
         "format": "prettier --write ."
     },
