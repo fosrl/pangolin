@@ -48,8 +48,18 @@ import { defaultRoleAllowedActions } from "@server/routers/role/createRole";
 import { pickPort } from "@server/routers/target/helpers";
 import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
 import { tierMatrix } from "../billing/tierMatrix";
-import { isValidCIDR, isValidIP, isValidUrlGlobPattern } from "../validators";
-import { Config, isTargetsOnlyResource, TargetData } from "./types";
+import {
+    isValidCIDR,
+    isValidHttpMethodList,
+    isValidIP,
+    isValidUrlGlobPattern
+} from "../validators";
+import {
+    Config,
+    getRuleValue,
+    isTargetsOnlyResource,
+    TargetData
+} from "./types";
 import { getOrCreateLabelIds, syncResourceLabels } from "./labels";
 import { findOrgUsersByIdentifier } from "./findOrgUser";
 import { LimitId } from "../billing";
@@ -949,11 +959,7 @@ export async function updatePublicResources(
                             existingRule.action !==
                                 getRuleAction(rule.action) ||
                             existingRule.match !== rule.match.toUpperCase() ||
-                            existingRule.value !==
-                                getRuleValue(
-                                    rule.match.toUpperCase(),
-                                    rule.value
-                                ) ||
+                            existingRule.value !== getRuleValue(rule) ||
                             existingRule.priority !== intendedPriority
                         ) {
                             validateRule(rule);
@@ -962,10 +968,7 @@ export async function updatePublicResources(
                                 .set({
                                     action: getRuleAction(rule.action),
                                     match: rule.match.toUpperCase() as ResourceRule["match"],
-                                    value: getRuleValue(
-                                        rule.match.toUpperCase(),
-                                        rule.value
-                                    ),
+                                    value: getRuleValue(rule),
                                     priority: intendedPriority
                                 })
                                 .where(
@@ -981,10 +984,7 @@ export async function updatePublicResources(
                             resourceId: existingResource.resourceId,
                             action: getRuleAction(rule.action),
                             match: rule.match.toUpperCase() as ResourceRule["match"],
-                            value: getRuleValue(
-                                rule.match.toUpperCase(),
-                                rule.value
-                            ),
+                            value: getRuleValue(rule),
                             priority: intendedPriority
                         });
                     }
@@ -1379,10 +1379,7 @@ export async function updatePublicResources(
                         resourceId: newResource.resourceId,
                         action: getRuleAction(rule.action),
                         match: rule.match.toUpperCase() as ResourceRule["match"],
-                        value: getRuleValue(
-                            rule.match.toUpperCase(),
-                            rule.value
-                        ),
+                        value: getRuleValue(rule),
                         priority: rule.priority ?? index + 1
                     });
                 }
@@ -1448,14 +1445,6 @@ function getRuleAction(input: string) {
     return action;
 }
 
-function getRuleValue(match: string, value: string) {
-    // if the match is a country, uppercase the value
-    if (match === "COUNTRY" || match === "COUNTRY_IS_NOT") {
-        return value.toUpperCase();
-    }
-    return value;
-}
-
 function validateRule(rule: any) {
     if (rule.match === "cidr") {
         if (!isValidCIDR(rule.value)) {
@@ -1473,7 +1462,12 @@ function validateRule(rule: any) {
         if (!isValidRegionId(rule.value)) {
             throw new Error(`Invalid region ID provided: ${rule.value}`);
         }
+    } else if (rule.match === "method") {
+        if (!isValidHttpMethodList(rule.value)) {
+            throw new Error(`Invalid HTTP method provided: ${rule.value}`);
+        }
     }
+    // "and" rules are validated by RuleSchema, which checks every condition
 }
 
 async function syncRoleResources(
@@ -1823,8 +1817,7 @@ async function syncInlinePolicyRules(
             if (
                 existingRule.action !== getRuleAction(rule.action) ||
                 existingRule.match !== rule.match.toUpperCase() ||
-                existingRule.value !==
-                    getRuleValue(rule.match.toUpperCase(), rule.value) ||
+                existingRule.value !== getRuleValue(rule) ||
                 existingRule.priority !== intendedPriority
             ) {
                 validateRule(rule);
@@ -1839,10 +1832,7 @@ async function syncInlinePolicyRules(
                             | "CIDR"
                             | "IP"
                             | "PATH",
-                        value: getRuleValue(
-                            rule.match.toUpperCase(),
-                            rule.value
-                        ),
+                        value: getRuleValue(rule),
                         priority: intendedPriority
                     })
                     .where(eq(resourcePolicyRules.ruleId, existingRule.ruleId));
@@ -1856,7 +1846,7 @@ async function syncInlinePolicyRules(
                     | "DROP"
                     | "PASS",
                 match: rule.match.toUpperCase() as "CIDR" | "IP" | "PATH",
-                value: getRuleValue(rule.match.toUpperCase(), rule.value),
+                value: getRuleValue(rule),
                 priority: intendedPriority
             });
         }

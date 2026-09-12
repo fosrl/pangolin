@@ -1,9 +1,12 @@
 import {
     getResourceRuleValueValidationError,
     isValidDomain,
-    isValidUrlGlobPattern
+    isValidUrlGlobPattern,
+    parseHttpMethodList,
+    parseRuleConditions,
+    serializeRuleConditions
 } from "./validators";
-import { assertEquals } from "@test/assert";
+import { assertEquals, assertEqualsObj } from "@test/assert";
 
 function runTests() {
     console.log("Running domain validation tests...");
@@ -293,6 +296,108 @@ function runTests() {
         getResourceRuleValueValidationError("ASN", "not-an-asn"),
         "Invalid ASN provided",
         "Invalid ASN should return an error"
+    );
+
+    // HTTP method validation tests
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", "POST"),
+        null,
+        "Single HTTP method should be valid"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", " post , Put "),
+        null,
+        "Method list should be valid with mixed case and whitespace"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", "PROPFIND"),
+        null,
+        "Extension methods such as the WebDAV verbs should be valid"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", ""),
+        "Invalid HTTP method provided",
+        "Empty method list should return an error"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", ",,"),
+        "Invalid HTTP method provided",
+        "Method list of only separators should return an error"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError("METHOD", "GET POST"),
+        "Invalid HTTP method provided",
+        "Space separated methods should return an error"
+    );
+
+    assertEqualsObj(
+        parseHttpMethodList(" get ,post, "),
+        ["GET", "POST"],
+        "Method list should be normalized to uppercase without empty entries"
+    );
+
+    // Conditional (AND) rule validation tests
+    const conditions = serializeRuleConditions([
+        { match: "PATH", value: "/api/*" },
+        { match: "METHOD", value: "POST,PUT" }
+    ]);
+
+    assertEquals(
+        getResourceRuleValueValidationError("AND", conditions),
+        null,
+        "Rule with two valid conditions should be valid"
+    );
+    assertEqualsObj(
+        parseRuleConditions(conditions),
+        [
+            { match: "PATH", value: "/api/*" },
+            { match: "METHOD", value: "POST,PUT" }
+        ],
+        "Conditions should round-trip through serialize and parse"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError(
+            "AND",
+            serializeRuleConditions([{ match: "PATH", value: "/api/*" }])
+        ),
+        "A conditional rule needs at least two conditions",
+        "Rule with a single condition should return an error"
+    );
+    assertEquals(
+        getResourceRuleValueValidationError(
+            "AND",
+            JSON.stringify([
+                { match: "PATH", value: "/api/*" },
+                { match: "IP", value: "not-an-ip" }
+            ])
+        ),
+        "Invalid IP provided",
+        "Rule with an invalid condition value should return that error"
+    );
+    assertEquals(
+        parseRuleConditions("not json"),
+        null,
+        "Conditions that are not JSON should not parse"
+    );
+    assertEquals(
+        parseRuleConditions('{"match":"PATH","value":"/"}'),
+        null,
+        "Conditions that are not an array should not parse"
+    );
+    assertEquals(
+        parseRuleConditions('[{"match":"NOPE","value":"/"}]'),
+        null,
+        "Conditions with an unknown match type should not parse"
+    );
+    assertEquals(
+        parseRuleConditions('[{"match":"AND","value":"[]"}]'),
+        null,
+        "Conditions must not nest another AND rule"
+    );
+    assertEquals(
+        parseRuleConditions('[{"match":"PATH"}]'),
+        null,
+        "Conditions without a value should not parse"
     );
 
     console.log("All tests passed!");

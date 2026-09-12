@@ -3,6 +3,14 @@ import { existsSync } from "node:fs";
 import { portRangeStringSchema } from "@server/lib/ip";
 import { MaintenanceSchema } from "#dynamic/lib/blueprints/MaintenanceSchema";
 import { isValidRegionId } from "@server/db/regions";
+import {
+    getResourceRuleValueValidationError,
+    isValidHttpMethodList,
+    parseHttpMethodList,
+    serializeRuleConditions,
+    type ResourceRuleMatchType,
+    type RuleConditionMatchType
+} from "@server/lib/validators";
 import { wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import {
@@ -124,20 +132,108 @@ export const AuthSchema = z.object({
     "auto-login-idp": z.int().positive().optional()
 });
 
+const RULE_MATCH_TYPES = [
+    "cidr",
+    "path",
+    "ip",
+    "country",
+    "country_is_not",
+    "asn",
+    "region",
+    "method"
+] as const;
+
+export const RuleConditionSchema = z.object({
+    match: z.enum(RULE_MATCH_TYPES),
+    value: z.coerce.string()
+});
+
+// Returns an error message when a condition of an "and" rule is not usable,
+// or null when it is fine. Conditions reuse the same value rules as the
+// scalar matches above, plus the same maxmind database requirements.
+function getConditionError(condition: {
+    match: string;
+    value: string;
+}): string | null {
+    if (
+        (condition.match === "country" ||
+            condition.match === "country_is_not" ||
+            condition.match === "region") &&
+        !hasMaxmindCountryDb
+    ) {
+        return `A '${condition.match}' condition requires a valid existing server.maxmind_db_path`;
+    }
+
+    if (
+        condition.match === "asn" &&
+        (!hasMaxmindCountryDb || !hasMaxmindAsnDb)
+    ) {
+        return "An 'asn' condition requires valid existing server.maxmind_db_path and server.maxmind_asn_path";
+    }
+
+    return getResourceRuleValueValidationError(
+        condition.match.toUpperCase() as ResourceRuleMatchType,
+        condition.value
+    );
+}
+
 export const RuleSchema = z
     .object({
         action: z.enum(["allow", "deny", "pass"]),
-        match: z.enum(["cidr", "path", "ip", "country", "country_is_not", "asn", "region"]),
-        value: z.coerce.string(),
+        match: z.enum([...RULE_MATCH_TYPES, "and"]),
+        // an "and" rule carries its matches in `conditions` instead
+        value: z.coerce.string().optional(),
+        conditions: z.array(RuleConditionSchema).optional(),
         priority: z.int().optional(),
         enabled: z.boolean().optional().default(true)
+    })
+    .superRefine((rule, ctx) => {
+        if (rule.match !== "and") {
+            if (rule.value === undefined) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["value"],
+                    message: `Value is required when match is '${rule.match}'`
+                });
+            }
+            if (rule.conditions !== undefined) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["conditions"],
+                    message: "Conditions are only allowed when match is 'and'"
+                });
+            }
+            return;
+        }
+
+        if (!rule.conditions || rule.conditions.length < 2) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["conditions"],
+                message:
+                    "An 'and' rule needs at least two conditions, each with a match and a value"
+            });
+            return;
+        }
+
+        for (const [index, condition] of rule.conditions.entries()) {
+            const error = getConditionError(condition);
+            if (error) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["conditions", index, "value"],
+                    message: error
+                });
+            }
+        }
     })
     .refine(
         (rule) => {
             if (rule.match === "ip") {
                 // Check if it's a valid IP address (v4 or v6)
-                return z.union([z.ipv4(), z.ipv6()]).safeParse(rule.value)
-                    .success;
+                return z
+                    .union([z.ipv4(), z.ipv6()])
+                    .safeParse(rule.value ?? "").success;
             }
             return true;
         },
@@ -150,8 +246,9 @@ export const RuleSchema = z
         (rule) => {
             if (rule.match === "cidr") {
                 // Check if it's a valid CIDR (v4 or v6)
-                return z.union([z.cidrv4(), z.cidrv6()]).safeParse(rule.value)
-                    .success;
+                return z
+                    .union([z.cidrv4(), z.cidrv6()])
+                    .safeParse(rule.value ?? "").success;
             }
             return true;
         },
@@ -167,7 +264,10 @@ export const RuleSchema = z
                     return false;
                 }
                 // Check if it's a valid 2-letter country code or "ALL"
-                return /^[A-Z]{2}$/.test(rule.value) || rule.value === "ALL";
+                return (
+                    /^[A-Z]{2}$/.test(rule.value ?? "") ||
+                    rule.value === "ALL"
+                );
             }
             return true;
         },
@@ -185,7 +285,10 @@ export const RuleSchema = z
                 }
                 // Check if it's either AS<number> format or "ALL"
                 const asNumberPattern = /^AS\d+$/i;
-                return asNumberPattern.test(rule.value) || rule.value === "ALL";
+                return (
+                    asNumberPattern.test(rule.value ?? "") ||
+                    rule.value === "ALL"
+                );
             }
             return true;
         },
@@ -198,7 +301,7 @@ export const RuleSchema = z
     .refine(
         (rule) => {
             if (rule.match === "region") {
-                return isValidRegionId(rule.value);
+                return isValidRegionId(rule.value ?? "");
             }
             return true;
         },
@@ -207,7 +310,54 @@ export const RuleSchema = z
             message:
                 "Value must be a valid UN M.49 region or subregion ID when match is 'region'"
         }
+    )
+    .refine(
+        (rule) => {
+            if (rule.match === "method") {
+                return isValidHttpMethodList(rule.value ?? "");
+            }
+            return true;
+        },
+        {
+            path: ["value"],
+            message:
+                "Value must be a comma-separated list of HTTP methods when match is 'method', e.g. 'POST,PUT'"
+        }
     );
+
+export type RuleData = z.infer<typeof RuleSchema>;
+
+// The string a blueprint rule is stored as in resourceRules.value.
+export function getRuleValue(rule: RuleData) {
+    const match = rule.match.toUpperCase();
+
+    // an "and" rule keeps its conditions as JSON in the value
+    if (match === "AND") {
+        return serializeRuleConditions(
+            (rule.conditions ?? []).map((condition) => ({
+                match: condition.match.toUpperCase() as RuleConditionMatchType,
+                value: getConditionValue(
+                    condition.match.toUpperCase(),
+                    condition.value
+                )
+            }))
+        );
+    }
+
+    return getConditionValue(match, rule.value ?? "");
+}
+
+function getConditionValue(match: string, value: string) {
+    // if the match is a country, uppercase the value
+    if (match === "COUNTRY" || match === "COUNTRY_IS_NOT") {
+        return value.toUpperCase();
+    }
+    // normalize the method list so it is stored as "POST,PUT"
+    if (match === "METHOD") {
+        return parseHttpMethodList(value).join(",");
+    }
+    return value;
+}
 
 export const HeaderSchema = z.object({
     name: z.string().min(1),
