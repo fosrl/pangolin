@@ -39,7 +39,7 @@
         "@headlessui/react": "2.2.10",
         "@hookform/resolvers": "5.9.1",
         "@monaco-editor/react": "4.7.0",
-        "@node-rs/argon2": "2.2.0",
+        "@node-rs/argon2": "2.2.1",
         "@novnc/novnc": "^1.7.0",
         "@oslojs/crypto": "1.0.1",
         "@oslojs/encoding": "1.1.0",
