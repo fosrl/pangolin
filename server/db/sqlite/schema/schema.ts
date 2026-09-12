@@ -202,7 +202,8 @@ export const resources = sqliteTable(
         skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {
             onDelete: "set null"
         }),
-        headers: text("headers"), // comma-separated list of headers to add to the request
+        requestHeaders: text("requestHeaders"),
+        responseHeaders: text("responseHeaders"),
         proxyProtocol: integer("proxyProtocol", { mode: "boolean" })
             .notNull()
             .default(false),

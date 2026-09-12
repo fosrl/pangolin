@@ -303,7 +303,9 @@ export const PublicResourceSchema = z
         auth: AuthSchema.optional(),
         "host-header": z.string().optional(),
         "tls-server-name": z.string().optional(),
-        headers: z.array(HeaderSchema).optional(),
+        headers: z.array(HeaderSchema).optional(), // deprecated alias for requestHeaders
+        requestHeaders: z.array(HeaderSchema).optional(),
+        responseHeaders: z.array(HeaderSchema).optional(),
         rules: z.array(RuleSchema).optional(),
         maintenance: MaintenanceSchema.optional(),
         "auth-daemon": AuthDaemonSchema.optional(),
