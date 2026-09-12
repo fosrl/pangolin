@@ -59,6 +59,7 @@ Legacy SASE platforms got the idea right: connectivity and security belong toget
 - Get started for free with [Pangolin Cloud](https://app.pangolin.net/).
 - Or, check out the [quick install guide](https://docs.pangolin.net/self-host/quick-install) for how to self-host Pangolin.
   - Install from the [DigitalOcean marketplace](https://marketplace.digitalocean.com/apps/pangolin-ce-1?refcode=edf0480eeb81) for a one-click pre-configured installer.
+  - Deploy the [Pangolin control plane on Sealos](https://sealos.io/products/app-store/pangolin) with a one-click template; connect an external Gerbil node for tunnel traffic.
 
 <img src="public/screenshots/hero.png" alt="Pangolin" width="100%" />
 
