@@ -38,6 +38,10 @@ import { MAJOR_ASNS } from "@server/db/asns";
 import { COUNTRIES } from "@server/db/countries";
 import { REGIONS, getRegionNameById } from "@server/db/regions";
 import {
+    parseRuleConditions,
+    serializeRuleConditions
+} from "@server/lib/validators";
+import {
     ColumnDef,
     flexRender,
     getCoreRowModel,
@@ -63,8 +67,11 @@ import {
 } from "react";
 import {
     validatePolicyRulePriority,
-    validatePolicyRuleValue
+    validatePolicyRuleValue,
+    type PolicyRuleMatchType
 } from "./policy-access-rule-validation";
+import { RuleConditionsCredenza } from "./RuleConditionsCredenza";
+import { RuleMethodSelect } from "./RuleMethodSelect";
 import {
     buildDisplayPrioritiesForResourceOverlay,
     reorderPolicyRules,
@@ -110,6 +117,61 @@ function getColumnClassName(columnId: string) {
         return "w-42 max-w-42";
     }
     return "";
+}
+
+// An AND rule keeps its conditions as a JSON array in rule.value. A new one
+// starts out matching every GET, which is valid and harmless until edited.
+const DEFAULT_CONDITIONS_VALUE = serializeRuleConditions([
+    { match: "PATH", value: "/" },
+    { match: "METHOD", value: "GET" }
+]);
+
+function RuleConditionsCell({
+    value,
+    disabled,
+    onChange,
+    isMaxmindAvailable,
+    isMaxmindAsnAvailable,
+    includeRegionMatch
+}: {
+    value: string;
+    disabled: boolean;
+    onChange: (value: string) => void;
+    isMaxmindAvailable: boolean;
+    isMaxmindAsnAvailable: boolean;
+    includeRegionMatch: boolean;
+}) {
+    const t = useTranslations();
+    const [open, setOpen] = useState(false);
+
+    const conditions = parseRuleConditions(value) ?? [];
+    const summary = conditions
+        .map((condition) => `${condition.match} ${condition.value}`)
+        .join(" + ");
+
+    return (
+        <>
+            <Button
+                variant="outline"
+                disabled={disabled}
+                className="w-full min-w-0 justify-start font-normal"
+                onClick={() => setOpen(true)}
+            >
+                <span className="truncate">
+                    {summary || t("rulesConditionsEdit")}
+                </span>
+            </Button>
+            <RuleConditionsCredenza
+                open={open}
+                setOpen={setOpen}
+                value={value}
+                onChange={onChange}
+                isMaxmindAvailable={isMaxmindAvailable}
+                isMaxmindAsnAvailable={isMaxmindAsnAvailable}
+                includeRegionMatch={includeRegionMatch}
+            />
+        </>
+    );
 }
 
 export function PolicyAccessRulesTable({
@@ -233,7 +295,9 @@ export function PolicyAccessRulesTable({
             COUNTRY: t("country"),
             COUNTRY_IS_NOT: t("countryIsNot"),
             ASN: "ASN",
-            REGION: t("region")
+            REGION: t("region"),
+            METHOD: t("method"),
+            AND: t("rulesMatchAll")
         }),
         [t]
     );
@@ -438,16 +502,7 @@ export function PolicyAccessRulesTable({
                     <Select
                         defaultValue={row.original.match}
                         disabled={readonly || isRuleLocked(row.original)}
-                        onValueChange={(
-                            value:
-                                | "CIDR"
-                                | "IP"
-                                | "PATH"
-                                | "COUNTRY"
-                                | "COUNTRY_IS_NOT"
-                                | "ASN"
-                                | "REGION"
-                        ) =>
+                        onValueChange={(value: PolicyRuleMatchType) =>
                             updateRule(row.original.ruleId, {
                                 match: value,
                                 value:
@@ -458,7 +513,11 @@ export function PolicyAccessRulesTable({
                                           ? "AS15169"
                                           : value === "REGION"
                                             ? "021"
-                                            : row.original.value
+                                            : value === "METHOD"
+                                              ? "GET"
+                                              : value === "AND"
+                                                ? DEFAULT_CONDITIONS_VALUE
+                                                : row.original.value
                             })
                         }
                     >
@@ -473,6 +532,10 @@ export function PolicyAccessRulesTable({
                             <SelectItem value="CIDR">
                                 {RuleMatch.CIDR}
                             </SelectItem>
+                            <SelectItem value="METHOD">
+                                {RuleMatch.METHOD}
+                            </SelectItem>
+                            <SelectItem value="AND">{RuleMatch.AND}</SelectItem>
                             {isMaxmindAvailable && (
                                 <>
                                     <SelectItem value="COUNTRY">
@@ -779,6 +842,26 @@ export function PolicyAccessRulesTable({
                                 </Command>
                             </PopoverContent>
                         </Popover>
+                    ) : row.original.match === "AND" ? (
+                        <RuleConditionsCell
+                            value={row.original.value}
+                            disabled={readonly || isRuleLocked(row.original)}
+                            onChange={(value) =>
+                                updateRule(row.original.ruleId, { value })
+                            }
+                            isMaxmindAvailable={isMaxmindAvailable}
+                            isMaxmindAsnAvailable={isMaxmindAsnAvailable}
+                            includeRegionMatch={includeRegionMatch}
+                        />
+                    ) : row.original.match === "METHOD" ? (
+                        <RuleMethodSelect
+                            value={row.original.value}
+                            disabled={readonly || isRuleLocked(row.original)}
+                            placeholder={t("rulesSelectMethods")}
+                            onChange={(value) =>
+                                updateRule(row.original.ruleId, { value })
+                            }
+                        />
                     ) : (
                         <Input
                             defaultValue={row.original.value}

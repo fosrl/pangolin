@@ -14,12 +14,18 @@ import {
     users
 } from "@server/db";
 import { eq, and } from "drizzle-orm";
-import { Config, ResourcePolicyData } from "./types";
+import { Config, getRuleValue, ResourcePolicyData } from "./types";
 import logger from "@server/logger";
 import { getUniqueResourcePolicyName } from "@server/db/names";
 import { hashPassword } from "@server/auth/password";
 import { idpExistsForOrg } from "@server/lib/idp/idpExistsForOrg";
-import { isValidCIDR, isValidIP, isValidUrlGlobPattern } from "../validators";
+import {
+    isValidCIDR,
+    isValidHttpMethodList,
+    isValidIP,
+    isValidUrlGlobPattern,
+    ResourceRuleMatchType
+} from "../validators";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "../billing/tierMatrix";
 import { findOrgUsersByIdentifier } from "./findOrgUser";
@@ -51,20 +57,27 @@ export async function updateResourcePolicies(
 
         // Validate rules
         for (const rule of policyData.rules) {
-            if (rule.match === "cidr" && !isValidCIDR(rule.value)) {
+            if (rule.match === "cidr" && !isValidCIDR(rule.value ?? "")) {
                 throw new Error(
                     `Invalid CIDR provided in resource policy '${policyNiceId}': ${rule.value}`
                 );
-            } else if (rule.match === "ip" && !isValidIP(rule.value)) {
+            } else if (rule.match === "ip" && !isValidIP(rule.value ?? "")) {
                 throw new Error(
                     `Invalid IP provided in resource policy '${policyNiceId}': ${rule.value}`
                 );
             } else if (
                 rule.match === "path" &&
-                !isValidUrlGlobPattern(rule.value)
+                !isValidUrlGlobPattern(rule.value ?? "")
             ) {
                 throw new Error(
                     `Invalid URL glob pattern provided in resource policy '${policyNiceId}': ${rule.value}`
+                );
+            } else if (
+                rule.match === "method" &&
+                !isValidHttpMethodList(rule.value ?? "")
+            ) {
+                throw new Error(
+                    `Invalid HTTP method provided in resource policy '${policyNiceId}': ${rule.value}`
                 );
             }
         }
@@ -315,7 +328,7 @@ export async function updateResourcePolicies(
                         resourcePolicyId,
                         action: getRuleAction(rule.action),
                         match: getRuleMatch(rule.match),
-                        value: rule.value,
+                        value: getRuleValue(rule),
                         priority: rule.priority ?? index + 1,
                         enabled: rule.enabled ?? true
                     }))
@@ -339,17 +352,8 @@ function getRuleAction(input: string): "ACCEPT" | "DROP" | "PASS" {
     return "PASS";
 }
 
-function getRuleMatch(
-    input: string
-): "CIDR" | "IP" | "PATH" | "COUNTRY" | "COUNTRY_IS_NOT" | "ASN" | "REGION" {
-    return input.toUpperCase() as
-        | "CIDR"
-        | "IP"
-        | "PATH"
-        | "COUNTRY"
-        | "COUNTRY_IS_NOT"
-        | "ASN"
-        | "REGION";
+function getRuleMatch(input: string): ResourceRuleMatchType {
+    return input.toUpperCase() as ResourceRuleMatchType;
 }
 
 async function syncRolePolicies(
@@ -611,7 +615,7 @@ async function syncPolicyRules(
                 .set({
                     action: getRuleAction(rule.action),
                     match: getRuleMatch(rule.match),
-                    value: rule.value,
+                    value: getRuleValue(rule),
                     priority: intendedPriority,
                     enabled: rule.enabled ?? true
                 })
@@ -621,7 +625,7 @@ async function syncPolicyRules(
                 resourcePolicyId: policyId,
                 action: getRuleAction(rule.action),
                 match: getRuleMatch(rule.match),
-                value: rule.value,
+                value: getRuleValue(rule),
                 priority: intendedPriority,
                 enabled: rule.enabled ?? true
             });

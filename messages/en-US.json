@@ -830,7 +830,7 @@
     "rulesErrorDuplicatePriorityDescription": "Each rule must have a unique priority number.",
     "rulesErrorValidation": "Invalid rules",
     "rulesErrorValidationRuleDescription": "Rule {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, or ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, method, or all of).",
     "rulesErrorValueRequired": "Enter a value for this rule.",
     "rulesErrorInvalidCountry": "Invalid country",
     "rulesErrorInvalidCountryDescription": "Select a valid country.",
@@ -4391,5 +4391,16 @@
     "rdpUnicodeKeyboardMode": "Unicode keyboard mode",
     "sessionToolbarShow": "Show toolbar",
     "sessionToolbarHide": "Hide toolbar",
-    "actionUpdateSiteApprovals": "Update Site Approvals"
+    "actionUpdateSiteApprovals": "Update Site Approvals",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods",
+    "rulesMatchAll": "All Of",
+    "rulesConditionsTitle": "Rule conditions",
+    "rulesConditionsDescription": "The rule applies only when every condition below matches the request.",
+    "rulesConditionAdd": "Add condition",
+    "rulesConditionRemove": "Remove condition",
+    "rulesConditionsEdit": "Edit conditions",
+    "rulesErrorConditionsRequired": "Not enough conditions",
+    "rulesErrorConditionsRequiredDescription": "A conditional rule needs at least two conditions."
 }
