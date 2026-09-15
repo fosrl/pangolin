@@ -1,46 +1,78 @@
 import logger from "@server/logger";
 
+function parseHeaders(
+    headers: string,
+    label: string,
+    resourceId: number
+): { name: string; value: string }[] {
+    try {
+        return JSON.parse(headers) as {
+            name: string;
+            value: string;
+        }[];
+    } catch (e) {
+        logger.warn(
+            `Failed to parse ${label} for resource ${resourceId}: ${e}`
+        );
+        return [];
+    }
+}
+
 /**
- * Build the customRequestHeaders middleware definition for a resource's
- * custom headers + setHostHeader config. Returns null when there are no
- * headers to set, so the caller can skip attaching the middleware.
+ * Build the custom headers middleware definition for a resource's
+ * custom request/response headers + setHostHeader config. Returns null when
+ * there are no headers to set, so the caller can skip attaching the
+ * middleware.
  */
 export function buildCustomHeadersMiddleware(
-    headers: string | null | undefined,
+    requestHeaders: string | null | undefined,
+    responseHeaders: string | null | undefined,
     setHostHeader: string | null | undefined,
     resourceId: number
-): { headers: { customRequestHeaders: { [key: string]: string } } } | null {
-    const headersObj: { [key: string]: string } = {};
+): {
+    headers: {
+        customRequestHeaders?: { [key: string]: string };
+        customResponseHeaders?: { [key: string]: string };
+    };
+} | null {
+    const requestHeadersObj: { [key: string]: string } = {};
+    const responseHeadersObj: { [key: string]: string } = {};
 
-    if (headers) {
-        let headersArr: { name: string; value: string }[] = [];
-        try {
-            headersArr = JSON.parse(headers) as {
-                name: string;
-                value: string;
-            }[];
-        } catch (e) {
-            logger.warn(
-                `Failed to parse headers for resource ${resourceId}: ${e}`
-            );
-        }
-
-        headersArr.forEach((header) => {
-            headersObj[header.name] = header.value;
-        });
+    if (requestHeaders) {
+        parseHeaders(requestHeaders, "requestHeaders", resourceId).forEach(
+            (header) => {
+                requestHeadersObj[header.name] = header.value;
+            }
+        );
     }
 
     if (setHostHeader) {
-        headersObj["Host"] = setHostHeader;
+        requestHeadersObj["Host"] = setHostHeader;
     }
 
-    if (Object.keys(headersObj).length === 0) {
+    if (responseHeaders) {
+        parseHeaders(responseHeaders, "responseHeaders", resourceId).forEach(
+            (header) => {
+                responseHeadersObj[header.name] = header.value;
+            }
+        );
+    }
+
+    const hasRequestHeaders = Object.keys(requestHeadersObj).length > 0;
+    const hasResponseHeaders = Object.keys(responseHeadersObj).length > 0;
+
+    if (!hasRequestHeaders && !hasResponseHeaders) {
         return null;
     }
 
     return {
         headers: {
-            customRequestHeaders: headersObj
+            ...(hasRequestHeaders && {
+                customRequestHeaders: requestHeadersObj
+            }),
+            ...(hasResponseHeaders && {
+                customResponseHeaders: responseHeadersObj
+            })
         }
     };
 }

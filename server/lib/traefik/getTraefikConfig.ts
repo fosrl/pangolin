@@ -96,7 +96,8 @@ export async function getTraefikConfig(
             tlsServerName: resources.tlsServerName,
             setHostHeader: resources.setHostHeader,
             enableProxy: resources.enableProxy,
-            headers: resources.headers,
+            requestHeaders: resources.requestHeaders,
+            responseHeaders: resources.responseHeaders,
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
             wildcard: resources.wildcard,
@@ -225,7 +226,8 @@ export async function getTraefikConfig(
                 setHostHeader: row.setHostHeader,
                 enableProxy: row.enableProxy,
                 targets: [],
-                headers: row.headers,
+                requestHeaders: row.requestHeaders,
+                responseHeaders: row.responseHeaders,
                 proxyProtocol: row.proxyProtocol,
                 proxyProtocolVersion: row.proxyProtocolVersion ?? 1,
                 path: row.path, // the targets will all have the same path
@@ -405,7 +407,8 @@ export async function getTraefikConfig(
 
             // Handle custom headers middleware
             const customHeadersMiddleware = buildCustomHeadersMiddleware(
-                resource.headers,
+                resource.requestHeaders,
+                resource.responseHeaders,
                 resource.setHostHeader,
                 resource.resourceId
             );

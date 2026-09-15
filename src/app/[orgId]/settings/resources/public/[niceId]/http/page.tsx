@@ -119,7 +119,10 @@ function ProxyResourceHttpForm({
                     message: t("proxyErrorInvalidHeader")
                 }
             ),
-        headers: z
+        requestHeaders: z
+            .array(z.object({ name: z.string(), value: z.string() }))
+            .nullable(),
+        responseHeaders: z
             .array(z.object({ name: z.string(), value: z.string() }))
             .nullable()
     });
@@ -131,19 +134,21 @@ function ProxyResourceHttpForm({
             ssl: resource.ssl,
             tlsServerName: resource.tlsServerName || "",
             setHostHeader: resource.setHostHeader || "",
-            headers: resource.headers
+            requestHeaders: resource.requestHeaders,
+            responseHeaders: resource.responseHeaders
         },
         mode: "onChange"
     });
 
     const [, formAction, saveLoading] = useActionState(onSubmit, null);
-    const [headersValid, setHeadersValid] = useState(true);
+    const [requestHeadersValid, setRequestHeadersValid] = useState(true);
+    const [responseHeadersValid, setResponseHeadersValid] = useState(true);
 
     async function onSubmit() {
         const isValid = await form.trigger();
         if (!isValid) return;
 
-        if (!headersValid) {
+        if (!requestHeadersValid || !responseHeadersValid) {
             toast({
                 variant: "destructive",
                 title: t("settingsErrorUpdate"),
@@ -162,7 +167,8 @@ function ProxyResourceHttpForm({
                     ssl: data.ssl,
                     tlsServerName: data.tlsServerName || null,
                     setHostHeader: data.setHostHeader || null,
-                    headers: data.headers || null
+                    requestHeaders: data.requestHeaders || null,
+                    responseHeaders: data.responseHeaders || null
                 }
             )
             .catch((err) => {
@@ -183,7 +189,8 @@ function ProxyResourceHttpForm({
                 ssl: data.ssl,
                 tlsServerName: data.tlsServerName || null,
                 setHostHeader: data.setHostHeader || null,
-                headers: data.headers || null
+                requestHeaders: data.requestHeaders || null,
+                responseHeaders: data.responseHeaders || null
             });
 
             toast({
@@ -324,11 +331,11 @@ function ProxyResourceHttpForm({
                                 <SettingsFormCell span="full">
                                     <FormField
                                         control={form.control}
-                                        name="headers"
+                                        name="requestHeaders"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
-                                                    {t("customHeaders")}
+                                                    {t("customRequestHeaders")}
                                                 </FormLabel>
                                                 <FormControl>
                                                     <HeadersInput
@@ -337,14 +344,46 @@ function ProxyResourceHttpForm({
                                                             field.onChange
                                                         }
                                                         onValidityChange={
-                                                            setHeadersValid
+                                                            setRequestHeadersValid
                                                         }
                                                         rows={4}
                                                     />
                                                 </FormControl>
                                                 <FormDescription>
                                                     {t(
-                                                        "customHeadersDescription"
+                                                        "customRequestHeadersDescription"
+                                                    )}
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </SettingsFormCell>
+
+                                <SettingsFormCell span="full">
+                                    <FormField
+                                        control={form.control}
+                                        name="responseHeaders"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    {t("customResponseHeaders")}
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <HeadersInput
+                                                        value={field.value}
+                                                        onChange={
+                                                            field.onChange
+                                                        }
+                                                        onValidityChange={
+                                                            setResponseHeadersValid
+                                                        }
+                                                        rows={4}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    {t(
+                                                        "customResponseHeadersDescription"
                                                     )}
                                                 </FormDescription>
                                                 <FormMessage />
@@ -362,7 +401,11 @@ function ProxyResourceHttpForm({
                 <Button
                     type="submit"
                     loading={saveLoading}
-                    disabled={saveLoading || !headersValid}
+                    disabled={
+                        saveLoading ||
+                        !requestHeadersValid ||
+                        !responseHeadersValid
+                    }
                     form="http-settings-form"
                 >
                     {t("saveSettings")}

@@ -1355,7 +1355,7 @@ export function HealthCheckCredenza(props: HealthCheckCredenzaProps) {
                                                                     <FormItem>
                                                                         <FormLabel>
                                                                             {t(
-                                                                                "customHeaders"
+                                                                                "customRequestHeaders"
                                                                             )}
                                                                         </FormLabel>
                                                                         <FormControl>
@@ -1379,7 +1379,7 @@ export function HealthCheckCredenza(props: HealthCheckCredenzaProps) {
                                                                         </FormControl>
                                                                         <FormDescription>
                                                                             {t(
-                                                                                "customHeadersDescription"
+                                                                                "customRequestHeadersDescription"
                                                                             )}
                                                                         </FormDescription>
                                                                         <FormMessage />
