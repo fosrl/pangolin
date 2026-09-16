@@ -1,4 +1,11 @@
-import { logsDb, primaryLogsDb, db, orgs, requestAuditLog } from "@server/db";
+import {
+    logsDb,
+    primaryLogsDb,
+    db,
+    orgs,
+    requestAuditLog,
+    driver
+} from "@server/db";
 import logger from "@server/logger";
 import { and, eq, lt, sql } from "drizzle-orm";
 import cache from "#dynamic/lib/cache";
@@ -6,6 +13,7 @@ import { calculateCutoffTimestamp } from "@server/lib/cleanupLogs";
 import { stripPortFromHost } from "@server/lib/ip";
 
 import { sanitizeString } from "@server/lib/sanitize";
+import { insertRowsAtomically } from "./insertRowsAtomically";
 
 /**
 
@@ -72,16 +80,16 @@ async function flushAuditLogs() {
     const logsToWrite = auditLogBuffer.splice(0, auditLogBuffer.length);
 
     try {
-        // Use a transaction to ensure all inserts succeed or fail together
-        // This prevents index corruption from partial writes
-        await logsDb.transaction(async (tx) => {
-            // Batch insert logs in groups of 25 to avoid overwhelming the database
-            const BATCH_DB_SIZE = 25;
-            for (let i = 0; i < logsToWrite.length; i += BATCH_DB_SIZE) {
-                const batch = logsToWrite.slice(i, i + BATCH_DB_SIZE);
-                await tx.insert(requestAuditLog).values(batch);
-            }
-        });
+        // Use a transaction to ensure all inserts succeed or fail together.
+        // This matters for more than index corruption: the catch below
+        // re-queues the whole slice, so rows left committed by a partial
+        // write would be inserted a second time on the retry.
+        await insertRowsAtomically(
+            logsDb,
+            driver,
+            requestAuditLog,
+            logsToWrite
+        );
         logger.debug(`Flushed ${logsToWrite.length} audit logs to database`);
     } catch (error) {
         logger.error("Error flushing audit logs:", error);
