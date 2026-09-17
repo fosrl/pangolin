@@ -825,7 +825,7 @@ export default function RedirectForm({
                                                         </FormControl>
                                                         <FormDescription>
                                                             {t(
-                                                                "priorityDescription"
+                                                                "redirectPriorityDescription"
                                                             )}
                                                         </FormDescription>
                                                         <FormMessage />

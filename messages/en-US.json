@@ -4394,6 +4394,7 @@
     "redirectRewritePathRequired": "Enter a rewrite path, or choose Strip Prefix",
     "redirectMatchPathInvalidRegex": "Match path must be a valid regular expression",
     "redirectPriorityInvalid": "Enter a whole number between 1 and 1000",
+    "redirectPriorityDescription": "Higher priority routes are evaluated first. This competes with the priorities of resource targets on the same domain: a redirect only wins over a resource route when its priority is higher. 100 means automatic ordering (system decides).",
     "redirectCreate": "Create Redirect",
     "redirectCreateDescription": "Forward requests matching a path to another URL",
     "redirectEditDescription": "Update how this redirect forwards incoming requests",
