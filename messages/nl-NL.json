@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Weet u zeker dat u de WireGuard-tunnel voor <b>{name}</b> wilt herstarten? De site zal tijdelijk geen connectiviteit hebben.",
     "siteRestartWarning": "De site zal kort worden losgekoppeld terwijl de tunnel opnieuw wordt gestart.",
     "siteRestarted": "Site herstart",
-    "siteRestartedDescription": "De WireGuard-tunnel is opnieuw gestart.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Site herstarten mislukt",
     "siteErrorRestartDescription": "Er is een fout opgetreden tijdens het herstarten van de site.",
     "siteSettingDescription": "Configureer de instellingen van de site",
