@@ -4400,5 +4400,12 @@
     "sessionToolbarShow": "Show toolbar",
     "sessionToolbarHide": "Hide toolbar",
     "actionUpdateSiteApprovals": "Update Site Approvals",
-    "check": "Check"
+    "check": "Check",
+    "dateAdded": "Date Added",
+    "resourcesSelectedCount": "{count} selected",
+    "resourcesEnableAuthSelected": "Enable SSO Authentication",
+    "resourcesDeleteSelected": "Delete Selected Resources",
+    "resourcesDeleteSelectedQuestion": "Are you sure you want to remove {count, plural, one {# resource} other {# resources}} from the organization?",
+    "resourcesDeleteSelectedConfirmString": "delete {count} resources",
+    "resourcesBulkActionFailed": "{count} of {total} resources failed to update"
 }
