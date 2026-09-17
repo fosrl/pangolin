@@ -29,7 +29,7 @@ import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import { UpdateResourceResponse } from "@server/routers/resource";
 import { useQuery } from "@tanstack/react-query";
-import type { PaginationState } from "@tanstack/react-table";
+import type { PaginationState, RowSelectionState } from "@tanstack/react-table";
 import { AxiosResponse } from "axios";
 import {
     ArrowDown01Icon,
@@ -49,6 +49,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
     startTransition,
+    useEffect,
     useMemo,
     useOptimistic,
     useRef,
@@ -95,6 +96,7 @@ export type ResourceRow = {
     sites: ResourceSiteRow[];
     wildcard?: boolean;
     createdAt?: string | null;
+    sso?: boolean;
     labels?: Array<{
         labelId: number;
         name: string;
@@ -141,13 +143,29 @@ export default function PublicResourcesTable({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedResource, setSelectedResource] =
         useState<ResourceRow | null>();
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
     const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
 
-    const selectedResources = resources.filter((r) => selectedIds.has(r.id));
+    // Drop selections for rows that left the list (page change, filter, delete)
+    useEffect(() => {
+        const ids = new Set(resources.map((r) => String(r.id)));
+        setRowSelection((previous) => {
+            const kept = Object.keys(previous).filter((id) => ids.has(id));
+            return kept.length === Object.keys(previous).length
+                ? previous
+                : Object.fromEntries(kept.map((id) => [id, true]));
+        });
+    }, [resources]);
+
+    const selectedResources = resources.filter(
+        (r) => rowSelection[String(r.id)]
+    );
     const authEligibleResources = selectedResources.filter(
         (r) => r.authState !== "none"
     );
+    const allSsoEnabled =
+        authEligibleResources.length > 0 &&
+        authEligibleResources.every((r) => r.sso);
 
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
@@ -230,7 +248,7 @@ export default function PublicResourcesTable({
                 })
             });
         }
-        setSelectedIds(new Set());
+        setRowSelection({});
         router.refresh();
     }
 
@@ -239,49 +257,28 @@ export default function PublicResourcesTable({
             {
                 id: "select",
                 enableHiding: false,
-                header: () => {
-                    const selectedCount = resources.filter((r) =>
-                        selectedIds.has(r.id)
-                    ).length;
-                    return (
-                        <Checkbox
-                            className="mx-3"
-                            aria-label={t("selectAll")}
-                            checked={
-                                selectedCount > 0 &&
-                                selectedCount === resources.length
-                                    ? true
-                                    : selectedCount > 0
-                                      ? "indeterminate"
-                                      : false
-                            }
-                            onCheckedChange={(checked) =>
-                                setSelectedIds(
-                                    new Set(
-                                        checked === true
-                                            ? resources.map((r) => r.id)
-                                            : []
-                                    )
-                                )
-                            }
-                        />
-                    );
-                },
-                cell: ({ row }) => (
+                header: ({ table }) => (
                     <Checkbox
                         className="mx-3"
-                        aria-label={row.original.name}
-                        checked={selectedIds.has(row.original.id)}
+                        aria-label={t("selectAll")}
+                        checked={
+                            table.getIsAllRowsSelected()
+                                ? true
+                                : table.getIsSomeRowsSelected()
+                                  ? "indeterminate"
+                                  : false
+                        }
                         onCheckedChange={(checked) =>
-                            setSelectedIds((previous) => {
-                                const next = new Set(previous);
-                                if (checked === true) {
-                                    next.add(row.original.id);
-                                } else {
-                                    next.delete(row.original.id);
-                                }
-                                return next;
-                            })
+                            table.toggleAllRowsSelected(checked === true)
+                        }
+                    />
+                ),
+                cell: ({ row }) => (
+                    <Checkbox
+                        aria-label={row.original.name}
+                        checked={row.getIsSelected()}
+                        onCheckedChange={(checked) =>
+                            row.toggleSelected(checked === true)
                         }
                     />
                 )
@@ -762,8 +759,6 @@ export default function PublicResourcesTable({
         orgId,
         t,
         searchParams,
-        resources,
-        selectedIds,
         statusHistoryQuery.data,
         statusHistoryQuery.isLoading,
         initialCertificates
@@ -872,6 +867,9 @@ export default function PublicResourcesTable({
                 searchQuery={searchParams.get("query")?.toString()}
                 onSearch={handleSearchChange}
                 onPaginationChange={handlePaginationChange}
+                getRowId={(row) => String(row.id)}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
                 filterExtras={
                     selectedResources.length > 0 && (
                         <DropdownMenu>
@@ -890,18 +888,26 @@ export default function PublicResourcesTable({
                                     }
                                     onClick={() =>
                                         runBulkAction(
-                                            authEligibleResources.map(
-                                                (r) => r.id
-                                            ),
+                                            authEligibleResources
+                                                .filter(
+                                                    (r) =>
+                                                        !!r.sso ===
+                                                        allSsoEnabled
+                                                )
+                                                .map((r) => r.id),
                                             (resourceId) =>
                                                 api.post(
                                                     `resource/${resourceId}`,
-                                                    { sso: true }
+                                                    { sso: !allSsoEnabled }
                                                 )
                                         )
                                     }
                                 >
-                                    {t("resourcesEnableAuthSelected")}
+                                    {t(
+                                        allSsoEnabled
+                                            ? "resourcesDisableAuthSelected"
+                                            : "resourcesEnableAuthSelected"
+                                    )}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     onClick={() => setIsBulkDeleteOpen(true)}
