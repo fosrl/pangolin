@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Tem certeza de que deseja reiniciar o túnel WireGuard para <b>{name}</b>? O site perderá brevemente a conectividade.",
     "siteRestartWarning": "O site será desconectado brevemente enquanto o túnel reinicia.",
     "siteRestarted": "Site reiniciado",
-    "siteRestartedDescription": "O túnel WireGuard foi reiniciado.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Falha ao reiniciar o site",
     "siteErrorRestartDescription": "Ocorreu um erro ao reiniciar o site.",
     "siteSettingDescription": "Configurar as configurações no site",
