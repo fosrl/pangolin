@@ -22,6 +22,7 @@ export type GetRedirectResponse = {
         matchPath: string | null;
         rewritePath: string | null;
         rewritePathType: "exact" | "prefix" | "regex" | "stripPrefix" | null;
+        priority: number | null;
         permanent: boolean;
         enabled: boolean;
         resourceId: number | null;
@@ -46,6 +47,7 @@ const redirectColumns = {
     matchPath: redirects.matchPath,
     rewritePath: redirects.rewritePath,
     rewritePathType: redirects.rewritePathType,
+    priority: redirects.priority,
     permanent: redirects.permanent,
     enabled: redirects.enabled,
     resourceId: redirects.resourceId,

@@ -4393,6 +4393,7 @@
     "redirectRewritePathDescription": "Optionally change the path before redirecting. Leave unset to keep the original path.",
     "redirectRewritePathRequired": "Enter a rewrite path, or choose Strip Prefix",
     "redirectMatchPathInvalidRegex": "Match path must be a valid regular expression",
+    "redirectPriorityInvalid": "Enter a whole number between 1 and 1000",
     "redirectCreate": "Create Redirect",
     "redirectCreateDescription": "Forward requests matching a path to another URL",
     "redirectEditDescription": "Update how this redirect forwards incoming requests",

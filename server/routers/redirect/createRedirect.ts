@@ -15,6 +15,7 @@ import {
     redirectPathMatchTypeSchema,
     redirectRewritePathSchema,
     isValidMatchPath,
+    redirectPrioritySchema,
     redirectRewritePathTypeSchema
 } from "@server/routers/redirect/validation";
 import { getUniqueRedirectName } from "@server/db/names";
@@ -39,6 +40,7 @@ const bodySchema = z
         matchPath: redirectMatchPathSchema.optional().nullable(),
         rewritePath: redirectRewritePathSchema.optional().nullable(),
         rewritePathType: redirectRewritePathTypeSchema.optional().nullable(),
+        priority: redirectPrioritySchema.optional().nullable(),
         permanent: z.boolean().optional(),
         enabled: z.boolean().optional()
     })
@@ -123,6 +125,7 @@ export async function createRedirect(
             matchPath,
             rewritePath,
             rewritePathType,
+            priority,
             permanent,
             enabled
         } = parsedBody.data;
@@ -195,6 +198,7 @@ export async function createRedirect(
                 matchPath: matchPath ?? null,
                 rewritePath: rewritePath ?? null,
                 rewritePathType: rewritePathType ?? null,
+                priority: priority ?? 100,
                 permanent: permanent ?? false,
                 enabled: enabled ?? true
             })

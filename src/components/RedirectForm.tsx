@@ -67,6 +67,7 @@ import DomainPicker from "@app/components/DomainPicker";
 import Link from "next/link";
 
 const DEFAULT_PATH_MATCH_TYPE = "regex" as const;
+const DEFAULT_PRIORITY = 100;
 
 export type ExistingRedirect = GetRedirectResponse["redirect"];
 
@@ -132,6 +133,11 @@ export default function RedirectForm({
                     rewritePathType: z
                         .enum(["exact", "prefix", "regex", "stripPrefix"])
                         .nullable(),
+                    priority: z
+                        .number()
+                        .int()
+                        .min(1, { message: t("redirectPriorityInvalid") })
+                        .max(1000, { message: t("redirectPriorityInvalid") }),
                     permanent: z.boolean(),
                     enabled: z.boolean()
                 })
@@ -193,6 +199,7 @@ export default function RedirectForm({
             matchPath: redirect?.matchPath ?? null,
             rewritePath: redirect?.rewritePath ?? null,
             rewritePathType: redirect?.rewritePathType ?? null,
+            priority: redirect?.priority ?? DEFAULT_PRIORITY,
             permanent: redirect?.permanent ?? false,
             enabled: redirect?.enabled ?? true
         }
@@ -248,6 +255,7 @@ export default function RedirectForm({
             matchPath: values.matchPath?.trim() || null,
             rewritePath: values.rewritePath?.trim() || null,
             rewritePathType: values.rewritePathType,
+            priority: values.priority,
             permanent: values.permanent,
             enabled: values.enabled
         };
@@ -784,6 +792,40 @@ export default function RedirectForm({
                                                         <FormDescription>
                                                             {t(
                                                                 "redirectRewritePathDescription"
+                                                            )}
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </SettingsFormCell>
+
+                                        <SettingsFormCell span="half">
+                                            <FormField
+                                                control={form.control}
+                                                name="priority"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("priority")}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                type="number"
+                                                                min={1}
+                                                                max={1000}
+                                                                {...field}
+                                                                onChange={(e) =>
+                                                                    field.onChange(
+                                                                        e.target
+                                                                            .valueAsNumber
+                                                                    )
+                                                                }
+                                                            />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            {t(
+                                                                "priorityDescription"
                                                             )}
                                                         </FormDescription>
                                                         <FormMessage />

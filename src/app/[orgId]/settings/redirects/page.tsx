@@ -54,6 +54,7 @@ export default async function RedirectIndexPage(props: RedirectIndexPageProps) {
         matchPath: redirect.matchPath,
         rewritePath: redirect.rewritePath,
         rewritePathType: redirect.rewritePathType,
+        priority: redirect.priority,
         permanent: redirect.permanent,
         enabled: redirect.enabled,
         resourceId: redirect.resourceId,

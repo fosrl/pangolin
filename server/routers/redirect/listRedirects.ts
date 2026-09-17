@@ -22,6 +22,7 @@ export type ListRedirectsResponse = PaginatedResponse<{
         matchPath: string | null;
         rewritePath: string | null;
         rewritePathType: "exact" | "prefix" | "regex" | "stripPrefix" | null;
+        priority: number | null;
         permanent: boolean;
         enabled: boolean;
         resourceId: number | null;
@@ -145,6 +146,7 @@ export async function listRedirects(
                 matchPath: redirects.matchPath,
                 rewritePath: redirects.rewritePath,
                 rewritePathType: redirects.rewritePathType,
+                priority: redirects.priority,
                 permanent: redirects.permanent,
                 enabled: redirects.enabled,
                 resourceId: redirects.resourceId,
@@ -173,7 +175,7 @@ export async function listRedirects(
             baseQuery
                 .limit(pageSize)
                 .offset(pageSize * (page - 1))
-                .orderBy(desc(redirects.redirectId))
+                .orderBy(desc(redirects.priority), desc(redirects.redirectId))
         ]);
 
         return response<ListRedirectsResponse>(res, {

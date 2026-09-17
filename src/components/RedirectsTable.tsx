@@ -22,9 +22,12 @@ import { createApiClient, formatAxiosError } from "@app/lib/api";
 import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import type { PaginationState } from "@tanstack/react-table";
 import {
+    ArrowDown,
     ArrowRight,
+    ArrowUp,
     ArrowUpRight,
     GlobeIcon,
+    MinusIcon,
     MoreHorizontal,
     WaypointsIcon
 } from "lucide-react";
@@ -52,6 +55,7 @@ export type RedirectRow = {
     matchPath: string | null;
     rewritePath: string | null;
     rewritePathType: "exact" | "prefix" | "regex" | "stripPrefix" | null;
+    priority: number | null;
     permanent: boolean;
     enabled: boolean;
     resourceId: number | null;
@@ -286,9 +290,7 @@ export default function RedirectsTable({
                                 {redirect.matchPath && (
                                     <span className="text-muted-foreground">
                                         {redirect.pathMatchType === "prefix"
-                                            ? withPrefixGlob(
-                                                  redirect.matchPath
-                                              )
+                                            ? withPrefixGlob(redirect.matchPath)
                                             : redirect.matchPath}
                                     </span>
                                 )}
@@ -317,6 +319,28 @@ export default function RedirectsTable({
                                 </span>
                             )}
                         </code>
+                    );
+                }
+            },
+            {
+                accessorKey: "priority",
+                friendlyName: t("priority"),
+                header: () => <span className="p-3">{t("priority")}</span>,
+                cell: ({ row }) => {
+                    // 100 is the automatic default; anything else was set
+                    // deliberately, so flag which way it deviates.
+                    const priority = row.original.priority ?? 100;
+                    return (
+                        <span className="inline-flex items-center gap-1">
+                            {priority}
+                            {priority > 100 ? (
+                                <ArrowUp className="size-3 text-green-500" />
+                            ) : priority < 100 ? (
+                                <ArrowDown className="size-3 text-red-500" />
+                            ) : (
+                                <MinusIcon className="size-3 text-muted-foreground" />
+                            )}
+                        </span>
                     );
                 }
             },
@@ -439,7 +463,8 @@ export default function RedirectsTable({
                 columnVisibility={{
                     attachedTo: false,
                     niceId: false,
-                    permanent: false
+                    permanent: false,
+                    priority: false
                 }}
                 enableColumnVisibility
                 stickyLeftColumn="name"

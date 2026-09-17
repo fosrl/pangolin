@@ -16,6 +16,7 @@ import {
     redirectPathMatchTypeSchema,
     redirectRewritePathSchema,
     redirectRewritePathTypeSchema,
+    redirectPrioritySchema,
     isValidMatchPath
 } from "@server/routers/redirect/validation";
 import { createCertificate } from "../certificates";
@@ -40,6 +41,7 @@ const bodySchema = z.strictObject({
     matchPath: redirectMatchPathSchema.optional().nullable(),
     rewritePath: redirectRewritePathSchema.optional().nullable(),
     rewritePathType: redirectRewritePathTypeSchema.optional().nullable(),
+    priority: redirectPrioritySchema.optional(),
     permanent: z.boolean().optional(),
     enabled: z.boolean().optional()
 });
@@ -254,6 +256,9 @@ export async function updateRedirect(
         }
         if (body.rewritePathType !== undefined) {
             updateData.rewritePathType = body.rewritePathType;
+        }
+        if (body.priority !== undefined) {
+            updateData.priority = body.priority;
         }
         if (body.permanent !== undefined) {
             updateData.permanent = body.permanent;

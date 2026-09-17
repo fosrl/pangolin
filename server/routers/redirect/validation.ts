@@ -45,6 +45,9 @@ export function isValidMatchPath(
 
 export const redirectRewritePathSchema = z.string().nonempty();
 
+// Same range as target priorities; 100 means "let the system order it".
+export const redirectPrioritySchema = z.int().min(1).max(1000);
+
 export const redirectDestinationDomainSchema = z
     .string()
     .nonempty()
