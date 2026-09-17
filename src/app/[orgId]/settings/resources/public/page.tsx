@@ -109,6 +109,7 @@ export default async function ProxyResourcesPage(
             wildcard: resource.wildcard,
             mode: resource.mode,
             createdAt: resource.createdAt,
+            sso: !!resource.sso,
             targets: resource.targets?.map((target) => ({
                 targetId: target.targetId,
                 ip: target.ip,
