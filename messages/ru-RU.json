@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Вы уверены, что хотите перезапустить туннель WireGuard для <b>{name}</b>? Сайт кратковременно потеряет соединение.",
     "siteRestartWarning": "Сайт кратковременно отключится во время перезапуска туннеля.",
     "siteRestarted": "Сайт перезапущен",
-    "siteRestartedDescription": "Туннель WireGuard был перезапущен.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Не удалось перезапустить сайт",
     "siteErrorRestartDescription": "Произошла ошибка во время перезапуска сайта.",
     "siteSettingDescription": "Настройка параметров на сайте",
