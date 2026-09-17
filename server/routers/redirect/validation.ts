@@ -19,7 +19,29 @@ export const redirectRewritePathTypeSchema = z.enum([
     "stripPrefix"
 ]);
 
-export const redirectMatchPathSchema = z.string().nonempty().default("*");
+export const redirectMatchPathSchema = z.string().nonempty();
+
+export function isValidRegex(pattern: string): boolean {
+    try {
+        new RegExp(pattern);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * A regex match path is fed straight to `new RegExp` when building routes,
+ * so reject patterns that would throw there.
+ */
+export function isValidMatchPath(
+    matchPath: string | null | undefined,
+    pathMatchType: string | null | undefined
+): boolean {
+    return (
+        pathMatchType !== "regex" || !matchPath || isValidRegex(matchPath)
+    );
+}
 
 export const redirectRewritePathSchema = z.string().nonempty();
 

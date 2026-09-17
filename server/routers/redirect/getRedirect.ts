@@ -19,7 +19,7 @@ export type GetRedirectResponse = {
         subdomain: string | null;
         destinationDomain: string;
         pathMatchType: "exact" | "prefix" | "regex";
-        matchPath: string;
+        matchPath: string | null;
         rewritePath: string | null;
         rewritePathType: "exact" | "prefix" | "regex" | "stripPrefix" | null;
         permanent: boolean;

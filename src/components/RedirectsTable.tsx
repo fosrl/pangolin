@@ -31,7 +31,15 @@ import {
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+    useEffect,
+    useMemo,
+    useOptimistic,
+    useRef,
+    useState,
+    useTransition,
+    type ComponentRef
+} from "react";
 import { useDebouncedCallback } from "use-debounce";
 
 export type RedirectRow = {
@@ -41,7 +49,7 @@ export type RedirectRow = {
     subdomain: string | null;
     destinationDomain: string;
     pathMatchType: "exact" | "prefix" | "regex";
-    matchPath: string;
+    matchPath: string | null;
     rewritePath: string | null;
     rewritePathType: "exact" | "prefix" | "regex" | "stripPrefix" | null;
     permanent: boolean;
@@ -121,15 +129,9 @@ export default function RedirectsTable({
         return path.endsWith("/") ? `${path}*` : `${path}/*`;
     }
 
-    async function toggleEnabled(row: RedirectRow, enabled: boolean) {
-        setRows((prev) =>
-            prev.map((r) =>
-                r.redirectId === row.redirectId ? { ...r, enabled } : r
-            )
-        );
-
+    async function toggleEnabled(enabled: boolean, redirectId: number) {
         try {
-            await api.post(`/org/${orgId}/redirects/${row.redirectId}`, {
+            await api.post(`/org/${orgId}/redirects/${redirectId}`, {
                 enabled
             });
             toast({
@@ -138,13 +140,6 @@ export default function RedirectsTable({
             });
             router.refresh();
         } catch (e) {
-            setRows((prev) =>
-                prev.map((r) =>
-                    r.redirectId === row.redirectId
-                        ? { ...r, enabled: row.enabled }
-                        : r
-                )
-            );
             toast({
                 variant: "destructive",
                 title: t("redirectErrorUpdate"),
@@ -288,11 +283,15 @@ export default function RedirectsTable({
                             ) : null}
                             <code className="text-sm truncate">
                                 {host ?? ""}
-                                <span className="text-muted-foreground">
-                                    {redirect.pathMatchType === "prefix"
-                                        ? withPrefixGlob(redirect.matchPath)
-                                        : redirect.matchPath}
-                                </span>
+                                {redirect.matchPath && (
+                                    <span className="text-muted-foreground">
+                                        {redirect.pathMatchType === "prefix"
+                                            ? withPrefixGlob(
+                                                  redirect.matchPath
+                                              )
+                                            : redirect.matchPath}
+                                    </span>
+                                )}
                             </code>
                         </div>
                     );
@@ -338,11 +337,9 @@ export default function RedirectsTable({
                 friendlyName: t("enabled"),
                 header: () => <span className="p-3">{t("enabled")}</span>,
                 cell: ({ row }) => (
-                    <Switch
-                        checked={row.original.enabled}
-                        onCheckedChange={(checked) =>
-                            toggleEnabled(row.original, checked)
-                        }
+                    <RedirectEnabledForm
+                        redirect={row.original}
+                        onToggleEnabled={toggleEnabled}
                     />
                 )
             },
@@ -449,5 +446,38 @@ export default function RedirectsTable({
                 stickyRightColumn="actions"
             />
         </>
+    );
+}
+
+type RedirectEnabledFormProps = {
+    redirect: RedirectRow;
+    onToggleEnabled: (val: boolean, redirectId: number) => Promise<void>;
+};
+
+function RedirectEnabledForm({
+    redirect,
+    onToggleEnabled
+}: RedirectEnabledFormProps) {
+    const [optimisticEnabled, setOptimisticEnabled] = useOptimistic(
+        redirect.enabled
+    );
+
+    const formRef = useRef<ComponentRef<"form">>(null);
+
+    async function submitAction(formData: FormData) {
+        const newEnabled = !(formData.get("enabled") === "on");
+        setOptimisticEnabled(newEnabled);
+        await onToggleEnabled(newEnabled, redirect.redirectId);
+    }
+
+    return (
+        <form action={submitAction} ref={formRef}>
+            <Switch
+                checked={optimisticEnabled}
+                disabled={optimisticEnabled !== redirect.enabled}
+                name="enabled"
+                onCheckedChange={() => formRef.current?.requestSubmit()}
+            />
+        </form>
     );
 }

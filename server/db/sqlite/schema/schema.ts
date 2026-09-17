@@ -264,13 +264,13 @@ export const redirects = sqliteTable("redirects", {
         .$type<"exact" | "prefix" | "regex">()
         .notNull()
         .default("regex"), // exact, prefix, regex
-    matchPath: text("matchPath").notNull().default("*"),
+    matchPath: text("matchPath"),
     rewritePath: text("rewritePath"), // if set, rewrites the path to this value,
     //  else, the original path will be kept
     rewritePathType: text("rewritePathType").$type<
         "exact" | "prefix" | "regex" | "stripPrefix"
     >(), // exact, prefix, regex, stripPrefix
-
+    priority: integer("priority").default(100),
     permanent: integer("permanent", { mode: "boolean" })
         .notNull()
         .default(false),

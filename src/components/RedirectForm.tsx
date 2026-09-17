@@ -41,6 +41,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { isValidDomain } from "@server/lib/validators";
+import { isValidRegex } from "@server/routers/redirect/validation";
 import { cn } from "@app/lib/cn";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -65,7 +66,6 @@ import { Plus } from "lucide-react";
 import DomainPicker from "@app/components/DomainPicker";
 import Link from "next/link";
 
-const DEFAULT_MATCH_PATH = ".*";
 const DEFAULT_PATH_MATCH_TYPE = "regex" as const;
 
 export type ExistingRedirect = GetRedirectResponse["redirect"];
@@ -127,7 +127,7 @@ export default function RedirectForm({
                             message: t("redirectDestinationDomainInvalid")
                         }),
                     pathMatchType: z.enum(["exact", "prefix", "regex"]),
-                    matchPath: z.string().trim().min(1),
+                    matchPath: z.string().trim().nullable(),
                     rewritePath: z.string().nullable(),
                     rewritePathType: z
                         .enum(["exact", "prefix", "regex", "stripPrefix"])
@@ -148,6 +148,17 @@ export default function RedirectForm({
                             code: "custom",
                             message: t("redirectResourceRequired"),
                             path: ["resourceId"]
+                        });
+                    }
+                    if (
+                        data.pathMatchType === "regex" &&
+                        data.matchPath &&
+                        !isValidRegex(data.matchPath)
+                    ) {
+                        ctx.addIssue({
+                            code: "custom",
+                            message: t("redirectMatchPathInvalidRegex"),
+                            path: ["matchPath"]
                         });
                     }
                     // stripPrefix drops the matched prefix outright, so it is
@@ -179,7 +190,7 @@ export default function RedirectForm({
             resourceId: redirect?.resourceId ?? null,
             destinationDomain: redirect?.destinationDomain ?? "",
             pathMatchType: redirect?.pathMatchType ?? DEFAULT_PATH_MATCH_TYPE,
-            matchPath: redirect?.matchPath ?? DEFAULT_MATCH_PATH,
+            matchPath: redirect?.matchPath ?? null,
             rewritePath: redirect?.rewritePath ?? null,
             rewritePathType: redirect?.rewritePathType ?? null,
             permanent: redirect?.permanent ?? false,
@@ -234,7 +245,7 @@ export default function RedirectForm({
                 values.attachTo === "resource" ? values.resourceId : null,
             destinationDomain: values.destinationDomain.trim(),
             pathMatchType: values.pathMatchType,
-            matchPath: values.matchPath.trim(),
+            matchPath: values.matchPath?.trim() || null,
             rewritePath: values.rewritePath?.trim() || null,
             rewritePathType: values.rewritePathType,
             permanent: values.permanent,
@@ -650,15 +661,16 @@ export default function RedirectForm({
                                                             onChange={(
                                                                 config
                                                             ) => {
-                                                                // matchPath and
-                                                                // pathMatchType are
-                                                                // NOT NULL, so a
-                                                                // clear falls back
-                                                                // to the defaults
-                                                                // rather than null.
+                                                                // No match path
+                                                                // means the
+                                                                // redirect applies
+                                                                // to every path;
+                                                                // pathMatchType is
+                                                                // NOT NULL so it
+                                                                // keeps a default.
                                                                 field.onChange(
                                                                     config.path ||
-                                                                        DEFAULT_MATCH_PATH
+                                                                        null
                                                                 );
                                                                 form.setValue(
                                                                     "pathMatchType",
@@ -675,13 +687,22 @@ export default function RedirectForm({
                                                                     variant="outline"
                                                                     className="flex items-center gap-2 p-2 w-full text-left cursor-pointer"
                                                                 >
-                                                                    <PathMatchDisplay
-                                                                        value={{
-                                                                            path: field.value,
-                                                                            pathMatchType:
-                                                                                pathMatchType
-                                                                        }}
-                                                                    />
+                                                                    {field.value ? (
+                                                                        <PathMatchDisplay
+                                                                            value={{
+                                                                                path: field.value,
+                                                                                pathMatchType:
+                                                                                    pathMatchType
+                                                                            }}
+                                                                        />
+                                                                    ) : (
+                                                                        <>
+                                                                            <Plus className="h-4 w-4" />
+                                                                            {t(
+                                                                                "matchPath"
+                                                                            )}
+                                                                        </>
+                                                                    )}
                                                                 </Button>
                                                             }
                                                         />

@@ -11,25 +11,24 @@ export type RedirectRouteRow = {
     /** Host the redirect listens on (resource fullDomain or subdomain.baseDomain). */
     fullDomain: string;
     hasSubdomain: boolean;
+    attachedTo: "resource" | "domain";
+    enabled: boolean;
+    name: string;
     wildcard: boolean | null;
     ssl: boolean;
-    matchPath: string;
+    matchPath: string | null;
     pathMatchType: string;
     priority: number | null;
     domainCertResolver?: string | null;
     preferWildcardCert?: boolean | null;
 };
 
-/**
- * Add Traefik routers for redirects. Like resources, every request is sent
- * through badger, which looks up the redirect by host/path, applies any
- * path rewrite and answers with the redirect itself - Traefik only has to
- * match the host (+ path) and terminate TLS. Redirects have no backend, so
- * the routers point at Traefik's built-in noop@internal service.
- * TLS/cert-resolver handling differs between the OSS and private
- * (pangolin-dns aware) config generators, so callers resolve that via
- * resolveTls - returning null skips the redirect (no valid cert yet).
- */
+// Traefik requires a service on every router, but a redirect router's
+// middleware chain always terminates the request with a 30x, so the service
+// is never reached. noop@internal answers 418 if it ever is - treat that as
+// a bug in the middleware chain, not something to route around.
+const NOOP_SERVICE = "noop@internal";
+
 export function buildRedirectConfig(params: {
     config_output: any;
     redirects: RedirectRouteRow[];
@@ -56,7 +55,18 @@ export function buildRedirectConfig(params: {
     const routerMiddlewares = [badgerMiddlewareName, ...additionalMiddlewares];
 
     for (const redirect of redirects) {
-        const routerName = `redirect-${redirect.redirectId}-router`;
+        const routerName = `${redirect.redirectId}-redirect-${redirect.name}-router`;
+
+        logger.debug(
+            `Processing redirect ${redirect.name} with domain ${redirect.fullDomain}`
+        );
+
+        if (!redirect.enabled) {
+            logger.debug(
+                `Redirect ${redirect.name} is disabled, skipping Traefik config`
+            );
+            continue;
+        }
 
         let tls: any = {};
         if (redirect.ssl) {
@@ -70,7 +80,7 @@ export function buildRedirectConfig(params: {
             config_output.http.routers = {};
         }
 
-        if (redirect.pathMatchType === "regex") {
+        if (redirect.matchPath && redirect.pathMatchType === "regex") {
             try {
                 new RegExp(redirect.matchPath);
             } catch {
@@ -99,11 +109,13 @@ export function buildRedirectConfig(params: {
                 redirect.pathMatchType
             ) + (hasExplicitPriority ? 0 : 1);
 
-        if (redirect.ssl) {
+        // if resource is already attached to resource, we don't need to add the https redirect
+        // as it is already added in the resource traefik config
+        if (redirect.attachedTo !== "resource" && redirect.ssl) {
             config_output.http.routers[`${routerName}-redirect`] = {
                 entryPoints: [httpEntrypoint],
                 middlewares: [redirectHttpsMiddlewareName],
-                service: "noop@internal",
+                service: NOOP_SERVICE,
                 rule,
                 priority
             };
@@ -112,7 +124,7 @@ export function buildRedirectConfig(params: {
         config_output.http.routers[routerName] = {
             entryPoints: [redirect.ssl ? httpsEntrypoint : httpEntrypoint],
             middlewares: routerMiddlewares,
-            service: "noop@internal",
+            service: NOOP_SERVICE,
             rule,
             priority,
             ...(redirect.ssl ? { tls } : {})

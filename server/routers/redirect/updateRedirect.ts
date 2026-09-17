@@ -15,7 +15,8 @@ import {
     redirectMatchPathSchema,
     redirectPathMatchTypeSchema,
     redirectRewritePathSchema,
-    redirectRewritePathTypeSchema
+    redirectRewritePathTypeSchema,
+    isValidMatchPath
 } from "@server/routers/redirect/validation";
 import { createCertificate } from "../certificates";
 
@@ -36,7 +37,7 @@ const bodySchema = z.strictObject({
     subdomain: z.string().nonempty().optional().nullable(),
     destinationDomain: redirectDestinationDomainSchema.optional(),
     pathMatchType: redirectPathMatchTypeSchema.optional(),
-    matchPath: redirectMatchPathSchema.optional(),
+    matchPath: redirectMatchPathSchema.optional().nullable(),
     rewritePath: redirectRewritePathSchema.optional().nullable(),
     rewritePathType: redirectRewritePathTypeSchema.optional().nullable(),
     permanent: z.boolean().optional(),
@@ -204,6 +205,22 @@ export async function updateRedirect(
                     )
                 );
             }
+        }
+
+        if (
+            !isValidMatchPath(
+                body.matchPath !== undefined
+                    ? body.matchPath
+                    : existing.matchPath,
+                body.pathMatchType ?? existing.pathMatchType
+            )
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "matchPath must be a valid regular expression"
+                )
+            );
         }
 
         const updateData: Partial<typeof redirects.$inferInsert> = {};

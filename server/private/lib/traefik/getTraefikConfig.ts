@@ -56,7 +56,7 @@ import {
 } from "@server/lib/certificates";
 import { build } from "@server/build";
 import regionalCache from "#private/lib/cache";
-import { TargetWithSite } from "@server/lib/traefik/types";
+import { ResourceWithTargets } from "@server/lib/traefik/types";
 import { buildWildcardTls } from "@server/lib/traefik/certResolver";
 import {
     buildHostRule,
@@ -218,7 +218,7 @@ export async function getTraefikConfig(
         .orderBy(desc(targets.priority), targets.targetId); // stable ordering
 
     // Group by resource and include targets with their unique site data
-    const resourcesMap = new Map();
+    const resourcesMap = new Map<string, ResourceWithTargets>();
 
     for (const row of resourcesWithTargetsAndSites) {
         if (!["http", "tcp", "udp"].includes(row.mode)) {
@@ -246,7 +246,7 @@ export async function getTraefikConfig(
             .filter(Boolean)
             .join("-");
         const mapKey = [resourceId, pathKey].filter(Boolean).join("-");
-        const key = sanitize(mapKey);
+        const key = sanitize(mapKey) ?? "";
 
         if (!resourcesMap.has(mapKey)) {
             const validation = validatePathRewriteConfig(
@@ -300,7 +300,7 @@ export async function getTraefikConfig(
         }
 
         // Add target with its associated site data
-        resourcesMap.get(mapKey).targets.push({
+        resourcesMap.get(mapKey)!.targets.push({
             resourceId: row.resourceId,
             targetId: row.targetId,
             ip: row.ip,
@@ -406,6 +406,8 @@ export async function getTraefikConfig(
     // domain; the domain join resolves to whichever one applies.
     const redirectRows = await db
         .select({
+            name: redirects.name,
+            enabled: redirects.enabled,
             redirectId: redirects.redirectId,
             subdomain: redirects.subdomain,
             matchPath: redirects.matchPath,
@@ -432,7 +434,10 @@ export async function getTraefikConfig(
                 sql`coalesce(${redirects.domainId}, ${resources.domainId})`
             )
         )
-        .leftJoin(domainNamespaces, eq(domainNamespaces.domainId, domains.domainId))
+        .leftJoin(
+            domainNamespaces,
+            eq(domainNamespaces.domainId, domains.domainId)
+        )
         .where(
             and(
                 eq(redirects.enabled, true),
@@ -459,6 +464,8 @@ export async function getTraefikConfig(
         }
 
         redirectRoutes.push({
+            enabled: row.enabled,
+            name: sanitize(row.name) || "",
             redirectId: row.redirectId,
             fullDomain,
             hasSubdomain: attachedToResource
@@ -467,6 +474,7 @@ export async function getTraefikConfig(
             wildcard: row.resourceWildcard,
             // Domain-attached redirects always get a certificate on creation
             ssl: attachedToResource ? !!row.resourceSsl : true,
+            attachedTo: attachedToResource ? "resource" : "domain",
             matchPath: row.matchPath,
             pathMatchType: row.pathMatchType,
             priority: row.priority,
@@ -474,6 +482,14 @@ export async function getTraefikConfig(
             preferWildcardCert: row.preferWildcardCert
         });
     }
+
+    console.dir(
+        {
+            redirectRoutes,
+            redirectRows
+        },
+        { depth: null }
+    );
 
     let validCerts: CertificateResult[] = [];
     if (privateConfig.getRawPrivateConfig().flags.use_pangolin_dns) {
@@ -552,7 +568,7 @@ export async function getTraefikConfig(
 
     // get the key and the resource
     for (const [, resource] of resourcesMap.entries()) {
-        const targets = resource.targets as TargetWithSite[];
+        const targets = resource.targets;
         const key = resource.key;
 
         const routerName = `${key}-${resource.name}-router`;

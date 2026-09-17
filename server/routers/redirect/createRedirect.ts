@@ -14,6 +14,7 @@ import {
     redirectMatchPathSchema,
     redirectPathMatchTypeSchema,
     redirectRewritePathSchema,
+    isValidMatchPath,
     redirectRewritePathTypeSchema
 } from "@server/routers/redirect/validation";
 import { getUniqueRedirectName } from "@server/db/names";
@@ -35,7 +36,7 @@ const bodySchema = z
         subdomain: z.string().nonempty().optional().nullable(),
         destinationDomain: redirectDestinationDomainSchema,
         pathMatchType: redirectPathMatchTypeSchema.optional(),
-        matchPath: redirectMatchPathSchema,
+        matchPath: redirectMatchPathSchema.optional().nullable(),
         rewritePath: redirectRewritePathSchema.optional().nullable(),
         rewritePathType: redirectRewritePathTypeSchema.optional().nullable(),
         permanent: z.boolean().optional(),
@@ -57,6 +58,10 @@ const bodySchema = z
     .refine((data) => Boolean(data.resourceId) !== Boolean(data.domainId), {
         message: "Exactly one of resourceId or domainId must be provided",
         path: ["resourceId"]
+    })
+    .refine((data) => isValidMatchPath(data.matchPath, data.pathMatchType), {
+        message: "matchPath must be a valid regular expression",
+        path: ["matchPath"]
     });
 
 registry.registerPath({
@@ -187,7 +192,7 @@ export async function createRedirect(
                 subdomain: subdomain ?? null,
                 destinationDomain,
                 pathMatchType: pathMatchType ?? "regex",
-                matchPath,
+                matchPath: matchPath ?? null,
                 rewritePath: rewritePath ?? null,
                 rewritePathType: rewritePathType ?? null,
                 permanent: permanent ?? false,
