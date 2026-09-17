@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Sei sicuro di voler riavviare il tunnel WireGuard per <b>{name}</b>? Il sito perderà brevemente la connettività.",
     "siteRestartWarning": "Il sito si disconnette brevemente mentre il tunnel si riavvia.",
     "siteRestarted": "Sito riavviato",
-    "siteRestartedDescription": "Il tunnel WireGuard è stato riavviato.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Impossibile riavviare il sito",
     "siteErrorRestartDescription": "Si è verificato un errore durante il riavvio del sito.",
     "siteSettingDescription": "Configura le impostazioni del sito",
