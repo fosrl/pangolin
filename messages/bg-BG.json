@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Сигурни ли сте, че искате да рестартирате WireGuard тунела за <b>{name}</b>? Сайтът ще изгуби връзка за кратко.",
     "siteRestartWarning": "Сайтът ще се изключи за кратко, докато тунелът се рестартира.",
     "siteRestarted": "Сайтът е рестартиран",
-    "siteRestartedDescription": "WireGuard тунелът е рестартиран.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Неуспешно рестартиране на сайта",
     "siteErrorRestartDescription": "Възникна грешка при рестартирането на сайта.",
     "siteSettingDescription": "Конфигурирайте настройките на сайта",
