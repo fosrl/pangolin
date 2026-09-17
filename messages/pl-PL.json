@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Czy na pewno chcesz uruchomić ponownie tunel WireGuard dla <b>{name}</b>? Strona tymczasowo straci łączność.",
     "siteRestartWarning": "Strona tymczasowo rozłączy się podczas ponownego uruchamiania tunelu.",
     "siteRestarted": "Strona zrestartowana",
-    "siteRestartedDescription": "Tunel WireGuard został ponownie uruchomiony.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Nie udało się zrestartować strony",
     "siteErrorRestartDescription": "Wystąpił błąd podczas ponownego uruchamiania strony.",
     "siteSettingDescription": "Skonfiguruj ustawienia na stronie",
