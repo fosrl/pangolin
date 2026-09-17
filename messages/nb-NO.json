@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Er du sikker på at du vil starte WireGuard-tunnelen for <b>{name}</b> på nytt? Området vil midlertidig miste tilkoblingen.",
     "siteRestartWarning": "Området vil kobles kort fra mens tunnelen starter om.",
     "siteRestarted": "Område startet på nytt",
-    "siteRestartedDescription": "WireGuard-tunnelen er startet på nytt.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Kan ikke starte område på nytt",
     "siteErrorRestartDescription": "En feil oppstod ved omstart av området.",
     "siteSettingDescription": "Konfigurere innstillingene på nettstedet",
