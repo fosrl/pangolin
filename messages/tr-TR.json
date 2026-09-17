@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "<b>{name}</b> için WireGuard tünelini yeniden başlatmak istediğinizden emin misiniz? Site kısa süreliğine bağlantıyı kaybedecektir.",
     "siteRestartWarning": "Tünel yeniden başlatılırken site kısa süreliğine kesintiye uğrar.",
     "siteRestarted": "Site yeniden başlatıldı",
-    "siteRestartedDescription": "WireGuard tüneli yeniden başlatıldı.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Sitenin yeniden başlatılması başarısız oldu",
     "siteErrorRestartDescription": "Site yeniden başlatılırken bir hata oluştu.",
     "siteSettingDescription": "Sitenizdeki ayarları yapılandırın",
