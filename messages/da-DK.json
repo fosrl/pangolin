@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Er du sikker på, at du vil genstarte WireGuard-tunnelen for <b>{name}</b>? Sitet vil kortvarigt miste forbindelsen.",
     "siteRestartWarning": "Sitet vil kortvarigt afbryde forbindelse, mens tunnelen genstarter.",
     "siteRestarted": "Site genstartet",
-    "siteRestartedDescription": "WireGuard-tunnelen er blevet genstartet.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Kunne ikke genstarte site",
     "siteErrorRestartDescription": "En fejl opstod, mens sitet blev genstartet.",
     "siteSettingDescription": "Konfigurer indstillingerne for sitet",
