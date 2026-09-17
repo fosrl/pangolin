@@ -9,6 +9,7 @@ import {
 } from "@app/components/ResourceSitesStatusCell";
 import { Selectedsite } from "@app/components/site-selector";
 import { Button } from "@app/components/ui/button";
+import { Checkbox } from "@app/components/ui/checkbox";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
     DropdownMenu,
@@ -28,7 +29,7 @@ import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import { UpdateResourceResponse } from "@server/routers/resource";
 import { useQuery } from "@tanstack/react-query";
-import type { PaginationState } from "@tanstack/react-table";
+import type { PaginationState, RowSelectionState } from "@tanstack/react-table";
 import { AxiosResponse } from "axios";
 import {
     ArrowDown01Icon,
@@ -48,6 +49,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
     startTransition,
+    useEffect,
     useMemo,
     useOptimistic,
     useRef,
@@ -93,6 +95,8 @@ export type ResourceRow = {
     health?: "healthy" | "degraded" | "unhealthy" | "unknown";
     sites: ResourceSiteRow[];
     wildcard?: boolean;
+    createdAt?: string | null;
+    sso?: boolean;
     labels?: Array<{
         labelId: number;
         name: string;
@@ -139,6 +143,29 @@ export default function PublicResourcesTable({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedResource, setSelectedResource] =
         useState<ResourceRow | null>();
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+
+    // Drop selections for rows that left the list (page change, filter, delete)
+    useEffect(() => {
+        const ids = new Set(resources.map((r) => String(r.id)));
+        setRowSelection((previous) => {
+            const kept = Object.keys(previous).filter((id) => ids.has(id));
+            return kept.length === Object.keys(previous).length
+                ? previous
+                : Object.fromEntries(kept.map((id) => [id, true]));
+        });
+    }, [resources]);
+
+    const selectedResources = resources.filter(
+        (r) => rowSelection[String(r.id)]
+    );
+    const authEligibleResources = selectedResources.filter(
+        (r) => r.authState !== "none"
+    );
+    const allSsoEnabled =
+        authEligibleResources.length > 0 &&
+        authEligibleResources.every((r) => r.sso);
 
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
@@ -206,8 +233,56 @@ export default function PublicResourcesTable({
         }
     }
 
+    async function runBulkAction(
+        ids: number[],
+        request: (resourceId: number) => Promise<unknown>
+    ) {
+        const results = await Promise.allSettled(ids.map(request));
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed > 0) {
+            toast({
+                variant: "destructive",
+                title: t("resourcesBulkActionFailed", {
+                    count: failed,
+                    total: ids.length
+                })
+            });
+        }
+        setRowSelection({});
+        router.refresh();
+    }
+
     const proxyColumns = useMemo<ExtendedColumnDef<ResourceRow>[]>(() => {
         const cols: ExtendedColumnDef<ResourceRow>[] = [
+            {
+                id: "select",
+                enableHiding: false,
+                header: ({ table }) => (
+                    <Checkbox
+                        className="mx-3"
+                        aria-label={t("selectAll")}
+                        checked={
+                            table.getIsAllRowsSelected()
+                                ? true
+                                : table.getIsSomeRowsSelected()
+                                  ? "indeterminate"
+                                  : false
+                        }
+                        onCheckedChange={(checked) =>
+                            table.toggleAllRowsSelected(checked === true)
+                        }
+                    />
+                ),
+                cell: ({ row }) => (
+                    <Checkbox
+                        aria-label={row.original.name}
+                        checked={row.getIsSelected()}
+                        onCheckedChange={(checked) =>
+                            row.toggleSelected(checked === true)
+                        }
+                    />
+                )
+            },
             {
                 accessorKey: "name",
                 enableHiding: false,
@@ -571,6 +646,42 @@ export default function PublicResourcesTable({
                 )
             },
             {
+                accessorKey: "createdAt",
+                friendlyName: t("dateAdded"),
+                header: () => {
+                    const createdAtOrder = getSortDirection(
+                        "createdAt",
+                        searchParams
+                    );
+                    const Icon =
+                        createdAtOrder === "asc"
+                            ? ArrowDown01Icon
+                            : createdAtOrder === "desc"
+                              ? ArrowUp10Icon
+                              : ChevronsUpDownIcon;
+
+                    return (
+                        <Button
+                            variant="ghost"
+                            className="p-3"
+                            onClick={() => toggleSort("createdAt")}
+                        >
+                            {t("dateAdded")}
+                            <Icon className="ml-2 h-4 w-4" />
+                        </Button>
+                    );
+                },
+                cell: ({ row }) => (
+                    <span suppressHydrationWarning>
+                        {row.original.createdAt
+                            ? new Date(
+                                  row.original.createdAt
+                              ).toLocaleDateString()
+                            : "-"}
+                    </span>
+                )
+            },
+            {
                 id: "labels",
                 accessorKey: "labels",
                 header: () => (
@@ -720,6 +831,32 @@ export default function PublicResourcesTable({
                 />
             )}
 
+            <ConfirmDeleteDialog
+                open={isBulkDeleteOpen}
+                setOpen={setIsBulkDeleteOpen}
+                dialog={
+                    <div className="space-y-2">
+                        <p>
+                            {t("resourcesDeleteSelectedQuestion", {
+                                count: selectedResources.length
+                            })}
+                        </p>
+                        <p>{t("resourceMessageRemove")}</p>
+                    </div>
+                }
+                buttonText={t("resourcesDeleteSelected")}
+                onConfirm={() =>
+                    runBulkAction(
+                        selectedResources.map((r) => r.id),
+                        (resourceId) => api.delete(`/resource/${resourceId}`)
+                    )
+                }
+                string={t("resourcesDeleteSelectedConfirmString", {
+                    count: selectedResources.length
+                })}
+                title={t("resourcesDeleteSelected")}
+            />
+
             <ControlledDataTable
                 columns={proxyColumns}
                 rows={resources}
@@ -730,6 +867,59 @@ export default function PublicResourcesTable({
                 searchQuery={searchParams.get("query")?.toString()}
                 onSearch={handleSearchChange}
                 onPaginationChange={handlePaginationChange}
+                getRowId={(row) => String(row.id)}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
+                filterExtras={
+                    selectedResources.length > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
+                                    {t("resourcesSelectedCount", {
+                                        count: selectedResources.length
+                                    })}
+                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuItem
+                                    disabled={
+                                        authEligibleResources.length === 0
+                                    }
+                                    onClick={() =>
+                                        runBulkAction(
+                                            authEligibleResources
+                                                .filter(
+                                                    (r) =>
+                                                        !!r.sso ===
+                                                        allSsoEnabled
+                                                )
+                                                .map((r) => r.id),
+                                            (resourceId) =>
+                                                api.post(
+                                                    `resource/${resourceId}`,
+                                                    { sso: !allSsoEnabled }
+                                                )
+                                        )
+                                    }
+                                >
+                                    {t(
+                                        allSsoEnabled
+                                            ? "resourcesDisableAuthSelected"
+                                            : "resourcesEnableAuthSelected"
+                                    )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setIsBulkDeleteOpen(true)}
+                                >
+                                    <span className="text-red-500">
+                                        {t("resourcesDeleteSelected")}
+                                    </span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )
+                }
                 onAdd={() =>
                     startNavigation(() =>
                         router.push(

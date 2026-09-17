@@ -75,12 +75,12 @@ const listResourcesSchema = z.strictObject({
         }),
     query: z.string().optional(),
     sort_by: z
-        .literal("name")
+        .enum(["name", "createdAt"])
         .optional()
         .catch(undefined)
         .openapi({
             type: "string",
-            enum: ["name"],
+            enum: ["name", "createdAt"],
             description: "Field to sort by"
         }),
     order: z
@@ -196,6 +196,7 @@ export type ResourceWithTargets = {
     wildcard: boolean;
     health: string | null;
     mode: string | null;
+    createdAt: string | null;
     targets: Array<{
         targetId: number;
         ip: string;
@@ -313,6 +314,7 @@ function queryResourcesBase() {
             wildcard: resources.wildcard,
             mode: resources.mode,
             health: resources.health,
+            createdAt: resources.createdAt,
             headerAuthId: effectiveHeaderAuthId,
             headerAuthExtendedCompatibility:
                 effectiveHeaderAuthExtendedCompatibility
@@ -857,6 +859,7 @@ export async function listResources(
                     domainId: row.domainId,
                     headerAuthId: row.headerAuthId,
                     health: row.health ?? null,
+                    createdAt: row.createdAt ?? null,
                     targets: [],
                     sites: [],
                     labels: labelsForResources.filter(
