@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Sind Sie sicher, dass Sie den WireGuard-Tunnel für <b>{name}</b> neu starten möchten? Der Standort wird kurzzeitig die Konnektivität verlieren.",
     "siteRestartWarning": "Der Standort wird kurzzeitig getrennt, während der Tunnel neu gestartet wird.",
     "siteRestarted": "Standort neu gestartet",
-    "siteRestartedDescription": "Der WireGuard-Tunnel wurde neu gestartet.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Fehler beim Neustart des Standorts",
     "siteErrorRestartDescription": "Ein Fehler ist aufgetreten, während der Standort neu gestartet wurde.",
     "siteSettingDescription": "Standorteinstellungen konfigurieren",
