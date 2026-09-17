@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "Opravdu chcete restartovat WireGuard tunel pro <b>{name}</b>? Lokalita krátce ztratí konektivitu.",
     "siteRestartWarning": "Lokalita bude krátce odpojena, zatímco se tunel restartuje.",
     "siteRestarted": "Lokalita restartována",
-    "siteRestartedDescription": "Tunel WireGuard byl restartován.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "Nepodařilo se restartovat lokalitu",
     "siteErrorRestartDescription": "Při restartování lokality došlo k chybě.",
     "siteSettingDescription": "Konfigurace nastavení na webu",
