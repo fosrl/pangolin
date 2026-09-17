@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "<b>{name}</b>의 WireGuard 터널을 재시작하시겠습니까? 이 작업으로 인해 사이트의 연결이 일시적으로 중단될 수 있습니다.",
     "siteRestartWarning": "터널을 재시작하는 동안 사이트가 일시적으로 연결이 끊깁니다.",
     "siteRestarted": "사이트가 재시작되었습니다",
-    "siteRestartedDescription": "WireGuard 터널이 재시작되었습니다.",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "사이트 재시작 실패",
     "siteErrorRestartDescription": "사이트를 재시작하는 중 오류가 발생했습니다.",
     "siteSettingDescription": "사이트에서 설정을 구성하세요.",
