@@ -132,7 +132,7 @@
     "siteRestartDialogMessage": "确定要重启<b>{name}</b>的WireGuard隧道吗？站点将暂时断开连接。",
     "siteRestartWarning": "隧道重启时，站点将暂时断开连接。",
     "siteRestarted": "站点已重启",
-    "siteRestartedDescription": "WireGuard隧道已重启。",
+    "siteRestartedDescription": "The site has been restarted.",
     "siteErrorRestart": "重启站点失败",
     "siteErrorRestartDescription": "重启站点时发生错误。",
     "siteSettingDescription": "配置站点设置",
