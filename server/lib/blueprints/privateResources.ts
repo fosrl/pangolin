@@ -277,6 +277,8 @@ export async function updatePrivateResources(
                         (resourceData.mode == "http" || isInference
                             ? true
                             : false), // default to true for http/inference resources, otherwise false
+                    advertiseDestination:
+                        resourceData["advertise-destination"] ?? true,
                     tcpPortRangeString:
                         resourceData.mode == "http" || isInference
                             ? "443,80"
@@ -600,6 +602,8 @@ export async function updatePrivateResources(
                         (resourceData.mode == "http" || isInference
                             ? true
                             : false), // default to true for http/inference resources, otherwise false
+                    advertiseDestination:
+                        resourceData["advertise-destination"] ?? true,
                     tcpPortRangeString:
                         resourceData.mode == "http" || isInference
                             ? "443,80"

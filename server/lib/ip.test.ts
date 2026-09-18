@@ -1,5 +1,13 @@
-import { cidrToRange, findNextAvailableCidr } from "./ip";
-import { assertEquals } from "@test/assert";
+// ./ip evaluates zod .openapi() schemas at module scope, so the extension
+// has to be registered before it is imported
+import "@server/extendZod";
+import {
+    cidrToRange,
+    findNextAvailableCidr,
+    generateRemoteSubnets
+} from "./ip";
+import type { SiteResource } from "@server/db";
+import { assertEquals, assertEqualsObj } from "@test/assert";
 
 // Test cases
 function testFindNextAvailableCidr() {
@@ -133,10 +141,90 @@ function testFindNextAvailableCidr() {
 //     console.log("All cidrToRange tests passed!");
 // }
 
+function makeSiteResource(overrides: Partial<SiteResource>): SiteResource {
+    return {
+        enabled: true,
+        mode: "host",
+        destination: "192.168.1.10",
+        ...overrides
+    } as SiteResource;
+}
+
+function testGenerateRemoteSubnets() {
+    console.log("Running generateRemoteSubnets tests...");
+
+    // Test 0: a host resource is advertised as a /32 by default
+    {
+        const result = generateRemoteSubnets([
+            makeSiteResource({ advertiseDestination: true })
+        ]);
+        assertEqualsObj(
+            result,
+            ["192.168.1.10/32"],
+            "Advertising host resource should produce a /32"
+        );
+    }
+
+    // Test 1: opting out withdraws the /32
+    {
+        const result = generateRemoteSubnets([
+            makeSiteResource({ advertiseDestination: false })
+        ]);
+        assertEqualsObj(
+            result,
+            [],
+            "Non-advertising host resource should produce no subnet"
+        );
+    }
+
+    // Test 2: the same holds for ssh resources
+    {
+        const result = generateRemoteSubnets([
+            makeSiteResource({ mode: "ssh", advertiseDestination: false })
+        ]);
+        assertEqualsObj(
+            result,
+            [],
+            "Non-advertising ssh resource should produce no subnet"
+        );
+    }
+
+    // Test 3: existing rows, which predate the column, keep advertising
+    {
+        const result = generateRemoteSubnets([
+            makeSiteResource({ advertiseDestination: undefined as never })
+        ]);
+        assertEqualsObj(
+            result,
+            ["192.168.1.10/32"],
+            "Resource without the flag set should still advertise"
+        );
+    }
+
+    // Test 4: only the opted-out resource is dropped
+    {
+        const result = generateRemoteSubnets([
+            makeSiteResource({ advertiseDestination: false }),
+            makeSiteResource({
+                destination: "192.168.1.11",
+                advertiseDestination: true
+            })
+        ]);
+        assertEqualsObj(
+            result,
+            ["192.168.1.11/32"],
+            "Only the non-advertising resource should be dropped"
+        );
+    }
+
+    console.log("All generateRemoteSubnets tests passed!");
+}
+
 // Run all tests
 try {
     // testCidrToRange();
     testFindNextAvailableCidr();
+    testGenerateRemoteSubnets();
     console.log("All tests passed successfully!");
 } catch (error) {
     console.error("Test failed:", error);
