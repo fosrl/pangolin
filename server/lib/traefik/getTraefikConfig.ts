@@ -1,56 +1,54 @@
 import {
     db,
-    targetHealthCheck,
     domains,
-    aiProviders,
-    resourceAiProviders,
-    siteResources,
-    siteNetworks,
     exitNodes,
-    redirects
+    resources,
+    siteNetworks,
+    siteResources,
+    sites,
+    targetHealthCheck,
+    targets
 } from "@server/db";
+import regionalCache from "@server/lib/cache";
+import config from "@server/lib/config";
+import logger from "@server/logger";
 import {
     and,
+    desc,
     eq,
     inArray,
-    or,
-    isNull,
-    ne,
     isNotNull,
-    desc,
+    isNull,
+    or,
     sql
 } from "drizzle-orm";
-import logger from "@server/logger";
-import config from "@server/lib/config";
-import { resources, sites, targets } from "@server/db";
-import { applyPathRewriteMiddleware } from "./middleware";
-import { sanitize, encodePath, validatePathRewriteConfig } from "./utils";
-import regionalCache from "@server/lib/cache";
-import { TargetWithSite } from "./types";
+import {
+    AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
+    AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE,
+    AI_GATEWAY_TRUST_MIDDLEWARE_SITE_RESOURCE,
+    buildAiGatewayClientIpMiddleware,
+    buildAiGatewayHostHeaderMiddleware,
+    buildAiGatewayRouterAndService,
+    buildAiGatewayTrustMiddlewares,
+    getAiGatewayHost
+} from "./aiGatewayMiddlewares";
+import {
+    buildBrowserGatewayConfig,
+    buildBrowserGatewayResourcesMap
+} from "./browserGateway";
 import { buildWildcardTls } from "./certResolver";
-import { buildHostRule, appendPathMatch, computeRoutePriority } from "./rule";
+import { buildCustomHeadersMiddleware } from "./headersMiddleware";
 import {
     buildHttpLoadBalancerServers,
     buildStickySessionCookie,
-    buildTcpUdpLoadBalancerServers,
-    buildStickySessionIp
+    buildStickySessionIp,
+    buildTcpUdpLoadBalancerServers
 } from "./loadBalancer";
-import { buildCustomHeadersMiddleware } from "./headersMiddleware";
-import {
-    AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE,
-    AI_GATEWAY_TRUST_MIDDLEWARE_SITE_RESOURCE,
-    AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
-    getAiGatewayHost,
-    buildAiGatewayTrustMiddlewares,
-    buildAiGatewayClientIpMiddleware,
-    buildAiGatewayHostHeaderMiddleware,
-    buildAiGatewayRouterAndService
-} from "./aiGatewayMiddlewares";
-import {
-    buildBrowserGatewayResourcesMap,
-    buildBrowserGatewayConfig
-} from "./browserGateway";
+import { applyPathRewriteMiddleware } from "./middleware";
+import { appendPathMatch, buildHostRule, computeRoutePriority } from "./rule";
 import { buildSiteResourceAliasCertPlaceholders } from "./siteResourceAlias";
+import { TargetWithSite } from "./types";
+import { encodePath, sanitize, validatePathRewriteConfig } from "./utils";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const badgerMiddlewareName = "badger";
@@ -132,18 +130,12 @@ export async function getTraefikConfig(
 
             // Domain cert resolver fields
             domainCertResolver: domains.certResolver,
-            preferWildcardCert: domains.preferWildcardCert,
-
-            // redirects
-            redirectMatchPath: redirects.matchPath,
-            redirectPathMatchType: redirects.pathMatchType,
-            redirectPriority: redirects.priority
+            preferWildcardCert: domains.preferWildcardCert
         })
         .from(sites)
         .innerJoin(targets, eq(targets.siteId, sites.siteId))
         .innerJoin(resources, eq(resources.resourceId, targets.resourceId))
         .leftJoin(domains, eq(domains.domainId, resources.domainId))
-        .leftJoin(redirects, eq(resources.resourceId, redirects.resourceId))
         .leftJoin(
             targetHealthCheck,
             eq(targetHealthCheck.targetId, targets.targetId)
@@ -174,13 +166,6 @@ export async function getTraefikConfig(
             )
         )
         .orderBy(desc(targets.priority), targets.targetId); // stable ordering
-
-    console.dir(
-        {
-            resourcesWithTargetsAndSites
-        },
-        { depth: null }
-    );
 
     // Group by resource and include targets with their unique site data
     const resourcesMap = new Map();
