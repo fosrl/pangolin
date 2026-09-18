@@ -18,6 +18,7 @@ import {
     domains,
     exitNodes,
     loginPage,
+    redirects,
     SiteResource,
     targetHealthCheck
 } from "@server/db";
@@ -56,7 +57,7 @@ import {
 import { build } from "@server/build";
 import license from "#private/license/license";
 import regionalCache from "#private/lib/cache";
-import { TargetWithSite } from "@server/lib/traefik/types";
+import { ResourceWithTargets } from "@server/lib/traefik/types";
 import { buildWildcardTls } from "@server/lib/traefik/certResolver";
 import {
     buildHostRule,
@@ -85,6 +86,10 @@ import {
     buildBrowserGatewayConfig
 } from "@server/lib/traefik/browserGateway";
 import { buildSiteResourceAliasCertPlaceholders } from "@server/lib/traefik/siteResourceAlias";
+import {
+    buildRedirectConfig,
+    RedirectRouteRow
+} from "@server/lib/traefik/redirect";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const redirectToRootMiddlewareName = "redirect-to-root";
@@ -214,7 +219,7 @@ export async function getTraefikConfig(
         .orderBy(desc(targets.priority), targets.targetId); // stable ordering
 
     // Group by resource and include targets with their unique site data
-    const resourcesMap = new Map();
+    const resourcesMap = new Map<string, ResourceWithTargets>();
 
     for (const row of resourcesWithTargetsAndSites) {
         if (!["http", "tcp", "udp"].includes(row.mode)) {
@@ -242,7 +247,7 @@ export async function getTraefikConfig(
             .filter(Boolean)
             .join("-");
         const mapKey = [resourceId, pathKey].filter(Boolean).join("-");
-        const key = sanitize(mapKey);
+        const key = sanitize(mapKey) ?? "";
 
         if (!resourcesMap.has(mapKey)) {
             const validation = validatePathRewriteConfig(
@@ -296,7 +301,7 @@ export async function getTraefikConfig(
         }
 
         // Add target with its associated site data
-        resourcesMap.get(mapKey).targets.push({
+        resourcesMap.get(mapKey)!.targets.push({
             resourceId: row.resourceId,
             targetId: row.targetId,
             ip: row.ip,
@@ -396,6 +401,89 @@ export async function getTraefikConfig(
             )
         );
 
+    // Redirects have no targets/sites, so like inference resources they are
+    // queried separately and emitted on every exit node. A redirect listens
+    // either on a resource's fullDomain or on subdomain.baseDomain of a
+    // domain; the domain join resolves to whichever one applies.
+    const redirectRows = await db
+        .select({
+            name: redirects.name,
+            enabled: redirects.enabled,
+            redirectId: redirects.redirectId,
+            subdomain: redirects.subdomain,
+            matchPath: redirects.matchPath,
+            pathMatchType: redirects.pathMatchType,
+            priority: redirects.priority,
+            ssl: redirects.ssl,
+            // Resource (when attached to one)
+            resourceId: resources.resourceId,
+            resourceFullDomain: resources.fullDomain,
+            resourceSubdomain: resources.subdomain,
+            resourceSsl: resources.ssl,
+            resourceWildcard: resources.wildcard,
+            // Domain (the redirect's own, or the resource's)
+            baseDomain: domains.baseDomain,
+            domainCertResolver: domains.certResolver,
+            preferWildcardCert: domains.preferWildcardCert,
+            domainNamespaceId: domainNamespaces.domainNamespaceId
+        })
+        .from(redirects)
+        .leftJoin(resources, eq(resources.resourceId, redirects.resourceId))
+        .leftJoin(
+            domains,
+            eq(
+                domains.domainId,
+                sql`coalesce(${redirects.domainId}, ${resources.domainId})`
+            )
+        )
+        .leftJoin(
+            domainNamespaces,
+            eq(domainNamespaces.domainId, domains.domainId)
+        )
+        .where(
+            and(
+                eq(redirects.enabled, true),
+                or(isNull(redirects.resourceId), eq(resources.enabled, true))
+            )
+        )
+        .orderBy(desc(redirects.priority), redirects.redirectId); // stable ordering
+
+    const redirectRoutes: RedirectRouteRow[] = [];
+    for (const row of redirectRows) {
+        if (filterOutNamespaceDomains && row.domainNamespaceId) {
+            continue;
+        }
+
+        const attachedToResource = row.resourceId !== null;
+        const fullDomain = attachedToResource
+            ? row.resourceFullDomain
+            : [row.subdomain, row.baseDomain].filter(Boolean).join(".");
+        if (!fullDomain) {
+            logger.debug(
+                `Redirect ${row.redirectId} has no host to listen on, skipping Traefik config`
+            );
+            continue;
+        }
+
+        redirectRoutes.push({
+            enabled: row.enabled,
+            name: sanitize(row.name) || "",
+            redirectId: row.redirectId,
+            fullDomain,
+            hasSubdomain: attachedToResource
+                ? !!row.resourceSubdomain
+                : !!row.subdomain,
+            wildcard: row.resourceWildcard,
+            ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
+            attachedTo: attachedToResource ? "resource" : "domain",
+            matchPath: row.matchPath,
+            pathMatchType: row.pathMatchType,
+            priority: row.priority,
+            domainCertResolver: row.domainCertResolver,
+            preferWildcardCert: row.preferWildcardCert
+        });
+    }
+
     // Pangolin-managed DNS-01/ACME cert mode requires either a tier1
     // license (self-hosted) or a saas build - otherwise fall back to
     // Traefik's own cert resolvers (buildWildcardTls) throughout.
@@ -435,6 +523,12 @@ export async function getTraefikConfig(
                 domains.add(sr.fullDomain);
             }
         }
+        // Include redirect hosts
+        for (const redirect of redirectRoutes) {
+            if (redirect.ssl) {
+                domains.add(redirect.fullDomain);
+            }
+        }
         // get the valid certs for these domains
         validCerts = await getValidCertificatesForDomains(domains, true); // we are caching here because this is called often
         // logger.debug(`Valid certs for domains: ${JSON.stringify(validCerts)}`);
@@ -467,9 +561,14 @@ export async function getTraefikConfig(
         }
     };
 
+    console.dir(
+        { resourcesMap, resourcesWithTargetsAndSites },
+        { depth: null }
+    );
+
     // get the key and the resource
     for (const [, resource] of resourcesMap.entries()) {
-        const targets = resource.targets as TargetWithSite[];
+        const targets = resource.targets;
         const key = resource.key;
 
         const routerName = `${key}-${resource.name}-router`;
@@ -592,7 +691,7 @@ export async function getTraefikConfig(
 
                 if (!target.site.online) return false;
 
-                if (target.health == "unhealthy") return false;
+                if (target.health === "unhealthy") return false;
 
                 return true;
             });
@@ -780,6 +879,34 @@ export async function getTraefikConfig(
             };
         }
     }
+
+    buildRedirectConfig({
+        config_output,
+        redirects: redirectRoutes,
+        badgerMiddlewareName,
+        redirectHttpsMiddlewareName,
+        resolveTls: (redirect) => {
+            if (!privateConfig.getRawPrivateConfig().flags.use_pangolin_dns) {
+                return buildWildcardTls({
+                    fullDomain: redirect.fullDomain,
+                    hasSubdomain: redirect.hasSubdomain,
+                    domainCertResolver: redirect.domainCertResolver,
+                    preferWildcardCert:
+                        redirect.preferWildcardCert || redirect.wildcard
+                });
+            }
+            const matchingCert = validCerts.find(
+                (cert) => cert.queriedDomain === redirect.fullDomain
+            );
+            if (!matchingCert) {
+                logger.debug(
+                    `No matching certificate found for redirect domain: ${redirect.fullDomain}`
+                );
+                return null;
+            }
+            return {};
+        }
+    });
 
     if (browserGatewayUiUrl) {
         buildBrowserGatewayConfig({

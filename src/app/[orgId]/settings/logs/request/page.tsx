@@ -281,6 +281,7 @@ export default function GeneralPage() {
     // 107 - Valid SSO
     // 108 - Connected Client
     // 109 - Valid Virtual API Key
+    // 110 - Allowed Redirect
 
     // 201 - Resource Not Found
     // 202 - Resource Blocked
@@ -300,6 +301,7 @@ export default function GeneralPage() {
         107: t("validSSO"),
         108: t("connectedClient"),
         109: t("validVirtualAPIKey"),
+        110: t("allowedRedirect"),
         201: t("resourceNotFound"),
         202: t("resourceBlocked"),
         203: t("droppedByRule"),
@@ -605,6 +607,7 @@ export default function GeneralPage() {
                                 { value: "106", label: t("validEmail") },
                                 { value: "107", label: t("validSSO") },
                                 { value: "108", label: t("connectedClient") },
+                                { value: "110", label: t("allowedRedirect") },
                                 { value: "201", label: t("resourceNotFound") },
                                 { value: "202", label: t("resourceBlocked") },
                                 { value: "203", label: t("droppedByRule") },

@@ -10,6 +10,8 @@ import {
     verifyVirtualApiKey
 } from "@server/auth/verifyVirtualApiKey";
 import {
+    type RedirectByHost,
+    getRedirectsByHost,
     getResourceByDomain,
     getResourceRules,
     getRoleResourceAccess,
@@ -40,6 +42,8 @@ import {
 import config from "@server/lib/config";
 import { isIpInCidr, stripPortFromHost } from "@server/lib/ip";
 import { isPathAllowed } from "@server/lib/pathMatch";
+import { matchesPath } from "@server/lib/traefik/rule";
+import { rewriteRequestPath } from "@server/lib/traefik/middleware";
 import { response } from "@server/lib/response";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
@@ -67,6 +71,7 @@ import { APP_VERSION } from "@server/lib/consts";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { eq } from "drizzle-orm";
+import type ResponseT from "@server/types/MessageResponse";
 
 const verifyResourceSessionSchema = z.object({
     sessions: z.record(z.string(), z.string()).optional(),
@@ -108,6 +113,9 @@ export type VerifyUserResponse = {
     valid: boolean;
     headerAuthChallenged?: boolean;
     redirectUrl?: string;
+    // Set alongside redirectUrl when the redirect is a configured Redirect
+    // rather than a login bounce, so badger can answer 307 instead of 302.
+    redirectPermanent?: boolean;
     userData?: BasicUserData;
     pangolinVersion?: string;
     dontStripSession?: boolean;
@@ -192,6 +200,30 @@ export async function verifyResourceSession(
             cleanHost = cleanHost.slice(0, -1 * matched.length);
         }
 
+        // Redirects always win: they are routed ahead of resources in
+        // Traefik and never require auth, even when attached to a resource,
+        // so let a matching one through to the redirect middleware before
+        // any resource lookup.
+        const redirect = await findRedirect(cleanHost, path);
+        if (redirect) {
+            const redirectUrl = buildRedirectUrl(redirect, parsedBody.data);
+            logger.debug(
+                `Redirecting ${cleanHost}${path} to ${redirectUrl} (redirect ${redirect.redirectId})`
+            );
+
+            logRequestAudit(
+                {
+                    action: true,
+                    reason: 110, // redirected
+                    orgId: redirect.orgId,
+                    location: ipCC
+                },
+                parsedBody.data
+            );
+
+            return redirected(res, redirectUrl, redirect.permanent);
+        }
+
         const resourceCacheKey = `resource:${cleanHost}`;
         let resourceData:
             | {
@@ -199,9 +231,7 @@ export async function verifyResourceSession(
                   pincode: ResourcePincode | ResourcePolicyPincode | null;
                   password: ResourcePassword | ResourcePolicyPassword | null;
                   headerAuth:
-                      | ResourceHeaderAuth
-                      | ResourcePolicyHeaderAuth
-                      | null;
+                      ResourceHeaderAuth | ResourcePolicyHeaderAuth | null;
                   headerAuthExtendedCompatibility: ResourceHeaderAuthExtendedCompatibility | null;
                   applyRules: boolean | null;
                   sso: boolean | null;
@@ -1007,6 +1037,71 @@ function extractResourceSessionToken(
     }
 
     return latest.token;
+}
+
+async function findRedirect(
+    host: string,
+    path: string
+): Promise<RedirectByHost | null> {
+    const cacheKey = `redirects:${host}`;
+    let candidates: RedirectByHost[] | undefined = localCache.get(cacheKey);
+    if (!candidates) {
+        candidates = await getRedirectsByHost(host);
+        localCache.set(cacheKey, candidates, 5);
+    }
+
+    // Candidates come back highest priority first, matching the order
+    // Traefik evaluates the routers in.
+    return (
+        candidates.find((r) =>
+            matchesPath(path, r.matchPath, r.pathMatchType)
+        ) ?? null
+    );
+}
+
+/**
+ * Destination for a configured redirect: the scheme and host come from the
+ * redirect's destination, the request's query is kept and the path is run
+ * through the redirect's rewrite rules (if any).
+ */
+function buildRedirectUrl(
+    redirect: RedirectByHost,
+    request: VerifyResourceSessionSchema
+): string {
+    const newPath = rewriteRequestPath(
+        request.path,
+        redirect.matchPath,
+        redirect.pathMatchType,
+        redirect.rewritePath,
+        redirect.rewritePathType
+    );
+
+    let search = "";
+    try {
+        search = new URL(request.originalRequestURL).search;
+    } catch {
+        // originalRequestURL is validated as a URL, so this is only defensive
+    }
+
+    return `${redirect.destinationHost}${newPath}${search}`;
+}
+
+// Like a notAllowed login bounce, but the destination is the configured
+// redirect target rather than the auth page.
+function redirected(res: Response, redirectUrl: string, permanent: boolean) {
+    const data = {
+        data: {
+            valid: true,
+            redirectUrl,
+            redirectPermanent: permanent,
+            pangolinVersion: APP_VERSION
+        },
+        success: true,
+        error: false,
+        message: "Redirected",
+        status: HttpCode.OK
+    } satisfies ResponseT<VerifyUserResponse>;
+    return response<VerifyUserResponse>(res, data);
 }
 
 async function notAllowed(
