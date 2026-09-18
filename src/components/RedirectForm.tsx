@@ -40,8 +40,10 @@ import {
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import { isValidDomain } from "@server/lib/validators";
-import { isValidRegex } from "@server/routers/redirect/validation";
+import {
+    isValidDestinationHost,
+    isValidRegex
+} from "@server/routers/redirect/validation";
 import { build } from "@server/build";
 import { cn } from "@app/lib/cn";
 import { CaretSortIcon } from "@radix-ui/react-icons";
@@ -119,14 +121,14 @@ export default function RedirectForm({
                     domainId: z.string().nullable(),
                     subdomain: z.string().nullable(),
                     resourceId: z.number().int().positive().nullable(),
-                    destinationDomain: z
+                    destinationHost: z
                         .string()
                         .trim()
                         .min(1, {
-                            message: t("redirectDestinationDomainRequired")
+                            message: t("redirectDestinationHostRequired")
                         })
-                        .refine(isValidDomain, {
-                            message: t("redirectDestinationDomainInvalid")
+                        .refine(isValidDestinationHost, {
+                            message: t("redirectDestinationHostInvalid")
                         }),
                     pathMatchType: z.enum(["exact", "prefix", "regex"]),
                     matchPath: z.string().trim().nullable(),
@@ -196,7 +198,7 @@ export default function RedirectForm({
             domainId: redirect?.domainId ?? null,
             subdomain: redirect?.subdomain ?? null,
             resourceId: redirect?.resourceId ?? null,
-            destinationDomain: redirect?.destinationDomain ?? "",
+            destinationHost: redirect?.destinationHost ?? "",
             pathMatchType: redirect?.pathMatchType ?? DEFAULT_PATH_MATCH_TYPE,
             matchPath: redirect?.matchPath ?? null,
             rewritePath: redirect?.rewritePath ?? null,
@@ -209,29 +211,32 @@ export default function RedirectForm({
     });
 
     const attachTo = form.watch("attachTo");
+    const ssl = form.watch("ssl");
 
     const sourceFullDomain =
         attachTo === "domain"
             ? domainFullDomain
             : (selectedResource?.fullDomain ?? null);
+    // Resource-attached redirects inherit the resource's ssl setting
+    const sourceSsl =
+        attachTo === "domain" ? ssl : (selectedResource?.ssl ?? true);
+    const sourceHost = sourceFullDomain
+        ? `${sourceSsl ? "https" : "http"}://${sourceFullDomain}`
+        : null;
 
     // Mirror is UI-only state; on edit, infer it from whether the saved
     // destination already equals the source host.
     const [sameDomainAsSource, setSameDomainAsSource] = useState(
-        Boolean(
-            redirect &&
-                sourceFullDomain &&
-                redirect.destinationDomain === sourceFullDomain
-        )
+        Boolean(redirect && sourceHost && redirect.destinationHost === sourceHost)
     );
 
     useEffect(() => {
-        if (sameDomainAsSource && sourceFullDomain) {
-            form.setValue("destinationDomain", sourceFullDomain, {
+        if (sameDomainAsSource && sourceHost) {
+            form.setValue("destinationHost", sourceHost, {
                 shouldValidate: true
             });
         }
-    }, [sameDomainAsSource, sourceFullDomain, form]);
+    }, [sameDomainAsSource, sourceHost, form]);
     const pathMatchType = form.watch("pathMatchType");
     const rewritePath = form.watch("rewritePath");
     const rewritePathType = form.watch("rewritePathType");
@@ -253,7 +258,7 @@ export default function RedirectForm({
                 values.attachTo === "domain" ? values.subdomain || null : null,
             resourceId:
                 values.attachTo === "resource" ? values.resourceId : null,
-            destinationDomain: values.destinationDomain.trim(),
+            destinationHost: values.destinationHost.trim(),
             pathMatchType: values.pathMatchType,
             matchPath: values.matchPath?.trim() || null,
             rewritePath: values.rewritePath?.trim() || null,
@@ -674,18 +679,18 @@ export default function RedirectForm({
                                         <SettingsFormCell span="full">
                                             <FormField
                                                 control={form.control}
-                                                name="destinationDomain"
+                                                name="destinationHost"
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>
                                                             {t(
-                                                                "redirectDestinationDomain"
+                                                                "redirectDestinationHost"
                                                             )}
                                                         </FormLabel>
                                                         <FormControl>
                                                             <Input
                                                                 autoComplete="off"
-                                                                placeholder="example.com"
+                                                                placeholder="https://example.com"
                                                                 readOnly={
                                                                     sameDomainAsSource
                                                                 }
@@ -694,7 +699,7 @@ export default function RedirectForm({
                                                         </FormControl>
                                                         <FormDescription>
                                                             {t(
-                                                                "redirectDestinationDomainDescription"
+                                                                "redirectDestinationHostDescription"
                                                             )}
                                                         </FormDescription>
                                                         <FormMessage />

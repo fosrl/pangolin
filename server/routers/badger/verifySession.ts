@@ -1060,8 +1060,8 @@ async function findRedirect(
 }
 
 /**
- * Destination for a configured redirect: the request's scheme and query are
- * kept, the host is swapped for the destination domain and the path is run
+ * Destination for a configured redirect: the scheme and host come from the
+ * redirect's destination, the request's query is kept and the path is run
  * through the redirect's rewrite rules (if any).
  */
 function buildRedirectUrl(
@@ -1083,7 +1083,7 @@ function buildRedirectUrl(
         // originalRequestURL is validated as a URL, so this is only defensive
     }
 
-    return `${request.scheme}://${redirect.destinationDomain}${newPath}${search}`;
+    return `${redirect.destinationHost}${newPath}${search}`;
 }
 
 // Like a notAllowed login bounce, but the destination is the configured

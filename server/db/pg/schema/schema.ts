@@ -243,7 +243,7 @@ export const redirects = pgTable("redirects", {
     niceId: text("niceId").notNull(),
     name: varchar("name").notNull(),
     subdomain: varchar("subdomain"),
-    destinationDomain: varchar("destinationDomain").notNull(),
+    destinationHost: varchar("destinationHost").notNull(), // scheme://host[:port]
     pathMatchType: varchar("pathMatchType")
         .$type<"exact" | "prefix" | "regex">()
         .notNull()

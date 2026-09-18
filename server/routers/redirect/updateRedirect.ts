@@ -11,7 +11,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq, ne } from "drizzle-orm";
 import {
     redirectNiceIdSchema,
-    redirectDestinationDomainSchema,
+    redirectDestinationHostSchema,
     redirectMatchPathSchema,
     redirectPathMatchTypeSchema,
     redirectRewritePathSchema,
@@ -37,7 +37,7 @@ const bodySchema = z.strictObject({
     resourceId: z.number().int().positive().optional().nullable(),
     domainId: z.string().nonempty().optional().nullable(),
     subdomain: z.string().nonempty().optional().nullable(),
-    destinationDomain: redirectDestinationDomainSchema.optional(),
+    destinationHost: redirectDestinationHostSchema.optional(),
     pathMatchType: redirectPathMatchTypeSchema.optional(),
     matchPath: redirectMatchPathSchema.optional().nullable(),
     rewritePath: redirectRewritePathSchema.optional().nullable(),
@@ -253,8 +253,8 @@ export async function updateRedirect(
         if (body.subdomain !== undefined) {
             updateData.subdomain = body.subdomain;
         }
-        if (body.destinationDomain !== undefined) {
-            updateData.destinationDomain = body.destinationDomain;
+        if (body.destinationHost !== undefined) {
+            updateData.destinationHost = body.destinationHost;
         }
         if (body.pathMatchType !== undefined) {
             updateData.pathMatchType = body.pathMatchType;

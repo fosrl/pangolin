@@ -17,7 +17,7 @@ export type ListRedirectsResponse = PaginatedResponse<{
         niceId: string;
         name: string;
         subdomain: string | null;
-        destinationDomain: string;
+        destinationHost: string;
         pathMatchType: "exact" | "prefix" | "regex";
         matchPath: string | null;
         rewritePath: string | null;
@@ -130,7 +130,7 @@ export async function listRedirects(
                 or(
                     like(sql`LOWER(${redirects.name})`, term),
                     like(sql`LOWER(${redirects.matchPath})`, term),
-                    like(sql`LOWER(${redirects.destinationDomain})`, term)
+                    like(sql`LOWER(${redirects.destinationHost})`, term)
                 )!
             );
         }
@@ -142,7 +142,7 @@ export async function listRedirects(
                 niceId: redirects.niceId,
                 name: redirects.name,
                 subdomain: redirects.subdomain,
-                destinationDomain: redirects.destinationDomain,
+                destinationHost: redirects.destinationHost,
                 pathMatchType: redirects.pathMatchType,
                 matchPath: redirects.matchPath,
                 rewritePath: redirects.rewritePath,

@@ -10,7 +10,7 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq } from "drizzle-orm";
 import {
-    redirectDestinationDomainSchema,
+    redirectDestinationHostSchema,
     redirectMatchPathSchema,
     redirectPathMatchTypeSchema,
     redirectRewritePathSchema,
@@ -36,7 +36,7 @@ const bodySchema = z
         resourceId: z.number().int().positive().optional().nullable(),
         domainId: z.string().nonempty().optional().nullable(),
         subdomain: z.string().nonempty().optional().nullable(),
-        destinationDomain: redirectDestinationDomainSchema,
+        destinationHost: redirectDestinationHostSchema,
         pathMatchType: redirectPathMatchTypeSchema.optional(),
         matchPath: redirectMatchPathSchema.optional().nullable(),
         rewritePath: redirectRewritePathSchema.optional().nullable(),
@@ -126,7 +126,7 @@ export async function createRedirect(
             resourceId,
             domainId,
             subdomain,
-            destinationDomain,
+            destinationHost,
             pathMatchType,
             matchPath,
             rewritePath,
@@ -200,7 +200,7 @@ export async function createRedirect(
                 resourceId: resourceId ?? null,
                 domainId: domainId ?? null,
                 subdomain: subdomain ?? null,
-                destinationDomain,
+                destinationHost,
                 pathMatchType: pathMatchType ?? "regex",
                 matchPath: matchPath ?? null,
                 rewritePath: rewritePath ?? null,

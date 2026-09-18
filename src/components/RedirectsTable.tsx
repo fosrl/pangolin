@@ -50,7 +50,7 @@ export type RedirectRow = {
     niceId: string;
     name: string;
     subdomain: string | null;
-    destinationDomain: string;
+    destinationHost: string;
     pathMatchType: "exact" | "prefix" | "regex";
     matchPath: string | null;
     rewritePath: string | null;
@@ -301,7 +301,7 @@ export default function RedirectsTable({
             },
             {
                 id: "destination",
-                accessorKey: "destinationDomain",
+                accessorKey: "destinationHost",
                 friendlyName: t("redirectDestination"),
                 header: () => (
                     <span className="p-3">{t("redirectDestination")}</span>
@@ -310,7 +310,7 @@ export default function RedirectsTable({
                     const redirect = row.original;
                     return (
                         <code className="text-sm truncate">
-                            {redirect.destinationDomain}
+                            {redirect.destinationHost}
                             {redirect.rewritePath && (
                                 <span className="text-muted-foreground">
                                     {redirect.rewritePathType === "prefix"

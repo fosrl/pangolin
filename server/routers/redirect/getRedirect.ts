@@ -17,7 +17,7 @@ export type GetRedirectResponse = {
         niceId: string;
         name: string;
         subdomain: string | null;
-        destinationDomain: string;
+        destinationHost: string;
         pathMatchType: "exact" | "prefix" | "regex";
         matchPath: string | null;
         rewritePath: string | null;
@@ -43,7 +43,7 @@ const redirectColumns = {
     niceId: redirects.niceId,
     name: redirects.name,
     subdomain: redirects.subdomain,
-    destinationDomain: redirects.destinationDomain,
+    destinationHost: redirects.destinationHost,
     pathMatchType: redirects.pathMatchType,
     matchPath: redirects.matchPath,
     rewritePath: redirects.rewritePath,

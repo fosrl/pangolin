@@ -49,7 +49,7 @@ export default async function RedirectIndexPage(props: RedirectIndexPageProps) {
         niceId: redirect.niceId,
         name: redirect.name,
         subdomain: redirect.subdomain,
-        destinationDomain: redirect.destinationDomain,
+        destinationHost: redirect.destinationHost,
         pathMatchType: redirect.pathMatchType,
         matchPath: redirect.matchPath,
         rewritePath: redirect.rewritePath,

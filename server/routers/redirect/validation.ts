@@ -49,11 +49,20 @@ export const redirectRewritePathSchema = z.string().nonempty();
 // Same range as target priorities; 100 means "let the system order it".
 export const redirectPrioritySchema = z.int().min(1).max(1000);
 
-export const redirectDestinationDomainSchema = z
+/**
+ * A destination is `scheme://host[:port]` with no path, query or fragment;
+ * the request path (after any rewrite) is appended to it by badger.
+ */
+export function isValidDestinationHost(value: string): boolean {
+    const match = /^https?:\/\/([^/:?#]+)(:\d{1,5})?$/.exec(value);
+    return match !== null && isValidDomain(match[1]);
+}
+
+export const redirectDestinationHostSchema = z
     .string()
     .nonempty()
-    .refine(isValidDomain, {
-        message: "Invalid domain"
+    .refine(isValidDestinationHost, {
+        message: "Invalid destination, expected scheme://host such as https://example.com"
     });
 
 /**

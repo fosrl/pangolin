@@ -60,7 +60,7 @@ export type RedirectByHost = {
     orgId: string;
     matchPath: string | null;
     pathMatchType: string;
-    destinationDomain: string;
+    destinationHost: string;
     rewritePath: string | null;
     rewritePathType: string | null;
     permanent: boolean;
@@ -102,7 +102,7 @@ export async function getRedirectsByHost(
             orgId: redirects.orgId,
             matchPath: redirects.matchPath,
             pathMatchType: redirects.pathMatchType,
-            destinationDomain: redirects.destinationDomain,
+            destinationHost: redirects.destinationHost,
             rewritePath: redirects.rewritePath,
             rewritePathType: redirects.rewritePathType,
             permanent: redirects.permanent,
