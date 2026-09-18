@@ -3,7 +3,7 @@ import config from "@server/lib/config";
 import {
     buildHostRule,
     appendPathMatch,
-    computeRoutePriority
+    computeRedirectPriority
 } from "@server/lib/traefik/rule";
 
 export type RedirectRouteRow = {
@@ -97,17 +97,11 @@ export function buildRedirectConfig(params: {
             redirect.pathMatchType
         );
 
-        // A redirect attached to a resource must win over that resource's
-        // router at the same host/path specificity, so nudge derived
-        // priorities up by one. Explicit priorities are used as-is.
-        const hasExplicitPriority =
-            !!redirect.priority && redirect.priority !== 100;
-        const priority =
-            computeRoutePriority(
-                redirect.priority,
-                redirect.matchPath,
-                redirect.pathMatchType
-            ) + (hasExplicitPriority ? 0 : 1);
+        const priority = computeRedirectPriority(
+            redirect.priority,
+            redirect.matchPath,
+            redirect.pathMatchType
+        );
 
         // if resource is already attached to resource, we don't need to add the https redirect
         // as it is already added in the resource traefik config
