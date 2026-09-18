@@ -76,11 +76,13 @@ export default function PrivateResourceInferencePage() {
                     })
                 ),
                 httpConfigSubdomain: z.string().nullish(),
-                httpConfigDomainId: z.string().nullish(),
+                httpConfigDomainId: z
+                    .string()
+                    .min(1, { message: t("domainRequired") }),
                 httpConfigFullDomain: z.string().nullish(),
                 ssl: z.boolean().optional()
             }),
-        []
+        [t]
     );
     type FormValues = z.infer<typeof formSchema>;
 
@@ -103,7 +105,7 @@ export default function PrivateResourceInferencePage() {
         defaultValues: {
             providers: [],
             httpConfigSubdomain: siteResource.subdomain ?? null,
-            httpConfigDomainId: siteResource.domainId ?? null,
+            httpConfigDomainId: siteResource.domainId ?? "",
             httpConfigFullDomain: siteResource.fullDomain ?? null,
             ssl: siteResource.ssl ?? false
         }
@@ -289,50 +291,74 @@ export default function PrivateResourceInferencePage() {
                                         </SettingsSubsectionHeader>
                                     </SettingsFormCell>
                                     <SettingsFormCell span="full">
-                                        <DomainPicker
-                                            key={`inference-domain-${siteResource.id}`}
-                                            orgId={siteResource.orgId}
-                                            cols={2}
-                                            hideFreeDomain
-                                            defaultSubdomain={
-                                                httpConfigSubdomain ?? undefined
-                                            }
-                                            defaultDomainId={
-                                                httpConfigDomainId ?? undefined
-                                            }
-                                            defaultFullDomain={
-                                                httpConfigFullDomain ??
-                                                undefined
-                                            }
-                                            onDomainChange={(res) => {
-                                                if (res === null) {
-                                                    form.setValue(
-                                                        "httpConfigSubdomain",
-                                                        null
-                                                    );
-                                                    form.setValue(
-                                                        "httpConfigDomainId",
-                                                        null
-                                                    );
-                                                    form.setValue(
-                                                        "httpConfigFullDomain",
-                                                        null
-                                                    );
-                                                    return;
-                                                }
-                                                form.setValue(
-                                                    "httpConfigSubdomain",
-                                                    res.subdomain ?? null
-                                                );
-                                                form.setValue(
-                                                    "httpConfigDomainId",
-                                                    res.domainId
-                                                );
-                                                form.setValue(
-                                                    "httpConfigFullDomain",
-                                                    res.fullDomain
-                                                );
-                                            }}
+                                        <FormField
+                                            control={form.control}
+                                            name="httpConfigDomainId"
+                                            render={() => (
+                                                <FormItem>
+                                                    <DomainPicker
+                                                        key={`inference-domain-${siteResource.id}`}
+                                                        orgId={
+                                                            siteResource.orgId
+                                                        }
+                                                        cols={2}
+                                                        hideFreeDomain
+                                                        defaultSubdomain={
+                                                            httpConfigSubdomain ??
+                                                            undefined
+                                                        }
+                                                        defaultDomainId={
+                                                            httpConfigDomainId ??
+                                                            undefined
+                                                        }
+                                                        defaultFullDomain={
+                                                            httpConfigFullDomain ??
+                                                            undefined
+                                                        }
+                                                        onDomainChange={(
+                                                            res
+                                                        ) => {
+                                                            if (res === null) {
+                                                                form.setValue(
+                                                                    "httpConfigSubdomain",
+                                                                    null
+                                                                );
+                                                                form.setValue(
+                                                                    "httpConfigDomainId",
+                                                                    "",
+                                                                    {
+                                                                        shouldValidate:
+                                                                            true
+                                                                    }
+                                                                );
+                                                                form.setValue(
+                                                                    "httpConfigFullDomain",
+                                                                    null
+                                                                );
+                                                                return;
+                                                            }
+                                                            form.setValue(
+                                                                "httpConfigSubdomain",
+                                                                res.subdomain ??
+                                                                    null
+                                                            );
+                                                            form.setValue(
+                                                                "httpConfigDomainId",
+                                                                res.domainId,
+                                                                {
+                                                                    shouldValidate:
+                                                                        true
+                                                                }
+                                                            );
+                                                            form.setValue(
+                                                                "httpConfigFullDomain",
+                                                                res.fullDomain
+                                                            );
+                                                        }}
+                                                    />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
                                         />
                                     </SettingsFormCell>
                                     <SettingsFormCell span="half">

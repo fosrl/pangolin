@@ -48,7 +48,6 @@ export const privateConfigSchema = z
                     .optional()
                     .transform(getEnvOrYaml("FOSSORIAL_API_KEY"))
             })
-            .optional()
             .prefault({}),
         redis: z
             .object({
@@ -95,6 +94,70 @@ export const privateConfigSchema = z
                     .optional()
             })
             .optional(),
+        dns: z
+            .object({
+                enabled: z.boolean().optional().default(false),
+                listen_port: z.number().int().positive().optional().default(53),
+                nameserver_name: z.string(),
+                cname_extension: z.string(),
+                site_extension: z.string().optional(),
+                cname_alternate_extensions: z
+                    .array(z.string())
+                    .optional()
+                    .default([]),
+                alternate_nameservers: z
+                    .array(z.string())
+                    .optional()
+                    .default([]),
+                rate_limit: z
+                    .object({
+                        enabled: z.boolean().optional().default(true),
+                        window_ms: z
+                            .number()
+                            .int()
+                            .min(1000)
+                            .max(600000)
+                            .optional()
+                            .default(60000),
+                        max_requests: z
+                            .number()
+                            .int()
+                            .min(50)
+                            .max(100000)
+                            .optional()
+                            .default(1200),
+                        max_requests_per_query_type: z
+                            .number()
+                            .int()
+                            .min(10)
+                            .max(50000)
+                            .optional()
+                            .default(600)
+                    })
+                    .default({
+                        enabled: true,
+                        window_ms: 60000,
+                        max_requests: 1200,
+                        max_requests_per_query_type: 600
+                    }),
+                static_records: z
+                    .array(
+                        z.object({
+                            domain: z.string(),
+                            type: z.enum(["TXT", "CNAME", "A", "NS"]),
+                            value: z.string(),
+                            ttl: z
+                                .number()
+                                .int()
+                                .positive()
+                                .optional()
+                                .default(300)
+                        })
+                    )
+                    .optional()
+                    .default([])
+            })
+            .optional(),
         gerbil: z
             .object({
                 local_exit_node_reachable_at: z
@@ -102,7 +165,6 @@ export const privateConfigSchema = z
                     .optional()
                     .default("http://gerbil:3004")
             })
-            .optional()
             .prefault({}),
         flags: z
             .object({
@@ -123,17 +185,87 @@ export const privateConfigSchema = z
                 // (server/private/lib/config.ts).
                 disable_private_http_placeholder: z.boolean().optional()
             })
-            .optional()
             .prefault({}),
-        // @deprecated Moved to the public config file as `acme`
-        // (server/lib/readConfigFile.ts). Kept here only so existing private
-        // config files keep parsing; any value set here is migrated into the
-        // public config at startup by PrivateConfig (server/private/lib/config.ts).
         acme: z
             .object({
+                cert_mode: z
+                    .enum(["traefik", "pangolin"])
+                    .optional()
+                    .default("traefik"),
+                enable_acme_client: z.boolean().optional().default(false),
+                // @deprecated Moved to the public config file
+                // (server/lib/readConfigFile.ts). Kept here only so existing private
+                // config files keep parsing; any value set here is migrated into the
+                // public config at startup by PrivateConfig (server/private/lib/config.ts).
                 acme_json_path: z.string().optional(),
+                // @deprecated Moved to the public config file
+                // (server/lib/readConfigFile.ts). Kept here only so existing private
+                // config files keep parsing; any value set here is migrated into the
+                // public config at startup by PrivateConfig (server/private/lib/config.ts).
                 acme_http_endpoint: z.string().optional(),
-                sync_interval_ms: z.number().optional()
+                // @deprecated Moved to the public config file
+                // (server/lib/readConfigFile.ts). Kept here only so existing private
+                // config files keep parsing; any value set here is migrated into the
+                // public config at startup by PrivateConfig (server/private/lib/config.ts).
+                sync_interval_ms: z.number().optional(),
+                acme_directory_url: z
+                    .string()
+                    .url()
+                    .default("https://acme-v02.api.letsencrypt.org/directory"),
+                contact_email: z.string().email().optional(),
+                acme_account_key_path: z
+                    .string()
+                    .default("./config/account.key"),
+                challenge_ttl_ms: z.number().int().positive().default(300000),
+                renewal_check_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(3600000),
+                new_cert_check_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(5000),
+                // Kept safely under Let's Encrypt's ~20 req/s limit since this
+                // budget is shared across all pops workers and only covers the
+                // request-issuing calls we make directly (not every request
+                // acme-client makes internally, e.g. while polling for
+                // challenge/order status).
+                acme_requests_per_second: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(15),
+                dns_check_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(60000),
+                domain_reverification_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(3600000), // 1 hour — how often to run the reverification pass
+                domain_reverification_window_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(259200000), // 72 hours — how old checkedAt must be before rechecking
+                domain_reverification_batch_size: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(20), // max domains to recheck per pass
+                dns_resolvers: z
+                    .array(z.string())
+                    .optional()
+                    .default([
+                        "8.8.8.8",
+                        "1.1.1.1",
+                        "9.9.9.9",
+                        "208.67.222.222"
+                    ])
             })
             .optional(),
         branding: z

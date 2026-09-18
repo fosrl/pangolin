@@ -47,7 +47,6 @@ export const queryActionAuditLogsQuery = z.object({
             error: "timeEnd must be a valid ISO date string"
         })
         .transform((val) => Math.floor(new Date(val).getTime() / 1000))
-        .optional()
         .prefault(() => new Date().toISOString())
         .openapi({
             type: "string",

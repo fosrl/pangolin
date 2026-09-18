@@ -10,6 +10,7 @@ import {
     users
 } from "../../db/sqlite";
 import { APP_PATH, configFilePath1, configFilePath2 } from "@server/lib/consts";
+import { formatBackupTimestamp } from "@server/lib/backupFileName";
 import { eq, sql } from "drizzle-orm";
 import fs from "fs";
 import * as yaml from "js-yaml";
@@ -34,7 +35,7 @@ export default async function migration() {
     // copy the db.sqlite file to backups
     // add the date to the filename
     const date = new Date();
-    const dateString = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}`;
+    const dateString = formatBackupTimestamp(date);
     const dbPath = path.join(dbDir, "db.sqlite");
     const backupPath = path.join(backupsDir, `db_${dateString}.sqlite`);
     fs.copyFileSync(dbPath, backupPath);

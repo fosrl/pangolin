@@ -32,6 +32,7 @@ export type LauncherLabel = {
 export type LauncherSiteInfo = {
     siteId: number;
     name: string;
+    niceId: string;
     type: string;
     online?: boolean;
 };
@@ -51,6 +52,7 @@ export type LauncherResource = {
     mode: string;
     labels: LauncherLabel[];
     site?: LauncherSiteInfo;
+    sites: LauncherSiteInfo[];
 };
 
 export type LauncherGroup = {
@@ -184,8 +186,7 @@ export function parseIdListParam(value: string | undefined): number[] {
 export const DEFAULT_LAUNCHER_VIEW_ID = "default" as const;
 
 export type LauncherViewSelection =
-    | { type: "default" }
-    | { type: "saved"; viewId: number };
+    { type: "default" } | { type: "saved"; viewId: number };
 
 export type LauncherScaleCapabilities = {
     allowSiteGrouping: boolean;

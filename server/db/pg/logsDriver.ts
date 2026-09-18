@@ -1,5 +1,6 @@
 import { drizzle as DrizzlePostgres } from "drizzle-orm/node-postgres";
 import { readConfigFile } from "@server/lib/readConfigFile";
+import { readEnvOrFile } from "@server/lib/getEnvOrYaml";
 import { withReplicas } from "drizzle-orm/pg-core";
 import { build } from "@server/build";
 import { db as mainDb } from "./driver";
@@ -17,7 +18,7 @@ function createLogsDb() {
     const logsConfig = config.postgres_logs;
 
     // Check environment variable first
-    let connectionString = process.env.POSTGRES_LOGS_CONNECTION_STRING;
+    let connectionString = readEnvOrFile("POSTGRES_LOGS_CONNECTION_STRING");
     let replicaConnections: Array<{ connection_string: string }> = [];
 
     if (!connectionString && logsConfig) {
@@ -26,13 +27,15 @@ function createLogsDb() {
     }
 
     // If POSTGRES_LOGS_REPLICA_CONNECTION_STRINGS is set, use it
-    if (process.env.POSTGRES_LOGS_REPLICA_CONNECTION_STRINGS) {
-        replicaConnections =
-            process.env.POSTGRES_LOGS_REPLICA_CONNECTION_STRINGS.split(",").map(
-                (conn) => ({
-                    connection_string: conn.trim()
-                })
-            );
+    const replicaConnectionStrings = readEnvOrFile(
+        "POSTGRES_LOGS_REPLICA_CONNECTION_STRINGS"
+    );
+    if (replicaConnectionStrings) {
+        replicaConnections = replicaConnectionStrings
+            .split(",")
+            .map((conn) => ({
+                connection_string: conn.trim()
+            }));
     }
 
     // If no logs database is configured, fall back to main database

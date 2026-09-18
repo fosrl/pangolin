@@ -31,7 +31,9 @@ export async function clearInstanceName(
     next: NextFunction
 ): Promise<any> {
     try {
-        const parsedParams = clearInstanceNameParamsSchema.safeParse(req.params);
+        const parsedParams = clearInstanceNameParamsSchema.safeParse(
+            req.params
+        );
         if (!parsedParams.success) {
             return next(
                 createHttpError(
@@ -63,7 +65,8 @@ export async function clearInstanceName(
             return next(
                 createHttpError(
                     data.status || HttpCode.BAD_REQUEST,
-                    data.message || "Failed to clear instance name from Fossorial API"
+                    data.message ||
+                        "Failed to clear server ID from Fossorial API"
                 )
             );
         }
@@ -72,7 +75,7 @@ export async function clearInstanceName(
             data: null,
             success: true,
             error: false,
-            message: "Instance name cleared successfully",
+            message: "Server ID cleared successfully",
             status: HttpCode.OK
         });
     } catch (error) {
@@ -80,7 +83,7 @@ export async function clearInstanceName(
         return next(
             createHttpError(
                 HttpCode.INTERNAL_SERVER_ERROR,
-                "An error occurred while clearing the instance name."
+                "An error occurred while clearing the server ID."
             )
         );
     }

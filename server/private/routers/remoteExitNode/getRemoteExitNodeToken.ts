@@ -26,7 +26,7 @@ import {
     validateRemoteExitNodeSessionToken,
     EXPIRES
 } from "#private/auth/sessions/remoteExitNode";
-import { getOrCreateCachedToken } from "@server/private/lib/tokenCache";
+import { getOrCreateCachedToken } from "#private/lib/tokenCache";
 import { verifyPassword } from "@server/auth/password";
 import logger from "@server/logger";
 import config from "@server/lib/config";

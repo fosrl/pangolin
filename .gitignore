@@ -46,7 +46,6 @@ public/branding
 server/db/index.ts
 server/build.ts
 postgres/
-dynamic/
 *.mmdb
 scratch/
 tsconfig.json

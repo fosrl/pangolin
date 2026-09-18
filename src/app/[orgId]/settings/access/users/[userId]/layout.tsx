@@ -9,15 +9,16 @@ import { cache } from "react";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
+import { getUserDisplayName } from "@app/lib/getUserDisplayName";
 
 export const metadata: Metadata = {
     title: "User"
 };
 
-interface UserLayoutProps {
+type UserLayoutProps = {
     children: React.ReactNode;
     params: Promise<{ userId: string; orgId: string }>;
-}
+};
 
 export default async function UserLayoutProps(props: UserLayoutProps) {
     const params = await props.params;
@@ -42,15 +43,23 @@ export default async function UserLayoutProps(props: UserLayoutProps) {
 
     const navItems = [
         {
-            title: t("accessControls"),
-            href: "/{orgId}/settings/access/users/{userId}/access-controls"
+            title: t("general"),
+            href: "/{orgId}/settings/access/users/{userId}/general"
         }
     ];
 
     return (
         <>
             <SettingsSectionTitle
-                title={`${user?.email}`}
+                title={
+                    user
+                        ? getUserDisplayName({
+                              email: user.email,
+                              name: user.name,
+                              username: user.username
+                          })
+                        : ""
+                }
                 description={t("userDescription2")}
             />
             <OrgUserProvider orgUser={user}>

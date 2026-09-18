@@ -6,10 +6,10 @@ import {
     Bot,
     Boxes,
     Building2,
+    Building2Icon,
     Cable,
     ChartLine,
     Coins,
-    Combine,
     CreditCard,
     Fingerprint,
     Globe,
@@ -20,7 +20,6 @@ import {
     LayoutGrid,
     Link as LinkIcon,
     Logs,
-    MessageSquare,
     MessagesSquare,
     MonitorUp,
     Plug,
@@ -146,7 +145,7 @@ export const orgNavSections = (
                 href: "/{orgId}/settings/redirects",
                 icon: <Repeat className="size-4 flex-none" />
             },
-            ...(build === "saas"
+            ...(env?.flags.usePangolinDns
                 ? [
                       {
                           title: "sidebarRemoteExitNodes",
@@ -383,6 +382,11 @@ export const adminNavSections = (env?: Env): SidebarNavSection[] => [
                 icon: <Users className="size-4 flex-none" />
             },
             {
+                title: "sidebarOrgs",
+                href: "/admin/organizations",
+                icon: <Building2Icon className="size-4 flex-none" />
+            },
+            {
                 title: "sidebarApiKeys",
                 href: "/admin/api-keys",
                 icon: <KeyRound className="size-4 flex-none" />
@@ -398,7 +402,7 @@ export const adminNavSections = (env?: Env): SidebarNavSection[] => [
                       }
                   ]
                 : []),
-            ...(build == "enterprise"
+            ...(build === "enterprise"
                 ? [
                       {
                           title: "sidebarLicense",
@@ -472,7 +476,7 @@ export const commandBarNavSections = (
                 href: "/{orgId}/settings/redirects",
                 icon: <Repeat className="size-4 flex-none" />
             },
-            ...(build === "saas"
+            ...(env?.flags.usePangolinDns
                 ? [
                       {
                           title: "commandRemoteExitNodes",

@@ -222,15 +222,16 @@ export async function handleSubscriptionCreated(
 
                 let numUsers: number;
                 let numSites: number;
+                let tier = "enterprise";
 
-                if (subscriptionPriceId === priceSet[LicenseId.SMALL_LICENSE]) {
+                if (subscriptionPriceId === priceSet[LicenseId.TIER1]) {
                     numUsers = 25;
                     numSites = 25;
-                } else if (
-                    subscriptionPriceId === priceSet[LicenseId.BIG_LICENSE]
-                ) {
+                    tier = "tier1";
+                } else if (subscriptionPriceId === priceSet[LicenseId.TIER2]) {
                     numUsers = 50;
                     numSites = 100;
+                    tier = "tier2";
                 } else {
                     logger.error(
                         `Unknown price ID ${subscriptionPriceId} for subscription ${subscription.id}`
@@ -241,6 +242,14 @@ export async function handleSubscriptionCreated(
                 logger.debug(
                     `License type determined: ${numUsers} users, ${numSites} sites for subscription ${subscription.id}`
                 );
+
+                // Grace period of 5 days added on top of the current billing
+                // period end (usually ~1 year out) before the license expires
+                const currentPeriodEnd =
+                    fullSubscription.items.data[0]?.current_period_end;
+                const expiresAt =
+                    (currentPeriodEnd ?? subscription.created) +
+                    5 * 24 * 60 * 60;
 
                 const response = await fetch(
                     `${privateConfig.getRawPrivateConfig().server.fossorial_api}/api/v1/license-internal/enterprise/paid-for`,
@@ -256,7 +265,9 @@ export async function handleSubscriptionCreated(
                             licenseId: parseInt(licenseId),
                             paidFor: true,
                             users: numUsers,
-                            sites: numSites
+                            sites: numSites,
+                            tier: tier,
+                            expiresAt: expiresAt
                         })
                     }
                 );
@@ -264,6 +275,13 @@ export async function handleSubscriptionCreated(
                 const data = await response.json();
 
                 logger.debug(`Fossorial API response: ${JSON.stringify(data)}`);
+
+                if (!response.ok || !data.success) {
+                    logger.error(
+                        `Fossorial API returned ${response.status} when setting paid-for for orgId ${customer.orgId} and subscription ID ${subscription.id}: ${JSON.stringify(data)}`
+                    );
+                    return;
+                }
 
                 if (customer.email) {
                     logger.debug(

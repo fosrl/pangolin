@@ -737,6 +737,8 @@ export const newts = sqliteTable(
         secretHash: text("secretHash").notNull(),
         dateCreated: text("dateCreated").notNull(),
         version: text("version"),
+        agent: text("agent"), // either newt or cli
+        agentVersion: text("agentVersion"),
         siteId: integer("siteId").references(() => sites.siteId, {
             onDelete: "cascade"
         })

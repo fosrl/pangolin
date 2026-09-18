@@ -8,6 +8,7 @@ import {
     SettingsSectionTitle
 } from "./Settings";
 import { CheckboxWithLabel } from "./ui/checkbox";
+import { Button } from "./ui/button";
 import { OptionSelect, type OptionSelectOption } from "./OptionSelect";
 import { useState } from "react";
 import {
@@ -18,11 +19,14 @@ import {
     FaLinux,
     FaWindows
 } from "react-icons/fa";
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 import { SiKubernetes, SiNixos } from "react-icons/si";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 
-export type CommandItem = string | { title: string; command: string };
+export type CommandItem =
+    | string
+    | { title: string; command: string }
+    | { title: string; link: string };
 
 const PLATFORMS = [
     "linux",
@@ -41,14 +45,12 @@ export type NewtSiteInstallCommandsProps = {
     id: string;
     secret: string;
     endpoint: string;
-    version?: string;
 };
 
 export function NewtSiteInstallCommands({
     id,
     secret,
-    endpoint,
-    version = "latest"
+    endpoint
 }: NewtSiteInstallCommandsProps) {
     const t = useTranslations();
     const { env } = useEnvContext();
@@ -88,25 +90,39 @@ export function NewtSiteInstallCommands({
             Run: [
                 {
                     title: t("install"),
-                    command: `curl -fsSL https://static.pangolin.net/get-newt.sh | bash`
+                    command: `curl -fsSL https://static.pangolin.net/get-cli.sh | bash`
                 },
                 {
                     title: t("run"),
-                    command: `${runAsRootPrefix}newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}${disableSshFlag}`
+                    command: `${runAsRootPrefix}pangolin up site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}${disableSshFlag}`
                 }
             ],
             "Systemd Service": [
                 {
                     title: t("install"),
-                    command: `curl -fsSL https://static.pangolin.net/get-newt.sh | bash`
+                    command: `curl -fsSL https://static.pangolin.net/get-cli.sh | bash`
+                },
+                {
+                    title: t("run"),
+                    command: `sudo pangolin service install site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}${disableSshFlag}`
+                },
+                {
+                    title: t("check"),
+                    command: `sudo pangolin service status site`
+                }
+            ],
+            "Manual Systemd Service": [
+                {
+                    title: t("install"),
+                    command: `curl -fsSL https://static.pangolin.net/get-cli.sh | bash`
                 },
                 {
                     title: t("envFile"),
                     command: `# Create the directory and environment file
-sudo install -d -m 0755 /etc/newt
-sudo tee /etc/newt/newt.env > /dev/null << 'EOF'
-NEWT_ID=${id}
-NEWT_SECRET=${secret}
+sudo install -d -m 0755 /etc/pangolin
+sudo tee /etc/pangolin/pangolin-site.env > /dev/null << 'EOF'
+SITE_ID=${id}
+SITE_SECRET=${secret}
 PANGOLIN_ENDPOINT=${endpoint}${
                         !acceptClients
                             ? `
@@ -119,13 +135,13 @@ DISABLE_SSH=true`
                             : ""
                     }
 EOF
-sudo chmod 600 /etc/newt/newt.env`
+sudo chmod 600 /etc/pangolin/pangolin-site.env`
                 },
                 {
                     title: t("serviceFile"),
-                    command: `sudo tee /etc/systemd/system/newt.service > /dev/null << 'EOF'
+                    command: `sudo tee /etc/systemd/system/pangolin-site.service > /dev/null << 'EOF'
 [Unit]
-Description=Newt
+Description=Pangolin Site
 Wants=network-online.target
 After=network-online.target
 
@@ -133,8 +149,8 @@ After=network-online.target
 Type=simple
 User=root
 Group=root
-EnvironmentFile=/etc/newt/newt.env
-ExecStart=/usr/local/bin/newt
+EnvironmentFile=/etc/pangolin/pangolin-site.env
+ExecStart=/usr/local/bin/pangolin up site
 Restart=always
 RestartSec=2
 UMask=0077
@@ -148,7 +164,7 @@ EOF`
                 {
                     title: t("enableAndStart"),
                     command: `sudo systemctl daemon-reload
-sudo systemctl enable --now newt`
+sudo systemctl enable --now pangolin-site`
                 }
             ]
         },
@@ -156,43 +172,72 @@ sudo systemctl enable --now newt`
             Run: [
                 {
                     title: t("install"),
-                    command: `curl -fsSL https://static.pangolin.net/get-newt.sh | bash`
+                    command: `curl -fsSL https://static.pangolin.net/get-cli.sh | bash`
                 },
                 {
                     title: t("run"),
-                    command: `newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
+                    command: `pangolin up site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
+                }
+            ],
+            Service: [
+                {
+                    title: t("install"),
+                    command: `curl -fsSL https://static.pangolin.net/get-cli.sh | bash`
+                },
+                {
+                    title: t("run"),
+                    command: `sudo pangolin service install site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}${disableSshFlag}`
+                },
+                {
+                    title: t("check"),
+                    command: `sudo pangolin service status site`
                 }
             ]
         },
         windows: {
-            x64: [
+            Run: [
                 {
                     title: t("install"),
-                    command: `curl -o newt.exe -L "https://github.com/fosrl/newt/releases/download/${version}/newt_windows_amd64.exe"`
+                    link: `https://github.com/fosrl/cli/releases/latest/download/pangolin-cli_windows_installer.msi`
                 },
                 {
                     title: t("run"),
-                    command: `newt.exe --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
+                    command: `pangolin up site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
+                }
+            ],
+            Service: [
+                {
+                    title: t("install"),
+                    link: `https://github.com/fosrl/cli/releases/latest/download/pangolin-cli_windows_installer.msi`
+                },
+                {
+                    title: t("run"),
+                    command: `pangolin service install site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}${disableSshFlag}`
+                },
+                {
+                    title: t("check"),
+                    command: `pangolin service status site`
                 }
             ]
         },
         docker: {
             "Docker Compose": [
                 `services:
-  newt:
-    image: fosrl/newt
-    container_name: newt
+  pangolin-site:
+    image: fosrl/pangolin-cli
+    container_name: pangolin-site
     restart: unless-stopped
     environment:
       - PANGOLIN_ENDPOINT=${endpoint}
-      - NEWT_ID=${id}
-      - NEWT_SECRET=${secret}${acceptClientsEnv}`
+      - SITE_ID=${id}
+      - SITE_SECRET=${secret}${acceptClientsEnv}`
             ],
             "Docker Run": [
-                `docker run -dit --network host fosrl/newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
+                `docker run -dit --network host fosrl/pangolin-cli up site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
             ]
         },
         kubernetes: {
+            // we are leaving this using newt until we change it to use the cli
             "Helm Chart": [
                 `helm repo add fossorial https://charts.fossorial.io`,
                 `helm repo update fossorial`,
@@ -216,15 +261,15 @@ sudo systemctl enable --now newt`
         podman: {
             "Podman Quadlet": [
                 `[Unit]
-Description=Newt container
+Description=Pangolin Site Container
 
 [Container]
-ContainerName=newt
-Image=docker.io/fosrl/newt
+ContainerName=pangolin-site
+Image=docker.io/fosrl/pangolin-cli
 Environment=PANGOLIN_ENDPOINT=${endpoint}
-Environment=NEWT_ID=${id}
-Environment=NEWT_SECRET=${secret}${!acceptClients ? "\nEnvironment=DISABLE_CLIENTS=true" : ""}
-# Secret=newt-secret,type=env,target=NEWT_SECRET
+Environment=SITE_ID=${id}
+Environment=SITE_SECRET=${secret}${!acceptClients ? "\nEnvironment=DISABLE_CLIENTS=true" : ""}
+# Secret=pangolin-secret,type=env,target=SITE_SECRET
 
 [Service]
 Restart=always
@@ -233,12 +278,12 @@ Restart=always
 WantedBy=default.target`
             ],
             "Podman Run": [
-                `podman run -dit docker.io/fosrl/newt --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
+                `podman run -dit docker.io/fosrl/pangolin-cli up site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}`
             ]
         },
         nixos: {
             Flake: [
-                `${runAsRootPrefix}nix run 'nixpkgs#fosrl-newt' -- --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}${disableSshFlag}`
+                `${runAsRootPrefix}nix run 'nixpkgs#pangolin-cli' -- up site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}${disableSshFlag}`
             ]
         }
     };
@@ -277,9 +322,7 @@ WantedBy=default.target`
                 />
 
                 <OptionSelect<string>
-                    label={
-                        platform === "windows" ? t("architecture") : t("method")
-                    }
+                    label={t("method")}
                     options={getArchitectures(platform).map((arch) => ({
                         value: arch,
                         label: arch
@@ -377,14 +420,23 @@ WantedBy=default.target`
                     )}
                     <div className="mt-2 space-y-3">
                         {commands.map((item, index) => {
+                            const isLink =
+                                typeof item !== "string" && "link" in item;
                             const commandText =
-                                typeof item === "string" ? item : item.command;
+                                typeof item === "string"
+                                    ? item
+                                    : isLink
+                                      ? undefined
+                                      : item.command;
+                            const linkHref = isLink
+                                ? (item as { link: string }).link
+                                : undefined;
                             const title =
                                 typeof item === "string"
                                     ? undefined
                                     : item.title;
 
-                            const key = `${title ?? ""}::${commandText}`;
+                            const key = `${title ?? ""}::${commandText ?? linkHref}`;
 
                             return (
                                 <div key={key}>
@@ -393,10 +445,23 @@ WantedBy=default.target`
                                             {title}
                                         </p>
                                     )}
-                                    <CopyTextBox
-                                        text={commandText}
-                                        outline={true}
-                                    />
+                                    {isLink ? (
+                                        <Button
+                                            asChild
+                                            variant="outline"
+                                            className="w-full"
+                                        >
+                                            <a href={linkHref}>
+                                                <Download className="h-4 w-4 mr-2" />
+                                                {t("downloadInstaller")}
+                                            </a>
+                                        </Button>
+                                    ) : (
+                                        <CopyTextBox
+                                            text={commandText!}
+                                            outline={true}
+                                        />
+                                    )}
                                 </div>
                             );
                         })}
@@ -456,11 +521,11 @@ function getPlatformName(platformName: Platform) {
 function getArchitectures(platform: Platform) {
     switch (platform) {
         case "linux":
-            return ["Run", "Systemd Service"];
+            return ["Run", "Systemd Service", "Manual Systemd Service"];
         case "macos":
-            return ["Run"];
+            return ["Run", "Service"];
         case "windows":
-            return ["x64"];
+            return ["Run", "Service"];
         case "docker":
             return ["Docker Compose", "Docker Run"];
         case "kubernetes":

@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    environment:
+      POSTGRES_DB: postgres # Default database name
+      POSTGRES_USER: postgres # Default user
+      POSTGRES_PASSWORD: password # Default password (change for production!)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+volumes:
+  postgres_data:

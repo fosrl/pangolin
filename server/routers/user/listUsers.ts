@@ -95,22 +95,34 @@ const listUsersSchema = z.strictObject({
                 'Filter by identity provider id, or "internal" for internal users'
         }),
     role_id: z
-        .preprocess((val) => {
-            if (val === undefined || val === null || val === "") {
-                return undefined;
-            }
-            const raw = Array.isArray(val) ? val : [val];
-            const nums = raw
-                .map((v) =>
-                    typeof v === "string" ? parseInt(v, 10) : Number(v)
-                )
-                .filter((n) => Number.isInteger(n) && n > 0);
-            const unique = [...new Set(nums)];
-            return unique.length ? unique : undefined;
-        }, z.array(z.number().int().positive()).optional())
+        .preprocess(
+            (val) => {
+                if (val === undefined || val === null || val === "") {
+                    return undefined;
+                }
+                const raw = Array.isArray(val) ? val : [val];
+                const includeOwner = raw.some((v) => v === "owner");
+                const nums = raw
+                    .map((v) =>
+                        typeof v === "string" ? parseInt(v, 10) : Number(v)
+                    )
+                    .filter((n) => Number.isInteger(n) && n > 0);
+                const unique = [...new Set(nums)];
+                if (!unique.length && !includeOwner) {
+                    return undefined;
+                }
+                return { roleIds: unique, includeOwner };
+            },
+            z
+                .object({
+                    roleIds: z.array(z.number().int().positive()),
+                    includeOwner: z.boolean()
+                })
+                .optional()
+        )
         .openapi({
             description:
-                "Filter users who have any of these role ids in the organization (repeat query param)"
+                'Filter users who have any of these role ids in the organization, or "owner" for organization owners (repeat query param)'
         })
 });
 
@@ -193,7 +205,8 @@ export async function listUsers(
         }
         const { page, pageSize, sort_by, order, query, idp_id, role_id } =
             parsedQuery.data;
-        const roleIds = role_id ?? [];
+        const roleIds = role_id?.roleIds ?? [];
+        const includeOwner = role_id?.includeOwner ?? false;
 
         const parsedParams = listUsersParamsSchema.safeParse(req.params);
         if (!parsedParams.success) {
@@ -267,21 +280,35 @@ export async function listUsers(
             conditions.push(eq(users.idpId, idp_id));
         }
 
-        if (roleIds.length > 0) {
-            conditions.push(
-                exists(
-                    db
-                        .select()
-                        .from(userOrgRoles)
-                        .where(
-                            and(
-                                eq(userOrgRoles.userId, users.userId),
-                                eq(userOrgRoles.orgId, orgId),
-                                inArray(userOrgRoles.roleId, roleIds)
+        if (roleIds.length > 0 || includeOwner) {
+            const roleFilterParts = [];
+
+            if (includeOwner) {
+                roleFilterParts.push(eq(userOrgs.isOwner, true));
+            }
+
+            if (roleIds.length > 0) {
+                roleFilterParts.push(
+                    exists(
+                        db
+                            .select()
+                            .from(userOrgRoles)
+                            .where(
+                                and(
+                                    eq(userOrgRoles.userId, users.userId),
+                                    eq(userOrgRoles.orgId, orgId),
+                                    inArray(userOrgRoles.roleId, roleIds)
+                                )
                             )
-                        )
-                )
-            );
+                    )
+                );
+            }
+
+            if (roleFilterParts.length === 1) {
+                conditions.push(roleFilterParts[0]);
+            } else if (roleFilterParts.length > 1) {
+                conditions.push(or(...roleFilterParts));
+            }
         }
 
         const countQuery = db.$count(

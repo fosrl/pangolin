@@ -11,17 +11,11 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import NodeCache from "node-cache";
 import logger from "@server/logger";
-import { redisManager, regionalRedisManager } from "@server/private/lib/redis";
+import { createLocalCache } from "@server/lib/createLocalCache";
+import { redisManager, regionalRedisManager } from "#private/lib/redis";
 
-// Create local cache with maxKeys limit to prevent memory leaks
-// With ~10k requests/day and 5min TTL, 10k keys should be more than sufficient
-export const localCache = new NodeCache({
-    stdTTL: 3600,
-    checkperiod: 120,
-    maxKeys: 10000
-});
+export const localCache = createLocalCache();
 
 // Log cache statistics periodically for monitoring
 // setInterval(() => {
@@ -97,11 +91,11 @@ class AdaptiveCache {
                 const value = await redisManager.get(key);
 
                 if (value !== null) {
-                    logger.debug(`Cache hit in Redis: ${key}`);
+                    // logger.debug(`Cache hit in Redis: ${key}`);
                     return JSON.parse(value) as T;
                 }
 
-                logger.debug(`Cache miss in Redis: ${key}`);
+                // logger.debug(`Cache miss in Redis: ${key}`);
                 return undefined;
             } catch (error) {
                 logger.error(`Redis get error for key ${key}:`, error);
@@ -134,7 +128,7 @@ class AdaptiveCache {
                     const success = await redisManager.del(k);
                     if (success) {
                         deletedCount++;
-                        logger.debug(`Deleted key from Redis: ${k}`);
+                        // logger.debug(`Deleted key from Redis: ${k}`);
                     }
                 }
 
@@ -161,7 +155,7 @@ class AdaptiveCache {
             const success = localCache.del(k);
             if (success > 0) {
                 deletedCount++;
-                logger.debug(`Deleted key from local cache: ${k}`);
+                // logger.debug(`Deleted key from local cache: ${k}`);
             }
         }
 
@@ -229,7 +223,7 @@ class AdaptiveCache {
         }
 
         localCache.flushAll();
-        logger.debug("Flushed local cache");
+        // logger.debug("Flushed local cache");
     }
 
     /**
@@ -301,15 +295,11 @@ export default cache;
 
 /**
  * Regional adaptive cache backed by the in-cluster Redis instance.
- * Falls back to a local NodeCache when the regional Redis is unavailable.
+ * Falls back to a local LRU cache when the regional Redis is unavailable.
  * Use this for data that is regional in nature (e.g. status history) so
  * reads are served from the same cluster the user is hitting.
  */
-const regionalLocalCache = new NodeCache({
-    stdTTL: 3600,
-    checkperiod: 120,
-    maxKeys: 10000
-});
+const regionalLocalCache = createLocalCache();
 
 class RegionalAdaptiveCache {
     private useRedis(): boolean {
@@ -332,7 +322,7 @@ class RegionalAdaptiveCache {
                     redisTtl
                 );
                 if (success) {
-                    logger.debug(`[regional] Set key in Redis: ${key}`);
+                    // logger.debug(`[regional] Set key in Redis: ${key}`);
                     return true;
                 }
             } catch (error) {
@@ -353,10 +343,10 @@ class RegionalAdaptiveCache {
             try {
                 const value = await regionalRedisManager.get(key);
                 if (value !== null) {
-                    logger.debug(`[regional] Cache hit in Redis: ${key}`);
+                    // logger.debug(`[regional] Cache hit in Redis: ${key}`);
                     return JSON.parse(value) as T;
                 }
-                logger.debug(`[regional] Cache miss in Redis: ${key}`);
+                // logger.debug(`[regional] Cache miss in Redis: ${key}`);
                 return undefined;
             } catch (error) {
                 logger.error(
@@ -385,7 +375,7 @@ class RegionalAdaptiveCache {
                     const success = await regionalRedisManager.del(k);
                     if (success) {
                         deletedCount++;
-                        logger.debug(`[regional] Deleted key from Redis: ${k}`);
+                        // logger.debug(`[regional] Deleted key from Redis: ${k}`);
                     }
                 }
                 if (deletedCount === keys.length) return deletedCount;
@@ -400,7 +390,7 @@ class RegionalAdaptiveCache {
             const count = regionalLocalCache.del(k);
             if (count > 0) {
                 deletedCount++;
-                logger.debug(`[regional] Deleted key from local cache: ${k}`);
+                // logger.debug(`[regional] Deleted key from local cache: ${k}`);
             }
         }
         return deletedCount;

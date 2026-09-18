@@ -146,10 +146,18 @@ export class PrivateConfig {
             process.env.USE_PANGOLIN_DNS =
                 this.rawPrivateConfig.flags.use_pangolin_dns.toString();
         }
+
+        if (this.rawPrivateConfig.acme?.cert_mode) {
+            process.env.CERT_MODE = this.rawPrivateConfig.acme.cert_mode;
+        }
     }
 
     public getRawPrivateConfig() {
         return this.rawPrivateConfig;
+    }
+
+    public getRawConfig() {
+        return this.getRawPrivateConfig();
     }
 
     // `flags.enable_acme_cert_sync`, `flags.disable_private_http_placeholder`,

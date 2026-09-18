@@ -954,7 +954,6 @@ export const ProxyResourceTargetsForm = forwardRef<
                                 colSpan={columns.length}
                                 message={emptyMessage ?? t("targetNoOne")}
                                 action={addTargetButton}
-                                compact
                             />
                         )}
                     </TableBody>

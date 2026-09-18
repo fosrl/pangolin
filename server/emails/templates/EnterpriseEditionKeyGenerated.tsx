@@ -93,9 +93,8 @@ export const EnterpriseEditionKeyGenerated = ({
                         </EmailSection>
 
                         <EmailText>
-                            If you need to purchase additional license keys or
-                            modify your existing license, please reach out to
-                            our support team at{" "}
+                            For any questions or concerns regarding your license
+                            or billing, please reach out to support at{" "}
                             <a
                                 href="mailto:support@pangolin.net"
                                 className="text-primary font-medium"

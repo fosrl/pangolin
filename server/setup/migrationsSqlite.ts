@@ -5,6 +5,7 @@ import path from "path";
 import semver from "semver";
 import { versionMigrations } from "../db/sqlite";
 import { __DIRNAME, APP_PATH, APP_VERSION } from "@server/lib/consts";
+import { formatBackupTimestamp } from "@server/lib/backupFileName";
 import { SqliteError } from "better-sqlite3";
 import fs from "fs";
 import { build } from "@server/build";
@@ -48,6 +49,7 @@ import m42 from "./scriptsSqlite/1.19.1";
 import m43 from "./scriptsSqlite/1.20.0";
 import m44 from "./scriptsSqlite/1.21.0";
 import m45 from "./scriptsSqlite/1.22.0";
+import m46 from "./scriptsSqlite/1.23.0";
 
 // THIS CANNOT IMPORT ANYTHING FROM THE SERVER
 // EXCEPT FOR THE DATABASE AND THE SCHEMA
@@ -93,7 +95,8 @@ const migrations = [
     { version: "1.19.1", run: m42 },
     { version: "1.20.0", run: m43 },
     { version: "1.21.0", run: m44 },
-    { version: "1.22.0", run: m45 }
+    { version: "1.22.0", run: m45 },
+    { version: "1.23.0", run: m46 }
     // Add new migrations here as they are created
 ] as const;
 
@@ -119,7 +122,7 @@ function backupDb() {
     // copy the db.sqlite file to backups
     // add the date to the filename
     const date = new Date();
-    const dateString = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}`;
+    const dateString = formatBackupTimestamp(date);
     const dbPath = path.join(dbDir, "db.sqlite");
     const backupPath = path.join(backupsDir, `db_${dateString}.sqlite`);
     fs.copyFileSync(dbPath, backupPath);

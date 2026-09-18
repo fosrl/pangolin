@@ -94,6 +94,11 @@ export const OlmErrorCodes = {
     HOLEPUNCH_MISSING: {
         code: "HOLEPUNCH_MISSING",
         message: `Unable to coordinate client P2P connection. Please ensure your client can reach the server on UDP port ${udpPort} and try registering again.`
+    },
+    NO_AVAILABLE_SUBNET: {
+        code: "NO_AVAILABLE_SUBNET",
+        message:
+            "No available subnet could be assigned to this client on the selected exit node. Please contact your administrator to increase the available address space for this exit node's subnet."
     }
 } as const;
 

@@ -523,6 +523,13 @@ export function createCreateFormSchema(t: TranslateFn) {
                     });
                 }
             }
+            if (data.mode === "inference" && !data.httpConfigDomainId) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: t("domainRequired"),
+                    path: ["httpConfigDomainId"]
+                });
+            }
         });
 }
 

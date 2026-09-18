@@ -48,6 +48,8 @@ type SiteQueryRow = NonNullable<Awaited<ReturnType<typeof query>>>;
 export type GetSiteResponse = SiteQueryRow["sites"] & {
     newtId: string | null;
     newtVersion: string | null;
+    agent: string | null;
+    agentVersion: string | null;
     countryCode: string | null;
 };
 
@@ -137,6 +139,8 @@ export async function getSite(
             ...site.sites,
             newtId: site.newt ? site.newt.newtId : null,
             newtVersion: site.newt?.version ?? null,
+            agent: site.newt?.agent ?? null,
+            agentVersion: site.newt?.agentVersion ?? null,
             countryCode: site.sites.endpoint
                 ? ((await getCountryCodeForIp(site.sites.endpoint)) ?? null)
                 : null

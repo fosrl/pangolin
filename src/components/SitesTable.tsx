@@ -52,7 +52,6 @@ import {
 } from "./ui/controlled-data-table";
 
 import { useOptimisticLabels } from "@app/hooks/useOptimisticLabels";
-import { durationToMs } from "@app/lib/durationToMs";
 import { orgQueries, productUpdatesQueries } from "@app/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import semver from "semver";
@@ -68,6 +67,8 @@ export type SiteRow = {
     orgId: string;
     type: "newt" | "wireguard" | "local";
     newtVersion?: string;
+    agent?: string;
+    agentVersion?: string;
     newtUpdateAvailable?: boolean;
     online?: boolean | null;
     address?: string;
@@ -370,9 +371,9 @@ export default function SitesTable({
             },
             {
                 accessorKey: "type",
-                friendlyName: t("type"),
+                friendlyName: t("agent"),
                 header: () => {
-                    return <span className="p-3">{t("type")}</span>;
+                    return <span className="p-3">{t("agent")}</span>;
                 },
                 cell: ({ row }) => {
                     const originalRow = row.original;
@@ -385,15 +386,27 @@ export default function SitesTable({
                     );
 
                     if (originalRow.type === "newt") {
+                        if (!originalRow.agent && !originalRow.newtVersion) {
+                            // it has not checked in yet
+                            return <span>-</span>;
+                        }
+                        // agent and agentVersion were added after newtVersion, so a
+                        // site still running an older Newt reports only newtVersion.
+                        // Without these fallbacks the badge renders with no label and
+                        // no version at all.
+                        const agentLabel =
+                            originalRow.agent == "cli"
+                                ? "Pangolin CLI"
+                                : "Newt";
+                        const agentVersion =
+                            originalRow.agentVersion ?? originalRow.newtVersion;
                         return (
                             <div className="flex items-center space-x-1">
                                 <Badge variant="secondary">
                                     <div className="flex items-center space-x-1">
-                                        <span>Newt</span>
-                                        {originalRow.newtVersion && (
-                                            <span>
-                                                v{originalRow.newtVersion}
-                                            </span>
+                                        <span>{agentLabel}</span>
+                                        {agentVersion && (
+                                            <span>v{agentVersion}</span>
                                         )}
                                     </div>
                                 </Badge>
@@ -470,7 +483,8 @@ export default function SitesTable({
                             "saturn",
                             "uranus",
                             "neptune",
-                            "pluto"
+                            "pluto",
+                            "erid"
                         ].includes(originalRow.exitNodeName.toLowerCase());
 
                     if (isCloudNode) {

@@ -9,6 +9,7 @@ import type {
 } from "@server/routers/launcher/types";
 import { LAUNCHER_FLAT_GROUP_KEY } from "@server/routers/launcher/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import LoadingDots from "@app/components/LoadingDots";
 import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { LauncherEmptyState } from "./LauncherEmptyState";
@@ -81,8 +82,8 @@ export function LauncherFlatResourceList({
     if (resources.length === 0) {
         if (isFetching) {
             return (
-                <div className="flex items-center justify-center py-16 text-muted-foreground">
-                    <Loader2 className="size-6 animate-spin" />
+                <div className="flex items-center justify-center py-16">
+                    <LoadingDots size="sm" />
                 </div>
             );
         }

@@ -196,8 +196,7 @@ export default function Page() {
     const { data: latestVersions } = useQuery(
         productUpdatesQueries.latestVersion(true)
     );
-    const newtVersion =
-        latestVersions?.data?.newt?.latestVersion ?? "latest";
+    const newtVersion = latestVersions?.data?.newt?.latestVersion ?? "latest";
 
     const [siteDefaults, setSiteDefaults] =
         useState<PickSiteDefaultsResponse | null>(null);
@@ -285,9 +284,10 @@ export default function Page() {
         }
 
         const res = await api
-            .put<
-                AxiosResponse<CreateSiteResponse>
-            >(`/org/${orgId}/site/`, payload)
+            .put<AxiosResponse<CreateSiteResponse>>(
+                `/org/${orgId}/site/`,
+                payload
+            )
             .catch((e) => {
                 toast({
                     variant: "destructive",
@@ -641,7 +641,6 @@ export default function Page() {
                                     id={newtId}
                                     secret={newtSecret}
                                     endpoint={env.app.dashboardUrl}
-                                    version={newtVersion}
                                 />
                             </>
                         )}

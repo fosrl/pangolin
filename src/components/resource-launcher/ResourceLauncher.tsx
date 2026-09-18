@@ -44,6 +44,7 @@ import {
     type LauncherGroup,
     type LauncherResource,
     type LauncherScaleInfo,
+    type LauncherSiteInfo,
     type LauncherViewConfig,
     type LauncherViewRecord,
     type ListLauncherResourcesResponse
@@ -584,6 +585,14 @@ export default function ResourceLauncher({
         }
     }, []);
 
+    const handleFilterBySite = useCallback(
+        (site: LauncherSiteInfo) => {
+            applyConfigPatch({ siteIds: [site.siteId] });
+            handlePanelOpenChange(false);
+        },
+        [applyConfigPatch, handlePanelOpenChange]
+    );
+
     const hasHandledAutoOpen = useRef(false);
 
     useEffect(() => {
@@ -795,6 +804,7 @@ export default function ResourceLauncher({
                 resource={selectedResource}
                 orgId={orgId}
                 isAdmin={isAdmin}
+                onFilterBySite={handleFilterBySite}
             />
 
             {activeSavedView ? (

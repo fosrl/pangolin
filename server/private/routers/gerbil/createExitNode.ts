@@ -12,8 +12,8 @@
  */
 
 import { db, ExitNode, exitNodes } from "@server/db";
-import { getUniqueExitNodeEndpointName } from "@server/db/names";
 import config from "@server/lib/config";
+import privateConfig from "#private/lib/config";
 import { getNextAvailableSubnet } from "@server/lib/exitNodes";
 import logger from "@server/logger";
 import { eq } from "drizzle-orm";
@@ -45,6 +45,8 @@ export async function createExitNode(
                 .values({
                     publicKey,
                     endpoint: config.getRawConfig().gerbil.base_endpoint,
+                    region:
+                        privateConfig.getRawPrivateConfig().app.region || null,
                     address,
                     listenPort,
                     online: true,

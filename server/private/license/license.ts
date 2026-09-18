@@ -14,7 +14,7 @@
 import { db, HostMeta, sites, users } from "@server/db";
 import { hostMeta, licenseKey } from "@server/db";
 import logger from "@server/logger";
-import NodeCache from "node-cache";
+import { createLocalCache } from "@server/lib/createLocalCache";
 import { validateJWT } from "./licenseJwt";
 import { count, eq } from "drizzle-orm";
 import moment from "moment";
@@ -26,6 +26,7 @@ import {
     LicenseStatus
 } from "@server/license/license";
 import { setHostMeta } from "@server/lib/hostMeta";
+import { build } from "@server/build";
 
 type ActivateLicenseKeyAPIResponse = {
     data: {
@@ -65,8 +66,8 @@ export class License {
     private validationServerUrl = `${this.serverBaseUrl}/api/v1/license/enterprise/validate`;
     private activationServerUrl = `${this.serverBaseUrl}/api/v1/license/enterprise/activate`;
 
-    private statusCache = new NodeCache();
-    private licenseKeyCache = new NodeCache();
+    private statusCache = createLocalCache();
+    private licenseKeyCache = createLocalCache();
 
     private statusKey = "status";
     private serverSecret!: string;
@@ -119,11 +120,28 @@ LQIDAQAB
     }
 
     public async isUnlocked(): Promise<boolean> {
+        if (build == "saas") {
+            return true;
+        }
         const status = await this.check();
         if (status.isHostLicensed) {
             if (status.isLicenseValid) {
                 return true;
             }
+        }
+        return false;
+    }
+
+    public async hasTier(tier: LicenseKeyTier[]): Promise<boolean> {
+        if (build == "saas") {
+            return true;
+        }
+        const status = await this.check();
+        if (status.isHostLicensed && status.isLicenseValid) {
+            return (
+                status.tier !== undefined &&
+                tier.includes(status.tier as LicenseKeyTier)
+            );
         }
         return false;
     }
@@ -135,8 +153,7 @@ LQIDAQAB
                 "License check already in progress, returning last known status"
             );
             const lastStatus = this.statusCache.get(this.statusKey) as
-                | LicenseStatus
-                | undefined;
+                LicenseStatus | undefined;
             if (lastStatus) {
                 return lastStatus;
             }
@@ -179,7 +196,7 @@ LQIDAQAB
                 status.isHostLicensed = false;
                 // Invalidate all and set new cache (empty)
                 this.licenseKeyCache.flushAll();
-                this.statusCache.set(this.statusKey, status);
+                this.statusCache.set(this.statusKey, status, 0);
                 return status;
             }
 
@@ -389,7 +406,7 @@ LQIDAQAB
             // Invalidate old cache and set new cache
             this.licenseKeyCache.flushAll();
             for (const [key, value] of newCache.entries()) {
-                this.licenseKeyCache.set<LicenseKeyCache>(key, value);
+                this.licenseKeyCache.set(key, value, 0);
             }
         } catch (error) {
             logger.error("Error checking license status:");
@@ -398,7 +415,7 @@ LQIDAQAB
             this.checkInProgress = false;
         }
 
-        this.statusCache.set(this.statusKey, status);
+        this.statusCache.set(this.statusKey, status, 0);
         return status;
     }
 

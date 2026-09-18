@@ -100,9 +100,16 @@ export function LicenseKeysDataTable({
             },
             cell: ({ row }) => {
                 const tier = row.original.tier;
-                return tier === "enterprise"
-                    ? t("licenseTierEnterprise")
-                    : t("licenseTierPersonal");
+                switch (tier) {
+                    case "enterprise":
+                        return t("licenseTierEnterprise");
+                    case "tier1":
+                        return t("licenseTierTier1");
+                    case "tier2":
+                        return t("licenseTierTier2");
+                    default:
+                        return t("licenseTierPersonal");
+                }
             }
         },
         {

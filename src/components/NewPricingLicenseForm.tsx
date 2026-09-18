@@ -40,8 +40,8 @@ import { InfoIcon } from "lucide-react";
 import { useUserContext } from "@app/hooks/useUserContext";
 
 const TIER_TO_LICENSE_ID = {
-    starter: "small_license",
-    scale: "big_license"
+    starter: "tier1",
+    scale: "tier2"
 } as const;
 
 type FormProps = {
@@ -330,7 +330,7 @@ export default function NewPricingLicenseForm({
                                             cols={2}
                                         />
                                         <a
-                                            href="https://pangolin.net/pricing"
+                                            href="https://pangolin.net/pricing#Self-Hosted"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-sm text-primary hover:underline"

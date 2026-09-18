@@ -347,6 +347,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
                 `[handleOlmRegisterMessage] No available subnets found for exit node id ${exitNodeId} and client id ${client.clientId}`,
                 { orgId: client.orgId, clientId: client.clientId }
             );
+            sendOlmError(OlmErrorCodes.NO_AVAILABLE_SUBNET, olm.olmId);
             return;
         }
 

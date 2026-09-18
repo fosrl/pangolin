@@ -1,6 +1,8 @@
 "use client";
 
 import { AiClientConfigSection } from "@app/components/ai-client-config/AiClientConfigSection";
+import { AiConfigBlocks } from "@app/components/ai-client-config/AiConfigBlocks";
+import CopyTextBox from "@app/components/CopyTextBox";
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import {
     InfoSection,
@@ -28,7 +30,23 @@ import {
 } from "@app/components/SidePanel";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { Button } from "@app/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@app/components/ui/dropdown-menu";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@app/components/ui/table";
 import { useMyVirtualApiKeySecret } from "@app/hooks/useMyVirtualApiKeySecret";
+import type { AiConfigBlock } from "@app/lib/aiClientConfig";
+import { cn } from "@app/lib/cn";
 import {
     derivePublicAuthState,
     formatPublicResourceType
@@ -36,7 +54,10 @@ import {
 import { getLauncherResourceAdminHref } from "@app/lib/launcherResourceAdminHref";
 import { isSafeUrlForLink } from "@app/lib/launcherResourceAccess";
 import { launcherQueries } from "@app/lib/queries";
-import type { LauncherResource } from "@server/routers/launcher/types";
+import type {
+    LauncherResource,
+    LauncherSiteInfo
+} from "@server/routers/launcher/types";
 import type { GetResourceAuthInfoResponse } from "@server/routers/resource/getResourceAuthInfo";
 import type { GetResourceResponse } from "@server/routers/resource/getResource";
 import type { GetSiteResourceResponse } from "@server/routers/siteResource/getSiteResource";
@@ -44,15 +65,18 @@ import { useQuery } from "@tanstack/react-query";
 import {
     AlertCircle,
     CheckCircle2,
+    ChevronsUpDown,
     Clock,
     ExternalLink,
     Loader2,
+    MoreHorizontal,
     ShieldCheck,
     ShieldOff,
     XCircle
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useState } from "react";
 
 type LauncherResourcePanelProps = {
     open: boolean;
@@ -60,6 +84,7 @@ type LauncherResourcePanelProps = {
     resource: LauncherResource | null;
     orgId: string;
     isAdmin: boolean;
+    onFilterBySite: (site: LauncherSiteInfo) => void;
 };
 
 type LauncherResourceDetailResult =
@@ -153,6 +178,249 @@ function HealthStatusDisplay({
 const PUBLIC_AUTH_METHODS_MODES = ["http", "ssh", "rdp", "vnc"];
 const PUBLIC_AUTH_BADGE_MODES = [...PUBLIC_AUTH_METHODS_MODES, "inference"];
 
+type SitesSortKey = "name" | "status";
+type SitesSortOrder = "asc" | "desc";
+
+function siteStatusSortValue(site: LauncherSiteInfo): number {
+    if (site.type !== "newt" && site.type !== "wireguard") {
+        return -1;
+    }
+    if (typeof site.online !== "boolean") {
+        return -1;
+    }
+    return site.online ? 1 : 0;
+}
+
+function SiteStatusCell({ site }: { site: LauncherSiteInfo }) {
+    const t = useTranslations();
+
+    if (site.type !== "newt" && site.type !== "wireguard") {
+        return <span>-</span>;
+    }
+
+    if (typeof site.online !== "boolean") {
+        return <span>-</span>;
+    }
+
+    return (
+        <span className="flex items-center gap-2">
+            <span
+                className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    site.online ? "bg-green-500" : "bg-neutral-500"
+                )}
+            />
+            <span>{site.online ? t("online") : t("offline")}</span>
+        </span>
+    );
+}
+
+function LauncherResourceSitesSection({
+    orgId,
+    sites,
+    isAdmin,
+    onFilterBySite
+}: {
+    orgId: string;
+    sites: LauncherSiteInfo[];
+    isAdmin: boolean;
+    onFilterBySite: (site: LauncherSiteInfo) => void;
+}) {
+    const t = useTranslations();
+    const [sortKey, setSortKey] = useState<SitesSortKey>("name");
+    const [sortOrder, setSortOrder] = useState<SitesSortOrder>("asc");
+
+    if (sites.length === 0) {
+        return null;
+    }
+
+    function toggleSort(key: SitesSortKey) {
+        if (sortKey === key) {
+            setSortOrder((order) => (order === "asc" ? "desc" : "asc"));
+            return;
+        }
+        setSortKey(key);
+        setSortOrder("asc");
+    }
+
+    const sortedSites = [...sites].sort((a, b) => {
+        const cmp =
+            sortKey === "name"
+                ? a.name.localeCompare(b.name, undefined, {
+                      sensitivity: "base"
+                  })
+                : siteStatusSortValue(a) - siteStatusSortValue(b);
+        return sortOrder === "desc" ? -cmp : cmp;
+    });
+
+    return (
+        <SettingsSection>
+            <SettingsSectionHeader>
+                <SettingsSectionTitle>{t("sites")}</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                    {t("resourceLauncherSitesDescription")}
+                </SettingsSectionDescription>
+            </SettingsSectionHeader>
+            <SettingsSectionBody>
+                <div className="min-w-0 overflow-x-auto overflow-y-hidden">
+                    <Table sticky>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="whitespace-nowrap">
+                                    <Button
+                                        variant="ghost"
+                                        className="h-8 px-3"
+                                        onClick={() => toggleSort("name")}
+                                    >
+                                        {t("name")}
+                                        <ChevronsUpDown className="ml-2 size-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead className="whitespace-nowrap">
+                                    <Button
+                                        variant="ghost"
+                                        className="h-8 px-3"
+                                        onClick={() => toggleSort("status")}
+                                    >
+                                        {t("status")}
+                                        <ChevronsUpDown className="ml-2 size-4" />
+                                    </Button>
+                                </TableHead>
+                                <TableHead
+                                    className={cn(
+                                        "whitespace-nowrap text-right",
+                                        "sticky right-0 z-10 w-auto min-w-fit bg-card",
+                                        "[mask-image:linear-gradient(to_right,transparent_0%,black_20px)]"
+                                    )}
+                                >
+                                    <span className="sr-only">
+                                        {t("actions")}
+                                    </span>
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedSites.map((site) => (
+                                <TableRow key={site.siteId}>
+                                    <TableCell className="whitespace-nowrap">
+                                        {site.name}
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap">
+                                        <SiteStatusCell site={site} />
+                                    </TableCell>
+                                    <TableCell
+                                        className={cn(
+                                            "whitespace-nowrap text-right",
+                                            "sticky right-0 z-10 w-auto min-w-fit bg-card",
+                                            "[mask-image:linear-gradient(to_right,transparent_0%,black_20px)]"
+                                        )}
+                                    >
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <span className="sr-only">
+                                                        {t("openMenu")}
+                                                    </span>
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {isAdmin ? (
+                                                    <DropdownMenuItem asChild>
+                                                        <Link
+                                                            href={`/${orgId}/settings/sites/${site.niceId}`}
+                                                        >
+                                                            {t(
+                                                                "resourceLauncherViewSiteAsAdmin"
+                                                            )}
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                ) : null}
+                                                <DropdownMenuItem
+                                                    onClick={() =>
+                                                        onFilterBySite(site)
+                                                    }
+                                                >
+                                                    {t(
+                                                        "resourceLauncherFilterBySite"
+                                                    )}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </SettingsSectionBody>
+        </SettingsSection>
+    );
+}
+
+function LauncherPrivateSshCommandSection({
+    alias,
+    niceId,
+    pamMode
+}: {
+    alias?: string | null;
+    niceId: string;
+    pamMode?: string | null;
+}) {
+    const t = useTranslations();
+    const trimmedAlias = alias?.trim() || null;
+    const hasDistinctAlias = Boolean(trimmedAlias && trimmedAlias !== niceId);
+    const useUserPrefix = pamMode !== "push";
+
+    function formatSshTarget(target: string) {
+        return useUserPrefix ? `user@${target}` : target;
+    }
+
+    const blocks: AiConfigBlock[] = hasDistinctAlias
+        ? [
+              {
+                  id: "alias",
+                  label: t("editInternalResourceDialogAlias"),
+                  displayText: `pangolin ssh ${formatSshTarget(trimmedAlias!)}`
+              },
+              {
+                  id: "niceId",
+                  label: t("identifier"),
+                  displayText: `pangolin ssh ${formatSshTarget(niceId)}`
+              }
+          ]
+        : [
+              {
+                  id: "niceId",
+                  label: t("identifier"),
+                  displayText: `pangolin ssh ${formatSshTarget(niceId)}`
+              }
+          ];
+
+    return (
+        <SettingsSection>
+            <SettingsSectionHeader>
+                <SettingsSectionTitle>
+                    {t("resourceLauncherSshCommand")}
+                </SettingsSectionTitle>
+                <SettingsSectionDescription>
+                    {t("resourceLauncherSshCommandDescription")}
+                </SettingsSectionDescription>
+            </SettingsSectionHeader>
+            <SettingsSectionBody>
+                {hasDistinctAlias ? (
+                    <AiConfigBlocks blocks={blocks} relation="options" />
+                ) : (
+                    <CopyTextBox text={blocks[0].displayText} />
+                )}
+            </SettingsSectionBody>
+        </SettingsSection>
+    );
+}
+
 function AuthMethodStatusDisplay({ enabled }: { enabled: boolean }) {
     const t = useTranslations();
 
@@ -235,12 +503,16 @@ function PublicResourceDetails({
     orgId,
     launcherResource,
     resource,
-    authInfo
+    authInfo,
+    isAdmin,
+    onFilterBySite
 }: {
     orgId: string;
     launcherResource: LauncherResource;
     resource: GetResourceResponse;
     authInfo: GetResourceAuthInfoResponse;
+    isAdmin: boolean;
+    onFilterBySite: (site: LauncherSiteInfo) => void;
 }) {
     const t = useTranslations();
     const mode = resource.mode || "";
@@ -328,6 +600,12 @@ function PublicResourceDetails({
                     </InfoSections>
                 </SettingsSectionBody>
             </SettingsSection>
+            <LauncherResourceSitesSection
+                orgId={orgId}
+                sites={launcherResource.sites ?? []}
+                isAdmin={isAdmin}
+                onFilterBySite={onFilterBySite}
+            />
             {showAuthMethods ? (
                 <PublicResourceAuthMethods authInfo={authInfo} />
             ) : null}
@@ -363,14 +641,19 @@ function PublicResourceDetails({
 function PrivateResourceDetails({
     orgId,
     launcherResource,
-    resource
+    resource,
+    isAdmin,
+    onFilterBySite
 }: {
     orgId: string;
     launcherResource: LauncherResource;
     resource: GetSiteResourceResponse;
+    isAdmin: boolean;
+    onFilterBySite: (site: LauncherSiteInfo) => void;
 }) {
     const t = useTranslations();
     const isInference = resource.mode === "inference";
+    const isSsh = resource.mode === "ssh";
 
     return (
         <div className="space-y-4">
@@ -417,6 +700,19 @@ function PrivateResourceDetails({
                     />
                 </SettingsSectionBody>
             </SettingsSection>
+            <LauncherResourceSitesSection
+                orgId={orgId}
+                sites={launcherResource.sites ?? []}
+                isAdmin={isAdmin}
+                onFilterBySite={onFilterBySite}
+            />
+            {isSsh ? (
+                <LauncherPrivateSshCommandSection
+                    alias={resource.alias}
+                    niceId={resource.niceId}
+                    pamMode={resource.pamMode}
+                />
+            ) : null}
             {isInference ? (
                 <>
                     <LauncherInferenceModelsSection
@@ -440,11 +736,15 @@ function PrivateResourceDetails({
 function LauncherResourcePanelBody({
     orgId,
     resource,
-    open
+    open,
+    isAdmin,
+    onFilterBySite
 }: {
     orgId: string;
     resource: LauncherResource;
     open: boolean;
+    isAdmin: boolean;
+    onFilterBySite: (site: LauncherSiteInfo) => void;
 }) {
     const t = useTranslations();
     const { data, isPending, isError } = useQuery({
@@ -477,6 +777,8 @@ function LauncherResourcePanelBody({
                 launcherResource={resource}
                 resource={detail.data}
                 authInfo={detail.authInfo}
+                isAdmin={isAdmin}
+                onFilterBySite={onFilterBySite}
             />
         );
     }
@@ -486,6 +788,8 @@ function LauncherResourcePanelBody({
             orgId={orgId}
             launcherResource={resource}
             resource={detail.data}
+            isAdmin={isAdmin}
+            onFilterBySite={onFilterBySite}
         />
     );
 }
@@ -495,7 +799,8 @@ export function LauncherResourcePanel({
     onOpenChange,
     resource,
     orgId,
-    isAdmin
+    isAdmin,
+    onFilterBySite
 }: LauncherResourcePanelProps) {
     const t = useTranslations();
 
@@ -511,6 +816,8 @@ export function LauncherResourcePanel({
                             orgId={orgId}
                             resource={resource}
                             open={open}
+                            isAdmin={isAdmin}
+                            onFilterBySite={onFilterBySite}
                         />
                     ) : null}
                 </SidePanelBody>

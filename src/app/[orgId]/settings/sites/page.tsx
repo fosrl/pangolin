@@ -70,6 +70,8 @@ export default async function SitesPage(props: SitesPageProps) {
             type: site.type as any,
             online: site.online,
             newtVersion: site.newtVersion || undefined,
+            agent: site.agent || undefined,
+            agentVersion: site.agentVersion || undefined,
             newtUpdateAvailable: site.newtUpdateAvailable || false,
             exitNodeName: site.exitNodeName || undefined,
             exitNodeEndpoint: site.exitNodeEndpoint || undefined,

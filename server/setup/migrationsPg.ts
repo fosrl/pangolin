@@ -29,6 +29,7 @@ import m20 from "./scriptsPg/1.19.0";
 import m21 from "./scriptsPg/1.20.0";
 import m22 from "./scriptsPg/1.21.0";
 import m23 from "./scriptsPg/1.22.0";
+import m24 from "./scriptsPg/1.23.0";
 
 // THIS CANNOT IMPORT ANYTHING FROM THE SERVER
 // EXCEPT FOR THE DATABASE AND THE SCHEMA
@@ -57,7 +58,8 @@ const migrations = [
     { version: "1.19.0", run: m20 },
     { version: "1.20.0", run: m21 },
     { version: "1.21.0", run: m22 },
-    { version: "1.22.0", run: m23 }
+    { version: "1.22.0", run: m23 },
+    { version: "1.23.0", run: m24 }
     // Add new migrations here as they are created
 ] as {
     version: string;
@@ -65,6 +67,12 @@ const migrations = [
 }[];
 
 await run();
+
+// The pg Pool is created with allowExitOnIdle: false (see poolConfig.ts) so
+// its sockets keep the event loop alive even when idle. Without an explicit
+// exit here, this one-shot script would hang until the pool's
+// idleTimeoutMillis elapses before the process could terminate.
+process.exit(0);
 
 async function run() {
     // run the migrations

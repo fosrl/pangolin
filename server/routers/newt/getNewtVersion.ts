@@ -13,31 +13,40 @@ import logger from "@server/logger";
 import { regionalCache as cache } from "#dynamic/lib/cache";
 import config from "@server/lib/config";
 
-// Stale-while-revalidate in-memory fallback for the releases API.
 type ReleaseInfo = {
     version: string;
     // binary filename -> sha256 hex (sourced from asset `digest` field in GitHub API)
     assetDigests: Record<string, string>;
 };
-let staleReleaseInfo: ReleaseInfo | null = null;
+
+// Cache key holding the last known good release info. It never expires, so
+// it keeps serving if GitHub is unreachable, even across restarts/nodes.
+const RELEASE_INFO_KEY = "cache:releaseInfo";
+// Short-lived marker controlling how often we re-check GitHub. While it's
+// missing (expired, or a previous attempt failed) every request retries.
+const RELEASE_INFO_FRESH_KEY = "cache:releaseInfoFresh";
+const RELEASE_INFO_REFRESH_SECONDS = 3600;
 
 /**
  * Fetches the latest stable newt release from GitHub and returns the version
  * tag together with a map of asset-name → sha256 hex digest.
- * Results are cached for one hour; stale data is returned on failure.
+ * The last successful result is cached indefinitely and re-checked hourly;
+ * on failure the last known good data keeps being served and every
+ * subsequent request retries GitHub until it succeeds again.
  */
-async function getLatestReleaseInfo(): Promise<ReleaseInfo | null> {
-    try {
-        const cached = await cache.get<ReleaseInfo>("cache:newtReleaseInfo");
-        if (cached) {
-            return cached;
-        }
+async function getLatestReleaseInfo(repo: string): Promise<ReleaseInfo | null> {
+    const stored = await cache.get<ReleaseInfo>(`${RELEASE_INFO_KEY}:${repo}`);
+    const isFresh = await cache.has(`${RELEASE_INFO_FRESH_KEY}:${repo}`);
+    if (stored && isFresh) {
+        return stored;
+    }
 
+    try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         const fetchResponse = await fetch(
-            "https://api.github.com/repos/fosrl/newt/releases",
+            `https://api.github.com/repos/fosrl/${repo}/releases`,
             { signal: controller.signal }
         );
 
@@ -47,13 +56,13 @@ async function getLatestReleaseInfo(): Promise<ReleaseInfo | null> {
             logger.warn(
                 `Failed to fetch Newt releases from GitHub: ${fetchResponse.status} ${fetchResponse.statusText}`
             );
-            return staleReleaseInfo;
+            return stored ?? null;
         }
 
         let releases: any[] = await fetchResponse.json();
         if (!Array.isArray(releases) || releases.length === 0) {
-            logger.warn("No releases found for Newt repository");
-            return staleReleaseInfo;
+            logger.warn("No releases found for repository");
+            return stored ?? null;
         }
 
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -81,8 +90,8 @@ async function getLatestReleaseInfo(): Promise<ReleaseInfo | null> {
         });
 
         if (releases.length === 0) {
-            logger.warn("No stable releases found for Newt repository");
-            return staleReleaseInfo;
+            logger.warn("No stable releases found for repository");
+            return stored ?? null;
         }
 
         const latest = releases[0];
@@ -106,8 +115,12 @@ async function getLatestReleaseInfo(): Promise<ReleaseInfo | null> {
         }
 
         const info: ReleaseInfo = { version, assetDigests };
-        staleReleaseInfo = info;
-        await cache.set("cache:newtReleaseInfo", info, 3600);
+        await cache.set(RELEASE_INFO_KEY, info, 0);
+        await cache.set(
+            RELEASE_INFO_FRESH_KEY,
+            true,
+            RELEASE_INFO_REFRESH_SECONDS
+        );
         return info;
     } catch (error: any) {
         if (error.name === "AbortError") {
@@ -118,14 +131,15 @@ async function getLatestReleaseInfo(): Promise<ReleaseInfo | null> {
                 error.message || error
             );
         }
-        return staleReleaseInfo;
+        return stored ?? null;
     }
 }
 
 const bodySchema = z.object({
     newtId: z.string(),
     secret: z.string(),
-    platform: z.string() // e.g. "linux_amd64", "darwin_arm64"
+    platform: z.string(), // e.g. "linux_amd64", "darwin_arm64"
+    agent: z.string().optional().default("newt")
 });
 
 export type GetNewtVersionBody = z.infer<typeof bodySchema>;
@@ -153,7 +167,7 @@ export async function getNewtVersion(
         );
     }
 
-    const { newtId, secret, platform } = parsedBody.data;
+    const { newtId, secret, platform, agent } = parsedBody.data;
 
     try {
         // Verify newt credentials
@@ -258,9 +272,13 @@ export async function getNewtVersion(
         }
 
         // Fetch latest release info (version + asset digests) in one API call.
-        const releaseInfo = await getLatestReleaseInfo();
+        const releaseInfoNewt = await getLatestReleaseInfo("newt");
+        let releaseInfoCli: ReleaseInfo | undefined | null;
+        if (agent == "cli") {
+            releaseInfoCli = await getLatestReleaseInfo("cli");
+        }
 
-        if (!releaseInfo) {
+        if (!releaseInfoNewt || (agent == "cli" && !releaseInfoCli)) {
             return next(
                 createHttpError(
                     HttpCode.INTERNAL_SERVER_ERROR,
@@ -269,18 +287,25 @@ export async function getNewtVersion(
             );
         }
 
-        const latestVersion = releaseInfo.version;
+        const latestVersion = releaseInfoNewt.version;
 
         // Binary name follows the get-newt.sh convention: newt_<platform>[.exe]
-        const binaryName = platform.includes("windows")
+        const binaryNameNewt = platform.includes("windows")
             ? `newt_${platform}.exe`
             : `newt_${platform}`;
 
-        const downloadUrl = `https://github.com/fosrl/newt/releases/download/${latestVersion}/${binaryName}`;
+        const binaryNameCli = platform.includes("windows")
+            ? `pangolin-cli_${platform}.exe`
+            : `pangolin-cli_${platform}`;
+
+        const downloadUrl = `https://github.com/fosrl/${agent}/releases/download/${agent == "cli" ? releaseInfoCli?.version : releaseInfoNewt.version}/${agent == "cli" ? binaryNameCli : binaryNameNewt}`;
 
         // Look up the SHA256 digest for this specific binary from the GitHub
         // release asset metadata (the `digest` field, format "sha256:<hex>").
-        const sha256 = releaseInfo.assetDigests[binaryName] ?? "";
+        const sha256 =
+            releaseInfoNewt.assetDigests[
+                agent == "cli" ? binaryNameCli : binaryNameNewt
+            ] ?? "";
 
         // Determine whether the newt that's asking is already up to date.
         // We store the current version on the newt row when it registers.
@@ -300,8 +325,8 @@ export async function getNewtVersion(
 
         return response<GetNewtVersionResponse>(res, {
             data: {
-                latestVersion,
-                currentIsLatest,
+                latestVersion, // this will always be the newt version
+                currentIsLatest, // this will always be based on the newt version
                 downloadUrl,
                 sha256
             },

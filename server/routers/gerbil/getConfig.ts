@@ -10,6 +10,7 @@ import config from "@server/lib/config";
 import { fromError } from "zod-validation-error";
 import { getAllowedIps } from "../target/helpers";
 import { createExitNode } from "#dynamic/routers/gerbil/createExitNode";
+import { markExitNodeCheckedIn } from "@server/lib/exitNodes";
 
 // Define Zod schema for request validation
 const getConfigSchema = z.object({
@@ -64,6 +65,8 @@ export async function getConfig(
                 )
             );
         }
+
+        markExitNodeCheckedIn(exitNode.exitNodeId);
 
         const configResponse = await generateGerbilConfig(exitNode);
 

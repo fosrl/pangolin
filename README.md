@@ -142,6 +142,7 @@ Give users a landing page to quickly find and open the resources they can access
 * Create reusable views for common access patterns
 
 <img src="public/screenshots/resource-launcher.png" alt="Resource Launcher" width="100%" />
+<img src="public/screenshots/resource-launcher-expanded.png" alt="Resource Launcher Details Panel" width="100%" />
 
 ## Download Clients
 

@@ -1,0 +1,38 @@
+# To see all available options, please visit the docs:
+# https://docs.pangolin.net/
+
+gerbil:
+    start_port: 51820
+    base_endpoint: "<THIS_NODE_EXTERNAL_IP>"
+    exit_node_name: "node2"
+
+app:
+    dashboard_url: "https://pangolin.example.com"
+    log_level: "info"
+
+postgres:
+    connection_string: postgresql://<POSTGRES_USERNAME>:<POSTGRES_PASSWORD>@<POSTGRES_INTERNAL_HOST>:5432/postgres
+
+traefik:
+    site_types: ["newt"] # Wireguard and local sites are not support in clustering
+    file_mode: true # Pangolin will generate and save yaml files in a shared volume
+
+server:
+    secret: "<SECRET>"
+    cors:
+        origins: ["https://pangolin.example.com"]
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+        allowed_headers: ["X-CSRF-Token", "Content-Type"]
+        credentials: false
+    maxmind_db_path: "./config/GeoLite2-Country.mmdb" # Make sure to download and place into the config dir
+    maxmind_asn_path: "./config/GeoLite2-ASN.mmdb"
+
+flags:
+    require_email_verification: false
+    disable_signup_without_invite: true
+    disable_user_create_org: false
+    allow_raw_resources: false
+    enable_acme_cert_sync: false
+    disable_local_sites: true 
+    disable_basic_wireguard_sites: true
+    disable_config_managed_domains: true

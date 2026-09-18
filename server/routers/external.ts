@@ -88,6 +88,12 @@ authenticated.get("/org/checkId", org.checkId);
 authenticated.put("/org", getUserOrgs, org.createOrg);
 
 authenticated.get("/orgs", verifyUserIsServerAdmin, org.listOrgs);
+authenticated.get("/admin/orgs", verifyUserIsServerAdmin, org.adminListOrgs);
+authenticated.delete(
+    "/admin/org/:orgId",
+    verifyUserIsServerAdmin,
+    org.adminDeleteOrg
+);
 authenticated.get("/user/:userId/orgs", verifyIsLoggedInUser, org.listUserOrgs);
 
 authenticated.get(
@@ -1377,6 +1383,12 @@ if (build !== "saas") {
         "/user/:userId/generate-password-reset-code",
         verifyUserIsServerAdmin,
         user.adminGeneratePasswordResetCode
+    );
+
+    authenticated.post(
+        "/user/:userId/server-admin",
+        verifyUserIsServerAdmin,
+        user.adminSetServerAdmin
     );
 
     authenticated.delete(
