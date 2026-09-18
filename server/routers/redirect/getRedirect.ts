@@ -24,6 +24,7 @@ export type GetRedirectResponse = {
         rewritePathType: "exact" | "prefix" | "regex" | "stripPrefix" | null;
         priority: number | null;
         permanent: boolean;
+        ssl: boolean;
         enabled: boolean;
         resourceId: number | null;
         resourceName: string | null;
@@ -49,6 +50,7 @@ const redirectColumns = {
     rewritePathType: redirects.rewritePathType,
     priority: redirects.priority,
     permanent: redirects.permanent,
+    ssl: redirects.ssl,
     enabled: redirects.enabled,
     resourceId: redirects.resourceId,
     resourceName: resources.name,

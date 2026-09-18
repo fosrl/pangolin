@@ -256,6 +256,9 @@ export const redirects = pgTable("redirects", {
     >(), // exact, prefix, regex, stripPrefix
     priority: integer("priority").default(100),
     permanent: boolean("permanent").notNull().default(false),
+    // Only consulted for domain-attached redirects; resource-attached ones
+    // inherit the resource's ssl setting.
+    ssl: boolean("ssl").notNull().default(true),
     enabled: boolean("enabled").notNull().default(true)
 });
 

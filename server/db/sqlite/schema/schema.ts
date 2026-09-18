@@ -274,6 +274,9 @@ export const redirects = sqliteTable("redirects", {
     permanent: integer("permanent", { mode: "boolean" })
         .notNull()
         .default(false),
+    // Only consulted for domain-attached redirects; resource-attached ones
+    // inherit the resource's ssl setting.
+    ssl: integer("ssl", { mode: "boolean" }).notNull().default(true),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true)
 });
 

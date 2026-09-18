@@ -2,6 +2,7 @@ import {
     db,
     domains,
     exitNodes,
+    redirects,
     resources,
     siteNetworks,
     siteResources,
@@ -45,6 +46,7 @@ import {
     buildTcpUdpLoadBalancerServers
 } from "./loadBalancer";
 import { applyPathRewriteMiddleware } from "./middleware";
+import { buildRedirectConfig, RedirectRouteRow } from "./redirect";
 import { appendPathMatch, buildHostRule, computeRoutePriority } from "./rule";
 import { buildSiteResourceAliasCertPlaceholders } from "./siteResourceAlias";
 import { TargetWithSite } from "./types";
@@ -326,12 +328,87 @@ export async function getTraefikConfig(
             )
         );
 
+    // Redirects have no targets/sites, so like inference resources they are
+    // queried separately and emitted on every exit node. A redirect listens
+    // either on a resource's fullDomain or on subdomain.baseDomain of a
+    // domain; the domain join resolves to whichever one applies.
+    const redirectRows = await db
+        .select({
+            name: redirects.name,
+            enabled: redirects.enabled,
+            redirectId: redirects.redirectId,
+            subdomain: redirects.subdomain,
+            matchPath: redirects.matchPath,
+            pathMatchType: redirects.pathMatchType,
+            priority: redirects.priority,
+            ssl: redirects.ssl,
+            // Resource (when attached to one)
+            resourceId: resources.resourceId,
+            resourceFullDomain: resources.fullDomain,
+            resourceSubdomain: resources.subdomain,
+            resourceSsl: resources.ssl,
+            resourceWildcard: resources.wildcard,
+            // Domain (the redirect's own, or the resource's)
+            baseDomain: domains.baseDomain,
+            domainCertResolver: domains.certResolver,
+            preferWildcardCert: domains.preferWildcardCert
+        })
+        .from(redirects)
+        .leftJoin(resources, eq(resources.resourceId, redirects.resourceId))
+        .leftJoin(
+            domains,
+            eq(
+                domains.domainId,
+                sql`coalesce(${redirects.domainId}, ${resources.domainId})`
+            )
+        )
+        .where(
+            and(
+                eq(redirects.enabled, true),
+                or(isNull(redirects.resourceId), eq(resources.enabled, true))
+            )
+        )
+        .orderBy(desc(redirects.priority), redirects.redirectId); // stable ordering
+
+    const redirectRoutes: RedirectRouteRow[] = [];
+    for (const row of redirectRows) {
+        const attachedToResource = row.resourceId !== null;
+        const fullDomain = attachedToResource
+            ? row.resourceFullDomain
+            : [row.subdomain, row.baseDomain].filter(Boolean).join(".");
+        if (!fullDomain) {
+            logger.debug(
+                `Redirect ${row.redirectId} has no host to listen on, skipping Traefik config`
+            );
+            continue;
+        }
+
+        redirectRoutes.push({
+            enabled: row.enabled,
+            name: sanitize(row.name) || "",
+            redirectId: row.redirectId,
+            fullDomain,
+            hasSubdomain: attachedToResource
+                ? !!row.resourceSubdomain
+                : !!row.subdomain,
+            wildcard: row.resourceWildcard,
+            ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
+            attachedTo: attachedToResource ? "resource" : "domain",
+            matchPath: row.matchPath,
+            pathMatchType: row.pathMatchType,
+            priority: row.priority,
+            domainCertResolver: row.domainCertResolver,
+            preferWildcardCert: row.preferWildcardCert
+        });
+    }
+
     // make sure we have at least one resource
     if (
         resourcesMap.size === 0 &&
         inferenceResources.length === 0 &&
         browserGatewayResourcesMap.size === 0 &&
-        siteResourcesWithFullDomain.length === 0
+        siteResourcesWithFullDomain.length === 0 &&
+        redirectRoutes.length === 0
     ) {
         return {};
     }
@@ -517,6 +594,21 @@ export async function getTraefikConfig(
             };
         }
     }
+
+    buildRedirectConfig({
+        config_output,
+        redirects: redirectRoutes,
+        badgerMiddlewareName,
+        redirectHttpsMiddlewareName,
+        resolveTls: (redirect) =>
+            buildWildcardTls({
+                fullDomain: redirect.fullDomain,
+                hasSubdomain: redirect.hasSubdomain,
+                domainCertResolver: redirect.domainCertResolver,
+                preferWildcardCert:
+                    redirect.preferWildcardCert || redirect.wildcard
+            })
+    });
 
     if (browserGatewayUiUrl) {
         buildBrowserGatewayConfig({

@@ -42,6 +42,7 @@ import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { isValidDomain } from "@server/lib/validators";
 import { isValidRegex } from "@server/routers/redirect/validation";
+import { build } from "@server/build";
 import { cn } from "@app/lib/cn";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -139,6 +140,7 @@ export default function RedirectForm({
                         .min(1, { message: t("redirectPriorityInvalid") })
                         .max(1000, { message: t("redirectPriorityInvalid") }),
                     permanent: z.boolean(),
+                    ssl: z.boolean(),
                     enabled: z.boolean()
                 })
                 .superRefine((data, ctx) => {
@@ -201,6 +203,7 @@ export default function RedirectForm({
             rewritePathType: redirect?.rewritePathType ?? null,
             priority: redirect?.priority ?? DEFAULT_PRIORITY,
             permanent: redirect?.permanent ?? false,
+            ssl: redirect?.ssl ?? true,
             enabled: redirect?.enabled ?? true
         }
     });
@@ -257,6 +260,8 @@ export default function RedirectForm({
             rewritePathType: values.rewritePathType,
             priority: values.priority,
             permanent: values.permanent,
+            // Resource-attached redirects inherit the resource's ssl setting
+            ssl: values.attachTo === "domain" ? values.ssl : true,
             enabled: values.enabled
         };
 
@@ -579,6 +584,53 @@ export default function RedirectForm({
                                                         }
                                                     />
                                                 </FormItem>
+                                            </SettingsFormCell>
+                                        )}
+
+                                        {/* The cloud only serves HTTPS, so there is nothing to toggle there. */}
+                                        {build !== "saas" && (
+                                            <SettingsFormCell span="full">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="ssl"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormControl>
+                                                                <SwitchInput
+                                                                    id="redirect-ssl"
+                                                                    label={t(
+                                                                        "proxyEnableSSL"
+                                                                    )}
+                                                                    description={
+                                                                        attachTo ===
+                                                                        "resource"
+                                                                            ? t(
+                                                                                  "redirectSslInheritedDescription"
+                                                                              )
+                                                                            : t(
+                                                                                  "redirectSslDescription"
+                                                                              )
+                                                                    }
+                                                                    disabled={
+                                                                        attachTo ===
+                                                                        "resource"
+                                                                    }
+                                                                    checked={
+                                                                        attachTo ===
+                                                                        "resource"
+                                                                            ? (selectedResource?.ssl ??
+                                                                              true)
+                                                                            : field.value
+                                                                    }
+                                                                    onCheckedChange={
+                                                                        field.onChange
+                                                                    }
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
                                             </SettingsFormCell>
                                         )}
                                     </SettingsFormGrid>

@@ -17,7 +17,8 @@ import {
     redirectRewritePathSchema,
     redirectRewritePathTypeSchema,
     redirectPrioritySchema,
-    isValidMatchPath
+    isValidMatchPath,
+    isAllowedSsl
 } from "@server/routers/redirect/validation";
 import { createCertificate } from "../certificates";
 
@@ -43,6 +44,7 @@ const bodySchema = z.strictObject({
     rewritePathType: redirectRewritePathTypeSchema.optional().nullable(),
     priority: redirectPrioritySchema.optional(),
     permanent: z.boolean().optional(),
+    ssl: z.boolean().optional(),
     enabled: z.boolean().optional()
 });
 
@@ -225,6 +227,15 @@ export async function updateRedirect(
             );
         }
 
+        if (!isAllowedSsl(body.ssl)) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "TLS cannot be disabled on this build"
+                )
+            );
+        }
+
         const updateData: Partial<typeof redirects.$inferInsert> = {};
 
         if (body.name !== undefined) {
@@ -262,6 +273,13 @@ export async function updateRedirect(
         }
         if (body.permanent !== undefined) {
             updateData.permanent = body.permanent;
+        }
+        if (effectiveResourceId) {
+            // Resource-attached redirects follow the resource's ssl; reset
+            // the column so a later move back to a domain starts from TLS on.
+            updateData.ssl = true;
+        } else if (body.ssl !== undefined) {
+            updateData.ssl = body.ssl;
         }
         if (body.enabled !== undefined) {
             updateData.enabled = body.enabled;

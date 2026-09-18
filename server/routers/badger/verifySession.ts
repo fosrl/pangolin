@@ -1091,7 +1091,7 @@ function buildRedirectUrl(
 function redirected(res: Response, redirectUrl: string, permanent: boolean) {
     const data = {
         data: {
-            valid: false,
+            valid: true,
             redirectUrl,
             redirectPermanent: permanent,
             pangolinVersion: APP_VERSION

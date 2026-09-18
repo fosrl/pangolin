@@ -414,6 +414,7 @@ export async function getTraefikConfig(
             matchPath: redirects.matchPath,
             pathMatchType: redirects.pathMatchType,
             priority: redirects.priority,
+            ssl: redirects.ssl,
             // Resource (when attached to one)
             resourceId: resources.resourceId,
             resourceFullDomain: resources.fullDomain,
@@ -473,8 +474,7 @@ export async function getTraefikConfig(
                 ? !!row.resourceSubdomain
                 : !!row.subdomain,
             wildcard: row.resourceWildcard,
-            // Domain-attached redirects always get a certificate on creation
-            ssl: attachedToResource ? !!row.resourceSsl : true,
+            ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
             attachedTo: attachedToResource ? "resource" : "domain",
             matchPath: row.matchPath,
             pathMatchType: row.pathMatchType,
@@ -483,14 +483,6 @@ export async function getTraefikConfig(
             preferWildcardCert: row.preferWildcardCert
         });
     }
-
-    console.dir(
-        {
-            redirectRoutes,
-            redirectRows
-        },
-        { depth: null }
-    );
 
     // Pangolin-managed DNS-01/ACME cert mode requires either a tier1
     // license (self-hosted) or a saas build - otherwise fall back to

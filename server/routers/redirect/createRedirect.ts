@@ -15,6 +15,7 @@ import {
     redirectPathMatchTypeSchema,
     redirectRewritePathSchema,
     isValidMatchPath,
+    isAllowedSsl,
     redirectPrioritySchema,
     redirectRewritePathTypeSchema
 } from "@server/routers/redirect/validation";
@@ -42,6 +43,7 @@ const bodySchema = z
         rewritePathType: redirectRewritePathTypeSchema.optional().nullable(),
         priority: redirectPrioritySchema.optional().nullable(),
         permanent: z.boolean().optional(),
+        ssl: z.boolean().optional(),
         enabled: z.boolean().optional()
     })
     .refine(
@@ -64,6 +66,10 @@ const bodySchema = z
     .refine((data) => isValidMatchPath(data.matchPath, data.pathMatchType), {
         message: "matchPath must be a valid regular expression",
         path: ["matchPath"]
+    })
+    .refine((data) => isAllowedSsl(data.ssl), {
+        message: "TLS cannot be disabled on this build",
+        path: ["ssl"]
     });
 
 registry.registerPath({
@@ -127,6 +133,7 @@ export async function createRedirect(
             rewritePathType,
             priority,
             permanent,
+            ssl,
             enabled
         } = parsedBody.data;
 
@@ -200,6 +207,9 @@ export async function createRedirect(
                 rewritePathType: rewritePathType ?? null,
                 priority: priority ?? 100,
                 permanent: permanent ?? false,
+                // Resource-attached redirects follow the resource's ssl, so
+                // the column is only meaningful for domain-attached ones.
+                ssl: resource ? true : (ssl ?? true),
                 enabled: enabled ?? true
             })
             .returning();

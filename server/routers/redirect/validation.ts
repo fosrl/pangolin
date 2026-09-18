@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidDomain } from "@server/lib/validators";
+import { build } from "@server/build";
 
 export const redirectNiceIdSchema = z
     .string()
@@ -54,3 +55,12 @@ export const redirectDestinationDomainSchema = z
     .refine(isValidDomain, {
         message: "Invalid domain"
     });
+
+/**
+ * The cloud only serves HTTPS, so a domain-attached redirect may not opt out
+ * of TLS there. Resource-attached redirects inherit the resource's ssl
+ * setting and never carry their own.
+ */
+export function isAllowedSsl(ssl: boolean | undefined): boolean {
+    return build !== "saas" || ssl !== false;
+}

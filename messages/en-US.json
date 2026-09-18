@@ -4452,5 +4452,7 @@
     "redirectDomainRequired": "Select a domain to attach this redirect to",
     "redirectResourceRequired": "Select a resource to attach this redirect to",
     "redirectPermanent": "Permanent Redirect",
-    "redirectPermanentDescription": "Respond with 308 instead of 307. Permanent redirects are cached by browsers."
+    "redirectPermanentDescription": "Respond with 308 instead of 307. Permanent redirects are cached by browsers.",
+    "redirectSslDescription": "Serve this redirect over HTTPS. Turn off to match requests on plain HTTP.",
+    "redirectSslInheritedDescription": "Inherited from the attached resource's TLS setting."
 }
