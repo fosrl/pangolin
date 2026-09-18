@@ -1,4 +1,4 @@
-import { formatBackupTimestamp } from "./backupFileName";
+import { formatBackupFileName, formatBackupTimestamp } from "./backupFileName";
 import { assertEquals } from "@test/assert";
 
 // Local-time constructors are used throughout, matching formatBackupTimestamp,
@@ -29,7 +29,9 @@ function testMonthIsOneIndexed() {
     }
 
     {
-        const result = formatBackupTimestamp(new Date(2026, 11, 31, 23, 59, 59));
+        const result = formatBackupTimestamp(
+            new Date(2026, 11, 31, 23, 59, 59)
+        );
         assertEquals(
             result,
             "2026-12-31_23-59-59",
@@ -73,9 +75,7 @@ function testNamesSortChronologically() {
         new Date(2026, 11, 31, 23, 59, 59)
     ];
 
-    const sorted = taken
-        .map((date) => formatBackupTimestamp(date))
-        .sort();
+    const sorted = taken.map((date) => formatBackupTimestamp(date)).sort();
 
     assertEquals(
         sorted.join(","),
@@ -89,11 +89,48 @@ function testNamesSortChronologically() {
     );
 }
 
+function testFormatBackupFileName() {
+    console.log("Running backup file name formatting tests...");
+
+    const date = new Date(2026, 8, 12, 20, 35, 56);
+
+    // With semver version string without leading 'v'
+    assertEquals(
+        formatBackupFileName("1.22.0", date),
+        "db_2026-09-12_20-35-56_v1.22.0.sqlite",
+        "Filename must include timestamp and prefixed version tag"
+    );
+
+    // With version string already containing 'v'
+    assertEquals(
+        formatBackupFileName("v1.22.0", date),
+        "db_2026-09-12_20-35-56_v1.22.0.sqlite",
+        "Filename must not duplicate 'v' prefix if already present"
+    );
+
+    // Without version (fallback/default)
+    assertEquals(
+        formatBackupFileName(undefined, date),
+        "db_2026-09-12_20-35-56.sqlite",
+        "Filename without version must match default timestamped format"
+    );
+
+    // Distinct versions within the exact same second do not collide
+    const sameSecondFile1 = formatBackupFileName("1.21.0", date);
+    const sameSecondFile2 = formatBackupFileName("1.22.0", date);
+    if (sameSecondFile1 === sameSecondFile2) {
+        throw new Error(
+            "Backup file names for different versions in the same second must not collide"
+        );
+    }
+}
+
 // Run all tests
 try {
     testMonthIsOneIndexed();
     testEveryFieldIsZeroPadded();
     testNamesSortChronologically();
+    testFormatBackupFileName();
     console.log("All tests passed successfully!");
 } catch (error) {
     console.error("Test failed:", error);
