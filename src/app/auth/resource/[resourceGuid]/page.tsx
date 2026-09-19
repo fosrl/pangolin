@@ -283,7 +283,7 @@ export default async function ResourceAuthPage(props: {
         loginIdps = idpsRes.data.data.idps.map((idp) => ({
             idpId: idp.idpId,
             name: idp.name,
-            variant: idp.type
+            variant: idp.variant ?? idp.type
         })) as LoginFormIDP[];
     }
 
