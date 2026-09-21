@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "Всяко правило трябва да има уникален номер на приоритет.",
     "rulesErrorValidation": "Невалидни правила",
     "rulesErrorValidationRuleDescription": "Правило {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Изберете валиден тип съвпадение (път, IP, CIDR, държава, регион или ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "Въведете стойност за това правило.",
     "rulesErrorInvalidCountry": "Невалидна държава",
     "rulesErrorInvalidCountryDescription": "Изберете валидна държава.",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "Показване на лентата с инструменти",
     "sessionToolbarHide": "Скриване на лентата с инструменти",
     "actionUpdateSiteApprovals": "Обновяване на одобренията на сайта",
-    "check": "Проверка"
+    "check": "Проверка",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
