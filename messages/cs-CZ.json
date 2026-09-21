@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "Každé pravidlo musí mít unikátní číslo priority.",
     "rulesErrorValidation": "Neplatná pravidla",
     "rulesErrorValidationRuleDescription": "Pravidlo {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Vyberte platný typ shody (cesta, IP, CIDR, země, oblast nebo ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "Zadejte hodnotu pro toto pravidlo.",
     "rulesErrorInvalidCountry": "Neplatná země",
     "rulesErrorInvalidCountryDescription": "Vyberte platnou zemi.",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "Zobrazit panel nástrojů",
     "sessionToolbarHide": "Skrýt panel nástrojů",
     "actionUpdateSiteApprovals": "Aktualizovat schválení webu",
-    "check": "Zkontrolovat"
+    "check": "Zkontrolovat",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
