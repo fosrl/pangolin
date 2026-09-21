@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "Cada regla debe tener un número de prioridad único.",
     "rulesErrorValidation": "Reglas no válidas",
     "rulesErrorValidationRuleDescription": "Regla {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Selecciona un tipo de coincidencia válido (ruta, IP, CIDR, país, región o ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "Introduce un valor para esta regla.",
     "rulesErrorInvalidCountry": "País no válido",
     "rulesErrorInvalidCountryDescription": "Selecciona un país válido.",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "Mostrar barra de herramientas",
     "sessionToolbarHide": "Ocultar barra de herramientas",
     "actionUpdateSiteApprovals": "Actualizar aprobaciones del sitio",
-    "check": "Comprobar"
+    "check": "Comprobar",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
