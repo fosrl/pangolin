@@ -5,7 +5,7 @@ import path from "path";
 import semver from "semver";
 import { versionMigrations } from "../db/sqlite";
 import { __DIRNAME, APP_PATH, APP_VERSION } from "@server/lib/consts";
-import { formatBackupTimestamp } from "@server/lib/backupFileName";
+import { formatBackupFileName } from "@server/lib/backupFileName";
 import { SqliteError } from "better-sqlite3";
 import fs from "fs";
 import { build } from "@server/build";
@@ -109,7 +109,7 @@ async function run() {
     await runMigrations();
 }
 
-function backupDb() {
+function backupDb(version?: string) {
     // make dir config/db/backups
     const appPath = APP_PATH;
     const dbDir = path.join(appPath, "db");
@@ -122,11 +122,10 @@ function backupDb() {
     }
 
     // copy the db.sqlite file to backups
-    // add the date to the filename
-    const date = new Date();
-    const dateString = formatBackupTimestamp(date);
+    // add the date and migration version to the filename
+    const fileName = formatBackupFileName(version);
     const dbPath = path.join(dbDir, "db.sqlite");
-    const backupPath = path.join(backupsDir, `db_${dateString}.sqlite`);
+    const backupPath = path.join(backupsDir, fileName);
     fs.copyFileSync(dbPath, backupPath);
 }
 
@@ -165,6 +164,12 @@ export async function runMigrations() {
         }
     } catch (e) {
         console.error("Error running migrations:", e);
+        if (
+            process.env.NODE_ENV === "test" ||
+            process.env.ENVIRONMENT === "test"
+        ) {
+            throw e;
+        }
         await new Promise((resolve) =>
             setTimeout(resolve, 1000 * 60 * 60 * 24 * 1)
         );
@@ -199,7 +204,7 @@ async function executeScripts() {
             try {
                 if (!process.env.DISABLE_BACKUP_ON_MIGRATION) {
                     // Backup the database before running the migration
-                    backupDb();
+                    backupDb(migration.version);
                 }
 
                 await migration.run();
