@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "Her kuralın benzersiz bir öncelik numarası olmalıdır.",
     "rulesErrorValidation": "Geçersiz kurallar",
     "rulesErrorValidationRuleDescription": "Kural {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Geçerli bir eşleşme türünü seçin (yol, IP, CIDR, ülke, bölge veya ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "Bu kural için bir değer girin.",
     "rulesErrorInvalidCountry": "Geçersiz ülke",
     "rulesErrorInvalidCountryDescription": "Geçerli bir ülke seçin.",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "Araç çubuğunu göster",
     "sessionToolbarHide": "Araç çubuğunu gizle",
     "actionUpdateSiteApprovals": "Site Onaylarını Güncelle",
-    "check": "Kontrol Et"
+    "check": "Kontrol Et",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
