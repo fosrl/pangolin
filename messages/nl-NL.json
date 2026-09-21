@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "Elke regel moet een uniek prioriteitsnummer hebben.",
     "rulesErrorValidation": "Ongeldige regels",
     "rulesErrorValidationRuleDescription": "Regel {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Selecteer een geldig matchtype (pad, IP, CIDR, land, regio of ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "Voer een waarde in voor deze regel.",
     "rulesErrorInvalidCountry": "Ongeldig land",
     "rulesErrorInvalidCountryDescription": "Selecteer een geldig land.",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "Toon werkbalk",
     "sessionToolbarHide": "Verberg werkbalk",
     "actionUpdateSiteApprovals": "Sitegoedkeuringen bijwerken",
-    "check": "Controleren"
+    "check": "Controleren",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
