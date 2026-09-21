@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "每条规则必须拥有唯一的优先级号。",
     "rulesErrorValidation": "规则无效",
     "rulesErrorValidationRuleDescription": "规则 {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "选择有效的匹配类型（路径、IP、CIDR、国家、地区或 ASN）。",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "为此规则输入一个值。",
     "rulesErrorInvalidCountry": "国家无效",
     "rulesErrorInvalidCountryDescription": "选择一个有效的国家。",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "显示工具栏",
     "sessionToolbarHide": "隐藏工具栏",
     "actionUpdateSiteApprovals": "更新站点审批",
-    "check": "检查"
+    "check": "检查",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
