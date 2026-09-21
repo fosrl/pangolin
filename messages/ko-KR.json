@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "각 규칙은 고유한 우선순위 번호를 가져야 합니다.",
     "rulesErrorValidation": "유효하지 않은 규칙",
     "rulesErrorValidationRuleDescription": "규칙 {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "유효한 매칭 유형을 선택하세요 (경로, IP, CIDR, 국가, 지역, 또는 ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "이 규칙에 대한 값을 입력하세요.",
     "rulesErrorInvalidCountry": "유효하지 않은 국가",
     "rulesErrorInvalidCountryDescription": "유효한 국가를 선택하세요.",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "툴바 보기",
     "sessionToolbarHide": "툴바 숨기기",
     "actionUpdateSiteApprovals": "사이트 승인 업데이트",
-    "check": "확인"
+    "check": "확인",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
