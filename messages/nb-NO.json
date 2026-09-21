@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "Hver regel må ha et unikt prioritetstall.",
     "rulesErrorValidation": "Ugyldige regler",
     "rulesErrorValidationRuleDescription": "Regel {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Velg en gyldig samsvarstype (sti, IP, CIDR, land, region eller ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "Skriv inn en verdi for denne regelen.",
     "rulesErrorInvalidCountry": "Ugyldig land",
     "rulesErrorInvalidCountryDescription": "Velg et gyldig land.",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "Vis verktøylinje",
     "sessionToolbarHide": "Skjul verktøylinje",
     "actionUpdateSiteApprovals": "Oppdater Stedsgodkjenninger",
-    "check": "Sjekk"
+    "check": "Sjekk",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
