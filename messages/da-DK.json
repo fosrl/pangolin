@@ -834,7 +834,7 @@
     "rulesErrorDuplicatePriorityDescription": "Hver regel skal have et unikt prioritetstall.",
     "rulesErrorValidation": "Ugyldige regler",
     "rulesErrorValidationRuleDescription": "Regel {ruleNumber}: {message}",
-    "rulesErrorInvalidMatchTypeDescription": "Vælg en gyldig matchtype (sti, IP, CIDR, land, region eller ASN).",
+    "rulesErrorInvalidMatchTypeDescription": "Select a valid match type (path, IP, CIDR, country, region, ASN, or method).",
     "rulesErrorValueRequired": "Indtast en værdi for denne reglen.",
     "rulesErrorInvalidCountry": "Ugyldig land",
     "rulesErrorInvalidCountryDescription": "Vælg et gyldig land.",
@@ -4400,5 +4400,8 @@
     "sessionToolbarShow": "Vis værktøjslinje",
     "sessionToolbarHide": "Skjul værktøjslinje",
     "actionUpdateSiteApprovals": "Opdater godkendelser på site",
-    "check": "Tjek"
+    "check": "Tjek",
+    "rulesErrorInvalidMethod": "Invalid HTTP method",
+    "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
+    "rulesSelectMethods": "Select methods"
 }
