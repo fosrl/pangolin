@@ -227,7 +227,9 @@ export default function RedirectForm({
     // Mirror is UI-only state; on edit, infer it from whether the saved
     // destination already equals the source host.
     const [sameDomainAsSource, setSameDomainAsSource] = useState(
-        Boolean(redirect && sourceHost && redirect.destinationHost === sourceHost)
+        Boolean(
+            redirect && sourceHost && redirect.destinationHost === sourceHost
+        )
     );
 
     useEffect(() => {
@@ -280,7 +282,6 @@ export default function RedirectForm({
                     title: t("success"),
                     description: t("redirectUpdated")
                 });
-                router.refresh();
             } else {
                 const res = await api.put<
                     AxiosResponse<CreateRedirectResponse>
@@ -289,8 +290,8 @@ export default function RedirectForm({
                     title: t("success"),
                     description: t("redirectCreated")
                 });
-                router.push(`/${orgId}/settings/redirects/`);
             }
+            router.push(`/${orgId}/settings/redirects/`);
         } catch (e) {
             toast({
                 variant: "destructive",
