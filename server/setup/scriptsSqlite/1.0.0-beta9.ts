@@ -10,7 +10,6 @@ import {
     users
 } from "../../db/sqlite";
 import { APP_PATH, configFilePath1, configFilePath2 } from "@server/lib/consts";
-import { formatBackupTimestamp } from "@server/lib/backupFileName";
 import { eq, sql } from "drizzle-orm";
 import fs from "fs";
 import * as yaml from "js-yaml";
@@ -20,25 +19,6 @@ import { fromZodError } from "zod-validation-error";
 
 export default async function migration() {
     console.log("Running setup script 1.0.0-beta.9...");
-
-    // make dir config/db/backups
-    const appPath = APP_PATH;
-    const dbDir = path.join(appPath, "db");
-
-    const backupsDir = path.join(dbDir, "backups");
-
-    // check if the backups directory exists and create it if it doesn't
-    if (!fs.existsSync(backupsDir)) {
-        fs.mkdirSync(backupsDir, { recursive: true });
-    }
-
-    // copy the db.sqlite file to backups
-    // add the date to the filename
-    const date = new Date();
-    const dateString = formatBackupTimestamp(date);
-    const dbPath = path.join(dbDir, "db.sqlite");
-    const backupPath = path.join(backupsDir, `db_${dateString}.sqlite`);
-    fs.copyFileSync(dbPath, backupPath);
 
     await db.transaction(async (trx) => {
         try {

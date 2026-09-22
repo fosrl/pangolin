@@ -41,9 +41,10 @@ import {
 } from "@server/db";
 import config from "@server/lib/config";
 import { isIpInCidr, stripPortFromHost } from "@server/lib/ip";
-import { isPathAllowed } from "@server/lib/pathMatch";
+import { isPathAllowed, type isPathAllowed } from "@server/lib/pathMatch";
 import { matchesPath } from "@server/lib/traefik/rule";
 import { rewriteRequestPath } from "@server/lib/traefik/middleware";
+import { parseHttpMethodList } from "@server/lib/validators";
 import { response } from "@server/lib/response";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
@@ -171,6 +172,7 @@ export async function verifyResourceSession(
             path,
             headers,
             query,
+            method,
             badgerVersion
         } = parsedBody.data;
 
@@ -323,7 +325,8 @@ export async function verifyResourceSession(
                 clientIp,
                 path,
                 ipCC,
-                ipAsn
+                ipAsn,
+                method
             );
 
             if (action == "ACCEPT") {
@@ -1524,7 +1527,8 @@ async function checkRules(
     clientIp: string | undefined,
     path: string | undefined,
     ipCC?: string,
-    ipAsn?: number
+    ipAsn?: number,
+    method?: string
 ): Promise<"ACCEPT" | "DROP" | "PASS" | undefined> {
     const ruleCacheKey = `rules:${resourceId}`;
 
@@ -1599,10 +1603,22 @@ async function checkRules(
             (await isIpInRegion(ipCC, rule.value))
         ) {
             return rule.action as any;
+        } else if (
+            method &&
+            rule.match == "METHOD" &&
+            isMethodAllowed(rule.value, method)
+        ) {
+            return rule.action as any;
         }
     }
 
     return;
+}
+
+// rule.value holds a comma-separated list of HTTP methods, e.g. "POST,PUT".
+function isMethodAllowed(ruleValue: string, method: string): boolean {
+    const requestMethod = method.toUpperCase();
+    return parseHttpMethodList(ruleValue).includes(requestMethod);
 }
 
 export { isPathAllowed };

@@ -48,7 +48,13 @@ import { defaultRoleAllowedActions } from "@server/routers/role/createRole";
 import { pickPort } from "@server/routers/target/helpers";
 import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
 import { tierMatrix } from "../billing/tierMatrix";
-import { isValidCIDR, isValidIP, isValidUrlGlobPattern } from "../validators";
+import {
+    isValidCIDR,
+    isValidHttpMethodList,
+    isValidIP,
+    isValidUrlGlobPattern,
+    parseHttpMethodList
+} from "../validators";
 import { Config, isTargetsOnlyResource, TargetData } from "./types";
 import { getOrCreateLabelIds, syncResourceLabels } from "./labels";
 import { findOrgUsersByIdentifier } from "./findOrgUser";
@@ -255,10 +261,18 @@ export async function updatePublicResources(
             resourceData.ssl == undefined || resourceData.ssl == null
                 ? true
                 : resourceData.ssl;
-        let headers = "";
-        if (resourceData.headers) {
-            headers = JSON.stringify(resourceData.headers);
-        }
+        // `headers` is a deprecated alias for `requestHeaders`
+        const mergedRequestHeaders = [
+            ...(resourceData.headers ?? []),
+            ...(resourceData.requestHeaders ?? [])
+        ];
+        const requestHeaders =
+            mergedRequestHeaders.length > 0
+                ? JSON.stringify(mergedRequestHeaders)
+                : null;
+        const responseHeaders = resourceData.responseHeaders?.length
+            ? JSON.stringify(resourceData.responseHeaders)
+            : null;
 
         if (resourceData.policy) {
             const isLicensed = await isLicensedOrSubscribed(
@@ -397,7 +411,8 @@ export async function updatePublicResources(
                                 ? resourceData.auth["whitelist-users"].length >
                                   0
                                 : false,
-                            headers: headers || null,
+                            requestHeaders,
+                            responseHeaders,
                             applyRules:
                                 resourceData.rules &&
                                 resourceData.rules.length > 0,
@@ -593,7 +608,8 @@ export async function updatePublicResources(
                             setHostHeader: resourceData["host-header"] || null,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
-                            headers: headers || null,
+                            requestHeaders,
+                            responseHeaders,
                             maintenanceModeEnabled:
                                 resourceData.maintenance?.enabled,
                             maintenanceModeType: resourceData.maintenance?.type,
@@ -1216,7 +1232,8 @@ export async function updatePublicResources(
                     setHostHeader: resourceData["host-header"] || null,
                     tlsServerName: resourceData["tls-server-name"] || null,
                     ssl: resourceSsl,
-                    headers: headers || null,
+                    requestHeaders,
+                    responseHeaders,
                     applyRules:
                         resourceData.rules && resourceData.rules.length > 0,
                     pamMode: resourceData["auth-daemon"]?.pam || "passthrough",
@@ -1453,6 +1470,10 @@ function getRuleValue(match: string, value: string) {
     if (match === "COUNTRY" || match === "COUNTRY_IS_NOT") {
         return value.toUpperCase();
     }
+    // normalize the method list so it is stored as "POST,PUT"
+    if (match === "METHOD") {
+        return parseHttpMethodList(value).join(",");
+    }
     return value;
 }
 
@@ -1472,6 +1493,10 @@ function validateRule(rule: any) {
     } else if (rule.match === "region") {
         if (!isValidRegionId(rule.value)) {
             throw new Error(`Invalid region ID provided: ${rule.value}`);
+        }
+    } else if (rule.match === "method") {
+        if (!isValidHttpMethodList(rule.value)) {
+            throw new Error(`Invalid HTTP method provided: ${rule.value}`);
         }
     }
 }

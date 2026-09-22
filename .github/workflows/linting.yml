@@ -3,18 +3,25 @@ name: ESLint
 permissions:
   contents: read
 
+# Disabled from running on PRs: typescript-eslint does not yet support
+# TypeScript 7 (which this repo is on), so eslint currently crashes on
+# every run. Kept as workflow_dispatch so it can still be triggered
+# manually, and re-enabled on pull_request once upstream support lands.
+# https://github.com/typescript-eslint/typescript-eslint/issues/10940
+# on:
+#     pull_request:
+#         paths:
+#             - '**/*.js'
+#             - '**/*.jsx'
+#             - '**/*.ts'
+#             - '**/*.tsx'
+#             - '.eslintrc*'
+#             - 'package.json'
+#             - 'yarn.lock'
+#             - 'pnpm-lock.yaml'
+#             - 'package-lock.json'
 on:
-    pull_request:
-        paths:
-            - '**/*.js'
-            - '**/*.jsx'
-            - '**/*.ts'
-            - '**/*.tsx'
-            - '.eslintrc*'
-            - 'package.json'
-            - 'yarn.lock'
-            - 'pnpm-lock.yaml'
-            - 'package-lock.json'
+    workflow_dispatch:
 
 jobs:
     Linter:

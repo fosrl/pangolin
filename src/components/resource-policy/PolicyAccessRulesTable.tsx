@@ -37,6 +37,7 @@ import { cn } from "@app/lib/cn";
 import { MAJOR_ASNS } from "@server/db/asns";
 import { COUNTRIES } from "@server/db/countries";
 import { REGIONS, getRegionNameById } from "@server/db/regions";
+import { HTTP_METHODS, parseHttpMethodList } from "@server/lib/validators";
 import {
     ColumnDef,
     flexRender,
@@ -63,7 +64,8 @@ import {
 } from "react";
 import {
     validatePolicyRulePriority,
-    validatePolicyRuleValue
+    validatePolicyRuleValue,
+    type PolicyRuleMatchType
 } from "./policy-access-rule-validation";
 import {
     buildDisplayPrioritiesForResourceOverlay,
@@ -110,6 +112,80 @@ function getColumnClassName(columnId: string) {
         return "w-42 max-w-42";
     }
     return "";
+}
+
+// A METHOD rule stores its methods as a comma-separated list in rule.value,
+// e.g. "POST,PUT". Only the common methods are offered here; a value set
+// through a blueprint or the API may contain other methods (the WebDAV verbs,
+// for instance), so those are kept and shown rather than dropped on edit.
+function RuleMethodSelect({
+    value,
+    disabled,
+    placeholder,
+    onChange
+}: {
+    value: string;
+    disabled: boolean;
+    placeholder: string;
+    onChange: (value: string) => void;
+}) {
+    const selected = parseHttpMethodList(value);
+    const knownMethods: readonly string[] = HTTP_METHODS;
+    const options = [
+        ...knownMethods,
+        ...selected.filter((method) => !knownMethods.includes(method))
+    ];
+
+    function toggle(method: string) {
+        const next = selected.includes(method)
+            ? selected.filter((m) => m !== method)
+            : [...selected, method];
+
+        // keep a stable order so the stored value does not churn on every edit
+        onChange(options.filter((m) => next.includes(m)).join(","));
+    }
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    disabled={disabled}
+                    className="w-full min-w-0 justify-between"
+                >
+                    <span className="truncate">
+                        {selected.length > 0 ? selected.join(", ") : placeholder}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="min-w-50 p-0">
+                <Command>
+                    <CommandList>
+                        <CommandGroup>
+                            {options.map((method) => (
+                                <CommandItem
+                                    key={method}
+                                    value={method}
+                                    onSelect={() => toggle(method)}
+                                >
+                                    <Check
+                                        className={`mr-2 h-4 w-4 ${
+                                            selected.includes(method)
+                                                ? "opacity-100"
+                                                : "opacity-0"
+                                        }`}
+                                    />
+                                    {method}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
 }
 
 export function PolicyAccessRulesTable({
@@ -233,7 +309,8 @@ export function PolicyAccessRulesTable({
             COUNTRY: t("country"),
             COUNTRY_IS_NOT: t("countryIsNot"),
             ASN: "ASN",
-            REGION: t("region")
+            REGION: t("region"),
+            METHOD: t("method")
         }),
         [t]
     );
@@ -438,16 +515,7 @@ export function PolicyAccessRulesTable({
                     <Select
                         defaultValue={row.original.match}
                         disabled={readonly || isRuleLocked(row.original)}
-                        onValueChange={(
-                            value:
-                                | "CIDR"
-                                | "IP"
-                                | "PATH"
-                                | "COUNTRY"
-                                | "COUNTRY_IS_NOT"
-                                | "ASN"
-                                | "REGION"
-                        ) =>
+                        onValueChange={(value: PolicyRuleMatchType) =>
                             updateRule(row.original.ruleId, {
                                 match: value,
                                 value:
@@ -458,7 +526,9 @@ export function PolicyAccessRulesTable({
                                           ? "AS15169"
                                           : value === "REGION"
                                             ? "021"
-                                            : row.original.value
+                                            : value === "METHOD"
+                                              ? "GET"
+                                              : row.original.value
                             })
                         }
                     >
@@ -472,6 +542,9 @@ export function PolicyAccessRulesTable({
                             <SelectItem value="IP">{RuleMatch.IP}</SelectItem>
                             <SelectItem value="CIDR">
                                 {RuleMatch.CIDR}
+                            </SelectItem>
+                            <SelectItem value="METHOD">
+                                {RuleMatch.METHOD}
                             </SelectItem>
                             {isMaxmindAvailable && (
                                 <>
@@ -779,6 +852,15 @@ export function PolicyAccessRulesTable({
                                 </Command>
                             </PopoverContent>
                         </Popover>
+                    ) : row.original.match === "METHOD" ? (
+                        <RuleMethodSelect
+                            value={row.original.value}
+                            disabled={readonly || isRuleLocked(row.original)}
+                            placeholder={t("rulesSelectMethods")}
+                            onChange={(value) =>
+                                updateRule(row.original.ruleId, { value })
+                            }
+                        />
                     ) : (
                         <Input
                             defaultValue={row.original.value}

@@ -20,6 +20,11 @@ function getSegmentRegex(patternPart: string): RegExp {
 // resolves `.` / `..` segments, so a request like `/public%2F..%2Fadmin/`
 // or `/public/../admin/` is matched as `/admin/`, not as a literal segment
 // or a wildcard-swallowed sequence under `/public/*`.
+//
+// Applied to both the request path and the rule pattern: the pattern
+// validator only accepts spaces / non-ASCII in percent-encoded form, so a
+// rule like `/my%20docs/*` must be compared against the decoded segment
+// `my docs`, not the literal text `my%20docs`.
 function decodeAndResolvePath(p: string): string[] {
     const rawParts = p.split("/").filter(Boolean);
 
@@ -48,7 +53,7 @@ function decodeAndResolvePath(p: string): string[] {
 }
 
 export function isPathAllowed(pattern: string, path: string): boolean {
-    const patternParts = pattern.split("/").filter(Boolean);
+    const patternParts = decodeAndResolvePath(pattern);
     const pathParts = decodeAndResolvePath(path);
 
     function matchSegments(

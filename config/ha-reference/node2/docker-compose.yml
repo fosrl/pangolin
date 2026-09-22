@@ -1,7 +1,7 @@
 name: pangolin
 services:
   pangolin:
-    image: docker.io/fosrl/pangolin:ee-latest
+    image: docker.io/fosrl/pangolin:ee-postgresql-latest
     container_name: pangolin
     restart: unless-stopped
     volumes:

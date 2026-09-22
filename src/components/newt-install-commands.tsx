@@ -20,7 +20,7 @@ import {
     FaWindows
 } from "react-icons/fa";
 import { Download, ExternalLink } from "lucide-react";
-import { SiKubernetes, SiNixos } from "react-icons/si";
+import { SiAlpinelinux, SiKubernetes, SiNixos } from "react-icons/si";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 
 export type CommandItem =
@@ -30,6 +30,7 @@ export type CommandItem =
 
 const PLATFORMS = [
     "linux",
+    "alpine",
     "macos",
     "docker",
     "kubernetes",
@@ -65,7 +66,8 @@ export function NewtSiteInstallCommands({
     );
 
     const showSiteConfiguration = platform !== "advantech";
-    const supportsSshOption = platform === "linux" || platform === "nixos";
+    const supportsSshOption =
+        platform === "linux" || platform === "nixos" || platform === "alpine";
 
     const acceptClientsFlag = !acceptClients ? " --disable-clients" : "";
     const acceptClientsEnv = !acceptClients
@@ -165,6 +167,76 @@ EOF`
                     title: t("enableAndStart"),
                     command: `sudo systemctl daemon-reload
 sudo systemctl enable --now pangolin-site`
+                }
+            ]
+        },
+        alpine: {
+            Run: [
+                {
+                    title: t("install"),
+                    command: `curl -fsSL https://static.pangolin.net/get-cli.sh | bash`
+                },
+                {
+                    title: t("run"),
+                    command: `${runAsRootPrefix}pangolin up site --id ${id} --secret ${secret} --endpoint ${endpoint}${acceptClientsFlag}${disableSshFlag}`
+                }
+            ],
+            "Manual OpenRC Service": [
+                {
+                    title: t("install"),
+                    command: `curl -fsSL https://static.pangolin.net/get-cli.sh | bash`
+                },
+                {
+                    title: t("envFile"),
+                    command: `sudo tee /etc/conf.d/pangolin-site > /dev/null << 'EOF'
+export SITE_ID=${id}
+export SITE_SECRET=${secret}
+export PANGOLIN_ENDPOINT=${endpoint}${
+                        !acceptClients
+                            ? `
+export DISABLE_CLIENTS=true`
+                            : ""
+                    }${
+                        !allowPangolinSsh
+                            ? `
+export DISABLE_SSH=true`
+                            : ""
+                    }
+EOF
+sudo chmod 600 /etc/conf.d/pangolin-site`
+                },
+                {
+                    title: t("serviceFile"),
+                    command: `sudo tee /etc/init.d/pangolin-site > /dev/null << 'EOF'
+#!/sbin/openrc-run
+
+name="pangolin-site"
+description="Pangolin Site"
+
+command="/usr/local/bin/pangolin"
+command_args="up site"
+command_background="yes"
+supervisor="supervise-daemon"
+
+pidfile="/run/pangolin-site.pid"
+output_log="/var/log/pangolin-site.log"
+error_log="/var/log/pangolin-site.err"
+
+depend() {
+    need net
+    after firewall
+}
+EOF
+sudo chmod +x /etc/init.d/pangolin-site`
+                },
+                {
+                    title: t("enableAndStart"),
+                    command: `sudo rc-update add pangolin-site default
+sudo rc-service pangolin-site start`
+                },
+                {
+                    title: t("check"),
+                    command: `sudo rc-service pangolin-site status`
                 }
             ]
         },
@@ -478,6 +550,8 @@ function getPlatformIcon(platformName: Platform) {
             return <FaWindows className="h-4 w-4 mr-2" />;
         case "linux":
             return <FaLinux className="h-4 w-4 mr-2" />;
+        case "alpine":
+            return <SiAlpinelinux className="h-4 w-4 mr-2" />;
         case "macos":
             return <FaApple className="h-4 w-4 mr-2" />;
         case "docker":
@@ -501,6 +575,8 @@ function getPlatformName(platformName: Platform) {
             return "Windows";
         case "linux":
             return "Linux";
+        case "alpine":
+            return "Alpine Linux";
         case "macos":
             return "macOS";
         case "docker":
@@ -522,6 +598,8 @@ function getArchitectures(platform: Platform) {
     switch (platform) {
         case "linux":
             return ["Run", "Systemd Service", "Manual Systemd Service"];
+        case "alpine":
+            return ["Run", "Manual OpenRC Service"];
         case "macos":
             return ["Run", "Service"];
         case "windows":

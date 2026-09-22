@@ -113,6 +113,54 @@ export function LicenseKeysDataTable({
             }
         },
         {
+            accessorKey: "quantity",
+            friendlyName: t("users"),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() =>
+                            column.toggleSorting(column.getIsSorted() === "asc")
+                        }
+                    >
+                        {t("users")}
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                );
+            },
+            cell: ({ row }) => {
+                const quantity = row.original.quantity;
+                if (quantity === undefined) {
+                    return "-";
+                }
+                return quantity < 0 ? t("licenseUnlimited") : quantity;
+            }
+        },
+        {
+            accessorKey: "quantity_2",
+            friendlyName: t("sites"),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() =>
+                            column.toggleSorting(column.getIsSorted() === "asc")
+                        }
+                    >
+                        {t("sites")}
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                );
+            },
+            cell: ({ row }) => {
+                const quantity = row.original.quantity_2;
+                if (quantity === undefined) {
+                    return "-";
+                }
+                return quantity < 0 ? t("licenseUnlimited") : quantity;
+            }
+        },
+        {
             accessorKey: "terminateAt",
             friendlyName: t("licenseTableValidUntil"),
             header: ({ column }) => {
@@ -158,6 +206,7 @@ export function LicenseKeysDataTable({
             title={t("licenseKeys")}
             searchPlaceholder={t("licenseKeySearch")}
             searchColumn="licenseKey"
+            defaultSort={{ id: "terminateAt", desc: false }}
             onAdd={onCreate}
             addButtonText={t("licenseKeyAdd")}
             enableColumnVisibility={true}

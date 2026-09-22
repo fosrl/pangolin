@@ -50,6 +50,27 @@ type ValidateLicenseAPIResponse = {
     status: number;
 };
 
+// Ranks license tiers so that when multiple license keys are active, the
+// highest tier among them wins. Order: personal < tier1 < tier2 < ... <
+// tier[n] < enterprise. Tier numbers are parsed so this scales to any
+// tier[n] without needing updates here.
+function tierRank(tier?: LicenseKeyTier): number {
+    if (!tier) {
+        return -1;
+    }
+    if (tier === "enterprise") {
+        return Number.MAX_SAFE_INTEGER;
+    }
+    if (tier === "personal") {
+        return 0;
+    }
+    const match = /^tier(\d+)$/.exec(tier);
+    if (match) {
+        return parseInt(match[1], 10);
+    }
+    return 0;
+}
+
 type TokenPayload = {
     valid: boolean;
     type: LicenseKeyType;
@@ -276,6 +297,11 @@ LQIDAQAB
                     if (!apiResponse?.success) {
                         throw new Error(apiResponse?.error);
                     }
+
+                    logger.debug(
+                        `License server response: ${JSON.stringify(apiResponse)}`
+                    );
+
                     // Reset failure count on success
                     this.phoneHomeFailureCount = 0;
                 } catch (e) {
@@ -338,6 +364,11 @@ LQIDAQAB
                         licenseKeyRes,
                         this.publicKey
                     );
+
+                    logger.debug(
+                        `Decoded license key ${key.licenseKey}: ${JSON.stringify(payload)}`
+                    );
+
                     cached.valid = payload.valid;
                     cached.type = payload.type;
                     cached.tier = payload.tier;
@@ -370,13 +401,52 @@ LQIDAQAB
                 }
             }
 
+            // Personal-tier licenses cannot coexist with a paid tier: if any
+            // valid host key is above personal, personal-tier keys are
+            // invalidated so they don't contribute to the totals below.
+            const hasHigherTierValidKey = keys.some((key) => {
+                const cached = newCache.get(key.licenseKey)!;
+                return (
+                    cached.type === "host" &&
+                    cached.valid &&
+                    tierRank(cached.tier) > tierRank("personal")
+                );
+            });
+
+            if (hasHigherTierValidKey) {
+                for (const key of keys) {
+                    const cached = newCache.get(key.licenseKey)!;
+                    if (
+                        cached.type === "host" &&
+                        cached.valid &&
+                        cached.tier === "personal"
+                    ) {
+                        logger.debug(
+                            `Invalidating personal license key ${key.licenseKey} because a higher tier license is present`
+                        );
+                        cached.valid = false;
+                        newCache.set(key.licenseKey, cached);
+                    }
+                }
+            }
+
             // Compute host status: quantity = users, quantity_2 = sites
+            // When multiple host keys are active, prefer a valid key over an
+            // invalid one, and among equally-valid keys prefer the highest tier.
+            let selectedHostKey: LicenseKeyCache | undefined;
             for (const key of keys) {
                 const cached = newCache.get(key.licenseKey)!;
 
                 if (cached.type === "host") {
-                    status.isLicenseValid = cached.valid;
-                    status.tier = cached.tier;
+                    if (
+                        !selectedHostKey ||
+                        (cached.valid && !selectedHostKey.valid) ||
+                        (cached.valid === selectedHostKey.valid &&
+                            tierRank(cached.tier) >
+                                tierRank(selectedHostKey.tier))
+                    ) {
+                        selectedHostKey = cached;
+                    }
                 }
 
                 if (!cached.valid) {
@@ -391,6 +461,11 @@ LQIDAQAB
                 if (cached.quantity !== undefined && cached.quantity >= 0) {
                     status.maxUsers = (status.maxUsers ?? 0) + cached.quantity;
                 }
+            }
+
+            if (selectedHostKey) {
+                status.isLicenseValid = selectedHostKey.valid;
+                status.tier = selectedHostKey.tier;
             }
 
             // Invalidate license if over user or site limits
@@ -414,6 +489,8 @@ LQIDAQAB
         } finally {
             this.checkInProgress = false;
         }
+
+        logger.debug(`Computed license status: ${JSON.stringify(status)}`);
 
         this.statusCache.set(this.statusKey, status, 0);
         return status;
