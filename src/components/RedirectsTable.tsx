@@ -35,7 +35,6 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-    useEffect,
     useMemo,
     useOptimistic,
     useRef,
@@ -44,6 +43,7 @@ import {
     type ComponentRef
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
+import { wait } from "@app/lib/wait";
 
 export type RedirectRow = {
     redirectId: number;
@@ -91,15 +91,10 @@ export default function RedirectsTable({
         searchParams
     } = useNavigationContext();
 
-    const [rows, setRows] = useState(redirects);
     const [selected, setSelected] = useState<RedirectRow | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
-
-    useEffect(() => {
-        setRows(redirects);
-    }, [redirects]);
 
     function refreshData() {
         startTransition(() => {
@@ -156,9 +151,6 @@ export default function RedirectsTable({
         startTransition(async () => {
             try {
                 await api.delete(`/org/${orgId}/redirects/${row.redirectId}`);
-                setRows((prev) =>
-                    prev.filter((r) => r.redirectId !== row.redirectId)
-                );
                 setIsDeleteModalOpen(false);
                 setSelected(null);
                 toast({
@@ -443,7 +435,7 @@ export default function RedirectsTable({
 
             <ControlledDataTable
                 columns={columns}
-                rows={rows}
+                rows={redirects}
                 addButtonText={t("redirectAdd")}
                 onAdd={() =>
                     startNavigation(() =>
