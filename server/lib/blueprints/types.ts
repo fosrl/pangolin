@@ -612,7 +612,7 @@ export function isTargetsOnlyResource(resource: any): boolean {
 export const PrivateResourceSchema = z
     .object({
         name: z.string().min(1).max(255),
-        mode: z.enum(["host", "cidr", "http", "ssh", "inference"]),
+        mode: z.enum(["host", "cidr", "http", "ssh", "inference", "gateway"]),
         site: z.string().optional(), // DEPRECATED IN FAVOR OF sites
         sites: z.array(z.string()).optional().default([]),
         // protocol: z.enum(["tcp", "udp"]).optional(),
@@ -652,13 +652,15 @@ export const PrivateResourceSchema = z
     })
     .refine(
         (data) => {
-            // destination is optional only for ssh+native or inference; required for everything else
+            // destination is optional only for ssh+native, inference, or gateway
+            // (gateway always routes the whole subnet, so destination is ignored); required for everything else
             const isNativeSSH =
                 data.mode === "ssh" &&
                 (data["auth-daemon"] === undefined ||
                     data["auth-daemon"].mode === "native");
             if (
                 data.mode !== "inference" &&
+                data.mode !== "gateway" &&
                 !isNativeSSH &&
                 !data.destination
             ) {
@@ -669,7 +671,7 @@ export const PrivateResourceSchema = z
         {
             path: ["destination"],
             message:
-                "destination is required unless mode is 'ssh' with auth-daemon mode 'native', or mode is 'inference'"
+                "destination is required unless mode is 'ssh' with auth-daemon mode 'native', 'inference', or 'gateway'"
         }
     )
     .refine(

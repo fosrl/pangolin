@@ -259,6 +259,11 @@ export async function updatePrivateResources(
             }
 
             const isInference = resourceData.mode === "inference";
+            const isGateway = resourceData.mode === "gateway";
+            // gateway resources always route the whole subnet with everything open
+            const effectiveDestination = isGateway
+                ? "0.0.0.0/0"
+                : resourceData.destination;
 
             // Update existing resource
             const [updatedResource] = await trx
@@ -268,23 +273,28 @@ export async function updatePrivateResources(
                     mode: resourceData.mode,
                     ssl: resourceSsl,
                     scheme: resourceData.scheme,
-                    destination: resourceData.destination,
+                    destination: effectiveDestination,
                     destinationPort: resourceData["destination-port"],
                     enabled: resourceEnabled,
                     alias: resourceData.alias || null,
-                    disableIcmp:
-                        resourceData["disable-icmp"] ||
-                        (resourceData.mode == "http" || isInference
-                            ? true
-                            : false), // default to true for http/inference resources, otherwise false
+                    disableIcmp: isGateway
+                        ? false // gateway always allows icmp
+                        : resourceData["disable-icmp"] ||
+                          (resourceData.mode == "http" || isInference
+                              ? true
+                              : false), // default to true for http/inference resources, otherwise false
                     tcpPortRangeString:
                         resourceData.mode == "http" || isInference
                             ? "443,80"
-                            : resourceData["tcp-ports"],
+                            : isGateway
+                              ? "*"
+                              : resourceData["tcp-ports"],
                     udpPortRangeString:
                         resourceData.mode == "http" || isInference
                             ? ""
-                            : resourceData["udp-ports"],
+                            : isGateway
+                              ? "*"
+                              : resourceData["udp-ports"],
                     fullDomain: resourceData["full-domain"] || null,
                     subdomain: domainInfo ? domainInfo.subdomain : null,
                     domainId: domainInfo ? domainInfo.domainId : null,
@@ -529,6 +539,11 @@ export async function updatePrivateResources(
             }
 
             const isInference = resourceData.mode === "inference";
+            const isGateway = resourceData.mode === "gateway";
+            // gateway resources always route the whole subnet with everything open
+            const effectiveDestination = isGateway
+                ? "0.0.0.0/0"
+                : resourceData.destination;
 
             let domainInfo:
                 | { subdomain: string | null; domainId: string }
@@ -590,24 +605,29 @@ export async function updatePrivateResources(
                     mode: resourceData.mode,
                     ssl: resourceSsl,
                     scheme: resourceData.scheme,
-                    destination: resourceData.destination,
+                    destination: effectiveDestination,
                     destinationPort: resourceData["destination-port"],
                     enabled: resourceEnabled,
                     alias: resourceData.alias || null,
                     aliasAddress: aliasAddress,
-                    disableIcmp:
-                        resourceData["disable-icmp"] ||
-                        (resourceData.mode == "http" || isInference
-                            ? true
-                            : false), // default to true for http/inference resources, otherwise false
+                    disableIcmp: isGateway
+                        ? false // gateway always allows icmp
+                        : resourceData["disable-icmp"] ||
+                          (resourceData.mode == "http" || isInference
+                              ? true
+                              : false), // default to true for http/inference resources, otherwise false
                     tcpPortRangeString:
                         resourceData.mode == "http" || isInference
                             ? "443,80"
-                            : resourceData["tcp-ports"],
+                            : isGateway
+                              ? "*"
+                              : resourceData["tcp-ports"],
                     udpPortRangeString:
                         resourceData.mode == "http" || isInference
                             ? ""
-                            : resourceData["udp-ports"],
+                            : isGateway
+                              ? "*"
+                              : resourceData["udp-ports"],
                     fullDomain: resourceData["full-domain"] || null,
                     subdomain: domainInfo ? domainInfo.subdomain : null,
                     domainId: domainInfo ? domainInfo.domainId : null,
