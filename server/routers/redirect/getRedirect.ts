@@ -29,6 +29,7 @@ export type GetRedirectResponse = {
         resourceId: number | null;
         resourceName: string | null;
         resourceNiceId: string | null;
+        resourceDomainId: string | null;
         resourceFullDomain: string | null;
         resourceSsl: boolean | null;
         resourceWildcard: boolean | null;
@@ -59,7 +60,8 @@ const redirectColumns = {
     resourceSsl: resources.ssl,
     resourceWildcard: resources.wildcard,
     domainId: redirects.domainId,
-    baseDomain: domains.baseDomain
+    baseDomain: domains.baseDomain,
+    resourceDomainId: resources.domainId
 };
 
 const paramsSchema = z.strictObject({

@@ -40,6 +40,7 @@ export default async function EditRedirectPage(props: EditRedirectPageProps) {
     const initialResource =
         redirect.resourceId && redirect.resourceNiceId
             ? {
+                  domainId: redirect.resourceDomainId,
                   resourceId: redirect.resourceId,
                   niceId: redirect.resourceNiceId,
                   name: redirect.resourceName ?? redirect.resourceNiceId,

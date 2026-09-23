@@ -269,7 +269,9 @@ export default function RedirectsTable({
                         return (
                             <div className="flex items-center gap-2 min-w-0">
                                 <InfoPopup
-                                    info={t("rdirectDomainNotFoundDescription")}
+                                    info={t(
+                                        "redirectDomainNotFoundDescription"
+                                    )}
                                     text={t("domainNotFound")}
                                 />
                             </div>

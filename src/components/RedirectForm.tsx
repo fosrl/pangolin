@@ -1,6 +1,13 @@
 "use client";
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
+import DomainPicker from "@app/components/DomainPicker";
+import {
+    PathMatchDisplay,
+    PathMatchModal,
+    PathRewriteDisplay,
+    PathRewriteModal
+} from "@app/components/PathMatchRenameModal";
 import {
     SettingsContainer,
     SettingsFormCell,
@@ -40,34 +47,34 @@ import {
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import {
-    isValidDestinationHost,
-    isValidRegex
-} from "@server/routers/redirect/validation";
-import { build } from "@server/build";
 import { cn } from "@app/lib/cn";
-import { CaretSortIcon } from "@radix-ui/react-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { CaretSortIcon } from "@radix-ui/react-icons";
+import { build } from "@server/build";
 import type {
     CreateRedirectResponse,
     GetRedirectResponse
 } from "@server/routers/redirect";
+import {
+    isValidDestinationHost,
+    isValidRegex
+} from "@server/routers/redirect/validation";
 import type { AxiosResponse } from "axios";
+import { InfoIcon, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ResourceSelector, type SelectedResource } from "./resource-selector";
 import {
-    PathMatchDisplay,
-    PathMatchModal,
-    PathRewriteDisplay,
-    PathRewriteModal
-} from "@app/components/PathMatchRenameModal";
-import { Plus } from "lucide-react";
-import DomainPicker from "@app/components/DomainPicker";
-import Link from "next/link";
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from "./ui/tooltip";
+import { Alert, AlertDescription } from "./ui/alert";
 
 const DEFAULT_PATH_MATCH_TYPE = "regex" as const;
 const DEFAULT_PRIORITY = 100;
@@ -212,6 +219,11 @@ export default function RedirectForm({
 
     const attachTo = form.watch("attachTo");
     const ssl = form.watch("ssl");
+
+    const resourceMissingDomain =
+        attachTo === "resource" &&
+        Boolean(selectedResource) &&
+        !selectedResource?.domainId;
 
     const sourceFullDomain =
         attachTo === "domain"
@@ -364,7 +376,20 @@ export default function RedirectForm({
                             <Form {...form}>
                                 <form action={formAction} id="redirect-form">
                                     <SettingsFormGrid>
-                                        <SettingsFormCell span="full">
+                                        <SettingsFormCell
+                                            span="full"
+                                            className="flex flex-col items-start gap-4"
+                                        >
+                                            {resourceMissingDomain && (
+                                                <Alert variant="neutral">
+                                                    <InfoIcon className="h-4 w-4" />
+                                                    <AlertDescription>
+                                                        {t(
+                                                            "redirectDomainSelectedDomainNotFound"
+                                                        )}
+                                                    </AlertDescription>
+                                                </Alert>
+                                            )}
                                             <FormField
                                                 control={form.control}
                                                 name="enabled"
@@ -380,7 +405,11 @@ export default function RedirectForm({
                                                                     "redirectEnabledDescription"
                                                                 )}
                                                                 checked={
+                                                                    !resourceMissingDomain &&
                                                                     field.value
+                                                                }
+                                                                disabled={
+                                                                    resourceMissingDomain
                                                                 }
                                                                 onCheckedChange={
                                                                     field.onChange
