@@ -11,6 +11,10 @@
  * This file is not licensed under the AGPLv3.
  */
 
+import regionalCache from "#private/lib/cache";
+import privateConfig from "#private/lib/config";
+import license from "#private/license/license";
+import { build } from "@server/build";
 import {
     certificates,
     db,
@@ -19,77 +23,70 @@ import {
     exitNodes,
     loginPage,
     redirects,
-    SiteResource,
-    targetHealthCheck
-} from "@server/db";
-import {
-    and,
-    eq,
-    inArray,
-    or,
-    isNull,
-    ne,
-    isNotNull,
-    desc,
-    sql
-} from "drizzle-orm";
-import logger from "@server/logger";
-import config from "@server/lib/config";
-import {
-    orgs,
     resources,
-    sites,
     siteNetworks,
+    SiteResource,
     siteResources,
+    sites,
+    targetHealthCheck,
     targets
 } from "@server/db";
-import {
-    sanitize,
-    encodePath,
-    validatePathRewriteConfig
-} from "@server/lib/traefik/utils";
-import privateConfig from "#private/lib/config";
-import { applyPathRewriteMiddleware } from "@server/lib/traefik/middleware";
 import {
     CertificateResult,
     getValidCertificatesForDomains
 } from "@server/lib/certificates";
-import { build } from "@server/build";
-import license from "#private/license/license";
-import regionalCache from "#private/lib/cache";
-import { ResourceWithTargets } from "@server/lib/traefik/types";
-import { buildWildcardTls } from "@server/lib/traefik/certResolver";
+import config from "@server/lib/config";
 import {
-    buildHostRule,
-    appendPathMatch,
-    computeRoutePriority
-} from "@server/lib/traefik/rule";
+    AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
+    AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE,
+    AI_GATEWAY_TRUST_MIDDLEWARE_SITE_RESOURCE,
+    buildAiGatewayClientIpMiddleware,
+    buildAiGatewayHostHeaderMiddleware,
+    buildAiGatewayRouterAndService,
+    buildAiGatewayTrustMiddlewares,
+    getAiGatewayHost
+} from "@server/lib/traefik/aiGatewayMiddlewares";
+import {
+    buildBrowserGatewayConfig,
+    buildBrowserGatewayResourcesMap
+} from "@server/lib/traefik/browserGateway";
+import { buildWildcardTls } from "@server/lib/traefik/certResolver";
+import { buildCustomHeadersMiddleware } from "@server/lib/traefik/headersMiddleware";
 import {
     buildHttpLoadBalancerServers,
     buildStickySessionCookie,
-    buildTcpUdpLoadBalancerServers,
-    buildStickySessionIp
+    buildStickySessionIp,
+    buildTcpUdpLoadBalancerServers
 } from "@server/lib/traefik/loadBalancer";
-import { buildCustomHeadersMiddleware } from "@server/lib/traefik/headersMiddleware";
-import {
-    AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE,
-    AI_GATEWAY_TRUST_MIDDLEWARE_SITE_RESOURCE,
-    AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
-    getAiGatewayHost,
-    buildAiGatewayTrustMiddlewares,
-    buildAiGatewayClientIpMiddleware,
-    buildAiGatewayHostHeaderMiddleware,
-    buildAiGatewayRouterAndService
-} from "@server/lib/traefik/aiGatewayMiddlewares";
-import {
-    buildBrowserGatewayResourcesMap,
-    buildBrowserGatewayConfig
-} from "@server/lib/traefik/browserGateway";
-import { buildSiteResourceAliasCertPlaceholders } from "@server/lib/traefik/siteResourceAlias";
+import { applyPathRewriteMiddleware } from "@server/lib/traefik/middleware";
 import {
     buildRedirectConfig,
     RedirectRouteRow
 } from "@server/lib/traefik/redirect";
+import {
+    appendPathMatch,
+    buildHostRule,
+    computeRoutePriority
+} from "@server/lib/traefik/rule";
+import { buildSiteResourceAliasCertPlaceholders } from "@server/lib/traefik/siteResourceAlias";
+import { ResourceWithTargets } from "@server/lib/traefik/types";
+import {
+    encodePath,
+    sanitize,
+    validatePathRewriteConfig
+} from "@server/lib/traefik/utils";
+import logger from "@server/logger";
+import {
+    and,
+    desc,
+    eq,
+    inArray,
+    isNotNull,
+    isNull,
+    not,
+    or,
+    sql
+} from "drizzle-orm";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const redirectToRootMiddlewareName = "redirect-to-root";
@@ -445,7 +442,13 @@ export async function getTraefikConfig(
         .where(
             and(
                 eq(redirects.enabled, true),
-                or(isNull(redirects.resourceId), eq(resources.enabled, true))
+                or(
+                    isNull(redirects.resourceId),
+                    and(
+                        eq(resources.enabled, true),
+                        not(isNull(resources.domainId))
+                    )
+                )
             )
         )
         .orderBy(desc(redirects.priority), redirects.redirectId); // stable ordering
@@ -562,11 +565,6 @@ export async function getTraefikConfig(
             }
         }
     };
-
-    console.dir(
-        { resourcesMap, resourcesWithTargetsAndSites },
-        { depth: null }
-    );
 
     // get the key and the resource
     for (const [, resource] of resourcesMap.entries()) {

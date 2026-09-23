@@ -20,6 +20,7 @@ import {
     inArray,
     isNotNull,
     isNull,
+    not,
     or,
     sql
 } from "drizzle-orm";
@@ -367,7 +368,13 @@ export async function getTraefikConfig(
         .where(
             and(
                 eq(redirects.enabled, true),
-                or(isNull(redirects.resourceId), eq(resources.enabled, true))
+                or(
+                    isNull(redirects.resourceId),
+                    and(
+                        eq(resources.enabled, true),
+                        not(isNull(resources.domainId))
+                    )
+                )
             )
         )
         .orderBy(desc(redirects.priority), redirects.redirectId); // stable ordering

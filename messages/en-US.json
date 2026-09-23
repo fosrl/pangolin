@@ -2580,6 +2580,7 @@
     "billingModifyLicenses": "Modify License Subscription",
     "domainNotFound": "Domain Not Found",
     "domainNotFoundDescription": "This resource is disabled because the domain no longer exists our system. Please set a new domain for this resource.",
+    "rdirectDomainNotFoundDescription": "This redirect is disabled because the domain no longer exists our system. Please set a new domain for this redirect or its attached resource domain.",
     "failed": "Failed",
     "createNewOrgDescription": "Create a new organization",
     "organization": "Organization",

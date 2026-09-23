@@ -40,7 +40,7 @@ import {
     domains
 } from "@server/db";
 import { alias } from "@server/db";
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, not, or, sql } from "drizzle-orm";
 import logger from "@server/logger";
 
 export type ResourceWithAuth = {
@@ -116,7 +116,13 @@ export async function getRedirectsByHost(
                 eq(redirects.enabled, true),
                 // Traefik drops resource-attached redirects along with a
                 // disabled resource; do the same here.
-                or(isNull(redirects.resourceId), eq(resources.enabled, true)),
+                or(
+                    isNull(redirects.resourceId),
+                    and(
+                        eq(resources.enabled, true),
+                        not(isNull(resources.domainId))
+                    )
+                ),
                 inArray(redirectHost, candidates)
             )
         )
