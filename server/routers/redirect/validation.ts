@@ -39,9 +39,7 @@ export function isValidMatchPath(
     matchPath: string | null | undefined,
     pathMatchType: string | null | undefined
 ): boolean {
-    return (
-        pathMatchType !== "regex" || !matchPath || isValidRegex(matchPath)
-    );
+    return pathMatchType !== "regex" || !matchPath || isValidRegex(matchPath);
 }
 
 export const redirectRewritePathSchema = z.string().nonempty();
@@ -54,15 +52,20 @@ export const redirectPrioritySchema = z.int().min(1).max(1000);
  * the request path (after any rewrite) is appended to it by badger.
  */
 export function isValidDestinationHost(value: string): boolean {
-    const match = /^https?:\/\/([^/:?#]+)(:\d{1,5})?$/.exec(value);
-    return match !== null && isValidDomain(match[1]);
+    if (URL.canParse(value)) {
+        const url = new URL(value);
+        /** URL origin contains the destination with no path or query */
+        return value === url.origin;
+    }
+    return false;
 }
 
 export const redirectDestinationHostSchema = z
     .string()
     .nonempty()
     .refine(isValidDestinationHost, {
-        message: "Invalid destination, expected scheme://host such as https://example.com"
+        message:
+            "Invalid destination, expected scheme://host such as https://example.com"
     });
 
 /**

@@ -43,7 +43,7 @@ import {
     type ComponentRef
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { wait } from "@app/lib/wait";
+import { InfoPopup } from "./ui/info-popup";
 
 export type RedirectRow = {
     redirectId: number;
@@ -265,6 +265,17 @@ export default function RedirectsTable({
                     const certDomainId =
                         redirect.resourceDomainId ?? redirect.domainId;
 
+                    if (redirect.resourceId && !redirect.resourceDomainId) {
+                        return (
+                            <div className="flex items-center gap-2 min-w-0">
+                                <InfoPopup
+                                    info={t("rdirectDomainNotFoundDescription")}
+                                    text={t("domainNotFound")}
+                                />
+                            </div>
+                        );
+                    }
+
                     return (
                         <div className="flex items-center gap-2 min-w-0">
                             {certDomainId && host ? (
@@ -479,9 +490,14 @@ function RedirectEnabledForm({
         redirect.enabled
     );
 
+    const missingDomain = Boolean(
+        redirect.resourceId && !redirect.resourceDomainId
+    );
+
     const formRef = useRef<ComponentRef<"form">>(null);
 
     async function submitAction(formData: FormData) {
+        if (missingDomain) return;
         const newEnabled = !(formData.get("enabled") === "on");
         setOptimisticEnabled(newEnabled);
         await onToggleEnabled(newEnabled, redirect.redirectId);
@@ -490,8 +506,10 @@ function RedirectEnabledForm({
     return (
         <form action={submitAction} ref={formRef}>
             <Switch
-                checked={optimisticEnabled}
-                disabled={optimisticEnabled !== redirect.enabled}
+                checked={!missingDomain && optimisticEnabled}
+                disabled={
+                    missingDomain || optimisticEnabled !== redirect.enabled
+                }
                 name="enabled"
                 onCheckedChange={() => formRef.current?.requestSubmit()}
             />

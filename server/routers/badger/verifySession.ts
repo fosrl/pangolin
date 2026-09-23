@@ -41,7 +41,7 @@ import {
 } from "@server/db";
 import config from "@server/lib/config";
 import { isIpInCidr, stripPortFromHost } from "@server/lib/ip";
-import { isPathAllowed, type isPathAllowed } from "@server/lib/pathMatch";
+import { isPathAllowed } from "@server/lib/pathMatch";
 import { matchesPath } from "@server/lib/traefik/rule";
 import { rewriteRequestPath } from "@server/lib/traefik/middleware";
 import { parseHttpMethodList } from "@server/lib/validators";

@@ -36,7 +36,8 @@ export type ResourceWithTargets = Pick<
     | "tlsServerName"
     | "setHostHeader"
     | "enableProxy"
-    | "headers"
+    | "requestHeaders"
+    | "responseHeaders"
     | "proxyProtocol"
     | "wildcard"
     | "mode"
@@ -46,7 +47,10 @@ export type ResourceWithTargets = Pick<
     | "maintenanceMessage"
     | "maintenanceEstimatedTime"
 > &
-    Pick<Target, "path" | "pathMatchType" | "rewritePath" | "rewritePathType"> & {
+    Pick<
+        Target,
+        "path" | "pathMatchType" | "rewritePath" | "rewritePathType"
+    > & {
         /** Sanitized resource name used in router/service names */
         name: string;
         /** Sanitized resourceId + path config, unique per router */
