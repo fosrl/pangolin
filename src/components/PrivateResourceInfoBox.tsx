@@ -108,15 +108,19 @@ export function PrivateResourceInfoSections({
         tcpPortRangeString: siteResource.tcpPortRangeString ?? "*",
         udpPortRangeString: siteResource.udpPortRangeString ?? "*"
     });
+    const showAccess = siteResource.mode !== "gateway";
     const showAlias =
         siteResource.mode !== "cidr" &&
         siteResource.mode !== "http" &&
-        siteResource.mode !== "inference";
+        siteResource.mode !== "inference" &&
+        siteResource.mode !== "gateway";
     const showDestination =
         !(
             siteResource.mode === "ssh" &&
             siteResource.authDaemonMode === "native"
-        ) && siteResource.mode !== "inference";
+        ) &&
+        siteResource.mode !== "inference" &&
+        siteResource.mode !== "gateway";
     const showCertificate = !!(
         (siteResource.mode === "http" || siteResource.mode === "inference") &&
         siteResource.ssl &&
@@ -129,7 +133,8 @@ export function PrivateResourceInfoSections({
         siteResource.mode !== "inference";
 
     const numSections =
-        2 +
+        1 +
+        (showAccess ? 1 : 0) +
         (showDestination ? 1 : 0) +
         (showAlias ? 1 : 0) +
         (showCertificate ? 1 : 0) +
@@ -144,17 +149,19 @@ export function PrivateResourceInfoSections({
                 </InfoSectionContent>
             </InfoSection>
 
-            <InfoSection>
-                <InfoSectionTitle>{t("access")}</InfoSectionTitle>
-                <InfoSectionContent>
-                    <AccessMethodContent
-                        accessDisplay={access.accessDisplay}
-                        accessCopyValue={access.accessCopyValue}
-                        accessUrl={access.accessUrl}
-                        className={accessClassName}
-                    />
-                </InfoSectionContent>
-            </InfoSection>
+            {showAccess ? (
+                <InfoSection>
+                    <InfoSectionTitle>{t("access")}</InfoSectionTitle>
+                    <InfoSectionContent>
+                        <AccessMethodContent
+                            accessDisplay={access.accessDisplay}
+                            accessCopyValue={access.accessCopyValue}
+                            accessUrl={access.accessUrl}
+                            className={accessClassName}
+                        />
+                    </InfoSectionContent>
+                </InfoSection>
+            ) : null}
 
             {showDestination ? (
                 <InfoSection>

@@ -493,7 +493,7 @@ export const siteResources = pgTable(
         ssl: boolean("ssl").notNull().default(false),
         mode: varchar("mode")
             .$type<"host" | "cidr" | "http" | "ssh" | "inference" | "gateway">()
-            .notNull(), // "host" | "cidr" | "http"
+            .notNull(),
         scheme: varchar("scheme").$type<"http" | "https">(), // only for when we are doing https or http mode
         proxyPort: integer("proxyPort"), // only for port mode
         destinationPort: integer("destinationPort"), // only for port mode
