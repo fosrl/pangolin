@@ -110,7 +110,7 @@
     "siteInstallNewt": "Инсталирайте Newt",
     "siteInstallNewtDescription": "Пуснете Newt на вашата система",
     "siteInstallKubernetesDocsDescription": "За повече и актуална информация относно инсталацията на Kubernetes, вижте <docsLink>docs.pangolin.net/manage/sites/install-kubernetes</docsLink>.",
-    "siteInstallAdvantechDocsDescription": "За инструкции за инсталиране на Advantech модем, вижте <docsLink>docs.pangolin.net/manage/sites/install-advantech</docsLink>.",
+    "siteInstallAdvantechDocsDescription": "For Advantech modem installation instructions, see <docsLink>docs.pangolin.net/manage/sites/install-newt#advantech-router-app</docsLink>.",
     "WgConfiguration": "WireGuard конфигурация",
     "WgConfigurationDescription": "Използвайте следната конфигурация, за да се свържете с мрежата",
     "operatingSystem": "Операционна система",
