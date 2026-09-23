@@ -17,14 +17,8 @@ import { useDebounce } from "use-debounce";
 
 export type SelectedResource = Pick<
     ListResourcesResponse["resources"][number],
-    | "name"
-    | "resourceId"
-    | "fullDomain"
-    | "niceId"
-    | "ssl"
-    | "wildcard"
-    | "domainId"
->;
+    "name" | "resourceId" | "fullDomain" | "niceId" | "ssl" | "wildcard"
+> & { domainId?: string | null };
 
 export type ResourceSelectorProps = {
     orgId: string;
