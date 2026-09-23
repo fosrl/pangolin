@@ -110,7 +110,7 @@
     "siteInstallNewt": "Newt Yükle",
     "siteInstallNewtDescription": "Newt'i sisteminizde çalıştırma",
     "siteInstallKubernetesDocsDescription": "Daha fazla ve güncel Kubernetes kurulum bilgileri için <docsLink>docs.pangolin.net/manage/sites/install-kubernetes</docsLink> adresini inceleyin.",
-    "siteInstallAdvantechDocsDescription": "Advantech modem kurulum talimatları için <docsLink>docs.pangolin.net/manage/sites/install-advantech</docsLink> adresini inceleyin.",
+    "siteInstallAdvantechDocsDescription": "For Advantech modem installation instructions, see <docsLink>docs.pangolin.net/manage/sites/install-newt#advantech-router-app</docsLink>.",
     "WgConfiguration": "WireGuard Yapılandırması",
     "WgConfigurationDescription": "Ağınıza bağlanmak için aşağıdaki yapılandırmayı kullanın",
     "operatingSystem": "İşletim Sistemi",
