@@ -164,6 +164,11 @@ export default function CreatePrivateResourcePage() {
             value: "inference" as const,
             title: t("createInternalResourceDialogModeInference"),
             description: t("resourceTypeInferenceDescription")
+        },
+        {
+            value: "gateway" as const,
+            title: t("createInternalResourceDialogModeGateway"),
+            description: t("resourceTypeGatewayDescription")
         }
     ];
 
@@ -552,6 +557,38 @@ export default function CreatePrivateResourcePage() {
                                                 setValue={asAnySetValue(
                                                     form.setValue
                                                 )}
+                                            />
+                                        </SettingsFormCell>
+                                    </SettingsFormGrid>
+                                </SettingsSectionForm>
+                            </SettingsSectionBody>
+                        </SettingsSection>
+                    )}
+
+                    {/* Gateway destination */}
+                    {mode === "gateway" && (
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("gatewaySettings")}
+                                </SettingsSectionTitle>
+                                <SettingsSectionDescription>
+                                    {t(
+                                        "editInternalResourceDialogDestinationGatewayDescription"
+                                    )}
+                                </SettingsSectionDescription>
+                            </SettingsSectionHeader>
+                            <SettingsSectionBody>
+                                <SettingsSectionForm variant="half">
+                                    <SettingsFormGrid>
+                                        <SettingsFormCell span="half">
+                                            <PrivateResourceSitesField
+                                                control={form.control}
+                                                orgId={orgId}
+                                                selectedSites={selectedSites}
+                                                onSelectedSitesChange={
+                                                    setSelectedSites
+                                                }
                                             />
                                         </SettingsFormCell>
                                     </SettingsFormGrid>

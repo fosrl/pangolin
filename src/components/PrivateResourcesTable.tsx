@@ -376,7 +376,8 @@ export default function PrivateResourcesTable({
                         cidr: t("editInternalResourceDialogModeCidr"),
                         http: t("editInternalResourceDialogModeHttp"),
                         ssh: t("editInternalResourceDialogModeSsh"),
-                        inference: t("editInternalResourceDialogModeInference")
+                        inference: t("editInternalResourceDialogModeInference"),
+                        gateway: t("editInternalResourceDialogModeGateway")
                     };
                     return <span>{modeLabels[resourceRow.mode]}</span>;
                 }

@@ -652,6 +652,13 @@ export function createCidrFormSchema(t: TranslateFn) {
         .superRefine((data, ctx) => destinationRefine(data, ctx, t));
 }
 
+export function createGatewayFormSchema(t: TranslateFn) {
+    return z.object({
+        siteIds: z.array(z.number().int().positive()).min(1),
+        mode: z.literal("gateway")
+    });
+}
+
 export function createHttpFormSchema(t: TranslateFn) {
     return z
         .object({

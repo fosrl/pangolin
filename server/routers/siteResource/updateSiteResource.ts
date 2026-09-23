@@ -51,7 +51,9 @@ const updateSiteResourceSchema = z
             )
             .optional(),
         // mode: z.enum(["host", "cidr", "port"]).optional(),
-        mode: z.enum(["host", "cidr", "http", "ssh", "inference"]).optional(),
+        mode: z
+            .enum(["host", "cidr", "http", "ssh", "inference", "gateway"])
+            .optional(),
         ssl: z.boolean().optional(),
         scheme: z.enum(["http", "https"]).nullish(),
         destinationPort: z.int().positive().nullish(),
@@ -158,10 +160,11 @@ const updateSiteResourceSchema = z
             if (data.mode === undefined && data.destination === undefined) {
                 return true;
             }
-            // destination is only optional for ssh mode with native authDaemonMode or inference
+            // destination is only optional for ssh mode with native authDaemonMode, inference, or gateway
             if (
                 (data.mode === "ssh" && data.authDaemonMode === "native") ||
-                data.mode == "inference"
+                data.mode == "inference" ||
+                data.mode == "gateway"
             ) {
                 return true;
             }
@@ -172,7 +175,7 @@ const updateSiteResourceSchema = z
         },
         {
             message:
-                "Destination is required unless mode is ssh with authDaemonMode native or inference"
+                "Destination is required unless mode is ssh with authDaemonMode native, inference, or gateway"
         }
     )
     .refine(
@@ -409,14 +412,18 @@ export async function updateSiteResource(
             }
         }
 
+        // gateway resources always route the whole subnet with everything open
+        const effectiveDestination =
+            mode === "gateway" ? "0.0.0.0/0" : destination;
+
         // Only check if destination is an IP address
         const isIp = z
             .union([z.ipv4(), z.ipv6()])
-            .safeParse(destination).success;
+            .safeParse(effectiveDestination).success;
         if (
             isIp &&
-            (isIpInCidr(destination!, org.subnet) ||
-                isIpInCidr(destination!, org.utilitySubnet))
+            (isIpInCidr(effectiveDestination!, org.subnet) ||
+                isIpInCidr(effectiveDestination!, org.utilitySubnet))
         ) {
             return next(
                 createHttpError(
@@ -542,6 +549,34 @@ export async function updateSiteResource(
                 tcpPortRangeStringAdjusted = destinationPort
                     ? destinationPort.toString()
                     : "22";
+            } else if (mode === "gateway") {
+                tcpPortRangeStringAdjusted = "*";
+            }
+
+            // undefined means "leave unchanged" (partial update); only
+            // adjusted when the mode is explicitly being changed
+            let udpPortRangeStringAdjusted = udpPortRangeString;
+            if (mode === "gateway") {
+                udpPortRangeStringAdjusted = "*";
+            } else if (
+                mode === "http" ||
+                mode === "ssh" ||
+                mode === "inference"
+            ) {
+                udpPortRangeStringAdjusted = "";
+            }
+
+            let disableIcmpAdjusted = disableIcmp;
+            if (mode === "gateway") {
+                disableIcmpAdjusted = false;
+            } else if (
+                mode === "http" ||
+                mode === "ssh" ||
+                mode === "inference"
+            ) {
+                disableIcmpAdjusted = true;
+            } else if (mode !== undefined) {
+                disableIcmpAdjusted = disableIcmp ?? false;
             }
 
             [updatedSiteResource] = await trx
@@ -552,7 +587,8 @@ export async function updateSiteResource(
                     mode: mode,
                     scheme,
                     ssl,
-                    destination: destination,
+                    destination:
+                        mode === "gateway" ? effectiveDestination : destination,
                     destinationPort: destinationPort,
                     enabled: enabled,
                     alias:
@@ -562,19 +598,8 @@ export async function updateSiteResource(
                                 : null
                             : undefined,
                     tcpPortRangeString: tcpPortRangeStringAdjusted,
-                    udpPortRangeString:
-                        mode == "http" || mode == "ssh" || mode == "inference"
-                            ? ""
-                            : udpPortRangeString,
-                    disableIcmp:
-                        mode !== undefined
-                            ? disableIcmp ||
-                              (mode == "http" ||
-                              mode == "ssh" ||
-                              mode == "inference"
-                                  ? true
-                                  : false)
-                            : disableIcmp,
+                    udpPortRangeString: udpPortRangeStringAdjusted,
+                    disableIcmp: disableIcmpAdjusted,
                     domainId,
                     subdomain: finalSubdomain,
                     fullDomain,

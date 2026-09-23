@@ -53,7 +53,7 @@ const createSiteResourceSchema = z
         name: z.string().min(1).max(255),
         niceId: z.string().optional(),
         // protocol: z.enum(["tcp", "udp"]).optional(),
-        mode: z.enum(["host", "cidr", "http", "ssh", "inference"]),
+        mode: z.enum(["host", "cidr", "http", "ssh", "inference", "gateway"]),
         ssl: z.boolean().optional(), // only used for http mode
         scheme: z.enum(["http", "https"]).optional(),
         siteIds: z.array(z.int()).optional(),
@@ -165,10 +165,11 @@ const createSiteResourceSchema = z
     )
     .refine(
         (data) => {
-            // destination is only optional for ssh mode with native authDaemonMode or inference
+            // destination is only optional for ssh mode with native authDaemonMode, inference, or gateway
             if (
                 (data.mode === "ssh" && data.authDaemonMode === "native") ||
-                data.mode == "inference"
+                data.mode == "inference" ||
+                data.mode == "gateway"
             ) {
                 return true;
             }
@@ -179,7 +180,7 @@ const createSiteResourceSchema = z
         },
         {
             message:
-                "Destination is required unless mode is ssh with authDaemonMode native or inference"
+                "Destination is required unless mode is ssh with authDaemonMode native, inference, or gateway"
         }
     )
     .refine(
@@ -447,14 +448,18 @@ export async function createSiteResource(
             );
         }
 
+        // gateway resources always route the whole subnet with everything open
+        const effectiveDestination =
+            mode === "gateway" ? "0.0.0.0/0" : destination;
+
         // Only check if destination is an IP address
         const isIp = z
             .union([z.ipv4(), z.ipv6()])
-            .safeParse(destination).success;
+            .safeParse(effectiveDestination).success;
         if (
             isIp &&
-            (isIpInCidr(destination!, org.subnet) ||
-                isIpInCidr(destination!, org.utilitySubnet))
+            (isIpInCidr(effectiveDestination!, org.subnet) ||
+                isIpInCidr(effectiveDestination!, org.utilitySubnet))
         ) {
             return next(
                 createHttpError(
@@ -584,6 +589,32 @@ export async function createSiteResource(
                     tcpPortRangeStringAdjusted = destinationPort
                         ? destinationPort.toString()
                         : "22";
+                } else if (mode === "gateway") {
+                    tcpPortRangeStringAdjusted = "*";
+                }
+
+                let udpPortRangeStringAdjusted = udpPortRangeString;
+                if (mode === "gateway") {
+                    udpPortRangeStringAdjusted = "*";
+                } else if (
+                    mode === "http" ||
+                    mode === "ssh" ||
+                    mode === "inference"
+                ) {
+                    udpPortRangeStringAdjusted = "";
+                }
+
+                // default to true for http/ssh/inference, false otherwise;
+                // gateway always allows icmp
+                let disableIcmpAdjusted = disableIcmp ?? false;
+                if (mode === "gateway") {
+                    disableIcmpAdjusted = false;
+                } else if (
+                    mode === "http" ||
+                    mode === "ssh" ||
+                    mode === "inference"
+                ) {
+                    disableIcmpAdjusted = true;
                 }
 
                 // Create the site resource
@@ -594,21 +625,14 @@ export async function createSiteResource(
                     mode,
                     ssl,
                     networkId: network ? network.networkId : null,
-                    destination: destination, // the ssh can be null
+                    destination: effectiveDestination, // the ssh can be null
                     scheme,
                     destinationPort,
                     alias: alias ? alias.trim() : null,
                     aliasAddress,
                     tcpPortRangeString: tcpPortRangeStringAdjusted,
-                    udpPortRangeString:
-                        mode == "http" || mode == "ssh" || mode == "inference"
-                            ? ""
-                            : udpPortRangeString,
-                    disableIcmp:
-                        disableIcmp ||
-                        (mode == "http" || mode == "ssh" || mode == "inference"
-                            ? true
-                            : false), // default to true for http resources, otherwise false
+                    udpPortRangeString: udpPortRangeStringAdjusted,
+                    disableIcmp: disableIcmpAdjusted,
                     domainId,
                     subdomain: finalSubdomain,
                     fullDomain,
