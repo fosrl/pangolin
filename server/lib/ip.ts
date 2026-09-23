@@ -808,7 +808,7 @@ export async function generateSubnetProxyTargetV2(
                 resourceId: siteResource.siteResourceId
             });
         }
-    } else if (siteResource.mode == "cidr") {
+    } else if (siteResource.mode == "cidr" || siteResource.mode == "gateway") {
         targets.push({
             sourcePrefixes: [],
             destPrefix: siteResource.destination!,
