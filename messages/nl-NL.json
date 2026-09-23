@@ -110,7 +110,7 @@
     "siteInstallNewt": "Installeer Newt",
     "siteInstallNewtDescription": "Laat Newt draaien op uw systeem",
     "siteInstallKubernetesDocsDescription": "Voor meer informatie over de installatie van Kubernetes, zie <docsLink>docs.pangolin.net/manage/sites/install-kubernetes</docsLink>.",
-    "siteInstallAdvantechDocsDescription": "Voor instructies voor de installatie van Advantech modems, zie <docsLink>docs.pangolin.net/manage/sites/install-advantech</docsLink>.",
+    "siteInstallAdvantechDocsDescription": "For Advantech modem installation instructions, see <docsLink>docs.pangolin.net/manage/sites/install-newt#advantech-router-app</docsLink>.",
     "WgConfiguration": "WireGuard Configuratie",
     "WgConfigurationDescription": "Gebruik de volgende configuratie om verbinding te maken met het netwerk",
     "operatingSystem": "Operating systeem",
