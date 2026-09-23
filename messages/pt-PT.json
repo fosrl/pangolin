@@ -110,7 +110,7 @@
     "siteInstallNewt": "Instalar Novo",
     "siteInstallNewtDescription": "Novo item em execução no seu sistema",
     "siteInstallKubernetesDocsDescription": "Para mais informações atualizadas sobre a instalação do Kubernetes, veja <docsLink>docs.pangolin.net/manage/sites/install-kubernetes</docsLink>.",
-    "siteInstallAdvantechDocsDescription": "Para instruções de instalação do modem da Advantech, veja <docsLink>docs.pangolin.net/manage/sites/install-advantech</docsLink>.",
+    "siteInstallAdvantechDocsDescription": "For Advantech modem installation instructions, see <docsLink>docs.pangolin.net/manage/sites/install-newt#advantech-router-app</docsLink>.",
     "WgConfiguration": "Configuração do WireGuard",
     "WgConfigurationDescription": "Use a seguinte configuração para conectar-se à rede",
     "operatingSystem": "Sistema operacional",
