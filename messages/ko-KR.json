@@ -110,7 +110,7 @@
     "siteInstallNewt": "Newt 설치",
     "siteInstallNewtDescription": "시스템에서 Newt 실행하기",
     "siteInstallKubernetesDocsDescription": "더 많은 정보와 최신의 쿠버네티스 설치 정보를 보려면 <docsLink>docs.pangolin.net/manage/sites/install-kubernetes</docsLink>를 참조하세요.",
-    "siteInstallAdvantechDocsDescription": "Advantech 모뎀 설치 지침은 <docsLink>docs.pangolin.net/manage/sites/install-advantech</docsLink>을 참조하세요.",
+    "siteInstallAdvantechDocsDescription": "For Advantech modem installation instructions, see <docsLink>docs.pangolin.net/manage/sites/install-newt#advantech-router-app</docsLink>.",
     "WgConfiguration": "WireGuard 구성",
     "WgConfigurationDescription": "네트워크에 연결하기 위한 다음 구성을 사용하세요.",
     "operatingSystem": "운영 체제",
