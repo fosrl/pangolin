@@ -149,6 +149,8 @@ export const configSchema = z
                     })
                     .optional(),
                 trust_proxy: z.int().gte(0).optional().default(1),
+                trust_ips: z.array(z.string()).optional().default([]),
+                custom_ip_header: z.string().optional().default(""),
                 // Opt-in: have Traefik/Badger stamp the resolved client IP
                 // into a dedicated header (X-Pangolin-Client-Ip) on the
                 // site-resource AI gateway route, so it survives an
