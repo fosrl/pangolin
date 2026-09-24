@@ -127,57 +127,66 @@ async function buildPublicAuthAndRules(resource: {
         const [policyRow] = await db
             .select({ niceId: resourcePolicies.niceId })
             .from(resourcePolicies)
-            .where(eq(resourcePolicies.resourcePolicyId, resource.resourcePolicyId))
+            .where(
+                eq(resourcePolicies.resourcePolicyId, resource.resourcePolicyId)
+            )
             .limit(1);
 
-        const [roleRows, userRows, whitelistRows, ruleRows, passwordRow, pincodeRow, headerAuthRow] =
-            await Promise.all([
-                db
-                    .select({ name: roles.name })
-                    .from(roleResources)
-                    .innerJoin(
-                        roles,
-                        and(
-                            eq(roleResources.roleId, roles.roleId),
-                            or(isNull(roles.isAdmin), not(roles.isAdmin))
-                        )
+        const [
+            roleRows,
+            userRows,
+            whitelistRows,
+            ruleRows,
+            passwordRow,
+            pincodeRow,
+            headerAuthRow
+        ] = await Promise.all([
+            db
+                .select({ name: roles.name })
+                .from(roleResources)
+                .innerJoin(
+                    roles,
+                    and(
+                        eq(roleResources.roleId, roles.roleId),
+                        or(isNull(roles.isAdmin), not(roles.isAdmin))
                     )
-                    .where(eq(roleResources.resourceId, resource.resourceId)),
-                db
-                    .select({ username: users.username })
-                    .from(userResources)
-                    .innerJoin(users, eq(userResources.userId, users.userId))
-                    .where(eq(userResources.resourceId, resource.resourceId)),
-                db
-                    .select({ email: resourceWhitelist.email })
-                    .from(resourceWhitelist)
-                    .where(eq(resourceWhitelist.resourceId, resource.resourceId)),
-                db
-                    .select({
-                        enabled: resourceRules.enabled,
-                        priority: resourceRules.priority,
-                        action: resourceRules.action,
-                        match: resourceRules.match,
-                        value: resourceRules.value
-                    })
-                    .from(resourceRules)
-                    .where(eq(resourceRules.resourceId, resource.resourceId)),
-                db
-                    .select({ passwordId: resourcePassword.passwordId })
-                    .from(resourcePassword)
-                    .where(eq(resourcePassword.resourceId, resource.resourceId))
-                    .limit(1),
-                db
-                    .select({ pincodeId: resourcePincode.pincodeId })
-                    .from(resourcePincode)
-                    .where(eq(resourcePincode.resourceId, resource.resourceId))
-                    .limit(1),
-                db
-                    .select({ headerAuthId: resourceHeaderAuth.headerAuthId })
-                    .from(resourceHeaderAuth)
-                    .where(eq(resourceHeaderAuth.resourceId, resource.resourceId))
-                    .limit(1)
-            ]);
+                )
+                .where(eq(roleResources.resourceId, resource.resourceId)),
+            db
+                .select({ username: users.username })
+                .from(userResources)
+                .innerJoin(users, eq(userResources.userId, users.userId))
+                .where(eq(userResources.resourceId, resource.resourceId)),
+            db
+                .select({ email: resourceWhitelist.email })
+                .from(resourceWhitelist)
+                .where(eq(resourceWhitelist.resourceId, resource.resourceId)),
+            db
+                .select({
+                    enabled: resourceRules.enabled,
+                    priority: resourceRules.priority,
+                    action: resourceRules.action,
+                    match: resourceRules.match,
+                    value: resourceRules.value
+                })
+                .from(resourceRules)
+                .where(eq(resourceRules.resourceId, resource.resourceId)),
+            db
+                .select({ passwordId: resourcePassword.passwordId })
+                .from(resourcePassword)
+                .where(eq(resourcePassword.resourceId, resource.resourceId))
+                .limit(1),
+            db
+                .select({ pincodeId: resourcePincode.pincodeId })
+                .from(resourcePincode)
+                .where(eq(resourcePincode.resourceId, resource.resourceId))
+                .limit(1),
+            db
+                .select({ headerAuthId: resourceHeaderAuth.headerAuthId })
+                .from(resourceHeaderAuth)
+                .where(eq(resourceHeaderAuth.resourceId, resource.resourceId))
+                .limit(1)
+        ]);
 
         if (passwordRow.length > 0) {
             notes.push(
@@ -197,7 +206,9 @@ async function buildPublicAuthAndRules(resource: {
 
         const auth = stripUndefined({
             "sso-enabled": resource.sso ?? undefined,
-            "sso-roles": roleRows.length ? roleRows.map((r) => r.name) : undefined,
+            "sso-roles": roleRows.length
+                ? roleRows.map((r) => r.name)
+                : undefined,
             "sso-users": userRows.length
                 ? userRows.map((u) => u.username)
                 : undefined,
@@ -283,9 +294,10 @@ async function buildPublicAuthAndRules(resource: {
     };
 }
 
-async function buildAiProvidersAndBudget(input:
-    | { scope: "public"; resourceId: number }
-    | { scope: "site"; siteResourceId: number }
+async function buildAiProvidersAndBudget(
+    input:
+        | { scope: "public"; resourceId: number }
+        | { scope: "site"; siteResourceId: number }
 ) {
     const providers =
         input.scope === "public"
@@ -324,7 +336,10 @@ async function buildAiProvidersAndBudget(input:
                               .from(siteResourceAiModels)
                               .innerJoin(
                                   aiModels,
-                                  eq(siteResourceAiModels.modelId, aiModels.modelId)
+                                  eq(
+                                      siteResourceAiModels.modelId,
+                                      aiModels.modelId
+                                  )
                               )
                               .where(
                                   and(
@@ -365,9 +380,11 @@ async function buildAiProvidersAndBudget(input:
     return { aiProvidersConfig, aiBudgetConfig };
 }
 
-export async function generatePublicResourceBlueprintYaml(
-    resourceId: number
-): Promise<{ niceId: string; contents: string }> {
+async function buildPublicResourceEntry(resourceId: number): Promise<{
+    niceId: string;
+    resourceConfig: Record<string, any>;
+    notes: string[];
+}> {
     const [resource] = await db
         .select()
         .from(resources)
@@ -419,7 +436,9 @@ export async function generatePublicResourceBlueprintYaml(
     }
     if (resource.responseHeaders) {
         try {
-            resourceConfig.responseHeaders = JSON.parse(resource.responseHeaders);
+            resourceConfig.responseHeaders = JSON.parse(
+                resource.responseHeaders
+            );
         } catch {
             // ignore malformed stored headers
         }
@@ -454,9 +473,8 @@ export async function generatePublicResourceBlueprintYaml(
     }
 
     // Auth / rules / shared policy
-    const { policy, auth, rules, notes } = await buildPublicAuthAndRules(
-        resource
-    );
+    const { policy, auth, rules, notes } =
+        await buildPublicAuthAndRules(resource);
     if (policy) {
         resourceConfig.policy = policy;
     }
@@ -510,7 +528,7 @@ export async function generatePublicResourceBlueprintYaml(
         resourceConfig.targets = targetRows.map((row) =>
             stripUndefined({
                 site: row.siteNiceId ?? undefined,
-                method: mode === "http" ? row.method ?? undefined : undefined,
+                method: mode === "http" ? (row.method ?? undefined) : undefined,
                 hostname: row.ip,
                 port: row.port,
                 enabled: row.enabled,
@@ -532,26 +550,32 @@ export async function generatePublicResourceBlueprintYaml(
         }
     }
 
-    const config = {
-        "proxy-resources": {
-            [resource.niceId]: resourceConfig
-        }
-    };
+    return { niceId: resource.niceId, resourceConfig, notes };
+}
 
-    const notesPrefix =
-        notes.length > 0
-            ? notes.map((n) => `# ${n}`).join("\n") + "\n\n"
-            : "";
+function notesToComments(notes: string[]): string {
+    return notes.length > 0
+        ? notes.map((n) => `# ${n}`).join("\n") + "\n\n"
+        : "";
+}
+
+export async function generatePublicResourceBlueprintYaml(
+    resourceId: number
+): Promise<{ niceId: string; contents: string }> {
+    const { niceId, resourceConfig, notes } =
+        await buildPublicResourceEntry(resourceId);
 
     return {
-        niceId: resource.niceId,
-        contents: notesPrefix + stringifyYaml(config)
+        niceId,
+        contents:
+            notesToComments(notes) +
+            stringifyYaml({ "proxy-resources": { [niceId]: resourceConfig } })
     };
 }
 
-export async function generatePrivateResourceBlueprintYaml(
+async function buildPrivateResourceEntry(
     siteResourceId: number
-): Promise<{ niceId: string; contents: string }> {
+): Promise<{ niceId: string; resourceConfig: Record<string, any> }> {
     const [siteResource] = await db
         .select()
         .from(siteResources)
@@ -638,7 +662,10 @@ export async function generatePrivateResourceBlueprintYaml(
         db
             .select({ niceId: clients.niceId })
             .from(clientSiteResources)
-            .innerJoin(clients, eq(clientSiteResources.clientId, clients.clientId))
+            .innerJoin(
+                clients,
+                eq(clientSiteResources.clientId, clients.clientId)
+            )
             .where(eq(clientSiteResources.siteResourceId, siteResourceId)),
         db
             .select({ name: labels.name })
@@ -669,14 +696,71 @@ export async function generatePrivateResourceBlueprintYaml(
         }
     }
 
-    const config = {
-        "client-resources": {
-            [siteResource.niceId]: resourceConfig
-        }
-    };
+    return { niceId: siteResource.niceId, resourceConfig };
+}
+
+export async function generatePrivateResourceBlueprintYaml(
+    siteResourceId: number
+): Promise<{ niceId: string; contents: string }> {
+    const { niceId, resourceConfig } =
+        await buildPrivateResourceEntry(siteResourceId);
 
     return {
-        niceId: siteResource.niceId,
-        contents: stringifyYaml(config)
+        niceId,
+        contents: stringifyYaml({
+            "client-resources": { [niceId]: resourceConfig }
+        })
+    };
+}
+
+export async function generateOrgBlueprintYaml(
+    orgId: string
+): Promise<{ contents: string; resourceCount: number }> {
+    const [publicRows, privateRows] = await Promise.all([
+        db
+            .select({ resourceId: resources.resourceId })
+            .from(resources)
+            .where(eq(resources.orgId, orgId))
+            .orderBy(asc(resources.niceId)),
+        db
+            .select({ siteResourceId: siteResources.siteResourceId })
+            .from(siteResources)
+            .where(eq(siteResources.orgId, orgId))
+            .orderBy(asc(siteResources.niceId))
+    ]);
+
+    // Sequential to avoid saturating the DB pool on large orgs
+    const publicEntries: Awaited<
+        ReturnType<typeof buildPublicResourceEntry>
+    >[] = [];
+    for (const r of publicRows) {
+        publicEntries.push(await buildPublicResourceEntry(r.resourceId));
+    }
+    const privateEntries: Awaited<
+        ReturnType<typeof buildPrivateResourceEntry>
+    >[] = [];
+    for (const r of privateRows) {
+        privateEntries.push(await buildPrivateResourceEntry(r.siteResourceId));
+    }
+
+    const config: Record<string, Record<string, any>> = {};
+    if (publicEntries.length > 0) {
+        config["proxy-resources"] = Object.fromEntries(
+            publicEntries.map((e) => [e.niceId, e.resourceConfig])
+        );
+    }
+    if (privateEntries.length > 0) {
+        config["client-resources"] = Object.fromEntries(
+            privateEntries.map((e) => [e.niceId, e.resourceConfig])
+        );
+    }
+
+    const notes = publicEntries.flatMap((e) =>
+        e.notes.map((n) => `[${e.niceId}] ${n}`)
+    );
+
+    return {
+        contents: notesToComments(notes) + stringifyYaml(config),
+        resourceCount: publicEntries.length + privateEntries.length
     };
 }

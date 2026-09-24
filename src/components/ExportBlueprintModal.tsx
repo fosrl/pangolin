@@ -25,13 +25,17 @@ type ExportBlueprintModalProps = {
     setOpen: (open: boolean) => void;
     endpoint: string;
     resourceName: string;
+    title?: string;
+    description?: string;
 };
 
 export default function ExportBlueprintModal({
     open,
     setOpen,
     endpoint,
-    resourceName
+    resourceName,
+    title,
+    description
 }: ExportBlueprintModalProps) {
     const t = useTranslations();
     const { env } = useEnvContext();
@@ -58,10 +62,7 @@ export default function ExportBlueprintModal({
                 toast({
                     variant: "destructive",
                     title: t("exportBlueprintError"),
-                    description: formatAxiosError(
-                        e,
-                        t("exportBlueprintError")
-                    )
+                    description: formatAxiosError(e, t("exportBlueprintError"))
                 });
                 setOpen(false);
             })
@@ -89,11 +90,14 @@ export default function ExportBlueprintModal({
         <Credenza open={open} onOpenChange={setOpen}>
             <CredenzaContent>
                 <CredenzaHeader>
-                    <CredenzaTitle>{t("exportBlueprintTitle")}</CredenzaTitle>
+                    <CredenzaTitle>
+                        {title ?? t("exportBlueprintTitle")}
+                    </CredenzaTitle>
                     <CredenzaDescription>
-                        {t("exportBlueprintDescription", {
-                            name: resourceName
-                        })}
+                        {description ??
+                            t("exportBlueprintDescription", {
+                                name: resourceName
+                            })}
                     </CredenzaDescription>
                 </CredenzaHeader>
                 <CredenzaBody>

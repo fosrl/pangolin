@@ -1578,6 +1578,13 @@ authenticated.put(
 );
 
 authenticated.get(
+    "/org/:orgId/blueprints/export",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getBlueprint),
+    blueprints.exportOrgBlueprint
+);
+
+authenticated.get(
     "/org/:orgId/blueprint/:blueprintId",
     verifyOrgAccess,
     verifyUserHasAction(ActionsEnum.getBlueprint),

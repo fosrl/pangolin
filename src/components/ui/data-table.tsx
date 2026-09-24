@@ -190,6 +190,8 @@ type DataTableProps<TData, TValue> = {
     /** Prefer over `onAdd` when non-empty. */
     addActions?: DataTableAddAction[];
     addButtonDisabled?: boolean;
+    /** Extra controls rendered in the header before the refresh/add buttons. */
+    headerActions?: React.ReactNode;
     onRefresh?: () => void;
     isRefreshing?: boolean;
     refreshButtonDisabled?: boolean;
@@ -226,6 +228,7 @@ export function DataTable<TData, TValue>({
     addButtonText,
     onAdd,
     addActions,
+    headerActions,
     addButtonDisabled = false,
     onRefresh,
     isRefreshing,
@@ -680,6 +683,7 @@ export function DataTable<TData, TValue>({
                         )}
                     </div>
                     <div className="flex items-center gap-2 sm:justify-end">
+                        {headerActions}
                         {onRefresh && (
                             <div>
                                 <Button

@@ -6,11 +6,13 @@ import { Button } from "@app/components/ui/button";
 import {
     ArrowRight,
     ArrowUpDown,
+    Download,
     Globe,
     Terminal,
     Webhook
 } from "lucide-react";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import ExportBlueprintModal from "@app/components/ExportBlueprintModal";
 import { Badge } from "@app/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -30,6 +32,7 @@ export default function BlueprintsTable({ blueprints, orgId }: Props) {
 
     const [isRefreshing, startTransition] = useTransition();
     const router = useRouter();
+    const [isExportOpen, setIsExportOpen] = useState(false);
 
     const columns: ExtendedColumnDef<BlueprintRow>[] = [
         {
@@ -194,28 +197,49 @@ export default function BlueprintsTable({ blueprints, orgId }: Props) {
     ];
 
     return (
-        <DataTable
-            columns={columns}
-            data={blueprints}
-            persistPageSize="blueprint-table"
-            title={t("blueprints")}
-            searchPlaceholder={t("searchBlueprintProgress")}
-            searchColumn="name"
-            enableColumnVisibility={true}
-            stickyLeftColumn="name"
-            stickyRightColumn="actions"
-            onAdd={() => {
-                router.push(`/${orgId}/settings/blueprints/create`);
-            }}
-            addButtonText={t("blueprintAdd")}
-            onRefresh={() => {
-                startTransition(() => router.refresh());
-            }}
-            isRefreshing={isRefreshing}
-            defaultSort={{
-                id: "createdAt",
-                desc: true
-            }}
-        />
+        <>
+            <ExportBlueprintModal
+                open={isExportOpen}
+                setOpen={setIsExportOpen}
+                endpoint={`/org/${orgId}/blueprints/export`}
+                resourceName={`${orgId}-blueprint`}
+                title={t("exportAllBlueprintTitle")}
+                description={t("exportAllBlueprintDescription")}
+            />
+            <DataTable
+                columns={columns}
+                data={blueprints}
+                persistPageSize="blueprint-table"
+                title={t("blueprints")}
+                searchPlaceholder={t("searchBlueprintProgress")}
+                searchColumn="name"
+                enableColumnVisibility={true}
+                stickyLeftColumn="name"
+                stickyRightColumn="actions"
+                onAdd={() => {
+                    router.push(`/${orgId}/settings/blueprints/create`);
+                }}
+                addButtonText={t("blueprintAdd")}
+                headerActions={
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsExportOpen(true)}
+                    >
+                        <Download className="mr-0 sm:mr-2 h-4 w-4" />
+                        <span className="hidden sm:inline">
+                            {t("exportAllBlueprint")}
+                        </span>
+                    </Button>
+                }
+                onRefresh={() => {
+                    startTransition(() => router.refresh());
+                }}
+                isRefreshing={isRefreshing}
+                defaultSort={{
+                    id: "createdAt",
+                    desc: true
+                }}
+            />
+        </>
     );
 }
