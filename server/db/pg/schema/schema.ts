@@ -200,6 +200,7 @@ export const resources = pgTable(
         maintenanceTitle: text("maintenanceTitle"),
         maintenanceMessage: text("maintenanceMessage"),
         maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
+        mtlsEnabled: boolean("mtlsEnabled").notNull().default(false),
         postAuthPath: text("postAuthPath"),
         health: varchar("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: boolean("wildcard").notNull().default(false),
@@ -1105,6 +1106,22 @@ export const resourceWhitelist = pgTable("resourceWhitelist", {
     resourceId: integer("resourceId")
         .notNull()
         .references(() => resources.resourceId, { onDelete: "cascade" })
+});
+
+export const resourceMtlsCertificates = pgTable("resourceMtlsCertificates", {
+    mtlsCertificateId: serial("mtlsCertificateId").primaryKey(),
+    resourceId: integer("resourceId")
+        .notNull()
+        .references(() => resources.resourceId, { onDelete: "cascade" }),
+    name: varchar("name"),
+    certificate: text("certificate").notNull(),
+    subject: varchar("subject"),
+    issuer: varchar("issuer"),
+    serialNumber: varchar("serialNumber"),
+    fingerprint: varchar("fingerprint"),
+    notBefore: bigint("notBefore", { mode: "number" }),
+    notAfter: bigint("notAfter", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull()
 });
 
 export const resourceOtp = pgTable("resourceOtp", {
@@ -2019,6 +2036,9 @@ export type ResourceHeaderAuthExtendedCompatibility = InferSelectModel<
 export type ResourceOtp = InferSelectModel<typeof resourceOtp>;
 export type ResourceAccessToken = InferSelectModel<typeof resourceAccessToken>;
 export type ResourceWhitelist = InferSelectModel<typeof resourceWhitelist>;
+export type ResourceMtlsCertificate = InferSelectModel<
+    typeof resourceMtlsCertificates
+>;
 export type ResourcePolicyPincode = InferSelectModel<
     typeof resourcePolicyPincode
 >;

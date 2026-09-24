@@ -111,6 +111,13 @@ export default async function ResourceLayout(props: ResourceLayoutProps) {
                 href: `/{orgId}/settings/resources/public/{niceId}/maintenance`
             });
         }
+
+        if (!env.flags.disableEnterpriseFeatures && resource.mode === "http") {
+            navItems.push({
+                title: t("mtls"),
+                href: `/{orgId}/settings/resources/public/{niceId}/mtls`
+            });
+        }
     }
 
     if (resource.mode === "inference") {

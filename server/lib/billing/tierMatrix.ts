@@ -26,7 +26,8 @@ export enum TierFeature {
     WildcardSubdomain = "wildcardSubdomain",
     NewtAutoUpdate = "newtAutoUpdate",
     ResourcePolicies = "resourcePolicies",
-    RoleBasedSSHControls = "roleBasedSSHControls"
+    RoleBasedSSHControls = "roleBasedSSHControls",
+    Mtls = "mtls" // handle downgrade by disabling mTLS on resources
 }
 
 export const tierMatrix: Record<TierFeature, Tier[]> = {
@@ -70,5 +71,6 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.WildcardSubdomain]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.NewtAutoUpdate]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.ResourcePolicies]: ["tier3", "enterprise"],
-    [TierFeature.RoleBasedSSHControls]: ["tier3", "enterprise"]
+    [TierFeature.RoleBasedSSHControls]: ["tier3", "enterprise"],
+    [TierFeature.Mtls]: ["tier1", "tier2", "tier3", "enterprise"]
 };

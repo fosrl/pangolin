@@ -2,6 +2,7 @@ import { z } from "zod";
 import { existsSync } from "node:fs";
 import { portRangeStringSchema } from "@server/lib/ip";
 import { MaintenanceSchema } from "#dynamic/lib/blueprints/MaintenanceSchema";
+import { MtlsSchema } from "#dynamic/lib/blueprints/MtlsSchema";
 import { isValidRegionId } from "@server/db/regions";
 import { isValidHttpMethodList } from "@server/lib/validators";
 import { wildcardSubdomainSchema } from "@server/lib/schemas";
@@ -331,6 +332,7 @@ export const PublicResourceSchema = z
         responseHeaders: z.array(HeaderSchema).optional(),
         rules: z.array(RuleSchema).optional(),
         maintenance: MaintenanceSchema.optional(),
+        mtls: MtlsSchema.optional(),
         "auth-daemon": AuthDaemonSchema.optional(),
         "proxy-protocol": z.boolean().optional(),
         "proxy-protocol-version": z.int().min(1).optional(),
@@ -443,6 +445,48 @@ export const PublicResourceSchema = z
         {
             path: ["full-domain"],
             error: "When protocol is 'http', 'ssh', 'rdp', 'vnc', or 'inference', a 'full-domain' must be provided"
+        }
+    )
+    .refine(
+        (resource) => {
+            if (isTargetsOnlyResource(resource) || !resource.mtls?.enabled) {
+                return true;
+            }
+
+            return (resource.mode ?? resource.protocol) === "http";
+        },
+        {
+            path: ["mtls"],
+            error: "mTLS is only supported when mode is 'http'"
+        }
+    )
+    .refine(
+        (resource) => {
+            if (isTargetsOnlyResource(resource) || !resource.mtls?.enabled) {
+                return true;
+            }
+
+            return resource.ssl !== false;
+        },
+        {
+            path: ["mtls"],
+            error: "mTLS requires 'ssl' to be enabled"
+        }
+    )
+    .refine(
+        (resource) => {
+            if (isTargetsOnlyResource(resource) || !resource.mtls?.enabled) {
+                return true;
+            }
+
+            const caCertificates = (
+                resource.mtls as { "ca-certificates"?: string[] }
+            )["ca-certificates"];
+            return (caCertificates?.length ?? 0) > 0;
+        },
+        {
+            path: ["mtls", "ca-certificates"],
+            error: "mTLS requires at least one entry in 'ca-certificates'"
         }
     )
     .refine(

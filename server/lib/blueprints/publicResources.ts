@@ -10,6 +10,7 @@ import {
     Resource,
     resourceHeaderAuth,
     resourceHeaderAuthExtendedCompatibility,
+    resourceMtlsCertificates,
     resourcePassword,
     resourcePincode,
     resourcePolicies,
@@ -62,6 +63,10 @@ import { LimitId } from "../billing";
 import { usageService } from "../billing/usageService";
 import { syncInferenceAiConfig } from "./aiProviders";
 import { syncAiBudgets } from "./aiBudgets";
+import {
+    MAX_MTLS_CERTIFICATES_PER_RESOURCE,
+    parseCaCertificates
+} from "../mtlsCertificate";
 
 export type PublicResourcesResults = {
     proxyResource: Resource;
@@ -274,6 +279,20 @@ export async function updatePublicResources(
             ? JSON.stringify(resourceData.responseHeaders)
             : null;
 
+        // mTLS is a security control: refuse (rather than silently drop) a
+        // blueprint that asks for it on a plan that doesn't include it.
+        if (resourceData.mtls?.enabled) {
+            const mtlsLicensed = await isLicensedOrSubscribed(
+                orgId,
+                tierMatrix.mtls
+            );
+            if (!mtlsLicensed) {
+                throw new Error(
+                    "mTLS is not supported on your current plan. Please upgrade to access this feature."
+                );
+            }
+        }
+
         if (resourceData.policy) {
             const isLicensed = await isLicensedOrSubscribed(
                 orgId,
@@ -431,6 +450,7 @@ export async function updatePublicResources(
                                 resourceData.maintenance?.message,
                             maintenanceEstimatedTime:
                                 resourceData.maintenance?.["estimated-time"],
+                            mtlsEnabled: resourceData.mtls?.enabled,
                             proxyProtocol:
                                 resourceData.mode === "tcp"
                                     ? (resourceData["proxy-protocol"] ?? false)
@@ -618,6 +638,7 @@ export async function updatePublicResources(
                                 resourceData.maintenance?.message,
                             maintenanceEstimatedTime:
                                 resourceData.maintenance?.["estimated-time"],
+                            mtlsEnabled: resourceData.mtls?.enabled,
                             proxyProtocol:
                                 resourceData.mode === "tcp"
                                     ? (resourceData["proxy-protocol"] ?? false)
@@ -722,6 +743,14 @@ export async function updatePublicResources(
                     resourceId: existingResource.resourceId,
                     budgets: resourceData["ai-budget"] || []
                 });
+
+                if (resourceData.mtls?.["ca-certificates"]) {
+                    await syncResourceMtlsCertificates(
+                        existingResource.resourceId,
+                        resourceData.mtls["ca-certificates"],
+                        trx
+                    );
+                }
             }
 
             const existingResourceTargets = await trx
@@ -1246,6 +1275,7 @@ export async function updatePublicResources(
                     maintenanceMessage: resourceData.maintenance?.message,
                     maintenanceEstimatedTime:
                         resourceData.maintenance?.["estimated-time"],
+                    mtlsEnabled: resourceData.mtls?.enabled,
                     proxyProtocol:
                         resourceData.mode === "tcp"
                             ? (resourceData["proxy-protocol"] ?? false)
@@ -1299,6 +1329,14 @@ export async function updatePublicResources(
                 resourceId: newResource.resourceId,
                 budgets: resourceData["ai-budget"] || []
             });
+
+            if (resourceData.mtls?.["ca-certificates"]) {
+                await syncResourceMtlsCertificates(
+                    newResource.resourceId,
+                    resourceData.mtls["ca-certificates"],
+                    trx
+                );
+            }
 
             await trx.insert(roleResources).values({
                 roleId: adminRole.roleId,
@@ -1637,6 +1675,63 @@ async function syncUserResources(
                     and(
                         eq(userResources.userId, existingUserResource.userId),
                         eq(userResources.resourceId, resourceId)
+                    )
+                );
+        }
+    }
+}
+
+async function syncResourceMtlsCertificates(
+    resourceId: number,
+    caCertificates: string[],
+    trx: Transaction
+) {
+    // A PEM entry may itself be a bundle; flatten and dedupe by fingerprint.
+    const desired = new Map<string, ReturnType<typeof parseCaCertificates>[0]>();
+    for (const pem of caCertificates) {
+        for (const cert of parseCaCertificates(pem)) {
+            desired.set(cert.fingerprint, cert);
+        }
+    }
+
+    if (desired.size > MAX_MTLS_CERTIFICATES_PER_RESOURCE) {
+        throw new Error(
+            `A resource can have at most ${MAX_MTLS_CERTIFICATES_PER_RESOURCE} trusted CA certificates`
+        );
+    }
+
+    const existing = await trx
+        .select()
+        .from(resourceMtlsCertificates)
+        .where(eq(resourceMtlsCertificates.resourceId, resourceId));
+
+    const existingFingerprints = new Set(existing.map((c) => c.fingerprint));
+
+    for (const cert of desired.values()) {
+        if (existingFingerprints.has(cert.fingerprint)) {
+            continue;
+        }
+        await trx.insert(resourceMtlsCertificates).values({
+            resourceId,
+            certificate: cert.certificate,
+            subject: cert.subject,
+            issuer: cert.issuer,
+            serialNumber: cert.serialNumber,
+            fingerprint: cert.fingerprint,
+            notBefore: cert.notBefore,
+            notAfter: cert.notAfter,
+            createdAt: Date.now()
+        });
+    }
+
+    for (const row of existing) {
+        if (!row.fingerprint || !desired.has(row.fingerprint)) {
+            await trx
+                .delete(resourceMtlsCertificates)
+                .where(
+                    eq(
+                        resourceMtlsCertificates.mtlsCertificateId,
+                        row.mtlsCertificateId
                     )
                 );
         }

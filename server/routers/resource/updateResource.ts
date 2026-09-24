@@ -6,6 +6,7 @@ import {
     loginPage,
     resourceHeaderAuth,
     resourceHeaderAuthExtendedCompatibility,
+    resourceMtlsCertificates,
     resourcePassword,
     resourcePincode,
     resourceRules,
@@ -24,7 +25,7 @@ import {
     resourcePolicies,
     resources
 } from "@server/db";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, count } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -117,6 +118,12 @@ const updateHttpResourceBodySchema = z
         maintenanceTitle: z.string().max(255).nullable().optional(),
         maintenanceMessage: z.string().max(2000).nullable().optional(),
         maintenanceEstimatedTime: z.string().max(100).nullable().optional(),
+        mtlsEnabled: z
+            .boolean()
+            .optional()
+            .describe(
+                "Require clients to present a certificate signed by one of the resource's trusted CA certificates. Requires SSL and at least one CA certificate."
+            ),
         postAuthPath: z.string().nullable().optional(),
         // SSH settings
         pamMode: z.enum(["passthrough", "push"]).optional(),
@@ -508,8 +515,58 @@ async function updateHttpResource(
         }
     }
 
+    const effectiveSsl = updateData.ssl ?? resource.ssl;
+    const effectiveMtlsEnabled = updateData.mtlsEnabled ?? resource.mtlsEnabled;
+
+    if (updateData.mtlsEnabled === true) {
+        if (resource.mode !== "http") {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "mTLS is only supported on HTTP resources."
+                )
+            );
+        }
+
+        const isMtlsLicensed = await isLicensedOrSubscribed(
+            resource.orgId,
+            tierMatrix.mtls
+        );
+        if (!isMtlsLicensed) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "mTLS is not supported on your current plan. Please upgrade to access this feature."
+                )
+            );
+        }
+
+        const [{ certificateCount }] = await db
+            .select({ certificateCount: count() })
+            .from(resourceMtlsCertificates)
+            .where(eq(resourceMtlsCertificates.resourceId, resource.resourceId));
+
+        if (certificateCount === 0) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Add at least one trusted CA certificate before enabling mTLS."
+                )
+            );
+        }
+    }
+
+    if (effectiveMtlsEnabled && !effectiveSsl) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "mTLS requires SSL to be enabled for this resource. Disable mTLS before turning SSL off."
+            )
+        );
+    }
+
     // catch when the resource policy changes or gets cleared
-    if (updateData.resourcePolicyId !== undefined && 
+    if (updateData.resourcePolicyId !== undefined &&
         resource.resourcePolicyId !== updateData.resourcePolicyId) {
         await clearResourceSpecificSettings(
             resource.resourceId,
