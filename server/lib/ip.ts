@@ -500,6 +500,7 @@ export function generateRemoteSubnets(
             if (!sr.enabled) return false;
             if (!sr.destination) return false;
 
+            // we purposely filter out the gateway resource here because we add it manually on the client
             if (sr.mode === "cidr") {
                 // check if its a valid CIDR using zod
                 const cidrSchema = z.union([z.cidrv4(), z.cidrv6()]);

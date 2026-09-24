@@ -231,7 +231,7 @@ export async function buildSiteConfigurationForOlmClient(
             publicKey: site.publicKey,
             serverIP: site.address,
             serverPort: site.listenPort,
-            remoteSubnets: generateRemoteSubnets(allSiteResources),
+            remoteSubnets: generateRemoteSubnets(allSiteResources), // we dont add the gateway resources here
             aliases: generateAliasConfig(allSiteResources)
         });
     }
