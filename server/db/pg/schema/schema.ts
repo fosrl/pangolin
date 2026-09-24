@@ -216,7 +216,10 @@ export const resources = pgTable(
         authDaemonPort: integer("authDaemonPort").default(22123),
         status: varchar("status")
             .$type<"pending" | "approved">()
-            .default("approved")
+            .default("approved"),
+        createdAt: varchar("createdAt").$defaultFn(() =>
+            new Date().toISOString()
+        )
     },
     (t) => [
         index("idx_resources_fulldomain")

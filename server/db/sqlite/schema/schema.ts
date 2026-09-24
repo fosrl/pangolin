@@ -238,7 +238,8 @@ export const resources = sqliteTable(
         authDaemonPort: integer("authDaemonPort").default(22123),
         status: text("status")
             .$type<"pending" | "approved">()
-            .default("approved")
+            .default("approved"),
+        createdAt: text("createdAt").$defaultFn(() => new Date().toISOString())
     },
     (table) => [index("idx_resources_orgId").on(table.orgId)]
 );
