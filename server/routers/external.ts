@@ -386,6 +386,13 @@ authenticated.get(
     siteResource.getSiteResource
 );
 
+authenticated.get(
+    "/site-resource/:siteResourceId/blueprint",
+    verifySiteResourceAccess,
+    verifyUserHasAction(ActionsEnum.getSiteResource),
+    siteResource.exportSiteResourceBlueprint
+);
+
 authenticated.post(
     "/site-resource/:siteResourceId",
     verifySiteResourceAccess,
@@ -763,6 +770,13 @@ authenticated.get(
     verifyResourceAccess,
     verifyUserHasAction(ActionsEnum.getResource),
     resource.getResource
+);
+
+authenticated.get(
+    "/resource/:resourceId/blueprint",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.getResource),
+    resource.exportResourceBlueprint
 );
 authenticated.get(
     "/org/:orgId/resource/:niceId",
