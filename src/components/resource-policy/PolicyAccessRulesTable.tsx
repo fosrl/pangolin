@@ -54,11 +54,15 @@ import {
     GripVertical,
     LockIcon
 } from "lucide-react";
+import { useCommandState } from "cmdk";
 import { useTranslations } from "next-intl";
 import {
     useCallback,
+    useEffect,
     useMemo,
+    useRef,
     useState,
+    type ComponentProps,
     type DragEvent,
     type ReactNode
 } from "react";
@@ -114,6 +118,36 @@ function getColumnClassName(columnId: string) {
     return "";
 }
 
+// cmdk keeps the list's scroll offset when the search text changes, so a
+// filtered list can be left scrolled past its (few) matches and look empty.
+// Jump back to the top whenever the search changes.
+function ResettingCommandList(props: ComponentProps<typeof CommandList>) {
+    const search = useCommandState((state) => state.search);
+    const listRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        listRef.current?.scrollTo({ top: 0 });
+    }, [search]);
+
+    return <CommandList ref={listRef} {...props} />;
+}
+
+// Plain case-insensitive substring match on the country name or code, with
+// prefix matches ranked first. cmdk's default fuzzy scorer matches unrelated
+// countries (e.g. "Russia") and buries the exact one.
+function filterCountry(value: string, search: string, keywords?: string[]) {
+    const query = search.trim().toLowerCase();
+    if (!query) {
+        return 1;
+    }
+    const name = value.toLowerCase();
+    const code = keywords?.[0]?.toLowerCase() ?? "";
+    if (name.startsWith(query) || code === query) {
+        return 1;
+    }
+    return name.includes(query) ? 0.5 : 0;
+}
+
 // A METHOD rule stores its methods as a comma-separated list in rule.value,
 // e.g. "POST,PUT". Only the common methods are offered here; a value set
 // through a blueprint or the API may contain other methods (the WebDAV verbs,
@@ -155,7 +189,9 @@ function RuleMethodSelect({
                     className="w-full min-w-0 justify-between"
                 >
                     <span className="truncate">
-                        {selected.length > 0 ? selected.join(", ") : placeholder}
+                        {selected.length > 0
+                            ? selected.join(", ")
+                            : placeholder}
                     </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -616,11 +652,11 @@ export function PolicyAccessRulesTable({
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="min-w-50 p-0">
-                                <Command>
+                                <Command filter={filterCountry}>
                                     <CommandInput
                                         placeholder={t("searchCountries")}
                                     />
-                                    <CommandList>
+                                    <ResettingCommandList>
                                         <CommandEmpty>
                                             {t("noCountryFound")}
                                         </CommandEmpty>
@@ -629,6 +665,7 @@ export function PolicyAccessRulesTable({
                                                 <CommandItem
                                                     key={country.code}
                                                     value={country.name}
+                                                    keywords={[country.code]}
                                                     onSelect={() =>
                                                         updateRule(
                                                             row.original.ruleId,
@@ -653,7 +690,7 @@ export function PolicyAccessRulesTable({
                                                 </CommandItem>
                                             ))}
                                         </CommandGroup>
-                                    </CommandList>
+                                    </ResettingCommandList>
                                 </Command>
                             </PopoverContent>
                         </Popover>
@@ -686,7 +723,7 @@ export function PolicyAccessRulesTable({
                             <PopoverContent className="min-w-50 p-0">
                                 <Command>
                                     <CommandInput placeholder="Search ASNs or enter custom..." />
-                                    <CommandList>
+                                    <ResettingCommandList>
                                         <CommandEmpty>
                                             No ASN found. Enter a custom ASN
                                             below.
@@ -714,7 +751,7 @@ export function PolicyAccessRulesTable({
                                                 </CommandItem>
                                             ))}
                                         </CommandGroup>
-                                    </CommandList>
+                                    </ResettingCommandList>
                                 </Command>
                                 <div className="border-t p-2">
                                     <Input
@@ -775,7 +812,7 @@ export function PolicyAccessRulesTable({
                                     <CommandInput
                                         placeholder={t("searchRegions")}
                                     />
-                                    <CommandList>
+                                    <ResettingCommandList>
                                         <CommandEmpty>
                                             {t("noRegionFound")}
                                         </CommandEmpty>
@@ -848,7 +885,7 @@ export function PolicyAccessRulesTable({
                                                 )}
                                             </CommandGroup>
                                         ))}
-                                    </CommandList>
+                                    </ResettingCommandList>
                                 </Command>
                             </PopoverContent>
                         </Popover>
