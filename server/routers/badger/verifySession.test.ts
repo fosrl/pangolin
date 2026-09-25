@@ -1,6 +1,7 @@
 import { assertEquals } from "@test/assert";
 import { REGIONS } from "@server/db/regions";
 import { isPathAllowed } from "@server/lib/pathMatch";
+import { isAllAsnSelector, isIpInAsn } from "@server/lib/asnMatch";
 
 function isIpInRegion(
     ipCountryCode: string | undefined,
@@ -474,12 +475,59 @@ function runRegionTests() {
     console.log("All region tests passed!");
 }
 
+async function runAsnTests() {
+    console.log("Running ASN rule tests...");
+
+    // The rule validator accepts ALL / AS0 / AS<number> after trim() and
+    // toUpperCase(), and the API stores the value as sent, so the matcher
+    // has to accept the same spellings.
+    for (const value of ["ALL", "all", " All ", "AS0", "as0", " as0 "]) {
+        assertEquals(
+            await isIpInAsn(13335, value),
+            true,
+            `ASN rule value "${value}" should match every ASN`
+        );
+        assertEquals(
+            isAllAsnSelector(value),
+            true,
+            `ASN rule value "${value}" should be treated as the all-ASN selector`
+        );
+    }
+
+    for (const value of ["AS13335", "as13335", " AS13335 ", "13335"]) {
+        assertEquals(
+            await isIpInAsn(13335, value),
+            true,
+            `ASN rule value "${value}" should match AS13335`
+        );
+    }
+
+    assertEquals(
+        await isIpInAsn(15169, " AS13335 "),
+        false,
+        "A different ASN should not match"
+    );
+    assertEquals(
+        await isIpInAsn(undefined, "AS13335"),
+        false,
+        "An unknown client ASN should not match a specific ASN"
+    );
+    assertEquals(
+        isAllAsnSelector("AS13335"),
+        false,
+        "A specific ASN is not the all-ASN selector"
+    );
+
+    console.log("All ASN tests passed!");
+}
+
 // Run all tests
 try {
     runTests();
     runSpecialCharacterTests();
     runEncodedPatternTests();
     runRegionTests();
+    await runAsnTests();
     console.log("\n✅ All tests passed!");
 } catch (error) {
     console.error("❌ Test failed:", error);
