@@ -45,7 +45,8 @@ import {
 import {
     sanitize,
     encodePath,
-    validatePathRewriteConfig
+    validatePathRewriteConfig,
+    buildResourceRouterKey
 } from "@server/lib/traefik/utils";
 import privateConfig from "#private/lib/config";
 import { applyPathRewriteMiddleware } from "@server/lib/traefik/middleware";
@@ -243,7 +244,7 @@ export async function getTraefikConfig(
             .filter(Boolean)
             .join("-");
         const mapKey = [resourceId, pathKey].filter(Boolean).join("-");
-        const key = sanitize(mapKey);
+        const key = buildResourceRouterKey(mapKey);
 
         if (!resourcesMap.has(mapKey)) {
             const validation = validatePathRewriteConfig(
