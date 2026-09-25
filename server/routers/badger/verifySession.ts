@@ -40,7 +40,7 @@ import {
 import config from "@server/lib/config";
 import { isIpInCidr, stripPortFromHost } from "@server/lib/ip";
 import { isPathAllowed } from "@server/lib/pathMatch";
-import { parseHttpMethodList } from "@server/lib/validators";
+import { isSameIpAddress, parseHttpMethodList } from "@server/lib/validators";
 import { response } from "@server/lib/response";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
@@ -1470,7 +1470,11 @@ async function checkRules(
             isIpInCidr(clientIp, rule.value)
         ) {
             return rule.action as any;
-        } else if (clientIp && rule.match == "IP" && clientIp == rule.value) {
+        } else if (
+            clientIp &&
+            rule.match == "IP" &&
+            isSameIpAddress(clientIp, rule.value)
+        ) {
             return rule.action as any;
         } else if (
             path &&

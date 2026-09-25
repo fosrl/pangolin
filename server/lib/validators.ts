@@ -13,6 +13,30 @@ export function isValidIP(ip: string): boolean {
     return z.ipv4().safeParse(ip).success || z.ipv6().safeParse(ip).success;
 }
 
+// Compares two IP addresses by value rather than by text. An IPv6 address
+// has many valid spellings (case, leading zeros, "::" compression), so an IP
+// rule saved as `2001:DB8::1` or `2001:db8:0:0:0:0:0:1` must still match a
+// client reported as `2001:db8::1`. IPv4-mapped IPv6 addresses compare equal
+// to their IPv4 form.
+export function isSameIpAddress(a: string, b: string): boolean {
+    if (a === b) {
+        return true;
+    }
+    if (!isValidIP(a.trim()) || !isValidIP(b.trim())) {
+        return false;
+    }
+    try {
+        const ipA = ipaddr.process(a.trim());
+        const ipB = ipaddr.process(b.trim());
+        return (
+            ipA.kind() === ipB.kind() &&
+            ipA.toByteArray().join(".") === ipB.toByteArray().join(".")
+        );
+    } catch {
+        return false;
+    }
+}
+
 export function isValidUrlGlobPattern(pattern: string): boolean {
     if (pattern === "/") {
         return true;

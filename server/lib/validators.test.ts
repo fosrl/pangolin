@@ -1,5 +1,6 @@
 import {
     getResourceRuleValueValidationError,
+    isSameIpAddress,
     isValidDomain,
     isValidUrlGlobPattern,
     parseHttpMethodList
@@ -332,6 +333,54 @@ function runTests() {
         parseHttpMethodList(" get ,post, "),
         ["GET", "POST"],
         "Method list should be normalized to uppercase without empty entries"
+    );
+
+    console.log("Running IP rule comparison tests...");
+
+    // An IP rule value is only checked with isValidIP() and stored as typed,
+    // while Badger reports the client address in Go's canonical form.
+    assertEquals(
+        isSameIpAddress("2001:db8::1", "2001:DB8::1"),
+        true,
+        "IPv6 IP rule in uppercase should match the canonical client address"
+    );
+    assertEquals(
+        isSameIpAddress(
+            "2001:db8::1",
+            "2001:0db8:0000:0000:0000:0000:0000:0001"
+        ),
+        true,
+        "Fully expanded IPv6 IP rule should match the canonical client address"
+    );
+    assertEquals(
+        isSameIpAddress("2001:db8::1", "2001:db8:0:0:0:0:0:1"),
+        true,
+        "Uncompressed IPv6 IP rule should match the canonical client address"
+    );
+    assertEquals(
+        isSameIpAddress("192.0.2.10", "::ffff:192.0.2.10"),
+        true,
+        "IPv4-mapped IPv6 IP rule should match the IPv4 client address"
+    );
+    assertEquals(
+        isSameIpAddress("192.0.2.10", "192.0.2.10"),
+        true,
+        "Identical IPv4 addresses should match"
+    );
+    assertEquals(
+        isSameIpAddress("2001:db8::1", "2001:db8::2"),
+        false,
+        "Different IPv6 addresses should not match"
+    );
+    assertEquals(
+        isSameIpAddress("192.0.2.10", "192.0.2.1"),
+        false,
+        "Different IPv4 addresses should not match"
+    );
+    assertEquals(
+        isSameIpAddress("192.0.2.10", "not-an-ip"),
+        false,
+        "An invalid rule value should not match"
     );
 
     console.log("All tests passed!");
