@@ -4,6 +4,7 @@ import {
     aiProviders,
     clients,
     db,
+    redirects,
     resourcePolicies,
     resources,
     siteResources
@@ -134,6 +135,30 @@ export async function getUniqueProviderName(orgId: string): Promise<string> {
             );
 
         if (aiProviderCount.length === 0) {
+            return name;
+        }
+        loops++;
+    }
+}
+
+export async function getUniqueRedirectName(orgId: string): Promise<string> {
+    let loops = 0;
+    while (true) {
+        if (loops > 100) {
+            throw new Error("Could not generate a unique name");
+        }
+
+        const name = generateName();
+
+        const redirectCount = await db
+            .select({
+                niceId: redirects.niceId,
+                orgId: redirects.orgId
+            })
+            .from(redirects)
+            .where(and(eq(redirects.niceId, name), eq(redirects.orgId, orgId)));
+
+        if (redirectCount.length === 0) {
             return name;
         }
         loops++;

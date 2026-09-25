@@ -35,10 +35,12 @@ import {
     resourcePolicyHeaderAuth,
     ResourcePolicyHeaderAuth,
     resourceWhitelist,
-    resourcePolicyWhiteList
+    resourcePolicyWhiteList,
+    redirects,
+    domains
 } from "@server/db";
 import { alias } from "@server/db";
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, not, or, sql } from "drizzle-orm";
 import logger from "@server/logger";
 
 export type ResourceWithAuth = {
@@ -53,10 +55,79 @@ export type ResourceWithAuth = {
     org: Org;
 };
 
+export type RedirectByHost = {
+    redirectId: number;
+    orgId: string;
+    matchPath: string | null;
+    pathMatchType: string;
+    destinationHost: string;
+    rewritePath: string | null;
+    rewritePathType: string | null;
+    permanent: boolean;
+    priority: number | null;
+};
+
 export type UserSessionWithUser = {
     session: any;
     user: any;
 };
+
+/**
+ * Enabled redirects listening on the given host, highest priority first.
+ * A redirect listens on its resource's fullDomain when attached to one,
+ * otherwise on subdomain.baseDomain (or the bare baseDomain) of its domain.
+ * Mirrors the host resolution in getTraefikConfig so badger agrees with
+ * what Traefik routed.
+ */
+export async function getRedirectsByHost(
+    host: string
+): Promise<RedirectByHost[]> {
+    // A literal "*." leading label matches any single subdomain, like
+    // wildcard resources do.
+    const parts = host.split(".");
+    const candidates = [host];
+    for (let i = 1; i < parts.length; i++) {
+        candidates.push(`*.${parts.slice(i).join(".")}`);
+    }
+
+    const redirectHost = sql<string>`case
+        when ${redirects.resourceId} is not null then ${resources.fullDomain}
+        when ${redirects.subdomain} is null then ${domains.baseDomain}
+        else ${redirects.subdomain} || '.' || ${domains.baseDomain}
+    end`;
+
+    return db
+        .select({
+            redirectId: redirects.redirectId,
+            orgId: redirects.orgId,
+            matchPath: redirects.matchPath,
+            pathMatchType: redirects.pathMatchType,
+            destinationHost: redirects.destinationHost,
+            rewritePath: redirects.rewritePath,
+            rewritePathType: redirects.rewritePathType,
+            permanent: redirects.permanent,
+            priority: redirects.priority
+        })
+        .from(redirects)
+        .leftJoin(resources, eq(resources.resourceId, redirects.resourceId))
+        .leftJoin(domains, eq(domains.domainId, redirects.domainId))
+        .where(
+            and(
+                eq(redirects.enabled, true),
+                // Traefik drops resource-attached redirects along with a
+                // disabled resource; do the same here.
+                or(
+                    isNull(redirects.resourceId),
+                    and(
+                        eq(resources.enabled, true),
+                        not(isNull(resources.domainId))
+                    )
+                ),
+                inArray(redirectHost, candidates)
+            )
+        )
+        .orderBy(desc(redirects.priority));
+}
 
 /**
  * Get resource by domain with pincode and password information

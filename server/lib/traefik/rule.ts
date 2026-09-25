@@ -36,6 +36,48 @@ export function appendPathMatch(
     return rule;
 }
 
+/**
+ * Server-side equivalent of the clause appendPathMatch emits, so badger can
+ * tell whether a request would have matched a given path config. Mirrors
+ * Traefik v3 semantics: Path is exact, PathPrefix is segment-aware
+ * (`/products` matches `/products/shoes` but not `/productsforsale`), and
+ * PathRegexp is an unanchored regex test.
+ */
+export function matchesPath(
+    requestPath: string,
+    path: string | null | undefined,
+    pathMatchType: string | null | undefined
+): boolean {
+    if (!path || !pathMatchType) return true;
+
+    if (pathMatchType === "regex") {
+        try {
+            return new RegExp(path).test(requestPath);
+        } catch {
+            return false;
+        }
+    }
+
+    let p = path;
+    if (!p.startsWith("/")) {
+        p = `/${p}`;
+    }
+
+    if (pathMatchType === "exact") {
+        return requestPath === p;
+    } else if (pathMatchType === "prefix") {
+        if (!requestPath.startsWith(p)) {
+            return false;
+        }
+        if (p.endsWith("/")) {
+            return true;
+        }
+        const rest = requestPath.slice(p.length);
+        return rest === "" || rest.startsWith("/");
+    }
+    return true;
+}
+
 // Compute the router priority for a resource, favoring an explicit override
 // and otherwise deriving it from the path match specificity.
 export function computeRoutePriority(
@@ -62,4 +104,26 @@ export function computeRoutePriority(
         }
     }
     return p;
+}
+
+// Redirects must always be evaluated before resource routers on the same
+// host. Target and redirect priorities are both capped at 1000, so lifting
+// every redirect by this offset puts them in a band (1001-2000) no resource
+// router can reach, while explicit priorities still order redirects among
+// themselves.
+export const REDIRECT_PRIORITY_OFFSET = 1000;
+
+/**
+ * Compute the router priority for a redirect: the same derivation as a
+ * resource router, shifted into the redirect band.
+ */
+export function computeRedirectPriority(
+    priority: number | null | undefined,
+    path: string | null | undefined,
+    pathMatchType: string | null | undefined
+): number {
+    return (
+        computeRoutePriority(priority, path, pathMatchType) +
+        REDIRECT_PRIORITY_OFFSET
+    );
 }

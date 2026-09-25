@@ -32,7 +32,8 @@ export enum OpenAPITags {
     AiProvider = "AI Provider",
     AiModel = "AI Model",
     AiBudget = "AI Budget",
-    VirtualApiKey = "Virtual API Key"
+    VirtualApiKey = "Virtual API Key",
+    Redirect = "Redirect"
 }
 
 // Order here controls the order tags are displayed in Swagger UI
