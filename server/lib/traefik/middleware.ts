@@ -82,8 +82,11 @@ export default function createPathRewriteMiddleware(
 
     switch (rewritePathType) {
         case "exact":
-            // Replace the path with the exact rewrite path
-            const exactPattern = `^${escapeRegex(path)}$`;
+            // Replace the path with the exact rewrite path. A regex path is
+            // not a literal, and the router's PathRegexp already limits which
+            // requests reach this middleware, so replace the whole path.
+            const exactPattern =
+                pathMatchType === "regex" ? "^.*$" : `^${escapeRegex(path)}$`;
             middlewares[middlewareName] = {
                 replacePathRegex: {
                     regex: exactPattern,
