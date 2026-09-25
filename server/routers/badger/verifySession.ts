@@ -40,6 +40,7 @@ import {
 import config from "@server/lib/config";
 import { isIpInCidr, stripPortFromHost } from "@server/lib/ip";
 import { isPathAllowed } from "@server/lib/pathMatch";
+import { isAllAsnSelector, isIpInAsn } from "@server/lib/asnMatch";
 import { parseHttpMethodList } from "@server/lib/validators";
 import { response } from "@server/lib/response";
 import logger from "@server/logger";
@@ -1499,8 +1500,7 @@ async function checkRules(
         } else if (clientIp && rule.match == "ASN") {
             // ASN=ALL/AS0 should not affect local/private/CGNAT addresses.
             if (
-                (rule.value.toUpperCase() === "ALL" ||
-                    rule.value.toUpperCase() === "AS0") &&
+                isAllAsnSelector(rule.value) &&
                 isLocalOrCarrierGradeNatIp(clientIp)
             ) {
                 continue;
@@ -1564,36 +1564,6 @@ function isLocalOrCarrierGradeNatIp(ip: string): boolean {
     } catch {
         return false;
     }
-}
-
-async function isIpInAsn(
-    ipAsn: number | undefined,
-    checkAsn: string
-): Promise<boolean> {
-    // Handle "ALL" special case
-    if (checkAsn === "ALL" || checkAsn === "AS0") {
-        return true;
-    }
-
-    if (!ipAsn) {
-        return false;
-    }
-
-    // Normalize the check ASN - remove "AS" prefix if present and convert to number
-    const normalizedCheckAsn = checkAsn.toUpperCase().replace(/^AS/, "");
-    const checkAsnNumber = parseInt(normalizedCheckAsn, 10);
-
-    if (isNaN(checkAsnNumber)) {
-        logger.warn(`Invalid ASN format in rule: ${checkAsn}`);
-        return false;
-    }
-
-    const match = ipAsn === checkAsnNumber;
-    logger.debug(
-        `ASN check: IP ASN ${ipAsn} ${match ? "matches" : "does not match"} rule ASN ${checkAsnNumber}`
-    );
-
-    return match;
 }
 
 export async function isIpInRegion(
