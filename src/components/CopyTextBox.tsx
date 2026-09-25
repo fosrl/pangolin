@@ -47,7 +47,7 @@ export default function CopyTextBox({
 
     return (
         <div
-            className={`relative w-full border rounded-md ${!outline ? "bg-muted" : "bg-card"}`}
+            className={`relative w-full overflow-hidden border rounded-md ${!outline ? "bg-muted" : "bg-card"}`}
         >
             <pre
                 ref={textRef}
@@ -55,7 +55,7 @@ export default function CopyTextBox({
                     centered ? "px-16 text-center" : "pl-4 pr-16"
                 } ${
                     wrapText
-                        ? "whitespace-pre-wrap break-words"
+                        ? "whitespace-pre-wrap break-all"
                         : "overflow-x-auto"
                 }`}
             >

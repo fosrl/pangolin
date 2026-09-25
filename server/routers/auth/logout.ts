@@ -9,6 +9,7 @@ import {
 } from "@server/auth/sessions/app";
 import { verifySession } from "@server/auth/sessions/verifySession";
 import config from "@server/lib/config";
+import { scheduleBackchannelLogout } from "@server/lib/oauth/backchannelLogout";
 
 export async function logout(
     req: Request,
@@ -44,6 +45,10 @@ export async function logout(
         } catch (error) {
             logger.error("Failed to invalidate session", error);
         }
+
+        // OIDC: awaits local token revocation
+        // backchannel logouts will be triggered (but not awaited)
+        await scheduleBackchannelLogout(user.userId);
 
         return response<null>(res, {
             data: null,

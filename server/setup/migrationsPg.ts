@@ -30,6 +30,7 @@ import m21 from "./scriptsPg/1.20.0";
 import m22 from "./scriptsPg/1.21.0";
 import m23 from "./scriptsPg/1.22.0";
 import m24 from "./scriptsPg/1.23.0";
+import m30 from "./scriptsPg/1.30.0";
 
 // THIS CANNOT IMPORT ANYTHING FROM THE SERVER
 // EXCEPT FOR THE DATABASE AND THE SCHEMA
@@ -59,12 +60,22 @@ const migrations = [
     { version: "1.20.0", run: m21 },
     { version: "1.21.0", run: m22 },
     { version: "1.22.0", run: m23 },
-    { version: "1.23.0", run: m24 }
+    { version: "1.23.0", run: m24 },
+    { version: "1.30.0", run: m30 }
     // Add new migrations here as they are created
 ] as {
     version: string;
     run: () => Promise<void>;
 }[];
+
+function hasPostgresErrorCode(error: unknown, code: string): boolean {
+    if (!(error instanceof Error)) {
+        return false;
+    }
+
+    const errorCode = Reflect.get(error, "code");
+    return typeof errorCode === "string" && errorCode === code;
+}
 
 await run();
 
@@ -172,11 +183,7 @@ async function executeScripts() {
                     `Successfully completed migration ${migration.version}`
                 );
             } catch (e) {
-                if (
-                    e instanceof Error &&
-                    typeof (e as any).code === "string" &&
-                    (e as any).code === "23505"
-                ) {
+                if (hasPostgresErrorCode(e, "23505")) {
                     console.error("Migration has already run! Skipping...");
                     continue; // or return, depending on context
                 }

@@ -16,6 +16,7 @@ import * as siteResource from "./siteResource";
 import * as aiProvider from "./aiProvider";
 import * as aiBudget from "./aiBudget";
 import * as virtualApiKey from "./virtualApiKey";
+import * as oauth from "./oauth";
 import {
     verifyApiKey,
     verifyApiKeyOrgAccess,
@@ -1832,4 +1833,54 @@ authenticated.get(
     verifyApiKeyVirtualApiKeyAccess,
     verifyApiKeyHasAction(ActionsEnum.listAiBudgets),
     aiBudget.listAiBudgetsForVirtualApiKey
+);
+
+// OAuth client management
+authenticated.post(
+    "/org/:orgId/oauth-clients",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.createOAuthClient),
+    logActionAudit(ActionsEnum.createOAuthClient),
+    oauth.createOAuthClient
+);
+
+authenticated.get(
+    "/org/:orgId/oauth-clients",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.listOAuthClients),
+    oauth.listOAuthClients
+);
+
+authenticated.get(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.getOAuthClient),
+    oauth.getOAuthClient
+);
+
+authenticated.patch(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
+    oauth.updateOAuthClient
+);
+
+authenticated.delete(
+    "/org/:orgId/oauth-clients/:clientId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteOAuthClient),
+    logActionAudit(ActionsEnum.deleteOAuthClient),
+    oauth.deleteOAuthClient
+);
+
+authenticated.post(
+    "/org/:orgId/oauth-clients/:clientId/rotate-secret",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateOAuthClient),
+    logActionAudit(ActionsEnum.updateOAuthClient),
+    oauth.rotateOAuthClientSecret
 );

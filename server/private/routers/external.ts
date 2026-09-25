@@ -56,12 +56,12 @@ import {
     verifyIdpAccess,
     verifyLoginPageAccess,
     verifyRemoteExitNodeAccess,
-    verifyValidSubscription
+    verifyValidSubscription,
+    verifyValidLicense
 } from "#private/middlewares";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
-import { verifyValidLicense } from "../middlewares/verifyValidLicense";
 import { build } from "@server/build";
 import {
     unauthenticated as ua,
