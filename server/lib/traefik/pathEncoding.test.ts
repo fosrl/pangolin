@@ -1,4 +1,5 @@
 import { assertEquals } from "../../../test/assert";
+import { buildResourceRouterKey, encodePath as realEncodePath } from "./utils";
 
 // ── Pure function copies (inlined to avoid pulling in server dependencies) ──
 
@@ -309,6 +310,56 @@ function runTests() {
             "special URL chars must produce unique keys"
         );
         console.log("  PASS: edge case - special URL characters in paths");
+        passed++;
+    }
+
+    // Test 16: long paths on one resource must not share a router name.
+    // Mirrors the key computation in getTraefikConfig.ts using the real
+    // helpers: the map key is unique, but the router/service key was cut to
+    // 50 characters, so both targets were written to the same router.
+    {
+        const routerKey = (
+            resourceId: number,
+            path: string,
+            pathMatchType: string
+        ) => {
+            const pathKey = [realEncodePath(path), pathMatchType]
+                .filter(Boolean)
+                .join("-");
+            const mapKey = [resourceId, pathKey].filter(Boolean).join("-");
+            return { mapKey, key: buildResourceRouterKey(mapKey) };
+        };
+        const a = routerKey(
+            12,
+            "/api/v1/organizations/settings/notifications/email",
+            "prefix"
+        );
+        const b = routerKey(
+            12,
+            "/api/v1/organizations/settings/notifications/slack",
+            "prefix"
+        );
+        assertEquals(
+            a.mapKey !== b.mapKey,
+            true,
+            "the two targets are separate groups"
+        );
+        assertEquals(
+            a.key !== b.key,
+            true,
+            "long paths on the same resource must get different router keys"
+        );
+        assertEquals(
+            /^[a-zA-Z0-9-]+$/.test(a.key) && /^[a-zA-Z0-9-]+$/.test(b.key),
+            true,
+            "router keys must stay alphanumeric with dashes"
+        );
+        assertEquals(
+            routerKey(1, "/api", "prefix").key,
+            "1-2fapi-prefix",
+            "short keys must stay unchanged"
+        );
+        console.log("  PASS: long paths on one resource get distinct keys");
         passed++;
     }
 

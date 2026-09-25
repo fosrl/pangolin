@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import logger from "@server/logger";
 
 export function sanitize(input: string | null | undefined): string | undefined {
@@ -11,6 +12,25 @@ export function sanitize(input: string | null | undefined): string | undefined {
         .replace(/[^a-zA-Z0-9-]/g, "-")
         .replace(/-+/g, "-")
         .replace(/^-|-$/g, "");
+}
+
+/**
+ * Build the Traefik router/service key for one resource target group.
+ *
+ * `mapKey` is the full grouping key (resource id, encoded path, match type
+ * and rewrite config). It is already unique per group, but sanitize() cuts it
+ * to 50 characters, so two long paths on the same resource that share their
+ * first ~45 encoded characters would produce the same router and service name
+ * and one would overwrite the other in the generated config. Keys that fit are
+ * kept exactly as before; longer ones get a short hash of the full `mapKey`.
+ */
+export function buildResourceRouterKey(mapKey: string): string {
+    const key = sanitize(mapKey) || "";
+    if (mapKey.length <= 50) {
+        return key;
+    }
+    const hash = createHash("sha256").update(mapKey).digest("hex").slice(0, 12);
+    return `${key}-${hash}`;
 }
 
 /**

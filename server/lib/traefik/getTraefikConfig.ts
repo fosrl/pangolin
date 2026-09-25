@@ -23,7 +23,12 @@ import logger from "@server/logger";
 import config from "@server/lib/config";
 import { resources, sites, targets } from "@server/db";
 import { applyPathRewriteMiddleware } from "./middleware";
-import { sanitize, encodePath, validatePathRewriteConfig } from "./utils";
+import {
+    sanitize,
+    encodePath,
+    validatePathRewriteConfig,
+    buildResourceRouterKey
+} from "./utils";
 import regionalCache from "@server/lib/cache";
 import { TargetWithSite } from "./types";
 import { buildWildcardTls } from "./certResolver";
@@ -193,7 +198,7 @@ export async function getTraefikConfig(
             .filter(Boolean)
             .join("-");
         const mapKey = [resourceId, pathKey].filter(Boolean).join("-");
-        const key = sanitize(mapKey);
+        const key = buildResourceRouterKey(mapKey);
 
         if (!resourcesMap.has(mapKey)) {
             const validation = validatePathRewriteConfig(
