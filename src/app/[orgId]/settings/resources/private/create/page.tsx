@@ -53,6 +53,7 @@ import { PrivateResourceHttpFields } from "@app/components/PrivateResourceHttpFi
 import { PrivateResourceSshFields } from "@app/components/PrivateResourceSshFields";
 import { PrivateResourcePortRanges } from "@app/components/PrivateResourcePortRanges";
 import {
+    PrivateResourceAdvertiseDestinationField,
     PrivateResourceAliasField,
     PrivateResourceCidrDestinationField,
     PrivateResourceHostDestinationFields
@@ -112,7 +113,8 @@ export default function CreatePrivateResourcePage() {
             tcpPortRangeString: "*",
             udpPortRangeString: "*",
             disableIcmp: false,
-            providerIds: []
+            providerIds: [],
+            advertiseDestination: true
         }
     });
 
@@ -450,6 +452,18 @@ export default function CreatePrivateResourcePage() {
                                                 )}
                                                 watch={asAnyWatch(form.watch)}
                                                 labelPrefix="create"
+                                            />
+                                        </SettingsFormCell>
+                                    )}
+
+                                    {(mode === "host" ||
+                                        (mode === "ssh" && !isNativeSsh)) && (
+                                        <SettingsFormCell span="full">
+                                            <PrivateResourceAdvertiseDestinationField
+                                                control={asAnyControl(
+                                                    form.control
+                                                )}
+                                                id="create-private-resource-advertise-destination"
                                             />
                                         </SettingsFormCell>
                                     )}
