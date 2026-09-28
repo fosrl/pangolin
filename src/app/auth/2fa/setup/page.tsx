@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/card";
 import TwoFactorSetupForm from "@app/components/TwoFactorSetupForm";
 import { useTranslations } from "next-intl";
-import { cleanRedirect } from "@app/lib/cleanRedirect";
+import {
+    cleanOAuthRedirectOptions,
+    cleanRedirect
+} from "@app/lib/cleanRedirect";
 
 export default function Setup2FAPage() {
     const router = useRouter();
@@ -31,7 +34,10 @@ export default function Setup2FAPage() {
     const handleComplete = () => {
         console.log("2FA setup complete", redirect, email);
         if (redirect) {
-            const cleanUrl = cleanRedirect(redirect);
+            const cleanUrl = cleanRedirect(
+                redirect,
+                cleanOAuthRedirectOptions(redirect)
+            );
             router.push(cleanUrl);
         } else {
             router.push("/");

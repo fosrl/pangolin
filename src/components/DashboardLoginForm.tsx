@@ -13,7 +13,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
-import { cleanRedirect } from "@app/lib/cleanRedirect";
+import { cleanRedirect, cleanOAuthRedirectOptions } from "@app/lib/cleanRedirect";
 import BrandingLogo from "@app/components/BrandingLogo";
 import { useTranslations } from "next-intl";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
@@ -80,7 +80,7 @@ export default function DashboardLoginForm({
                     defaultEmail={defaultUser}
                     onLogin={(redirectUrl) => {
                         if (redirectUrl) {
-                            const safe = cleanRedirect(redirectUrl);
+                            const safe = cleanRedirect(redirectUrl, cleanOAuthRedirectOptions(redirectUrl));
                             router.replace(safe);
                         } else {
                             router.replace("/");

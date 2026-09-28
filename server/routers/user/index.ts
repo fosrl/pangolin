@@ -20,3 +20,4 @@ export * from "./adminGetUser";
 export * from "./updateOrgUser";
 export * from "./updateUserLocale";
 export * from "./myDevice";
+export * from "./updateSelf";

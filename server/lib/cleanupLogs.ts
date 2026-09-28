@@ -6,6 +6,7 @@ import { cleanUpOldLogs as cleanUpOldConnectionLogs } from "#dynamic/routers/new
 import { cleanUpOldLogs as cleanUpOldAiSessionLogs } from "@server/routers/aiGateway/logAiSession";
 import { gt, or } from "drizzle-orm";
 import { cleanUpOldFingerprintSnapshots } from "@server/routers/olm/fingerprintingUtils";
+import { cleanExpiredOAuthData } from "@server/setup/clearStaleData";
 import { build } from "@server/build";
 
 export function initLogCleanupInterval() {
@@ -88,6 +89,8 @@ export function initLogCleanupInterval() {
             }
 
             await cleanUpOldFingerprintSnapshots(365);
+
+            await cleanExpiredOAuthData(Date.now());
         },
         3 * 60 * 60 * 1000
     ); // every 3 hours
