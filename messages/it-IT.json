@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "Verifica autorizzazione dispositivo...",
     "signedInAs": "Accesso come",
     "deviceCodeEnterPrompt": "Inserisci il codice visualizzato sul dispositivo",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "Continua",
     "deviceUnknownLocation": "Posizione sconosciuta",
     "deviceAuthorizationRequested": "Questa autorizzazione è stata richiesta ad {location} su {date}. Assicurati di fidarti di questo dispositivo in quanto avrà accesso all'account.",
