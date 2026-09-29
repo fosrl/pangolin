@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "Проверка авторизации устройства...",
     "signedInAs": "Вы вошли как",
     "deviceCodeEnterPrompt": "Введите код, отображаемый на устройстве",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "Продолжить",
     "deviceUnknownLocation": "Неизвестное местоположение",
     "deviceAuthorizationRequested": "Эта авторизация была запрошена у {location} на {date}. Убедитесь, что вы доверяете этому устройству, так как оно получит доступ к учетной записи.",
