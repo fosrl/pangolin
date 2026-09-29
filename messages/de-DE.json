@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "Geräteautorisierung wird überprüft...",
     "signedInAs": "Angemeldet als",
     "deviceCodeEnterPrompt": "Geben Sie den auf dem Gerät angezeigten Code ein",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "Weiter",
     "deviceUnknownLocation": "Unbekannter Ort",
     "deviceAuthorizationRequested": "Diese Autorisierung wurde von {location} auf {date}angefordert. Stellen Sie sicher, dass Sie diesem Gerät vertrauen, da es Zugriff auf das Konto erhält.",
