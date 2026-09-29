@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "正在验证设备授权...",
     "signedInAs": "登录为",
     "deviceCodeEnterPrompt": "输入设备上显示的代码",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "继续",
     "deviceUnknownLocation": "未知位置",
     "deviceAuthorizationRequested": "此授权请求来自{location}，日期为{date}。请确保您信任此设备，因为它将获得帐户访问权限。",
