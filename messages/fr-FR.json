@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "Vérification de l'autorisation de l'appareil...",
     "signedInAs": "Connecté en tant que",
     "deviceCodeEnterPrompt": "Entrez le code affiché sur l'appareil",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "Continuer",
     "deviceUnknownLocation": "Lieu inconnu",
     "deviceAuthorizationRequested": "Cette autorisation a été demandée à {location} sur {date}. Assurez-vous que vous faites confiance à cet appareil car il aura accès au compte.",
