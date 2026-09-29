@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "Bekræfter enhedens godkendelse...",
     "signedInAs": "Logget ind som",
     "deviceCodeEnterPrompt": "Indtast koden, der vises på enheden",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "Fortsæt",
     "deviceUnknownLocation": "Ukjent plassering",
     "deviceAuthorizationRequested": "Denne godkendelse blev anmodet fra {location} den {date}. Sørg for, at du stoler på denne enhed, da den får adgang til kontoen.",
