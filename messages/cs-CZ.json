@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "Ověřování autorizace zařízení...",
     "signedInAs": "Přihlášen jako",
     "deviceCodeEnterPrompt": "Zadejte kód zobrazený na zařízení",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "Pokračovat",
     "deviceUnknownLocation": "Neznámá poloha",
     "deviceAuthorizationRequested": "Tato autorizace byla vyžádána od {location} na {date}. Ujistěte se, že tomuto zařízení věříte, protože získá přístup k účtu.",
