@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "Apparaatmachtiging verifiëren...",
     "signedInAs": "Ingelogd als",
     "deviceCodeEnterPrompt": "Voer de op het apparaat weergegeven code in",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "Doorgaan",
     "deviceUnknownLocation": "Onbekende locatie",
     "deviceAuthorizationRequested": "Deze autorisatie is aangevraagd bij {location} op {date}. Vertrouw je dit apparaat omdat het toegang tot het account zal krijgen.",
