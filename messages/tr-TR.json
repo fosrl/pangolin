@@ -3741,6 +3741,7 @@
     "deviceCodeVerifying": "Cihaz yetkilendirme doğrulanıyor...",
     "signedInAs": "Olarak giriş yapıldı",
     "deviceCodeEnterPrompt": "Cihazda gösterilen kodu girin",
+    "deviceCodeConfirmPrompt": "Confirm this matches the code on your device",
     "continue": "Devam Et",
     "deviceUnknownLocation": "Bilinmeyen konum",
     "deviceAuthorizationRequested": "Bu yetkilendirme {tarih} tarihinde {konum} konumundan talep edildi. Bu cihaza güvenmenizi sağlayın, çünkü hesap erişimine sahip olacaktır.",
