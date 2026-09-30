@@ -1520,7 +1520,12 @@ export const idp = sqliteTable("idp", {
     })
         .notNull()
         .default(false),
-    tags: text("tags")
+    tags: text("tags"),
+    directorySyncEnabled: integer("directorySyncEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false)
 });
 
 // Identity Provider OAuth Configuration

@@ -1213,7 +1213,10 @@ export const idp = pgTable("idp", {
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
     autoProvision: boolean("autoProvision").notNull().default(false),
-    tags: text("tags")
+    tags: text("tags"),
+    directorySyncEnabled: boolean("directorySyncEnabled")
+        .notNull()
+        .default(false)
 });
 
 export const idpOidcConfig = pgTable("idpOidcConfig", {
