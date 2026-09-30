@@ -1512,7 +1512,7 @@ export const supporterKey = sqliteTable("supporterKey", {
 export const idp = sqliteTable("idp", {
     idpId: integer("idpId").primaryKey({ autoIncrement: true }),
     name: text("name").notNull(),
-    type: text("type").notNull(),
+    type: text("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: text("defaultRoleMapping"),
     defaultOrgMapping: text("defaultOrgMapping"),
     autoProvision: integer("autoProvision", {

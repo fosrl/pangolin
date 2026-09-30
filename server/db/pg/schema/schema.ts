@@ -1209,7 +1209,7 @@ export const supporterKey = pgTable("supporterKey", {
 export const idp = pgTable("idp", {
     idpId: serial("idpId").primaryKey(),
     name: varchar("name").notNull(),
-    type: varchar("type").notNull(),
+    type: varchar("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
     autoProvision: boolean("autoProvision").notNull().default(false),

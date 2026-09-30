@@ -1176,6 +1176,8 @@
     "idpAutoProvisionUsers": "Auto Provision Users",
     "idpAutoProvisionUsersDescription": "When enabled, users will be automatically created in the system upon first login with the ability to map users to roles and organizations.",
     "idpAutoProvisionConfigureAfterCreate": "You can configure auto provision settings once the identity provider is created.",
+    "idpDirectorySync": "Directory Sync",
+    "idpDirectorySyncDescription": "Periodically sync users from the identity provider directory. Requires auto provisioning to be enabled.",
     "licenseBadge": "EE",
     "idpType": "Provider Type",
     "idpTypeDescription": "Select the type of identity provider you want to configure",
