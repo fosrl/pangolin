@@ -149,7 +149,7 @@ function SshServerForm({
                 ? String((resource as { authDaemonPort?: number }).authDaemonPort)
                 : "22123",
             selectedSites:
-                isNativeInitially || useSingleSiteOnLoad
+                isNativeInitially
                     ? []
                     : targets.map((target) => ({
                           siteId: target.siteId,
@@ -160,9 +160,7 @@ function SshServerForm({
                 useSingleSiteOnLoad && firstTarget
                     ? {
                           siteId: firstTarget.siteId,
-                          name:
-                              firstTarget.siteName ??
-                              String(firstTarget.siteId),
+                          name: firstTarget.siteName ?? String(firstTarget.siteId),
                           type: "newt" as const
                       }
                     : null,
