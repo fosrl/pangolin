@@ -26,6 +26,7 @@ export interface AuthenticatedWebSocket extends WebSocket {
     isFullyConnected?: boolean;
     pendingMessages?: { data: Buffer; isBinary: boolean }[];
     configVersion?: number;
+    isAlive?: boolean;
 }
 
 export interface TokenPayload {
