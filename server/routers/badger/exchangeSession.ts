@@ -4,7 +4,7 @@ import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
-import { resourceAccessToken, resources, sessions } from "@server/db";
+import { resourceAccessToken, resources, resourceSessions } from "@server/db";
 import { db } from "@server/db";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import {
@@ -128,7 +128,7 @@ export async function exchangeSession(
             );
         }
 
-        await db.delete(sessions).where(eq(sessions.sessionId, requestToken));
+        await db.delete(resourceSessions).where(eq(resourceSessions.sessionId, requestSession.sessionId));
 
         const token = generateSessionToken();
 
