@@ -33,6 +33,7 @@ type DescribedSelectProps<TValue extends string> = {
     placeholder?: string;
     disabled?: boolean;
     className?: string;
+    listClassName?: string;
 };
 
 export function DescribedSelect<TValue extends string>({
@@ -43,7 +44,8 @@ export function DescribedSelect<TValue extends string>({
     emptyMessage,
     placeholder,
     disabled,
-    className
+    className,
+    listClassName
 }: DescribedSelectProps<TValue>) {
     const [open, setOpen] = useState(false);
     const selected = options.find((option) => option.value === value);
@@ -75,7 +77,7 @@ export function DescribedSelect<TValue extends string>({
                 >
                     <Command>
                         <CommandInput placeholder={searchPlaceholder} />
-                        <CommandList>
+                        <CommandList className={listClassName}>
                             <CommandEmpty>{emptyMessage}</CommandEmpty>
                             <CommandGroup>
                                 {options.map((option) => (

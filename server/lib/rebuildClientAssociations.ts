@@ -24,6 +24,10 @@ import { and, count, eq, inArray, isNotNull, ne } from "drizzle-orm";
 
 import { deletePeersBatch as newtDeletePeersBatch } from "@server/routers/newt/peers";
 import {
+    sendGatewayDisable,
+    sendGatewaySitesUpdate
+} from "@server/routers/olm/gateway";
+import {
     initPeerAddHandshakeBatch,
     deletePeersBatch as olmDeletePeersBatch
 } from "@server/routers/olm/peers";
@@ -534,6 +538,19 @@ async function rebuildClientAssociationsFromSiteResourceImpl(
                     )
                 )
             );
+    }
+
+    // A client that loses access to a gateway resource (it was deleted, or the
+    // client's roles/users/machines no longer include it) can't keep using it
+    // as its gateway. The olm ignores this unless it selected this resource.
+    if (
+        siteResource.mode === "gateway" &&
+        clientSiteResourcesToRemove.length > 0
+    ) {
+        await sendGatewayDisable(
+            clientSiteResourcesToRemove,
+            siteResource.siteResourceId
+        );
     }
 
     /////////// process the client-site associations ///////////
@@ -2054,6 +2071,29 @@ export async function handleMessagingForUpdatedSiteResource(
             mergedAllClients.map((c) => c.clientId),
             trx
         );
+    }
+
+    // The olm only knows which gateway resource it selected and the sites it
+    // is currently using for it, so tell the clients that have access to this
+    // one what changed. Clients that lost access are handled by the rebuild.
+    if (existingSiteResource?.mode === "gateway") {
+        const clientIds = mergedAllClients.map((c) => c.clientId);
+        if (
+            updatedSiteResource.mode !== "gateway" ||
+            !updatedSiteResource.enabled
+        ) {
+            await sendGatewayDisable(
+                clientIds,
+                updatedSiteResource.siteResourceId
+            );
+        } else {
+            await sendGatewaySitesUpdate(
+                clientIds,
+                updatedSiteResource.siteResourceId,
+                addedSiteIds,
+                removedSiteIds
+            );
+        }
     }
 
     logger.debug(

@@ -654,6 +654,7 @@ function PrivateResourceDetails({
     const t = useTranslations();
     const isInference = resource.mode === "inference";
     const isSsh = resource.mode === "ssh";
+    const isExitNode = resource.mode === "gateway";
 
     return (
         <div className="space-y-4">
@@ -677,6 +678,18 @@ function PrivateResourceDetails({
                     </span>
                 </AlertDescription>
             </Alert>
+
+            {isExitNode ? (
+                <Alert variant="default">
+                    <AlertCircle className="size-4" />
+                    <AlertTitle>
+                        {t("resourceLauncherExitNodeTitle")}
+                    </AlertTitle>
+                    <AlertDescription>
+                        {t("resourceLauncherExitNodeDescription")}
+                    </AlertDescription>
+                </Alert>
+            ) : null}
 
             <SettingsSection>
                 <SettingsSectionHeader>

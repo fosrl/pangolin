@@ -4,7 +4,12 @@ import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
-import { resourceAccessToken, resources, sessions } from "@server/db";
+import {
+    resourceAccessToken,
+    resourceSessions,
+    resources,
+    sessions
+} from "@server/db";
 import { db } from "@server/db";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import {
@@ -128,7 +133,18 @@ export async function exchangeSession(
             );
         }
 
-        await db.delete(sessions).where(eq(sessions.sessionId, requestToken));
+        // Enforce single use: consume the request token. Checking the deleted
+        // row count makes concurrent exchanges of the same token race safely.
+        const consumed = await db
+            .delete(resourceSessions)
+            .where(eq(resourceSessions.sessionId, requestSession.sessionId))
+            .returning();
+
+        if (consumed.length === 0) {
+            return next(
+                createHttpError(HttpCode.UNAUTHORIZED, "Invalid request token")
+            );
+        }
 
         const token = generateSessionToken();
 

@@ -56,6 +56,7 @@ export function LauncherResourceCard({
                         accessDisplay={resource.accessDisplay}
                         accessCopyValue={resource.accessCopyValue}
                         accessUrl={resource.accessUrl}
+                        mode={resource.mode}
                         variant="grid"
                     />
                 </div>

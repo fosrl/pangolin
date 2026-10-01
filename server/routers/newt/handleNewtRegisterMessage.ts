@@ -15,6 +15,7 @@ import { fetchContainers } from "./dockerSocket";
 import { buildTargetConfigurationForNewtClient } from "./buildConfiguration";
 import { canCompress } from "@server/lib/clientVersionChecks";
 import { NewtErrorCodes, sendNewtError } from "./error";
+import { formatEndpoint } from "@server/lib/ip";
 
 export const handleNewtRegisterMessage: MessageHandler = async (context) => {
     const { message, client, sendToClient } = context;
@@ -224,7 +225,7 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
         message: {
             type: "newt/wg/connect",
             data: {
-                endpoint: `${exitNode.endpoint}:${exitNode.listenPort}`,
+                endpoint: formatEndpoint(exitNode.endpoint, exitNode.listenPort),
                 relayPort: config.getRawConfig().gerbil.clients_start_port,
                 publicKey: exitNode.publicKey,
                 serverIP: exitNode.address.split("/")[0],

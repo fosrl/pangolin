@@ -329,6 +329,12 @@ const initializeRedisSubscription = async (): Promise<void> => {
                         redisMessage.message,
                         redisMessage.excludeClientId
                     );
+                } else if (
+                    redisMessage.type === "disconnect" &&
+                    redisMessage.targetClientId
+                ) {
+                    // Close the client's connections if any are on this node
+                    disconnectClientLocal(redisMessage.targetClientId);
                 }
             } catch (error) {
                 logger.error("Error processing Redis message:", error);
@@ -1285,13 +1291,43 @@ if (redisManager.isRedisEnabled()) {
     logger.debug("WebSocket handler initialized in local mode");
 }
 
-// Disconnect a specific client and force them to reconnect
+// Disconnect a specific client on every node and force them to reconnect
 const disconnectClient = async (clientId: string): Promise<boolean> => {
+    const localDisconnected = disconnectClientLocal(clientId);
+
+    if (!redisManager.isRedisEnabled()) {
+        return localDisconnected;
+    }
+
+    try {
+        // Flush queued direct messages first so anything sent to this client
+        // just before (e.g. olm/terminate) reaches the other nodes ahead of
+        // the disconnect on the same channel.
+        await flushPendingRedisDirectMessages();
+
+        const redisMessage: RedisMessage = {
+            type: "disconnect",
+            targetClientId: clientId,
+            fromNodeId: NODE_ID
+        };
+        await redisManager.publish(REDIS_CHANNEL, JSON.stringify(redisMessage));
+        return true;
+    } catch (error) {
+        logger.error(
+            `Failed to publish disconnect for client ID ${clientId} via Redis:`,
+            error
+        );
+        return localDisconnected;
+    }
+};
+
+// Disconnect a specific client's connections on this node only
+const disconnectClientLocal = (clientId: string): boolean => {
     const mapKey = getClientMapKey(clientId);
     const clients = connectedClients.get(mapKey);
 
     if (!clients || clients.length === 0) {
-        logger.debug(`No connections found for client ID: ${clientId}`);
+        logger.debug(`No local connections found for client ID: ${clientId}`);
         return false;
     }
 

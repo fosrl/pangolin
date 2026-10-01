@@ -98,13 +98,13 @@ export async function getOlmToken(
                 await validateSessionToken(userToken);
             if (!userSession || !user) {
                 return next(
-                    createHttpError(HttpCode.BAD_REQUEST, "Invalid user token")
+                    createHttpError(HttpCode.UNAUTHORIZED, "Invalid user token")
                 );
             }
             if (user.userId !== existingOlm.userId) {
                 return next(
                     createHttpError(
-                        HttpCode.BAD_REQUEST,
+                        HttpCode.UNAUTHORIZED,
                         "User token does not match olm"
                     )
                 );

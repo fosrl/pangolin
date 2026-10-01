@@ -513,8 +513,8 @@ export const siteResources = sqliteTable("siteResources", {
     name: text("name").notNull(),
     ssl: integer("ssl", { mode: "boolean" }).notNull().default(false),
     mode: text("mode")
-        .$type<"host" | "cidr" | "http" | "ssh" | "inference">()
-        .notNull(), // "host" | "cidr" | "http"
+        .$type<"host" | "cidr" | "http" | "ssh" | "inference" | "gateway">()
+        .notNull(),
     scheme: text("scheme").$type<"http" | "https">(), // only for when we are doing https or http mode
     proxyPort: integer("proxyPort"), // only for port mode
     destinationPort: integer("destinationPort"), // only for port mode

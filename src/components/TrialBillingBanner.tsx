@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Button } from "@app/components/ui/button";
 import { ClockIcon, ArrowRight } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -8,9 +7,13 @@ import DismissableBanner from "./DismissableBanner";
 
 type TrialBillingBannerProps = {
     onUpgrade: () => void;
+    tierName: string;
 };
 
-export const TrialBillingBanner = ({ onUpgrade }: TrialBillingBannerProps) => {
+export const TrialBillingBanner = ({
+    onUpgrade,
+    tierName
+}: TrialBillingBannerProps) => {
     const t = useTranslations();
 
     return (
@@ -19,7 +22,9 @@ export const TrialBillingBanner = ({ onUpgrade }: TrialBillingBannerProps) => {
             version={1}
             title={t("billingTrialBannerTitle")}
             titleIcon={<ClockIcon className="w-5 h-5 text-primary" />}
-            description={t("billingTrialBannerDescription")}
+            description={t("billingTrialBannerDescription", {
+                tier: tierName
+            })}
             dismissable={false}
         >
             <Button

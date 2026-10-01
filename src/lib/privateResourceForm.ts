@@ -421,7 +421,14 @@ export function createCreateFormSchema(t: TranslateFn) {
                 .min(1, t("createInternalResourceDialogNameRequired"))
                 .max(255, t("createInternalResourceDialogNameMaxLength")),
             siteIds: z.array(z.number().int().positive()).optional(),
-            mode: z.enum(["host", "cidr", "http", "ssh", "inference"]),
+            mode: z.enum([
+                "host",
+                "cidr",
+                "http",
+                "ssh",
+                "inference",
+                "gateway"
+            ]),
             destination: z.string().nullish(),
             alias: z.string().nullish(),
             destinationPort: z
@@ -468,6 +475,7 @@ export function createCreateFormSchema(t: TranslateFn) {
             if (
                 data.mode !== "ssh" &&
                 data.mode !== "inference" &&
+                data.mode !== "gateway" &&
                 (!trimmedDestination || trimmedDestination.length < 1)
             ) {
                 ctx.addIssue({
@@ -650,6 +658,13 @@ export function createCidrFormSchema(t: TranslateFn) {
             disableIcmp: z.boolean().optional()
         })
         .superRefine((data, ctx) => destinationRefine(data, ctx, t));
+}
+
+export function createGatewayFormSchema(t: TranslateFn) {
+    return z.object({
+        siteIds: z.array(z.number().int().positive()).min(1),
+        mode: z.literal("gateway")
+    });
 }
 
 export function createHttpFormSchema(t: TranslateFn) {
