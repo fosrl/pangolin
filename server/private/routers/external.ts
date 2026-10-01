@@ -29,6 +29,7 @@ import * as misc from "#private/routers/misc";
 import * as reKey from "#private/routers/re-key";
 import * as approval from "#private/routers/approvals";
 import * as user from "#private/routers/user";
+import * as client from "#private/routers/client";
 import * as siteProvisioning from "#private/routers/siteProvisioning";
 import * as eventStreamingDestination from "#private/routers/eventStreamingDestination";
 import * as alertRule from "#private/routers/alertRule";
@@ -672,6 +673,36 @@ authenticated.post(
     verifyUserCanSetUserOrgRoles(),
     logActionAudit(ActionsEnum.setUserOrgRoles),
     user.setUserOrgRoles
+);
+
+authenticated.post(
+    "/client/:clientId/add-role/:roleId",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.addClientRole),
+    logActionAudit(ActionsEnum.addClientRole),
+    client.addClientRole
+);
+
+authenticated.delete(
+    "/client/:clientId/remove-role/:roleId",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.removeClientRole),
+    logActionAudit(ActionsEnum.removeClientRole),
+    client.removeClientRole
+);
+
+authenticated.post(
+    "/client/:clientId/roles",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setClientRoles),
+    logActionAudit(ActionsEnum.setClientRoles),
+    client.setClientRoles
 );
 
 authenticated.put(

@@ -29,11 +29,13 @@ import {
     verifyApiKeyIdpAccess,
     verifyApiKeyRoleAccess,
     verifyApiKeyUserAccess,
+    verifyApiKeyClientAccess,
     verifyApiKeySiteProvisioningKeyAccess,
     verifyApiKeyResourcePolicyAccess,
     verifyLimits
 } from "@server/middlewares";
 import * as user from "#private/routers/user";
+import * as client from "#private/routers/client";
 import {
     verifyValidSubscription,
     verifyValidLicense
@@ -244,6 +246,36 @@ authenticated.delete(
     verifyApiKeyHasAction(ActionsEnum.removeUserRole),
     logActionAudit(ActionsEnum.removeUserRole),
     user.removeUserRole
+);
+
+authenticated.post(
+    "/client/:clientId/add-role/:roleId",
+    verifyApiKeyClientAccess,
+    verifyApiKeyRoleAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.addClientRole),
+    logActionAudit(ActionsEnum.addClientRole),
+    client.addClientRole
+);
+
+authenticated.delete(
+    "/client/:clientId/remove-role/:roleId",
+    verifyApiKeyClientAccess,
+    verifyApiKeyRoleAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.removeClientRole),
+    logActionAudit(ActionsEnum.removeClientRole),
+    client.removeClientRole
+);
+
+authenticated.post(
+    "/client/:clientId/roles",
+    verifyApiKeyClientAccess,
+    verifyApiKeyRoleAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.setClientRoles),
+    logActionAudit(ActionsEnum.setClientRoles),
+    client.setClientRoles
 );
 
 authenticated.put(

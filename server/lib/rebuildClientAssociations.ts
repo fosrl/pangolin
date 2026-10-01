@@ -1,5 +1,6 @@
 import {
     Client,
+    clientOrgRoles,
     clients,
     clientSiteResources,
     clientSiteResourcesAssociationsCache,
@@ -257,9 +258,30 @@ export async function getClientSiteResourceAccess(
             eq(clientSiteResources.siteResourceId, siteResource.siteResourceId)
         );
 
-    const directClientIds = allClientSiteResources.map((row) => row.clientId);
+    // clients (machines) that get access through a role assigned directly to
+    // the client instead of through a user
+    const roleClientIds =
+        roleIds.length > 0
+            ? await trx
+                  .select({ clientId: clientOrgRoles.clientId })
+                  .from(clientOrgRoles)
+                  .where(
+                      and(
+                          inArray(clientOrgRoles.roleId, roleIds),
+                          eq(clientOrgRoles.orgId, siteResource.orgId)
+                      )
+                  )
+                  .then((rows) => rows.map((row) => row.clientId))
+            : [];
 
-    // Get full client details for directly associated clients
+    const directClientIds = Array.from(
+        new Set([
+            ...allClientSiteResources.map((row) => row.clientId),
+            ...roleClientIds
+        ])
+    );
+
+    // Get full client details for directly and client-role associated clients
     const directClients =
         directClientIds.length > 0
             ? await trx
@@ -286,7 +308,7 @@ export async function getClientSiteResourceAccess(
     const mergedAllClientIds = mergedAllClients.map((c) => c.clientId);
 
     logger.debug(
-        `rebuildClientAssociations: [getClientSiteResourceAccess] siteResourceId=${siteResource.siteResourceId} mergedClientCount=${mergedAllClientIds.length} clientIds=[${mergedAllClientIds.join(", ")}] (userBased=${newAllClients.length} direct=${directClients.length})`
+        `rebuildClientAssociations: [getClientSiteResourceAccess] siteResourceId=${siteResource.siteResourceId} mergedClientCount=${mergedAllClientIds.length} clientIds=[${mergedAllClientIds.join(", ")}] (userBased=${newAllClients.length} direct=${directClients.length} clientRoleBased=${roleClientIds.length})`
     );
 
     return {
@@ -2150,11 +2172,16 @@ export async function rebuildClientAssociationsFromClient(
     }
 }
 
-async function rebuildClientAssociationsFromClientImpl(
+// Derives the set of site resources a client should have access to from its
+// permissions: direct client associations, the owning user's direct and
+// role-based associations, and roles assigned directly to the client
+// (machine clients). Shared by the rebuild and the cache verification so they
+// can't drift apart.
+async function getClientSiteResourceIds(
     client: Client,
     trx: Transaction | typeof db = db
-): Promise<void> {
-    let newSiteResourceIds: number[] = [];
+): Promise<number[]> {
+    const newSiteResourceIds: number[] = [];
 
     // 1. Direct client associations
     const directSiteResources = await trx
@@ -2175,7 +2202,20 @@ async function rebuildClientAssociationsFromClientImpl(
         ...directSiteResources.map((r) => r.siteResourceId)
     );
 
-    // 2. User-based and role-based access (if client has a userId)
+    // 2. Roles assigned directly to the client (machine clients). These are
+    // locked onto this org or else cross-org access could happen
+    const roleIds = await trx
+        .select({ roleId: clientOrgRoles.roleId })
+        .from(clientOrgRoles)
+        .where(
+            and(
+                eq(clientOrgRoles.clientId, client.clientId),
+                eq(clientOrgRoles.orgId, client.orgId)
+            )
+        )
+        .then((rows) => rows.map((row) => row.roleId));
+
+    // 3. User-based and user role-based access (if client has a userId)
     if (client.userId) {
         // Direct user associations
         const userSiteResourceIds = await trx
@@ -2199,8 +2239,7 @@ async function rebuildClientAssociationsFromClientImpl(
             ...userSiteResourceIds.map((r) => r.siteResourceId)
         );
 
-        // Role-based access
-        const roleIds = await trx
+        const userRoleIds = await trx
             .select({ roleId: userOrgRoles.roleId })
             .from(userOrgRoles)
             .where(
@@ -2211,32 +2250,45 @@ async function rebuildClientAssociationsFromClientImpl(
             ) // this needs to be locked onto this org or else cross-org access could happen
             .then((rows) => rows.map((row) => row.roleId));
 
-        if (roleIds.length > 0) {
-            const roleSiteResourceIds = await trx
-                .select({ siteResourceId: roleSiteResources.siteResourceId })
-                .from(roleSiteResources)
-                .innerJoin(
-                    siteResources,
-                    eq(
-                        siteResources.siteResourceId,
-                        roleSiteResources.siteResourceId
-                    )
-                )
-                .where(
-                    and(
-                        inArray(roleSiteResources.roleId, roleIds),
-                        eq(siteResources.orgId, client.orgId) // filter by org to prevent cross-org associations
-                    )
-                );
+        roleIds.push(...userRoleIds);
+    }
 
-            newSiteResourceIds.push(
-                ...roleSiteResourceIds.map((r) => r.siteResourceId)
+    // Role-based access (client roles and user roles)
+    if (roleIds.length > 0) {
+        const roleSiteResourceIds = await trx
+            .select({ siteResourceId: roleSiteResources.siteResourceId })
+            .from(roleSiteResources)
+            .innerJoin(
+                siteResources,
+                eq(
+                    siteResources.siteResourceId,
+                    roleSiteResources.siteResourceId
+                )
+            )
+            .where(
+                and(
+                    inArray(
+                        roleSiteResources.roleId,
+                        Array.from(new Set(roleIds))
+                    ),
+                    eq(siteResources.orgId, client.orgId) // filter by org to prevent cross-org associations
+                )
             );
-        }
+
+        newSiteResourceIds.push(
+            ...roleSiteResourceIds.map((r) => r.siteResourceId)
+        );
     }
 
     // Remove duplicates
-    newSiteResourceIds = Array.from(new Set(newSiteResourceIds));
+    return Array.from(new Set(newSiteResourceIds));
+}
+
+async function rebuildClientAssociationsFromClientImpl(
+    client: Client,
+    trx: Transaction | typeof db = db
+): Promise<void> {
+    const newSiteResourceIds = await getClientSiteResourceIds(client, trx);
 
     // Get full siteResource details
     const newSiteResources =
@@ -2946,86 +2998,7 @@ export async function verifyClientAssociationsCache(
     client: Client,
     trx: Transaction | typeof db = db
 ): Promise<ClientAssociationsCacheVerification> {
-    let newSiteResourceIds: number[] = [];
-
-    // 1. Direct client associations
-    const directSiteResources = await trx
-        .select({ siteResourceId: clientSiteResources.siteResourceId })
-        .from(clientSiteResources)
-        .innerJoin(
-            siteResources,
-            eq(siteResources.siteResourceId, clientSiteResources.siteResourceId)
-        )
-        .where(
-            and(
-                eq(clientSiteResources.clientId, client.clientId),
-                eq(siteResources.orgId, client.orgId)
-            )
-        );
-
-    newSiteResourceIds.push(
-        ...directSiteResources.map((r) => r.siteResourceId)
-    );
-
-    // 2. User-based and role-based access (if client has a userId)
-    if (client.userId) {
-        const userSiteResourceIds = await trx
-            .select({ siteResourceId: userSiteResources.siteResourceId })
-            .from(userSiteResources)
-            .innerJoin(
-                siteResources,
-                eq(
-                    siteResources.siteResourceId,
-                    userSiteResources.siteResourceId
-                )
-            )
-            .where(
-                and(
-                    eq(userSiteResources.userId, client.userId),
-                    eq(siteResources.orgId, client.orgId)
-                )
-            );
-
-        newSiteResourceIds.push(
-            ...userSiteResourceIds.map((r) => r.siteResourceId)
-        );
-
-        const roleIds = await trx
-            .select({ roleId: userOrgRoles.roleId })
-            .from(userOrgRoles)
-            .where(
-                and(
-                    eq(userOrgRoles.userId, client.userId),
-                    eq(userOrgRoles.orgId, client.orgId)
-                )
-            )
-            .then((rows) => rows.map((row) => row.roleId));
-
-        if (roleIds.length > 0) {
-            const roleSiteResourceIds = await trx
-                .select({ siteResourceId: roleSiteResources.siteResourceId })
-                .from(roleSiteResources)
-                .innerJoin(
-                    siteResources,
-                    eq(
-                        siteResources.siteResourceId,
-                        roleSiteResources.siteResourceId
-                    )
-                )
-                .where(
-                    and(
-                        inArray(roleSiteResources.roleId, roleIds),
-                        eq(siteResources.orgId, client.orgId)
-                    )
-                );
-
-            newSiteResourceIds.push(
-                ...roleSiteResourceIds.map((r) => r.siteResourceId)
-            );
-        }
-    }
-
-    newSiteResourceIds = Array.from(new Set(newSiteResourceIds));
+    const newSiteResourceIds = await getClientSiteResourceIds(client, trx);
 
     const newSiteResources =
         newSiteResourceIds.length > 0

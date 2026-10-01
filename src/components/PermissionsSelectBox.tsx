@@ -101,7 +101,10 @@ function getActionsCategories(root: boolean) {
             [t("actionUpdateRole")]: "updateRole",
             [t("actionListAllowedRoleResources")]: "listRoleResources",
             [t("actionAddUserRole")]: "addUserRole",
-            [t("actionRemoveUserRole")]: "removeUserRole"
+            [t("actionRemoveUserRole")]: "removeUserRole",
+            [t("actionAddClientRole")]: "addClientRole",
+            [t("actionRemoveClientRole")]: "removeClientRole",
+            [t("actionSetClientRoles")]: "setClientRoles"
         },
         "Access Token": {
             [t("actionGenerateAccessToken")]: "generateAccessToken",
