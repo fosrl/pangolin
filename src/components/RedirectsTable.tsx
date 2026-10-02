@@ -1,6 +1,7 @@
 "use client";
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
+import CopyToClipboard from "@app/components/CopyToClipboard";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import {
@@ -14,12 +15,10 @@ import {
     ControlledDataTable,
     type ExtendedColumnDef
 } from "@app/components/ui/controlled-data-table";
-import { ResourceAccessCertIndicator } from "@app/components/ResourceAccessCertIndicator";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import type { PaginationState } from "@tanstack/react-table";
 import {
     ArrowDown,
@@ -72,15 +71,13 @@ type RedirectsTableProps = {
     orgId: string;
     pagination: PaginationState;
     rowCount: number;
-    initialCertificates?: GetBatchedCertificateResponse;
 };
 
 export default function RedirectsTable({
     redirects,
     orgId,
     pagination,
-    rowCount,
-    initialCertificates
+    rowCount
 }: RedirectsTableProps) {
     const router = useRouter();
     const t = useTranslations();
@@ -259,49 +256,28 @@ export default function RedirectsTable({
                               .join(".")
                         : null;
                     const host = redirect.resourceFullDomain ?? domainHost;
-                    // The cert lives on whichever domain actually terminates
-                    // TLS: the resource's domain when attached to a resource,
-                    // otherwise the redirect's own domain.
-                    const certDomainId =
-                        redirect.resourceDomainId ?? redirect.domainId;
 
                     if (redirect.resourceId && !redirect.resourceDomainId) {
                         return (
-                            <div className="flex items-center gap-2 min-w-0">
-                                <InfoPopup
-                                    info={t(
-                                        "redirectDomainNotFoundDescription"
-                                    )}
-                                    text={t("domainNotFound")}
-                                />
-                            </div>
+                            <InfoPopup
+                                info={t("redirectDomainNotFoundDescription")}
+                                text={t("domainNotFound")}
+                            />
                         );
                     }
 
-                    return (
-                        <div className="flex items-center gap-2 min-w-0">
-                            {certDomainId && host ? (
-                                <ResourceAccessCertIndicator
-                                    orgId={orgId}
-                                    domainId={certDomainId}
-                                    fullDomain={host}
-                                    initialCertValue={
-                                        initialCertificates?.[host]
-                                    }
-                                />
-                            ) : null}
-                            <code className="text-sm truncate">
-                                {host ?? ""}
-                                {redirect.matchPath && (
-                                    <span className="text-muted-foreground">
-                                        {redirect.pathMatchType === "prefix"
-                                            ? withPrefixGlob(redirect.matchPath)
-                                            : redirect.matchPath}
-                                    </span>
-                                )}
-                            </code>
-                        </div>
-                    );
+                    const matchPath = redirect.matchPath
+                        ? redirect.pathMatchType === "prefix"
+                            ? withPrefixGlob(redirect.matchPath)
+                            : redirect.matchPath
+                        : "";
+                    const source = `${host ?? ""}${matchPath}`;
+
+                    if (!source) {
+                        return <span>-</span>;
+                    }
+
+                    return <CopyToClipboard text={source} isLink={false} />;
                 }
             },
             {
@@ -313,17 +289,19 @@ export default function RedirectsTable({
                 ),
                 cell: ({ row }) => {
                     const redirect = row.original;
+                    const rewritePath = redirect.rewritePath
+                        ? redirect.rewritePathType === "prefix"
+                            ? withPrefixGlob(redirect.rewritePath)
+                            : redirect.rewritePath
+                        : "";
+                    const destination = `${redirect.destinationHost}${rewritePath}`;
+
+                    if (!destination) {
+                        return <span>-</span>;
+                    }
+
                     return (
-                        <code className="text-sm truncate">
-                            {redirect.destinationHost}
-                            {redirect.rewritePath && (
-                                <span className="text-muted-foreground">
-                                    {redirect.rewritePathType === "prefix"
-                                        ? withPrefixGlob(redirect.rewritePath)
-                                        : redirect.rewritePath}
-                                </span>
-                            )}
-                        </code>
+                        <CopyToClipboard text={destination} isLink={false} />
                     );
                 }
             },
@@ -419,7 +397,7 @@ export default function RedirectsTable({
                 )
             }
         ],
-        [orgId, t, initialCertificates]
+        [orgId, t]
     );
 
     return (
