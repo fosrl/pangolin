@@ -19,12 +19,16 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import type { PaginationState } from "@tanstack/react-table";
 import {
     ArrowDown,
+    ArrowDown01Icon,
     ArrowRight,
     ArrowUp,
+    ArrowUp10Icon,
     ArrowUpRight,
+    ChevronsUpDownIcon,
     GlobeIcon,
     MinusIcon,
     MoreHorizontal,
@@ -33,6 +37,7 @@ import {
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import {
     useMemo,
     useOptimistic,
@@ -42,7 +47,13 @@ import {
     type ComponentRef
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
+import { ColumnFilterButton } from "./ColumnFilterButton";
 import { InfoPopup } from "./ui/info-popup";
+
+const booleanSearchFilterSchema = z
+    .enum(["true", "false"])
+    .optional()
+    .catch(undefined);
 
 export type RedirectRow = {
     redirectId: number;
@@ -119,6 +130,26 @@ export default function RedirectsTable({
         filter({ searchParams });
     }, 300);
 
+    function handleFilterChange(
+        column: string,
+        value: string | undefined | null | string[]
+    ) {
+        searchParams.delete(column);
+        searchParams.delete("page");
+
+        if (typeof value === "string") {
+            searchParams.set(column, value);
+        } else if (value) {
+            value.forEach((val) => searchParams.append(column, val));
+        }
+
+        filter({ searchParams });
+    }
+
+    function toggleSort(column: string) {
+        filter({ searchParams: getNextSortOrder(column, searchParams) });
+    }
+
     // Prefix matches/rewrites cover everything beneath the path, so show the
     // implied glob rather than the bare prefix.
     function withPrefixGlob(path: string) {
@@ -170,7 +201,27 @@ export default function RedirectsTable({
             {
                 accessorKey: "name",
                 enableHiding: false,
-                header: () => <span className="p-3">{t("name")}</span>,
+                friendlyName: t("name"),
+                header: () => {
+                    const nameOrder = getSortDirection("name", searchParams);
+                    const Icon =
+                        nameOrder === "asc"
+                            ? ArrowDown01Icon
+                            : nameOrder === "desc"
+                              ? ArrowUp10Icon
+                              : ChevronsUpDownIcon;
+
+                    return (
+                        <Button
+                            variant="ghost"
+                            className="p-3"
+                            onClick={() => toggleSort("name")}
+                        >
+                            {t("name")}
+                            <Icon className="ml-2 h-4 w-4" />
+                        </Button>
+                    );
+                },
                 cell: ({ row }) => (
                     <Link
                         href={`/${orgId}/settings/redirects/${row.original.niceId}`}
@@ -185,9 +236,7 @@ export default function RedirectsTable({
                 accessorKey: "niceId",
                 friendlyName: t("identifier"),
                 header: () => <span className="p-3">{t("identifier")}</span>,
-                cell: ({ row }) => (
-                    <code className="text-sm">{row.original.niceId}</code>
-                )
+                cell: ({ row }) => <span>{row.original.niceId}</span>
             },
             {
                 id: "attachedTo",
@@ -308,7 +357,29 @@ export default function RedirectsTable({
             {
                 accessorKey: "priority",
                 friendlyName: t("priority"),
-                header: () => <span className="p-3">{t("priority")}</span>,
+                header: () => {
+                    const priorityOrder = getSortDirection(
+                        "priority",
+                        searchParams
+                    );
+                    const Icon =
+                        priorityOrder === "asc"
+                            ? ArrowDown01Icon
+                            : priorityOrder === "desc"
+                              ? ArrowUp10Icon
+                              : ChevronsUpDownIcon;
+
+                    return (
+                        <Button
+                            variant="ghost"
+                            className="p-3"
+                            onClick={() => toggleSort("priority")}
+                        >
+                            {t("priority")}
+                            <Icon className="ml-2 h-4 w-4" />
+                        </Button>
+                    );
+                },
                 cell: ({ row }) => {
                     // 100 is the automatic default; anything else was set
                     // deliberately, so flag which way it deviates.
@@ -330,7 +401,28 @@ export default function RedirectsTable({
             {
                 accessorKey: "permanent",
                 friendlyName: t("redirectType"),
-                header: () => <span className="p-3">{t("redirectType")}</span>,
+                header: () => (
+                    <ColumnFilterButton
+                        options={[
+                            {
+                                value: "permanent",
+                                label: t("redirectTypePermanent")
+                            },
+                            {
+                                value: "temporary",
+                                label: t("redirectTypeTemporary")
+                            }
+                        ]}
+                        selectedValue={searchParams.get("type") ?? undefined}
+                        onValueChange={(value) =>
+                            handleFilterChange("type", value)
+                        }
+                        searchPlaceholder={t("searchPlaceholder")}
+                        emptyMessage={t("emptySearchOptions")}
+                        label={t("redirectType")}
+                        className="p-3"
+                    />
+                ),
                 cell: ({ row }) => (
                     <Badge variant="secondary">
                         {row.original.permanent
@@ -342,7 +434,24 @@ export default function RedirectsTable({
             {
                 accessorKey: "enabled",
                 friendlyName: t("enabled"),
-                header: () => <span className="p-3">{t("enabled")}</span>,
+                header: () => (
+                    <ColumnFilterButton
+                        options={[
+                            { value: "true", label: t("enabled") },
+                            { value: "false", label: t("disabled") }
+                        ]}
+                        selectedValue={booleanSearchFilterSchema.parse(
+                            searchParams.get("enabled")
+                        )}
+                        onValueChange={(value) =>
+                            handleFilterChange("enabled", value)
+                        }
+                        searchPlaceholder={t("searchPlaceholder")}
+                        emptyMessage={t("emptySearchOptions")}
+                        label={t("enabled")}
+                        className="p-3"
+                    />
+                ),
                 cell: ({ row }) => (
                     <RedirectEnabledForm
                         redirect={row.original}
@@ -397,7 +506,7 @@ export default function RedirectsTable({
                 )
             }
         ],
-        [orgId, t]
+        [orgId, t, searchParams]
     );
 
     return (
@@ -445,9 +554,7 @@ export default function RedirectsTable({
                 rowCount={rowCount}
                 columnVisibility={{
                     attachedTo: false,
-                    niceId: false,
-                    permanent: false,
-                    priority: false
+                    niceId: false
                 }}
                 enableColumnVisibility
                 stickyLeftColumn="name"

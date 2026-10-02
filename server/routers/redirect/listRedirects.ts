@@ -65,7 +65,46 @@ const listSchema = z.object({
             default: 1,
             description: "Page number to retrieve"
         }),
-    query: z.string().optional()
+    query: z.string().optional(),
+    sort_by: z
+        .enum(["name", "priority"])
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "string",
+            enum: ["name", "priority"],
+            description: "Field to sort by"
+        }),
+    order: z
+        .enum(["asc", "desc"])
+        .optional()
+        .default("asc")
+        .catch("asc")
+        .openapi({
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "asc",
+            description: "Sort order"
+        }),
+    type: z
+        .enum(["permanent", "temporary"])
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "string",
+            enum: ["permanent", "temporary"],
+            description:
+                "Filter redirects by type. `permanent` is a 308 redirect and `temporary` is a 307 redirect."
+        }),
+    enabled: z
+        .enum(["true", "false"])
+        .transform((value) => value === "true")
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "boolean",
+            description: "Filter redirects based on enabled status"
+        })
 });
 
 registry.registerPath({
@@ -121,8 +160,19 @@ export async function listRedirects(
             );
         }
 
-        const { pageSize, page, query } = parsedQuery.data;
+        const { pageSize, page, query, sort_by, order, type, enabled } =
+            parsedQuery.data;
         const conditions = [eq(redirects.orgId, orgId)];
+
+        if (type === "permanent") {
+            conditions.push(eq(redirects.permanent, true));
+        } else if (type === "temporary") {
+            conditions.push(eq(redirects.permanent, false));
+        }
+
+        if (typeof enabled !== "undefined") {
+            conditions.push(eq(redirects.enabled, enabled));
+        }
 
         if (query) {
             const term = "%" + query.toLowerCase() + "%";
@@ -172,12 +222,25 @@ export async function listRedirects(
                 .as("filtered_redirects")
         );
 
+        // Null priority is shown as 100, so sort on that same value.
+        const prioritySort = sql`COALESCE(${redirects.priority}, 100)`;
+        const orderBy =
+            sort_by === "name"
+                ? order === "asc"
+                    ? [asc(redirects.name), desc(redirects.redirectId)]
+                    : [desc(redirects.name), desc(redirects.redirectId)]
+                : sort_by === "priority"
+                  ? order === "asc"
+                      ? [asc(prioritySort), desc(redirects.redirectId)]
+                      : [desc(prioritySort), desc(redirects.redirectId)]
+                  : [desc(prioritySort), desc(redirects.redirectId)];
+
         const [totalCount, rows] = await Promise.all([
             countQuery,
             baseQuery
                 .limit(pageSize)
                 .offset(pageSize * (page - 1))
-                .orderBy(desc(redirects.priority), desc(redirects.redirectId))
+                .orderBy(...orderBy)
         ]);
 
         return response<ListRedirectsResponse>(res, {
