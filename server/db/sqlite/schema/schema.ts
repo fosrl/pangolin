@@ -245,6 +245,43 @@ export const resources = sqliteTable(
     (table) => [index("idx_resources_orgId").on(table.orgId)]
 );
 
+export const redirects = sqliteTable("redirects", {
+    redirectId: integer("redirectId").primaryKey({ autoIncrement: true }),
+    orgId: text("orgId")
+        .references(() => orgs.orgId, {
+            onDelete: "cascade"
+        })
+        .notNull(),
+    resourceId: integer("resourceId").references(() => resources.resourceId, {
+        onDelete: "cascade"
+    }),
+    domainId: text("domainId").references(() => domains.domainId, {
+        onDelete: "cascade"
+    }),
+    niceId: text("niceId").notNull(),
+    name: text("name").notNull(),
+    subdomain: text("subdomain"),
+    destinationHost: text("destinationHost").notNull(), // scheme://host[:port]
+    pathMatchType: text("pathMatchType")
+        .$type<"exact" | "prefix" | "regex">()
+        .notNull()
+        .default("regex"), // exact, prefix, regex
+    matchPath: text("matchPath"),
+    rewritePath: text("rewritePath"), // if set, rewrites the path to this value,
+    //  else, the original path will be kept
+    rewritePathType: text("rewritePathType").$type<
+        "exact" | "prefix" | "regex" | "stripPrefix"
+    >(), // exact, prefix, regex, stripPrefix
+    priority: integer("priority").default(100),
+    permanent: integer("permanent", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    // Only consulted for domain-attached redirects; resource-attached ones
+    // inherit the resource's ssl setting.
+    ssl: integer("ssl", { mode: "boolean" }).notNull().default(true),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true)
+});
+
 export const resourceAiProviders = sqliteTable(
     "resourceAiProviders",
     {
@@ -2110,6 +2147,7 @@ export type ResourcePolicyHeaderAuth = InferSelectModel<
 >;
 export type RolePolicy = InferSelectModel<typeof rolePolicies>;
 export type UserPolicy = InferSelectModel<typeof userPolicies>;
+export type Redirect = InferSelectModel<typeof redirects>;
 export type AiProvider = InferSelectModel<typeof aiProviders>;
 export type AiModel = InferSelectModel<typeof aiModels>;
 export type AiBudget = InferSelectModel<typeof aiBudgets>;

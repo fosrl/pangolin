@@ -49,6 +49,14 @@ function getActionsCategories(root: boolean) {
             [t("actionRestartOrgDomain")]: "restartOrgDomain"
         },
 
+        Redirect: {
+            [t("actionCreateRedirect")]: "createRedirect",
+            [t("actionDeleteRedirect")]: "deleteRedirect",
+            [t("actionGetRedirect")]: "getRedirect",
+            [t("actionListRedirects")]: "listRedirects",
+            [t("actionUpdateRedirect")]: "updateRedirect"
+        },
+
         Site: {
             [t("actionCreateSite")]: "createSite",
             [t("actionDeleteSite")]: "deleteSite",
