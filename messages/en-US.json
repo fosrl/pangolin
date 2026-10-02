@@ -4441,7 +4441,7 @@
     "redirectDestinationHost": "Destination",
     "redirectDestinationHostDescription": "Where requests are sent, including the scheme, such as https://example.com",
     "redirectDestinationHostRequired": "Enter a destination",
-    "redirectSameDomainAsSource": "Same domain as source",
+    "redirectSameDomainAsSource": "Same Domain as Source",
     "redirectSameDomainAsSourceDescription": "Keep the destination on the source domain and only change the path",
     "redirectDestinationHostInvalid": "Enter a valid destination with a scheme, such as https://example.com",
     "redirectMatchPathDescription": "Which incoming paths this redirect applies to",
