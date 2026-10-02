@@ -32,6 +32,7 @@ import { useRouter } from "next/navigation";
 import { startTransition, useMemo, useState, useTransition } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { ColumnFilterButton } from "./ColumnFilterButton";
+import { ColumnMultiFilterButton } from "./ColumnMultiFilterButton";
 import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
 import { LabelsTableCell } from "./LabelsTableCell";
 import { Badge } from "./ui/badge";
@@ -43,6 +44,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import semver from "semver";
 import { InfoPopup } from "./ui/info-popup";
+import UserRoleBadges from "./UserRoleBadges";
 
 export type ClientRow = {
     id: number;
@@ -68,20 +70,25 @@ export type ClientRow = {
         name: string;
         color: string;
     }>;
+    roleLabels: string[];
 };
+
+type FilterOption = { value: string; label: string };
 
 type ClientTableProps = {
     machineClients: ClientRow[];
     orgId: string;
     pagination: PaginationState;
     rowCount: number;
+    roleFilterOptions: FilterOption[];
 };
 
 export default function MachineClientsTable({
     machineClients,
     orgId,
     pagination,
-    rowCount
+    rowCount,
+    roleFilterOptions
 }: ClientTableProps) {
     const router = useRouter();
 
@@ -438,6 +445,27 @@ export default function MachineClientsTable({
                 header: () => <span className="px-3">{t("address")}</span>
             },
             {
+                id: "role",
+                accessorFn: (row) => row.roleLabels.join(", "),
+                friendlyName: t("roles"),
+                header: () => (
+                    <ColumnMultiFilterButton
+                        options={roleFilterOptions}
+                        selectedValues={searchParams.getAll("role_id")}
+                        onSelectedValuesChange={(values) =>
+                            handleFilterChange("role_id", values)
+                        }
+                        searchPlaceholder={t("searchPlaceholder")}
+                        emptyMessage={t("emptySearchOptions")}
+                        label={t("roles")}
+                        className="p-3"
+                    />
+                ),
+                cell: ({ row }) => (
+                    <UserRoleBadges roleLabels={row.original.roleLabels} />
+                )
+            },
+            {
                 id: "labels",
                 accessorKey: "labels",
                 header: () => (
@@ -540,7 +568,7 @@ export default function MachineClientsTable({
         }
 
         return baseColumns;
-    }, [hasRowsWithoutUserId, orgId, t, searchParams]);
+    }, [hasRowsWithoutUserId, orgId, t, searchParams, roleFilterOptions]);
 
     function handleFilterChange(
         column: string,

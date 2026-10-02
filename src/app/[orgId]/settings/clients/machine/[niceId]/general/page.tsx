@@ -34,6 +34,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import ActionBanner from "@app/components/ActionBanner";
 import { Shield, ShieldOff } from "lucide-react";
+import OrgRolesTagField from "@app/components/OrgRolesTagField";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 const GeneralFormSchema = z.object({
     name: z.string().nonempty("Name is required"),
@@ -42,14 +46,40 @@ const GeneralFormSchema = z.object({
 
 type GeneralFormValues = z.infer<typeof GeneralFormSchema>;
 
+const RolesFormSchema = z.object({
+    roles: z.array(
+        z.object({
+            id: z.string(),
+            text: z.string(),
+            isAdmin: z.boolean().optional()
+        })
+    )
+});
+
+type RolesFormValues = z.infer<typeof RolesFormSchema>;
+
 export default function GeneralPage() {
     const t = useTranslations();
     const { client, updateClient } = useClientContext();
-    const api = createApiClient(useEnvContext());
+    const { env } = useEnvContext();
+    const api = createApiClient({ env });
     const [loading, setLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const router = useRouter();
     const [, startTransition] = useTransition();
+    const [savingRoles, setSavingRoles] = useState(false);
+    const { isPaidUser } = usePaidStatus();
+    const canAssignRoles = isPaidUser(tierMatrix.fullRbac);
+
+    const rolesForm = useForm({
+        resolver: zodResolver(RolesFormSchema),
+        defaultValues: {
+            roles: (client?.roles ?? []).map((r) => ({
+                id: r.roleId.toString(),
+                text: r.name
+            }))
+        }
+    });
 
     const form = useForm({
         resolver: zodResolver(GeneralFormSchema),
@@ -110,6 +140,41 @@ export default function GeneralPage() {
             });
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function onSubmitRoles(data: RolesFormValues) {
+        if (!client?.clientId) return;
+        setSavingRoles(true);
+
+        try {
+            const roleIds = data.roles.map((r) => parseInt(r.id, 10));
+            await api.post(`/client/${client.clientId}/roles`, { roleIds });
+
+            updateClient({
+                roles: data.roles.map((r) => ({
+                    roleId: parseInt(r.id, 10),
+                    name: r.text
+                }))
+            });
+
+            toast({
+                title: t("machineClientRolesUpdated"),
+                description: t("machineClientRolesUpdatedDescription")
+            });
+
+            router.refresh();
+        } catch (e) {
+            toast({
+                variant: "destructive",
+                title: t("machineClientRolesUpdateFailed"),
+                description: formatAxiosError(
+                    e,
+                    t("machineClientRolesUpdateError")
+                )
+            });
+        } finally {
+            setSavingRoles(false);
         }
     }
 
@@ -230,6 +295,56 @@ export default function GeneralPage() {
                     </Button>
                 </SettingsSectionFooter>
             </SettingsSection>
+
+            {!env.flags.disableEnterpriseFeatures && (
+                <SettingsSection>
+                    <SettingsSectionHeader>
+                        <SettingsSectionTitle>
+                            {t("roles")}
+                        </SettingsSectionTitle>
+                        <SettingsSectionDescription>
+                            {t("machineClientRolesDescription")}
+                        </SettingsSectionDescription>
+                    </SettingsSectionHeader>
+
+                    <SettingsSectionBody>
+                        <PaidFeaturesAlert tiers={tierMatrix.fullRbac} />
+
+                        <SettingsSectionForm>
+                            <Form {...rolesForm}>
+                                <form
+                                    onSubmit={rolesForm.handleSubmit(
+                                        onSubmitRoles
+                                    )}
+                                    className="space-y-4"
+                                    id="roles-settings-form"
+                                >
+                                    <OrgRolesTagField
+                                        form={rolesForm}
+                                        name="roles"
+                                        orgId={client.orgId}
+                                        supportsMultipleRolesPerUser={true}
+                                        showMultiRolePaywallMessage={false}
+                                        paywallMessage=""
+                                        disabled={!canAssignRoles}
+                                    />
+                                </form>
+                            </Form>
+                        </SettingsSectionForm>
+                    </SettingsSectionBody>
+
+                    <SettingsSectionFooter>
+                        <Button
+                            type="submit"
+                            form="roles-settings-form"
+                            loading={savingRoles}
+                            disabled={savingRoles || !canAssignRoles}
+                        >
+                            {t("saveSettings")}
+                        </Button>
+                    </SettingsSectionFooter>
+                </SettingsSection>
+            )}
         </SettingsContainer>
     );
 }

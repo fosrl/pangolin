@@ -1,6 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, idp, idpOidcConfig, olms, users } from "@server/db";
+import {
+    clientOrgRoles,
+    db,
+    idp,
+    idpOidcConfig,
+    olms,
+    roles,
+    users
+} from "@server/db";
 import { clients, currentFingerprint } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import response from "@server/lib/response";
@@ -239,6 +247,8 @@ export type GetClientResponse = NonNullable<
     userType: string | null;
     idpName: string | null;
     idpVariant: string | null;
+    // roles assigned directly to the client (machine clients only)
+    roles: { roleId: number; name: string }[];
 };
 
 registry.registerPath({
@@ -394,6 +404,17 @@ export async function getClient(
             }
         }
 
+        const clientRoles = await db
+            .select({ roleId: roles.roleId, name: roles.name })
+            .from(clientOrgRoles)
+            .innerJoin(roles, eq(roles.roleId, clientOrgRoles.roleId))
+            .where(
+                and(
+                    eq(clientOrgRoles.clientId, client.clients.clientId),
+                    eq(clientOrgRoles.orgId, client.clients.orgId)
+                )
+            );
+
         const data: GetClientResponse = {
             ...client.clients,
             name: clientName,
@@ -407,7 +428,8 @@ export async function getClient(
             posture: postureData,
             userType,
             idpName,
-            idpVariant
+            idpVariant,
+            roles: clientRoles
         };
 
         return response<GetClientResponse>(res, {

@@ -5,6 +5,7 @@ import MachineClientsBanner from "@app/components/MachineClientsBanner";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { ListClientsResponse } from "@server/routers/client";
+import type { ListRolesResponse } from "@server/routers/role/listRoles";
 import { AxiosResponse } from "axios";
 import { getTranslations } from "next-intl/server";
 import type { Pagination } from "@server/types/Pagination";
@@ -34,17 +35,37 @@ export default async function ClientsPage(props: ClientsPageProps) {
         pageSize: 20
     };
 
-    try {
-        const machineRes = await internal.get<
-            AxiosResponse<ListClientsResponse>
-        >(
-            `/org/${params.orgId}/clients?${searchParams.toString()}`,
-            await authCookieHeader()
-        );
+    const cookieHeader = await authCookieHeader();
+
+    const [machineRes, rolesRes] = await Promise.all([
+        internal
+            .get<AxiosResponse<ListClientsResponse>>(
+                `/org/${params.orgId}/clients?${searchParams.toString()}`,
+                cookieHeader
+            )
+            .catch(() => {}),
+        internal
+            .get<AxiosResponse<ListRolesResponse>>(
+                `/org/${params.orgId}/roles?pageSize=500&page=1`,
+                cookieHeader
+            )
+            .catch(() => {})
+    ]);
+
+    if (machineRes && machineRes.status === 200) {
         const responseData = machineRes.data.data;
         machineClients = responseData.clients;
         pagination = responseData.pagination;
-    } catch (e) {}
+    }
+
+    const orgRoles =
+        rolesRes && rolesRes.status === 200
+            ? (rolesRes.data.data.roles ?? [])
+            : [];
+    const roleFilterOptions = orgRoles.map((r) => ({
+        value: String(r.roleId),
+        label: r.name
+    }));
 
     function formatSize(mb: number): string {
         if (mb >= 1024 * 1024) {
@@ -77,7 +98,8 @@ export default async function ClientsPage(props: ClientsPageProps) {
             archived: client.archived || false,
             blocked: client.blocked || false,
             approvalState: client.approvalState ?? "approved",
-            labels: client.labels ?? []
+            labels: client.labels ?? [],
+            roleLabels: (client.roles ?? []).map((r) => r.name)
         };
     };
 
@@ -96,6 +118,7 @@ export default async function ClientsPage(props: ClientsPageProps) {
                 machineClients={machineClientRows}
                 orgId={params.orgId}
                 rowCount={pagination.total}
+                roleFilterOptions={roleFilterOptions}
                 pagination={{
                     pageIndex: pagination.page - 1,
                     pageSize: pagination.pageSize
