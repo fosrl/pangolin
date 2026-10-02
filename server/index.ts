@@ -16,6 +16,7 @@ import {
     RemoteExitNode,
     Session,
     SiteResource,
+    Redirect,
     User,
     UserOrg,
     VirtualApiKey
@@ -96,6 +97,7 @@ declare global {
             aiModel?: AiModel;
             aiBudget?: AiBudget;
             virtualApiKey?: VirtualApiKey;
+            redirect?: Redirect;
             orgPolicyAllowed?: boolean;
         }
     }
