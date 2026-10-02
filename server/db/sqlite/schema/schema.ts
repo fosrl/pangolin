@@ -1533,7 +1533,10 @@ export const idpOidcConfig = sqliteTable("idpOidcConfig", {
     idpOauthConfigId: integer("idpOauthConfigId").primaryKey({
         autoIncrement: true
     }),
-    variant: text("variant").notNull().default("oidc"),
+    variant: text("variant")
+        .notNull()
+        .$type<"oidc" | "google" | "azure">()
+        .default("oidc"),
     idpId: integer("idpId")
         .notNull()
         .references(() => idp.idpId, { onDelete: "cascade" }),
