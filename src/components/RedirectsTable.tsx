@@ -2,24 +2,45 @@
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import {
+    ResourceSelector,
+    type SelectedResource
+} from "@app/components/resource-selector";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList
+} from "@app/components/ui/command";
+import {
+    ControlledDataTable,
+    type ExtendedColumnDef
+} from "@app/components/ui/controlled-data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
-import { Switch } from "@app/components/ui/switch";
 import {
-    ControlledDataTable,
-    type ExtendedColumnDef
-} from "@app/components/ui/controlled-data-table";
+    Popover,
+    PopoverContent,
+    PopoverTrigger
+} from "@app/components/ui/popover";
+import { Switch } from "@app/components/ui/switch";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { cn } from "@app/lib/cn";
+import { dataTableFilterPopoverContentClassName } from "@app/lib/dataTableFilterPopover";
+import { orgQueries } from "@app/lib/queries";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
+import { useQuery } from "@tanstack/react-query";
 import type { PaginationState } from "@tanstack/react-table";
 import {
     ArrowDown,
@@ -28,11 +49,11 @@ import {
     ArrowUp,
     ArrowUp10Icon,
     ArrowUpRight,
+    CheckIcon,
     ChevronsUpDownIcon,
-    GlobeIcon,
+    Funnel,
     MinusIcon,
-    MoreHorizontal,
-    WaypointsIcon
+    MoreHorizontal
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -44,7 +65,8 @@ import {
     useRef,
     useState,
     useTransition,
-    type ComponentRef
+    type ComponentRef,
+    type ReactNode
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { ColumnFilterButton } from "./ColumnFilterButton";
@@ -77,18 +99,27 @@ export type RedirectRow = {
     baseDomain: string | null;
 };
 
+export type RedirectFilterDomain = {
+    domainId: string;
+    baseDomain: string;
+};
+
 type RedirectsTableProps = {
     redirects: RedirectRow[];
     orgId: string;
     pagination: PaginationState;
     rowCount: number;
+    initialFilterResource?: SelectedResource | null;
+    initialFilterDomain?: RedirectFilterDomain | null;
 };
 
 export default function RedirectsTable({
     redirects,
     orgId,
     pagination,
-    rowCount
+    rowCount,
+    initialFilterResource = null,
+    initialFilterDomain = null
 }: RedirectsTableProps) {
     const router = useRouter();
     const t = useTranslations();
@@ -103,6 +134,48 @@ export default function RedirectsTable({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
+    const [domainFilterOpen, setDomainFilterOpen] = useState(false);
+    const [resourceFilterOpen, setResourceFilterOpen] = useState(false);
+
+    const domainIdQ = searchParams.get("domainId");
+    const selectedDomain: RedirectFilterDomain | null = useMemo(() => {
+        if (!domainIdQ) {
+            return null;
+        }
+        if (initialFilterDomain && initialFilterDomain.domainId === domainIdQ) {
+            return initialFilterDomain;
+        }
+        return {
+            domainId: domainIdQ,
+            baseDomain: t("redirectFilterDomainFallback", { id: domainIdQ })
+        };
+    }, [domainIdQ, initialFilterDomain, t]);
+
+    const resourceIdQ = searchParams.get("resourceId");
+    const resourceIdNum = resourceIdQ ? parseInt(resourceIdQ, 10) : NaN;
+    const selectedResource: SelectedResource | null = useMemo(() => {
+        if (
+            !resourceIdQ ||
+            !Number.isInteger(resourceIdNum) ||
+            resourceIdNum <= 0
+        ) {
+            return null;
+        }
+        if (
+            initialFilterResource &&
+            initialFilterResource.resourceId === resourceIdNum
+        ) {
+            return initialFilterResource;
+        }
+        return {
+            name: t("redirectFilterResourceFallback", { id: resourceIdNum }),
+            resourceId: resourceIdNum,
+            fullDomain: null,
+            niceId: "",
+            ssl: false,
+            wildcard: false
+        };
+    }, [initialFilterResource, resourceIdQ, resourceIdNum, t]);
 
     function refreshData() {
         startTransition(() => {
@@ -145,6 +218,26 @@ export default function RedirectsTable({
 
         filter({ searchParams });
     }
+
+    const clearDomainFilter = () => {
+        handleFilterChange("domainId", undefined);
+        setDomainFilterOpen(false);
+    };
+
+    const clearResourceFilter = () => {
+        handleFilterChange("resourceId", undefined);
+        setResourceFilterOpen(false);
+    };
+
+    const onPickDomain = (domain: RedirectFilterDomain) => {
+        handleFilterChange("domainId", domain.domainId);
+        setDomainFilterOpen(false);
+    };
+
+    const onPickResource = (resource: SelectedResource) => {
+        handleFilterChange("resourceId", String(resource.resourceId));
+        setResourceFilterOpen(false);
+    };
 
     function toggleSort(column: string) {
         filter({ searchParams: getNextSortOrder(column, searchParams) });
@@ -239,53 +332,93 @@ export default function RedirectsTable({
                 cell: ({ row }) => <span>{row.original.niceId}</span>
             },
             {
-                id: "attachedTo",
-                friendlyName: t("redirectAttachedTo"),
+                id: "domain",
+                friendlyName: t("domain"),
                 header: () => (
-                    <span className="p-3">{t("redirectAttachedTo")}</span>
+                    <ColumnEntityFilter
+                        label={t("domain")}
+                        open={domainFilterOpen}
+                        onOpenChange={setDomainFilterOpen}
+                        selectedName={selectedDomain?.baseDomain}
+                        clearLabel={t("redirectFilterAnyDomain")}
+                        onClear={clearDomainFilter}
+                    >
+                        <DomainFilterList
+                            orgId={orgId}
+                            selectedDomainId={selectedDomain?.domainId ?? null}
+                            onSelect={onPickDomain}
+                        />
+                    </ColumnEntityFilter>
                 ),
                 cell: ({ row }) => {
                     const redirect = row.original;
 
-                    if (redirect.resourceId && redirect.resourceNiceId) {
-                        return (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                className="inline-flex items-center gap-1.5"
-                            >
-                                <Link
-                                    href={`/${orgId}/settings/resources/public/${redirect.resourceNiceId}`}
-                                >
-                                    <WaypointsIcon className="size-3 text-muted-foreground" />
-                                    {redirect.resourceName}
-                                    <ArrowUpRight className="size-3" />
-                                </Link>
-                            </Button>
-                        );
+                    if (!redirect.domainId || !redirect.baseDomain) {
+                        return <span>-</span>;
                     }
 
-                    if (redirect.domainId) {
-                        return (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                className="inline-flex items-center gap-1.5"
+                    return (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="inline-flex items-center gap-1.5"
+                        >
+                            <Link
+                                href={`/${orgId}/settings/domains/${redirect.domainId}`}
                             >
-                                <Link
-                                    href={`/${orgId}/settings/domains/${redirect.domainId}`}
-                                >
-                                    <GlobeIcon className="size-3 text-muted-foreground" />
-                                    {redirect.baseDomain}
-                                    <ArrowUpRight className="size-3" />
-                                </Link>
-                            </Button>
-                        );
+                                {redirect.baseDomain}
+                                <ArrowUpRight className="size-3" />
+                            </Link>
+                        </Button>
+                    );
+                }
+            },
+            {
+                id: "resource",
+                friendlyName: t("resource"),
+                header: () => (
+                    <ColumnEntityFilter
+                        label={t("resource")}
+                        open={resourceFilterOpen}
+                        onOpenChange={setResourceFilterOpen}
+                        selectedName={selectedResource?.name}
+                        clearLabel={t("redirectFilterAnyResource")}
+                        onClear={clearResourceFilter}
+                    >
+                        <ResourceSelector
+                            orgId={orgId}
+                            selectedResource={selectedResource}
+                            onSelectResource={onPickResource}
+                        />
+                    </ColumnEntityFilter>
+                ),
+                cell: ({ row }) => {
+                    const redirect = row.original;
+
+                    if (
+                        !redirect.resourceId ||
+                        !redirect.resourceName ||
+                        !redirect.resourceNiceId
+                    ) {
+                        return <span>-</span>;
                     }
 
-                    return <span>-</span>;
+                    return (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="inline-flex items-center gap-1.5"
+                        >
+                            <Link
+                                href={`/${orgId}/settings/resources/public/${redirect.resourceNiceId}`}
+                            >
+                                {redirect.resourceName}
+                                <ArrowUpRight className="size-3" />
+                            </Link>
+                        </Button>
+                    );
                 }
             },
 
@@ -506,7 +639,15 @@ export default function RedirectsTable({
                 )
             }
         ],
-        [orgId, t, searchParams]
+        [
+            orgId,
+            t,
+            searchParams,
+            domainFilterOpen,
+            resourceFilterOpen,
+            selectedDomain,
+            selectedResource
+        ]
     );
 
     return (
@@ -553,7 +694,6 @@ export default function RedirectsTable({
                 isRefreshing={isRefreshing || isFiltering}
                 rowCount={rowCount}
                 columnVisibility={{
-                    attachedTo: false,
                     niceId: false
                 }}
                 enableColumnVisibility
@@ -601,5 +741,119 @@ function RedirectEnabledForm({
                 onCheckedChange={() => formRef.current?.requestSubmit()}
             />
         </form>
+    );
+}
+
+type ColumnEntityFilterProps = {
+    label: string;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    selectedName?: string | null;
+    clearLabel: string;
+    onClear: () => void;
+    children: ReactNode;
+};
+
+function ColumnEntityFilter({
+    label,
+    open,
+    onOpenChange,
+    selectedName,
+    clearLabel,
+    onClear,
+    children
+}: ColumnEntityFilterProps) {
+    return (
+        <Popover open={open} onOpenChange={onOpenChange}>
+            <PopoverTrigger asChild>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    role="combobox"
+                    className={cn(
+                        "justify-between text-sm h-8 px-2 w-full p-3",
+                        !selectedName && "text-muted-foreground"
+                    )}
+                >
+                    <div className="flex items-center gap-2 min-w-0">
+                        {label}
+                        <Funnel className="size-4 flex-none" />
+                        {selectedName && (
+                            <Badge
+                                className="truncate max-w-[10rem]"
+                                variant="secondary"
+                            >
+                                {selectedName}
+                            </Badge>
+                        )}
+                    </div>
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                className={dataTableFilterPopoverContentClassName}
+                align="start"
+            >
+                <div className="border-b p-1">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-full justify-start font-normal"
+                        onClick={onClear}
+                    >
+                        {clearLabel}
+                    </Button>
+                </div>
+                {children}
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+type DomainFilterListProps = {
+    orgId: string;
+    selectedDomainId: string | null;
+    onSelect: (domain: RedirectFilterDomain) => void;
+};
+
+function DomainFilterList({
+    orgId,
+    selectedDomainId,
+    onSelect
+}: DomainFilterListProps) {
+    const t = useTranslations();
+    const { data: domains = [] } = useQuery(orgQueries.domains({ orgId }));
+
+    return (
+        <Command>
+            <CommandInput placeholder={t("domainsSearch")} />
+            <CommandList>
+                <CommandEmpty>{t("domainsNotFound")}</CommandEmpty>
+                <CommandGroup>
+                    {domains.map((domain) => (
+                        <CommandItem
+                            key={domain.domainId}
+                            value={domain.baseDomain}
+                            onSelect={() =>
+                                onSelect({
+                                    domainId: domain.domainId,
+                                    baseDomain: domain.baseDomain
+                                })
+                            }
+                        >
+                            <CheckIcon
+                                className={cn(
+                                    "mr-2 h-4 w-4",
+                                    domain.domainId === selectedDomainId
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                )}
+                            />
+                            {domain.baseDomain}
+                        </CommandItem>
+                    ))}
+                </CommandGroup>
+            </CommandList>
+        </Command>
     );
 }

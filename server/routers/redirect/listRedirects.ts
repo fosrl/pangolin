@@ -104,7 +104,21 @@ const listSchema = z.object({
         .openapi({
             type: "boolean",
             description: "Filter redirects based on enabled status"
-        })
+        }),
+    resourceId: z.coerce
+        .number<string>()
+        .int()
+        .positive()
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "integer",
+            description: "Filter redirects attached to this resource"
+        }),
+    domainId: z.string().nonempty().optional().catch(undefined).openapi({
+        type: "string",
+        description: "Filter redirects attached to this domain"
+    })
 });
 
 registry.registerPath({
@@ -160,8 +174,17 @@ export async function listRedirects(
             );
         }
 
-        const { pageSize, page, query, sort_by, order, type, enabled } =
-            parsedQuery.data;
+        const {
+            pageSize,
+            page,
+            query,
+            sort_by,
+            order,
+            type,
+            enabled,
+            resourceId,
+            domainId
+        } = parsedQuery.data;
         const conditions = [eq(redirects.orgId, orgId)];
 
         if (type === "permanent") {
@@ -172,6 +195,14 @@ export async function listRedirects(
 
         if (typeof enabled !== "undefined") {
             conditions.push(eq(redirects.enabled, enabled));
+        }
+
+        if (typeof resourceId !== "undefined") {
+            conditions.push(eq(redirects.resourceId, resourceId));
+        }
+
+        if (typeof domainId !== "undefined") {
+            conditions.push(eq(redirects.domainId, domainId));
         }
 
         if (query) {
