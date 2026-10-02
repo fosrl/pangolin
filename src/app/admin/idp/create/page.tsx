@@ -68,7 +68,8 @@ export default function Page() {
             .min(1, { message: t("idpScopeRequired") })
             .optional(),
         tenantId: z.string().optional(),
-        autoProvision: z.boolean().default(false)
+        autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false)
     });
 
     type CreateIdpFormValues = z.infer<typeof createIdpFormSchema>;
@@ -87,7 +88,8 @@ export default function Page() {
             emailPath: "email",
             scopes: "openid profile email",
             tenantId: "",
-            autoProvision: false
+            autoProvision: false,
+            directorySyncEnabled: false
         }
     });
 
@@ -124,6 +126,10 @@ export default function Page() {
                 emailPath: data.emailPath,
                 namePath: data.namePath,
                 autoProvision: data.autoProvision,
+                directorySyncEnabled:
+                    data.autoProvision &&
+                    (data.type === "google" || data.type === "azure") &&
+                    data.directorySyncEnabled,
                 scopes: data.scopes,
                 variant: data.type
             };
@@ -217,7 +223,6 @@ export default function Page() {
                                                 </FormItem>
                                             )}
                                         />
-
                                     </form>
                                 </Form>
                             </SettingsSectionForm>
@@ -242,9 +247,35 @@ export default function Page() {
                                 defaultChecked={form.getValues("autoProvision")}
                                 onCheckedChange={(checked) => {
                                     form.setValue("autoProvision", checked);
+                                    if (!checked) {
+                                        form.setValue(
+                                            "directorySyncEnabled",
+                                            false
+                                        );
+                                    }
                                 }}
-                                description={t("idpAutoProvisionConfigureAfterCreate")}
+                                description={t(
+                                    "idpAutoProvisionConfigureAfterCreate"
+                                )}
                             />
+                            {(watchedType === "google" ||
+                                watchedType === "azure") && (
+                                <SwitchInput
+                                    id="directory-sync-toggle"
+                                    label={t("idpDirectorySync")}
+                                    checked={form.watch("directorySyncEnabled")}
+                                    disabled={!form.watch("autoProvision")}
+                                    onCheckedChange={(checked) => {
+                                        form.setValue(
+                                            "directorySyncEnabled",
+                                            checked
+                                        );
+                                    }}
+                                    description={t(
+                                        "idpDirectorySyncDescription"
+                                    )}
+                                />
+                            )}
                         </div>
                     </SettingsSectionBody>
                 </SettingsSection>

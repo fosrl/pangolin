@@ -30,6 +30,7 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().optional(),
     autoProvision: z.boolean().optional(),
+    directorySyncEnabled: z.boolean().optional(),
     defaultRoleMapping: z.string().optional(),
     defaultOrgMapping: z.string().optional(),
     tags: z.string().optional(),
@@ -109,6 +110,7 @@ export async function updateOidcIdp(
             namePath,
             name,
             autoProvision,
+            directorySyncEnabled,
             defaultRoleMapping,
             defaultOrgMapping,
             tags,
@@ -149,10 +151,27 @@ export async function updateOidcIdp(
             : undefined;
         const encryptedClientId = clientId ? encrypt(clientId, key) : undefined;
 
+        const [existingOidcConfig] = await db
+            .select({ variant: idpOidcConfig.variant })
+            .from(idpOidcConfig)
+            .where(eq(idpOidcConfig.idpId, idpId));
+
+        // directory sync requires auto provisioning and a google/azure idp
+        const effectiveAutoProvision =
+            autoProvision ?? existingIdp.autoProvision;
+        const effectiveVariant = variant ?? existingOidcConfig?.variant;
+        const directorySyncSupported =
+            effectiveVariant === "google" || effectiveVariant === "azure";
+        const effectiveDirectorySyncEnabled =
+            effectiveAutoProvision && directorySyncSupported
+                ? directorySyncEnabled
+                : false;
+
         await db.transaction(async (trx) => {
             const idpData = {
                 name,
                 autoProvision,
+                directorySyncEnabled: effectiveDirectorySyncEnabled,
                 defaultRoleMapping,
                 defaultOrgMapping,
                 tags
