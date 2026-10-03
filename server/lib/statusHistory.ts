@@ -171,23 +171,46 @@ export function computeBuckets(
     const buckets: StatusHistoryDayBucket[] = [];
     let totalDowntime = 0;
 
+    // `events` is ordered by timestamp ascending (see the queries feeding this)
+    // and the day windows below advance monotonically, so a single forward
+    // cursor yields each day's events without rescanning the whole array per
+    // day. `lastStatusBefore` carries the status of the newest event seen
+    // before the current day, which is what the old
+    // `[...events].filter(...).at(-1)` computed - that cloned the entire event
+    // array once per day purely to read its last element.
+    let cursor = 0;
+    let lastStatusBefore: string | null = null;
+
     for (let d = 0; d < days; d++) {
         const dayStartSec = todayMidnightSec - (days - 1 - d) * 86400;
         const dayEndSec = dayStartSec + 86400;
 
-        const dayEvents = events.filter(
-            (e) => e.timestamp >= dayStartSec && e.timestamp < dayEndSec
-        );
+        // Consume everything strictly before this day, remembering the last one.
+        while (
+            cursor < events.length &&
+            events[cursor].timestamp < dayStartSec
+        ) {
+            lastStatusBefore = events[cursor].status;
+            cursor++;
+        }
 
-        // Determine the status at the start of this day (last event before dayStart)
-        const lastBeforeDay = [...events]
-            .filter((e) => e.timestamp < dayStartSec)
-            .at(-1);
+        // Everything from here up to the end of the day belongs to this bucket.
+        const dayStart = cursor;
+        while (cursor < events.length && events[cursor].timestamp < dayEndSec) {
+            cursor++;
+        }
+        const dayEvents = events.slice(dayStart, cursor);
 
         // Fall back to the last known state before the entire query window
         // so that entities that haven't generated events recently still show
         // as their actual status rather than "no_data".
-        const currentStatus = lastBeforeDay?.status ?? priorStatus ?? null;
+        const currentStatus = lastStatusBefore ?? priorStatus ?? null;
+
+        // This day's events are "before" every later day, so carry the newest
+        // one forward for the next iteration.
+        if (dayEvents.length > 0) {
+            lastStatusBefore = dayEvents[dayEvents.length - 1].status;
+        }
 
         const windows: { start: number; end: number | null; status: string }[] =
             [];
@@ -270,13 +293,21 @@ export function computeBuckets(
 
         const hasAnyData = currentStatus !== null || dayEvents.length > 0;
 
-        // The whole observable window is "unknown" if every status we have seen is unknown
-        const allStatuses = [
-            ...(currentStatus !== null ? [currentStatus] : []),
-            ...dayEvents.map((e) => e.status)
-        ];
-        const onlyUnknownData =
-            hasAnyData && allStatuses.every((s) => s === "unknown");
+        // The whole observable window is "unknown" if every status we have seen
+        // is unknown. Checked in place rather than materialising the combined
+        // status list, which allocated two arrays per day.
+        let onlyUnknownData = hasAnyData;
+        if (onlyUnknownData && currentStatus !== null) {
+            onlyUnknownData = currentStatus === "unknown";
+        }
+        if (onlyUnknownData) {
+            for (const e of dayEvents) {
+                if (e.status !== "unknown") {
+                    onlyUnknownData = false;
+                    break;
+                }
+            }
+        }
 
         let status: StatusHistoryDayBucket["status"] = "no_data";
         if (hasAnyData) {
@@ -380,11 +411,34 @@ export async function getBatchedStatusHistory(
         }
     > = {};
 
+    // Group in one pass instead of rescanning every event (and every
+    // last-known event) once per entity, which was O(entities x events).
+    // Events stay in their original timestamp order within each group.
+    const eventsByEntity = new Map<number, typeof events>();
+    for (const ev of events) {
+        const existing = eventsByEntity.get(ev.entityId);
+        if (existing) {
+            existing.push(ev);
+        } else {
+            eventsByEntity.set(ev.entityId, [ev]);
+        }
+    }
+
+    const lastKnownByEntity = new Map<
+        number,
+        (typeof lastKnownEvents)[number]
+    >();
+    for (const ev of lastKnownEvents) {
+        // `.find()` returned the first match, so keep the first one seen.
+        if (!lastKnownByEntity.has(ev.entityId)) {
+            lastKnownByEntity.set(ev.entityId, ev);
+        }
+    }
+
     for (const entityId of entityIds) {
         eventStatusMap[entityId] = {
-            events: events.filter((ev) => ev.entityId === entityId),
-            lastKnownEvent:
-                lastKnownEvents.find((ev) => ev.entityId === entityId) ?? null
+            events: eventsByEntity.get(entityId) ?? [],
+            lastKnownEvent: lastKnownByEntity.get(entityId) ?? null
         };
     }
 
