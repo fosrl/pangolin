@@ -205,7 +205,12 @@ export enum ActionsEnum {
     deleteVirtualApiKey = "deleteVirtualApiKey",
     getVirtualApiKey = "getVirtualApiKey",
     listVirtualApiKeys = "listVirtualApiKeys",
-    updateVirtualApiKey = "updateVirtualApiKey"
+    updateVirtualApiKey = "updateVirtualApiKey",
+    createRedirect = "createRedirect",
+    deleteRedirect = "deleteRedirect",
+    getRedirect = "getRedirect",
+    listRedirects = "listRedirects",
+    updateRedirect = "updateRedirect"
 }
 
 export async function checkUserActionPermission(

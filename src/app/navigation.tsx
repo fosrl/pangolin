@@ -10,7 +10,6 @@ import {
     Cable,
     ChartLine,
     Coins,
-    Combine,
     CreditCard,
     Fingerprint,
     Globe,
@@ -21,11 +20,11 @@ import {
     LayoutGrid,
     Link as LinkIcon,
     Logs,
-    MessageSquare,
     MessagesSquare,
     MonitorUp,
     Plug,
     ReceiptText,
+    Repeat,
     ScanEye,
     Server,
     Settings,
@@ -140,6 +139,11 @@ export const orgNavSections = (
                 title: "sidebarDomains",
                 href: "/{orgId}/settings/domains",
                 icon: <Globe className="size-4 flex-none" />
+            },
+            {
+                title: "sidebarRedirects",
+                href: "/{orgId}/settings/redirects",
+                icon: <Repeat className="size-4 flex-none" />
             },
             ...(env?.flags.usePangolinDns
                 ? [
@@ -466,6 +470,11 @@ export const commandBarNavSections = (
                 href: "/{orgId}/settings/clients/machine",
                 title: "commandMachineClients",
                 icon: <Server className="size-4 flex-none" />
+            },
+            {
+                title: "sidebarRedirects",
+                href: "/{orgId}/settings/redirects",
+                icon: <Repeat className="size-4 flex-none" />
             },
             ...(env?.flags.usePangolinDns
                 ? [
