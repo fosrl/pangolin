@@ -24,23 +24,42 @@ export const stripDuplicateSesions = async (
     if (sessionCookies.length > 1) {
         for (const cookie of sessionCookies) {
             const cookieValue = cookie.split("=")[1];
-            const res = await validateSessionToken(cookieValue);
-            if (res.session && res.user) {
+            const validationResult = await validateSessionToken(cookieValue);
+            if (validationResult.session && validationResult.user) {
                 validSessions.push(cookieValue);
             }
         }
 
         if (validSessions.length > 0) {
+            // Only the first valid session should survive. Note this
+            // middleware runs before cookieParser(), so req.cookies isn't
+            // populated yet here - we can't rely on overwriting it below.
+            // If we instead left every *valid* session cookie in the header
+            // (only stripping invalid ones), cookieParser() would parse a
+            // Cookie header with a repeated session key and silently keep
+            // whichever one appears last - not necessarily validSessions[0],
+            // and not something we control. So we dedupe the header itself
+            // here, keeping only the first valid session cookie and
+            // dropping every other session cookie (valid or not).
+            const winningSession = validSessions[0];
+            let keptWinningSession = false;
             const newCookieHeader = cookies.filter((cookie) => {
                 if (cookie.startsWith(`${SESSION_COOKIE_NAME}=`)) {
                     const cookieValue = cookie.split("=")[1];
-                    return validSessions.includes(cookieValue);
+                    if (cookieValue === winningSession && !keptWinningSession) {
+                        keptWinningSession = true;
+                        return true;
+                    }
+                    return false;
                 }
                 return true;
             });
             req.headers.cookie = newCookieHeader.join("; ");
+            // Defensive: if middleware ordering ever changes such that
+            // req.cookies is already populated by this point, keep it in
+            // sync too.
             if (req.cookies) {
-                req.cookies[SESSION_COOKIE_NAME] = validSessions[0];
+                req.cookies[SESSION_COOKIE_NAME] = winningSession;
             }
         }
     }
