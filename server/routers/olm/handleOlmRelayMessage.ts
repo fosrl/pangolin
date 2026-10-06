@@ -1,10 +1,11 @@
 import { db, exitNodes, sites } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
 import { clients, clientSitesAssociationsCache, Olm } from "@server/db";
-import { and, eq } from "drizzle-orm";
-import { updatePeer as newtUpdatePeer } from "../newt/peers";
+import { and, eq, inArray } from "drizzle-orm";
+import { updatePeersBatch } from "../newt/peers";
 import logger from "@server/logger";
 import config from "@server/lib/config";
+import { parseSiteChainBatch, resolveNewtIdsBySite } from "./batchUtils";
 
 export const handleOlmRelayMessage: MessageHandler = async (context) => {
     const { message, client: c, sendToClient } = context;
@@ -41,29 +42,66 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         return;
     }
 
-    const { siteId, chainId } = message.data;
+    const { siteIds, chainIds, isBatch } = parseSiteChainBatch(message.data);
 
-    // Get the site
-    const [site] = await db
-        .select()
-        .from(sites)
-        .where(eq(sites.siteId, siteId))
-        .limit(1);
-
-    if (!site || !site.exitNodeId) {
-        logger.warn("Site not found or has no exit node");
+    if (siteIds.length === 0) {
+        logger.warn("Relay message has no siteId(s)");
         return;
     }
 
-    // get the site's exit node
-    const [exitNode] = await db
+    // Get the sites
+    const siteRows = await db
         .select()
-        .from(exitNodes)
-        .where(eq(exitNodes.exitNodeId, site.exitNodeId))
-        .limit(1);
+        .from(sites)
+        .where(inArray(sites.siteId, siteIds));
+    const sitesById = new Map(siteRows.map((s) => [s.siteId, s]));
 
-    if (!exitNode) {
-        logger.warn("Exit node not found for site");
+    const exitNodeIds = [
+        ...new Set(
+            siteRows
+                .map((s) => s.exitNodeId)
+                .filter((id): id is number => id != null)
+        )
+    ];
+
+    // Get the sites' exit nodes
+    const exitNodeRows = exitNodeIds.length
+        ? await db
+              .select()
+              .from(exitNodes)
+              .where(inArray(exitNodes.exitNodeId, exitNodeIds))
+        : [];
+    const exitNodesById = new Map(exitNodeRows.map((e) => [e.exitNodeId, e]));
+
+    const valid: {
+        siteId: number;
+        chainId?: string;
+        relayEndpoint: string;
+    }[] = [];
+
+    for (let i = 0; i < siteIds.length; i++) {
+        const siteId = siteIds[i];
+
+        const site = sitesById.get(siteId);
+        if (!site || !site.exitNodeId) {
+            logger.warn(`Site ${siteId} not found or has no exit node`);
+            continue;
+        }
+
+        const exitNode = exitNodesById.get(site.exitNodeId);
+        if (!exitNode) {
+            logger.warn(`Exit node not found for site ${siteId}`);
+            continue;
+        }
+
+        valid.push({
+            siteId,
+            chainId: chainIds[i],
+            relayEndpoint: exitNode.endpoint
+        });
+    }
+
+    if (valid.length === 0) {
         return;
     }
 
@@ -75,23 +113,64 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         .where(
             and(
                 eq(clientSitesAssociationsCache.clientId, olm.clientId),
-                eq(clientSitesAssociationsCache.siteId, siteId)
+                inArray(
+                    clientSitesAssociationsCache.siteId,
+                    valid.map((v) => v.siteId)
+                )
             )
         );
 
-    // update the peer on the newt
-    await newtUpdatePeer(siteId, client.pubKey, {
-        endpoint: "" // this removes the endpoint so the newt knows to relay
+    // Only ack sites we can actually tell their newt to relay for
+    const newtIdBySiteId = await resolveNewtIdsBySite(valid.map((v) => v.siteId));
+    const pushable = valid.filter((v) => {
+        if (!newtIdBySiteId.has(v.siteId)) {
+            logger.warn(`Newt not found for site ${v.siteId}`);
+            return false;
+        }
+        return true;
     });
 
+    if (pushable.length === 0) {
+        return;
+    }
+
+    // update the peer on each newt so it knows to relay
+    await updatePeersBatch(
+        pushable.map((v) => ({
+            siteId: v.siteId,
+            publicKey: client.pubKey!,
+            newtId: newtIdBySiteId.get(v.siteId)!,
+            peer: { endpoint: "" } // this removes the endpoint so the newt knows to relay
+        }))
+    );
+
+    const relayPort = config.getRawConfig().gerbil.clients_start_port;
+
+    if (isBatch) {
+        return {
+            message: {
+                type: "olm/wg/peer/relay",
+                data: {
+                    siteIds: pushable.map((v) => v.siteId),
+                    relayEndpoints: pushable.map((v) => v.relayEndpoint),
+                    relayPort,
+                    chainIds: pushable.map((v) => v.chainId)
+                }
+            },
+            broadcast: false,
+            excludeSender: false
+        };
+    }
+
+    const single = pushable[0];
     return {
         message: {
             type: "olm/wg/peer/relay",
             data: {
-                siteId: siteId,
-                relayEndpoint: exitNode.endpoint,
-                relayPort: config.getRawConfig().gerbil.clients_start_port,
-                chainId
+                siteId: single.siteId,
+                relayEndpoint: single.relayEndpoint,
+                relayPort,
+                chainId: single.chainId
             }
         },
         broadcast: false,

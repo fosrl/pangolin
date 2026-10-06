@@ -63,7 +63,7 @@ import {
     useTransition
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import type { Selectedsite } from "@app/components/site-selector";
+import type { SelectedSite } from "@app/components/site-selector";
 import type { SelectedLabel } from "@app/components/labels-selector";
 import { useMediaQuery } from "@app/hooks/useMediaQuery";
 import { cn } from "@app/lib/cn";
@@ -256,7 +256,7 @@ export default function ResourceLauncher({
         (Boolean(defaultViewOverrides.personal) ||
             (isAdmin && Boolean(defaultViewOverrides.orgWide)));
 
-    const selectedSites: Selectedsite[] = useMemo(
+    const selectedSites: SelectedSite[] = useMemo(
         () =>
             config.siteIds.map((siteId) => ({
                 siteId,

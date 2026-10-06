@@ -70,13 +70,8 @@ export async function verifyApiKeyAccess(
             );
         }
 
-        if (!apiKeyOrg.orgId) {
-            return next(
-                createHttpError(
-                    HttpCode.INTERNAL_SERVER_ERROR,
-                    `API key with ID ${apiKeyId} does not have an organization ID`
-                )
-            );
+        if (!apiKey.apiKeyOrg?.orgId) {
+            return next(createHttpError(HttpCode.INTERNAL_SERVER_ERROR, `API key with ID ${apiKeyId} does not have an organization ID`));
         }
 
         if (!req.userOrg) {
@@ -86,7 +81,7 @@ export async function verifyApiKeyAccess(
                 .where(
                     and(
                         eq(userOrgs.userId, userId),
-                        eq(userOrgs.orgId, apiKeyOrg.orgId)
+                        eq(userOrgs.orgId, apiKey.apiKeyOrg.orgId)
                     )
                 )
                 .limit(1);

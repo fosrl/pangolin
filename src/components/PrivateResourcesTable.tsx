@@ -7,7 +7,7 @@ import {
     ResourceSitesStatusCell,
     type ResourceSiteRow
 } from "@app/components/ResourceSitesStatusCell";
-import { Selectedsite, SitesSelector } from "@app/components/site-selector";
+import { SelectedSite, SitesSelector } from "@app/components/site-selector";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
@@ -357,6 +357,12 @@ export default function PrivateResourcesTable({
                                 label: t(
                                     "editInternalResourceDialogModeInference"
                                 )
+                            },
+                            {
+                                value: "gateway",
+                                label: t(
+                                    "editInternalResourceDialogModeGateway"
+                                )
                             }
                         ]}
                         selectedValue={searchParams.get("mode") ?? undefined}
@@ -376,7 +382,8 @@ export default function PrivateResourcesTable({
                         cidr: t("editInternalResourceDialogModeCidr"),
                         http: t("editInternalResourceDialogModeHttp"),
                         ssh: t("editInternalResourceDialogModeSsh"),
-                        inference: t("editInternalResourceDialogModeInference")
+                        inference: t("editInternalResourceDialogModeInference"),
+                        gateway: t("editInternalResourceDialogModeGateway")
                     };
                     return <span>{modeLabels[resourceRow.mode]}</span>;
                 }
@@ -392,7 +399,11 @@ export default function PrivateResourcesTable({
                 cell: ({ row }) => {
                     const resourceRow = row.original;
                     const display = formatDestinationDisplay(resourceRow);
-                    if (resourceRow.destination) {
+                    if (
+                        resourceRow.destination &&
+                        resourceRow.mode !== "gateway"
+                    ) {
+                        // don't show the gateway resource destination which is 0.0.0.0/0 to not confuse people
                         return (
                             <CopyToClipboard
                                 text={display}

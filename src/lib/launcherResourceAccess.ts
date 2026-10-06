@@ -66,6 +66,16 @@ export function formatPublicResourceAccess(
 export function formatSiteResourceAccess(
     resource: SiteResourceAccessInput
 ): LauncherAccessFields {
+    // Exit node (gateway) destinations are always 0.0.0.0/0 — not useful to
+    // show or copy. Callers should render a localized capability label.
+    if (resource.mode === "gateway") {
+        return {
+            accessDisplay: "",
+            accessCopyValue: "",
+            accessUrl: null
+        };
+    }
+
     if (
         (resource.mode === "http" || resource.mode === "inference") &&
         resource.fullDomain

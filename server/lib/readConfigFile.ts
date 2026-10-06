@@ -149,6 +149,8 @@ export const configSchema = z
                     })
                     .optional(),
                 trust_proxy: z.int().gte(0).optional().default(1),
+                trust_ips: z.array(z.string()).optional().default([]),
+                custom_ip_header: z.string().optional().default(""),
                 // Opt-in: have Traefik/Badger stamp the resolved client IP
                 // into a dedicated header (X-Pangolin-Client-Ip) on the
                 // site-resource AI gateway route, so it survives an
@@ -174,36 +176,7 @@ export const configSchema = z
                 maxmind_db_path: z.string().optional(),
                 maxmind_asn_path: z.string().optional()
             })
-            .optional()
-            .default({
-                integration_port: 3003,
-                external_port: 3000,
-                internal_port: 3001,
-                ai_gateway_port: 3005,
-                next_port: 3002,
-                internal_hostname: "pangolin",
-                session_cookie_name: "p_session_token",
-                resource_access_token_param: "p_token",
-                resource_access_token_headers: {
-                    id: "P-Access-Token-Id",
-                    token: "P-Access-Token"
-                },
-                remote_headers: {
-                    user_id: "Remote-User-Id",
-                    virtual_api_key_id: "Remote-Virtual-Api-Key-Id",
-                    user: "Remote-User",
-                    email: "Remote-Email",
-                    name: "Remote-Name",
-                    role: "Remote-Role"
-                },
-                resource_session_request_param:
-                    "resource_session_request_param",
-                dashboard_session_length_hours: 720,
-                resource_session_length_hours: 720,
-                trust_proxy: 1,
-                enable_ai_gateway_client_ip_header: false,
-                secret: undefined
-            }),
+            .prefault({}),
         postgres: z
             .object({
                 connection_string: z.string().optional(),

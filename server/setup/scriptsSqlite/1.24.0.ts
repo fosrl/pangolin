@@ -22,6 +22,24 @@ export default async function migration() {
                     `ALTER TABLE 'resources' ADD COLUMN 'createdAt' text;`
                 ).run();
             }
+
+            db.prepare(
+                `
+                ALTER TABLE 'resources' RENAME COLUMN "headers" TO "requestHeaders";
+                `
+            ).run();
+
+            db.prepare(
+                `
+                ALTER TABLE 'resources' ADD 'responseHeaders' text;
+                `
+            ).run();
+
+            db.prepare(
+                `
+                ALTER TABLE 'orgs' ADD 'settingsJitModeLimit' integer DEFAULT 250 NOT NULL;
+                `
+            ).run();
         })();
 
         db.pragma("foreign_keys = ON");

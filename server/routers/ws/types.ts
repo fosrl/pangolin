@@ -104,4 +104,9 @@ export type RedisMessage =
           message: WSMessage;
           fromNodeId: string;
           options?: SendMessageOptions;
+      }
+    | {
+          type: "disconnect";
+          targetClientId: string;
+          fromNodeId: string;
       };

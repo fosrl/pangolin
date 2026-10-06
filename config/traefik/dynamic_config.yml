@@ -1,6 +1,6 @@
 http:
   middlewares:
-    badger:
+    badger-dashboard:
       plugin:
         badger:
           disableForwardAuth: true
@@ -17,7 +17,7 @@ http:
         - web
       middlewares:
         - redirect-to-https
-        - badger
+        - badger-dashboard
 
     # Next.js router (handles everything except API and WebSocket paths)
     next-router:
@@ -26,7 +26,7 @@ http:
       entryPoints:
         - websecure
       middlewares:
-        - badger
+        - badger-dashboard
       tls:
         certResolver: letsencrypt
 
@@ -37,7 +37,7 @@ http:
       entryPoints:
         - websecure
       middlewares:
-        - badger
+        - badger-dashboard
       tls:
         certResolver: letsencrypt
 

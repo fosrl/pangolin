@@ -15,7 +15,7 @@ import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useDebounce } from "use-debounce";
 
-export type Selectedsite = Pick<
+export type SelectedSite = Pick<
     ListSitesResponse["sites"][number],
     "name" | "siteId" | "type"
 > & {
@@ -24,8 +24,8 @@ export type Selectedsite = Pick<
 };
 
 type SiteOnlineStatusProps = {
-    type: Selectedsite["type"];
-    online: Selectedsite["online"];
+    type: SelectedSite["type"];
+    online: SelectedSite["online"];
 };
 
 /** Dot-only indicator matching `SitesTable` colors (newt/wireguard only; nothing for local or missing status). */
@@ -57,8 +57,8 @@ export function SiteOnlineStatus({ type, online }: SiteOnlineStatusProps) {
 
 export type SitesSelectorProps = {
     orgId: string;
-    selectedSite?: Selectedsite | null;
-    onSelectSite: (selected: Selectedsite) => void;
+    selectedSite?: SelectedSite | null;
+    onSelectSite: (selected: SelectedSite) => void;
     filterTypes?: string[];
 };
 
@@ -82,7 +82,7 @@ export function SitesSelector({
 
     // always include the selected site in the list of sites shown
     const sitesShown = useMemo(() => {
-        const allSites: Array<Selectedsite> = filterTypes
+        const allSites: Array<SelectedSite> = filterTypes
             ? sites.filter((s) => filterTypes.includes(s.type))
             : [...sites];
         if (

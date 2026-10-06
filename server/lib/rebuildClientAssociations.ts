@@ -17,11 +17,16 @@ import {
     sites,
     Transaction,
     userOrgRoles,
-    userSiteResources
+    userSiteResources,
+    orgs
 } from "@server/db";
 import { and, count, eq, inArray, isNotNull, ne } from "drizzle-orm";
 
 import { deletePeersBatch as newtDeletePeersBatch } from "@server/routers/newt/peers";
+import {
+    sendGatewayDisable,
+    sendGatewaySitesUpdate
+} from "@server/routers/olm/gateway";
 import {
     initPeerAddHandshakeBatch,
     deletePeersBatch as olmDeletePeersBatch
@@ -234,7 +239,8 @@ export async function getClientSiteResourceAccess(
         .select({
             clientId: clients.clientId,
             pubKey: clients.pubKey,
-            subnet: clients.subnet
+            subnet: clients.subnet,
+            orgId: clients.orgId
         })
         .from(clients)
         .where(
@@ -260,7 +266,8 @@ export async function getClientSiteResourceAccess(
                   .select({
                       clientId: clients.clientId,
                       pubKey: clients.pubKey,
-                      subnet: clients.subnet
+                      subnet: clients.subnet,
+                      orgId: clients.orgId
                   })
                   .from(clients)
                   .where(
@@ -463,7 +470,8 @@ async function rebuildClientAssociationsFromSiteResourceImpl(
                   .select({
                       clientId: clients.clientId,
                       pubKey: clients.pubKey,
-                      subnet: clients.subnet
+                      subnet: clients.subnet,
+                      orgId: clients.orgId
                   })
                   .from(clients)
                   .where(
@@ -532,6 +540,19 @@ async function rebuildClientAssociationsFromSiteResourceImpl(
             );
     }
 
+    // A client that loses access to a gateway resource (it was deleted, or the
+    // client's roles/users/machines no longer include it) can't keep using it
+    // as its gateway. The olm ignores this unless it selected this resource.
+    if (
+        siteResource.mode === "gateway" &&
+        clientSiteResourcesToRemove.length > 0
+    ) {
+        await sendGatewayDisable(
+            clientSiteResourcesToRemove,
+            siteResource.siteResourceId
+        );
+    }
+
     /////////// process the client-site associations ///////////
 
     logger.debug(
@@ -568,7 +589,8 @@ async function rebuildClientAssociationsFromSiteResourceImpl(
                           .select({
                               clientId: clients.clientId,
                               pubKey: clients.pubKey,
-                              subnet: clients.subnet
+                              subnet: clients.subnet,
+                              orgId: clients.orgId
                           })
                           .from(clients)
                           .where(
@@ -720,11 +742,13 @@ async function handleMessagesForSiteClients(
         clientId: number;
         pubKey: string | null;
         subnet: string | null;
+        orgId: string;
     }[],
     existingClients: {
         clientId: number;
         pubKey: string | null;
         subnet: string | null;
+        orgId: string;
     }[],
     clientSitesToAdd: number[],
     clientSitesToRemove: number[],
@@ -805,6 +829,7 @@ async function handleMessagesForSiteClients(
             clientId: number;
             pubKey: string | null;
             subnet: string | null;
+            orgId: string;
         }
     >();
 
@@ -860,6 +885,22 @@ async function handleMessagesForSiteClients(
             .map((r) => [r.clientId as number, r.olmId])
     );
 
+    // Batch-fetch the orgs for all clients we need to process so we don't
+    // issue a redundant query per client in the loop below
+    const orgIdsToProcess = Array.from(
+        new Set(
+            Array.from(clientsToProcess.values()).map((client) => client.orgId)
+        )
+    );
+    const orgRows =
+        orgIdsToProcess.length > 0
+            ? await trx
+                  .select()
+                  .from(orgs)
+                  .where(inArray(orgs.orgId, orgIdsToProcess))
+            : [];
+    const orgByOrgId = new Map(orgRows.map((org) => [org.orgId, org]));
+
     for (const client of clientsToProcess.values()) {
         // UPDATE THE NEWT
         if (!client.subnet || !client.pubKey) {
@@ -899,7 +940,14 @@ async function handleMessagesForSiteClients(
         }
 
         if (isAdd) {
-            if (clientSiteCounts[client.clientId] > 250) {
+            const org = orgByOrgId.get(client.orgId);
+
+            if (!org) {
+                logger.warn(`Client ${client.clientId} org not found`);
+                continue;
+            }
+
+            if (clientSiteCounts[client.clientId] > org.settingsJitModeLimit) {
                 // skip adding the peer if we have more than 250 sites because we are in jit mode anyway
                 logger.info(
                     `rebuildClientAssociations: Client ${client.clientId} has ${clientSiteCounts[client.clientId]} sites so skipping adding peer to newt and olm because it is likely in jit mode`
@@ -1570,7 +1618,8 @@ export async function handleMessagingForUpdatedSiteResource(
         .select({
             clientId: clientSiteResourcesAssociationsCache.clientId,
             pubKey: clients.pubKey,
-            subnet: clients.subnet
+            subnet: clients.subnet,
+            orgId: clients.orgId
         })
         .from(clientSiteResourcesAssociationsCache)
         .innerJoin(
@@ -2024,6 +2073,29 @@ export async function handleMessagingForUpdatedSiteResource(
         );
     }
 
+    // The olm only knows which gateway resource it selected and the sites it
+    // is currently using for it, so tell the clients that have access to this
+    // one what changed. Clients that lost access are handled by the rebuild.
+    if (existingSiteResource?.mode === "gateway") {
+        const clientIds = mergedAllClients.map((c) => c.clientId);
+        if (
+            updatedSiteResource.mode !== "gateway" ||
+            !updatedSiteResource.enabled
+        ) {
+            await sendGatewayDisable(
+                clientIds,
+                updatedSiteResource.siteResourceId
+            );
+        } else {
+            await sendGatewaySitesUpdate(
+                clientIds,
+                updatedSiteResource.siteResourceId,
+                addedSiteIds,
+                removedSiteIds
+            );
+        }
+    }
+
     logger.debug(
         `handleMessagingForUpdatedSiteResource: DONE siteResourceId=${updatedSiteResource.siteResourceId}`
     );
@@ -2391,6 +2463,19 @@ async function handleMessagesForClientSites(
         .where(eq(clientSitesAssociationsCache.clientId, client.clientId))
         .then((rows) => Number(rows[0].count));
 
+    // client.orgId is constant for this call, so fetch the org once
+    // instead of re-querying it for every site in the loop below
+    const [org] = await trx
+        .select()
+        .from(orgs)
+        .where(eq(orgs.orgId, client.orgId))
+        .limit(1);
+
+    if (!org) {
+        logger.warn(`Client ${client.clientId} org not found`);
+        return;
+    }
+
     for (const siteData of sitesData) {
         const site = siteData.sites;
         const exitNode = siteData.exitNodes;
@@ -2451,7 +2536,7 @@ async function handleMessagesForClientSites(
                 continue;
             }
 
-            if (totalSitesOnClient > 250) {
+            if (totalSitesOnClient > org.settingsJitModeLimit) {
                 // skip adding the site if we have more than 250 because we are in jit mode anyway
                 logger.info(
                     `rebuildClientAssociations: Client ${client.clientId} has ${totalSitesOnClient} sites so skipping adding peer to newt and olm because it is likely in jit mode`
@@ -3061,7 +3146,8 @@ export async function cleanupSiteAssociations(
                   .select({
                       clientId: clients.clientId,
                       pubKey: clients.pubKey,
-                      subnet: clients.subnet
+                      subnet: clients.subnet,
+                      orgId: clients.orgId
                   })
                   .from(clients)
                   .where(inArray(clients.clientId, cachedClientIds))

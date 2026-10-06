@@ -13,3 +13,4 @@
 
 export * from "./getOrgTierData";
 export * from "./createCustomer";
+export * from "./linkEmailOrg";

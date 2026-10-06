@@ -51,6 +51,10 @@ export async function traefikConfigProvider(
                                         .internal_hostname
                                 }:${config.getRawConfig().server.internal_port}`
                             ).href,
+                        disableDefaultCFIPs: config.getRawConfig().server.trust_ips.length > 0,
+                        customIPHeader: config.getRawConfig().server.custom_ip_header,
+                        trustip: config.getRawConfig().server.trust_ips,
+
                         userSessionCookieName:
                             config.getRawConfig().server.session_cookie_name,
 

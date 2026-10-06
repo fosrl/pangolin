@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LicenseKeyCache } from "@server/license/license";
+import { LicenseKeyCache, LicenseKeyTier } from "@server/license/license";
 import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
@@ -41,6 +41,7 @@ import {
     SettingsSectionHeader,
     SettingsSectionFooter
 } from "@app/components/Settings";
+import { Progress } from "@app/components/ui/progress";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import {
     ArrowRight,
@@ -48,6 +49,7 @@ import {
     ExternalLink,
     Heart,
     InfoIcon,
+    ShoppingCart,
     TicketCheck
 } from "lucide-react";
 import Link from "next/link";
@@ -63,12 +65,24 @@ import { useTranslations } from "next-intl";
 const ENTERPRISE_DOCS_URL =
     "https://docs.pangolin.net/self-host/enterprise-edition";
 const ENTERPRISE_PRICING_URL = "https://pangolin.net/pricing#Self-Hosted";
+const LICENSE_PORTAL_URL =
+    "https://app.pangolin.net/auth/login?internal_redirect=/settings/license?generate";
 
-function obfuscateLicenseKey(key: string): string {
-    if (key.length <= 8) return key;
-    const firstPart = key.substring(0, 4);
-    const lastPart = key.substring(key.length - 4);
-    return `${firstPart}••••••••••••••••••••${lastPart}`;
+function getTierLabel(
+    tier: LicenseKeyTier | undefined,
+    t: (key: string) => string
+): string {
+    switch (tier) {
+        case "enterprise":
+            return t("licenseTierEnterprise");
+        case "tier1":
+            return t("licenseTierTier1");
+        case "tier2":
+            return t("licenseTierTier2");
+        case "personal":
+        default:
+            return t("licenseTierPersonal");
+    }
 }
 
 export default function LicensePage() {
@@ -80,7 +94,6 @@ export default function LicensePage() {
         useState<LicenseKeyCache | null>(null);
 
     const { licenseStatus, updateLicenseStatus } = useLicenseStatusContext();
-    const [hostLicense, setHostLicense] = useState<string | null>(null);
     const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
     const [purchaseMode, setPurchaseMode] = useState<"license">("license");
 
@@ -128,12 +141,6 @@ export default function LicensePage() {
                 );
             const keys = response.data.data;
             setRows(keys);
-            const hostKey = keys.find((key) => key.type === "host");
-            if (hostKey) {
-                setHostLicense(hostKey.licenseKey);
-            } else {
-                setHostLicense(null);
-            }
         } catch (e) {
             toast({
                 title: t("licenseErrorKeyLoad"),
@@ -388,6 +395,33 @@ export default function LicensePage() {
                 </DismissableBanner>
             )}
 
+            {licenseStatus?.isLicenseValid && rows.length > 0 && (
+                <DismissableBanner
+                    storageKey="license-upgrade-banner-dismissed"
+                    version={1}
+                    title={t("licenseUpgradeBannerTitle")}
+                    titleIcon={
+                        <ShoppingCart className="w-5 h-5 text-primary" />
+                    }
+                    description={t("licenseUpgradeBannerDescription")}
+                >
+                    <Link
+                        href={LICENSE_PORTAL_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                        >
+                            {t("licenseUpgradeBannerButton")}
+                            <ExternalLink className="w-4 h-4" />
+                        </Button>
+                    </Link>
+                </DismissableBanner>
+            )}
+
             {/* <Alert variant="neutral" className="mb-6"> */}
             {/*     <InfoIcon className="h-4 w-4" /> */}
             {/*     <AlertTitle className="font-semibold"> */}
@@ -399,62 +433,168 @@ export default function LicensePage() {
             {/* </Alert> */}
 
             <SettingsContainer>
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SSTitle>{t("licenseHost")}</SSTitle>
-                        <SettingsSectionDescription>
-                            {t("licenseHostDescription")}
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <div className="space-y-4">
-                        <div className="flex items-center space-x-4">
-                            {licenseStatus?.isLicenseValid ? (
-                                <div className="space-y-2 text-green-500">
-                                    <div className="text-2xl flex items-center gap-2">
-                                        <Check />
-                                        {t("licensed") +
-                                            `${licenseStatus?.tier === "personal" ? ` (${t("personalUseOnly")})` : ""}`}
-                                    </div>
+                <SettingsSectionGrid cols={2}>
+                    <SettingsSection>
+                        <SettingsSectionHeader>
+                            <SSTitle>{t("licenseUsage")}</SSTitle>
+                            <SettingsSectionDescription>
+                                {t("licenseUsageDescription")}
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <div className="text-sm font-medium">
+                                    {t("licenseUsageSites")}
                                 </div>
-                            ) : (
                                 <div className="text-2xl">
-                                    {t("unlicensed")}
+                                    {t("licenseSitesUsed", {
+                                        count: licenseStatus?.usedSites || 0
+                                    })}
+                                </div>
+                                {licenseStatus?.maxSites ? (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">
+                                                {t("licenseSitesUsedMax", {
+                                                    usedSites:
+                                                        licenseStatus.usedSites ||
+                                                        0,
+                                                    maxSites:
+                                                        licenseStatus.maxSites
+                                                })}
+                                            </span>
+                                            <span className="text-muted-foreground">
+                                                {Math.round(
+                                                    ((licenseStatus.usedSites ||
+                                                        0) /
+                                                        licenseStatus.maxSites) *
+                                                        100
+                                                )}
+                                                %
+                                            </span>
+                                        </div>
+                                        <Progress
+                                            value={
+                                                ((licenseStatus.usedSites ||
+                                                    0) /
+                                                    licenseStatus.maxSites) *
+                                                100
+                                            }
+                                            className="h-5"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-muted-foreground">
+                                        {t("licenseNoSiteLimit")}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="space-y-2">
+                                <div className="text-sm font-medium">
+                                    {t("licenseUsageUsers")}
+                                </div>
+                                <div className="text-2xl">
+                                    {t("licenseUsersUsed", {
+                                        count: licenseStatus?.usedUsers || 0
+                                    })}
+                                </div>
+                                {licenseStatus?.maxUsers ? (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">
+                                                {t("licenseUsersUsedMax", {
+                                                    usedUsers:
+                                                        licenseStatus.usedUsers ||
+                                                        0,
+                                                    maxUsers:
+                                                        licenseStatus.maxUsers
+                                                })}
+                                            </span>
+                                            <span className="text-muted-foreground">
+                                                {Math.round(
+                                                    ((licenseStatus.usedUsers ||
+                                                        0) /
+                                                        licenseStatus.maxUsers) *
+                                                        100
+                                                )}
+                                                %
+                                            </span>
+                                        </div>
+                                        <Progress
+                                            value={
+                                                ((licenseStatus.usedUsers ||
+                                                    0) /
+                                                    licenseStatus.maxUsers) *
+                                                100
+                                            }
+                                            className="h-5"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-muted-foreground">
+                                        {t("licenseNoUserLimit")}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </SettingsSection>
+                    <SettingsSection>
+                        <SettingsSectionHeader>
+                            <SSTitle>{t("licenseHost")}</SSTitle>
+                            <SettingsSectionDescription>
+                                {t("licenseHostDescription")}
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <div className="space-y-4">
+                            <div className="flex items-center space-x-4">
+                                {licenseStatus?.isLicenseValid ? (
+                                    <div className="space-y-2 text-green-500">
+                                        <div className="text-2xl flex items-center gap-2">
+                                            <Check />
+                                            {t("licensed") +
+                                                `${licenseStatus?.tier === "personal" ? ` (${t("personalUseOnly")})` : ""}`}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-2xl">
+                                        {t("unlicensed")}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="space-y-2">
+                                <div className="text-sm font-medium">
+                                    {t("licenseTierLabel")}
+                                </div>
+                                <div className="text-lg">
+                                    {getTierLabel(licenseStatus?.tier, t)}
+                                </div>
+                                {rows.length > 1 && (
+                                    <div className="text-sm text-muted-foreground">
+                                        {t("licenseMultipleKeysDescription")}
+                                    </div>
+                                )}
+                            </div>
+                            {licenseStatus?.hostId && (
+                                <div className="space-y-2">
+                                    <div className="text-sm font-medium">
+                                        {t("hostId")}
+                                    </div>
+                                    <CopyTextBox text={licenseStatus.hostId} />
                                 </div>
                             )}
                         </div>
-                        {licenseStatus?.hostId && (
-                            <div className="space-y-2">
-                                <div className="text-sm font-medium">
-                                    {t("hostId")}
-                                </div>
-                                <CopyTextBox text={licenseStatus.hostId} />
-                            </div>
-                        )}
-                        {hostLicense && (
-                            <div className="space-y-2">
-                                <div className="text-sm font-medium">
-                                    {t("licenseKey")}
-                                </div>
-                                <CopyTextBox
-                                    text={hostLicense}
-                                    displayText={obfuscateLicenseKey(
-                                        hostLicense
-                                    )}
-                                />
-                            </div>
-                        )}
-                    </div>
-                    <SettingsSectionFooter>
-                        <Button
-                            variant="outline"
-                            onClick={recheck}
-                            disabled={isRecheckingLicense}
-                            loading={isRecheckingLicense}
-                        >
-                            {t("licenseReckeckAll")}
-                        </Button>
-                    </SettingsSectionFooter>
-                </SettingsSection>
+                        <SettingsSectionFooter>
+                            <Button
+                                variant="outline"
+                                onClick={recheck}
+                                disabled={isRecheckingLicense}
+                                loading={isRecheckingLicense}
+                            >
+                                {t("licenseReckeckAll")}
+                            </Button>
+                        </SettingsSectionFooter>
+                    </SettingsSection>
+                </SettingsSectionGrid>
                 <LicenseKeysDataTable
                     licenseKeys={rows}
                     onDelete={(key) => {

@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { portRangeStringSchema } from "@server/lib/ip";
 import { MaintenanceSchema } from "#dynamic/lib/blueprints/MaintenanceSchema";
 import { isValidRegionId } from "@server/db/regions";
+import { isValidHttpMethodList } from "@server/lib/validators";
 import { wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import {
@@ -127,7 +128,16 @@ export const AuthSchema = z.object({
 export const RuleSchema = z
     .object({
         action: z.enum(["allow", "deny", "pass"]),
-        match: z.enum(["cidr", "path", "ip", "country", "country_is_not", "asn", "region"]),
+        match: z.enum([
+            "cidr",
+            "path",
+            "ip",
+            "country",
+            "country_is_not",
+            "asn",
+            "region",
+            "method"
+        ]),
         value: z.coerce.string(),
         priority: z.int().optional(),
         enabled: z.boolean().optional().default(true)
@@ -206,6 +216,19 @@ export const RuleSchema = z
             path: ["value"],
             message:
                 "Value must be a valid UN M.49 region or subregion ID when match is 'region'"
+        }
+    )
+    .refine(
+        (rule) => {
+            if (rule.match === "method") {
+                return isValidHttpMethodList(rule.value);
+            }
+            return true;
+        },
+        {
+            path: ["value"],
+            message:
+                "Value must be a comma-separated list of HTTP methods when match is 'method', e.g. 'POST,PUT'"
         }
     );
 
@@ -303,7 +326,9 @@ export const PublicResourceSchema = z
         auth: AuthSchema.optional(),
         "host-header": z.string().optional(),
         "tls-server-name": z.string().optional(),
-        headers: z.array(HeaderSchema).optional(),
+        headers: z.array(HeaderSchema).optional(), // deprecated alias for requestHeaders
+        requestHeaders: z.array(HeaderSchema).optional(),
+        responseHeaders: z.array(HeaderSchema).optional(),
         rules: z.array(RuleSchema).optional(),
         maintenance: MaintenanceSchema.optional(),
         "auth-daemon": AuthDaemonSchema.optional(),
@@ -587,7 +612,18 @@ export function isTargetsOnlyResource(resource: any): boolean {
 export const PrivateResourceSchema = z
     .object({
         name: z.string().min(1).max(255),
-        mode: z.enum(["host", "cidr", "http", "ssh", "inference"]),
+        // "exit-node" is accepted as an alias for "gateway" (matches the UI naming)
+        mode: z
+            .enum([
+                "host",
+                "cidr",
+                "http",
+                "ssh",
+                "inference",
+                "gateway",
+                "exit-node"
+            ])
+            .transform((mode) => (mode === "exit-node" ? "gateway" : mode)),
         site: z.string().optional(), // DEPRECATED IN FAVOR OF sites
         sites: z.array(z.string()).optional().default([]),
         // protocol: z.enum(["tcp", "udp"]).optional(),
@@ -627,13 +663,15 @@ export const PrivateResourceSchema = z
     })
     .refine(
         (data) => {
-            // destination is optional only for ssh+native or inference; required for everything else
+            // destination is optional only for ssh+native, inference, or gateway
+            // (gateway always routes the whole subnet, so destination is ignored); required for everything else
             const isNativeSSH =
                 data.mode === "ssh" &&
                 (data["auth-daemon"] === undefined ||
                     data["auth-daemon"].mode === "native");
             if (
                 data.mode !== "inference" &&
+                data.mode !== "gateway" &&
                 !isNativeSSH &&
                 !data.destination
             ) {
@@ -644,7 +682,7 @@ export const PrivateResourceSchema = z
         {
             path: ["destination"],
             message:
-                "destination is required unless mode is 'ssh' with auth-daemon mode 'native', or mode is 'inference'"
+                "destination is required unless mode is 'ssh' with auth-daemon mode 'native', 'inference', or 'gateway'"
         }
     )
     .refine(
@@ -791,25 +829,20 @@ export const ConfigSchema = z
     .object({
         "proxy-resources": z
             .record(z.string(), PublicResourceSchema)
-            .optional()
             .prefault({}),
         "public-resources": z
             .record(z.string(), PublicResourceSchema)
-            .optional()
             .prefault({}),
         "client-resources": z
             .record(z.string(), PrivateResourceSchema)
-            .optional()
             .prefault({}),
         "private-resources": z
             .record(z.string(), PrivateResourceSchema)
-            .optional()
             .prefault({}),
         "public-policies": z
             .record(z.string(), ResourcePolicySchema)
-            .optional()
             .prefault({}),
-        sites: z.record(z.string(), SiteSchema).optional().prefault({})
+        sites: z.record(z.string(), SiteSchema).prefault({})
     })
     .transform((data) => {
         // Merge public-resources into proxy-resources

@@ -109,6 +109,16 @@ export const privateConfigSchema = z
                     .array(z.string())
                     .optional()
                     .default([]),
+                // Zone names (zone cuts) this server is authoritative for
+                // beyond the customer domains stored in the `domains` table -
+                // e.g. a self-hosted deployment's own nameserver zone or
+                // cname/site extension zones. Any query landing on one of
+                // these names, or an empty non-terminal beneath one, that
+                // doesn't match a more specific record gets NOERROR/NODATA +
+                // SOA (not NXDOMAIN), so QNAME-minimising resolvers (RFC
+                // 9156) don't treat the ancestor as proof nothing exists
+                // below it (RFC 8020). Left for the user to populate.
+                zones: z.array(z.string()).optional().default([]),
                 rate_limit: z
                     .object({
                         enabled: z.boolean().optional().default(true),

@@ -53,9 +53,10 @@ async function queryInlinePolicy(resourcePolicyId: number) {
 
 export type GetResourceResponse = Omit<
     NonNullable<Awaited<ReturnType<typeof query>>>,
-    "headers"
+    "requestHeaders" | "responseHeaders"
 > & {
-    headers: { name: string; value: string }[] | null;
+    requestHeaders: { name: string; value: string }[] | null;
+    responseHeaders: { name: string; value: string }[] | null;
 };
 
 registry.registerPath({
@@ -186,9 +187,12 @@ export async function getResource(
         return response<GetResourceResponse>(res, {
             data: {
                 ...returnData,
-                headers: returnData.headers
-                    ? JSON.parse(returnData.headers)
-                    : returnData.headers
+                requestHeaders: returnData.requestHeaders
+                    ? JSON.parse(returnData.requestHeaders)
+                    : returnData.requestHeaders,
+                responseHeaders: returnData.responseHeaders
+                    ? JSON.parse(returnData.responseHeaders)
+                    : returnData.responseHeaders
             },
             success: true,
             error: false,

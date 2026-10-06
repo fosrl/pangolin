@@ -46,7 +46,7 @@ import {
     PopoverTrigger
 } from "@/components/ui/popover";
 import { SitesSelector } from "@app/components/site-selector";
-import type { Selectedsite } from "@app/components/site-selector";
+import type { SelectedSite } from "@app/components/site-selector";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { cn } from "@app/lib/cn";
 import { SwitchInput } from "@app/components/SwitchInput";
@@ -144,7 +144,7 @@ export function HealthCheckCredenza(props: HealthCheckCredenzaProps) {
     const t = useTranslations();
     const api = createApiClient(useEnvContext());
     const [loading, setLoading] = useState(false);
-    const [selectedSite, setSelectedSite] = useState<Selectedsite | null>(null);
+    const [selectedSite, setSelectedSite] = useState<SelectedSite | null>(null);
 
     const healthCheckSchema = z
         .object({
@@ -183,11 +183,9 @@ export function HealthCheckCredenza(props: HealthCheckCredenzaProps) {
                     { message: t("healthCheckPortInvalid") }
                 ),
             hcFollowRedirects: z.boolean(),
-            hcHostname: z
-                .string()
-                .refine((val) => !/\s/.test(val), {
-                    message: t("healthCheckHostnameInvalid")
-                }),
+            hcHostname: z.string().refine((val) => !/\s/.test(val), {
+                message: t("healthCheckHostnameInvalid")
+            }),
             hcMode: z.string(),
             hcUnhealthyInterval: z.int().positive().min(5),
             hcTlsServerName: z.string(),
@@ -1355,7 +1353,7 @@ export function HealthCheckCredenza(props: HealthCheckCredenzaProps) {
                                                                     <FormItem>
                                                                         <FormLabel>
                                                                             {t(
-                                                                                "customHeaders"
+                                                                                "customRequestHeaders"
                                                                             )}
                                                                         </FormLabel>
                                                                         <FormControl>
@@ -1379,7 +1377,7 @@ export function HealthCheckCredenza(props: HealthCheckCredenzaProps) {
                                                                         </FormControl>
                                                                         <FormDescription>
                                                                             {t(
-                                                                                "customHeadersDescription"
+                                                                                "customRequestHeadersDescription"
                                                                             )}
                                                                         </FormDescription>
                                                                         <FormMessage />

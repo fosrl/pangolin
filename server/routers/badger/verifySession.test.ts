@@ -386,6 +386,38 @@ function runSpecialCharacterTests() {
     console.log("All special character tests passed!");
 }
 
+function runEncodedPatternTests() {
+    console.log("\nRunning percent-encoded pattern tests...");
+
+    // isValidUrlGlobPattern accepts percent-encoded sequences and rejects
+    // raw spaces / non-ASCII, so `%20` and `%C3%A9` are the only way to write
+    // a PATH rule for such a path. Badger sends the request path already
+    // decoded (Go's req.URL.Path), and isPathAllowed decodes it again, so the
+    // rule pattern must be decoded the same way or it can never match.
+    assertEquals(
+        isPathAllowed("/my%20docs/*", "/my docs/report.pdf"),
+        true,
+        "Percent-encoded space in pattern should match decoded request path"
+    );
+    assertEquals(
+        isPathAllowed("/my%20docs/*", "/my%20docs/report.pdf"),
+        true,
+        "Percent-encoded space in pattern should match raw-encoded request path"
+    );
+    assertEquals(
+        isPathAllowed("/caf%C3%A9", "/café"),
+        true,
+        "Percent-encoded UTF-8 in pattern should match decoded request path"
+    );
+    assertEquals(
+        isPathAllowed("/my%20docs/*", "/my-docs/report.pdf"),
+        false,
+        "Decoded pattern must still reject a different path"
+    );
+
+    console.log("All percent-encoded pattern tests passed!");
+}
+
 function runRegionTests() {
     console.log("\nRunning isIpInRegion tests...");
 
@@ -446,6 +478,7 @@ function runRegionTests() {
 try {
     runTests();
     runSpecialCharacterTests();
+    runEncodedPatternTests();
     runRegionTests();
     console.log("\n✅ All tests passed!");
 } catch (error) {

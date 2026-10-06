@@ -5,7 +5,7 @@ import {
     formatMultiSitesSelectorLabel
 } from "@app/components/multi-site-selector";
 import { SitesSelector } from "@app/components/site-selector";
-import type { Selectedsite } from "@app/components/site-selector";
+import type { SelectedSite } from "@app/components/site-selector";
 import { Button } from "@app/components/ui/button";
 import {
     FormControl,
@@ -28,8 +28,8 @@ import { PrivateResourceMultiSiteRoutingHelp } from "@app/components/PrivateReso
 type PrivateResourceSitesFieldProps<T extends FieldValues> = {
     control: Control<T>;
     orgId: string;
-    selectedSites: Selectedsite[];
-    onSelectedSitesChange: (sites: Selectedsite[]) => void;
+    selectedSites: SelectedSite[];
+    onSelectedSitesChange: (sites: SelectedSite[]) => void;
     siteIdsFieldName?: FieldPath<T>;
     singleSite?: boolean;
 };

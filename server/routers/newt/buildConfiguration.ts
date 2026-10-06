@@ -96,7 +96,7 @@ export async function buildClientConfigurationForNewtClient(
                         await updatePeer(client.clients.clientId, {
                             siteId: site.siteId,
                             endpoint: site.endpoint!,
-                            relayEndpoint: `${exitNode.endpoint}:${config.getRawConfig().gerbil.clients_start_port}`,
+                            relayEndpoint: formatEndpoint(exitNode.endpoint, config.getRawConfig().gerbil.clients_start_port),
                             publicKey: site.publicKey!,
                             serverIP: site.address,
                             serverPort: site.listenPort

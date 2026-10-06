@@ -268,6 +268,7 @@ export default function DeviceLoginForm({
         return (
             <DeviceAuthConfirmation
                 metadata={metadata}
+                code={code}
                 onConfirm={onConfirm}
                 onCancel={onCancel}
                 loading={loading}
@@ -319,7 +320,9 @@ export default function DeviceLoginForm({
                                         <div className="flex justify-center">
                                             <InputOTP
                                                 maxLength={8}
-                                                pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
+                                                pattern={
+                                                    REGEXP_ONLY_DIGITS_AND_CHARS
+                                                }
                                                 {...field}
                                                 value={field.value
                                                     .replace(/-/g, "")
@@ -338,7 +341,9 @@ export default function DeviceLoginForm({
                                                             )
                                                             .toUpperCase()
                                                             .slice(0, 8);
-                                                    field.onChange(cleanedValue);
+                                                    field.onChange(
+                                                        cleanedValue
+                                                    );
                                                 }}
                                                 onChange={(value) => {
                                                     // Strip hyphens and convert to uppercase

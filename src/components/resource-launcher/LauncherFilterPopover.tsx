@@ -23,13 +23,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { ChevronsUpDown, Funnel } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Selectedsite } from "@app/components/site-selector";
+import type { SelectedSite } from "@app/components/site-selector";
 
 type LauncherFilterPopoverProps = {
     orgId: string;
-    selectedSites: Selectedsite[];
+    selectedSites: SelectedSite[];
     selectedLabels: SelectedLabel[];
-    onSitesChange: (sites: Selectedsite[]) => void;
+    onSitesChange: (sites: SelectedSite[]) => void;
     onLabelsChange: (labels: SelectedLabel[]) => void;
 };
 
@@ -58,7 +58,7 @@ export function LauncherFilterPopover({
         })
     );
 
-    const resolvedSelectedSites: Selectedsite[] = useMemo(
+    const resolvedSelectedSites: SelectedSite[] = useMemo(
         () =>
             selectedSites.map((selected) => {
                 const found = sites.find(

@@ -733,7 +733,7 @@ export function HealthCheckFormFields({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
-                                                    {t("customHeaders")}
+                                                    {t("customRequestHeaders")}
                                                 </FormLabel>
                                                 <FormControl>
                                                     <HeadersInput
@@ -750,7 +750,7 @@ export function HealthCheckFormFields({
                                                 </FormControl>
                                                 <FormDescription>
                                                     {t(
-                                                        "customHeadersDescription"
+                                                        "customRequestHeadersDescription"
                                                     )}
                                                 </FormDescription>
                                                 <FormMessage />

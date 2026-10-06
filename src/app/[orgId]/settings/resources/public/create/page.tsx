@@ -28,7 +28,7 @@ import {
 import { BrowserGatewayTargetForm } from "@app/components/BrowserGatewayTargetForm";
 import {
     SitesSelector,
-    type Selectedsite
+    type SelectedSite
 } from "@app/components/site-selector";
 import { Button } from "@app/components/ui/button";
 import {
@@ -253,7 +253,7 @@ export default function Page() {
         "site" | "remote"
     >("site");
     const [nativeSelectedSite, setNativeSelectedSite] =
-        useState<Selectedsite | null>(null);
+        useState<SelectedSite | null>(null);
     const [nativeSiteOpen, setNativeSiteOpen] = useState(false);
 
     useEffect(() => {
@@ -1226,6 +1226,7 @@ export default function Page() {
                                                                 </PopoverTrigger>
                                                                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                                                                     <SitesSelector
+                                                                        filterTypes={["newt"]}
                                                                         orgId={
                                                                             orgId as string
                                                                         }

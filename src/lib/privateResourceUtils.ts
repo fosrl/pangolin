@@ -1,11 +1,11 @@
 "use client";
 
-import type { Selectedsite } from "@app/components/site-selector";
+import type { SelectedSite } from "@app/components/site-selector";
 import type { SiteResourceData } from "@app/lib/privateResourceForm";
 
 export function buildSelectedSitesForResource(
     resource: Pick<SiteResourceData, "siteIds" | "siteNames">
-): Selectedsite[] {
+): SelectedSite[] {
     return resource.siteIds.map((siteId, idx) => ({
         name: resource.siteNames[idx] ?? "",
         siteId,

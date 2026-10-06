@@ -7,7 +7,7 @@ import {
     ResourceSitesStatusCell,
     type ResourceSiteRow
 } from "@app/components/ResourceSitesStatusCell";
-import { Selectedsite } from "@app/components/site-selector";
+import { SelectedSite } from "@app/components/site-selector";
 import { Button } from "@app/components/ui/button";
 import { Checkbox } from "@app/components/ui/checkbox";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
@@ -109,7 +109,7 @@ type ProxyResourcesTableProps = {
     orgId: string;
     pagination: PaginationState;
     rowCount: number;
-    initialFilterSite?: Selectedsite | null;
+    initialFilterSite?: SelectedSite | null;
     /** Certificates prefetched on the server, keyed by full domain. */
     initialCertificates?: GetBatchedCertificateResponse;
 };

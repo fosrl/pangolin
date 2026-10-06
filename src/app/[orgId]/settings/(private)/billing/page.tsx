@@ -524,6 +524,7 @@ export default function BillingPage() {
     };
 
     const currentPlanId = getCurrentPlanId();
+    const currentPlan = planOptions.find((p) => p.id === currentPlanId);
 
     const visiblePlanOptions = planOptions.filter(
         (plan) => plan.id !== "home" || currentPlanId === "home"
@@ -873,10 +874,8 @@ export default function BillingPage() {
             {/* Trial Banner */}
             {isTrial && (
                 <TrialBillingBanner
+                    tierName={currentPlan?.name ?? "Business"}
                     onUpgrade={() => {
-                        const currentPlan = planOptions.find(
-                            (p) => p.id === currentPlanId
-                        );
                         if (currentPlan?.tierType) {
                             handleStartSubscription(currentPlan.tierType);
                         }

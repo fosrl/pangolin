@@ -384,7 +384,8 @@ export class AuthoritativeDNSServer {
         // Get records from cache or database
         const records = await this.getResourceRecordsByFullDomain(
             queryName,
-            queryType
+            queryType,
+            baseDomain!
         );
 
         if (records.length > 0) {
@@ -475,15 +476,30 @@ export class AuthoritativeDNSServer {
 
         const labels = queryName.replace(/\.$/, "").split(".");
 
-        // Fast path: O(1) in-memory Set lookup — no DB or network I/O
-        if (this.allDomains.size > 0) {
-            for (let i = 0; i < labels.length; i++) {
-                const candidate = labels.slice(i).join(".");
-                if (this.allDomains.has(candidate)) {
-                    this.authoritativeDomainCache.set(cacheKey, candidate);
-                    return candidate;
-                }
+        // Infrastructure zone cuts (e.g. this deployment's own nameserver
+        // zone, cname/site extension zones) that this server is
+        // authoritative for regardless of the customer `domains` table.
+        // Static config, so always available - checked alongside allDomains
+        // below rather than gating a separate fast path on it.
+        const configuredZones = (config.getRawConfig().dns?.zones ?? []).map(
+            (z) => z.toLowerCase()
+        );
+
+        // Fast path: O(1) in-memory Set/array lookup — no DB or network I/O
+        for (let i = 0; i < labels.length; i++) {
+            const candidate = labels.slice(i).join(".");
+            if (
+                this.allDomains.has(candidate) ||
+                configuredZones.includes(candidate)
+            ) {
+                this.authoritativeDomainCache.set(cacheKey, candidate);
+                return candidate;
             }
+        }
+
+        // Once the in-memory customer-domain set has loaded, the checks
+        // above are conclusive - no DB fallback needed.
+        if (this.allDomains.size > 0) {
             this.authoritativeDomainCache.set(cacheKey, null);
             return null;
         }
@@ -582,7 +598,8 @@ export class AuthoritativeDNSServer {
 
     private async getResourceRecordsByFullDomain(
         name: string,
-        queryType: dns.RecordType
+        queryType: dns.RecordType,
+        baseDomain: string
     ): Promise<DNSRecord[]> {
         const cacheKey = `resourceRecords:${name}:${queryType}`;
 
@@ -630,8 +647,14 @@ export class AuthoritativeDNSServer {
                 if (resourceRows.length === 0) {
                     // Resource doesn't exist at all — also pre-populate the domainExists
                     // cache so the subsequent domainExists() call hits memory, not the DB.
+                    // Skip that pre-population when `name` is the zone apex itself: the
+                    // apex always exists (it owns the SOA) even with no resource row, and
+                    // caching `false` here would make domainExists() return that stale
+                    // false instead of ever reaching its own apex check.
                     logger.debug(`No resource found for domain: ${name}`);
-                    this.cache.set(`exists:${name}`, false, 60);
+                    if (name.replace(/\.$/, "") !== baseDomain) {
+                        this.cache.set(`exists:${name}`, false, 60);
+                    }
                     this.cache.set(cacheKey, [], 60);
                     return [];
                 }
