@@ -28,6 +28,7 @@ import {
     verifyApiKeySetResourceUsers,
     verifyApiKeyAccessTokenAccess,
     verifyApiKeyIsRoot,
+    verifyApiKeyIdpAccess,
     verifyApiKeyClientAccess,
     verifyApiKeySiteResourceAccess,
     verifyApiKeySetResourceClients,
@@ -44,6 +45,7 @@ import HttpCode from "@server/types/HttpCode";
 import { Router } from "express";
 import { ActionsEnum } from "@server/auth/actions";
 import { logActionAudit } from "#dynamic/middlewares";
+import { build } from "@server/build";
 
 export const unauthenticated = Router();
 
@@ -1338,6 +1340,20 @@ authenticated.post(
     logActionAudit(ActionsEnum.updateIdp),
     idp.updateOidcIdp
 );
+
+// Bridge an already-authenticated external IdP session into Pangolin by
+// minting a user session token for a pre-provisioned user. Not available on
+// saas (self-hosted only).
+if (build !== "saas") {
+    authenticated.post(
+        "/org/:orgId/idp/:idpId/oidc/exchange-token",
+        verifyApiKeyOrgAccess,
+        verifyApiKeyIdpAccess,
+        verifyApiKeyHasAction(ActionsEnum.createIdpSession),
+        logActionAudit(ActionsEnum.createIdpSession),
+        idp.createIdpSession
+    );
+}
 
 authenticated.get(
     "/idp", // no guards on this because anyone can list idps for login purposes
