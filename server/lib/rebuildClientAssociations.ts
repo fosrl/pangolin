@@ -34,7 +34,6 @@ import {
 import { sendToExitNode } from "#dynamic/lib/exitNodes";
 import { sendToClientsBatch } from "#dynamic/routers/ws";
 import { canCompress } from "@server/lib/clientVersionChecks";
-import config from "@server/lib/config";
 import logger from "@server/logger";
 import {
     generateAliasConfig,
@@ -816,6 +815,7 @@ async function handleMessagesForSiteClients(
             siteId: number;
             exitNode: {
                 publicKey: string;
+                relayPort: number;
                 endpoint: string;
             };
         };
@@ -961,6 +961,7 @@ async function handleMessagesForSiteClients(
                     siteId,
                     exitNode: {
                         publicKey: exitNode.publicKey,
+                        relayPort: exitNode.relayPort,
                         endpoint: exitNode.endpoint
                     }
                 },
@@ -1238,8 +1239,6 @@ async function syncClientExitNodeConnections(
             .map((r) => [r.clientId as number, r])
     );
 
-    const relayPort = config.getRawConfig().gerbil.clients_start_port;
-
     const connectPayloads: {
         clientId: string;
         message: { type: string; data: any };
@@ -1278,7 +1277,7 @@ async function syncClientExitNodeConnections(
                     data: {
                         connect: true,
                         endpoint: `${exitNode.endpoint}:${exitNode.listenPort}`,
-                        relayPort,
+                        relayPort: exitNode.relayPort,
                         publicKey: exitNode.publicKey,
                         serverIP: exitNode.address.split("/")[0],
                         tunnelIP: client.exitNodeSubnet.split("/")[0],
@@ -2451,6 +2450,7 @@ async function handleMessagesForClientSites(
             siteId: number;
             exitNode: {
                 publicKey: string;
+                relayPort: number;
                 endpoint: string;
             };
         };
@@ -2550,6 +2550,7 @@ async function handleMessagesForClientSites(
                     siteId: site.siteId,
                     exitNode: {
                         publicKey: exitNode.publicKey,
+                        relayPort: exitNode.relayPort,
                         endpoint: exitNode.endpoint
                     }
                 },

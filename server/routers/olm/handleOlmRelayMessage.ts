@@ -4,7 +4,6 @@ import { clients, clientSitesAssociationsCache, Olm } from "@server/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { updatePeersBatch } from "../newt/peers";
 import logger from "@server/logger";
-import config from "@server/lib/config";
 import { parseSiteChainBatch, resolveNewtIdsBySite } from "./batchUtils";
 
 export const handleOlmRelayMessage: MessageHandler = async (context) => {
@@ -77,6 +76,7 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         siteId: number;
         chainId?: string;
         relayEndpoint: string;
+        relayPort: number;
     }[] = [];
 
     for (let i = 0; i < siteIds.length; i++) {
@@ -97,7 +97,8 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         valid.push({
             siteId,
             chainId: chainIds[i],
-            relayEndpoint: exitNode.endpoint
+            relayEndpoint: exitNode.endpoint,
+            relayPort: exitNode.relayPort
         });
     }
 
@@ -121,7 +122,9 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         );
 
     // Only ack sites we can actually tell their newt to relay for
-    const newtIdBySiteId = await resolveNewtIdsBySite(valid.map((v) => v.siteId));
+    const newtIdBySiteId = await resolveNewtIdsBySite(
+        valid.map((v) => v.siteId)
+    );
     const pushable = valid.filter((v) => {
         if (!newtIdBySiteId.has(v.siteId)) {
             logger.warn(`Newt not found for site ${v.siteId}`);
@@ -144,8 +147,6 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         }))
     );
 
-    const relayPort = config.getRawConfig().gerbil.clients_start_port;
-
     if (isBatch) {
         return {
             message: {
@@ -153,7 +154,7 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
                 data: {
                     siteIds: pushable.map((v) => v.siteId),
                     relayEndpoints: pushable.map((v) => v.relayEndpoint),
-                    relayPort,
+                    relayPort: pushable.map((v) => v.relayPort),
                     chainIds: pushable.map((v) => v.chainId)
                 }
             },
@@ -169,7 +170,7 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
             data: {
                 siteId: single.siteId,
                 relayEndpoint: single.relayEndpoint,
-                relayPort,
+                relayPort: single.relayPort,
                 chainId: single.chainId
             }
         },

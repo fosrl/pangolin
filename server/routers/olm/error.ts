@@ -1,7 +1,4 @@
 import { sendToClient } from "#dynamic/routers/ws";
-import config from "@server/lib/config";
-
-const udpPort = config.getRawConfig().gerbil.clients_start_port;
 
 // Error codes for registration failures
 export const OlmErrorCodes = {
@@ -93,7 +90,7 @@ export const OlmErrorCodes = {
     },
     HOLEPUNCH_MISSING: {
         code: "HOLEPUNCH_MISSING",
-        message: `Unable to coordinate client P2P connection. Please ensure your client can reach the server on UDP port ${udpPort} and try registering again.`
+        message: `Unable to coordinate client P2P connection. Please ensure your client can reach the server on its relay UDP port and try registering again.`
     },
     NO_AVAILABLE_SUBNET: {
         code: "NO_AVAILABLE_SUBNET",

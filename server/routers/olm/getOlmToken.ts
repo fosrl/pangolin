@@ -289,7 +289,7 @@ export async function getOlmToken(
         let exitNodesHpData = allExitNodes.map((exitNode: ExitNode) => {
             return {
                 publicKey: exitNode.publicKey,
-                relayPort: config.getRawConfig().gerbil.clients_start_port,
+                relayPort: exitNode.relayPort,
                 endpoint: exitNode.endpoint,
                 siteIds: exitNodeIdToSiteIds[exitNode.exitNodeId] ?? []
             };
@@ -347,8 +347,7 @@ export async function getOlmToken(
                 exitNodesHpData = [
                     {
                         publicKey: best.publicKey,
-                        relayPort:
-                            config.getRawConfig().gerbil.clients_start_port,
+                        relayPort: best.relayPort,
                         endpoint: best.endpoint,
                         siteIds: []
                         // it should still HP without the site ids but it will get stuck in the client

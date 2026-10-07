@@ -12,7 +12,6 @@ import {
     supportsCertReferences
 } from "@server/lib/clientVersionChecks";
 import { dedupeCertsForTargets } from "@server/lib/ip";
-import config from "@server/lib/config";
 import { waitForSiteRebuildIdle } from "@server/lib/rebuildClientAssociations";
 
 export const handleNewtGetConfigMessage: MessageHandler = async (context) => {
@@ -61,7 +60,7 @@ export const handleNewtGetConfigMessage: MessageHandler = async (context) => {
 
     if (existingSite.lastHolePunch && now - existingSite.lastHolePunch > 12) {
         logger.warn(
-            `Site last hole punch is too old; skipping this register. The site is failing to hole punch and identify its network address with the server. Can the site reach the server on UDP port ${config.getRawConfig().gerbil.clients_start_port}?`
+            `Site last hole punch is too old; skipping this register. The site is failing to hole punch and identify its network address with the server. Can the site reach the server on its Relay UDP port?`
         );
         return;
     }

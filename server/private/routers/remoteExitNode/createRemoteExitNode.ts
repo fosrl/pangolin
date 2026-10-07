@@ -201,10 +201,7 @@ export async function createRemoteExitNode(
         let releaseSubnetLock: (() => Promise<void>) | null = null;
         let newExitNodeAddress: string | null = null;
         if (!existingExitNode) {
-            const { value, release } = await getNextAvailableSubnet(
-                db,
-                orgId
-            );
+            const { value, release } = await getNextAvailableSubnet(db, orgId);
             newExitNodeAddress = value;
             releaseSubnetLock = release;
         }
@@ -220,6 +217,7 @@ export async function createRemoteExitNode(
                             endpoint: "",
                             publicKey: "",
                             listenPort: 0,
+                            relayPort: 0,
                             online: false,
                             type: "remoteExitNode"
                         })
