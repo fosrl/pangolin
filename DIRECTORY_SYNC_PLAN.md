@@ -2,7 +2,11 @@
 
 ## What already exists
 
-- `idp.directorySyncEnabled` exists. Create and update only allow it when `autoProvision` is on and the variant is `google` or `azure` ([createOidcIdp.ts](server/routers/idp/createOidcIdp.ts), [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts)). Nothing reads the flag yet, and [idpDirectorySync.ts](server/routers/idp/idpDirectorySync.ts) is empty.
+- `idp.directorySyncEnabled` exists. It is mutually exclusive with `autoProvision` (see [decision #2](#2-sync-replaces-auto-provisioning-and-owns-org-and-role-mapping)) and only allowed when the variant is `google` or `azure`.
+  - Global IdPs: [createOidcIdp.ts](server/routers/idp/createOidcIdp.ts), [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts).
+  - Org IdPs: [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts), [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts).
+  - Create and update return `400` if both would be on. In the UI, only the org IdP pages expose the toggle (exclusive with auto provisioning). The global admin IdP pages don't show it for now.
+- A first Azure sync prototype exists in [directorySync/azure.ts](server/private/lib/directorySync/azure.ts). It refuses to run when `autoProvision` is on. [idpDirectorySync.ts](server/routers/idp/idpDirectorySync.ts) is empty.
 - Provisioning only happens at login, in [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts):
   - `users.username` = JMESPath(`identifierPath`) applied to the ID token claims.
   - Org and role mappings are JMESPath expressions over those same claims.
@@ -74,7 +78,9 @@ Synced users must get the same `username` that login computes with `identifierPa
   Existing Azure IdPs that use `sub` need a migration story.
 - **Google:** `sub` = Directory `id`, so the default works (pending verification item 1).
 
-### 2. Sync uses its own group mapping (not the login JMESPath mappings)
+### 2. Sync replaces auto provisioning and owns org and role mapping
+
+An IdP uses **either** auto provisioning (claim-based JMESPath mappings, applied at login) **or** directory sync (group mapping, applied by the sync job), never both. The two use different role mappings, so running both would make them fight over the same memberships.
 
 Directory API responses (Graph `user`, Directory `user`) don't look like ID token claims. Faking claims only matches login for a few fields (`oid`, `name`, `upn`, `groups`), and silently diverges for the rest (`sub` is per-app in Entra, `email` is optional, `roles` and custom claims don't exist in Graph). So sync doesn't run the login org/role mappings.
 
@@ -84,11 +90,15 @@ Directory API responses (Graph `user`, Directory `user`) don't look like ID toke
 - Only mapped groups are fetched, which also bounds the request count.
 - The admin UI can list directory groups so admins pick from a list instead of pasting IDs. Same model works for Google, where tokens carry no groups at all.
 
-> ⚠️ **Open: login vs sync ownership.** Login keeps its claim-based mappings and, for `autoProvisioned` orgs, resets roles and removes orgs that don't match ([validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts)). With two mappings, whichever ran last wins. Options: (a) when sync is on, login skips org/role reconciliation and only authenticates + updates profile; (b) login only adds, never removes or overwrites; (c) accept the flip-flop and tell admins to keep both mappings consistent.
+**Login when sync is on.** Since `autoProvision` is off, login takes the non-provisioning branch of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts):
 
-### 3. Refactor first
+- It only authenticates. It doesn't create users or touch orgs, roles or profile fields.
+- A user who hasn't been synced yet, or has no org membership, is refused with "unprovisioned". Admins can run "Sync now" to fix this.
+- Sync is the only writer for users, memberships and roles of that IdP. That includes email and name updates, since login no longer updates them.
 
-Pull the "apply" half of the provisioning block out of `validateOidcCallback.ts` into a shared function, for example `applyUserMemberships(trx, idp, user, desired: { orgId, roleIds }[], { source: "login" | "sync" })`: upsert the user, add orgs, re-sync roles on `autoProvisioned` orgs. Login computes `desired` from claims, sync from `idpGroupMapping`; the write path is shared.
+### 3. Shared write path (optional refactor)
+
+Login and sync no longer run on the same IdP, so sharing code isn't needed for correctness. It's still worth pulling the "apply" half of the provisioning block out of `validateOidcCallback.ts` into a shared function, for example `applyUserMemberships(trx, idp, user, desired: { orgId, roleIds }[])`: upsert the user, add orgs, re-sync roles on `autoProvisioned` orgs. Login computes `desired` from claims, sync from `idpGroupMapping`. Sync writes memberships with `autoProvisioned = true`, so the existing rule that only those rows are ever changed or removed still holds.
 
 ### 4. Deprovisioning (not confirmed)
 
@@ -171,7 +181,7 @@ server/(private/)lib/directorySync/
 ## Phases
 
 1. **Study:** finish the Google verification items above. Confirm `oid` vs `sub` behavior on a test Entra tenant.
-2. **Refactor:** extract `applyUserMemberships` from the OIDC callback, with no change in behavior. Add tests.
+2. **Refactor (optional):** extract `applyUserMemberships` from the OIDC callback, with no change in behavior. Add tests.
 3. **Schema:** add the sync config and state tables and migrations, and store Azure `tenantId` explicitly.
 4. **Azure provider:** full sync, then delta.
 5. **Scheduler:** locking, backoff, status API, "Sync now".
@@ -185,7 +195,7 @@ server/(private/)lib/directorySync/
 - **Blocking for deprovisioning:** should sync remove or disable users at all? See the questions in [Deprovisioning](#4-deprovisioning-not-confirmed).
 - How to handle existing Azure IdPs with `identifierPath = "sub"`: block sync, migrate them, or match by email?
 - Which group identifiers to expose in mappings for Google: emails or IDs?
-- Does the per-org IdP flow ([server/private/routers/orgIdp](server/private/routers/orgIdp)) need sync too, or only global IdPs?
+- Org IdPs ([server/private/routers/orgIdp](server/private/routers/orgIdp)) can already store the flag. For them, should `idpGroupMapping` be limited to the IdP's own org?
 - Global sync interval, or configurable per IdP?
 
 ## References

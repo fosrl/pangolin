@@ -148,8 +148,10 @@ export async function syncAzureDirectory(
     if (existingIdp.idpOidcConfig.variant !== "azure") {
         throw new Error(`IdP ${idpId} is not an azure IdP`);
     }
-    if (!existingIdp.idp.autoProvision) {
-        throw new Error(`IdP ${idpId} does not have autoProvision enabled`);
+    if (existingIdp.idp.autoProvision) {
+        throw new Error(
+            `IdP ${idpId} has autoProvision enabled, which is exclusive with directory sync`
+        );
     }
     if (!existingIdp.idp.directorySyncEnabled) {
         logger.warn(`IdP ${idpId} has directorySyncEnabled=false, syncing anyway`);

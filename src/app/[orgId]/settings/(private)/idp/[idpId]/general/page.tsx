@@ -48,6 +48,7 @@ import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget
 import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { SwitchInput } from "@app/components/SwitchInput";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import {
     compileRoleMappingExpression,
@@ -105,6 +106,7 @@ export default function GeneralPage() {
         namePath: z.string().nullable().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
         autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
         orgMapping: z.string().optional()
     });
 
@@ -118,6 +120,7 @@ export default function GeneralPage() {
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
         autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
         orgMapping: z.string().optional()
     });
 
@@ -132,6 +135,7 @@ export default function GeneralPage() {
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
         autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
         orgMapping: z.string().optional()
     });
 
@@ -168,6 +172,7 @@ export default function GeneralPage() {
             namePath: "name",
             scopes: "openid profile email",
             autoProvision: true,
+            directorySyncEnabled: false,
             roleMapping: null,
             roleId: null,
             tenantId: "",
@@ -220,6 +225,7 @@ export default function GeneralPage() {
                         clientId: data.idpOidcConfig.clientId,
                         clientSecret: data.idpOidcConfig.clientSecret,
                         autoProvision: data.idp.autoProvision,
+                        directorySyncEnabled: data.idp.directorySyncEnabled,
                         roleMapping: roleMapping || null,
                         roleId: null,
                         orgMapping: data.idpOrg?.orgMapping ?? ""
@@ -345,6 +351,9 @@ export default function GeneralPage() {
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
                 autoProvision: data.autoProvision,
+                directorySyncEnabled:
+                    (variant === "google" || variant === "azure") &&
+                    data.directorySyncEnabled,
                 roleMapping: roleMappingExpression,
                 orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed
             };
@@ -557,6 +566,12 @@ export default function GeneralPage() {
                                     autoProvision={form.watch("autoProvision")}
                                     onAutoProvisionChange={(checked) => {
                                         form.setValue("autoProvision", checked);
+                                        if (checked) {
+                                            form.setValue(
+                                                "directorySyncEnabled",
+                                                false
+                                            );
+                                        }
                                     }}
                                     orgId={orgId as string}
                                     roleMappingMode={roleMappingMode}
@@ -583,6 +598,28 @@ export default function GeneralPage() {
                                         name: "orgMapping"
                                     }}
                                 />
+                                {(variant === "google" ||
+                                    variant === "azure") && (
+                                    <SwitchInput
+                                        id="directory-sync-toggle"
+                                        label={t("idpDirectorySync")}
+                                        checked={form.watch(
+                                            "directorySyncEnabled"
+                                        )}
+                                        onCheckedChange={(checked) => {
+                                            form.setValue(
+                                                "directorySyncEnabled",
+                                                checked
+                                            );
+                                            if (checked) {
+                                                form.setValue("autoProvision", false);
+                                            }
+                                        }}
+                                        description={t(
+                                            "idpDirectorySyncDescription"
+                                        )}
+                                    />
+                                )}
                             </form>
                         </Form>
                     </SettingsSectionBody>

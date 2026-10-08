@@ -14,6 +14,7 @@ import {
     SettingsSectionTitle
 } from "@app/components/Settings";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
+import { SwitchInput } from "@app/components/SwitchInput";
 import { OidcIdpProviderTypeSelect } from "@app/components/idp/OidcIdpProviderTypeSelect";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { Button } from "@app/components/ui/button";
@@ -92,7 +93,8 @@ export default function Page() {
         autoProvision: z.boolean().default(false),
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
-        orgMapping: z.string().optional()
+        orgMapping: z.string().optional(),
+        directorySyncEnabled: z.boolean().default(false)
     });
 
     type CreateIdpFormValues = z.infer<typeof createIdpFormSchema>;
@@ -114,7 +116,8 @@ export default function Page() {
             autoProvision: false,
             roleMapping: null,
             roleId: null,
-            orgMapping: ""
+            orgMapping: "",
+            directorySyncEnabled: false
         }
     });
 
@@ -189,6 +192,9 @@ export default function Page() {
                 emailPath: data.emailPath,
                 namePath: data.namePath,
                 autoProvision: data.autoProvision,
+                directorySyncEnabled:
+                    (data.type === "google" || data.type === "azure") &&
+                    data.directorySyncEnabled,
                 roleMapping: roleMappingExpression,
                 scopes: data.scopes,
                 variant: data.type
@@ -333,6 +339,12 @@ export default function Page() {
                                                 "autoProvision",
                                                 checked
                                             );
+                                            if (checked) {
+                                                form.setValue(
+                                                    "directorySyncEnabled",
+                                                    false
+                                                );
+                                            }
                                         }}
                                         orgId={params.orgId as string}
                                         roleMappingMode={roleMappingMode}
@@ -365,6 +377,28 @@ export default function Page() {
                                             name: "orgMapping"
                                         }}
                                     />
+                                    {(form.watch("type") === "google" ||
+                                        form.watch("type") === "azure") && (
+                                        <SwitchInput
+                                            id="directory-sync-toggle"
+                                            label={t("idpDirectorySync")}
+                                            checked={form.watch(
+                                                "directorySyncEnabled"
+                                            )}
+                                            onCheckedChange={(checked) => {
+                                                form.setValue(
+                                                    "directorySyncEnabled",
+                                                    checked
+                                                );
+                                                if (checked) {
+                                                    form.setValue("autoProvision", false);
+                                                }
+                                            }}
+                                            description={t(
+                                                "idpDirectorySyncDescription"
+                                            )}
+                                        />
+                                    )}
                                 </form>
                             </Form>
                         </SettingsSectionBody>
