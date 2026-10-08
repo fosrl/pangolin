@@ -1,7 +1,28 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
+import CopyToClipboard from "@app/components/CopyToClipboard";
+import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
+import IdpTypeBadge from "@app/components/IdpTypeBadge";
+import {
+    InfoSection,
+    InfoSectionContent,
+    InfoSections,
+    InfoSectionTitle
+} from "@app/components/InfoSection";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import {
+    SettingsContainer,
+    SettingsSection,
+    SettingsSectionBody,
+    SettingsSectionDescription,
+    SettingsSectionForm,
+    SettingsSectionGrid,
+    SettingsSectionHeader,
+    SettingsSectionTitle
+} from "@app/components/Settings";
+import { SwitchInput } from "@app/components/SwitchInput";
 import { Button } from "@app/components/ui/button";
 import {
     Form,
@@ -13,43 +34,9 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 import { Input } from "@app/components/ui/input";
-import { useForm } from "react-hook-form";
-import { toast } from "@app/hooks/useToast";
-import { useRouter, useParams, redirect } from "next/navigation";
-import {
-    SettingsContainer,
-    SettingsSection,
-    SettingsSectionHeader,
-    SettingsSectionTitle,
-    SettingsSectionDescription,
-    SettingsSectionBody,
-    SettingsSectionForm,
-    SettingsSectionFooter,
-    SettingsSectionGrid
-} from "@app/components/Settings";
-import { formatAxiosError } from "@app/lib/api";
-import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import { useState, useEffect } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
-import { InfoIcon, ExternalLink } from "lucide-react";
-import {
-    InfoSection,
-    InfoSectionContent,
-    InfoSections,
-    InfoSectionTitle
-} from "@app/components/InfoSection";
-import CopyToClipboard from "@app/components/CopyToClipboard";
-import IdpTypeBadge from "@app/components/IdpTypeBadge";
-import { useTranslations } from "next-intl";
-import { AxiosResponse } from "axios";
-import { ListRolesResponse } from "@server/routers/role";
-import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
-import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
-import { SwitchInput } from "@app/components/SwitchInput";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { toast } from "@app/hooks/useToast";
+import { createApiClient, formatAxiosError } from "@app/lib/api";
 import {
     compileRoleMappingExpression,
     createMappingBuilderRule,
@@ -58,6 +45,15 @@ import {
     MappingBuilderRule,
     RoleMappingMode
 } from "@app/lib/idpRoleMapping";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { ListRolesResponse } from "@server/routers/role";
+import { AxiosResponse } from "axios";
+import { useTranslations } from "next-intl";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -143,9 +139,7 @@ export default function GeneralPage() {
     type GoogleFormValues = z.infer<typeof GoogleFormSchema>;
     type AzureFormValues = z.infer<typeof AzureFormSchema>;
     type GeneralFormValues =
-        | OidcFormValues
-        | GoogleFormValues
-        | AzureFormValues;
+        OidcFormValues | GoogleFormValues | AzureFormValues;
 
     // Get the appropriate schema based on variant
     const getFormSchema = () => {
@@ -612,7 +606,10 @@ export default function GeneralPage() {
                                                 checked
                                             );
                                             if (checked) {
-                                                form.setValue("autoProvision", false);
+                                                form.setValue(
+                                                    "autoProvision",
+                                                    false
+                                                );
                                             }
                                         }}
                                         description={t(

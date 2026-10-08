@@ -1332,7 +1332,9 @@ export const idpOrg = pgTable("idpOrg", {
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
     roleMapping: varchar("roleMapping"),
-    orgMapping: varchar("orgMapping")
+    orgMapping: varchar("orgMapping"),
+    directoryRoleMapping: varchar("directoryRoleMapping"),
+    directoryOrgMapping: varchar("directoryOrgMapping")
 });
 
 export const clients = pgTable(
