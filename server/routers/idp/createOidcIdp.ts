@@ -26,7 +26,6 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
     autoProvision: z.boolean().optional(),
-    directorySyncEnabled: z.boolean().optional(),
     tags: z.string().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc")
 });
@@ -94,7 +93,6 @@ export async function createOidcIdp(
             namePath,
             name,
             autoProvision,
-            directorySyncEnabled,
             tags,
             variant
         } = parsedBody.data;
@@ -122,11 +120,6 @@ export async function createOidcIdp(
                 .values({
                     name,
                     autoProvision,
-                    // directory sync requires auto provisioning and a google/azure idp
-                    directorySyncEnabled:
-                        !!autoProvision &&
-                        (variant === "google" || variant === "azure") &&
-                        !!directorySyncEnabled,
                     type: "oidc",
                     tags,
                     defaultOrgMapping: `'{{orgId}}'`,

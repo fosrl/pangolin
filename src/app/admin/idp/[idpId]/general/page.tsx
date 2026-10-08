@@ -74,8 +74,7 @@ export default function GeneralPage() {
         emailPath: z.string().optional(),
         namePath: z.string().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
-        autoProvision: z.boolean().default(false),
-        directorySyncEnabled: z.boolean().default(false)
+        autoProvision: z.boolean().default(false)
     });
 
     const GoogleFormSchema = z.object({
@@ -84,8 +83,7 @@ export default function GeneralPage() {
         clientSecret: z
             .string()
             .min(1, { message: t("idpClientSecretRequired") }),
-        autoProvision: z.boolean().default(false),
-        directorySyncEnabled: z.boolean().default(false)
+        autoProvision: z.boolean().default(false)
     });
 
     const AzureFormSchema = z.object({
@@ -95,8 +93,7 @@ export default function GeneralPage() {
             .string()
             .min(1, { message: t("idpClientSecretRequired") }),
         tenantId: z.string().min(1, { message: t("idpTenantIdRequired") }),
-        autoProvision: z.boolean().default(false),
-        directorySyncEnabled: z.boolean().default(false)
+        autoProvision: z.boolean().default(false)
     });
 
     type OidcFormValues = z.infer<typeof OidcFormSchema>;
@@ -131,7 +128,6 @@ export default function GeneralPage() {
             namePath: "name",
             scopes: "openid profile email",
             autoProvision: true,
-            directorySyncEnabled: false,
             tenantId: ""
         }
     });
@@ -170,8 +166,7 @@ export default function GeneralPage() {
                         name: data.idp.name,
                         clientId: data.idpOidcConfig.clientId,
                         clientSecret: data.idpOidcConfig.clientSecret,
-                        autoProvision: data.idp.autoProvision,
-                        directorySyncEnabled: data.idp.directorySyncEnabled
+                        autoProvision: data.idp.autoProvision
                     };
 
                     if (idpVariant === "oidc") {
@@ -234,10 +229,6 @@ export default function GeneralPage() {
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
                 autoProvision: data.autoProvision,
-                directorySyncEnabled:
-                    data.autoProvision &&
-                    (variant === "google" || variant === "azure") &&
-                    data.directorySyncEnabled,
                 variant
             };
 
@@ -442,39 +433,9 @@ export default function GeneralPage() {
                                                 "autoProvision",
                                                 checked
                                             );
-                                            if (!checked) {
-                                                form.setValue(
-                                                    "directorySyncEnabled",
-                                                    false
-                                                );
-                                            }
                                         }}
                                     />
                                 </div>
-                                {(variant === "google" ||
-                                    variant === "azure") && (
-                                    <div className="flex items-start mb-0">
-                                        <SwitchInput
-                                            id="directory-sync-toggle"
-                                            label={t("idpDirectorySync")}
-                                            checked={form.watch(
-                                                "directorySyncEnabled"
-                                            )}
-                                            disabled={
-                                                !form.watch("autoProvision")
-                                            }
-                                            onCheckedChange={(checked) => {
-                                                form.setValue(
-                                                    "directorySyncEnabled",
-                                                    checked
-                                                );
-                                            }}
-                                            description={t(
-                                                "idpDirectorySyncDescription"
-                                            )}
-                                        />
-                                    </div>
-                                )}
                                 <div className="flex flex-col gap-2">
                                     {form.watch("autoProvision") && (
                                         <FormDescription>
