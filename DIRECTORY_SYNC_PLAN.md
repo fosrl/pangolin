@@ -34,17 +34,17 @@
 
 ## Provider study
 
-|                   | Microsoft Entra (done)                                                                         | Google Workspace (to study)                                                                                                                                      |
-| ----------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| API               | Microsoft Graph                                                                                | Admin SDK Directory API (`admin.googleapis.com/admin/directory/v1`)                                                                                              |
-| Users             | `GET /users`, 999 per page                                                                     | `users.list?customer=my_customer`, 500 per page                                                                                                                  |
-| Groups / members  | `/groups`, `/groups/{id}/members` or `/transitiveMembers`                                      | `groups.list` (200 per page), `members.list?includeDerivedMembership=true`                                                                                       |
-| Incremental       | ✅ `/users/delta` and `/groups/delta` (with `members@delta`)                                   | ❌ No delta API: full snapshot every run, then diff on our side                                                                                                  |
-| App-only auth     | Client credentials using the **existing** clientId and secret, plus tenant                     | **Service account + domain-wide delegation** impersonating an admin, so **new credentials**: SA JSON key and admin email                                         |
-| Permissions       | `User.Read.All` and `GroupMember.Read.All` (application), plus **admin consent**               | Scopes `admin.directory.user.readonly`, `admin.directory.group.readonly` and `admin.directory.group.member.readonly`, authorized in the Admin console under **Domain-wide delegation** |
-| Throttling        | Per app per tenant, `429` + `Retry-After`                                                      | Per project quota (believed to be about 2,400 queries/min, to verify), `403 rateLimitExceeded` / `429`, exponential backoff                                      |
-| Disabled users    | `accountEnabled = false`                                                                       | `suspended`, `archived`                                                                                                                                          |
-| Stable user ID    | `id` (= `oid` claim)                                                                           | `id` (= `sub` claim)                                                                                                                                             |
+|                  | Microsoft Entra (done)                                                           | Google Workspace (to study)                                                                                                                                                            |
+| ---------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API              | Microsoft Graph                                                                  | Admin SDK Directory API (`admin.googleapis.com/admin/directory/v1`)                                                                                                                    |
+| Users            | `GET /users`, 999 per page                                                       | `users.list?customer=my_customer`, 500 per page                                                                                                                                        |
+| Groups / members | `/groups`, `/groups/{id}/members` or `/transitiveMembers`                        | `groups.list` (200 per page), `members.list?includeDerivedMembership=true`                                                                                                             |
+| Incremental      | ✅ `/users/delta` and `/groups/delta` (with `members@delta`)                      | ❌ No delta API: full snapshot every run, then diff on our side                                                                                                                         |
+| App-only auth    | Client credentials using the **existing** clientId and secret, plus tenant       | **Service account + domain-wide delegation** impersonating an admin, so **new credentials**: SA JSON key and admin email                                                               |
+| Permissions      | `User.Read.All` and `GroupMember.Read.All` (application), plus **admin consent** | Scopes `admin.directory.user.readonly`, `admin.directory.group.readonly` and `admin.directory.group.member.readonly`, authorized in the Admin console under **Domain-wide delegation** |
+| Throttling       | Per app per tenant, `429` + `Retry-After`                                        | Per project quota (believed to be about 2,400 queries/min, to verify), `403 rateLimitExceeded` / `429`, exponential backoff                                                            |
+| Disabled users   | `accountEnabled = false`                                                         | `suspended`, `archived`                                                                                                                                                                |
+| Stable user ID   | `id` (= `oid` claim)                                                             | `id` (= `sub` claim)                                                                                                                                                                   |
 
 ### Request counts per sync (Entra)
 
@@ -63,6 +63,17 @@ With N users, G groups, and up to 999 items per page:
 4. Group identifiers: group email vs `id`, and which one is friendlier in role mappings.
 5. Whether `includeDerivedMembership` is enough for nested groups, or whether we need the Cloud Identity `searchTransitiveGroups` API.
 6. The library choice: `google-auth-library`, or signing the JWT-bearer assertion ourselves. Neither `jose` nor any Google or Azure SDK is a dependency today.
+
+## How other products do it
+
+- **NetBird:** syncs users and groups. Synced groups play the part that roles play in Pangolin: access controls are set per group.
+- **defguard:** works the same way.
+- Neither relies much on the IdP's own roles (Entra app roles, Google admin roles). Groups are what gets synced and used.
+
+**What this means for Pangolin:**
+
+- **Org IdPs** (one IdP per org): an IdP group can map one-to-one to a Pangolin role in that org, like NetBird and defguard do.
+- **Global IdPs** (one IdP shared by several orgs): it's harder. A group has to resolve to an org *and* a role, so a direct group → role mapping isn't enough. Either keep the existing JMESPath org and role mappings, or add a mapping that is scoped per org.
 
 ## Key design decisions
 
@@ -195,7 +206,8 @@ server/(private/)lib/directorySync/
 - **Blocking for deprovisioning:** should sync remove or disable users at all? See the questions in [Deprovisioning](#4-deprovisioning-not-confirmed).
 - How to handle existing Azure IdPs with `identifierPath = "sub"`: block sync, migrate them, or match by email?
 - Which group identifiers to expose in mappings for Google: emails or IDs?
-- Org IdPs ([server/private/routers/orgIdp](server/private/routers/orgIdp)) can already store the flag. For them, should `idpGroupMapping` be limited to the IdP's own org?
+- Org IdPs ([server/private/routers/orgIdp](server/private/routers/orgIdp)) can already store the flag. For them, should `idpGroupMapping` be limited to the IdP's own org? Org IdPs fit the group = role model most easily (see [How other products do it](#how-other-products-do-it)).
+- For global IdPs, how should a synced group resolve to an org and a role? Keep the JMESPath mappings, or add per-org group → role mappings?
 - Global sync interval, or configurable per IdP?
 
 ## References
