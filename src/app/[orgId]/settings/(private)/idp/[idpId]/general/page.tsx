@@ -617,8 +617,29 @@ export default function GeneralPage() {
                                         name: "orgMapping"
                                     }}
                                 />
-                                {(variant === "google" ||
-                                    variant === "azure") && (
+                            </form>
+                        </Form>
+                    </SettingsSectionBody>
+                </SettingsSection>
+
+                {/* Directory Sync Settings */}
+                {(variant === "google" || variant === "azure") && (
+                    <SettingsSection>
+                        <SettingsSectionHeader>
+                            <SettingsSectionTitle>
+                                {t("idpDirectorySync")}
+                            </SettingsSectionTitle>
+                            <SettingsSectionDescription>
+                                {t("idpDirectorySyncDescription")}
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <SettingsSectionBody>
+                            <Form {...form}>
+                                <form
+                                    onSubmit={form.handleSubmit(onSubmit)}
+                                    className="space-y-4"
+                                    id="general-settings-form"
+                                >
                                     <DirectorySyncConfigWidget
                                         directorySyncEnabled={form.watch(
                                             "directorySyncEnabled"
@@ -652,11 +673,11 @@ export default function GeneralPage() {
                                             setDirectoryRoleMapping
                                         }
                                     />
-                                )}
-                            </form>
-                        </Form>
-                    </SettingsSectionBody>
-                </SettingsSection>
+                                </form>
+                            </Form>
+                        </SettingsSectionBody>
+                    </SettingsSection>
+                )}
 
                 {/* Google Configuration */}
                 {variant === "google" && (

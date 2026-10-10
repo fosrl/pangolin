@@ -46,7 +46,6 @@ export default function DirectorySyncConfigWidget({
                     <SwitchInput
                         id={directorySyncSwitchId}
                         label={t("idpDirectorySync")}
-                        description={t("idpDirectorySyncDescription")}
                         checked={directorySyncEnabled}
                         onCheckedChange={onDirectorySyncEnabledChange}
                         disabled={disabled}
