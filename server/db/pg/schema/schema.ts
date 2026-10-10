@@ -1334,7 +1334,9 @@ export const idpOrg = pgTable("idpOrg", {
     roleMapping: varchar("roleMapping"),
     orgMapping: varchar("orgMapping"),
     directoryRoleMapping: varchar("directoryRoleMapping"),
-    directoryOrgMapping: varchar("directoryOrgMapping")
+    directorySyncDeletions: boolean("directorySyncDeletions")
+        .notNull()
+        .default(true)
 });
 
 export const clients = pgTable(

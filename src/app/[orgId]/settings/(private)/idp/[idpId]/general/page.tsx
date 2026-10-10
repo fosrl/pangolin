@@ -2,6 +2,7 @@
 
 import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import DirectorySyncConfigWidget from "@app/components/DirectorySyncConfigWidget";
 import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
 import IdpTypeBadge from "@app/components/IdpTypeBadge";
@@ -22,7 +23,6 @@ import {
     SettingsSectionHeader,
     SettingsSectionTitle
 } from "@app/components/Settings";
-import { SwitchInput } from "@app/components/SwitchInput";
 import { Button } from "@app/components/ui/button";
 import {
     Form,
@@ -45,6 +45,12 @@ import {
     MappingBuilderRule,
     RoleMappingMode
 } from "@app/lib/idpRoleMapping";
+import {
+    createDefaultDirectorySyncRoleMappingConfig,
+    DirectorySyncRoleMappingConfig,
+    parseDirectorySyncRoleMapping,
+    serializeDirectorySyncRoleMapping
+} from "@app/lib/idpDirectorySyncRoleMapping";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { ListRolesResponse } from "@server/routers/role";
@@ -72,6 +78,10 @@ export default function GeneralPage() {
         MappingBuilderRule[]
     >([createMappingBuilderRule()]);
     const [rawRoleExpression, setRawRoleExpression] = useState("");
+    const [directoryRoleMapping, setDirectoryRoleMapping] =
+        useState<DirectorySyncRoleMappingConfig>(
+            createDefaultDirectorySyncRoleMappingConfig
+        );
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
@@ -103,6 +113,7 @@ export default function GeneralPage() {
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
         autoProvision: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
         orgMapping: z.string().optional()
     });
 
@@ -117,6 +128,7 @@ export default function GeneralPage() {
         roleId: z.number().nullable().optional(),
         autoProvision: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
         orgMapping: z.string().optional()
     });
 
@@ -132,6 +144,7 @@ export default function GeneralPage() {
         roleId: z.number().nullable().optional(),
         autoProvision: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
         orgMapping: z.string().optional()
     });
 
@@ -167,6 +180,7 @@ export default function GeneralPage() {
             scopes: "openid profile email",
             autoProvision: true,
             directorySyncEnabled: false,
+            directorySyncDeletions: true,
             roleMapping: null,
             roleId: null,
             tenantId: "",
@@ -220,6 +234,8 @@ export default function GeneralPage() {
                         clientSecret: data.idpOidcConfig.clientSecret,
                         autoProvision: data.idp.autoProvision,
                         directorySyncEnabled: data.idp.directorySyncEnabled,
+                        directorySyncDeletions:
+                            data.idpOrg?.directorySyncDeletions ?? true,
                         roleMapping: roleMapping || null,
                         roleId: null,
                         orgMapping: data.idpOrg?.orgMapping ?? ""
@@ -253,6 +269,12 @@ export default function GeneralPage() {
                     );
                     setRawRoleExpression(
                         detectedRoleMappingConfig.rawExpression
+                    );
+
+                    setDirectoryRoleMapping(
+                        parseDirectorySyncRoleMapping(
+                            data.idpOrg.directoryRoleMapping
+                        )
                     );
                 }
             } catch (e) {
@@ -349,7 +371,10 @@ export default function GeneralPage() {
                     (variant === "google" || variant === "azure") &&
                     data.directorySyncEnabled,
                 roleMapping: roleMappingExpression,
-                orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed
+                orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed,
+                directoryRoleMapping:
+                    serializeDirectorySyncRoleMapping(directoryRoleMapping),
+                directorySyncDeletions: data.directorySyncDeletions
             };
 
             // Add variant-specific fields
@@ -594,13 +619,13 @@ export default function GeneralPage() {
                                 />
                                 {(variant === "google" ||
                                     variant === "azure") && (
-                                    <SwitchInput
-                                        id="directory-sync-toggle"
-                                        label={t("idpDirectorySync")}
-                                        checked={form.watch(
+                                    <DirectorySyncConfigWidget
+                                        directorySyncEnabled={form.watch(
                                             "directorySyncEnabled"
                                         )}
-                                        onCheckedChange={(checked) => {
+                                        onDirectorySyncEnabledChange={(
+                                            checked
+                                        ) => {
                                             form.setValue(
                                                 "directorySyncEnabled",
                                                 checked
@@ -612,9 +637,20 @@ export default function GeneralPage() {
                                                 );
                                             }
                                         }}
-                                        description={t(
-                                            "idpDirectorySyncDescription"
+                                        orgId={orgId as string}
+                                        roleMapping={directoryRoleMapping}
+                                        syncDeletions={form.watch(
+                                            "directorySyncDeletions"
                                         )}
+                                        onSyncDeletionsChange={(checked) =>
+                                            form.setValue(
+                                                "directorySyncDeletions",
+                                                checked
+                                            )
+                                        }
+                                        onRoleMappingChange={
+                                            setDirectoryRoleMapping
+                                        }
                                     />
                                 )}
                             </form>

@@ -50,6 +50,8 @@ const bodySchema = z.strictObject({
     directorySyncEnabled: z.boolean().optional(),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
+    directoryRoleMapping: z.string().nullish(),
+    directorySyncDeletions: z.boolean().optional(),
     tags: z.string().optional()
 });
 
@@ -59,7 +61,6 @@ export type UpdateOrgIdpResponse = {
 const UpdateOrgIdpResponseDataSchema = z.object({
     idpId: z.number()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -81,7 +82,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateOrgIdpResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateOrgIdpResponseDataSchema
+                    )
                 }
             }
         }
@@ -128,6 +131,8 @@ export async function updateOrgOidcIdp(
             roleMapping,
             orgMapping,
             directorySyncEnabled,
+            directoryRoleMapping,
+            directorySyncDeletions,
             tags
         } = parsedBody.data;
 
@@ -255,12 +260,21 @@ export async function updateOrgOidcIdp(
             const idpOrgPolicyPatch: {
                 roleMapping?: string;
                 orgMapping?: string | null;
+                directoryRoleMapping?: string | null;
+                directorySyncDeletions?: boolean;
             } = {};
             if (roleMapping !== undefined) {
                 idpOrgPolicyPatch.roleMapping = roleMapping;
             }
             if (orgMapping !== undefined) {
                 idpOrgPolicyPatch.orgMapping = orgMapping;
+            }
+            if (directoryRoleMapping !== undefined) {
+                idpOrgPolicyPatch.directoryRoleMapping = directoryRoleMapping;
+            }
+            if (directorySyncDeletions !== undefined) {
+                idpOrgPolicyPatch.directorySyncDeletions =
+                    directorySyncDeletions;
             }
             if (Object.keys(idpOrgPolicyPatch).length > 0) {
                 await trx
