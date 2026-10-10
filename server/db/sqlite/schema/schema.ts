@@ -1512,7 +1512,7 @@ export const supporterKey = sqliteTable("supporterKey", {
 export const idp = sqliteTable("idp", {
     idpId: integer("idpId").primaryKey({ autoIncrement: true }),
     name: text("name").notNull(),
-    type: text("type").notNull(),
+    type: text("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: text("defaultRoleMapping"),
     defaultOrgMapping: text("defaultOrgMapping"),
     autoProvision: integer("autoProvision", {
@@ -1520,7 +1520,12 @@ export const idp = sqliteTable("idp", {
     })
         .notNull()
         .default(false),
-    tags: text("tags")
+    tags: text("tags"),
+    directorySyncEnabled: integer("directorySyncEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false)
 });
 
 // Identity Provider OAuth Configuration
@@ -1528,7 +1533,10 @@ export const idpOidcConfig = sqliteTable("idpOidcConfig", {
     idpOauthConfigId: integer("idpOauthConfigId").primaryKey({
         autoIncrement: true
     }),
-    variant: text("variant").notNull().default("oidc"),
+    variant: text("variant")
+        .notNull()
+        .$type<"oidc" | "google" | "azure">()
+        .default("oidc"),
     idpId: integer("idpId")
         .notNull()
         .references(() => idp.idpId, { onDelete: "cascade" }),

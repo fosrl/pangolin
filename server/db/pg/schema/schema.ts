@@ -1209,11 +1209,14 @@ export const supporterKey = pgTable("supporterKey", {
 export const idp = pgTable("idp", {
     idpId: serial("idpId").primaryKey(),
     name: varchar("name").notNull(),
-    type: varchar("type").notNull(),
+    type: varchar("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
     autoProvision: boolean("autoProvision").notNull().default(false),
-    tags: text("tags")
+    tags: text("tags"),
+    directorySyncEnabled: boolean("directorySyncEnabled")
+        .notNull()
+        .default(false)
 });
 
 export const idpOidcConfig = pgTable("idpOidcConfig", {
@@ -1221,7 +1224,10 @@ export const idpOidcConfig = pgTable("idpOidcConfig", {
     idpId: integer("idpId")
         .notNull()
         .references(() => idp.idpId, { onDelete: "cascade" }),
-    variant: varchar("variant").notNull().default("oidc"),
+    variant: varchar("variant")
+        .notNull()
+        .$type<"oidc" | "google" | "azure">()
+        .default("oidc"),
     clientId: varchar("clientId").notNull(),
     clientSecret: varchar("clientSecret").notNull(),
     authUrl: varchar("authUrl").notNull(),
@@ -1326,7 +1332,11 @@ export const idpOrg = pgTable("idpOrg", {
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
     roleMapping: varchar("roleMapping"),
-    orgMapping: varchar("orgMapping")
+    orgMapping: varchar("orgMapping"),
+    directoryRoleMapping: varchar("directoryRoleMapping"),
+    directorySyncDeletions: boolean("directorySyncDeletions")
+        .notNull()
+        .default(true)
 });
 
 export const clients = pgTable(

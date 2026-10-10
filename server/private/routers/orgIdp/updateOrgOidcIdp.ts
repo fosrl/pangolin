@@ -47,8 +47,11 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().optional(),
     autoProvision: z.boolean().optional(),
+    directorySyncEnabled: z.boolean().optional(),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
+    directoryRoleMapping: z.string().nullish(),
+    directorySyncDeletions: z.boolean().optional(),
     tags: z.string().optional()
 });
 
@@ -58,7 +61,6 @@ export type UpdateOrgIdpResponse = {
 const UpdateOrgIdpResponseDataSchema = z.object({
     idpId: z.number()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -80,7 +82,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateOrgIdpResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateOrgIdpResponseDataSchema
+                    )
                 }
             }
         }
@@ -126,6 +130,9 @@ export async function updateOrgOidcIdp(
             name,
             roleMapping,
             orgMapping,
+            directorySyncEnabled,
+            directoryRoleMapping,
+            directorySyncDeletions,
             tags
         } = parsedBody.data;
 
@@ -181,10 +188,39 @@ export async function updateOrgOidcIdp(
             : undefined;
         const encryptedClientId = clientId ? encrypt(clientId, key) : undefined;
 
+        const [existingOidcConfig] = await db
+            .select({ variant: idpOidcConfig.variant })
+            .from(idpOidcConfig)
+            .where(eq(idpOidcConfig.idpId, idpId));
+
+        // auto provisioning and directory sync are mutually exclusive
+        const effectiveAutoProvision =
+            autoProvision ?? existingIdp.autoProvision;
+        if (
+            effectiveAutoProvision &&
+            (directorySyncEnabled ?? existingIdp.directorySyncEnabled)
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Auto provisioning and directory sync cannot both be enabled"
+                )
+            );
+        }
+
+        // directory sync is only supported for google/azure idps
+        const directorySyncSupported =
+            existingOidcConfig?.variant === "google" ||
+            existingOidcConfig?.variant === "azure";
+        const effectiveDirectorySyncEnabled = directorySyncSupported
+            ? directorySyncEnabled
+            : false;
+
         await db.transaction(async (trx) => {
             const idpData = {
                 name,
                 autoProvision,
+                directorySyncEnabled: effectiveDirectorySyncEnabled,
                 tags
             };
 
@@ -224,12 +260,21 @@ export async function updateOrgOidcIdp(
             const idpOrgPolicyPatch: {
                 roleMapping?: string;
                 orgMapping?: string | null;
+                directoryRoleMapping?: string | null;
+                directorySyncDeletions?: boolean;
             } = {};
             if (roleMapping !== undefined) {
                 idpOrgPolicyPatch.roleMapping = roleMapping;
             }
             if (orgMapping !== undefined) {
                 idpOrgPolicyPatch.orgMapping = orgMapping;
+            }
+            if (directoryRoleMapping !== undefined) {
+                idpOrgPolicyPatch.directoryRoleMapping = directoryRoleMapping;
+            }
+            if (directorySyncDeletions !== undefined) {
+                idpOrgPolicyPatch.directorySyncDeletions =
+                    directorySyncDeletions;
             }
             if (Object.keys(idpOrgPolicyPatch).length > 0) {
                 await trx
