@@ -48,6 +48,9 @@ jobs:
       - name: Test with tsc
         run: npx tsc --noEmit
 
+      - name: Run unit tests
+        run: npm test
+
       - name: Start app in background
         run: |
           nohup npm run dev > app.log 2>&1 &
