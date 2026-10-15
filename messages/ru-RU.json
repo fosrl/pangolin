@@ -2526,6 +2526,7 @@
     "pangolinUpdateAvailableReleaseNotes": "Просмотреть примечания к выпуску",
     "newtUpdateAvailable": "Доступно обновление",
     "newtUpdateAvailableInfo": "Доступна новая версия Newt. Пожалуйста, обновитесь до последней версии для лучшего опыта.",
+    "cliUpdateAvailableInfo": "A new version of the Pangolin CLI is available. Please update to the latest version for the best experience.",
     "pangolinNodeUpdateAvailableInfo": "Доступна новая версия Pangolin Node. Пожалуйста, обновитесь до последней версии для лучшего опыта.",
     "domainPickerEnterDomain": "Домен",
     "domainPickerPlaceholder": "myapp.example.com",
