@@ -185,7 +185,7 @@ export async function exchangeSession(
             }
         } else {
             const expires = new Date(
-                Date.now() + SESSION_COOKIE_EXPIRES
+                Date.now() + RESOURCE_SESSION_COOKIE_EXPIRES
             ).getTime();
             await createResourceSession({
                 token,
