@@ -2526,6 +2526,7 @@
     "pangolinUpdateAvailableReleaseNotes": "Yayın Notlarını Görüntüle",
     "newtUpdateAvailable": "Güncelleme Mevcut",
     "newtUpdateAvailableInfo": "Newt'in yeni bir versiyonu mevcut. En iyi deneyim için lütfen en son sürüme güncelleyin.",
+    "cliUpdateAvailableInfo": "A new version of the Pangolin CLI is available. Please update to the latest version for the best experience.",
     "pangolinNodeUpdateAvailableInfo": "Pangolin Node'un yeni bir sürümü mevcut. En iyi deneyim için lütfen en son sürüme güncelleyin.",
     "domainPickerEnterDomain": "Alan Adı",
     "domainPickerPlaceholder": "myapp.example.com",
