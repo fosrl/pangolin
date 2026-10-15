@@ -21,6 +21,8 @@ import { verifyPassword } from "@server/auth/password";
 import { verifySession } from "@server/auth/sessions/verifySession";
 import { UserType } from "@server/types/UserTypes";
 import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
+import { sha256 } from "@oslojs/crypto/sha2";
+import { encodeHexLowerCase } from "@oslojs/encoding";
 
 export const loginBodySchema = z.strictObject({
     email: z.email().toLowerCase(),
@@ -234,7 +236,10 @@ export async function login(
         // check for previous cookie value and expire it
         const previousCookie = req.cookies[SESSION_COOKIE_NAME];
         if (previousCookie) {
-            await invalidateSession(previousCookie);
+            const sessionId = encodeHexLowerCase(
+                sha256(new TextEncoder().encode(previousCookie))
+            );
+            await invalidateSession(sessionId);
         }
 
         const token = generateSessionToken();
