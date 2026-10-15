@@ -2526,6 +2526,7 @@
     "pangolinUpdateAvailableReleaseNotes": "Se utgivelsesnotater",
     "newtUpdateAvailable": "Oppdatering tilgjengelig",
     "newtUpdateAvailableInfo": "En ny versjon av Newt er tilgjengelig. Vennligst oppdater til den nyeste versjonen for den beste opplevelsen.",
+    "cliUpdateAvailableInfo": "A new version of the Pangolin CLI is available. Please update to the latest version for the best experience.",
     "pangolinNodeUpdateAvailableInfo": "En ny versjon av Pangolin Node er tilgjengelig. Vennligst oppdater til den nyeste versjonen for den beste opplevelsen.",
     "domainPickerEnterDomain": "Domene",
     "domainPickerPlaceholder": "minapp.eksempel.no",
