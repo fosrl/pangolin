@@ -297,7 +297,7 @@ export class TraefikConfigManager {
                     const secondsUntilExpiry =
                         localState.expiresAt - nowInSeconds;
                     const daysUntilExpiry = secondsUntilExpiry / (60 * 60 * 24);
-                    if (daysUntilExpiry < 45) {
+                    if (daysUntilExpiry < 15) {
                         logger.info(
                             `Fetching certificates due to upcoming expiry for ${domain} (${Math.round(daysUntilExpiry)} days remaining)`
                         );
@@ -314,7 +314,7 @@ export class TraefikConfigManager {
                     const nowInSeconds = Math.floor(Date.now() / 1000);
                     const secondsUntilExpiry = state.expiresAt - nowInSeconds;
                     const daysUntilExpiry = secondsUntilExpiry / (60 * 60 * 24);
-                    if (daysUntilExpiry < 45) {
+                    if (daysUntilExpiry < 15) {
                         logger.info(
                             `Fetching certificates due to upcoming expiry for wildcard cert ${certDomain} (${Math.round(daysUntilExpiry)} days remaining)`
                         );

@@ -1,3 +1,4 @@
+import { formatEndpoint } from "@server/lib/ip";
 import { TargetWithSite } from "./types";
 
 /**
@@ -48,12 +49,12 @@ export function buildHttpLoadBalancerServers(targets: TargetWithSite[]) {
                 target.site.type === "wireguard"
             ) {
                 return {
-                    url: `${target.method}://${target.ip}:${target.port}`
+                    url: `${target.method}://${formatEndpoint(target.ip, target.port)}`
                 };
             } else if (target.site.type === "newt") {
                 const ip = target.site.subnet!.split("/")[0];
                 return {
-                    url: `${target.method}://${ip}:${target.internalPort}`
+                    url: `${target.method}://${formatEndpoint(ip, target.internalPort!)}`
                 };
             }
         })
@@ -111,12 +112,12 @@ export function buildTcpUdpLoadBalancerServers(targets: TargetWithSite[]) {
                 target.site.type === "wireguard"
             ) {
                 return {
-                    address: `${target.ip}:${target.port}`
+                    address: formatEndpoint(target.ip, target.port)
                 };
             } else if (target.site.type === "newt") {
                 const ip = target.site.subnet!.split("/")[0];
                 return {
-                    address: `${ip}:${target.internalPort}`
+                    address: formatEndpoint(ip, target.internalPort!)
                 };
             }
         });

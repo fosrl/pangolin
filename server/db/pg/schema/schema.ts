@@ -1209,11 +1209,14 @@ export const supporterKey = pgTable("supporterKey", {
 export const idp = pgTable("idp", {
     idpId: serial("idpId").primaryKey(),
     name: varchar("name").notNull(),
-    type: varchar("type").notNull(),
+    type: varchar("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
     autoProvision: boolean("autoProvision").notNull().default(false),
-    tags: text("tags")
+    tags: text("tags"),
+    directorySyncEnabled: boolean("directorySyncEnabled")
+        .notNull()
+        .default(false)
 });
 
 export const idpOidcConfig = pgTable("idpOidcConfig", {
@@ -1221,7 +1224,10 @@ export const idpOidcConfig = pgTable("idpOidcConfig", {
     idpId: integer("idpId")
         .notNull()
         .references(() => idp.idpId, { onDelete: "cascade" }),
-    variant: varchar("variant").notNull().default("oidc"),
+    variant: varchar("variant")
+        .notNull()
+        .$type<"oidc" | "google" | "azure">()
+        .default("oidc"),
     clientId: varchar("clientId").notNull(),
     clientSecret: varchar("clientSecret").notNull(),
     authUrl: varchar("authUrl").notNull(),
@@ -1326,8 +1332,41 @@ export const idpOrg = pgTable("idpOrg", {
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
     roleMapping: varchar("roleMapping"),
-    orgMapping: varchar("orgMapping")
+    orgMapping: varchar("orgMapping"),
+    directoryRoleMapping: varchar("directoryRoleMapping"),
+    directorySyncDeletions: boolean("directorySyncDeletions")
+        .notNull()
+        .default(true)
 });
+
+// Runtime state of the directory sync job, one row per IdP. Deleting the row
+// forces a full sync on the next run.
+export const idpSyncState = pgTable("idpSyncState", {
+    idpId: integer("idpId")
+        .primaryKey()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    // Provider-defined opaque JSON (e.g. Azure delta links). Null = full sync.
+    cursor: text("cursor"),
+    lastSyncStartedAt: bigint("lastSyncStartedAt", { mode: "number" }),
+    lastSyncSucceededAt: bigint("lastSyncSucceededAt", { mode: "number" }),
+    lastError: text("lastError"),
+    consecutiveFailures: integer("consecutiveFailures").notNull().default(0)
+});
+
+// Links a directory user (stable provider ID) to the Pangolin user sync manages.
+export const idpSyncUser = pgTable(
+    "idpSyncUser",
+    {
+        idpId: integer("idpId")
+            .notNull()
+            .references(() => idp.idpId, { onDelete: "cascade" }),
+        externalId: varchar("externalId").notNull(),
+        userId: varchar("userId")
+            .notNull()
+            .references(() => users.userId, { onDelete: "cascade" })
+    },
+    (t) => [primaryKey({ columns: [t.idpId, t.externalId] })]
+);
 
 export const clients = pgTable(
     "clients",
