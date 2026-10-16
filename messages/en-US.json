@@ -826,6 +826,8 @@
     "targetErrorCreateDescription": "An error occurred while creating the target",
     "tlsServerName": "TLS Server Name",
     "tlsServerNameDescription": "The TLS server name to use for SNI",
+    "verifyUpstreamTls": "Verify upstream TLS certificate",
+    "verifyUpstreamTlsDescription": "Validate the upstream server's TLS certificate against the configured TLS Server Name. Disable for self-signed or untrusted certificates.",
     "save": "Save",
     "proxyAdditional": "Additional Proxy Settings",
     "proxyAdditionalDescription": "Configure how the resource handles proxy settings",

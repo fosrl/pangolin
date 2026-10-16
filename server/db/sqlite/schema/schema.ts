@@ -202,6 +202,11 @@ export const resources = sqliteTable(
             .notNull()
             .default("wrr"), // traefik http loadBalancer.strategy
         tlsServerName: text("tlsServerName"),
+        verifyUpstreamTls: integer("verifyUpstreamTls", {
+            mode: "boolean"
+        })
+            .notNull()
+            .default(false),
         setHostHeader: text("setHostHeader"),
         enableProxy: integer("enableProxy", { mode: "boolean" }).default(true),
         skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {

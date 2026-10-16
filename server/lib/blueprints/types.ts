@@ -327,6 +327,7 @@ export const PublicResourceSchema = z
         auth: AuthSchema.optional(),
         "host-header": z.string().optional(),
         "tls-server-name": z.string().optional(),
+        "verify-upstream-tls": z.boolean().optional(),
         "load-balancing-strategy": z
             .enum(["wrr", "p2c", "hrw", "leasttime"])
             .optional(),

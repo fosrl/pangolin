@@ -424,6 +424,9 @@ export async function updatePublicResources(
                             setHostHeader: resourceData["host-header"] || null,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
+                           verifyUpstreamTls:
+                               Boolean(resourceData["tls-server-name"]?.trim()) &&
+                               (resourceData["verify-upstream-tls"] ?? false),
                             loadBalancingStrategy:
                                 resourceData["load-balancing-strategy"] ??
                                 "wrr",
@@ -631,6 +634,9 @@ export async function updatePublicResources(
                             setHostHeader: resourceData["host-header"] || null,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
+                            verifyUpstreamTls:
+                                Boolean(resourceData["tls-server-name"]?.trim()) &&
+                                (resourceData["verify-upstream-tls"] ?? false),
                             loadBalancingStrategy:
                                 resourceData["load-balancing-strategy"] ??
                                 "wrr",
@@ -1266,6 +1272,9 @@ export async function updatePublicResources(
                     enabled: resourceEnabled,
                     setHostHeader: resourceData["host-header"] || null,
                     tlsServerName: resourceData["tls-server-name"] || null,
+                    verifyUpstreamTls:
+                        Boolean(resourceData["tls-server-name"]?.trim()) &&
+                        (resourceData["verify-upstream-tls"] ?? false),
                     loadBalancingStrategy:
                         resourceData["load-balancing-strategy"] ?? "wrr",
                     ssl: resourceSsl,

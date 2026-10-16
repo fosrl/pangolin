@@ -186,6 +186,9 @@ export const resources = pgTable(
             .notNull()
             .default("wrr"), // traefik http loadBalancer.strategy
         tlsServerName: varchar("tlsServerName"),
+        verifyUpstreamTls: boolean("verifyUpstreamTls")
+            .notNull()
+            .default(false),
         setHostHeader: varchar("setHostHeader"),
         enableProxy: boolean("enableProxy").default(true),
         skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {

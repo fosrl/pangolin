@@ -414,6 +414,9 @@ export async function buildPublicResourceBlueprintConfig(
     if (resource.tlsServerName) {
         resourceConfig["tls-server-name"] = resource.tlsServerName;
     }
+    if (resource.verifyUpstreamTls) {
+        resourceConfig["verify-upstream-tls"] = true;
+    }
     if (
         resource.loadBalancingStrategy &&
         resource.loadBalancingStrategy !== "wrr"
