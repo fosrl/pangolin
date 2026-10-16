@@ -1,4 +1,9 @@
-import { cidrToRange, findNextAvailableCidr } from "./ip";
+import {
+    aliasTargetsOnly,
+    cidrToRange,
+    findNextAvailableCidr,
+    type SubnetProxyTargetV2
+} from "./ip";
 import { assertEquals } from "@test/assert";
 
 // Test cases
@@ -133,10 +138,91 @@ function testFindNextAvailableCidr() {
 //     console.log("All cidrToRange tests passed!");
 // }
 
+function testAliasTargetsOnly() {
+    console.log("Running aliasTargetsOnly tests...");
+
+    // A host mode resource generates a destination target
+    // (no rewriteTo) plus one for its alias address.
+    const destinationTarget: SubnetProxyTargetV2 = {
+        sourcePrefixes: [],
+        destPrefix: "192.168.0.119/32",
+        disableIcmp: false,
+        resourceId: 1
+    };
+    const aliasTarget: SubnetProxyTargetV2 = {
+        sourcePrefixes: [],
+        destPrefix: "100.96.128.8/32",
+        rewriteTo: "192.168.0.119/32",
+        disableIcmp: false,
+        resourceId: 1
+    };
+
+    // Only the alias target may be removed while another
+    // resource still serves the same destination.
+    {
+        const result = aliasTargetsOnly([destinationTarget, aliasTarget]);
+        assertEquals(result.length, 1, "Only the alias target should remain");
+        assertEquals(
+            result[0].destPrefix,
+            "100.96.128.8/32",
+            "The alias target should be the one kept"
+        );
+    }
+
+    // A resource without an alias has nothing unique to remove.
+    {
+        const result = aliasTargetsOnly([destinationTarget]);
+        assertEquals(
+            result.length,
+            0,
+            "A destination target alone must not be removed"
+        );
+    }
+
+    // cidr mode resources only produce destination targets,
+    // so nothing is removed while the destination is shared.
+    {
+        const cidrTarget: SubnetProxyTargetV2 = {
+            sourcePrefixes: [],
+            destPrefix: "192.168.0.0/24",
+            disableIcmp: false,
+            resourceId: 2
+        };
+        const result = aliasTargetsOnly([cidrTarget]);
+        assertEquals(result.length, 0, "A cidr target should be dropped");
+    }
+
+    // Every alias of the resource is unique to it.
+    {
+        const secondAliasTarget: SubnetProxyTargetV2 = {
+            sourcePrefixes: [],
+            destPrefix: "100.96.128.9/32",
+            rewriteTo: "192.168.0.119/32",
+            disableIcmp: false,
+            resourceId: 1
+        };
+        const result = aliasTargetsOnly([
+            destinationTarget,
+            aliasTarget,
+            secondAliasTarget
+        ]);
+        assertEquals(result.length, 2, "Both alias targets should remain");
+    }
+
+    // Empty input stays empty.
+    {
+        const result = aliasTargetsOnly([]);
+        assertEquals(result.length, 0, "Empty input should stay empty");
+    }
+
+    console.log("All aliasTargetsOnly tests passed!");
+}
+
 // Run all tests
 try {
     // testCidrToRange();
     testFindNextAvailableCidr();
+    testAliasTargetsOnly();
     console.log("All tests passed successfully!");
 } catch (error) {
     console.error("Test failed:", error);

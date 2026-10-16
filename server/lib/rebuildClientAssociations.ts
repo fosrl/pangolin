@@ -37,6 +37,7 @@ import { canCompress } from "@server/lib/clientVersionChecks";
 import config from "@server/lib/config";
 import logger from "@server/logger";
 import {
+    aliasTargetsOnly,
     generateAliasConfig,
     generateRemoteSubnets,
     generateSubnetProxyTargetV2,
@@ -1383,6 +1384,52 @@ async function syncClientExitNodeAliasUpdate(
     }
 }
 
+/**
+ * The newt keeps a single forwarding rule per (client, destination)
+ * pair, so a destination based target must not be removed while
+ * another enabled resource on the same site still serves that
+ * destination to any of the given clients. Scoped by siteId (via
+ * siteNetworks) because the newt that receives the removal message
+ * belongs to a single site.
+ */
+async function isDestinationStillInUseByOtherResource(
+    trx: Transaction | typeof db,
+    clientIds: number[],
+    siteId: number,
+    destination: string,
+    excludeSiteResourceId: number
+): Promise<boolean> {
+    const [row] = await trx
+        .select({ siteResourceId: siteResources.siteResourceId })
+        .from(siteResources)
+        .innerJoin(
+            clientSiteResourcesAssociationsCache,
+            eq(
+                clientSiteResourcesAssociationsCache.siteResourceId,
+                siteResources.siteResourceId
+            )
+        )
+        .innerJoin(
+            siteNetworks,
+            eq(siteNetworks.networkId, siteResources.networkId)
+        )
+        .where(
+            and(
+                inArray(
+                    clientSiteResourcesAssociationsCache.clientId,
+                    clientIds
+                ),
+                eq(siteNetworks.siteId, siteId),
+                eq(siteResources.destination, destination),
+                eq(siteResources.enabled, true),
+                ne(siteResources.siteResourceId, excludeSiteResourceId)
+            )
+        )
+        .limit(1);
+
+    return row !== undefined;
+}
+
 async function handleSubnetProxyTargetUpdates(
     siteResource: SiteResource,
     sitesList: Site[],
@@ -1478,12 +1525,31 @@ async function handleSubnetProxyTargetUpdates(
             );
 
             if (removedClients.length > 0) {
-                const targetsToRemove = await generateSubnetProxyTargetV2(
+                let targetsToRemove = await generateSubnetProxyTargetV2(
                     siteResource,
                     removedClients
                 );
 
-                if (targetsToRemove) {
+                // The newt keeps one rule per (client, destination) pair,
+                // so removing a destination based target here would also
+                // drop the rule another enabled resource on this site still
+                // needs. Only remove this resource's own (alias) targets in
+                // that case.
+                if (
+                    targetsToRemove &&
+                    siteResource.destination &&
+                    (await isDestinationStillInUseByOtherResource(
+                        trx,
+                        removedClients.map((client) => client.clientId),
+                        siteId,
+                        siteResource.destination,
+                        siteResource.siteResourceId
+                    ))
+                ) {
+                    targetsToRemove = aliasTargetsOnly(targetsToRemove);
+                }
+
+                if (targetsToRemove && targetsToRemove.length > 0) {
                     targetsToRemoveBatch.push({
                         newtId: newt.newtId,
                         targets: targetsToRemove,
@@ -2822,7 +2888,7 @@ async function handleMessagesForClientResources(
             }[] = [];
 
             for (const resource of resources) {
-                const targets = await generateSubnetProxyTargetV2(resource, [
+                let targets = await generateSubnetProxyTargetV2(resource, [
                     {
                         clientId: client.clientId,
                         pubKey: client.pubKey,
@@ -2830,7 +2896,25 @@ async function handleMessagesForClientResources(
                     }
                 ]);
 
-                if (targets) {
+                // Same as the site resource rebuild path: the newt
+                // rule for a destination is shared between resources,
+                // so keep it when another enabled resource on this
+                // site still serves the destination to this client.
+                if (
+                    targets &&
+                    resource.destination &&
+                    (await isDestinationStillInUseByOtherResource(
+                        trx,
+                        [client.clientId],
+                        siteId,
+                        resource.destination,
+                        resource.siteResourceId
+                    ))
+                ) {
+                    targets = aliasTargetsOnly(targets);
+                }
+
+                if (targets && targets.length > 0) {
                     targetsToRemoveBatch.push({
                         newtId: newt.newtId,
                         targets,
