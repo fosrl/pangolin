@@ -36,6 +36,7 @@ export type ResourceWithTargets = Pick<
     | "loadBalancingStrategy"
     | "mtlsEnabled"
     | "tlsServerName"
+    | "verifyUpstreamTls"
     | "setHostHeader"
     | "enableProxy"
     | "requestHeaders"

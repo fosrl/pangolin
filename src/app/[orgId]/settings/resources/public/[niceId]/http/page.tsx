@@ -113,6 +113,7 @@ function ProxyResourceHttpForm({
                     message: t("proxyErrorTls")
                 }
             ),
+        verifyUpstreamTls: z.boolean(),
         setHostHeader: z
             .string()
             .optional()
@@ -142,6 +143,7 @@ function ProxyResourceHttpForm({
             loadBalancingStrategy: resource.loadBalancingStrategy,
             ssl: resource.ssl,
             tlsServerName: resource.tlsServerName || "",
+            verifyUpstreamTls: resource.verifyUpstreamTls ?? false,
             setHostHeader: resource.setHostHeader || "",
             requestHeaders: resource.requestHeaders,
             responseHeaders: resource.responseHeaders
@@ -182,7 +184,9 @@ function ProxyResourceHttpForm({
                     stickySession: data.stickySession,
                     loadBalancingStrategy: data.loadBalancingStrategy,
                     ssl: data.ssl,
-                    tlsServerName: data.tlsServerName || null,
+                    tlsServerName: data.tlsServerName?.trim() || null,
+                    verifyUpstreamTls:
+                        Boolean(data.tlsServerName?.trim()) && data.verifyUpstreamTls,
                     setHostHeader: data.setHostHeader || null,
                     requestHeaders: data.requestHeaders || null,
                     responseHeaders: data.responseHeaders || null
@@ -205,7 +209,9 @@ function ProxyResourceHttpForm({
                 stickySession: data.stickySession,
                 loadBalancingStrategy: data.loadBalancingStrategy,
                 ssl: data.ssl,
-                tlsServerName: data.tlsServerName || null,
+                tlsServerName: data.tlsServerName?.trim() || null,
+                verifyUpstreamTls:
+                    Boolean(data.tlsServerName?.trim()) && data.verifyUpstreamTls,
                 setHostHeader: data.setHostHeader || null,
                 requestHeaders: data.requestHeaders || null,
                 responseHeaders: data.responseHeaders || null
@@ -307,7 +313,18 @@ function ProxyResourceHttpForm({
                                                     {t("targetTlsSni")}
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input {...field} />
+                                                    <Input
+                                                        {...field}
+                                                        onChange={(event) => {
+                                                            const value = event.target.value;
+                                                            field.onChange(value);
+                                                            if (!value.trim()) {
+                                                                form.setValue("verifyUpstreamTls", false, {
+                                                                    shouldDirty: true
+                                                                });
+                                                            }
+                                                        }}
+                                                    />
                                                 </FormControl>
                                                 <FormDescription>
                                                     {t(
@@ -315,6 +332,27 @@ function ProxyResourceHttpForm({
                                                     )}
                                                 </FormDescription>
                                                 <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </SettingsFormCell>
+
+                                 <SettingsFormCell span="half">
+                                    <FormField
+                                        control={form.control}
+                                        name="verifyUpstreamTls"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <SwitchInput
+                                                        id="verify-upstream-tls-toggle"
+                                                        label={t("verifyUpstreamTls")}
+                                                        description={t("verifyUpstreamTlsDescription")}
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                        disabled={!form.watch("tlsServerName")?.trim()}
+                                                    />
+                                                </FormControl>
                                             </FormItem>
                                         )}
                                     />
