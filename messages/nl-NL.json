@@ -2397,6 +2397,7 @@
     "exportBlueprintTitle": "Export Blueprint",
     "exportBlueprintDescription": "Download a blueprint YAML snippet for \"{name}\" that can be applied to recreate this resource.",
     "exportBlueprintError": "Failed to generate blueprint",
+    "copy": "Copy",
     "download": "Download",
     "searchBlueprintProgress": "Blauwdrukken zoeken...",
     "appliedAt": "Toegepast op",
