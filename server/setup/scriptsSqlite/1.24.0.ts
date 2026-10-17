@@ -14,6 +14,15 @@ export default async function migration() {
         db.pragma("foreign_keys = OFF");
 
         db.transaction(() => {
+            const columns = db
+                .prepare(`PRAGMA table_info('resources')`)
+                .all() as { name: string }[];
+            if (!columns.some((column) => column.name === "createdAt")) {
+                db.prepare(
+                    `ALTER TABLE 'resources' ADD COLUMN 'createdAt' text;`
+                ).run();
+            }
+
             db.prepare(
                 `
                 ALTER TABLE 'resources' RENAME COLUMN "headers" TO "requestHeaders";

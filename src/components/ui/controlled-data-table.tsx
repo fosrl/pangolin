@@ -5,7 +5,9 @@ import {
     ColumnFiltersState,
     flexRender,
     getCoreRowModel,
+    OnChangeFn,
     PaginationState,
+    RowSelectionState,
     useReactTable
 } from "@tanstack/react-table";
 
@@ -98,6 +100,9 @@ type ControlledDataTableProps<TData, TValue> = {
     stickyRightColumn?: string; // Column ID or accessorKey for right sticky column (typically "actions")
     rowCount: number;
     pagination: PaginationState;
+    getRowId?: (row: TData) => string;
+    rowSelection?: RowSelectionState;
+    onRowSelectionChange?: OnChangeFn<RowSelectionState>;
 };
 
 export function ControlledDataTable<TData, TValue>({
@@ -124,7 +129,10 @@ export function ControlledDataTable<TData, TValue>({
     onPaginationChange,
     stickyRightColumn,
     rowCount,
-    isNavigatingToAddPage
+    isNavigatingToAddPage,
+    getRowId,
+    rowSelection,
+    onRowSelectionChange
 }: ControlledDataTableProps<TData, TValue>) {
     const t = useTranslations();
 
@@ -148,6 +156,8 @@ export function ControlledDataTable<TData, TValue>({
         data: rows,
         columns,
         getCoreRowModel: getCoreRowModel(),
+        getRowId,
+        onRowSelectionChange,
         // getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onPaginationChange: (state) => {
@@ -161,7 +171,8 @@ export function ControlledDataTable<TData, TValue>({
         state: {
             columnFilters,
             columnVisibility,
-            pagination
+            pagination,
+            ...(rowSelection && { rowSelection })
         }
     });
 
@@ -243,10 +254,10 @@ export function ControlledDataTable<TData, TValue>({
         accessorKey: string | undefined
     ): string => {
         if (isStickyColumn(columnId, accessorKey, "left")) {
-            return "md:sticky md:left-0 z-10 bg-card [mask-image:linear-gradient(to_left,transparent_0%,black_20px)]";
+            return "md:sticky md:left-0 z-10 bg-card group-data-[state=selected]:bg-muted [mask-image:linear-gradient(to_left,transparent_0%,black_20px)]";
         }
         if (isStickyColumn(columnId, accessorKey, "right")) {
-            return "sticky right-0 z-10 w-auto min-w-fit bg-card [mask-image:linear-gradient(to_right,transparent_0%,black_20px)]";
+            return "sticky right-0 z-10 w-auto min-w-fit bg-card group-data-[state=selected]:bg-muted [mask-image:linear-gradient(to_right,transparent_0%,black_20px)]";
         }
         return "";
     };
@@ -295,7 +306,7 @@ export function ControlledDataTable<TData, TValue>({
         <div className="container mx-auto max-w-12xl">
             <Card>
                 <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-4">
-                    <div className="flex flex-row space-y-3 w-full sm:mr-2 gap-2">
+                    <div className="flex flex-row w-full sm:mr-2 gap-2">
                         {onSearch && (
                             <div className="relative w-full sm:max-w-sm">
                                 <Input
@@ -560,6 +571,7 @@ export function ControlledDataTable<TData, TValue>({
                                     table.getRowModel().rows.map((row) => (
                                         <TableRow
                                             key={row.id}
+                                            className="group"
                                             data-state={
                                                 row.getIsSelected() &&
                                                 "selected"
