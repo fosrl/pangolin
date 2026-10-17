@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@app/providers/ThemeProvider";
 import EnvProvider from "@app/providers/EnvProvider";
 import { pullEnv } from "@app/lib/pullEnv";
+import { sanitizeEnvForAnonymousClient } from "@app/lib/publicEnv";
 import ThemeDataProvider from "@app/providers/ThemeDataProvider";
 import SplashImage from "@app/components/SplashImage";
 import SupportStatusProvider from "@app/providers/SupporterStatusProvider";
@@ -66,6 +68,16 @@ export default async function RootLayout({
     children: React.ReactNode;
 }>) {
     const env = pullEnv();
+    // Anonymous visitors (login, signup, resource auth) have no session
+    // cookie, so they receive a sanitized env in the RSC payload: the
+    // version, internal ports and GeoIP paths only matter inside the
+    // authenticated dashboard shell. See #3856.
+    const hasSessionCookie = (await cookies()).has(
+        env.server.sessionCookieName
+    );
+    const clientEnv = hasSessionCookie
+        ? env
+        : sanitizeEnvForAnonymousClient(env);
     const locale = await getLocale();
 
     // const supporterData = {
@@ -122,7 +134,7 @@ export default async function RootLayout({
                         disableTransitionOnChange
                     >
                         <ThemeDataProvider colors={loadBrandingColors()}>
-                            <EnvProvider env={env}>
+                            <EnvProvider env={clientEnv}>
                                 <TanstackQueryProvider>
                                     <LicenseStatusProvider
                                         licenseStatus={licenseStatus}
