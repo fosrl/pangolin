@@ -1,5 +1,7 @@
 listen_addr: 0.0.0.0:7422
-appsec_config: crowdsecurity/appsec-default
+appsec_configs:
+  - crowdsecurity/appsec-default
+  - crowdsecurity/appsec-bot-*
 name: myAppSecComponent
 source: appsec
 labels:

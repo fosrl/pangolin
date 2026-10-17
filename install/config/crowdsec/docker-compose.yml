@@ -4,7 +4,7 @@ services:
     container_name: crowdsec
     environment:
       GID: "1000"
-      COLLECTIONS: crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+      COLLECTIONS: crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-bot-challenge
       ENROLL_INSTANCE_NAME: "pangolin-crowdsec"
       PARSERS: crowdsecurity/whitelists
       ENROLL_TAGS: docker
