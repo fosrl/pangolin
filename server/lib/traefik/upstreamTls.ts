@@ -1,10 +1,17 @@
 export function buildUpstreamTlsTransport(
-    tlsServerName: string,
-    verifyUpstreamTls: boolean
+    tlsServerName: string | null,
+    verifyUpstreamTls: boolean,
+    certificatePem?: string | null
 ) {
+    const serverName = tlsServerName?.trim();
+
     return {
-        serverName: tlsServerName,
-        insecureSkipVerify: !verifyUpstreamTls
+        ...(serverName ? { serverName } : {}),
+        insecureSkipVerify: !verifyUpstreamTls,
+        // A stored CA is only active when upstream TLS verification is enabled.
+        ...(verifyUpstreamTls && certificatePem?.trim()
+            ? { rootCAs: [certificatePem] }
+            : {})
     };
 }
 
@@ -30,9 +37,12 @@ export function attachUpstreamTlsTransport(
     serviceName: string,
     transportName: string,
     tlsServerName: string | null,
-    verifyUpstreamTls: boolean
+    verifyUpstreamTls: boolean,
+    certificatePem?: string | null
 ) {
-    if (!tlsServerName?.trim()) {
+    // Preserve the existing default transport for unconfigured resources.
+    // Verification no longer requires a custom SNI hostname.
+    if (!tlsServerName?.trim() && !verifyUpstreamTls) {
         return;
     }
 
@@ -40,7 +50,8 @@ export function attachUpstreamTlsTransport(
 
     config.http.serversTransports[transportName] = buildUpstreamTlsTransport(
         tlsServerName,
-        verifyUpstreamTls
+        verifyUpstreamTls,
+        certificatePem
     );
 
     config.http.services[serviceName].loadBalancer.serversTransport =

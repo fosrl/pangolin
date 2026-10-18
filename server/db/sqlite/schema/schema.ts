@@ -257,6 +257,13 @@ export const resources = sqliteTable(
     (table) => [index("idx_resources_orgId").on(table.orgId)]
 );
 
+export const resourceUpstreamCa = sqliteTable("resourceUpstreamCa", {
+    resourceId: integer("resourceId")
+        .primaryKey()
+        .references(() => resources.resourceId, { onDelete: "cascade" }),
+    certificatePem: text("certificatePem").notNull()
+});
+
 export const redirects = sqliteTable("redirects", {
     redirectId: integer("redirectId").primaryKey({ autoIncrement: true }),
     orgId: text("orgId")
@@ -2099,6 +2106,7 @@ export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
 export type Resource = InferSelectModel<typeof resources>;
+export type ResourceUpstreamCa = InferSelectModel<typeof resourceUpstreamCa>;
 export type ExitNode = InferSelectModel<typeof exitNodes>;
 export type Target = InferSelectModel<typeof targets>;
 export type Session = InferSelectModel<typeof sessions>;

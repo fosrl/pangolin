@@ -72,6 +72,7 @@ import {
 } from "@server/lib/traefik/rule";
 import { buildSiteResourceAliasCertPlaceholders } from "@server/lib/traefik/siteResourceAlias";
 import { attachUpstreamTlsTransport } from "@server/lib/traefik/upstreamTls";
+import { loadUpstreamCa } from "@server/lib/traefik/loadUpstreamCa";
 import { ResourceWithTargets } from "@server/lib/traefik/types";
 import {
     encodePath,
@@ -329,6 +330,12 @@ export async function getTraefikConfig(
             }
         });
     }
+
+    const upstreamCaByResource = await loadUpstreamCa(
+        [...resourcesMap.values()]
+            .filter((r) => r.mode === "http" && r.verifyUpstreamTls)
+            .map((r) => r.resourceId)
+    );
 
     // Trusted client-CA certificates for resources that require mTLS.
     const mtlsResourceIds = [
@@ -758,7 +765,8 @@ export async function getTraefikConfig(
                 serviceName,
                 transportName,
                 resource.tlsServerName,
-                resource.verifyUpstreamTls
+                resource.verifyUpstreamTls,
+                upstreamCaByResource.get(resource.resourceId)
             );
 
             if (resource.ssl) {

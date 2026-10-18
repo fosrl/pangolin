@@ -526,19 +526,6 @@ async function updateHttpResource(
 
     const effectiveMtlsEnabled = updateData.mtlsEnabled ?? resource.mtlsEnabled;
 
-    const effectiveTlsServerName =
-        updateData.tlsServerName !== undefined
-            ? updateData.tlsServerName
-            : resource.tlsServerName;
-
-    if (
-        (updateData.tlsServerName !== undefined ||
-            updateData.verifyUpstreamTls !== undefined) &&
-        !effectiveTlsServerName?.trim()
-    ) {
-        updateData.verifyUpstreamTls = false;
-    }
-
     if (updateData.mtlsEnabled === true) {
         if (resource.mode !== "http") {
             return next(
@@ -565,7 +552,9 @@ async function updateHttpResource(
         const [{ certificateCount }] = await db
             .select({ certificateCount: count() })
             .from(resourceMtlsCertificates)
-            .where(eq(resourceMtlsCertificates.resourceId, resource.resourceId));
+            .where(
+                eq(resourceMtlsCertificates.resourceId, resource.resourceId)
+            );
 
         if (certificateCount === 0) {
             return next(
@@ -587,8 +576,10 @@ async function updateHttpResource(
     }
 
     // catch when the resource policy changes or gets cleared
-    if (updateData.resourcePolicyId !== undefined &&
-        resource.resourcePolicyId !== updateData.resourcePolicyId) {
+    if (
+        updateData.resourcePolicyId !== undefined &&
+        resource.resourcePolicyId !== updateData.resourcePolicyId
+    ) {
         await clearResourceSpecificSettings(
             resource.resourceId,
             resource.orgId,

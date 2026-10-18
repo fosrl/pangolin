@@ -237,6 +237,13 @@ export const resources = pgTable(
     ]
 );
 
+export const resourceUpstreamCa = pgTable("resourceUpstreamCa", {
+    resourceId: integer("resourceId")
+        .primaryKey()
+        .references(() => resources.resourceId, { onDelete: "cascade" }),
+    certificatePem: text("certificatePem").notNull()
+});
+
 export const redirects = pgTable("redirects", {
     redirectId: serial("redirectId").primaryKey(),
     orgId: varchar("orgId")
@@ -2052,6 +2059,7 @@ export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
 export type Resource = InferSelectModel<typeof resources>;
+export type ResourceUpstreamCa = InferSelectModel<typeof resourceUpstreamCa>;
 export type ExitNode = InferSelectModel<typeof exitNodes>;
 export type Target = InferSelectModel<typeof targets>;
 export type Session = InferSelectModel<typeof sessions>;

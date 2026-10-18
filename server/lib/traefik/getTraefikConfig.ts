@@ -54,6 +54,7 @@ import { buildSiteResourceAliasCertPlaceholders } from "./siteResourceAlias";
 import { TargetWithSite } from "./types";
 import { encodePath, sanitize, validatePathRewriteConfig } from "./utils";
 import { attachUpstreamTlsTransport } from "./upstreamTls";
+import { loadUpstreamCa } from "./loadUpstreamCa";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const badgerMiddlewareName = "badger";
@@ -268,6 +269,12 @@ export async function getTraefikConfig(
             }
         });
     });
+
+    const upstreamCaByResource = await loadUpstreamCa(
+        [...resourcesMap.values()]
+            .filter((r) => r.mode === "http" && r.verifyUpstreamTls)
+            .map((r) => r.resourceId)
+    );
 
     // Group browser gateway targets by resource (SSH/VNC/RDP-mode resources
     // served through the browser gateway web UI instead of a real target).
@@ -557,13 +564,13 @@ export async function getTraefikConfig(
                 }
             };
 
-            // Add the serversTransport if TLS server name is provided
             attachUpstreamTlsTransport(
                 config_output,
                 serviceName,
                 transportName,
                 resource.tlsServerName,
-                resource.verifyUpstreamTls
+                resource.verifyUpstreamTls,
+                upstreamCaByResource.get(resource.resourceId)
             );
         } else if (resource.mode === "tcp" || resource.mode === "udp") {
             // Non-HTTP (TCP/UDP) configuration

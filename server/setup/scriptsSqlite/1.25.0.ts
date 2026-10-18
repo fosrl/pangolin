@@ -18,6 +18,16 @@ export default async function migration() {
                 ADD COLUMN 'verifyUpstreamTls' integer NOT NULL DEFAULT 0;
             `
             ).run();
+
+            db.prepare(
+                `
+                CREATE TABLE "resourceUpstreamCa" (
+                    "resourceId" integer PRIMARY KEY NOT NULL
+                        REFERENCES "resources"("resourceId") ON DELETE CASCADE,
+                    "certificatePem" text NOT NULL
+                );
+            `
+            ).run();
         })();
 
         console.log("Migrated database");
