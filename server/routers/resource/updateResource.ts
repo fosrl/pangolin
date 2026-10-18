@@ -523,7 +523,6 @@ async function updateHttpResource(
     }
 
     const effectiveSsl = updateData.ssl ?? resource.ssl;
-
     const effectiveMtlsEnabled = updateData.mtlsEnabled ?? resource.mtlsEnabled;
 
     if (updateData.mtlsEnabled === true) {
@@ -552,9 +551,7 @@ async function updateHttpResource(
         const [{ certificateCount }] = await db
             .select({ certificateCount: count() })
             .from(resourceMtlsCertificates)
-            .where(
-                eq(resourceMtlsCertificates.resourceId, resource.resourceId)
-            );
+            .where(eq(resourceMtlsCertificates.resourceId, resource.resourceId));
 
         if (certificateCount === 0) {
             return next(
@@ -576,10 +573,8 @@ async function updateHttpResource(
     }
 
     // catch when the resource policy changes or gets cleared
-    if (
-        updateData.resourcePolicyId !== undefined &&
-        resource.resourcePolicyId !== updateData.resourcePolicyId
-    ) {
+    if (updateData.resourcePolicyId !== undefined &&
+        resource.resourcePolicyId !== updateData.resourcePolicyId) {
         await clearResourceSpecificSettings(
             resource.resourceId,
             resource.orgId,

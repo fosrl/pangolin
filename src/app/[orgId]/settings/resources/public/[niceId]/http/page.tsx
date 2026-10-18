@@ -329,7 +329,7 @@ function ProxyResourceHttpForm({
                                     />
                                 </SettingsFormCell>
 
-                                 <SettingsFormCell span="half">
+                                <SettingsFormCell span="half">
                                     <FormField
                                         control={form.control}
                                         name="verifyUpstreamTls"
