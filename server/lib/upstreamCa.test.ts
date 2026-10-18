@@ -88,22 +88,22 @@ assertThrows(
     "A server/leaf certificate must not be accepted as a trusted CA"
 );
 
-assertThrows(
-    () => normalizeUpstreamCaPem(EXPIRED_CA_PEM),
-    "expired",
-    "An expired CA must not be accepted"
+assertEquals(
+    normalizeUpstreamCaPem(EXPIRED_CA_PEM),
+    EXPIRED_CA_PEM,
+    "An expired CA should be accepted for storage"
 );
 
-assertThrows(
-    () => normalizeUpstreamCaPem(FUTURE_CA_PEM),
-    "not yet valid",
-    "A CA that is not valid yet must not be accepted"
+assertEquals(
+    normalizeUpstreamCaPem(FUTURE_CA_PEM),
+    FUTURE_CA_PEM,
+    "A not-yet-valid CA should be accepted for storage"
 );
 
-assertThrows(
-    () => normalizeUpstreamCaPem(VALID_CA_PEM + EXPIRED_CA_PEM),
-    "expired",
-    "One expired certificate must invalidate an entire CA bundle"
+assertEquals(
+    normalizeUpstreamCaPem(VALID_CA_PEM + EXPIRED_CA_PEM),
+    VALID_CA_PEM + EXPIRED_CA_PEM,
+    "A bundle containing an expired CA should be accepted"
 );
 
 assertThrows(

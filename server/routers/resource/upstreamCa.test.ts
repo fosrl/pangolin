@@ -133,8 +133,6 @@ async function runTests() {
             "-----BEGIN CERTIFICATE-----\ninvalid\n-----END CERTIFICATE-----"
         ],
         ["leaf certificate", LEAF_CERT_PEM],
-        ["expired CA", EXPIRED_CA_PEM],
-        ["future CA", FUTURE_CA_PEM],
         [
             "private key",
             "-----BEGIN PRIVATE KEY-----\ninvalid\n-----END PRIVATE KEY-----"
@@ -150,6 +148,34 @@ async function runTests() {
             certificates.get(1),
             VALID_CA_PEM,
             `${label}: existing CA preserved`
+        );
+    }
+
+    // Certificate validity dates do not restrict CA storage.
+    // TLS chain validation is delegated to Traefik.
+    for (const [label, pem] of [
+        ["expired CA", EXPIRED_CA_PEM],
+        ["future CA", FUTURE_CA_PEM]
+    ] as const) {
+        const previousWrites = writes;
+        result = await call(handlers.putResourceUpstreamCa, "1", {
+            certificatePem: pem
+        });
+        assertEquals(result.status, 200, `${label}: expected HTTP 200`);
+        assertEquals(
+            result.body?.data.certificatePem,
+            pem,
+            `${label}: response must contain the CA`
+        );
+        assertEquals(
+            certificates.get(1),
+            pem,
+            `${label}: CA must be persisted`
+        );
+        assertEquals(
+            writes,
+            previousWrites + 1,
+            `${label}: exactly one write expected`
         );
     }
 

@@ -36,7 +36,6 @@ export function normalizeUpstreamCaPem(input: string): string {
         );
     }
 
-    const now = Date.now();
     for (const cert of certificates) {
         // parseCaCertificates validates X.509 syntax but does not enforce
         // Basic Constraints. An upstream trust anchor must be a CA.
@@ -44,12 +43,6 @@ export function normalizeUpstreamCaPem(input: string): string {
             throw new Error(
                 "Invalid CA certificate: Basic Constraints must include CA:TRUE"
             );
-        }
-        if (now < cert.notBefore) {
-            throw new Error("CA certificate is not yet valid");
-        }
-        if (now >= cert.notAfter) {
-            throw new Error("CA certificate has expired");
         }
     }
 

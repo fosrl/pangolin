@@ -4576,7 +4576,6 @@
     "upstreamCaLoadError": "Failed to load the upstream CA",
     "upstreamCaSaveError": "Failed to save the upstream CA",
     "upstreamCaDeleteError": "Failed to remove the upstream CA",
-    "upstreamCaInvalidFile": "Select a PEM-encoded CA certificate or bundle, not a private key.",
     "upstreamCaTooLarge": "The certificate file exceeds 100 KB.",
     "upstreamCaOnlyWhenVerified": "This CA is used only when upstream TLS verification is enabled.",
     "upstreamCaLoading": "Loading...",

@@ -88,17 +88,6 @@ export default function UpstreamCaSettings({
         setBusy("upload");
         try {
             const certificatePem = await selectedFile.text();
-            if (
-                !certificatePem.trim() ||
-                /-----BEGIN [^-]*PRIVATE KEY-----/.test(certificatePem)
-            ) {
-                toast({
-                    variant: "destructive",
-                    title: t("upstreamCaSaveError"),
-                    description: t("upstreamCaInvalidFile")
-                });
-                return;
-            }
 
             await api.put(`/resource/${resourceId}/upstream-ca`, {
                 certificatePem
