@@ -1,7 +1,9 @@
 listen_addr: 0.0.0.0:7422
 appsec_configs:
   - crowdsecurity/appsec-default
+{{- if .EnableBotDetection}}
   - crowdsecurity/appsec-bot-*
+{{- end}}
 name: myAppSecComponent
 source: appsec
 labels:
