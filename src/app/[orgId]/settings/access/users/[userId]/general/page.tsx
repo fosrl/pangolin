@@ -38,7 +38,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-export default function AccessControlsPage() {
+export default function GeneralPage() {
     const { orgUser: user, updateOrgUser } = userOrgUserContext();
     const { user: sessionUser } = useUserContext();
     const { env } = useEnvContext();
@@ -57,7 +57,7 @@ export default function AccessControlsPage() {
             (build === "enterprise" && !isPaid) ||
             (build === "oss" && !isPaid));
 
-    const accessControlsFormSchema = z.object({
+    const generalFormSchema = z.object({
         username: z.string(),
         autoProvisioned: z.boolean(),
         roles: z
@@ -72,7 +72,7 @@ export default function AccessControlsPage() {
     });
 
     const form = useForm({
-        resolver: zodResolver(accessControlsFormSchema),
+        resolver: zodResolver(generalFormSchema),
         defaultValues: {
             username: user.username!,
             autoProvisioned: user.autoProvisioned || false,
@@ -155,7 +155,7 @@ export default function AccessControlsPage() {
         }
     }
 
-    async function handleAccessControlsSubmit(e: React.FormEvent) {
+    async function handleGeneralSubmit(e: React.FormEvent) {
         e.preventDefault();
 
         const isValid = await form.trigger();
@@ -196,11 +196,9 @@ export default function AccessControlsPage() {
 
             <SettingsSection>
                 <SettingsSectionHeader>
-                    <SettingsSectionTitle>
-                        {t("accessControls")}
-                    </SettingsSectionTitle>
+                    <SettingsSectionTitle>{t("general")}</SettingsSectionTitle>
                     <SettingsSectionDescription>
-                        {t("accessControlsDescription")}
+                        {t("userGeneralSettingsDescription")}
                     </SettingsSectionDescription>
                 </SettingsSectionHeader>
 
@@ -208,11 +206,9 @@ export default function AccessControlsPage() {
                     <SettingsSectionForm>
                         <Form {...form}>
                             <form
-                                onSubmit={(e) =>
-                                    void handleAccessControlsSubmit(e)
-                                }
+                                onSubmit={(e) => void handleGeneralSubmit(e)}
                                 className="space-y-4"
-                                id="access-controls-form"
+                                id="user-general-form"
                             >
                                 {user.type !== UserType.Internal &&
                                     user.idpType && (
@@ -281,9 +277,9 @@ export default function AccessControlsPage() {
                         type="submit"
                         loading={isSaving}
                         disabled={isSaving}
-                        form="access-controls-form"
+                        form="user-general-form"
                     >
-                        {t("accessControlsSubmit")}
+                        {t("saveSettings")}
                     </Button>
                 </SettingsSectionFooter>
             </SettingsSection>

@@ -53,7 +53,8 @@ export default async function PrivateResourceLayout(
         | "cidrSettings"
         | "httpSettings"
         | "sshSettings"
-        | "inferenceSettings";
+        | "inferenceSettings"
+        | "gatewaySettings";
 
     const navItems = [
         {
@@ -61,7 +62,10 @@ export default async function PrivateResourceLayout(
             href: `/{orgId}/settings/resources/private/{niceId}/general`
         },
         {
-            title: t(modeSettingsKey),
+            title:
+                siteResource.mode === "http"
+                    ? t("resourceTypeHttp")
+                    : t(modeSettingsKey),
             href: `/{orgId}/settings/resources/private/{niceId}/${siteResource.mode === "inference" ? "ai-gateway" : siteResource.mode}`
         },
         {

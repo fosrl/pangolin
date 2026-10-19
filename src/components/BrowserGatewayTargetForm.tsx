@@ -10,7 +10,7 @@ import {
     MultiSitesSelector,
     formatMultiSitesSelectorLabel
 } from "./multi-site-selector";
-import { SitesSelector, type Selectedsite } from "./site-selector";
+import { SitesSelector, type SelectedSite } from "./site-selector";
 import { Button } from "./ui/button";
 import {
     FormControl,
@@ -42,8 +42,7 @@ type SingleSiteFormProps<T extends FieldValues> = BaseProps<T> & {
 };
 
 export type BrowserGatewayTargetFormProps<T extends FieldValues = FieldValues> =
-    | MultiSiteFormProps<T>
-    | SingleSiteFormProps<T>;
+    MultiSiteFormProps<T> | SingleSiteFormProps<T>;
 
 export function BrowserGatewayTargetForm<T extends FieldValues>(
     props: BrowserGatewayTargetFormProps<T>
@@ -90,7 +89,7 @@ export function BrowserGatewayTargetForm<T extends FieldValues>(
 
     const showMultiSiteDisclaimer =
         props.multiSite === true &&
-        ((watchedSites as Selectedsite[] | undefined)?.length ?? 0) > 1;
+        ((watchedSites as SelectedSite[] | undefined)?.length ?? 0) > 1;
 
     return (
         <div className="space-y-2">
@@ -112,7 +111,7 @@ export function BrowserGatewayTargetForm<T extends FieldValues>(
                                                 "aria-invalid:border-destructive aria-invalid:ring-destructive/20",
                                                 props.multiSite === true
                                                     ? (
-                                                          field.value as Selectedsite[]
+                                                          field.value as SelectedSite[]
                                                       )?.length === 0 &&
                                                           "text-muted-foreground"
                                                     : !field.value &&
@@ -122,12 +121,12 @@ export function BrowserGatewayTargetForm<T extends FieldValues>(
                                             <span className="truncate">
                                                 {props.multiSite === true
                                                     ? formatMultiSitesSelectorLabel(
-                                                          (field.value as Selectedsite[]) ??
+                                                          (field.value as SelectedSite[]) ??
                                                               [],
                                                           t
                                                       )
                                                     : ((
-                                                          field.value as Selectedsite | null
+                                                          field.value as SelectedSite | null
                                                       )?.name ??
                                                       t("siteSelect"))}
                                             </span>
@@ -140,7 +139,7 @@ export function BrowserGatewayTargetForm<T extends FieldValues>(
                                         <MultiSitesSelector
                                             orgId={props.orgId}
                                             selectedSites={
-                                                (field.value as Selectedsite[]) ??
+                                                (field.value as SelectedSite[]) ??
                                                 []
                                             }
                                             onSelectionChange={field.onChange}
@@ -150,7 +149,7 @@ export function BrowserGatewayTargetForm<T extends FieldValues>(
                                         <SitesSelector
                                             orgId={props.orgId}
                                             selectedSite={
-                                                field.value as Selectedsite | null
+                                                field.value as SelectedSite | null
                                             }
                                             onSelectSite={(site) => {
                                                 field.onChange(site);
@@ -179,8 +178,7 @@ export function BrowserGatewayTargetForm<T extends FieldValues>(
                                     onChange={field.onChange}
                                     value={
                                         (watchedDestination as
-                                            | string
-                                            | undefined) ?? ""
+                                            string | undefined) ?? ""
                                     }
                                 />
                             </FormControl>
@@ -205,9 +203,7 @@ export function BrowserGatewayTargetForm<T extends FieldValues>(
                                     onChange={field.onChange}
                                     value={
                                         (watchedDestinationPort as
-                                            | string
-                                            | number
-                                            | undefined) ?? ""
+                                            string | number | undefined) ?? ""
                                     }
                                 />
                             </FormControl>

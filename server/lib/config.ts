@@ -112,6 +112,11 @@ export class Config {
             ? "true"
             : "false";
 
+        process.env.FLAGS_DISABLE_VIRTUAL_API_KEYS_UI = parsedConfig.flags
+            ?.disable_virtual_api_keys_ui
+            ? "true"
+            : "false";
+
         this.rawConfig = parsedConfig;
     }
 

@@ -24,6 +24,10 @@ import {
     generateSubnetProxyTargetV2,
     SubnetProxyTargetV2
 } from "@server/lib/ip";
+import {
+    ClientIdentity,
+    getClientIdentities
+} from "@server/lib/clientIdentities";
 
 export async function buildClientConfigurationForNewtClient(
     site: Site,
@@ -96,7 +100,10 @@ export async function buildClientConfigurationForNewtClient(
                         await updatePeer(client.clients.clientId, {
                             siteId: site.siteId,
                             endpoint: site.endpoint!,
-                            relayEndpoint: `${exitNode.endpoint}:${config.getRawConfig().gerbil.clients_start_port}`,
+                            relayEndpoint: formatEndpoint(
+                                exitNode.endpoint,
+                                exitNode.relayPort
+                            ),
                             publicKey: site.publicKey!,
                             serverIP: site.address,
                             serverPort: site.listenPort
@@ -121,6 +128,7 @@ export async function buildClientConfigurationForNewtClient(
                                 siteId,
                                 exitNode: {
                                     publicKey: exitNode.publicKey,
+                                    relayPort: exitNode.relayPort,
                                     endpoint: exitNode.endpoint
                                 }
                             }
@@ -162,7 +170,8 @@ export async function buildClientConfigurationForNewtClient(
     if (allSiteResources.length === 0) {
         return {
             peers: validPeers,
-            targets: targetsToSend
+            targets: targetsToSend,
+            clientIdentities: [] as ClientIdentity[]
         };
     }
 
@@ -230,9 +239,26 @@ export async function buildClientConfigurationForNewtClient(
         }
     }
 
+    // Only clients that can reach an HTTP resource ever hit newt's HTTP proxy,
+    // so those are the only identities it needs to set Remote-* headers.
+    const httpClientIds = new Set<number>();
+    for (const resource of allSiteResources) {
+        if (resource.mode !== "http") {
+            continue;
+        }
+        for (const c of clientsByResourceId.get(resource.siteResourceId) ??
+            []) {
+            httpClientIds.add(c.clientId);
+        }
+    }
+    const clientIdentities = Array.from(
+        (await getClientIdentities(httpClientIds)).values()
+    );
+
     return {
         peers: validPeers,
-        targets: targetsToSend
+        targets: targetsToSend,
+        clientIdentities
     };
 }
 

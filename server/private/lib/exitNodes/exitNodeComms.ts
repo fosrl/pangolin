@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import { sendToClient } from "#private/routers/ws";
 import privateConfig from "#private/lib/config";
 import config from "@server/lib/config";
+import { hasExitNodeCheckedIn } from "@server/lib/exitNodes";
 
 interface ExitNodeRequest {
     remoteType?: string;
@@ -138,13 +139,19 @@ export async function sendToExitNode(
 
             return response.data;
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                logger.error(
-                    `Error making ${method} request (can Pangolin see Gerbil HTTP API?) for exit node at ${hostname} (status: ${error.response?.status}): ${error.message}`
-                );
+            const message = axios.isAxiosError(error)
+                ? `Error making ${method} request (can Pangolin see Gerbil HTTP API?) for exit node at ${hostname} (status: ${error.response?.status}): ${error.message}`
+                : `Error making ${method} request for exit node at ${hostname}: ${error}`;
+
+            // The exit node (gerbil) may still be starting up and not yet
+            // reachable. Until it has checked in at least once, log this at a
+            // lower level since it's expected; once it has checked in, a
+            // connection failure is a real problem.
+            if (hasExitNodeCheckedIn(exitNode.exitNodeId)) {
+                logger.error(message);
             } else {
-                logger.error(
-                    `Error making ${method} request for exit node at ${hostname}: ${error}`
+                logger.warn(
+                    `${message} (exit node has not checked in yet since startup, this is expected briefly)`
                 );
             }
         }

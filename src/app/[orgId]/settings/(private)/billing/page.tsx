@@ -524,6 +524,7 @@ export default function BillingPage() {
     };
 
     const currentPlanId = getCurrentPlanId();
+    const currentPlan = planOptions.find((p) => p.id === currentPlanId);
 
     const visiblePlanOptions = planOptions.filter(
         (plan) => plan.id !== "home" || currentPlanId === "home"
@@ -749,12 +750,6 @@ export default function BillingPage() {
         return 0;
     };
 
-    // Get license key count
-    const getLicenseKeyCount = (): number => {
-        if (!licenseSubscription?.items) return 0;
-        return licenseSubscription.items.length;
-    };
-
     // Check if downgrading to a tier would violate current usage limits
     const checkLimitViolations = (
         targetTier: Tier | "basic"
@@ -879,10 +874,8 @@ export default function BillingPage() {
             {/* Trial Banner */}
             {isTrial && (
                 <TrialBillingBanner
+                    tierName={currentPlan?.name ?? "Business"}
                     onUpgrade={() => {
-                        const currentPlan = planOptions.find(
-                            (p) => p.id === currentPlanId
-                        );
                         if (currentPlan?.tierType) {
                             handleStartSubscription(currentPlan.tierType);
                         }
@@ -1545,7 +1538,7 @@ export default function BillingPage() {
             </SettingsSection>
 
             {/* Paid License Keys Section */}
-            {(licenseSubscription || getLicenseKeyCount() > 0) && (
+            {licenseSubscription && (
                 <SettingsSection>
                     <SettingsSectionHeader>
                         <SettingsSectionTitle>
@@ -1561,22 +1554,6 @@ export default function BillingPage() {
                             <SettingsFormGrid>
                                 <SettingsFormCell span="full">
                                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border rounded-lg p-4">
-                                        <div>
-                                            <div className="text-sm text-muted-foreground mb-1">
-                                                {t("billingCurrentKeys") ||
-                                                    "Current Keys"}
-                                            </div>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-3xl font-semibold">
-                                                    {getLicenseKeyCount()}
-                                                </span>
-                                                <span className="text-lg">
-                                                    {getLicenseKeyCount() === 1
-                                                        ? "key"
-                                                        : "keys"}
-                                                </span>
-                                            </div>
-                                        </div>
                                         <Button
                                             variant="outline"
                                             onClick={handleModifySubscription}

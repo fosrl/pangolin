@@ -78,7 +78,8 @@ export const orgs = pgTable("orgs", {
         "settingsEnableGlobalNewtAutoUpdate"
     )
         .notNull()
-        .default(false)
+        .default(false),
+    settingsJitModeLimit: integer("settingsJitModeLimit").notNull().default(250)
 });
 
 export const orgDomains = pgTable("orgDomains", {
@@ -180,13 +181,18 @@ export const resources = pgTable(
         applyRules: boolean("applyRules"),
         enabled: boolean("enabled").notNull().default(true),
         stickySession: boolean("stickySession").notNull().default(false),
+        loadBalancingStrategy: varchar("loadBalancingStrategy", { length: 32 })
+            .$type<"wrr" | "p2c" | "hrw" | "leasttime">()
+            .notNull()
+            .default("wrr"), // traefik http loadBalancer.strategy
         tlsServerName: varchar("tlsServerName"),
         setHostHeader: varchar("setHostHeader"),
         enableProxy: boolean("enableProxy").default(true),
         skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {
             onDelete: "set null"
         }),
-        headers: text("headers"), // comma-separated list of headers to add to the request
+        requestHeaders: text("requestHeaders"),
+        responseHeaders: text("responseHeaders"),
         proxyProtocol: boolean("proxyProtocol").notNull().default(false),
         proxyProtocolVersion: integer("proxyProtocolVersion").default(1),
         maintenanceModeEnabled: boolean("maintenanceModeEnabled")
@@ -198,6 +204,7 @@ export const resources = pgTable(
         maintenanceTitle: text("maintenanceTitle"),
         maintenanceMessage: text("maintenanceMessage"),
         maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
+        mtlsEnabled: boolean("mtlsEnabled").notNull().default(false),
         postAuthPath: text("postAuthPath"),
         health: varchar("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: boolean("wildcard").notNull().default(false),
@@ -226,6 +233,41 @@ export const resources = pgTable(
         index("idx_resources_orgid_niceid").on(t.orgId, t.niceId)
     ]
 );
+
+export const redirects = pgTable("redirects", {
+    redirectId: serial("redirectId").primaryKey(),
+    orgId: varchar("orgId")
+        .references(() => orgs.orgId, {
+            onDelete: "cascade"
+        })
+        .notNull(),
+    resourceId: integer("resourceId").references(() => resources.resourceId, {
+        onDelete: "cascade"
+    }),
+    domainId: varchar("domainId").references(() => domains.domainId, {
+        onDelete: "cascade"
+    }),
+    niceId: text("niceId").notNull(),
+    name: varchar("name").notNull(),
+    subdomain: varchar("subdomain"),
+    destinationHost: varchar("destinationHost").notNull(), // scheme://host[:port]
+    pathMatchType: varchar("pathMatchType")
+        .$type<"exact" | "prefix" | "regex">()
+        .notNull()
+        .default("regex"), // exact, prefix, regex
+    matchPath: varchar("matchPath"),
+    rewritePath: varchar("rewritePath"), // if set, rewrites the path to this value,
+    //  else, the original path will be kept
+    rewritePathType: varchar("rewritePathType").$type<
+        "exact" | "prefix" | "regex" | "stripPrefix"
+    >(), // exact, prefix, regex, stripPrefix
+    priority: integer("priority").default(100),
+    permanent: boolean("permanent").notNull().default(false),
+    // Only consulted for domain-attached redirects; resource-attached ones
+    // inherit the resource's ssl setting.
+    ssl: boolean("ssl").notNull().default(true),
+    enabled: boolean("enabled").notNull().default(true)
+});
 
 export const resourceAiProviders = pgTable(
     "resourceAiProviders",
@@ -458,6 +500,7 @@ export const exitNodes = pgTable("exitNodes", {
     endpoint: varchar("endpoint").notNull(),
     publicKey: varchar("publicKey").notNull(),
     listenPort: integer("listenPort").notNull(),
+    relayPort: integer("relayPort").notNull().default(21820),
     reachableAt: varchar("reachableAt"),
     maxConnections: integer("maxConnections"),
     online: boolean("online").notNull().default(false),
@@ -490,8 +533,8 @@ export const siteResources = pgTable(
         name: varchar("name").notNull(),
         ssl: boolean("ssl").notNull().default(false),
         mode: varchar("mode")
-            .$type<"host" | "cidr" | "http" | "ssh" | "inference">()
-            .notNull(), // "host" | "cidr" | "http"
+            .$type<"host" | "cidr" | "http" | "ssh" | "inference" | "gateway">()
+            .notNull(),
         scheme: varchar("scheme").$type<"http" | "https">(), // only for when we are doing https or http mode
         proxyPort: integer("proxyPort"), // only for port mode
         destinationPort: integer("destinationPort"), // only for port mode
@@ -682,6 +725,8 @@ export const newts = pgTable(
         secretHash: varchar("secretHash").notNull(),
         dateCreated: varchar("dateCreated").notNull(),
         version: varchar("version"),
+        agent: varchar("agent"), // either newt or cli
+        agentVersion: varchar("agentVersion"),
         siteId: integer("siteId").references(() => sites.siteId, {
             onDelete: "cascade"
         })
@@ -801,6 +846,27 @@ export const userOrgRoles = pgTable(
             .references(() => roles.roleId, { onDelete: "cascade" })
     },
     (t) => [unique().on(t.userId, t.orgId, t.roleId)]
+);
+
+// roles assigned to machine clients (clients with no userId) so they can be
+// granted access to site resources through roleSiteResources like users are
+export const clientOrgRoles = pgTable(
+    "clientOrgRoles",
+    {
+        clientId: integer("clientId")
+            .notNull()
+            .references(() => clients.clientId, { onDelete: "cascade" }),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        roleId: integer("roleId")
+            .notNull()
+            .references(() => roles.roleId, { onDelete: "cascade" })
+    },
+    (t) => [
+        unique().on(t.clientId, t.orgId, t.roleId),
+        index("idx_clientorgroles_roleid").on(t.roleId)
+    ]
 );
 
 export const roleActions = pgTable(
@@ -1135,6 +1201,7 @@ export const resourceRules = pgTable("resourceRules", {
             | "COUNTRY_IS_NOT"
             | "ASN"
             | "REGION"
+            | "METHOD"
         >()
         .notNull(), // CIDR, PATH, IP
     value: varchar("value").notNull()
@@ -1159,6 +1226,7 @@ export const resourcePolicyRules = pgTable("resourcePolicyRules", {
             | "COUNTRY_IS_NOT"
             | "ASN"
             | "REGION"
+            | "METHOD"
         >()
         .notNull(),
     value: varchar("value").notNull()
@@ -2003,6 +2071,7 @@ export type UserInvite = InferSelectModel<typeof userInvites>;
 export type UserInviteRole = InferSelectModel<typeof userInviteRoles>;
 export type UserOrg = InferSelectModel<typeof userOrgs>;
 export type UserOrgRole = InferSelectModel<typeof userOrgRoles>;
+export type ClientOrgRole = InferSelectModel<typeof clientOrgRoles>;
 export type ResourceSession = InferSelectModel<typeof resourceSessions>;
 export type ResourcePincode = InferSelectModel<typeof resourcePincode>;
 export type ResourcePassword = InferSelectModel<typeof resourcePassword>;
@@ -2065,6 +2134,7 @@ export type ResourcePolicy = InferSelectModel<typeof resourcePolicies>;
 export type RolePolicy = InferSelectModel<typeof rolePolicies>;
 export type UserPolicy = InferSelectModel<typeof userPolicies>;
 export type ResourcePolicyRule = InferSelectModel<typeof resourcePolicyRules>;
+export type Redirect = InferSelectModel<typeof redirects>;
 export type AiProvider = InferSelectModel<typeof aiProviders>;
 export type AiModel = InferSelectModel<typeof aiModels>;
 export type AiBudget = InferSelectModel<typeof aiBudgets>;

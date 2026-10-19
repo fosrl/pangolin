@@ -133,6 +133,8 @@ function querySitesBase() {
             online: sites.online,
             address: sites.address,
             newtVersion: newts.version,
+            agent: newts.agent,
+            agentVersion: newts.agentVersion,
             exitNodeId: sites.exitNodeId,
             exitNodeName: exitNodes.name,
             exitNodeEndpoint: exitNodes.endpoint,

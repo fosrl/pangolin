@@ -37,11 +37,22 @@
 
 <p align="center">
     <strong>
-        Get started with Pangolin at <a href="https://app.pangolin.net/auth/signup">app.pangolin.net</a>
+        Get started with Pangolin Cloud at <a href="https://app.pangolin.net/auth/signup">app.pangolin.net</a>
     </strong>
 </p>
 
-Pangolin is an open-source, identity-based remote access platform built on WireGuard® that enables secure connectivity to infrastructure anywhere. It combines reverse-proxy and VPN capabilities into one platform, providing browser-based access to web applications and client-based access to private resources with NAT traversal, all with granular access control.
+Pangolin is an open-source SASE platform, built on WireGuard®, with a simple mission: connect and protect your users, wherever they are. It brings networking and security together as one system including a zero-trust VPN, zero-trust reverse proxy, privileged access management, and an identity-aware AI gateway, all sharing one identity and policy model. It's the same idea behind platforms like Cloudflare One, Zscaler, and Prisma but open, self-hostable, and built to stay light and easy to deploy.
+
+### Networking and security that's unified, open, and simple
+
+Legacy SASE platforms got the idea right: connectivity and security belong together. But they delivered it as a heavyweight, closed, cloud-locked stack assembled from years of patchwork. Pangolin exists to do that unification differently, in the open, self-hostable, and simple enough that administrators actually enjoy running it.
+
+* **Open source, not a black box**: the code is open and auditable, so you can see exactly how your traffic is handled and how access decisions get made, instead of trusting a closed cloud control plane.
+* **Networking and security as one platform**: sites, reverse proxy, client access, RBAC, and the AI gateway share one identity and policy model, so protecting users and connecting them are executed together.
+* **Lightweight by design**: the whole platform is built to stay small and fast: easy to self-host on a small server, with a lightweight, user-space connector that goes in your private networks.
+* **Enjoyable to use**: a clean, modern interface and a setup flow that gets out of your way, so managing access feels simple instead of like fighting a legacy admin console.
+* **Zero trust from day one**: access is granted per resource, not per network, with identity provider integration, role-based access control, and full audit logging.
+* **Run it your way**: self-host the Community Edition for free, step up to the Enterprise Edition for advanced features, or use Pangolin Cloud if you'd rather not manage infrastructure at all.
 
 ## Installation
 
@@ -53,9 +64,9 @@ Pangolin is an open-source, identity-based remote access platform built on WireG
 
 ## Deployment Options
 
-- **Pangolin Cloud** - Fully managed service - no infrastructure required.
-- **Self-Host: Community Edition** - Free, open source, and licensed under AGPL-3.
-- **Self-Host: Enterprise Edition** - Licensed under Fossorial Commercial License. Free for personal and hobbyist use, and for businesses making less than \$100K USD gross annual revenue.
+- **Pangolin Cloud** - Fully managed service with no infrastructure required.
+- **Self-Host: Community Edition** - Free, open-source, and licensed under AGPL-3.
+- **Self-Host: Enterprise Edition** - Open-core, and licensed under Fossorial Commercial License. Free for personal and hobbyist use, and for businesses making less than \$100K USD gross annual revenue.
 
 ## Key Features
 
@@ -131,6 +142,7 @@ Give users a landing page to quickly find and open the resources they can access
 * Create reusable views for common access patterns
 
 <img src="public/screenshots/resource-launcher.png" alt="Resource Launcher" width="100%" />
+<img src="public/screenshots/resource-launcher-expanded.png" alt="Resource Launcher Details Panel" width="100%" />
 
 ## Download Clients
 

@@ -71,7 +71,7 @@ export async function withRetry<T>(
                 const jitter = Math.random() * baseDelay;
                 const delay = baseDelay + jitter;
                 logger.warn(
-                    `Transient DB error in ${context}, retrying attempt ${attempt}/${maxRetries} after ${delay.toFixed(0)}ms`,
+                    `Transient DB issue in ${context}, retrying attempt ${attempt}/${maxRetries} after ${delay.toFixed(0)}ms`,
                     { code: error?.code ?? error?.cause?.code }
                 );
                 await new Promise((resolve) => setTimeout(resolve, delay));

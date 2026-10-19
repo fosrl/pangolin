@@ -80,7 +80,7 @@ export default function PrivateResourceHttpPage() {
             <SettingsSection>
                 <SettingsSectionHeader>
                     <SettingsSectionTitle>
-                        {t("httpSettings")}
+                        {t("resourceTypeHttp")}
                     </SettingsSectionTitle>
                     <SettingsSectionDescription>
                         {t(

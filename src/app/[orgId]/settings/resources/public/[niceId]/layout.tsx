@@ -88,7 +88,10 @@ export default async function ResourceLayout(props: ResourceLayoutProps) {
                   href: `/{orgId}/settings/resources/public/{niceId}/general`
               },
               {
-                  title: t(`${resource.mode}Settings`),
+                  title:
+                      resource.mode === "http"
+                          ? t("resourceTypeHttp")
+                          : t(`${resource.mode}Settings`),
                   href: `/{orgId}/settings/resources/public/{niceId}/${resource.mode === "inference" ? "ai-gateway" : resource.mode}`
               }
           ];
@@ -109,6 +112,13 @@ export default async function ResourceLayout(props: ResourceLayoutProps) {
             navItems.push({
                 title: t("maintenanceMode"),
                 href: `/{orgId}/settings/resources/public/{niceId}/maintenance`
+            });
+        }
+
+        if (!env.flags.disableEnterpriseFeatures && resource.mode === "http") {
+            navItems.push({
+                title: t("mtls"),
+                href: `/{orgId}/settings/resources/public/{niceId}/mtls`
             });
         }
     }

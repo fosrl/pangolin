@@ -2,6 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+    DescribedSelect,
+    type DescribedSelectOption
+} from "@app/components/DescribedSelect";
 import { HeadersInput } from "@app/components/HeadersInput";
 import {
     SettingsContainer,
@@ -41,9 +45,12 @@ import {
 import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
-import { useActionState, useState } from "react";
+import { useActionState, useState, startTransition } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+
+const LOAD_BALANCING_STRATEGIES = ["wrr", "p2c", "hrw", "leasttime"] as const;
+type LoadBalancingStrategy = (typeof LOAD_BALANCING_STRATEGIES)[number];
 
 export default function ReverseProxyTargetsPage() {
     const params = useParams();
@@ -90,6 +97,7 @@ function ProxyResourceHttpForm({
 
     const httpSettingsSchema = z.object({
         stickySession: z.boolean(),
+        loadBalancingStrategy: z.enum(LOAD_BALANCING_STRATEGIES),
         ssl: z.boolean(),
         tlsServerName: z
             .string()
@@ -119,7 +127,10 @@ function ProxyResourceHttpForm({
                     message: t("proxyErrorInvalidHeader")
                 }
             ),
-        headers: z
+        requestHeaders: z
+            .array(z.object({ name: z.string(), value: z.string() }))
+            .nullable(),
+        responseHeaders: z
             .array(z.object({ name: z.string(), value: z.string() }))
             .nullable()
     });
@@ -128,22 +139,32 @@ function ProxyResourceHttpForm({
         resolver: zodResolver(httpSettingsSchema),
         defaultValues: {
             stickySession: resource.stickySession,
+            loadBalancingStrategy: resource.loadBalancingStrategy,
             ssl: resource.ssl,
             tlsServerName: resource.tlsServerName || "",
             setHostHeader: resource.setHostHeader || "",
-            headers: resource.headers
+            requestHeaders: resource.requestHeaders,
+            responseHeaders: resource.responseHeaders
         },
         mode: "onChange"
     });
 
+    const loadBalancingOptions: DescribedSelectOption<LoadBalancingStrategy>[] =
+        LOAD_BALANCING_STRATEGIES.map((strategy) => ({
+            value: strategy,
+            title: t(`loadBalancingStrategy_${strategy}`),
+            description: t(`loadBalancingStrategy_${strategy}_description`)
+        }));
+
     const [, formAction, saveLoading] = useActionState(onSubmit, null);
-    const [headersValid, setHeadersValid] = useState(true);
+    const [requestHeadersValid, setRequestHeadersValid] = useState(true);
+    const [responseHeadersValid, setResponseHeadersValid] = useState(true);
 
     async function onSubmit() {
         const isValid = await form.trigger();
         if (!isValid) return;
 
-        if (!headersValid) {
+        if (!requestHeadersValid || !responseHeadersValid) {
             toast({
                 variant: "destructive",
                 title: t("settingsErrorUpdate"),
@@ -159,10 +180,12 @@ function ProxyResourceHttpForm({
                 `/resource/${resource.resourceId}`,
                 {
                     stickySession: data.stickySession,
+                    loadBalancingStrategy: data.loadBalancingStrategy,
                     ssl: data.ssl,
                     tlsServerName: data.tlsServerName || null,
                     setHostHeader: data.setHostHeader || null,
-                    headers: data.headers || null
+                    requestHeaders: data.requestHeaders || null,
+                    responseHeaders: data.responseHeaders || null
                 }
             )
             .catch((err) => {
@@ -180,10 +203,12 @@ function ProxyResourceHttpForm({
             updateResource({
                 ...resource,
                 stickySession: data.stickySession,
+                loadBalancingStrategy: data.loadBalancingStrategy,
                 ssl: data.ssl,
                 tlsServerName: data.tlsServerName || null,
                 setHostHeader: data.setHostHeader || null,
-                headers: data.headers || null
+                requestHeaders: data.requestHeaders || null,
+                responseHeaders: data.responseHeaders || null
             });
 
             toast({
@@ -209,7 +234,15 @@ function ProxyResourceHttpForm({
             <SettingsSectionBody>
                 <SettingsSectionForm variant="half">
                     <Form {...form}>
-                        <form action={formAction} id="http-settings-form">
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                startTransition(() => {
+                                    formAction();
+                                });
+                            }}
+                            id="http-settings-form"
+                        >
                             <SettingsFormGrid>
                                 {!env.flags.usePangolinDns && (
                                     <SettingsFormCell span="full">
@@ -244,6 +277,29 @@ function ProxyResourceHttpForm({
                                 <SettingsFormCell span="half">
                                     <FormField
                                         control={form.control}
+                                        name="setHostHeader"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    {t("proxyCustomHeader")}
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    {t(
+                                                        "proxyCustomHeaderDescription"
+                                                    )}
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </SettingsFormCell>
+
+                                <SettingsFormCell span="half">
+                                    <FormField
+                                        control={form.control}
                                         name="tlsServerName"
                                         render={({ field }) => (
                                             <FormItem>
@@ -264,7 +320,7 @@ function ProxyResourceHttpForm({
                                     />
                                 </SettingsFormCell>
 
-                                <SettingsFormCell span="full">
+                                <SettingsFormCell span="half">
                                     <FormField
                                         control={form.control}
                                         name="stickySession"
@@ -293,18 +349,61 @@ function ProxyResourceHttpForm({
                                 <SettingsFormCell span="half">
                                     <FormField
                                         control={form.control}
-                                        name="setHostHeader"
+                                        name="loadBalancingStrategy"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
-                                                    {t("proxyCustomHeader")}
+                                                    {t(
+                                                        "loadBalancingStrategy"
+                                                    )}
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input {...field} />
+                                                    <DescribedSelect<LoadBalancingStrategy>
+                                                        options={
+                                                            loadBalancingOptions
+                                                        }
+                                                        value={field.value}
+                                                        onChange={
+                                                            field.onChange
+                                                        }
+                                                        searchPlaceholder={t(
+                                                            "loadBalancingStrategySearch"
+                                                        )}
+                                                        emptyMessage={t(
+                                                            "loadBalancingStrategyNotFound"
+                                                        )}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </SettingsFormCell>
+
+                                <SettingsFormCell span="full">
+                                    <FormField
+                                        control={form.control}
+                                        name="requestHeaders"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    {t("customRequestHeaders")}
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <HeadersInput
+                                                        value={field.value}
+                                                        onChange={
+                                                            field.onChange
+                                                        }
+                                                        onValidityChange={
+                                                            setRequestHeadersValid
+                                                        }
+                                                        rows={4}
+                                                    />
                                                 </FormControl>
                                                 <FormDescription>
                                                     {t(
-                                                        "proxyCustomHeaderDescription"
+                                                        "customRequestHeadersDescription"
                                                     )}
                                                 </FormDescription>
                                                 <FormMessage />
@@ -316,11 +415,11 @@ function ProxyResourceHttpForm({
                                 <SettingsFormCell span="full">
                                     <FormField
                                         control={form.control}
-                                        name="headers"
+                                        name="responseHeaders"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
-                                                    {t("customHeaders")}
+                                                    {t("customResponseHeaders")}
                                                 </FormLabel>
                                                 <FormControl>
                                                     <HeadersInput
@@ -329,14 +428,14 @@ function ProxyResourceHttpForm({
                                                             field.onChange
                                                         }
                                                         onValidityChange={
-                                                            setHeadersValid
+                                                            setResponseHeadersValid
                                                         }
                                                         rows={4}
                                                     />
                                                 </FormControl>
                                                 <FormDescription>
                                                     {t(
-                                                        "customHeadersDescription"
+                                                        "customResponseHeadersDescription"
                                                     )}
                                                 </FormDescription>
                                                 <FormMessage />
@@ -354,7 +453,11 @@ function ProxyResourceHttpForm({
                 <Button
                     type="submit"
                     loading={saveLoading}
-                    disabled={saveLoading || !headersValid}
+                    disabled={
+                        saveLoading ||
+                        !requestHeadersValid ||
+                        !responseHeadersValid
+                    }
                     form="http-settings-form"
                 >
                     {t("saveSettings")}

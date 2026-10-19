@@ -71,7 +71,8 @@ function PrivateResourceMeta({ row }: { row: SiteResourceRow }) {
         cidr: t("editInternalResourceDialogModeCidr"),
         http: t("editInternalResourceDialogModeHttp"),
         ssh: t("editInternalResourceDialogModeSsh"),
-        inference: t("editInternalResourceDialogModeInference")
+        inference: t("editInternalResourceDialogModeInference"),
+        gateway: t("editInternalResourceDialogModeGateway")
     };
     const dest = formatSiteResourceDestinationDisplay({
         mode: row.mode,

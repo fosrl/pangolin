@@ -41,7 +41,13 @@ import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import { toASCII, toUnicode } from "punycode";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import {
+    useActionState,
+    useEffect,
+    useMemo,
+    useState,
+    startTransition
+} from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
@@ -132,6 +138,22 @@ export default function GeneralForm() {
                     ? "Port number is required for non-HTTP resources"
                     : "Port number should not be set for HTTP resources",
                 path: ["proxyPort"]
+            }
+        )
+        .refine(
+            (data) => {
+                if (
+                    ["http", "ssh", "rdp", "vnc", "inference"].includes(
+                        resource.mode
+                    )
+                ) {
+                    return !!data.domainId;
+                }
+                return true;
+            },
+            {
+                message: t("domainRequired"),
+                path: ["domainId"]
             }
         );
 
@@ -282,7 +304,12 @@ export default function GeneralForm() {
                         <SettingsSectionForm variant="half">
                             <Form {...form}>
                                 <form
-                                    action={formAction}
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        startTransition(() => {
+                                            formAction();
+                                        });
+                                    }}
                                     id="general-settings-form"
                                 >
                                     <SettingsFormGrid>
@@ -423,63 +450,87 @@ export default function GeneralForm() {
                                             resource.mode
                                         ) && (
                                             <SettingsFormCell span="full">
-                                                <div id="resource-domain-picker">
-                                                    <DomainPicker
-                                                        allowWildcard={
-                                                            resource.mode !==
-                                                            "inference"
-                                                        }
-                                                        key={
-                                                            resource.resourceId
-                                                        }
-                                                        orgId={orgId as string}
-                                                        cols={2}
-                                                        defaultSubdomain={
-                                                            form.watch(
-                                                                "subdomain"
-                                                            ) ?? undefined
-                                                        }
-                                                        defaultDomainId={
-                                                            form.watch(
-                                                                "domainId"
-                                                            ) ?? undefined
-                                                        }
-                                                        defaultFullDomain={
-                                                            resourceFullDomainName ||
-                                                            undefined
-                                                        }
-                                                        onDomainChange={(
-                                                            res
-                                                        ) => {
-                                                            if (res === null) {
-                                                                form.setValue(
-                                                                    "domainId",
-                                                                    undefined
-                                                                );
-                                                                form.setValue(
-                                                                    "subdomain",
-                                                                    undefined
-                                                                );
-                                                                setResourceFullDomain(
-                                                                    `${resource.ssl ? "https" : "http"}://`
-                                                                );
-                                                                return;
-                                                            }
-                                                            form.setValue(
-                                                                "domainId",
-                                                                res.domainId
-                                                            );
-                                                            form.setValue(
-                                                                "subdomain",
-                                                                res.subdomain ??
-                                                                    undefined
-                                                            );
-                                                            setResourceFullDomain(
-                                                                `${resource.ssl ? "https" : "http"}://${toUnicode(res.fullDomain)}`
-                                                            );
-                                                        }}
-                                                    />
-                                                </div>
+                                                <FormField
+                                                    control={form.control}
+                                                    name="domainId"
+                                                    render={() => (
+                                                        <FormItem>
+                                                            <div id="resource-domain-picker">
+                                                                <DomainPicker
+                                                                    allowWildcard={
+                                                                        resource.mode !==
+                                                                        "inference"
+                                                                    }
+                                                                    key={
+                                                                        resource.resourceId
+                                                                    }
+                                                                    orgId={
+                                                                        orgId as string
+                                                                    }
+                                                                    cols={2}
+                                                                    defaultSubdomain={
+                                                                        form.watch(
+                                                                            "subdomain"
+                                                                        ) ??
+                                                                        undefined
+                                                                    }
+                                                                    defaultDomainId={
+                                                                        form.watch(
+                                                                            "domainId"
+                                                                        ) ??
+                                                                        undefined
+                                                                    }
+                                                                    defaultFullDomain={
+                                                                        resourceFullDomainName ||
+                                                                        undefined
+                                                                    }
+                                                                    onDomainChange={(
+                                                                        res
+                                                                    ) => {
+                                                                        if (
+                                                                            res ===
+                                                                            null
+                                                                        ) {
+                                                                            form.setValue(
+                                                                                "domainId",
+                                                                                undefined,
+                                                                                {
+                                                                                    shouldValidate:
+                                                                                        true
+                                                                                }
+                                                                            );
+                                                                            form.setValue(
+                                                                                "subdomain",
+                                                                                undefined
+                                                                            );
+                                                                            setResourceFullDomain(
+                                                                                `${resource.ssl ? "https" : "http"}://`
+                                                                            );
+                                                                            return;
+                                                                        }
+                                                                        form.setValue(
+                                                                            "domainId",
+                                                                            res.domainId,
+                                                                            {
+                                                                                shouldValidate:
+                                                                                    true
+                                                                            }
+                                                                        );
+                                                                        form.setValue(
+                                                                            "subdomain",
+                                                                            res.subdomain ??
+                                                                                undefined
+                                                                        );
+                                                                        setResourceFullDomain(
+                                                                            `${resource.ssl ? "https" : "http"}://${toUnicode(res.fullDomain)}`
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
                                             </SettingsFormCell>
                                         )}
                                         {!["tcp", "udp", "inference"].includes(

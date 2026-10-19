@@ -11,10 +11,10 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { db, HostMeta, sites, users } from "@server/db";
+import { db, HostMeta, primaryDb, sites, users } from "@server/db";
 import { hostMeta, licenseKey } from "@server/db";
 import logger from "@server/logger";
-import NodeCache from "node-cache";
+import { createLocalCache } from "@server/lib/createLocalCache";
 import { validateJWT } from "./licenseJwt";
 import { count, eq } from "drizzle-orm";
 import moment from "moment";
@@ -26,6 +26,7 @@ import {
     LicenseStatus
 } from "@server/license/license";
 import { setHostMeta } from "@server/lib/hostMeta";
+import { build } from "@server/build";
 
 type ActivateLicenseKeyAPIResponse = {
     data: {
@@ -49,6 +50,27 @@ type ValidateLicenseAPIResponse = {
     status: number;
 };
 
+// Ranks license tiers so that when multiple license keys are active, the
+// highest tier among them wins. Order: personal < tier1 < tier2 < ... <
+// tier[n] < enterprise. Tier numbers are parsed so this scales to any
+// tier[n] without needing updates here.
+function tierRank(tier?: LicenseKeyTier): number {
+    if (!tier) {
+        return -1;
+    }
+    if (tier === "enterprise") {
+        return Number.MAX_SAFE_INTEGER;
+    }
+    if (tier === "personal") {
+        return 0;
+    }
+    const match = /^tier(\d+)$/.exec(tier);
+    if (match) {
+        return parseInt(match[1], 10);
+    }
+    return 0;
+}
+
 type TokenPayload = {
     valid: boolean;
     type: LicenseKeyType;
@@ -65,10 +87,14 @@ export class License {
     private validationServerUrl = `${this.serverBaseUrl}/api/v1/license/enterprise/validate`;
     private activationServerUrl = `${this.serverBaseUrl}/api/v1/license/enterprise/activate`;
 
-    private statusCache = new NodeCache();
-    private licenseKeyCache = new NodeCache();
+    private statusCache = createLocalCache();
+    private licenseKeyCache = createLocalCache();
 
     private statusKey = "status";
+    // Fingerprint of the license key rows the cached status was computed
+    // from. The caches are per-process, so when another node activates or
+    // deletes a key this no longer matches the DB and forces a recheck.
+    private keysFingerprint: string | undefined;
     private serverSecret!: string;
     private phoneHomeFailureCount = 0;
     private checkInProgress = false;
@@ -119,11 +145,28 @@ LQIDAQAB
     }
 
     public async isUnlocked(): Promise<boolean> {
+        if (build == "saas") {
+            return true;
+        }
         const status = await this.check();
         if (status.isHostLicensed) {
             if (status.isLicenseValid) {
                 return true;
             }
+        }
+        return false;
+    }
+
+    public async hasTier(tier: LicenseKeyTier[]): Promise<boolean> {
+        if (build == "saas") {
+            return true;
+        }
+        const status = await this.check();
+        if (status.isHostLicensed && status.isLicenseValid) {
+            return (
+                status.tier !== undefined &&
+                tier.includes(status.tier as LicenseKeyTier)
+            );
         }
         return false;
     }
@@ -135,8 +178,7 @@ LQIDAQAB
                 "License check already in progress, returning last known status"
             );
             const lastStatus = this.statusCache.get(this.statusKey) as
-                | LicenseStatus
-                | undefined;
+                LicenseStatus | undefined;
             if (lastStatus) {
                 return lastStatus;
             }
@@ -151,6 +193,9 @@ LQIDAQAB
         // Count used sites and users for license comparison
         const [siteCountRes] = await db.select({ value: count() }).from(sites);
         const [userCountRes] = await db.select({ value: count() }).from(users);
+        const keyIdsRes = await db
+            .select({ licenseKeyId: licenseKey.licenseKeyId })
+            .from(licenseKey);
 
         const status: LicenseStatus = {
             hostId: this.hostMeta.hostMetaId,
@@ -163,7 +208,11 @@ LQIDAQAB
         this.checkInProgress = true;
 
         try {
-            if (!this.doRecheck && this.statusCache.has(this.statusKey)) {
+            if (
+                !this.doRecheck &&
+                this.statusCache.has(this.statusKey) &&
+                this.keysFingerprint === this.fingerprintKeys(keyIdsRes)
+            ) {
                 const res = this.statusCache.get("status") as LicenseStatus;
                 res.usedSites = status.usedSites;
                 res.usedUsers = status.usedUsers;
@@ -173,13 +222,17 @@ LQIDAQAB
             // Build new cache in temporary Map before invalidating old cache
             const newCache = new Map<string, LicenseKeyCache>();
 
-            const allKeysRes = await db.select().from(licenseKey);
+            // Read from the primary so a key just written by this or another
+            // node is not missed due to replica lag
+            const allKeysRes = await primaryDb.select().from(licenseKey);
+            const keysFingerprint = this.fingerprintKeys(allKeysRes);
 
             if (allKeysRes.length === 0) {
                 status.isHostLicensed = false;
                 // Invalidate all and set new cache (empty)
                 this.licenseKeyCache.flushAll();
-                this.statusCache.set(this.statusKey, status);
+                this.statusCache.set(this.statusKey, status, 0);
+                this.keysFingerprint = keysFingerprint;
                 return status;
             }
 
@@ -259,6 +312,11 @@ LQIDAQAB
                     if (!apiResponse?.success) {
                         throw new Error(apiResponse?.error);
                     }
+
+                    logger.debug(
+                        `License server response: ${JSON.stringify(apiResponse)}`
+                    );
+
                     // Reset failure count on success
                     this.phoneHomeFailureCount = 0;
                 } catch (e) {
@@ -321,6 +379,11 @@ LQIDAQAB
                         licenseKeyRes,
                         this.publicKey
                     );
+
+                    logger.debug(
+                        `Decoded license key ${key.licenseKey}: ${JSON.stringify(payload)}`
+                    );
+
                     cached.valid = payload.valid;
                     cached.type = payload.type;
                     cached.tier = payload.tier;
@@ -353,13 +416,52 @@ LQIDAQAB
                 }
             }
 
+            // Personal-tier licenses cannot coexist with a paid tier: if any
+            // valid host key is above personal, personal-tier keys are
+            // invalidated so they don't contribute to the totals below.
+            const hasHigherTierValidKey = keys.some((key) => {
+                const cached = newCache.get(key.licenseKey)!;
+                return (
+                    cached.type === "host" &&
+                    cached.valid &&
+                    tierRank(cached.tier) > tierRank("personal")
+                );
+            });
+
+            if (hasHigherTierValidKey) {
+                for (const key of keys) {
+                    const cached = newCache.get(key.licenseKey)!;
+                    if (
+                        cached.type === "host" &&
+                        cached.valid &&
+                        cached.tier === "personal"
+                    ) {
+                        logger.debug(
+                            `Invalidating personal license key ${key.licenseKey} because a higher tier license is present`
+                        );
+                        cached.valid = false;
+                        newCache.set(key.licenseKey, cached);
+                    }
+                }
+            }
+
             // Compute host status: quantity = users, quantity_2 = sites
+            // When multiple host keys are active, prefer a valid key over an
+            // invalid one, and among equally-valid keys prefer the highest tier.
+            let selectedHostKey: LicenseKeyCache | undefined;
             for (const key of keys) {
                 const cached = newCache.get(key.licenseKey)!;
 
                 if (cached.type === "host") {
-                    status.isLicenseValid = cached.valid;
-                    status.tier = cached.tier;
+                    if (
+                        !selectedHostKey ||
+                        (cached.valid && !selectedHostKey.valid) ||
+                        (cached.valid === selectedHostKey.valid &&
+                            tierRank(cached.tier) >
+                                tierRank(selectedHostKey.tier))
+                    ) {
+                        selectedHostKey = cached;
+                    }
                 }
 
                 if (!cached.valid) {
@@ -376,6 +478,11 @@ LQIDAQAB
                 }
             }
 
+            if (selectedHostKey) {
+                status.isLicenseValid = selectedHostKey.valid;
+                status.tier = selectedHostKey.tier;
+            }
+
             // Invalidate license if over user or site limits
             if (
                 (status.maxSites !== undefined &&
@@ -389,8 +496,9 @@ LQIDAQAB
             // Invalidate old cache and set new cache
             this.licenseKeyCache.flushAll();
             for (const [key, value] of newCache.entries()) {
-                this.licenseKeyCache.set<LicenseKeyCache>(key, value);
+                this.licenseKeyCache.set(key, value, 0);
             }
+            this.keysFingerprint = keysFingerprint;
         } catch (error) {
             logger.error("Error checking license status:");
             logger.error(error);
@@ -398,8 +506,17 @@ LQIDAQAB
             this.checkInProgress = false;
         }
 
-        this.statusCache.set(this.statusKey, status);
+        logger.debug(`Computed license status: ${JSON.stringify(status)}`);
+
+        this.statusCache.set(this.statusKey, status, 0);
         return status;
+    }
+
+    private fingerprintKeys(rows: { licenseKeyId: string }[]): string {
+        return rows
+            .map((row) => row.licenseKeyId)
+            .sort()
+            .join("|");
     }
 
     public async activateLicenseKey(key: string) {

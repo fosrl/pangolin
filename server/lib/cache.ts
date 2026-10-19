@@ -1,13 +1,7 @@
-import NodeCache from "node-cache";
 import logger from "@server/logger";
+import { createLocalCache } from "@server/lib/createLocalCache";
 
-// Create local cache with maxKeys limit to prevent memory leaks
-// With ~10k requests/day and 5min TTL, 10k keys should be more than sufficient
-export const localCache = new NodeCache({
-    stdTTL: 3600,
-    checkperiod: 120,
-    maxKeys: 10000
-});
+export const localCache = createLocalCache();
 
 // Log cache statistics periodically for monitoring
 // setInterval(() => {

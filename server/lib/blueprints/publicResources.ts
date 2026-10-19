@@ -10,6 +10,7 @@ import {
     Resource,
     resourceHeaderAuth,
     resourceHeaderAuthExtendedCompatibility,
+    resourceMtlsCertificates,
     resourcePassword,
     resourcePincode,
     resourcePolicies,
@@ -48,7 +49,13 @@ import { defaultRoleAllowedActions } from "@server/routers/role/createRole";
 import { pickPort } from "@server/routers/target/helpers";
 import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
 import { tierMatrix } from "../billing/tierMatrix";
-import { isValidCIDR, isValidIP, isValidUrlGlobPattern } from "../validators";
+import {
+    isValidCIDR,
+    isValidHttpMethodList,
+    isValidIP,
+    isValidUrlGlobPattern,
+    parseHttpMethodList
+} from "../validators";
 import { Config, isTargetsOnlyResource, TargetData } from "./types";
 import { getOrCreateLabelIds, syncResourceLabels } from "./labels";
 import { findOrgUsersByIdentifier } from "./findOrgUser";
@@ -56,6 +63,10 @@ import { LimitId } from "../billing";
 import { usageService } from "../billing/usageService";
 import { syncInferenceAiConfig } from "./aiProviders";
 import { syncAiBudgets } from "./aiBudgets";
+import {
+    MAX_MTLS_CERTIFICATES_PER_RESOURCE,
+    parseCaCertificates
+} from "../mtlsCertificate";
 
 export type PublicResourcesResults = {
     proxyResource: Resource;
@@ -255,9 +266,31 @@ export async function updatePublicResources(
             resourceData.ssl == undefined || resourceData.ssl == null
                 ? true
                 : resourceData.ssl;
-        let headers = "";
-        if (resourceData.headers) {
-            headers = JSON.stringify(resourceData.headers);
+        // `headers` is a deprecated alias for `requestHeaders`
+        const mergedRequestHeaders = [
+            ...(resourceData.headers ?? []),
+            ...(resourceData.requestHeaders ?? [])
+        ];
+        const requestHeaders =
+            mergedRequestHeaders.length > 0
+                ? JSON.stringify(mergedRequestHeaders)
+                : null;
+        const responseHeaders = resourceData.responseHeaders?.length
+            ? JSON.stringify(resourceData.responseHeaders)
+            : null;
+
+        // mTLS is a security control: refuse (rather than silently drop) a
+        // blueprint that asks for it on a plan that doesn't include it.
+        if (resourceData.mtls?.enabled) {
+            const mtlsLicensed = await isLicensedOrSubscribed(
+                orgId,
+                tierMatrix.mtls
+            );
+            if (!mtlsLicensed) {
+                throw new Error(
+                    "mTLS is not supported on your current plan. Please upgrade to access this feature."
+                );
+            }
         }
 
         if (resourceData.policy) {
@@ -391,13 +424,17 @@ export async function updatePublicResources(
                             setHostHeader: resourceData["host-header"] || null,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
+                            loadBalancingStrategy:
+                                resourceData["load-balancing-strategy"] ??
+                                "wrr",
                             emailWhitelistEnabled: resourceData.auth?.[
                                 "whitelist-users"
                             ]
                                 ? resourceData.auth["whitelist-users"].length >
                                   0
                                 : false,
-                            headers: headers || null,
+                            requestHeaders,
+                            responseHeaders,
                             applyRules:
                                 resourceData.rules &&
                                 resourceData.rules.length > 0,
@@ -416,6 +453,7 @@ export async function updatePublicResources(
                                 resourceData.maintenance?.message,
                             maintenanceEstimatedTime:
                                 resourceData.maintenance?.["estimated-time"],
+                            mtlsEnabled: resourceData.mtls?.enabled,
                             proxyProtocol:
                                 resourceData.mode === "tcp"
                                     ? (resourceData["proxy-protocol"] ?? false)
@@ -593,7 +631,11 @@ export async function updatePublicResources(
                             setHostHeader: resourceData["host-header"] || null,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
-                            headers: headers || null,
+                            loadBalancingStrategy:
+                                resourceData["load-balancing-strategy"] ??
+                                "wrr",
+                            requestHeaders,
+                            responseHeaders,
                             maintenanceModeEnabled:
                                 resourceData.maintenance?.enabled,
                             maintenanceModeType: resourceData.maintenance?.type,
@@ -602,6 +644,7 @@ export async function updatePublicResources(
                                 resourceData.maintenance?.message,
                             maintenanceEstimatedTime:
                                 resourceData.maintenance?.["estimated-time"],
+                            mtlsEnabled: resourceData.mtls?.enabled,
                             proxyProtocol:
                                 resourceData.mode === "tcp"
                                     ? (resourceData["proxy-protocol"] ?? false)
@@ -706,6 +749,14 @@ export async function updatePublicResources(
                     resourceId: existingResource.resourceId,
                     budgets: resourceData["ai-budget"] || []
                 });
+
+                if (resourceData.mtls?.["ca-certificates"]) {
+                    await syncResourceMtlsCertificates(
+                        existingResource.resourceId,
+                        resourceData.mtls["ca-certificates"],
+                        trx
+                    );
+                }
             }
 
             const existingResourceTargets = await trx
@@ -1215,8 +1266,11 @@ export async function updatePublicResources(
                     enabled: resourceEnabled,
                     setHostHeader: resourceData["host-header"] || null,
                     tlsServerName: resourceData["tls-server-name"] || null,
+                    loadBalancingStrategy:
+                        resourceData["load-balancing-strategy"] ?? "wrr",
                     ssl: resourceSsl,
-                    headers: headers || null,
+                    requestHeaders,
+                    responseHeaders,
                     applyRules:
                         resourceData.rules && resourceData.rules.length > 0,
                     pamMode: resourceData["auth-daemon"]?.pam || "passthrough",
@@ -1229,6 +1283,7 @@ export async function updatePublicResources(
                     maintenanceMessage: resourceData.maintenance?.message,
                     maintenanceEstimatedTime:
                         resourceData.maintenance?.["estimated-time"],
+                    mtlsEnabled: resourceData.mtls?.enabled,
                     proxyProtocol:
                         resourceData.mode === "tcp"
                             ? (resourceData["proxy-protocol"] ?? false)
@@ -1282,6 +1337,14 @@ export async function updatePublicResources(
                 resourceId: newResource.resourceId,
                 budgets: resourceData["ai-budget"] || []
             });
+
+            if (resourceData.mtls?.["ca-certificates"]) {
+                await syncResourceMtlsCertificates(
+                    newResource.resourceId,
+                    resourceData.mtls["ca-certificates"],
+                    trx
+                );
+            }
 
             await trx.insert(roleResources).values({
                 roleId: adminRole.roleId,
@@ -1453,6 +1516,10 @@ function getRuleValue(match: string, value: string) {
     if (match === "COUNTRY" || match === "COUNTRY_IS_NOT") {
         return value.toUpperCase();
     }
+    // normalize the method list so it is stored as "POST,PUT"
+    if (match === "METHOD") {
+        return parseHttpMethodList(value).join(",");
+    }
     return value;
 }
 
@@ -1472,6 +1539,10 @@ function validateRule(rule: any) {
     } else if (rule.match === "region") {
         if (!isValidRegionId(rule.value)) {
             throw new Error(`Invalid region ID provided: ${rule.value}`);
+        }
+    } else if (rule.match === "method") {
+        if (!isValidHttpMethodList(rule.value)) {
+            throw new Error(`Invalid HTTP method provided: ${rule.value}`);
         }
     }
 }
@@ -1612,6 +1683,63 @@ async function syncUserResources(
                     and(
                         eq(userResources.userId, existingUserResource.userId),
                         eq(userResources.resourceId, resourceId)
+                    )
+                );
+        }
+    }
+}
+
+async function syncResourceMtlsCertificates(
+    resourceId: number,
+    caCertificates: string[],
+    trx: Transaction
+) {
+    // A PEM entry may itself be a bundle; flatten and dedupe by fingerprint.
+    const desired = new Map<string, ReturnType<typeof parseCaCertificates>[0]>();
+    for (const pem of caCertificates) {
+        for (const cert of parseCaCertificates(pem)) {
+            desired.set(cert.fingerprint, cert);
+        }
+    }
+
+    if (desired.size > MAX_MTLS_CERTIFICATES_PER_RESOURCE) {
+        throw new Error(
+            `A resource can have at most ${MAX_MTLS_CERTIFICATES_PER_RESOURCE} trusted CA certificates`
+        );
+    }
+
+    const existing = await trx
+        .select()
+        .from(resourceMtlsCertificates)
+        .where(eq(resourceMtlsCertificates.resourceId, resourceId));
+
+    const existingFingerprints = new Set(existing.map((c) => c.fingerprint));
+
+    for (const cert of desired.values()) {
+        if (existingFingerprints.has(cert.fingerprint)) {
+            continue;
+        }
+        await trx.insert(resourceMtlsCertificates).values({
+            resourceId,
+            certificate: cert.certificate,
+            subject: cert.subject,
+            issuer: cert.issuer,
+            serialNumber: cert.serialNumber,
+            fingerprint: cert.fingerprint,
+            notBefore: cert.notBefore,
+            notAfter: cert.notAfter,
+            createdAt: Date.now()
+        });
+    }
+
+    for (const row of existing) {
+        if (!row.fingerprint || !desired.has(row.fingerprint)) {
+            await trx
+                .delete(resourceMtlsCertificates)
+                .where(
+                    eq(
+                        resourceMtlsCertificates.mtlsCertificateId,
+                        row.mtlsCertificateId
                     )
                 );
         }

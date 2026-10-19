@@ -211,7 +211,15 @@ export default function AlertRuleGraphEditor({
 
     return (
         <Form {...form}>
-            <form id={FORM_ID} action={formAction}>
+            <form
+                id={FORM_ID}
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    startTransition(() => {
+                        formAction();
+                    });
+                }}
+            >
                 <SettingsContainer>
                     <PaidFeaturesAlert tiers={tierMatrix.alertingRules} />
                     <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">

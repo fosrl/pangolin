@@ -76,8 +76,45 @@ export const RESOURCE_RULE_MATCH_TYPES = [
     "COUNTRY",
     "COUNTRY_IS_NOT",
     "ASN",
-    "REGION"
+    "REGION",
+    "METHOD"
 ] as const;
+
+// The methods offered in the UI: the eight from RFC 9110 plus PATCH (RFC 5789)
+// and QUERY (RFC 10008). A METHOD rule is not limited to these, since
+// isValidHttpMethodList accepts any method token, so blueprints and the API can
+// also target extension methods such as the WebDAV verbs.
+export const HTTP_METHODS = [
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+    "TRACE",
+    "CONNECT",
+    "QUERY"
+] as const;
+
+// RFC 9110 token, minus the characters that would collide with the
+// comma-separated list encoding.
+const HTTP_METHOD_REGEX = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+
+export function parseHttpMethodList(value: string): string[] {
+    return value
+        .split(",")
+        .map((method) => method.trim().toUpperCase())
+        .filter((method) => method.length > 0);
+}
+
+export function isValidHttpMethodList(value: string): boolean {
+    const methods = parseHttpMethodList(value);
+    return (
+        methods.length > 0 &&
+        methods.every((method) => HTTP_METHOD_REGEX.test(method))
+    );
+}
 
 export type ResourceRuleMatchType = (typeof RESOURCE_RULE_MATCH_TYPES)[number];
 
@@ -101,6 +138,10 @@ export function getResourceRuleValueValidationError(
             return COUNTRIES.some((country) => country.code === value)
                 ? null
                 : "Invalid country code provided";
+        case "METHOD":
+            return isValidHttpMethodList(value)
+                ? null
+                : "Invalid HTTP method provided";
         case "ASN":
             const normalizedValue = value.trim().toUpperCase();
             return /^AS\d+$/.test(normalizedValue) ||

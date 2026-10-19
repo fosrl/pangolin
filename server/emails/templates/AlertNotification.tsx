@@ -235,7 +235,7 @@ export const AlertNotification = (props: AlertNotificationProps) => {
                   }
               ]
             : []),
-        { label: "Time", value: new Date().toUTCString() },
+        { label: "Time (UTC)", value: new Date().toUTCString() },
         ...dataItems
     ];
 
@@ -265,8 +265,8 @@ export const AlertNotification = (props: AlertNotificationProps) => {
                         </EmailText>
                         {isTestAlert && (
                             <EmailText>
-                                This is a test alert. No action is required,
-                                and no real event has occurred.
+                                This is a test alert. No action is required, and
+                                no real event has occurred.
                             </EmailText>
                         )}
 

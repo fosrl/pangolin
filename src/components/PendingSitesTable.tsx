@@ -319,13 +319,16 @@ export default function PendingSitesTable({
                 const originalRow = row.original;
 
                 if (originalRow.type === "newt") {
+                    const isCli = originalRow.agent === "cli";
                     return (
                         <div className="flex items-center space-x-1">
                             <Badge variant="secondary">
                                 <div className="flex items-center space-x-1">
-                                    <span>Newt</span>
-                                    {originalRow.newtVersion && (
-                                        <span>v{originalRow.newtVersion}</span>
+                                    <span>{isCli ? "CLI" : "Newt"}</span>
+                                    {originalRow.agentVersion && (
+                                        <span>
+                                            v{originalRow.agentVersion}
+                                        </span>
                                     )}
                                 </div>
                             </Badge>
@@ -402,7 +405,8 @@ export default function PendingSitesTable({
                         "saturn",
                         "uranus",
                         "neptune",
-                        "pluto"
+                        "pluto",
+                        "erid"
                     ].includes(originalRow.exitNodeName.toLowerCase());
 
                 if (isCloudNode) {

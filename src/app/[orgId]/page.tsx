@@ -83,6 +83,7 @@ export default async function OrgPage(props: OrgPageProps) {
                 showSidebar={false}
                 launcherMode
                 showViewAsAdmin={isAdminOrOwner}
+                env={env}
             >
                 {overview && launcherData ? (
                     <ResourceLauncher

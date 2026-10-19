@@ -51,6 +51,7 @@ export function LauncherResourceRow({
                 accessDisplay={resource.accessDisplay}
                 accessCopyValue={resource.accessCopyValue}
                 accessUrl={resource.accessUrl}
+                mode={resource.mode}
                 variant="list"
             />
 

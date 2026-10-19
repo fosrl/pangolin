@@ -49,6 +49,14 @@ function getActionsCategories(root: boolean) {
             [t("actionRestartOrgDomain")]: "restartOrgDomain"
         },
 
+        Redirect: {
+            [t("actionCreateRedirect")]: "createRedirect",
+            [t("actionDeleteRedirect")]: "deleteRedirect",
+            [t("actionGetRedirect")]: "getRedirect",
+            [t("actionListRedirects")]: "listRedirects",
+            [t("actionUpdateRedirect")]: "updateRedirect"
+        },
+
         Site: {
             [t("actionCreateSite")]: "createSite",
             [t("actionDeleteSite")]: "deleteSite",
@@ -101,7 +109,10 @@ function getActionsCategories(root: boolean) {
             [t("actionUpdateRole")]: "updateRole",
             [t("actionListAllowedRoleResources")]: "listRoleResources",
             [t("actionAddUserRole")]: "addUserRole",
-            [t("actionRemoveUserRole")]: "removeUserRole"
+            [t("actionRemoveUserRole")]: "removeUserRole",
+            [t("actionAddClientRole")]: "addClientRole",
+            [t("actionRemoveClientRole")]: "removeClientRole",
+            [t("actionSetClientRoles")]: "setClientRoles"
         },
         "Access Token": {
             [t("actionGenerateAccessToken")]: "generateAccessToken",

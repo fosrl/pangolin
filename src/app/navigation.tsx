@@ -6,10 +6,10 @@ import {
     Bot,
     Boxes,
     Building2,
+    Building2Icon,
     Cable,
     ChartLine,
     Coins,
-    Combine,
     CreditCard,
     Fingerprint,
     Globe,
@@ -20,11 +20,11 @@ import {
     LayoutGrid,
     Link as LinkIcon,
     Logs,
-    MessageSquare,
     MessagesSquare,
     MonitorUp,
     Plug,
     ReceiptText,
+    Repeat,
     ScanEye,
     Server,
     Settings,
@@ -53,17 +53,21 @@ export type OrgNavSectionsOptions = {
 };
 
 // Merged from 'user-management-and-resources' branch
-export const orgLangingNavItems: SidebarNavItem[] = [
+export const orgLangingNavItems = (env?: Env): SidebarNavItem[] => [
     {
         title: "sidebarAccount",
         href: "/{orgId}",
         icon: <LayoutGrid className="size-4 flex-none" />
     },
-    {
-        title: "sidebarMyApiKeys",
-        href: "/{orgId}/keys",
-        icon: <KeyRound className="size-4 flex-none" />
-    }
+    ...(!env?.flags.disableVirtualApiKeysUi
+        ? [
+              {
+                  title: "sidebarMyApiKeys",
+                  href: "/{orgId}/keys",
+                  icon: <KeyRound className="size-4 flex-none" />
+              }
+          ]
+        : [])
 ];
 
 export const orgNavSections = (
@@ -136,7 +140,12 @@ export const orgNavSections = (
                 href: "/{orgId}/settings/domains",
                 icon: <Globe className="size-4 flex-none" />
             },
-            ...(build === "saas"
+            {
+                title: "sidebarRedirects",
+                href: "/{orgId}/settings/redirects",
+                icon: <Repeat className="size-4 flex-none" />
+            },
+            ...(env?.flags.usePangolinDns
                 ? [
                       {
                           title: "sidebarRemoteExitNodes",
@@ -373,6 +382,11 @@ export const adminNavSections = (env?: Env): SidebarNavSection[] => [
                 icon: <Users className="size-4 flex-none" />
             },
             {
+                title: "sidebarOrgs",
+                href: "/admin/organizations",
+                icon: <Building2Icon className="size-4 flex-none" />
+            },
+            {
                 title: "sidebarApiKeys",
                 href: "/admin/api-keys",
                 icon: <KeyRound className="size-4 flex-none" />
@@ -388,7 +402,7 @@ export const adminNavSections = (env?: Env): SidebarNavSection[] => [
                       }
                   ]
                 : []),
-            ...(build == "enterprise"
+            ...(build === "enterprise"
                 ? [
                       {
                           title: "sidebarLicense",
@@ -457,7 +471,12 @@ export const commandBarNavSections = (
                 title: "commandMachineClients",
                 icon: <Server className="size-4 flex-none" />
             },
-            ...(build === "saas"
+            {
+                title: "sidebarRedirects",
+                href: "/{orgId}/settings/redirects",
+                icon: <Repeat className="size-4 flex-none" />
+            },
+            ...(env?.flags.usePangolinDns
                 ? [
                       {
                           title: "commandRemoteExitNodes",

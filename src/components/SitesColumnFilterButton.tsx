@@ -3,7 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { cn } from "@app/lib/cn";
 import { dataTableFilterPopoverContentClassName } from "@app/lib/dataTableFilterPopover";
 import { CheckIcon, Funnel } from "lucide-react";
-import { SiteOnlineStatus, type Selectedsite } from "./site-selector";
+import { SiteOnlineStatus, type SelectedSite } from "./site-selector";
 import { Button } from "./ui/button";
 import { useTranslations } from "next-intl";
 import { Badge } from "./ui/badge";
@@ -62,7 +62,7 @@ export function SitesColumnFilterButton({
 
     // always include the selected site in the list of sites shown
     const sitesShown = useMemo(() => {
-        const allSites: Array<Selectedsite> = [...sites];
+        const allSites: Array<SelectedSite> = [...sites];
         if (
             debouncedQuery.trim().length === 0 &&
             selectedSite &&

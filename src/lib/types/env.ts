@@ -36,6 +36,7 @@ export type Env = {
         usePangolinDns: boolean;
         disableProductHelpBanners: boolean;
         disableEnterpriseFeatures: boolean;
+        disableVirtualApiKeysUi: boolean;
     };
     branding: {
         appName?: string;

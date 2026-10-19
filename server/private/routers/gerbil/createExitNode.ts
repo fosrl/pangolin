@@ -12,8 +12,8 @@
  */
 
 import { db, ExitNode, exitNodes } from "@server/db";
-import { getUniqueExitNodeEndpointName } from "@server/db/names";
 import config from "@server/lib/config";
+import privateConfig from "#private/lib/config";
 import { getNextAvailableSubnet } from "@server/lib/exitNodes";
 import logger from "@server/logger";
 import { eq } from "drizzle-orm";
@@ -34,6 +34,7 @@ export async function createExitNode(
             // TODO: eventually we will want to get the next available port so that we can multiple exit nodes
             // const listenPort = await getNextAvailablePort();
             const listenPort = config.getRawConfig().gerbil.start_port;
+            const relayPort = config.getRawConfig().gerbil.clients_start_port;
 
             const exitNodeName =
                 config.getRawConfig().gerbil.exit_node_name ||
@@ -45,8 +46,11 @@ export async function createExitNode(
                 .values({
                     publicKey,
                     endpoint: config.getRawConfig().gerbil.base_endpoint,
+                    region:
+                        privateConfig.getRawPrivateConfig().app.region || null,
                     address,
                     listenPort,
+                    relayPort,
                     online: true,
                     reachableAt,
                     name: exitNodeName

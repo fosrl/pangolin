@@ -1,6 +1,7 @@
 "use client";
 
 import { isSafeUrlForLink } from "@app/lib/launcherResourceAccess";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { LauncherCopyIcon } from "./LauncherCopyIcon";
 
@@ -8,6 +9,7 @@ type LauncherResourceAccessProps = {
     accessDisplay: string;
     accessCopyValue: string;
     accessUrl?: string | null;
+    mode?: string;
     variant: "grid" | "list";
 };
 
@@ -15,15 +17,23 @@ export function LauncherResourceAccess({
     accessDisplay,
     accessCopyValue,
     accessUrl,
+    mode,
     variant
 }: LauncherResourceAccessProps) {
-    if (!accessDisplay) {
+    const t = useTranslations();
+    const isExitNode = mode === "gateway";
+    const display = isExitNode
+        ? t("resourceLauncherAllInternetTraffic")
+        : accessDisplay;
+
+    if (!display) {
         return null;
     }
 
     const href = accessUrl ?? undefined;
-    const canLink = href && isSafeUrlForLink(href);
+    const canLink = !isExitNode && href && isSafeUrlForLink(href);
     const copyValue = canLink ? href : accessCopyValue;
+    const showCopy = !isExitNode && Boolean(copyValue);
 
     if (variant === "list") {
         return (
@@ -35,14 +45,14 @@ export function LauncherResourceAccess({
                         rel="noopener noreferrer"
                         className="min-w-0 truncate text-sm text-muted-foreground hover:underline max-md:overflow-visible max-md:whitespace-nowrap"
                     >
-                        {accessDisplay}
+                        {display}
                     </Link>
                 ) : (
                     <span className="min-w-0 truncate text-sm text-muted-foreground max-md:overflow-visible max-md:whitespace-nowrap">
-                        {accessDisplay}
+                        {display}
                     </span>
                 )}
-                <LauncherCopyIcon text={copyValue} />
+                {showCopy ? <LauncherCopyIcon text={copyValue} /> : null}
             </div>
         );
     }
@@ -56,14 +66,14 @@ export function LauncherResourceAccess({
                     rel="noopener noreferrer"
                     className="min-w-0 flex-1 truncate text-sm text-muted-foreground hover:underline"
                 >
-                    {accessDisplay}
+                    {display}
                 </Link>
             ) : (
                 <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                    {accessDisplay}
+                    {display}
                 </span>
             )}
-            <LauncherCopyIcon text={copyValue} />
+            {showCopy ? <LauncherCopyIcon text={copyValue} /> : null}
         </div>
     );
 }

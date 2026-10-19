@@ -15,11 +15,11 @@ import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { getUserDeviceName } from "@server/db/names";
 import { buildSiteConfigurationForOlmClient } from "./buildConfiguration";
+import { buildOlmDnsConfig } from "./dnsConfig";
 import { OlmErrorCodes, sendOlmError } from "./error";
 import { handleFingerprintInsertion } from "./fingerprintingUtils";
 import { build } from "@server/build";
 import { canCompress } from "@server/lib/clientVersionChecks";
-import config from "@server/lib/config";
 import cache from "#dynamic/lib/cache"; // not using regional here because we need this in the register message handler before we know where the client is
 import { waitForClientRebuildIdle } from "@server/lib/rebuildClientAssociations";
 import {
@@ -29,6 +29,7 @@ import {
 } from "#dynamic/lib/exitNodes";
 import { getUniqueSubnetForExitNode } from "@server/lib/exitNodes";
 import { addPeer, deletePeer } from "../gerbil/peers";
+import { formatEndpoint } from "@server/lib/ip";
 
 const HOLEPUNCH_STALE_CHAIN_THRESHOLD = 18;
 const HOLEPUNCH_STALE_CHAIN_TTL_SECONDS = 1800;
@@ -276,7 +277,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
     );
 
     let jitMode = false;
-    if (sitesCount > 250 && build == "saas") {
+    if (sitesCount > org.settingsJitModeLimit && build == "saas") {
         // THIS IS THE MAX ON THE BUSINESS TIER
         // we have too many sites
         // If we have too many sites we need to drop into fully JIT mode by not sending any of the sites
@@ -312,6 +313,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
     }
 
     let clientSubnet = client.exitNodeSubnet;
+    let releaseSubnetLock: (() => Promise<void>) | null = null;
     if (
         exitNodeId &&
         (client.exitNodeId !== exitNodeId || !client.exitNodeSubnet)
@@ -339,17 +341,20 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
 
         // TODO: IF WE DO NOT HAVE AN INFERENCE RESOURCE DO WE NEED TO BE HOLDING A SUBNET ON THE CLIENT?
 
-        const newSubnet = await getUniqueSubnetForExitNode(exitNode);
+        const { value: newSubnet, release } =
+            await getUniqueSubnetForExitNode(exitNode);
 
         if (!newSubnet) {
             logger.error(
                 `[handleOlmRegisterMessage] No available subnets found for exit node id ${exitNodeId} and client id ${client.clientId}`,
                 { orgId: client.orgId, clientId: client.clientId }
             );
+            sendOlmError(OlmErrorCodes.NO_AVAILABLE_SUBNET, olm.olmId);
             return;
         }
 
         clientSubnet = newSubnet;
+        releaseSubnetLock = release;
     }
 
     if (
@@ -362,16 +367,21 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
             "[handleOlmRegisterMessage] Public key mismatch. Updating public key and clearing session info...",
             { orgId: client.orgId, clientId: client.clientId }
         );
-        // Update the client's public key
-        await db
-            .update(clients)
-            .set({
-                pubKey: publicKey,
-                archived: false,
-                exitNodeId: exitNodeId, // this can be undefined if no exit node was selected, which is fine just means we cant talk to the node or connect to it
-                exitNodeSubnet: clientSubnet
-            })
-            .where(eq(clients.clientId, client.clientId));
+        try {
+            // Update the client's public key
+            await db
+                .update(clients)
+                .set({
+                    pubKey: publicKey,
+                    archived: false,
+                    exitNodeId: exitNodeId, // this can be undefined if no exit node was selected, which is fine just means we cant talk to the node or connect to it
+                    exitNodeSubnet: clientSubnet
+                })
+                .where(eq(clients.clientId, client.clientId));
+        } finally {
+            // only release once the subnet is persisted so no other node can pick it
+            await releaseSubnetLock?.();
+        }
 
         // set isRelay to false for all of the client's sites to reset the connection metadata
         await db
@@ -393,6 +403,9 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
                 )
             );
     }
+
+    // safety net in case a subnet was locked but the update above was skipped (release is idempotent)
+    await releaseSubnetLock?.();
 
     if (client.pubKey && client.pubKey !== publicKey && client.exitNodeId) {
         // test the old client to see if its different then remove
@@ -435,7 +448,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
     // TODO: I still think there is a better way to do this rather than locking it out here but ???
     if (now - (client.lastHolePunch || 0) > 12 && sitesCount > 0) {
         logger.warn(
-            `[handleOlmRegisterMessage] Client last hole punch is too old and we have sites to send; skipping this register. The client is failing to hole punch and identify its network address with the server. Can the client reach the server on UDP port ${config.getRawConfig().gerbil.clients_start_port}?`,
+            `[handleOlmRegisterMessage] Client last hole punch is too old and we have sites to send; skipping this register. The client is failing to hole punch and identify its network address with the server. Can the client reach the server on its relay UDP port?`,
             { orgId: client.orgId, clientId: client.clientId }
         );
 
@@ -506,12 +519,13 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
                         ? {
                               aliases: exitNodeAliases,
                               connect: exitNodeAliases.length > 0, // we do not need to connect to the exit node if we do not have inference resources and right now all site resources on the exit node have an alias
-                              endpoint: `${exitNode.endpoint}:${exitNode.listenPort}`,
+                              endpoint: formatEndpoint(exitNode.endpoint, exitNode.listenPort),
                               publicKey: exitNode.publicKey,
                               serverIP: exitNode.address.split("/")[0],
                               tunnelIP: `${clientSubnet.split("/")[0]}/${exitNode.address.split("/")[1]}` // we need to use the exit node's subnet mask here because the client will be using the exit node's subnet mask for its routing table so we can address it
                           }
                         : undefined,
+                dnsConfig: buildOlmDnsConfig(),
                 chainId: chainId
             }
         },

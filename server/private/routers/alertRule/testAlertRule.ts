@@ -14,7 +14,7 @@
 import { getRandomItemInArray } from "@app/lib/getRandomItemInArray";
 import response from "@server/lib/response";
 import logger from "@server/logger";
-import { processTestAlerts } from "@server/private/lib/alerts/processTestAlerts";
+import { processTestAlerts } from "#private/lib/alerts/processTestAlerts";
 import { type AlertAction } from "@server/routers/alertRule/types";
 import HttpCode from "@server/types/HttpCode";
 import { NextFunction, Request, Response } from "express";

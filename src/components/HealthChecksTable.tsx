@@ -28,7 +28,7 @@ import { Switch } from "@app/components/ui/switch";
 import { toast } from "@app/hooks/useToast";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import { Selectedsite, SitesSelector } from "@app/components/site-selector";
+import { SelectedSite, SitesSelector } from "@app/components/site-selector";
 import {
     ResourceSelector,
     SelectedResource
@@ -59,7 +59,7 @@ type StandaloneHealthChecksTableProps = {
     healthChecks: HealthCheckRow[];
     rowCount: number;
     pagination: PaginationState;
-    initialFilterSite?: Selectedsite | null;
+    initialFilterSite?: SelectedSite | null;
     initialFilterResource?: SelectedResource | null;
 };
 
@@ -117,7 +117,7 @@ export default function HealthChecksTable({
 
     const siteIdQ = searchParams.get("siteId");
     const siteIdNum = siteIdQ ? parseInt(siteIdQ, 10) : NaN;
-    const selectedSite: Selectedsite | null = useMemo(() => {
+    const selectedSite: SelectedSite | null = useMemo(() => {
         if (!siteIdQ || !Number.isInteger(siteIdNum) || siteIdNum <= 0) {
             return null;
         }
@@ -227,7 +227,7 @@ export default function HealthChecksTable({
         setResourceFilterOpen(false);
     };
 
-    const onPickSite = (site: Selectedsite) => {
+    const onPickSite = (site: SelectedSite) => {
         handleFilterChange("siteId", String(site.siteId));
         setSiteFilterOpen(false);
     };

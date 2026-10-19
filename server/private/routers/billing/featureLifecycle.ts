@@ -303,6 +303,10 @@ async function disableFeature(
                 await disablemaintenancePage(orgId);
                 break;
 
+            case TierFeature.Mtls:
+                await disableMtls(orgId);
+                break;
+
             case TierFeature.DevicePosture:
                 await disableDevicePosture(orgId);
                 break;
@@ -517,6 +521,18 @@ async function disablemaintenancePage(orgId: string): Promise<void> {
         .where(eq(resources.orgId, orgId));
 
     logger.info(`Disabled maintenance page on all resources for org ${orgId}`);
+}
+
+// The uploaded CA certificates are kept so mTLS can be re-enabled on upgrade.
+async function disableMtls(orgId: string): Promise<void> {
+    await db
+        .update(resources)
+        .set({
+            mtlsEnabled: false
+        })
+        .where(eq(resources.orgId, orgId));
+
+    logger.info(`Disabled mTLS on all resources for org ${orgId}`);
 }
 
 async function disableDevicePosture(orgId: string): Promise<void> {}

@@ -24,7 +24,7 @@ import { useActionState, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { PrivateResourceSshFields } from "@app/components/PrivateResourceSshFields";
-import type { Selectedsite } from "@app/components/site-selector";
+import type { SelectedSite } from "@app/components/site-selector";
 import { useSaveSiteResource } from "@app/hooks/useSaveSiteResource";
 import {
     asAnyControl,
@@ -84,7 +84,7 @@ export default function PrivateResourceSshPage() {
         setSelectedSites(first);
         form.setValue(
             "siteIds",
-            first.map((s: Selectedsite) => s.siteId),
+            first.map((s: SelectedSite) => s.siteId),
             { shouldValidate: true }
         );
     }

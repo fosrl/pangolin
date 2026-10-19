@@ -62,6 +62,7 @@ import { createStore } from "#dynamic/lib/rateLimitStore";
 import { checkRoundTripMessage } from "./ws";
 import * as labels from "@server/routers/labels";
 import * as aiProvider from "@server/routers/aiProvider";
+import * as redirect from "@server/routers/redirect";
 import * as aiBudget from "@server/routers/aiBudget";
 import * as virtualApiKey from "@server/routers/virtualApiKey";
 import * as certificates from "@server/routers/certificates";
@@ -87,6 +88,12 @@ authenticated.get("/org/checkId", org.checkId);
 authenticated.put("/org", getUserOrgs, org.createOrg);
 
 authenticated.get("/orgs", verifyUserIsServerAdmin, org.listOrgs);
+authenticated.get("/admin/orgs", verifyUserIsServerAdmin, org.adminListOrgs);
+authenticated.delete(
+    "/admin/org/:orgId",
+    verifyUserIsServerAdmin,
+    org.adminDeleteOrg
+);
 authenticated.get("/user/:userId/orgs", verifyIsLoggedInUser, org.listUserOrgs);
 
 authenticated.get(
@@ -378,6 +385,13 @@ authenticated.get(
     verifySiteResourceAccess,
     verifyUserHasAction(ActionsEnum.getSiteResource),
     siteResource.getSiteResource
+);
+
+authenticated.get(
+    "/site-resource/:siteResourceId/blueprint",
+    verifySiteResourceAccess,
+    verifyUserHasAction(ActionsEnum.getSiteResource),
+    siteResource.exportSiteResourceBlueprint
 );
 
 authenticated.post(
@@ -757,6 +771,13 @@ authenticated.get(
     verifyResourceAccess,
     verifyUserHasAction(ActionsEnum.getResource),
     resource.getResource
+);
+
+authenticated.get(
+    "/resource/:resourceId/blueprint",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.getResource),
+    resource.exportResourceBlueprint
 );
 authenticated.get(
     "/org/:orgId/resource/:niceId",
@@ -1378,6 +1399,12 @@ if (build !== "saas") {
         user.adminGeneratePasswordResetCode
     );
 
+    authenticated.post(
+        "/user/:userId/server-admin",
+        verifyUserIsServerAdmin,
+        user.adminSetServerAdmin
+    );
+
     authenticated.delete(
         "/user/:userId",
         verifyUserIsServerAdmin,
@@ -1620,6 +1647,50 @@ authenticated.delete(
     verifyUserHasAction(ActionsEnum.deleteAiProvider),
     logActionAudit(ActionsEnum.deleteAiProvider),
     aiProvider.deleteAiProvider
+);
+
+authenticated.put(
+    "/org/:orgId/redirect",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.createRedirect),
+    logActionAudit(ActionsEnum.createRedirect),
+    redirect.createRedirect
+);
+
+authenticated.get(
+    "/org/:orgId/redirects",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.listRedirects),
+    redirect.listRedirects
+);
+
+authenticated.get(
+    "/org/:orgId/redirects/:redirectId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getRedirect),
+    redirect.getRedirect
+);
+authenticated.get(
+    "/org/:orgId/redirect/:niceId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getRedirect),
+    redirect.getRedirect
+);
+
+authenticated.post(
+    "/org/:orgId/redirects/:redirectId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.updateRedirect),
+    logActionAudit(ActionsEnum.updateRedirect),
+    redirect.updateRedirect
+);
+
+authenticated.delete(
+    "/org/:orgId/redirects/:redirectId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.deleteRedirect),
+    logActionAudit(ActionsEnum.deleteRedirect),
+    redirect.deleteRedirect
 );
 
 authenticated.put(

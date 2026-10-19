@@ -36,6 +36,14 @@ body:
 
     - type: textarea
       attributes:
+          label: AI Disclosure
+          description: |
+              If you used AI to help write this issue, please disclose it here. This is important for transparency and helps maintain the integrity of the issue tracking process.
+      validations:
+          required: true
+
+    - type: textarea
+      attributes:
           label: Expected Behavior
           description: A clear and concise description of what you expected to happen.
       validations:

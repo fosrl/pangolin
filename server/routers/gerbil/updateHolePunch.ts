@@ -8,7 +8,8 @@ import {
     sites,
     clientSitesAssociationsCache,
     exitNodes,
-    ExitNode
+    ExitNode,
+    orgs
 } from "@server/db";
 import { db } from "@server/db";
 import { eq, and, inArray } from "drizzle-orm";
@@ -112,7 +113,12 @@ export async function updateHolePunch(
             destinations: destinations
         });
     } catch (error) {
-        if (!(error instanceof Error && error.message === "Exit node not allowed")) {
+        if (
+            !(
+                error instanceof Error &&
+                error.message === "Exit node not allowed"
+            )
+        ) {
             logger.error(error);
         }
         return next(
@@ -460,7 +466,18 @@ async function handleClientEndpointChange(
             return;
         }
 
-        if (sitesWithNewtsToUpdate.length > 250) {
+        const [org] = await db
+            .select()
+            .from(orgs)
+            .where(eq(orgs.orgId, client.orgId))
+            .limit(1);
+
+        if (!org) {
+            logger.warn(`Client ${clientId} org not found`);
+            return;
+        }
+
+        if (sitesWithNewtsToUpdate.length > org.settingsJitModeLimit) {
             logger.warn(
                 `Client ${clientId} has ${sitesWithNewtsToUpdate.length} connected sites so the client will be in jit mode anyway, skipping endpoint updates`
             );

@@ -2,6 +2,7 @@ import { db, labels } from "@server/db";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import type { CreateOrEditLabelResponse } from "@server/routers/labels/types";
+import { OpenAPITags, registry } from "@server/openApi";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -20,6 +21,39 @@ const updateLabelBodySchema = z.strictObject({
         .string()
         .regex(/^#?([0-9a-f]{6}|[0-9a-f]{3})$/i)
         .nonempty()
+});
+
+registry.registerPath({
+    method: "patch",
+    path: "/org/{orgId}/label/{labelId}",
+    description: "Update a label.",
+    tags: [OpenAPITags.Label],
+    request: {
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: updateLabelBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function updateOrgLabel(

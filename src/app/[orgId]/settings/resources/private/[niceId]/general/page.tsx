@@ -29,7 +29,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import { useActionState, useMemo } from "react";
+import { useActionState, useMemo, startTransition } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useSaveSiteResource } from "@app/hooks/useSaveSiteResource";
@@ -97,7 +97,12 @@ export default function PrivateResourceGeneralPage() {
                     <SettingsSectionForm variant="half">
                         <Form {...form}>
                             <form
-                                action={formAction}
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    startTransition(() => {
+                                        formAction();
+                                    });
+                                }}
                                 id="private-resource-general-form"
                             >
                                 <SettingsFormGrid>

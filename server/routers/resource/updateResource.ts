@@ -6,6 +6,7 @@ import {
     loginPage,
     resourceHeaderAuth,
     resourceHeaderAuthExtendedCompatibility,
+    resourceMtlsCertificates,
     resourcePassword,
     resourcePincode,
     resourceRules,
@@ -24,7 +25,7 @@ import {
     resourcePolicies,
     resources
 } from "@server/db";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, count } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -89,6 +90,12 @@ const updateHttpResourceBodySchema = z
         domainId: z.string().optional(),
         enabled: z.boolean().optional(),
         stickySession: z.boolean().optional(),
+        loadBalancingStrategy: z
+            .enum(["wrr", "p2c", "hrw", "leasttime"])
+            .optional()
+            .describe(
+                "How requests are distributed across targets: wrr (weighted round robin, default), p2c (power of two choices), hrw (highest random weight / client IP hashing), leasttime (lowest response time)."
+            ),
         tlsServerName: z.string().nullable().optional(),
         setHostHeader: z.string().nullable().optional(),
         skipToIdpId: z
@@ -102,6 +109,14 @@ const updateHttpResourceBodySchema = z
         headers: z
             .array(z.strictObject({ name: z.string(), value: z.string() }))
             .nullable()
+            .optional(), // deprecated alias for requestHeaders
+        requestHeaders: z
+            .array(z.strictObject({ name: z.string(), value: z.string() }))
+            .nullable()
+            .optional(),
+        responseHeaders: z
+            .array(z.strictObject({ name: z.string(), value: z.string() }))
+            .nullable()
             .optional(),
         // Maintenance mode fields
         maintenanceModeEnabled: z.boolean().optional(),
@@ -109,6 +124,12 @@ const updateHttpResourceBodySchema = z
         maintenanceTitle: z.string().max(255).nullable().optional(),
         maintenanceMessage: z.string().max(2000).nullable().optional(),
         maintenanceEstimatedTime: z.string().max(100).nullable().optional(),
+        mtlsEnabled: z
+            .boolean()
+            .optional()
+            .describe(
+                "Require clients to present a certificate signed by one of the resource's trusted CA certificates. Requires SSL and at least one CA certificate."
+            ),
         postAuthPath: z.string().nullable().optional(),
         // SSH settings
         pamMode: z.enum(["passthrough", "push"]).optional(),
@@ -163,12 +184,13 @@ const updateHttpResourceBodySchema = z
     )
     .refine(
         (data) => {
-            if (data.headers) {
-                // HTTP header names must be valid token characters (RFC 7230)
-                const validHeaderName = /^[a-zA-Z0-9!#$%&'*+\-.^_`|~]+$/;
-                return data.headers.every((h) => validHeaderName.test(h.name));
-            }
-            return true;
+            const validHeaderName = /^[a-zA-Z0-9!#$%&'*+\-.^_`|~]+$/;
+            const allHeaders = [
+                ...(data.headers ?? []),
+                ...(data.requestHeaders ?? []),
+                ...(data.responseHeaders ?? [])
+            ];
+            return allHeaders.every((h) => validHeaderName.test(h.name));
         },
         {
             error: "Header names may only contain valid HTTP token characters (letters, digits, and !#$%&'*+-.^_`|~)."
@@ -176,14 +198,13 @@ const updateHttpResourceBodySchema = z
     )
     .refine(
         (data) => {
-            if (data.headers) {
-                // HTTP header values must be visible ASCII or horizontal whitespace, no control chars (RFC 7230)
-                const validHeaderValue = /^[\t\x20-\x7E]*$/;
-                return data.headers.every((h) =>
-                    validHeaderValue.test(h.value)
-                );
-            }
-            return true;
+            const validHeaderValue = /^[\t\x20-\x7E]*$/;
+            const allHeaders = [
+                ...(data.headers ?? []),
+                ...(data.requestHeaders ?? []),
+                ...(data.responseHeaders ?? [])
+            ];
+            return allHeaders.every((h) => validHeaderValue.test(h.value));
         },
         {
             error: "Header values may only contain printable ASCII characters and horizontal whitespace."
@@ -191,16 +212,17 @@ const updateHttpResourceBodySchema = z
     )
     .refine(
         (data) => {
-            if (data.headers) {
-                // Reject Traefik template syntax {{word}} in names or values
-                const templatePattern = /\{\{[^}]+\}\}/;
-                return data.headers.every(
-                    (h) =>
-                        !templatePattern.test(h.name) &&
-                        !templatePattern.test(h.value)
-                );
-            }
-            return true;
+            const templatePattern = /\{\{[^}]+\}\}/;
+            const allHeaders = [
+                ...(data.headers ?? []),
+                ...(data.requestHeaders ?? []),
+                ...(data.responseHeaders ?? [])
+            ];
+            return allHeaders.every(
+                (h) =>
+                    !templatePattern.test(h.name) &&
+                    !templatePattern.test(h.value)
+            );
         },
         {
             error: "Header names and values must not contain template expressions such as {{value}}."
@@ -499,8 +521,59 @@ async function updateHttpResource(
         }
     }
 
+    const effectiveSsl = updateData.ssl ?? resource.ssl;
+    const effectiveMtlsEnabled = updateData.mtlsEnabled ?? resource.mtlsEnabled;
+
+    if (updateData.mtlsEnabled === true) {
+        if (resource.mode !== "http") {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "mTLS is only supported on HTTP resources."
+                )
+            );
+        }
+
+        const isMtlsLicensed = await isLicensedOrSubscribed(
+            resource.orgId,
+            tierMatrix.mtls
+        );
+        if (!isMtlsLicensed) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "mTLS is not supported on your current plan. Please upgrade to access this feature."
+                )
+            );
+        }
+
+        const [{ certificateCount }] = await db
+            .select({ certificateCount: count() })
+            .from(resourceMtlsCertificates)
+            .where(eq(resourceMtlsCertificates.resourceId, resource.resourceId));
+
+        if (certificateCount === 0) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Add at least one trusted CA certificate before enabling mTLS."
+                )
+            );
+        }
+    }
+
+    if (effectiveMtlsEnabled && !effectiveSsl) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "mTLS requires SSL to be enabled for this resource. Disable mTLS before turning SSL off."
+            )
+        );
+    }
+
     // catch when the resource policy changes or gets cleared
-    if (resource.resourcePolicyId != updateData.resourcePolicyId) {
+    if (updateData.resourcePolicyId !== undefined &&
+        resource.resourcePolicyId !== updateData.resourcePolicyId) {
         await clearResourceSpecificSettings(
             resource.resourceId,
             resource.orgId,
@@ -695,12 +768,31 @@ async function updateHttpResource(
         await createCertificate(domainId, fullDomain, db);
     }
 
-    let headers = undefined;
-    if (updateData.headers) {
-        headers = JSON.stringify(updateData.headers);
-    } else if (updateData.headers === null) {
-        headers = null;
+    let requestHeaders = undefined;
+    const mergedRequestHeaders = [
+        ...(updateData.headers ?? []),
+        ...(updateData.requestHeaders ?? [])
+    ];
+    if (
+        updateData.headers !== undefined ||
+        updateData.requestHeaders !== undefined
+    ) {
+        requestHeaders =
+            mergedRequestHeaders.length > 0
+                ? JSON.stringify(mergedRequestHeaders)
+                : null;
     }
+
+    let responseHeaders = undefined;
+    if (updateData.responseHeaders) {
+        responseHeaders = JSON.stringify(updateData.responseHeaders);
+    } else if (updateData.responseHeaders === null) {
+        responseHeaders = null;
+    }
+
+    updateData.headers = undefined;
+    updateData.requestHeaders = undefined;
+    updateData.responseHeaders = undefined;
 
     if (!isLicensed) {
         updateData.maintenanceModeEnabled = undefined;
@@ -754,7 +846,7 @@ async function updateHttpResource(
 
         const updatedResource = await db
             .update(resources)
-            .set({ ...resourceOnlyData, headers })
+            .set({ ...resourceOnlyData, requestHeaders, responseHeaders })
             .where(eq(resources.resourceId, resource.resourceId))
             .returning();
 
@@ -778,7 +870,7 @@ async function updateHttpResource(
 
     const updatedResource = await db
         .update(resources)
-        .set({ ...updateData, headers })
+        .set({ ...updateData, requestHeaders, responseHeaders })
         .where(eq(resources.resourceId, resource.resourceId))
         .returning();
 

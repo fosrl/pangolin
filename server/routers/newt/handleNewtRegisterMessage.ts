@@ -14,6 +14,8 @@ import { getUniqueSubnetForExitNode } from "@server/lib/exitNodes";
 import { fetchContainers } from "./dockerSocket";
 import { buildTargetConfigurationForNewtClient } from "./buildConfiguration";
 import { canCompress } from "@server/lib/clientVersionChecks";
+import { NewtErrorCodes, sendNewtError } from "./error";
+import { formatEndpoint } from "@server/lib/ip";
 
 export const handleNewtRegisterMessage: MessageHandler = async (context) => {
     const { message, client, sendToClient } = context;
@@ -37,6 +39,8 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
         publicKey,
         pingResults,
         newtVersion,
+        agent,
+        agentVersion,
         backwardsCompatible,
         chainId
     } = message.data;
@@ -108,26 +112,33 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
             return;
         }
 
-        const newSubnet = await getUniqueSubnetForExitNode(exitNode);
+        const { value: newSubnet, release: releaseSubnetLock } =
+            await getUniqueSubnetForExitNode(exitNode);
 
         if (!newSubnet) {
             logger.error(
                 `No available subnets found for the new exit node id ${exitNodeId} and site id ${siteId}`
             );
+            sendNewtError(NewtErrorCodes.NO_AVAILABLE_SUBNET, newt.newtId);
             return;
         }
 
         siteSubnet = newSubnet;
 
-        await db
-            .update(sites)
-            .set({
-                pubKey: publicKey,
-                exitNodeId: exitNodeId,
-                exitNodeSubnet: newSubnet
-            })
-            .where(eq(sites.siteId, siteId))
-            .returning();
+        try {
+            await db
+                .update(sites)
+                .set({
+                    pubKey: publicKey,
+                    exitNodeId: exitNodeId,
+                    exitNodeSubnet: newSubnet
+                })
+                .where(eq(sites.siteId, siteId))
+                .returning();
+        } finally {
+            // only release once the subnet is persisted so no other node can pick it
+            await releaseSubnetLock();
+        }
     } else {
         await db
             .update(sites)
@@ -169,22 +180,21 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
         logger.error(`Failed to add peer to exit node: ${error}`);
     }
 
-    if (newtVersion && newtVersion !== newt.version) {
+    if (
+        newtVersion !== newt.version ||
+        agent !== newt.agent ||
+        agentVersion !== newt.agentVersion
+    ) {
         // update the newt version in the database
         await db
             .update(newts)
             .set({
-                version: newtVersion as string
-            })
-            .where(eq(newts.newtId, newt.newtId));
-    }
-
-    if (newtVersion && newtVersion !== newt.version) {
-        // update the newt version in the database
-        await db
-            .update(newts)
-            .set({
-                version: newtVersion as string
+                version: newtVersion as string,
+                agent: agent,
+                agentVersion:
+                    !agentVersion && agent == "newt"
+                        ? newtVersion
+                        : agentVersion
             })
             .where(eq(newts.newtId, newt.newtId));
     }
@@ -221,7 +231,7 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
         message: {
             type: "newt/wg/connect",
             data: {
-                endpoint: `${exitNode.endpoint}:${exitNode.listenPort}`,
+                endpoint: formatEndpoint(exitNode.endpoint, exitNode.listenPort),
                 relayPort: config.getRawConfig().gerbil.clients_start_port,
                 publicKey: exitNode.publicKey,
                 serverIP: exitNode.address.split("/")[0],

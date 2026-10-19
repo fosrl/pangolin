@@ -1,4 +1,4 @@
-import { Terminal } from "lucide-react";
+import { Download, Terminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { FaDocker, FaWindows } from "react-icons/fa";
@@ -10,9 +10,13 @@ import {
     SettingsSectionHeader,
     SettingsSectionTitle
 } from "./Settings";
+import { Button } from "./ui/button";
 import { OptionSelect, type OptionSelectOption } from "./OptionSelect";
 
-export type CommandItem = string | { title: string; command: string };
+export type CommandItem =
+    | string
+    | { title: string; command: string }
+    | { title: string; link: string };
 
 const PLATFORMS = ["unix", "docker", "windows"] as const;
 
@@ -22,14 +26,12 @@ export type OlmInstallCommandsProps = {
     id: string;
     secret: string;
     endpoint: string;
-    version?: string;
 };
 
 export function OlmInstallCommands({
     id,
     secret,
-    endpoint,
-    version = "latest"
+    endpoint
 }: OlmInstallCommandsProps) {
     const t = useTranslations();
 
@@ -40,14 +42,28 @@ export function OlmInstallCommands({
 
     const commandList: Record<Platform, Record<string, CommandItem[]>> = {
         unix: {
-            All: [
+            Run: [
                 {
                     title: t("install"),
                     command: `curl -fsSL https://static.pangolin.net/get-cli.sh | sudo bash`
                 },
                 {
                     title: t("run"),
-                    command: `sudo pangolin up --id ${id} --secret ${secret} --endpoint ${endpoint} --attach`
+                    command: `sudo pangolin up client --id ${id} --secret ${secret} --endpoint ${endpoint} --attach`
+                }
+            ],
+            Service: [
+                {
+                    title: t("install"),
+                    command: `curl -fsSL https://static.pangolin.net/get-cli.sh | bash`
+                },
+                {
+                    title: t("run"),
+                    command: `sudo pangolin service install client --id ${id} --secret ${secret} --endpoint ${endpoint}`
+                },
+                {
+                    title: t("check"),
+                    command: `sudo pangolin service status client`
                 }
             ]
         },
@@ -73,15 +89,28 @@ export function OlmInstallCommands({
             ]
         },
         windows: {
-            x64: [
+            Run: [
                 {
                     title: t("install"),
-                    command: `# Download and run the installer to install Olm first\n
-curl -o olm.exe -L "https://github.com/fosrl/olm/releases/download/${version}/olm_windows_installer.exe"`
+                    link: `https://github.com/fosrl/cli/releases/latest/download/pangolin-cli_windows_installer.msi`
                 },
                 {
                     title: t("run"),
-                    command: `olm.exe --id ${id} --secret ${secret} --endpoint ${endpoint}`
+                    command: `pangolin up client --id ${id} --secret ${secret} --endpoint ${endpoint}`
+                }
+            ],
+            Service: [
+                {
+                    title: t("install"),
+                    link: `https://github.com/fosrl/cli/releases/latest/download/pangolin-cli_windows_installer.msi`
+                },
+                {
+                    title: t("run"),
+                    command: `pangolin service install client --id ${id} --secret ${secret} --endpoint ${endpoint}`
+                },
+                {
+                    title: t("check"),
+                    command: `pangolin service status client`
                 }
             ]
         }
@@ -121,9 +150,7 @@ curl -o olm.exe -L "https://github.com/fosrl/olm/releases/download/${version}/ol
                 />
 
                 <OptionSelect<string>
-                    label={
-                        platform === "docker" ? t("method") : t("architecture")
-                    }
+                    label={t("method")}
                     options={getArchitectures(platform).map((arch) => ({
                         value: arch,
                         label: arch
@@ -138,8 +165,17 @@ curl -o olm.exe -L "https://github.com/fosrl/olm/releases/download/${version}/ol
                     <p className="font-semibold mb-3">{t("commands")}</p>
                     <div className="mt-2 space-y-3">
                         {commands.map((item, index) => {
+                            const isLink =
+                                typeof item !== "string" && "link" in item;
                             const commandText =
-                                typeof item === "string" ? item : item.command;
+                                typeof item === "string"
+                                    ? item
+                                    : isLink
+                                      ? undefined
+                                      : item.command;
+                            const linkHref = isLink
+                                ? (item as { link: string }).link
+                                : undefined;
                             const title =
                                 typeof item === "string"
                                     ? undefined
@@ -152,10 +188,23 @@ curl -o olm.exe -L "https://github.com/fosrl/olm/releases/download/${version}/ol
                                             {title}
                                         </p>
                                     )}
-                                    <CopyTextBox
-                                        text={commandText}
-                                        outline={true}
-                                    />
+                                    {isLink ? (
+                                        <Button
+                                            asChild
+                                            variant="outline"
+                                            className="w-full"
+                                        >
+                                            <a href={linkHref}>
+                                                <Download className="h-4 w-4 mr-2" />
+                                                {t("downloadInstaller")}
+                                            </a>
+                                        </Button>
+                                    ) : (
+                                        <CopyTextBox
+                                            text={commandText!}
+                                            outline={true}
+                                        />
+                                    )}
                                 </div>
                             );
                         })}
@@ -169,13 +218,13 @@ curl -o olm.exe -L "https://github.com/fosrl/olm/releases/download/${version}/ol
 function getArchitectures(platform: Platform) {
     switch (platform) {
         case "unix":
-            return ["All"];
+            return ["Run", "Service"];
         case "windows":
-            return ["x64"];
+            return ["Run", "Service"];
         case "docker":
             return ["Docker Compose", "Docker Run"];
         default:
-            return ["x64"];
+            return ["Run"];
     }
 }
 

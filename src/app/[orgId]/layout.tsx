@@ -104,7 +104,7 @@ export default async function OrgLayout(props: {
             subscriptionStatus = subRes.data.data;
         } catch (error) {
             // If subscription fetch fails, keep subscriptionStatus as null
-            console.error("Failed to fetch subscription status:", error);
+            // console.error("Failed to fetch subscription status:", error);
         }
     }
 

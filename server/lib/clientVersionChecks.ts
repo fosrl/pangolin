@@ -34,3 +34,18 @@ export function supportsCertReferences(
         return false;
     }
 }
+
+// Whether this newt client understands newt/wg/client-identities/add, used to
+// set Remote-* headers on requests through its HTTP proxy. Bump the version
+// floor here to match whatever release first ships the newt-side support.
+export function supportsClientIdentities(
+    clientVersion: string | null | undefined
+): boolean {
+    try {
+        if (!clientVersion) return false;
+        if (!semver.valid(clientVersion)) return false;
+        return semver.gte(clientVersion, "1.19.0");
+    } catch {
+        return false;
+    }
+}

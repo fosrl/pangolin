@@ -64,14 +64,11 @@ export async function generateNewEnterpriseLicense(
 
         const licenseData = req.body;
 
-        if (
-            licenseData.tier != "big_license" &&
-            licenseData.tier != "small_license"
-        ) {
+        if (licenseData.tier != "tier2" && licenseData.tier != "tier1") {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
-                    "Invalid tier specified. Must be either 'big_license' or 'small_license'."
+                    "Invalid tier specified. Must be either 'tier2' or 'tier1'."
                 )
             );
         }
@@ -99,6 +96,8 @@ export async function generateNewEnterpriseLicense(
             );
         }
 
+        const licenseKeyValue = apiResponse?.data?.licenseKey?.licenseKey;
+
         // check if we already have a customer for this org
         const [customer] = await db
             .select()
@@ -118,9 +117,7 @@ export async function generateNewEnterpriseLicense(
         }
 
         const tier =
-            licenseData.tier === "big_license"
-                ? LicenseId.BIG_LICENSE
-                : LicenseId.SMALL_LICENSE;
+            licenseData.tier === "tier2" ? LicenseId.TIER2 : LicenseId.TIER1;
         const tierPrice = getLicensePriceSet()[tier];
 
         const session = await stripe!.checkout.sessions.create({
@@ -134,6 +131,16 @@ export async function generateNewEnterpriseLicense(
             ], // Start with the standard feature set that matches the free limits
             customer: customer.customerId,
             mode: "subscription",
+            subscription_data: {
+                description: licenseKeyValue
+                    ? `License ${licenseKeyValue}`
+                    : `License key ID ${keyId}`,
+                metadata: {
+                    licenseKeyId: keyId.toString(),
+                    licenseKey: licenseKeyValue ?? "",
+                    tier: licenseData.tier
+                }
+            },
             allow_promotion_codes: true,
             success_url: `${config.getRawConfig().app.dashboard_url}/${orgId}/settings/license?success=true&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${config.getRawConfig().app.dashboard_url}/${orgId}/settings/license?canceled=true`

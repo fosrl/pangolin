@@ -1,4 +1,4 @@
-import { getClientConfigVersion } from "#dynamic/routers/ws";
+import { disconnectClient, getClientConfigVersion } from "#dynamic/routers/ws";
 import { db } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
 import { clients, Olm } from "@server/db";
@@ -11,6 +11,29 @@ import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { sendOlmSyncMessage } from "./sync";
 import { handleFingerprintInsertion } from "./fingerprintingUtils";
+import { sendTerminateClient } from "../client/terminate";
+import { OlmErrorCodes } from "./error";
+
+type OlmErrorCode = (typeof OlmErrorCodes)[keyof typeof OlmErrorCodes];
+
+/**
+ * Tells the olm why it is being kicked, then closes its websocket so it
+ * does not linger connected until the offline checker notices.
+ */
+async function terminateOlm(
+    clientId: number,
+    olmId: string,
+    error: OlmErrorCode
+) {
+    try {
+        await sendTerminateClient(clientId, error, olmId);
+        // wait a moment to ensure the message is sent
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await disconnectClient(olmId);
+    } catch (err) {
+        logger.error(`Error terminating olm ${olmId}`, { error: err });
+    }
+}
 
 /**
  * Handles ping messages from clients and responds with pong
@@ -60,14 +83,29 @@ export const handleOlmPingMessage: MessageHandler = async (context) => {
                 await validateSessionToken(userToken);
             if (!userSession || !user) {
                 logger.warn("Invalid user session for olm ping");
-                return; // by returning here we just ignore the ping and the setInterval will force it to disconnect
+                await terminateOlm(
+                    client.clientId,
+                    olm.olmId,
+                    OlmErrorCodes.INVALID_USER_SESSION
+                );
+                return;
             }
             if (user.userId !== olm.userId) {
                 logger.warn("User ID mismatch for olm ping");
+                await terminateOlm(
+                    client.clientId,
+                    olm.olmId,
+                    OlmErrorCodes.USER_ID_MISMATCH
+                );
                 return;
             }
             if (user.userId !== client.userId) {
                 logger.warn("Client user ID mismatch for olm ping");
+                await terminateOlm(
+                    client.clientId,
+                    olm.olmId,
+                    OlmErrorCodes.USER_ID_MISMATCH
+                );
                 return;
             }
 
@@ -85,6 +123,18 @@ export const handleOlmPingMessage: MessageHandler = async (context) => {
                 logger.warn(
                     `Olm user ${olm.userId} does not pass access policies for org ${client.orgId}: ${policyCheck.error}`
                 );
+                let error: OlmErrorCode =
+                    OlmErrorCodes.ORG_ACCESS_POLICY_DENIED;
+                if (policyCheck.policies?.passwordAge?.compliant === false) {
+                    error = OlmErrorCodes.ORG_ACCESS_POLICY_PASSWORD_EXPIRED;
+                } else if (
+                    policyCheck.policies?.maxSessionLength?.compliant === false
+                ) {
+                    error = OlmErrorCodes.ORG_ACCESS_POLICY_SESSION_EXPIRED;
+                } else if (policyCheck.policies?.requiredTwoFactor === false) {
+                    error = OlmErrorCodes.ORG_ACCESS_POLICY_2FA_REQUIRED;
+                }
+                await terminateOlm(client.clientId, olm.olmId, error);
                 return;
             }
         }

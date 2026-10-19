@@ -137,11 +137,16 @@ export function PaidFeaturesAlert({ tiers }: Props) {
                                 {requiredTiersLabel
                                     ? t.rich("upgradeToTierToUse", {
                                           tier: requiredTiersLabel,
-                                          tierLink: tierLinkRenderer
+                                          tierLink: tierLinkRenderer,
+                                          bookADemoLink: bookADemoLinkRenderer
                                       })
                                     : isActive
-                                      ? t("mustUpgradeToUse")
-                                      : t("subscriptionRequiredToUse")}
+                                      ? t.rich("mustUpgradeToUse", {
+                                            bookADemoLink: bookADemoLinkRenderer
+                                        })
+                                      : t.rich("subscriptionRequiredToUse", {
+                                            bookADemoLink: bookADemoLinkRenderer
+                                        })}
                             </span>
                         </div>
                     </CardContent>

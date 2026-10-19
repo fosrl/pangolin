@@ -252,9 +252,10 @@ export default function GenerateLicenseKeyForm({
         try {
             // Check if this is a business/enterprise license request
             if (payload.useCaseType === "business") {
-                const response = await api.put<
-                    AxiosResponse<string>
-                    >(`/org/${orgId}/license/enterprise`, { ...payload, tier: "big_license" } );
+                const response = await api.put<AxiosResponse<string>>(
+                    `/org/${orgId}/license/enterprise`,
+                    { ...payload, tier: "tier2" }
+                );
 
                 console.log("Checkout session response:", response.data);
                 const checkoutUrl = response.data.data;
@@ -1087,16 +1088,16 @@ export default function GenerateLicenseKeyForm({
                     )}
 
                     {!generatedKey && useCaseType === "business" && (
-                            <Button
-                                type="submit"
-                                form="generate-license-business-form"
-                                disabled={loading}
-                                loading={loading}
-                            >
-                                {t(
-                                    "generateLicenseKeyForm.buttons.generateLicenseKey"
-                                )}
-                            </Button>
+                        <Button
+                            type="submit"
+                            form="generate-license-business-form"
+                            disabled={loading}
+                            loading={loading}
+                        >
+                            {t(
+                                "generateLicenseKeyForm.buttons.generateLicenseKey"
+                            )}
+                        </Button>
                     )}
                 </CredenzaFooter>
             </CredenzaContent>

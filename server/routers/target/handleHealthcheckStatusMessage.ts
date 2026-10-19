@@ -43,7 +43,7 @@ export const handleHealthcheckStatusMessage: MessageHandler = async (
     const { message, client: c } = context;
     const newt = c as Newt;
 
-    logger.info("Handling healthcheck status message");
+    logger.debug("Handling healthcheck status message");
 
     if (!newt) {
         logger.warn("Newt not found");

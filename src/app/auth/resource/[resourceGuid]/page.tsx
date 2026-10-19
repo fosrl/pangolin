@@ -30,9 +30,15 @@ import { normalizePostAuthPath } from "@server/lib/normalizePostAuthPath";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-    title: "Resource Access"
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const env = pullEnv();
+    const title =
+        env.branding.resourceAuthPage?.titleText ||
+        env.branding.appName ||
+        "Resource Access";
+
+    return { title };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -116,10 +122,19 @@ export default async function ResourceAuthPage(props: {
 
     if (searchParams.redirect) {
         try {
+            const redirectTarget = new URL(searchParams.redirect);
             const serverResourceHost = new URL(authInfo.url).host;
-            const redirectHost = new URL(searchParams.redirect).host;
-            const redirectPort = new URL(searchParams.redirect).port;
+            const redirectHost = redirectTarget.host;
+            const redirectPort = redirectTarget.port;
             const serverResourceHostWithPort = `${serverResourceHost}:${redirectPort}`;
+
+            // URL parses a host out of any scheme that uses "//", so a target
+            // like javascript://resource-host/... matches the comparisons
+            // below. The target is later assigned to window.location, so only
+            // http(s) is accepted here.
+            const isHttpTarget =
+                redirectTarget.protocol === "http:" ||
+                redirectTarget.protocol === "https:";
 
             const wildcardMatchesRedirect = (
                 wildcardDomain: string,
@@ -130,14 +145,16 @@ export default async function ResourceAuthPage(props: {
                 return host.endsWith(suffix) && host.length > suffix.length;
             };
 
-            if (serverResourceHost === redirectHost) {
-                redirectUrl = searchParams.redirect;
-            } else if (serverResourceHostWithPort === redirectHost) {
-                redirectUrl = searchParams.redirect;
-            } else if (
-                authInfo.wildcard &&
-                authInfo.fullDomain &&
-                wildcardMatchesRedirect(authInfo.fullDomain, redirectHost)
+            if (
+                isHttpTarget &&
+                (serverResourceHost === redirectHost ||
+                    serverResourceHostWithPort === redirectHost ||
+                    (authInfo.wildcard &&
+                        authInfo.fullDomain &&
+                        wildcardMatchesRedirect(
+                            authInfo.fullDomain,
+                            redirectHost
+                        )))
             ) {
                 redirectUrl = searchParams.redirect;
             }
@@ -277,7 +294,7 @@ export default async function ResourceAuthPage(props: {
         loginIdps = idpsRes.data.data.idps.map((idp) => ({
             idpId: idp.idpId,
             name: idp.name,
-            variant: idp.type
+            variant: idp.variant ?? idp.type
         })) as LoginFormIDP[];
     }
 

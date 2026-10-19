@@ -1,5 +1,6 @@
 import {
     clientLabels,
+    clientOrgRoles,
     clients,
     clientSitesAssociationsCache,
     currentFingerprint,
@@ -8,6 +9,7 @@ import {
     olms,
     orgs,
     roleClients,
+    roles,
     sites,
     userClients,
     users,
@@ -25,6 +27,7 @@ import {
     asc,
     desc,
     eq,
+    exists,
     inArray,
     isNull,
     like,
@@ -138,6 +141,30 @@ const listClientsSchema = z.strictObject({
         .openapi({
             type: "array",
             description: "Filter by client labels"
+        }),
+    role_id: z
+        .preprocess((val) => {
+            if (val === undefined || val === null || val === "") {
+                return undefined;
+            }
+            const raw = Array.isArray(val)
+                ? val
+                : typeof val === "string"
+                  ? val.split(",")
+                  : [val];
+            const ids = raw
+                .map((v) =>
+                    typeof v === "string" ? parseInt(v, 10) : Number(v)
+                )
+                .filter((n) => Number.isInteger(n) && n > 0);
+            return ids.length > 0 ? [...new Set(ids)] : undefined;
+        }, z.array(z.number().int().positive()).optional())
+        .catch(undefined)
+        .openapi({
+            type: "array",
+            items: { type: "integer" },
+            description:
+                "Filter clients that have any of these role ids assigned (repeat query param or comma-separated)"
         })
 });
 
@@ -195,6 +222,7 @@ type ClientWithSites = Awaited<ReturnType<typeof queryClientsBase>>[0] & {
     }>;
     olmUpdateAvailable?: boolean;
     labels?: Array<Pick<Label, "labelId" | "name" | "color">>;
+    roles: Array<{ roleId: number; name: string }>;
 };
 
 type OlmWithUpdateAvailable = ClientWithSites;
@@ -253,7 +281,8 @@ export async function listClients(
             status,
             sort_by,
             order,
-            labels: labelFilter
+            labels: labelFilter,
+            role_id: roleIdFilter
         } = parsedQuery.data;
 
         const parsedParams = listClientsParamsSchema.safeParse(req.params);
@@ -352,6 +381,23 @@ export async function listClients(
             );
         }
 
+        if (roleIdFilter && roleIdFilter.length > 0) {
+            conditions.push(
+                exists(
+                    db
+                        .select()
+                        .from(clientOrgRoles)
+                        .where(
+                            and(
+                                eq(clientOrgRoles.clientId, clients.clientId),
+                                eq(clientOrgRoles.orgId, orgId),
+                                inArray(clientOrgRoles.roleId, roleIdFilter)
+                            )
+                        )
+                )
+            );
+        }
+
         if (query) {
             const q = "%" + query.toLowerCase() + "%";
             const queryList = [
@@ -421,6 +467,25 @@ export async function listClients(
                 .orderBy(asc(clientLabels.clientLabelId));
         }
 
+        const rolesForClients =
+            clientIds.length > 0
+                ? await db
+                      .select({
+                          clientId: clientOrgRoles.clientId,
+                          roleId: roles.roleId,
+                          name: roles.name
+                      })
+                      .from(clientOrgRoles)
+                      .innerJoin(roles, eq(roles.roleId, clientOrgRoles.roleId))
+                      .where(
+                          and(
+                              inArray(clientOrgRoles.clientId, clientIds),
+                              eq(clientOrgRoles.orgId, orgId)
+                          )
+                      )
+                      .orderBy(asc(roles.name))
+                : [];
+
         // Group site associations by client ID
         const sitesByClient = siteAssociations.reduce(
             (acc, association) => {
@@ -451,7 +516,10 @@ export async function listClients(
                 sites: sitesByClient[client.clientId] || [],
                 labels: labelsForClients.filter(
                     (l) => l.clientId === client.clientId
-                )
+                ),
+                roles: rolesForClients
+                    .filter((r) => r.clientId === client.clientId)
+                    .map(({ roleId, name }) => ({ roleId, name }))
             };
         });
 

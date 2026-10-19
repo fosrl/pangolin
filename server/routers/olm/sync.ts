@@ -5,13 +5,13 @@ import {
     exitNodes,
     Olm,
     sites,
-    clientSitesAssociationsCache
+    clientSitesAssociationsCache,
+    orgs
 } from "@server/db";
 import { buildSiteConfigurationForOlmClient } from "./buildConfiguration";
 import { sendToClient } from "#dynamic/routers/ws";
 import logger from "@server/logger";
 import { count, eq, inArray } from "drizzle-orm";
-import config from "@server/lib/config";
 import { canCompress } from "@server/lib/clientVersionChecks";
 import { build } from "@server/build";
 
@@ -36,8 +36,19 @@ export async function sendOlmSyncMessage(olm: Olm, client: Client) {
         { orgId: client.orgId }
     );
 
+    const [org] = await db
+        .select()
+        .from(orgs)
+        .where(eq(orgs.orgId, client.orgId))
+        .limit(1);
+
+    if (!org) {
+        logger.warn(`Client ${client.clientId} org not found`);
+        return;
+    }
+
     let jitMode = false;
-    if (sitesCount > 250 && build == "saas") {
+    if (sitesCount > org.settingsJitModeLimit && build == "saas") {
         // THIS IS THE MAX ON THE BUSINESS TIER
         // we have too many sites
         // If we have too many sites we need to drop into fully JIT mode by not sending any of the sites
@@ -113,7 +124,7 @@ export async function sendOlmSyncMessage(olm: Olm, client: Client) {
         exitNodesData = allExitNodes.map((exitNode) => {
             return {
                 publicKey: exitNode.publicKey,
-                relayPort: config.getRawConfig().gerbil.clients_start_port,
+                relayPort: exitNode.relayPort,
                 endpoint: exitNode.endpoint,
                 siteIds: exitNodeIdToSiteIds[exitNode.exitNodeId] ?? []
             };

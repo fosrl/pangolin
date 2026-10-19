@@ -132,9 +132,10 @@ export default function Page() {
         };
 
         const res = await api
-            .put<
-                AxiosResponse<CreateClientResponse>
-            >(`/org/${orgId}/client`, payload)
+            .put<AxiosResponse<CreateClientResponse>>(
+                `/org/${orgId}/client`,
+                payload
+            )
             .catch((e) => {
                 toast({
                     variant: "destructive",
@@ -406,7 +407,6 @@ export default function Page() {
                                     id={olmId}
                                     endpoint={env.app.dashboardUrl}
                                     secret={olmSecret}
-                                    version={olmVersion}
                                 />
                             </>
                         )}

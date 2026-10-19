@@ -55,12 +55,12 @@ const listAllSiteResourcesByOrgQuerySchema = z.strictObject({
         }),
     query: z.string().optional(),
     mode: z
-        .enum(["host", "cidr", "http", "ssh", "inference"])
+        .enum(["host", "cidr", "http", "ssh", "inference", "gateway"])
         .optional()
         .catch(undefined)
         .openapi({
             type: "string",
-            enum: ["host", "cidr", "http", "ssh", "inference"],
+            enum: ["host", "cidr", "http", "ssh", "inference", "gateway"],
             description: "Filter site resources by mode"
         }),
     sort_by: z

@@ -1,5 +1,6 @@
 import { drizzle as DrizzlePostgres } from "drizzle-orm/node-postgres";
 import { readConfigFile } from "@server/lib/readConfigFile";
+import { readEnvOrFile } from "@server/lib/getEnvOrYaml";
 import { withReplicas } from "drizzle-orm/pg-core";
 import { createPool } from "./poolConfig";
 
@@ -7,17 +8,20 @@ function createDb() {
     const config = readConfigFile();
 
     // check the environment variables for postgres config first before the config file
-    if (process.env.POSTGRES_CONNECTION_STRING) {
+    const envConnectionString = readEnvOrFile("POSTGRES_CONNECTION_STRING");
+    if (envConnectionString) {
         config.postgres = {
-            connection_string: process.env.POSTGRES_CONNECTION_STRING
+            connection_string: envConnectionString
         };
-        if (process.env.POSTGRES_REPLICA_CONNECTION_STRINGS) {
-            const replicas =
-                process.env.POSTGRES_REPLICA_CONNECTION_STRINGS.split(",").map(
-                    (conn) => ({
-                        connection_string: conn.trim()
-                    })
-                );
+        const replicaConnectionStrings = readEnvOrFile(
+            "POSTGRES_REPLICA_CONNECTION_STRINGS"
+        );
+        if (replicaConnectionStrings) {
+            const replicas = replicaConnectionStrings
+                .split(",")
+                .map((conn) => ({
+                    connection_string: conn.trim()
+                }));
             config.postgres.replicas = replicas;
         }
     }

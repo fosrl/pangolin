@@ -19,7 +19,8 @@ import {
     ArrowRight,
     ArrowUp10Icon,
     ChevronsUpDownIcon,
-    MoreHorizontal
+    MoreHorizontal,
+    ShieldUserIcon
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -43,6 +44,13 @@ import {
     CredenzaClose
 } from "@app/components/Credenza";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from "./ui/tooltip";
+import { useUserContext } from "@app/hooks/useUserContext";
 
 export type GlobalUserRow = {
     id: string;
@@ -90,6 +98,11 @@ export default function UsersTable({
     const [passwordResetCodeData, setPasswordResetCodeData] =
         useState<AdminGeneratePasswordResetCodeResponse | null>(null);
     const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+    const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
+    const [promoting, setPromoting] = useState<GlobalUserRow | null>(null);
+    const [isDemoteModalOpen, setIsDemoteModalOpen] = useState(false);
+    const [demoting, setDemoting] = useState<GlobalUserRow | null>(null);
+    const user = useUserContext();
 
     const [isRefreshing, startTransition] = useTransition();
     const {
@@ -105,6 +118,11 @@ export default function UsersTable({
         .catch(undefined);
 
     const twoFactorFilterSchema = z
+        .enum(["true", "false"])
+        .optional()
+        .catch(undefined);
+
+    const serverAdminFilterSchema = z
         .enum(["true", "false"])
         .optional()
         .catch(undefined);
@@ -184,6 +202,54 @@ export default function UsersTable({
         }
     };
 
+    const setServerAdmin = async (
+        targetUser: GlobalUserRow,
+        serverAdmin: boolean
+    ) => {
+        const successTitleKey = serverAdmin
+            ? "promoteServerAdminSuccess"
+            : "demoteServerAdminSuccess";
+        const successDescriptionKey = serverAdmin
+            ? "promoteServerAdminSuccessDescription"
+            : "demoteServerAdminSuccessDescription";
+        const errorKey = serverAdmin
+            ? "promoteServerAdminError"
+            : "demoteServerAdminError";
+
+        try {
+            await api.post(`/user/${targetUser.id}/server-admin`, {
+                serverAdmin
+            });
+
+            toast({
+                title: t(successTitleKey),
+                description: t(successDescriptionKey, {
+                    selectedUser: getUserDisplayName({
+                        email: targetUser.email,
+                        name: targetUser.name,
+                        username: targetUser.username
+                    })
+                })
+            });
+
+            startTransition(() => {
+                router.refresh();
+            });
+        } catch (e) {
+            console.error(t(errorKey), e);
+            toast({
+                variant: "destructive",
+                title: t(errorKey),
+                description: formatAxiosError(e, t(errorKey))
+            });
+        } finally {
+            setIsPromoteModalOpen(false);
+            setPromoting(null);
+            setIsDemoteModalOpen(false);
+            setDemoting(null);
+        }
+    };
+
     function toggleSort(column: string) {
         const newSearch = getNextSortOrder(column, searchParams);
         filter({
@@ -235,7 +301,32 @@ export default function UsersTable({
                         <Icon className="ml-2 h-4 w-4" />
                     </Button>
                 );
-            }
+            },
+            cell: ({ row }) => (
+                <span className="inline-flex gap-1 items-center">
+                    {row.original.username}{" "}
+                    {row.original.id === user.user.userId && (
+                        <>
+                            <span className="text-muted-foreground">
+                                &middot;
+                            </span>{" "}
+                            <span className="text-primary">you</span>
+                        </>
+                    )}
+                    {row.original.serverAdmin && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <ShieldUserIcon className="text-primary size-4 flex-none" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {t("serverAdmin")}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </span>
+            )
         },
         {
             accessorKey: "email",
@@ -342,6 +433,37 @@ export default function UsersTable({
             }
         },
         {
+            accessorKey: "serverAdmin",
+            friendlyName: t("serverAdmin"),
+            header: () => (
+                <ColumnFilterButton
+                    options={[
+                        { value: "true", label: t("yes") },
+                        { value: "false", label: t("no") }
+                    ]}
+                    selectedValue={serverAdminFilterSchema.parse(
+                        searchParams.get("server_admin") ?? undefined
+                    )}
+                    onValueChange={(value) =>
+                        handleFilterChange("server_admin", value)
+                    }
+                    searchPlaceholder={t("searchPlaceholder")}
+                    emptyMessage={t("emptySearchOptions")}
+                    label={t("serverAdmin")}
+                    className="p-3"
+                />
+            ),
+            cell: ({ row }) => (
+                <span>
+                    {row.original.serverAdmin ? (
+                        <span>{t("yes")}</span>
+                    ) : (
+                        <span>{t("no")}</span>
+                    )}
+                </span>
+            )
+        },
+        {
             id: "actions",
             enableHiding: false,
             header: () => <span className="p-3"></span>,
@@ -369,11 +491,34 @@ export default function UsersTable({
                                         {t("generatePasswordResetCode")}
                                     </DropdownMenuItem>
                                 )}
+                                {r.type === "internal" && !r.serverAdmin && (
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setPromoting(r);
+                                            setIsPromoteModalOpen(true);
+                                        }}
+                                    >
+                                        {t("promoteServerAdmin")}
+                                    </DropdownMenuItem>
+                                )}
+                                {r.type === "internal" &&
+                                    r.serverAdmin &&
+                                    r.id !== user.user.userId && (
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                setDemoting(r);
+                                                setIsDemoteModalOpen(true);
+                                            }}
+                                        >
+                                            {t("demoteServerAdmin")}
+                                        </DropdownMenuItem>
+                                    )}
                                 <DropdownMenuItem
                                     onClick={() => {
                                         setSelected(r);
                                         setIsDeleteModalOpen(true);
                                     }}
+                                    className="text-red-400"
                                 >
                                     {t("delete")}
                                 </DropdownMenuItem>
@@ -432,6 +577,86 @@ export default function UsersTable({
                         username: selected.username
                     })}
                     title={t("userDeleteServer")}
+                />
+            )}
+
+            {promoting && (
+                <ConfirmDeleteDialog
+                    open={isPromoteModalOpen}
+                    setOpen={(val) => {
+                        setIsPromoteModalOpen(val);
+                        if (!val) {
+                            setPromoting(null);
+                        }
+                    }}
+                    dialog={
+                        <div className="space-y-2">
+                            <p>
+                                {t("promoteServerAdminQuestion", {
+                                    selectedUser: getUserDisplayName({
+                                        email: promoting.email,
+                                        name: promoting.name,
+                                        username: promoting.username
+                                    })
+                                })}
+                            </p>
+
+                            <p>{t("promoteServerAdminMessage")}</p>
+                        </div>
+                    }
+                    buttonText={t("promoteServerAdminConfirm")}
+                    onConfirm={async () => setServerAdmin(promoting, true)}
+                    string={getUserDisplayName({
+                        email: promoting.email,
+                        name: promoting.name,
+                        username: promoting.username
+                    })}
+                    warningText={t("promoteServerAdminWarning")}
+                    title={t("promoteServerAdminTitle")}
+                />
+            )}
+
+            {demoting && (
+                <ConfirmDeleteDialog
+                    open={isDemoteModalOpen}
+                    setOpen={(val) => {
+                        setIsDemoteModalOpen(val);
+                        if (!val) {
+                            setDemoting(null);
+                        }
+                    }}
+                    dialog={
+                        <div className="space-y-2">
+                            <p>
+                                {t("demoteServerAdminQuestion", {
+                                    selectedUser: getUserDisplayName({
+                                        email: demoting.email,
+                                        name: demoting.name,
+                                        username: demoting.username
+                                    })
+                                })}
+                            </p>
+
+                            <p>
+                                {t("demoteServerAdminMessage", {
+                                    selectedUser: getUserDisplayName({
+                                        email: demoting.email,
+                                        name: demoting.name,
+                                        username: demoting.username
+                                    })
+                                })}
+                            </p>
+                        </div>
+                    }
+                    buttonText={t("demoteServerAdminConfirm")}
+                    onConfirm={async () => setServerAdmin(demoting, false)}
+                    string={getUserDisplayName({
+                        email: demoting.email,
+                        name: demoting.name,
+                        username: demoting.username
+                    })}
+                    warningText={t("demoteServerAdminWarning")}
+                    title={t("demoteServerAdminTitle")}
                 />
             )}
 

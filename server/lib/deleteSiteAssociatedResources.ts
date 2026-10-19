@@ -17,7 +17,6 @@ import {
     performDeleteSiteResources,
     runSiteResourceDeleteSideEffects
 } from "@server/lib/deleteSiteResource";
-import logger from "@server/logger";
 
 export const MAX_SITE_ASSOCIATED_RESOURCES_FOR_BULK_DELETE = 250;
 

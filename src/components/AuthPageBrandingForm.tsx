@@ -15,12 +15,18 @@ import { useActionState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import {
+    SettingsFormCell,
+    SettingsFormGrid,
     SettingsSection,
     SettingsSectionBody,
     SettingsSectionDescription,
+    SettingsSectionFooter,
     SettingsSectionForm,
     SettingsSectionHeader,
-    SettingsSectionTitle
+    SettingsSectionTitle,
+    SettingsSubsectionDescription,
+    SettingsSubsectionHeader,
+    SettingsSubsectionTitle
 } from "./Settings";
 
 import { useEnvContext } from "@app/hooks/useEnvContext";
@@ -176,89 +182,228 @@ export default function AuthPageBrandingForm({
                 </SettingsSectionHeader>
 
                 <SettingsSectionBody>
-                    <SettingsSectionForm>
-                        <PaidFeaturesAlert
-                            tiers={tierMatrix.loginPageBranding}
-                        />
-
+                    <SettingsSectionForm variant="half">
                         <Form {...form}>
                             <form
                                 action={updateFormAction}
                                 id="auth-page-branding-form"
-                                className="flex flex-col space-y-4 items-stretch"
                             >
-                                <FormField
-                                    control={form.control}
-                                    name="primaryColor"
-                                    render={({ field }) => (
-                                        <FormItem className="">
-                                            <FormLabel>
-                                                {t("brandingPrimaryColor")}
-                                            </FormLabel>
+                                <SettingsFormGrid>
+                                    <SettingsFormCell span="full">
+                                        <PaidFeaturesAlert
+                                            tiers={tierMatrix.loginPageBranding}
+                                        />
+                                    </SettingsFormCell>
 
-                                            <div className="flex items-center gap-2">
-                                                <label
-                                                    className="size-8 rounded-sm"
-                                                    aria-hidden="true"
-                                                    style={{
-                                                        backgroundColor:
-                                                            field.value
-                                                    }}
-                                                >
-                                                    <input
-                                                        type="color"
-                                                        {...field}
-                                                        className="sr-only"
-                                                    />
-                                                </label>
-                                                <FormControl>
-                                                    <Input {...field} />
-                                                </FormControl>
-                                            </div>
-
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <div className="grid md:grid-cols-5 gap-3 items-start">
-                                    <FormField
-                                        control={form.control}
-                                        name="logoUrl"
-                                        render={({ field }) => (
-                                            <FormItem className="md:col-span-3">
-                                                <FormLabel>
-                                                    {build === "enterprise"
-                                                        ? t(
-                                                              "brandingLogoURLOrPath"
-                                                          )
-                                                        : t("brandingLogoURL")}
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                                <FormDescription>
-                                                    {build === "enterprise"
-                                                        ? t(
-                                                              "brandingLogoPathDescription"
-                                                          )
-                                                        : t(
-                                                              "brandingLogoURLDescription"
-                                                          )}
-                                                </FormDescription>
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <div className="md:col-span-2 flex gap-3  items-start">
+                                    <SettingsFormCell span="half">
                                         <FormField
                                             control={form.control}
-                                            name="logoWidth"
+                                            name="primaryColor"
                                             render={({ field }) => (
-                                                <FormItem className="grow">
+                                                <FormItem>
                                                     <FormLabel>
-                                                        {t("brandingLogoWidth")}
+                                                        {t(
+                                                            "brandingPrimaryColor"
+                                                        )}
                                                     </FormLabel>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <label
+                                                            className="size-8 rounded-sm"
+                                                            aria-hidden="true"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    field.value
+                                                            }}
+                                                        >
+                                                            <input
+                                                                type="color"
+                                                                {...field}
+                                                                className="sr-only"
+                                                            />
+                                                        </label>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                    </div>
+
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </SettingsFormCell>
+
+                                    <SettingsFormCell
+                                        span="half"
+                                        className="md:col-start-1"
+                                    >
+                                        <FormField
+                                            control={form.control}
+                                            name="logoUrl"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {build === "enterprise"
+                                                            ? t(
+                                                                  "brandingLogoURLOrPath"
+                                                              )
+                                                            : t(
+                                                                  "brandingLogoURL"
+                                                              )}
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Input {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                    <FormDescription>
+                                                        {build === "enterprise"
+                                                            ? t(
+                                                                  "brandingLogoPathDescription"
+                                                              )
+                                                            : t(
+                                                                  "brandingLogoURLDescription"
+                                                              )}
+                                                    </FormDescription>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </SettingsFormCell>
+
+                                    <SettingsFormCell span="half">
+                                        <div className="flex gap-3 items-start">
+                                            <FormField
+                                                control={form.control}
+                                                name="logoWidth"
+                                                render={({ field }) => (
+                                                    <FormItem className="grow">
+                                                        <FormLabel>
+                                                            {t(
+                                                                "brandingLogoWidth"
+                                                            )}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <span className="relative top-8">
+                                                <XIcon className="text-muted-foreground size-4" />
+                                            </span>
+
+                                            <FormField
+                                                control={form.control}
+                                                name="logoHeight"
+                                                render={({ field }) => (
+                                                    <FormItem className="grow">
+                                                        <FormLabel>
+                                                            {t(
+                                                                "brandingLogoHeight"
+                                                            )}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </SettingsFormCell>
+
+                                    {build === "saas" ||
+                                    env.env.app.identityProviderMode ===
+                                        "org" ? (
+                                        <>
+                                            <SettingsFormCell span="full">
+                                                <SettingsSubsectionHeader>
+                                                    <SettingsSubsectionTitle>
+                                                        {t(
+                                                            "organizationLoginPageTitle"
+                                                        )}
+                                                    </SettingsSubsectionTitle>
+                                                    <SettingsSubsectionDescription>
+                                                        {t(
+                                                            "organizationLoginPageDescription"
+                                                        )}
+                                                    </SettingsSubsectionDescription>
+                                                </SettingsSubsectionHeader>
+                                            </SettingsFormCell>
+
+                                            <SettingsFormCell span="half">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="orgTitle"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>
+                                                                {t(
+                                                                    "brandingOrgTitle"
+                                                                )}
+                                                            </FormLabel>
+
+                                                            <FormControl>
+                                                                <Input
+                                                                    {...field}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </SettingsFormCell>
+                                            <SettingsFormCell span="half">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="orgSubtitle"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>
+                                                                {t(
+                                                                    "brandingOrgSubtitle"
+                                                                )}
+                                                            </FormLabel>
+
+                                                            <FormControl>
+                                                                <Input
+                                                                    {...field}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </SettingsFormCell>
+                                        </>
+                                    ) : null}
+
+                                    <SettingsFormCell span="full">
+                                        <SettingsSubsectionHeader>
+                                            <SettingsSubsectionTitle>
+                                                {t("resourceLoginPageTitle")}
+                                            </SettingsSubsectionTitle>
+                                            <SettingsSubsectionDescription>
+                                                {t(
+                                                    "resourceLoginPageDescription"
+                                                )}
+                                            </SettingsSubsectionDescription>
+                                        </SettingsSubsectionHeader>
+                                    </SettingsFormCell>
+
+                                    <SettingsFormCell span="half">
+                                        <FormField
+                                            control={form.control}
+                                            name="resourceTitle"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        {t(
+                                                            "brandingResourceTitle"
+                                                        )}
+                                                    </FormLabel>
+
                                                     <FormControl>
                                                         <Input {...field} />
                                                     </FormControl>
@@ -266,19 +411,16 @@ export default function AuthPageBrandingForm({
                                                 </FormItem>
                                             )}
                                         />
-
-                                        <span className="relative top-8">
-                                            <XIcon className="text-muted-foreground size-4" />
-                                        </span>
-
+                                    </SettingsFormCell>
+                                    <SettingsFormCell span="half">
                                         <FormField
                                             control={form.control}
-                                            name="logoHeight"
+                                            name="resourceSubtitle"
                                             render={({ field }) => (
-                                                <FormItem className="grow">
+                                                <FormItem>
                                                     <FormLabel>
                                                         {t(
-                                                            "brandingLogoHeight"
+                                                            "brandingResourceSubtitle"
                                                         )}
                                                     </FormLabel>
                                                     <FormControl>
@@ -288,116 +430,14 @@ export default function AuthPageBrandingForm({
                                                 </FormItem>
                                             )}
                                         />
-                                    </div>
-                                </div>
-
-                                {build === "saas" ||
-                                env.env.app.identityProviderMode === "org" ? (
-                                    <>
-                                        <div className="mt-3 mb-6">
-                                            <SettingsSectionTitle>
-                                                {t(
-                                                    "organizationLoginPageTitle"
-                                                )}
-                                            </SettingsSectionTitle>
-                                            <SettingsSectionDescription>
-                                                {t(
-                                                    "organizationLoginPageDescription"
-                                                )}
-                                            </SettingsSectionDescription>
-                                        </div>
-
-                                        <div className="flex flex-col gap-5">
-                                            <FormField
-                                                control={form.control}
-                                                name="orgTitle"
-                                                render={({ field }) => (
-                                                    <FormItem className="md:col-span-3">
-                                                        <FormLabel>
-                                                            {t(
-                                                                "brandingOrgTitle"
-                                                            )}
-                                                        </FormLabel>
-
-                                                        <FormControl>
-                                                            <Input {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name="orgSubtitle"
-                                                render={({ field }) => (
-                                                    <FormItem className="md:col-span-3">
-                                                        <FormLabel>
-                                                            {t(
-                                                                "brandingOrgSubtitle"
-                                                            )}
-                                                        </FormLabel>
-
-                                                        <FormControl>
-                                                            <Input {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                    </>
-                                ) : null}
-
-                                <div className="mt-3 mb-6">
-                                    <SettingsSectionTitle>
-                                        {t("resourceLoginPageTitle")}
-                                    </SettingsSectionTitle>
-                                    <SettingsSectionDescription>
-                                        {t("resourceLoginPageDescription")}
-                                    </SettingsSectionDescription>
-                                </div>
-
-                                <div className="flex flex-col gap-5">
-                                    <FormField
-                                        control={form.control}
-                                        name="resourceTitle"
-                                        render={({ field }) => (
-                                            <FormItem className="md:col-span-3">
-                                                <FormLabel>
-                                                    {t("brandingResourceTitle")}
-                                                </FormLabel>
-
-                                                <FormControl>
-                                                    <Input {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="resourceSubtitle"
-                                        render={({ field }) => (
-                                            <FormItem className="md:col-span-3">
-                                                <FormLabel>
-                                                    {t(
-                                                        "brandingResourceSubtitle"
-                                                    )}
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
+                                    </SettingsFormCell>
+                                </SettingsFormGrid>
                             </form>
                         </Form>
                     </SettingsSectionForm>
                 </SettingsSectionBody>
 
-                <div className="flex justify-end gap-2 mt-6 items-center">
+                <SettingsSectionFooter>
                     {branding && (
                         <form action={deleteFormAction}>
                             <Button
@@ -427,7 +467,7 @@ export default function AuthPageBrandingForm({
                     >
                         {t("saveAuthPageBranding")}
                     </Button>
-                </div>
+                </SettingsSectionFooter>
             </SettingsSection>
         </>
     );

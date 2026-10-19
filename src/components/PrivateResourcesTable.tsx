@@ -2,12 +2,13 @@
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import ExportBlueprintModal from "@app/components/ExportBlueprintModal";
 import { ResourceAccessCertIndicator } from "@app/components/ResourceAccessCertIndicator";
 import {
     ResourceSitesStatusCell,
     type ResourceSiteRow
 } from "@app/components/ResourceSitesStatusCell";
-import { Selectedsite, SitesSelector } from "@app/components/site-selector";
+import { SelectedSite, SitesSelector } from "@app/components/site-selector";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
@@ -170,6 +171,10 @@ export default function PrivateResourcesTable({
     const [editingResource, setEditingResource] =
         useState<PrivateResourceRow | null>();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportResource, setExportResource] =
+        useState<PrivateResourceRow | null>(null);
 
     const [isRefreshing, startRefreshTransition] = useTransition();
 
@@ -357,6 +362,12 @@ export default function PrivateResourcesTable({
                                 label: t(
                                     "editInternalResourceDialogModeInference"
                                 )
+                            },
+                            {
+                                value: "gateway",
+                                label: t(
+                                    "editInternalResourceDialogModeGateway"
+                                )
                             }
                         ]}
                         selectedValue={searchParams.get("mode") ?? undefined}
@@ -376,7 +387,8 @@ export default function PrivateResourcesTable({
                         cidr: t("editInternalResourceDialogModeCidr"),
                         http: t("editInternalResourceDialogModeHttp"),
                         ssh: t("editInternalResourceDialogModeSsh"),
-                        inference: t("editInternalResourceDialogModeInference")
+                        inference: t("editInternalResourceDialogModeInference"),
+                        gateway: t("editInternalResourceDialogModeGateway")
                     };
                     return <span>{modeLabels[resourceRow.mode]}</span>;
                 }
@@ -392,7 +404,11 @@ export default function PrivateResourcesTable({
                 cell: ({ row }) => {
                     const resourceRow = row.original;
                     const display = formatDestinationDisplay(resourceRow);
-                    if (resourceRow.destination) {
+                    if (
+                        resourceRow.destination &&
+                        resourceRow.mode !== "gateway"
+                    ) {
+                        // don't show the gateway resource destination which is 0.0.0.0/0 to not confuse people
                         return (
                             <CopyToClipboard
                                 text={display}
@@ -568,6 +584,14 @@ export default function PrivateResourcesTable({
                                     </Link>
                                     <DropdownMenuItem
                                         onClick={() => {
+                                            setExportResource(resourceRow);
+                                            setIsExportModalOpen(true);
+                                        }}
+                                    >
+                                        {t("exportAsBlueprint")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => {
                                             setSelectedInternalResource(
                                                 resourceRow
                                             );
@@ -665,6 +689,22 @@ export default function PrivateResourcesTable({
                     }
                     string={selectedInternalResource.name}
                     title={t("resourceDelete")}
+                />
+            )}
+
+            {exportResource && (
+                <ExportBlueprintModal
+                    open={isExportModalOpen}
+                    setOpen={(val) => {
+                        setIsExportModalOpen(val);
+                        if (!val) {
+                            setExportResource(null);
+                        }
+                    }}
+                    endpoint={`/site-resource/${exportResource.id}/blueprint`}
+                    resourceName={
+                        exportResource.niceId || exportResource.name
+                    }
                 />
             )}
 

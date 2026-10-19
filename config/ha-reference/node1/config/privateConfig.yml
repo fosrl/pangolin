@@ -1,0 +1,18 @@
+app:
+  region: "region1"
+  identity_provider_mode: "org"
+redis:
+  host: "<REDIS_INTERNAL_HOST>"
+  port: 6379
+flags:
+  enable_redis: true
+  use_pangolin_dns: true
+acme:
+  cert_mode: "pangolin"
+  contact_email: "<CONTACT_EMAIL>"
+  enable_acme_client: true
+dns:
+  enabled: true
+  nameserver_name: "ns.example.com"
+  cname_extension: "cname.example.com"
+  site_extension: "site.example.com" # Optional

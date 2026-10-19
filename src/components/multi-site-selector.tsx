@@ -12,12 +12,12 @@ import {
 import { Checkbox } from "./ui/checkbox";
 import { useTranslations } from "next-intl";
 import { useDebounce } from "use-debounce";
-import { SiteOnlineStatus, type Selectedsite } from "./site-selector";
+import { SiteOnlineStatus, type SelectedSite } from "./site-selector";
 
 export type MultiSitesSelectorProps = {
     orgId: string;
-    selectedSites: Selectedsite[];
-    onSelectionChange: (sites: Selectedsite[]) => void;
+    selectedSites: SelectedSite[];
+    onSelectionChange: (sites: SelectedSite[]) => void;
     filterTypes?: string[];
     scope?: "org" | "launcher";
     onClear?: () => void;
@@ -25,7 +25,7 @@ export type MultiSitesSelectorProps = {
 };
 
 export function formatMultiSitesSelectorLabel(
-    selectedSites: Selectedsite[],
+    selectedSites: SelectedSite[],
     t: (key: string, values?: { count: number }) => string
 ): string {
     if (selectedSites.length === 0) {
@@ -91,7 +91,7 @@ export function MultiSitesSelector({
         [selectedSites]
     );
 
-    const toggleSite = (site: Selectedsite) => {
+    const toggleSite = (site: SelectedSite) => {
         if (selectedIds.has(site.siteId)) {
             onSelectionChange(
                 selectedSites.filter((s) => s.siteId !== site.siteId)

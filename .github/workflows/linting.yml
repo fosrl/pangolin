@@ -3,18 +3,25 @@ name: ESLint
 permissions:
   contents: read
 
+# Disabled from running on PRs: typescript-eslint does not yet support
+# TypeScript 7 (which this repo is on), so eslint currently crashes on
+# every run. Kept as workflow_dispatch so it can still be triggered
+# manually, and re-enabled on pull_request once upstream support lands.
+# https://github.com/typescript-eslint/typescript-eslint/issues/10940
+# on:
+#     pull_request:
+#         paths:
+#             - '**/*.js'
+#             - '**/*.jsx'
+#             - '**/*.ts'
+#             - '**/*.tsx'
+#             - '.eslintrc*'
+#             - 'package.json'
+#             - 'yarn.lock'
+#             - 'pnpm-lock.yaml'
+#             - 'package-lock.json'
 on:
-    pull_request:
-        paths:
-            - '**/*.js'
-            - '**/*.jsx'
-            - '**/*.ts'
-            - '**/*.tsx'
-            - '.eslintrc*'
-            - 'package.json'
-            - 'yarn.lock'
-            - 'pnpm-lock.yaml'
-            - 'package-lock.json'
+    workflow_dispatch:
 
 jobs:
     Linter:
@@ -24,9 +31,12 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
             - name: Set up Node.js
-              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
-                node-version: '24'
+                # Match the version the app ships on (Dockerfile /
+                # Dockerfile.dev both use 24.18.1) rather than floating
+                # to the latest 24.x.
+                node-version: '24.18.1'
 
             - name: Install dependencies
               run: npm ci

@@ -4,7 +4,7 @@ import { encrypt, decrypt } from "@server/lib/crypto";
 import { configFilePath1, configFilePath2 } from "@server/lib/consts";
 import { eq } from "drizzle-orm";
 import fs from "fs";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 
 type RotateServerSecretArgs = {
     "old-secret": string;

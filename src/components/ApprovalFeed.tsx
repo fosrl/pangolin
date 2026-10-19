@@ -227,7 +227,7 @@ function ApprovalRequest({ approval, orgId, onSuccess }: ApprovalRequestProps) {
             <div className="inline-flex items-start md:items-center gap-2">
                 <span>
                     <Link
-                        href={`/${orgId}/settings/access/users/${approval.user.userId}/access-controls`}
+                        href={`/${orgId}/settings/access/users/${approval.user.userId}/general`}
                         className="text-primary hover:underline cursor-pointer"
                     >
                         {getUserDisplayName({

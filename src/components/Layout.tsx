@@ -1,6 +1,7 @@
 import React from "react";
 import { cn } from "@app/lib/cn";
 import { ListUserOrgsResponse } from "@server/routers/org";
+import { Env } from "@app/lib/types/env";
 import {
     orgLangingNavItems,
     type CommandBarNavSection,
@@ -25,6 +26,7 @@ interface LayoutProps {
     defaultSidebarCollapsed?: boolean;
     launcherMode?: boolean;
     showViewAsAdmin?: boolean;
+    env?: Env;
 }
 
 export async function Layout({
@@ -38,7 +40,8 @@ export async function Layout({
     showTopBar = true,
     defaultSidebarCollapsed = false,
     launcherMode = false,
-    showViewAsAdmin = false
+    showViewAsAdmin = false,
+    env
 }: LayoutProps) {
     const allCookies = await cookies();
     const sidebarStateCookie = allCookies.get("pangolin-sidebar-state")?.value;
@@ -49,7 +52,7 @@ export async function Layout({
         (sidebarStateCookie !== "expanded" && defaultSidebarCollapsed);
 
     const launcherNavItems: SidebarNavItem[] = launcherMode
-        ? orgLangingNavItems
+        ? orgLangingNavItems(env)
         : [];
 
     return (

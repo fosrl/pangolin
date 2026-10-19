@@ -383,7 +383,63 @@ function runSpecialCharacterTests() {
         "Deeply nested paths should still match"
     );
 
+    assertEquals(
+        isPathAllowed("*a*b", "xaxyb"),
+        true,
+        "Multiple wildcards within a segment should match"
+    );
+    assertEquals(
+        isPathAllowed("*a*b", "xaxyba"),
+        false,
+        "In-segment wildcard pattern must still be anchored at the end"
+    );
+
+    // a `.*`-style regex backtracks catastrophically here and never returns
+    const start = Date.now();
+    isPathAllowed("/" + "*a".repeat(10) + "b", "/" + "a".repeat(5000));
+    isPathAllowed(
+        "/" + Array(10).fill("*a*a*a*").join("/") + "/nevermatch",
+        "/" + Array(25).fill("a".repeat(200)).join("/")
+    );
+    assertEquals(
+        Date.now() - start < 1000,
+        true,
+        "In-segment wildcards should not backtrack exponentially"
+    );
+
     console.log("All special character tests passed!");
+}
+
+function runEncodedPatternTests() {
+    console.log("\nRunning percent-encoded pattern tests...");
+
+    // isValidUrlGlobPattern accepts percent-encoded sequences and rejects
+    // raw spaces / non-ASCII, so `%20` and `%C3%A9` are the only way to write
+    // a PATH rule for such a path. Badger sends the request path already
+    // decoded (Go's req.URL.Path), and isPathAllowed decodes it again, so the
+    // rule pattern must be decoded the same way or it can never match.
+    assertEquals(
+        isPathAllowed("/my%20docs/*", "/my docs/report.pdf"),
+        true,
+        "Percent-encoded space in pattern should match decoded request path"
+    );
+    assertEquals(
+        isPathAllowed("/my%20docs/*", "/my%20docs/report.pdf"),
+        true,
+        "Percent-encoded space in pattern should match raw-encoded request path"
+    );
+    assertEquals(
+        isPathAllowed("/caf%C3%A9", "/café"),
+        true,
+        "Percent-encoded UTF-8 in pattern should match decoded request path"
+    );
+    assertEquals(
+        isPathAllowed("/my%20docs/*", "/my-docs/report.pdf"),
+        false,
+        "Decoded pattern must still reject a different path"
+    );
+
+    console.log("All percent-encoded pattern tests passed!");
 }
 
 function runRegionTests() {
@@ -446,6 +502,7 @@ function runRegionTests() {
 try {
     runTests();
     runSpecialCharacterTests();
+    runEncodedPatternTests();
     runRegionTests();
     console.log("\n✅ All tests passed!");
 } catch (error) {

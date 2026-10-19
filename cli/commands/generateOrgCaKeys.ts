@@ -5,7 +5,7 @@ import { encrypt } from "@server/lib/crypto";
 import { configFilePath1, configFilePath2 } from "@server/lib/consts";
 import { generateCA } from "@server/lib/sshCA";
 import fs from "fs";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 
 type GenerateOrgCaKeysArgs = {
     orgId: string;

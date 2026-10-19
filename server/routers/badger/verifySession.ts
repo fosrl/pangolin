@@ -10,6 +10,8 @@ import {
     verifyVirtualApiKey
 } from "@server/auth/verifyVirtualApiKey";
 import {
+    type RedirectByHost,
+    getRedirectsByHost,
     getResourceByDomain,
     getResourceRules,
     getRoleResourceAccess,
@@ -40,6 +42,9 @@ import {
 import config from "@server/lib/config";
 import { isIpInCidr, stripPortFromHost } from "@server/lib/ip";
 import { isPathAllowed } from "@server/lib/pathMatch";
+import { matchesPath } from "@server/lib/traefik/rule";
+import { rewriteRequestPath } from "@server/lib/traefik/middleware";
+import { parseHttpMethodList } from "@server/lib/validators";
 import { response } from "@server/lib/response";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
@@ -67,6 +72,7 @@ import { APP_VERSION } from "@server/lib/consts";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { eq } from "drizzle-orm";
+import type ResponseT from "@server/types/MessageResponse";
 
 const verifyResourceSessionSchema = z.object({
     sessions: z.record(z.string(), z.string()).optional(),
@@ -108,6 +114,9 @@ export type VerifyUserResponse = {
     valid: boolean;
     headerAuthChallenged?: boolean;
     redirectUrl?: string;
+    // Set alongside redirectUrl when the redirect is a configured Redirect
+    // rather than a login bounce, so badger can answer 307 instead of 302.
+    redirectPermanent?: boolean;
     userData?: BasicUserData;
     pangolinVersion?: string;
     dontStripSession?: boolean;
@@ -161,6 +170,7 @@ export async function verifyResourceSession(
             originalRequestURL,
             requestIp,
             path,
+            method,
             headers,
             query,
             badgerVersion
@@ -169,8 +179,7 @@ export async function verifyResourceSession(
         // Extract HTTP Basic Auth credentials if present
         const clientHeaderAuth = extractBasicAuth(headers);
 
-        const clientUserAgent =
-            headers?.["user-agent"] || headers?.["User-Agent"];
+        const clientUserAgent = getClientHeader(headers, "user-agent");
         const clientIsBrowser = isBrowserUserAgent(clientUserAgent);
 
         const clientIp = requestIp
@@ -192,6 +201,30 @@ export async function verifyResourceSession(
             cleanHost = cleanHost.slice(0, -1 * matched.length);
         }
 
+        // Redirects always win: they are routed ahead of resources in
+        // Traefik and never require auth, even when attached to a resource,
+        // so let a matching one through to the redirect middleware before
+        // any resource lookup.
+        const redirect = await findRedirect(cleanHost, path);
+        if (redirect) {
+            const redirectUrl = buildRedirectUrl(redirect, parsedBody.data);
+            logger.debug(
+                `Redirecting ${cleanHost}${path} to ${redirectUrl} (redirect ${redirect.redirectId})`
+            );
+
+            logRequestAudit(
+                {
+                    action: true,
+                    reason: 110, // redirected
+                    orgId: redirect.orgId,
+                    location: ipCC
+                },
+                parsedBody.data
+            );
+
+            return redirected(res, redirectUrl, redirect.permanent);
+        }
+
         const resourceCacheKey = `resource:${cleanHost}`;
         let resourceData:
             | {
@@ -199,9 +232,7 @@ export async function verifyResourceSession(
                   pincode: ResourcePincode | ResourcePolicyPincode | null;
                   password: ResourcePassword | ResourcePolicyPassword | null;
                   headerAuth:
-                      | ResourceHeaderAuth
-                      | ResourcePolicyHeaderAuth
-                      | null;
+                      ResourceHeaderAuth | ResourcePolicyHeaderAuth | null;
                   headerAuthExtendedCompatibility: ResourceHeaderAuthExtendedCompatibility | null;
                   applyRules: boolean | null;
                   sso: boolean | null;
@@ -293,7 +324,8 @@ export async function verifyResourceSession(
                 clientIp,
                 path,
                 ipCC,
-                ipAsn
+                ipAsn,
+                method
             );
 
             if (action == "ACCEPT") {
@@ -453,7 +485,15 @@ export async function verifyResourceSession(
 
             // Browsers go to the resource auth / API key page. API clients get
             // a capability-shaped JSON auth error instead of a redirect.
-            if (clientIsBrowser) {
+            // Never redirect programmatic API calls (non-GET, or a known AI
+            // capability path): HTTP clients such as the OpenAI Python SDK
+            // (httpx) don't follow 302s on POST, so a redirect surfaces as
+            // an opaque failure with nothing logged in aiSessionLog since
+            // the request never reaches the gateway.
+            if (
+                clientIsBrowser &&
+                !isProgrammaticApiRequest(path, method, headers)
+            ) {
                 return notAllowed(res, redirectPath, resource.orgId);
             }
 
@@ -691,7 +731,9 @@ export async function verifyResourceSession(
                 );
 
                 resourceSession = result?.resourceSession;
-                localCache.set(sessionCacheKey, resourceSession, 5);
+                if (resourceSession) {
+                    localCache.set(sessionCacheKey, resourceSession, 5);
+                }
             }
 
             if (resourceSession?.isRequestToken) {
@@ -1007,6 +1049,71 @@ function extractResourceSessionToken(
     return latest.token;
 }
 
+async function findRedirect(
+    host: string,
+    path: string
+): Promise<RedirectByHost | null> {
+    const cacheKey = `redirects:${host}`;
+    let candidates: RedirectByHost[] | undefined = localCache.get(cacheKey);
+    if (!candidates) {
+        candidates = await getRedirectsByHost(host);
+        localCache.set(cacheKey, candidates, 5);
+    }
+
+    // Candidates come back highest priority first, matching the order
+    // Traefik evaluates the routers in.
+    return (
+        candidates.find((r) =>
+            matchesPath(path, r.matchPath, r.pathMatchType)
+        ) ?? null
+    );
+}
+
+/**
+ * Destination for a configured redirect: the scheme and host come from the
+ * redirect's destination, the request's query is kept and the path is run
+ * through the redirect's rewrite rules (if any).
+ */
+function buildRedirectUrl(
+    redirect: RedirectByHost,
+    request: VerifyResourceSessionSchema
+): string {
+    const newPath = rewriteRequestPath(
+        request.path,
+        redirect.matchPath,
+        redirect.pathMatchType,
+        redirect.rewritePath,
+        redirect.rewritePathType
+    );
+
+    let search = "";
+    try {
+        search = new URL(request.originalRequestURL).search;
+    } catch {
+        // originalRequestURL is validated as a URL, so this is only defensive
+    }
+
+    return `${redirect.destinationHost}${newPath}${search}`;
+}
+
+// Like a notAllowed login bounce, but the destination is the configured
+// redirect target rather than the auth page.
+function redirected(res: Response, redirectUrl: string, permanent: boolean) {
+    const data = {
+        data: {
+            valid: true,
+            redirectUrl,
+            redirectPermanent: permanent,
+            pangolinVersion: APP_VERSION
+        },
+        success: true,
+        error: false,
+        message: "Redirected",
+        status: HttpCode.OK
+    } satisfies ResponseT<VerifyUserResponse>;
+    return response<VerifyUserResponse>(res, data);
+}
+
 async function notAllowed(
     res: Response,
     redirectPath?: string,
@@ -1121,7 +1228,9 @@ async function allowAccessToken(
                 resource.resourceId
             );
             resourceSession = result?.resourceSession;
-            localCache.set(sessionCacheKey, resourceSession, 5);
+            if (resourceSession) {
+                localCache.set(sessionCacheKey, resourceSession, 5);
+            }
         }
 
         if (
@@ -1425,7 +1534,8 @@ async function checkRules(
     clientIp: string | undefined,
     path: string | undefined,
     ipCC?: string,
-    ipAsn?: number
+    ipAsn?: number,
+    method?: string
 ): Promise<"ACCEPT" | "DROP" | "PASS" | undefined> {
     const ruleCacheKey = `rules:${resourceId}`;
 
@@ -1500,10 +1610,22 @@ async function checkRules(
             (await isIpInRegion(ipCC, rule.value))
         ) {
             return rule.action as any;
+        } else if (
+            method &&
+            rule.match == "METHOD" &&
+            isMethodAllowed(rule.value, method)
+        ) {
+            return rule.action as any;
         }
     }
 
     return;
+}
+
+// rule.value holds a comma-separated list of HTTP methods, e.g. "POST,PUT".
+function isMethodAllowed(ruleValue: string, method: string): boolean {
+    const requestMethod = method.toUpperCase();
+    return parseHttpMethodList(ruleValue).includes(requestMethod);
 }
 
 export { isPathAllowed };
@@ -1657,14 +1779,29 @@ const NON_BROWSER_USER_AGENT_PATTERNS = [
     /wget/,
     /python-requests/,
     /python-urllib/,
+    /python-httpx/,
+    /httpx/,
+    /httpcore/,
+    /aiohttp/,
+    /urllib3/,
+    /openai\//,
+    /anthropic/,
     /go-http-client/,
     /okhttp/,
     /axios/,
     /node-fetch/,
+    /undici/,
     /postmanruntime/,
     /insomnia/,
     /libwww-perl/,
     /java\//,
+    /\bjava\b/,
+    /jakarta/,
+    /jersey/,
+    /netty/,
+    /jetty/,
+    /eclipse/,
+    /dbeaver/,
     /ruby/,
     /php/,
     /bot/,
@@ -1687,6 +1824,52 @@ function isBrowserUserAgent(userAgent: string | undefined): boolean {
     const ua = userAgent.toLowerCase();
 
     return !NON_BROWSER_USER_AGENT_PATTERNS.some((pattern) => pattern.test(ua));
+}
+
+function getClientHeader(
+    headers: Record<string, string> | undefined,
+    name: string
+): string | undefined {
+    if (!headers) {
+        return undefined;
+    }
+    const lower = name.toLowerCase();
+    for (const [key, value] of Object.entries(headers)) {
+        if (key.toLowerCase() === lower) {
+            return value;
+        }
+    }
+    return undefined;
+}
+
+// True for programmatic API calls that can't complete an interactive login,
+// even if the User-Agent looks like a browser (some SDKs reuse browser-ish
+// strings or omit a distinctive token). Badger turns a redirectUrl into a
+// 302, which HTTP clients don't follow on POST, so these must get a JSON
+// auth error instead.
+function isProgrammaticApiRequest(
+    path: string | undefined,
+    method: string | undefined,
+    headers: Record<string, string> | undefined
+): boolean {
+    if (method && method.toUpperCase() !== "GET") {
+        return true;
+    }
+    if (path && resolveAiCapabilityFromPath(path) !== null) {
+        return true;
+    }
+    const accept = getClientHeader(headers, "accept");
+    if (accept && !accept.toLowerCase().includes("text/html")) {
+        return true;
+    }
+    const secFetchMode = getClientHeader(headers, "sec-fetch-mode");
+    if (
+        secFetchMode &&
+        !["navigate", "document"].includes(secFetchMode.toLowerCase())
+    ) {
+        return true;
+    }
+    return false;
 }
 
 function extractBasicAuth(

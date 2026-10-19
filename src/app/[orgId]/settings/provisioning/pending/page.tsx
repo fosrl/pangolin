@@ -74,6 +74,8 @@ export default async function PendingSitesPage(props: PendingSitesPageProps) {
         type: site.type as any,
         online: site.online,
         newtVersion: site.newtVersion || undefined,
+        agent: site.agent || undefined,
+        agentVersion: site.agentVersion || undefined,
         newtUpdateAvailable: site.newtUpdateAvailable || false,
         exitNodeName: site.exitNodeName || undefined,
         exitNodeEndpoint: site.exitNodeEndpoint || undefined,

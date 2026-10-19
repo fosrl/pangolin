@@ -4,6 +4,7 @@ import logger from "@server/logger";
 import { canCompress } from "@server/lib/clientVersionChecks";
 import { decrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
+import { formatEndpoint } from "@server/lib/ip";
 
 export async function addTargets(
     newtId: string,
@@ -14,9 +15,7 @@ export async function addTargets(
 ) {
     //create a list of udp and tcp targets
     const payloadTargets = targets.map((target) => {
-        return `${target.internalPort ? target.internalPort + ":" : ""}${
-            target.ip
-        }:${target.port}`;
+        return `${target.internalPort ? target.internalPort + ":" : ""}${formatEndpoint(target.ip, target.port)}`;
     });
 
     if (payloadTargets.length > 0) {
@@ -208,9 +207,7 @@ export async function removeTargets(
 ) {
     //create a list of udp and tcp targets
     const payloadTargets = targets.map((target) => {
-        return `${target.internalPort ? target.internalPort + ":" : ""}${
-            target.ip
-        }:${target.port}`;
+        return `${target.internalPort ? target.internalPort + ":" : ""}${formatEndpoint(target.ip, target.port)}`;
     });
 
     if (payloadTargets.length > 0) {

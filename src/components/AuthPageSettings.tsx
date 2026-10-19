@@ -20,7 +20,10 @@ import {
     SettingsSectionTitle,
     SettingsSectionDescription,
     SettingsSectionBody,
-    SettingsSectionForm
+    SettingsSectionForm,
+    SettingsSectionFooter,
+    SettingsFormGrid,
+    SettingsFormCell
 } from "@app/components/Settings";
 import { useTranslations } from "next-intl";
 import { GetLoginPageResponse } from "@server/routers/loginPage/types";
@@ -284,145 +287,167 @@ function AuthPageSettings({
                     </SettingsSectionDescription>
                 </SettingsSectionHeader>
                 <SettingsSectionBody>
-                    <SettingsSectionForm>
-                        <PaidFeaturesAlert tiers={tierMatrix.loginPageDomain} />
-
+                    <SettingsSectionForm variant="half">
                         <Form {...form}>
                             <form
                                 action={formAction}
-                                className="space-y-4"
                                 id="auth-page-settings-form"
                             >
-                                <div className="space-y-3">
-                                    <Label>{t("authPageDomain")}</Label>
-                                    <div className="border p-2 rounded-md flex items-center justify-between">
-                                        <span className="text-sm text-muted-foreground flex items-center gap-2">
-                                            <Globe size="14" />
-                                            {loginPage &&
-                                            !loginPage.domainId ? (
-                                                <InfoPopup
-                                                    info={t(
-                                                        "domainNotFoundDescription"
+                                <SettingsFormGrid>
+                                    <SettingsFormCell span="full">
+                                        <PaidFeaturesAlert
+                                            tiers={tierMatrix.loginPageDomain}
+                                        />
+                                    </SettingsFormCell>
+                                    <SettingsFormCell span="full">
+                                        <div className="space-y-3">
+                                            <Label>{t("authPageDomain")}</Label>
+                                            <div className="border p-2 rounded-md flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                                                    <Globe size="14" />
+                                                    {loginPage &&
+                                                    !loginPage.domainId ? (
+                                                        <InfoPopup
+                                                            info={t(
+                                                                "domainNotFoundDescription"
+                                                            )}
+                                                            text={t(
+                                                                "domainNotFound"
+                                                            )}
+                                                        />
+                                                    ) : loginPage?.fullDomain ? (
+                                                        <a
+                                                            href={`${window.location.protocol}//${loginPage.fullDomain}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="hover:underline"
+                                                        >
+                                                            {`${window.location.protocol}//${loginPage.fullDomain}`}
+                                                        </a>
+                                                    ) : form.watch(
+                                                          "authPageDomainId"
+                                                      ) ? (
+                                                        // Show selected domain from form state when no loginPage exists yet
+                                                        (() => {
+                                                            const selectedDomainId =
+                                                                form.watch(
+                                                                    "authPageDomainId"
+                                                                );
+                                                            const selectedSubdomain =
+                                                                form.watch(
+                                                                    "authPageSubdomain"
+                                                                );
+                                                            const domain =
+                                                                baseDomains.find(
+                                                                    (d) =>
+                                                                        d.domainId ===
+                                                                        selectedDomainId
+                                                                );
+                                                            if (domain) {
+                                                                const sanitizedSubdomain =
+                                                                    selectedSubdomain
+                                                                        ? finalizeSubdomainSanitize(
+                                                                              selectedSubdomain
+                                                                          )
+                                                                        : "";
+                                                                const fullDomain =
+                                                                    sanitizedSubdomain
+                                                                        ? `${sanitizedSubdomain}.${domain.baseDomain}`
+                                                                        : domain.baseDomain;
+                                                                return fullDomain;
+                                                            }
+                                                            return t(
+                                                                "noDomainSet"
+                                                            );
+                                                        })()
+                                                    ) : (
+                                                        t("noDomainSet")
                                                     )}
-                                                    text={t("domainNotFound")}
-                                                />
-                                            ) : loginPage?.fullDomain ? (
-                                                <a
-                                                    href={`${window.location.protocol}//${loginPage.fullDomain}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="hover:underline"
-                                                >
-                                                    {`${window.location.protocol}//${loginPage.fullDomain}`}
-                                                </a>
-                                            ) : form.watch(
-                                                  "authPageDomainId"
-                                              ) ? (
-                                                // Show selected domain from form state when no loginPage exists yet
-                                                (() => {
-                                                    const selectedDomainId =
-                                                        form.watch(
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant="secondary"
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            setEditDomainOpen(
+                                                                true
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            !isPaidUser(
+                                                                tierMatrix.loginPageDomain
+                                                            )
+                                                        }
+                                                    >
+                                                        {form.watch(
                                                             "authPageDomainId"
-                                                        );
-                                                    const selectedSubdomain =
-                                                        form.watch(
-                                                            "authPageSubdomain"
-                                                        );
-                                                    const domain =
-                                                        baseDomains.find(
-                                                            (d) =>
-                                                                d.domainId ===
-                                                                selectedDomainId
-                                                        );
-                                                    if (domain) {
-                                                        const sanitizedSubdomain =
-                                                            selectedSubdomain
-                                                                ? finalizeSubdomainSanitize(
-                                                                      selectedSubdomain
-                                                                  )
-                                                                : "";
-                                                        const fullDomain =
-                                                            sanitizedSubdomain
-                                                                ? `${sanitizedSubdomain}.${domain.baseDomain}`
-                                                                : domain.baseDomain;
-                                                        return fullDomain;
-                                                    }
-                                                    return t("noDomainSet");
-                                                })()
-                                            ) : (
-                                                t("noDomainSet")
-                                            )}
-                                        </span>
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="secondary"
-                                                type="button"
-                                                size="sm"
-                                                onClick={() =>
-                                                    setEditDomainOpen(true)
-                                                }
-                                                disabled={
-                                                    !isPaidUser(
-                                                        tierMatrix.loginPageDomain
-                                                    )
-                                                }
-                                            >
-                                                {form.watch("authPageDomainId")
-                                                    ? t("changeDomain")
-                                                    : t("selectDomain")}
-                                            </Button>
-                                            {form.watch("authPageDomainId") && (
-                                                <Button
-                                                    variant="destructive"
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={
-                                                        clearAuthPageDomain
-                                                    }
-                                                    disabled={
-                                                        !isPaidUser(
-                                                            tierMatrix.loginPageDomain
                                                         )
-                                                    }
-                                                >
-                                                    <Trash2 size="14" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
+                                                            ? t("changeDomain")
+                                                            : t("selectDomain")}
+                                                    </Button>
+                                                    {form.watch(
+                                                        "authPageDomainId"
+                                                    ) && (
+                                                        <Button
+                                                            variant="destructive"
+                                                            type="button"
+                                                            size="sm"
+                                                            onClick={
+                                                                clearAuthPageDomain
+                                                            }
+                                                            disabled={
+                                                                !isPaidUser(
+                                                                    tierMatrix.loginPageDomain
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 size="14" />
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
 
-                                    {!form.watch("authPageDomainId") && (
-                                        <div className="text-sm text-muted-foreground">
-                                            {t(
-                                                "addDomainToEnableCustomAuthPages"
+                                            {!form.watch(
+                                                "authPageDomainId"
+                                            ) && (
+                                                <div className="text-sm text-muted-foreground">
+                                                    {t(
+                                                        "addDomainToEnableCustomAuthPages"
+                                                    )}
+                                                </div>
                                             )}
-                                        </div>
-                                    )}
 
-                                    {(build === "enterprise" ||
-                                        !isPaidUser(
-                                            tierMatrix.loginPageDomain
-                                        )) &&
-                                        loginPage?.domainId &&
-                                        loginPage?.fullDomain &&
-                                        !hasUnsavedChanges && (
-                                            <CertificateStatus
-                                                orgId={org?.org.orgId || ""}
-                                                domainId={loginPage.domainId}
-                                                fullDomain={
-                                                    loginPage.fullDomain
-                                                }
-                                                showLabel={true}
-                                                polling={true}
-                                            />
-                                        )}
-                                </div>
+                                            {(build === "enterprise" ||
+                                                !isPaidUser(
+                                                    tierMatrix.loginPageDomain
+                                                )) &&
+                                                loginPage?.domainId &&
+                                                loginPage?.fullDomain &&
+                                                !hasUnsavedChanges && (
+                                                    <CertificateStatus
+                                                        orgId={
+                                                            org?.org.orgId || ""
+                                                        }
+                                                        domainId={
+                                                            loginPage.domainId
+                                                        }
+                                                        fullDomain={
+                                                            loginPage.fullDomain
+                                                        }
+                                                        showLabel={true}
+                                                        polling={true}
+                                                    />
+                                                )}
+                                        </div>
+                                    </SettingsFormCell>
+                                </SettingsFormGrid>
                             </form>
                         </Form>
                     </SettingsSectionForm>
                 </SettingsSectionBody>
 
-                <div className="flex justify-end mt-6">
+                <SettingsSectionFooter>
                     <Button
                         type="submit"
                         form="auth-page-settings-form"
@@ -435,7 +460,7 @@ function AuthPageSettings({
                     >
                         {t("saveAuthPageDomain")}
                     </Button>
-                </div>
+                </SettingsSectionFooter>
             </SettingsSection>
 
             {/* Domain Picker Modal */}

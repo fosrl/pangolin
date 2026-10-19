@@ -3,7 +3,7 @@ import * as yaml from "js-yaml";
 import { configFilePath1, configFilePath2 } from "./consts";
 import { z } from "zod";
 import stoi from "./stoi";
-import { getEnvOrYaml } from "./getEnvOrYaml";
+import { getEnvOrYaml, readEnvOrFile } from "./getEnvOrYaml";
 
 const portSchema = z.number().positive().gt(0).lte(65535);
 
@@ -26,14 +26,12 @@ export const configSchema = z
                     .object({
                         anonymous_usage: z.boolean().optional().default(true)
                     })
-                    .optional()
                     .prefault({}),
                 notifications: z
                     .object({
                         product_updates: z.boolean().optional().default(true),
                         new_releases: z.boolean().optional().default(true)
                     })
-                    .optional()
                     .prefault({})
             })
             .optional()
@@ -109,7 +107,6 @@ export const configSchema = z
                         id: z.string().optional().default("P-Access-Token-Id"),
                         token: z.string().optional().default("P-Access-Token")
                     })
-                    .optional()
                     .prefault({}),
                 remote_headers: z
                     .object({
@@ -126,7 +123,6 @@ export const configSchema = z
                         name: z.string().optional().default("Remote-Name"),
                         role: z.string().optional().default("Remote-Role")
                     })
-                    .optional()
                     .prefault({}),
                 resource_session_request_param: z
                     .string()
@@ -153,6 +149,8 @@ export const configSchema = z
                     })
                     .optional(),
                 trust_proxy: z.int().gte(0).optional().default(1),
+                trust_ips: z.array(z.string()).optional().default([]),
+                custom_ip_header: z.string().optional().default(""),
                 // Opt-in: have Traefik/Badger stamp the resolved client IP
                 // into a dedicated header (X-Pangolin-Client-Ip) on the
                 // site-resource AI gateway route, so it survives an
@@ -164,46 +162,21 @@ export const configSchema = z
                     .boolean()
                     .optional()
                     .default(false)
-                    .transform((val) =>
-                        process.env.ENABLE_AI_GATEWAY_CLIENT_IP_HEADER !==
-                        undefined
-                            ? process.env.ENABLE_AI_GATEWAY_CLIENT_IP_HEADER ===
-                              "true"
-                            : val
-                    ),
-                secret: z.string().pipe(z.string().min(8)).optional(),
+                    .transform((val) => {
+                        const envVal = readEnvOrFile(
+                            "ENABLE_AI_GATEWAY_CLIENT_IP_HEADER"
+                        );
+                        return envVal !== undefined ? envVal === "true" : val;
+                    }),
+                secret: z
+                    .string()
+                    .pipe(z.string().min(8))
+                    .optional()
+                    .transform(getEnvOrYaml("SERVER_SECRET")),
                 maxmind_db_path: z.string().optional(),
                 maxmind_asn_path: z.string().optional()
             })
-            .optional()
-            .default({
-                integration_port: 3003,
-                external_port: 3000,
-                internal_port: 3001,
-                ai_gateway_port: 3005,
-                next_port: 3002,
-                internal_hostname: "pangolin",
-                session_cookie_name: "p_session_token",
-                resource_access_token_param: "p_token",
-                resource_access_token_headers: {
-                    id: "P-Access-Token-Id",
-                    token: "P-Access-Token"
-                },
-                remote_headers: {
-                    user_id: "Remote-User-Id",
-                    virtual_api_key_id: "Remote-Virtual-Api-Key-Id",
-                    user: "Remote-User",
-                    email: "Remote-Email",
-                    name: "Remote-Name",
-                    role: "Remote-Role"
-                },
-                resource_session_request_param:
-                    "resource_session_request_param",
-                dashboard_session_length_hours: 720,
-                resource_session_length_hours: 720,
-                trust_proxy: 1,
-                enable_ai_gateway_client_ip_header: false
-            }),
+            .prefault({}),
         postgres: z
             .object({
                 connection_string: z.string().optional(),
@@ -238,7 +211,6 @@ export const configSchema = z
                             .default(5000),
                         jit_mode: z.boolean().default(true)
                     })
-                    .optional()
                     .prefault({})
             })
             .optional(),
@@ -278,7 +250,6 @@ export const configSchema = z
                             .optional()
                             .default(5000)
                     })
-                    .optional()
                     .prefault({})
             })
             .optional(),
@@ -325,10 +296,8 @@ export const configSchema = z
                             .optional()
                             .default(50)
                     })
-                    .optional()
                     .prefault({})
             })
-            .optional()
             .prefault({}),
         gerbil: z
             .object({
@@ -348,8 +317,8 @@ export const configSchema = z
                     .optional()
                     .pipe(z.string())
                     .transform((url) => url.toLowerCase()),
-                subnet_group: z.string().optional().default("100.89.137.0/20"),
-                block_size: z.number().positive().gt(0).optional().default(24),
+                subnet_group: z.string().optional().default("100.89.137.0/18"),
+                block_size: z.number().positive().gt(0).optional().default(22),
                 site_block_size: z
                     .number()
                     .positive()
@@ -357,7 +326,6 @@ export const configSchema = z
                     .optional()
                     .default(30)
             })
-            .optional()
             .prefault({}),
         orgs: z
             .object({
@@ -391,7 +359,6 @@ export const configSchema = z
                             .optional()
                             .default(500)
                     })
-                    .optional()
                     .prefault({}),
                 auth: z
                     .object({
@@ -408,10 +375,8 @@ export const configSchema = z
                             .optional()
                             .default(500)
                     })
-                    .optional()
                     .prefault({})
             })
-            .optional()
             .prefault({}),
         email: z
             .object({
@@ -442,6 +407,7 @@ export const configSchema = z
                 disable_config_managed_domains: z.boolean().optional(),
                 disable_product_help_banners: z.boolean().optional(),
                 disable_enterprise_features: z.boolean().optional(),
+                disable_virtual_api_keys_ui: z.boolean().optional(),
                 enable_acme_cert_sync: z.boolean().optional().default(true),
                 disable_private_http_placeholder: z
                     .boolean()
@@ -488,27 +454,8 @@ export const configSchema = z
                             .optional()
                             .default(12)
                     })
-                    .optional()
                     .prefault({})
             })
-            .optional()
-            .prefault({}),
-        dns: z
-            .object({
-                nameservers: z
-                    .array(z.string().optional().optional())
-                    .optional()
-                    .default([
-                        "ns1.pangolin.net",
-                        "ns2.pangolin.net",
-                        "ns3.pangolin.net"
-                    ]),
-                cname_extension: z
-                    .string()
-                    .optional()
-                    .default("cname.pangolin.net")
-            })
-            .optional()
             .prefault({})
     })
     .refine(
@@ -529,10 +476,7 @@ export const configSchema = z
     )
     .refine(
         (data) => {
-            // If hybrid is not defined, server secret must be defined. If its not defined already then pull it from env
-            if (data.server?.secret === undefined) {
-                data.server.secret = process.env.SERVER_SECRET;
-            }
+            // If hybrid is not defined, server secret must be defined
             return (
                 data.server?.secret !== undefined &&
                 data.server.secret.length > 0

@@ -76,6 +76,11 @@ export default async function KeysPage(props: KeysPageProps) {
         redirect("/");
     }
 
+    const env = pullEnv();
+    if (env.flags.disableVirtualApiKeysUi) {
+        redirect(`/${orgId}`);
+    }
+
     let keysData: ListMyVirtualApiKeysResponse | null = null;
     try {
         const res = await internal.get<
@@ -90,7 +95,6 @@ export default async function KeysPage(props: KeysPageProps) {
         redirect(`/${orgId}`);
     }
 
-    const env = pullEnv();
     const primaryOrg = orgs.find((o) => o.orgId === orgId)?.isPrimaryOrg;
     const isAdminOrOwner = Boolean(overview?.isAdmin || overview?.isOwner);
 
@@ -106,6 +110,7 @@ export default async function KeysPage(props: KeysPageProps) {
                 showSidebar={false}
                 launcherMode
                 showViewAsAdmin={isAdminOrOwner}
+                env={env}
             >
                 <UserVirtualApiKeys orgId={orgId} initialData={keysData} />
             </Layout>

@@ -85,7 +85,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
             );
 
         if (!resources || resources.length === 0) {
-            logger.error(
+            logger.warn(
                 `handleOlmServerInitAddPeerHandshake: Resource not found`
             );
             await sendCancel();
@@ -94,9 +94,10 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
 
         if (resources.length > 1) {
             // error but this should not happen because the nice id cant contain a dot and the alias has to have a dot and both have to be unique within the org so there should never be multiple matches
-            logger.error(
+            logger.warn(
                 `handleOlmServerInitAddPeerHandshake: Multiple resources found matching the criteria`
             );
+            await sendCancel();
             return;
         }
 
@@ -119,7 +120,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
             );
 
         if (currentResourceAssociationCaches.length === 0) {
-            logger.error(
+            logger.warn(
                 `handleOlmServerInitAddPeerHandshake: Client ${client.clientId} does not have access to resource ${resource.siteResourceId}`
             );
             await sendCancel();
@@ -127,7 +128,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
         }
 
         if (!resource.networkId) {
-            logger.error(
+            logger.warn(
                 `handleOlmServerInitAddPeerHandshake: Resource ${resource.siteResourceId} has no network`
             );
             await sendCancel();
@@ -141,7 +142,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
             .where(eq(siteNetworks.networkId, resource.networkId));
 
         if (!siteRows || siteRows.length === 0) {
-            logger.error(
+            logger.warn(
                 `handleOlmServerInitAddPeerHandshake: No sites found for resource ${resource.siteResourceId}`
             );
             await sendCancel();
@@ -164,9 +165,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
     }
 
     if (sitesToProcess.length === 0) {
-        logger.error(
-            `handleOlmServerInitAddPeerHandshake: No sites to process`
-        );
+        logger.warn(`handleOlmServerInitAddPeerHandshake: No sites to process`);
         await sendCancel();
         return;
     }
@@ -193,7 +192,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
         }
 
         if (!site.exitNodeId) {
-            logger.error(
+            logger.warn(
                 `handleOlmServerInitAddPeerHandshake: Site ${site.siteId} has no exit node, skipping`
             );
             continue;
@@ -205,7 +204,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
             .where(eq(exitNodes.exitNodeId, site.exitNodeId));
 
         if (!exitNode) {
-            logger.error(
+            logger.warn(
                 `handleOlmServerInitAddPeerHandshake: Exit node not found for site ${site.siteId}, skipping`
             );
             continue;
@@ -218,6 +217,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
                 siteId: site.siteId,
                 exitNode: {
                     publicKey: exitNode.publicKey,
+                    relayPort: exitNode.relayPort,
                     endpoint: exitNode.endpoint
                 }
             },
@@ -229,7 +229,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
     }
 
     if (!handshakeInitiated) {
-        logger.error(
+        logger.warn(
             `handleOlmServerInitAddPeerHandshake: No accessible sites with valid exit nodes found, cancelling chain`
         );
         await sendCancel();

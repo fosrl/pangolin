@@ -309,7 +309,6 @@ export default function CredentialsPage() {
                             id={displayNewtId ?? "**********"}
                             secret={displaySecret ?? "**************"}
                             endpoint={env.app.dashboardUrl}
-                            version={newtVersion}
                         />
                     </>
                 )}

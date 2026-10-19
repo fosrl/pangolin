@@ -48,7 +48,8 @@ import { useRouter } from "next/navigation";
 import {
     use,
     useActionState,
-    useMemo
+    useMemo,
+    startTransition
 } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -112,7 +113,7 @@ function ProxyResourceProtocolForm({
                     message: t("proxyErrorInvalidHeader")
                 }
             ),
-        headers: z
+        requestHeaders: z
             .array(z.object({ name: z.string(), value: z.string() }))
             .nullable(),
         proxyProtocol: z.boolean().optional(),
@@ -123,7 +124,7 @@ function ProxyResourceProtocolForm({
         resolver: zodResolver(proxySettingsSchema),
         defaultValues: {
             setHostHeader: resource.setHostHeader || "",
-            headers: resource.headers,
+            requestHeaders: resource.requestHeaders,
             proxyProtocol: resource.proxyProtocol || false,
             proxyProtocolVersion: resource.proxyProtocolVersion || 1
         }
@@ -206,7 +207,12 @@ function ProxyResourceProtocolForm({
                 <SettingsSectionForm variant="half">
                     <Form {...proxySettingsForm}>
                         <form
-                            action={formAction}
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                startTransition(() => {
+                                    formAction();
+                                });
+                            }}
                             id="proxy-protocol-settings-form"
                         >
                             <SettingsFormGrid>

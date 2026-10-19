@@ -22,6 +22,7 @@ import {
     LAUNCHER_UNLABELED_GROUP_KEY
 } from "@server/routers/launcher/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import LoadingDots from "@app/components/LoadingDots";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
@@ -169,8 +170,8 @@ export function LauncherGroupSection({
 
             <CollapsibleContent className="w-full">
                 {showInitialLoader ? (
-                    <div className="flex items-center justify-center py-10 text-muted-foreground">
-                        <Loader2 className="size-5 animate-spin" />
+                    <div className="flex items-center justify-center py-10">
+                        <LoadingDots size="sm" />
                     </div>
                 ) : resources.length === 0 ? (
                     <p className="py-4 text-sm text-muted-foreground">
