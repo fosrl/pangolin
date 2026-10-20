@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "Разпределете заявките равномерно по цели в ротация.",
     "loadBalancingStrategy_p2c": "Избор на две случайни цели",
     "loadBalancingStrategy_p2c_description": "Изберете две случайни цели и изпратете заявката към тази с по-малко активни връзки.",
-    "loadBalancingStrategy_hrw": "Клиентски IP хеш",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "Хаширане на клиентски IP, така че същият клиент последователно да се маршрутира към същата цел.",
     "loadBalancingStrategy_leasttime": "Най-малко време за отговор",
     "loadBalancingStrategy_leasttime_description": "Изпратете заявки към целта с най-бързо време за отговор и най-малко активни връзки.",
