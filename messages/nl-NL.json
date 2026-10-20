@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "Verdeel aanvragen gelijkmatig over doelen in rotatie.",
     "loadBalancingStrategy_p2c": "Kracht van Twee Kiezen",
     "loadBalancingStrategy_p2c_description": "Kies twee willekeurige doelen en stuur het verzoek naar degene met de minste actieve verbindingen.",
-    "loadBalancingStrategy_hrw": "Client IP-hash",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "Hash het client-IP, zodat dezelfde client consequent naar hetzelfde doel wordt gerouteerd.",
     "loadBalancingStrategy_leasttime": "Minimum reactietijd",
     "loadBalancingStrategy_leasttime_description": "Verstuur aanvragen naar het doel met de snelste reactietijd en de minste actieve verbindingen.",
