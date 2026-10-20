@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "İstekleri hedefler arasında sırayla eşit olarak dağıtın.",
     "loadBalancingStrategy_p2c": "İki Seçeneğin Gücü",
     "loadBalancingStrategy_p2c_description": "İki rasgele hedef seçin ve istekleri daha az aktif bağlantıya sahip olana gönderin.",
-    "loadBalancingStrategy_hrw": "İstemci IP Hash",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "Aynı istemcinin aynı hedefe sürekli olarak yönlendirilmesi için istemci IP'sine hash uygulayın.",
     "loadBalancingStrategy_leasttime": "En Az Yanıt Süresi",
     "loadBalancingStrategy_leasttime_description": "Hedefe en hızlı yanıt süresine ve en az aktif bağlantıya sahip istekleri gönderin.",
