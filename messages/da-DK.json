@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "Fordel forespørgsler jævnt på tværs af målene i rotation.",
     "loadBalancingStrategy_p2c": "Power of Two Choices",
     "loadBalancingStrategy_p2c_description": "Vælg to tilfældige mål og send forespørgslen til det med færre aktive forbindelser.",
-    "loadBalancingStrategy_hrw": "Klient IP Hash",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "Hash klientens IP, så den samme klient konsekvent dirigeres til det samme mål.",
     "loadBalancingStrategy_leasttime": "Mindste svarstid",
     "loadBalancingStrategy_leasttime_description": "Send forespørgsler til målet med den hurtigste svartid og færrest aktive forbindelser.",
