@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "Распределяйте запросы равномерно между целями по очереди.",
     "loadBalancingStrategy_p2c": "Сила двух выборов",
     "loadBalancingStrategy_p2c_description": "Выберите две случайные цели и отправьте запрос той, у которой меньше активных соединений.",
-    "loadBalancingStrategy_hrw": "Хэш клиентского IP",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "Хэшируйте IP клиента, чтобы один и тот же клиент постоянно маршрутизировался на одну и ту же цель.",
     "loadBalancingStrategy_leasttime": "Наименьшее время ответа",
     "loadBalancingStrategy_leasttime_description": "Отправляйте запросы к цели с самым быстрым временем отклика и наименьшим количеством активных соединений.",
