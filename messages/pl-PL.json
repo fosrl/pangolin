@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "Równomiernie rozdzielaj żądania między cele w rotacji.",
     "loadBalancingStrategy_p2c": "Moc dwóch wyborów",
     "loadBalancingStrategy_p2c_description": "Wybierz dwa losowe cele i wyślij żądanie do tego z mniejszą liczbą aktywnych połączeń.",
-    "loadBalancingStrategy_hrw": "Hash IP klienta",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "Zahasuj IP klienta, tak aby ten sam klient był konsekwentnie kierowany do tego samego celu.",
     "loadBalancingStrategy_leasttime": "Najmniejszy czas odpowiedzi",
     "loadBalancingStrategy_leasttime_description": "Wyślij żądania do celu z najszybszym czasem odpowiedzi i najmniejszą liczbą aktywnych połączeń.",
