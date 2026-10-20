@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "대상 사이에서 요청을 균등하게 회전시킵니다.",
     "loadBalancingStrategy_p2c": "두 가지 선택의 힘",
     "loadBalancingStrategy_p2c_description": "두 개의 무작위 대상을 선택하여 더 적은 활성 연결을 가진 대상에 요청을 보냅니다.",
-    "loadBalancingStrategy_hrw": "클라이언트 IP 해시",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "클라이언트 IP를 해시하여 동일한 클라이언트가 일관되게 동일한 대상으로 라우팅되도록 합니다.",
     "loadBalancingStrategy_leasttime": "최소 응답 시간",
     "loadBalancingStrategy_leasttime_description": "가장 빠른 응답 시간과 가장 적은 활성 연결을 가진 대상으로 요청을 보냅니다.",
