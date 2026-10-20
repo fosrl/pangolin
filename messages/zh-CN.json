@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "按顺序均匀分配请求到目标。",
     "loadBalancingStrategy_p2c": "二选一",
     "loadBalancingStrategy_p2c_description": "随机选择两个目标，并将请求发送到连接较少的那个。",
-    "loadBalancingStrategy_hrw": "客户端 IP 哈希",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "散列客户端 IP，因此同一客户端始终路由到相同的目标。",
     "loadBalancingStrategy_leasttime": "最短响应时间",
     "loadBalancingStrategy_leasttime_description": "将请求发送到响应时间最快且活动连接最少的目标。",
