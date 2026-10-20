@@ -805,7 +805,7 @@
     "loadBalancingStrategy_wrr_description": "Rozdělte požadavky rovnoměrně mezi cíle.",
     "loadBalancingStrategy_p2c": "Síla dvou volby",
     "loadBalancingStrategy_p2c_description": "Vyberte náhodně dva cíle a odeslat požadavek tomu s menším počtem aktivních spojení.",
-    "loadBalancingStrategy_hrw": "Hash klientské IP",
+    "loadBalancingStrategy_hrw": "Highest Random Weight",
     "loadBalancingStrategy_hrw_description": "Hash klientské IP tedy stejný klient je konzistentně směrován na stejný cíl.",
     "loadBalancingStrategy_leasttime": "Nejmenší doba odezvy",
     "loadBalancingStrategy_leasttime_description": "Odeslání požadavků na cíl s nejrychlejší dobou odezvy a nejméně aktivními spojeními.",
