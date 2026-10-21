@@ -137,9 +137,16 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         return;
     }
 
+    // olm reads a batched reply's relayPort as one port shared by every site
+    // in it, so answer only the sites on the first site's relay port. olm
+    // keeps resending the sites left unanswered, and a later batch answers
+    // them with their own port.
+    const relayPort = pushable[0].relayPort;
+    const answered = pushable.filter((v) => v.relayPort === relayPort);
+
     // update the peer on each newt so it knows to relay
     await updatePeersBatch(
-        pushable.map((v) => ({
+        answered.map((v) => ({
             siteId: v.siteId,
             publicKey: client.pubKey!,
             newtId: newtIdBySiteId.get(v.siteId)!,
@@ -152,10 +159,10 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
             message: {
                 type: "olm/wg/peer/relay",
                 data: {
-                    siteIds: pushable.map((v) => v.siteId),
-                    relayEndpoints: pushable.map((v) => v.relayEndpoint),
-                    relayPort: pushable.map((v) => v.relayPort),
-                    chainIds: pushable.map((v) => v.chainId)
+                    siteIds: answered.map((v) => v.siteId),
+                    relayEndpoints: answered.map((v) => v.relayEndpoint),
+                    relayPort,
+                    chainIds: answered.map((v) => v.chainId)
                 }
             },
             broadcast: false,
@@ -163,7 +170,7 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         };
     }
 
-    const single = pushable[0];
+    const single = answered[0];
     return {
         message: {
             type: "olm/wg/peer/relay",
