@@ -10,7 +10,6 @@ import {
 } from "@app/components/ResourceSitesStatusCell";
 import { SelectedSite } from "@app/components/site-selector";
 import { Button } from "@app/components/ui/button";
-import { Checkbox } from "@app/components/ui/checkbox";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
     DropdownMenu,
@@ -23,6 +22,7 @@ import { Switch } from "@app/components/ui/switch";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { useOptimisticLabels } from "@app/hooks/useOptimisticLabels";
+import { useRowSelection } from "@app/hooks/useRowSelection";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { orgQueries } from "@app/lib/queries";
@@ -30,7 +30,7 @@ import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import { UpdateResourceResponse } from "@server/routers/resource";
 import { useQuery } from "@tanstack/react-query";
-import type { PaginationState, RowSelectionState } from "@tanstack/react-table";
+import type { PaginationState } from "@tanstack/react-table";
 import { AxiosResponse } from "axios";
 import {
     ArrowDown01Icon,
@@ -50,7 +50,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
     startTransition,
-    useEffect,
     useMemo,
     useOptimistic,
     useRef,
@@ -64,7 +63,7 @@ import { ColumnFilterButton } from "./ColumnFilterButton";
 import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
 import { LabelsTableCell } from "./LabelsTableCell";
 import { SitesColumnFilterButton } from "./SitesColumnFilterButton";
-import { ControlledDataTable } from "./ui/controlled-data-table";
+import { ControlledDataTable, selectColumn } from "./ui/controlled-data-table";
 import { UptimeMiniBar } from "./UptimeMiniBar";
 
 export type TargetHealth = {
@@ -144,23 +143,12 @@ export default function PublicResourcesTable({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedResource, setSelectedResource] =
         useState<ResourceRow | null>();
-    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
     const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
-
-    // Drop selections for rows that left the list (page change, filter, delete)
-    useEffect(() => {
-        const ids = new Set(resources.map((r) => String(r.id)));
-        setRowSelection((previous) => {
-            const kept = Object.keys(previous).filter((id) => ids.has(id));
-            return kept.length === Object.keys(previous).length
-                ? previous
-                : Object.fromEntries(kept.map((id) => [id, true]));
-        });
-    }, [resources]);
-
-    const selectedResources = resources.filter(
-        (r) => rowSelection[String(r.id)]
-    );
+    const {
+        rowSelection,
+        setRowSelection,
+        selectedRows: selectedResources
+    } = useRowSelection(resources);
     const authEligibleResources = selectedResources.filter(
         (r) => r.authState !== "none"
     );
@@ -168,10 +156,7 @@ export default function PublicResourcesTable({
         authEligibleResources.length > 0 &&
         authEligibleResources.every((r) => r.sso);
 
-    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportResource, setExportResource] = useState<ResourceRow | null>(
-        null
-    );
+    const [exportResources, setExportResources] = useState<ResourceRow[]>([]);
 
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
@@ -260,35 +245,7 @@ export default function PublicResourcesTable({
 
     const proxyColumns = useMemo<ExtendedColumnDef<ResourceRow>[]>(() => {
         const cols: ExtendedColumnDef<ResourceRow>[] = [
-            {
-                id: "select",
-                enableHiding: false,
-                header: ({ table }) => (
-                    <Checkbox
-                        className="mx-3"
-                        aria-label={t("selectAll")}
-                        checked={
-                            table.getIsAllRowsSelected()
-                                ? true
-                                : table.getIsSomeRowsSelected()
-                                  ? "indeterminate"
-                                  : false
-                        }
-                        onCheckedChange={(checked) =>
-                            table.toggleAllRowsSelected(checked === true)
-                        }
-                    />
-                ),
-                cell: ({ row }) => (
-                    <Checkbox
-                        aria-label={row.original.name}
-                        checked={row.getIsSelected()}
-                        onCheckedChange={(checked) =>
-                            row.toggleSelected(checked === true)
-                        }
-                    />
-                )
-            },
+            selectColumn<ResourceRow>(t("selectAll")),
             {
                 accessorKey: "name",
                 enableHiding: false,
@@ -736,8 +693,7 @@ export default function PublicResourcesTable({
                                     </Link>
                                     <DropdownMenuItem
                                         onClick={() => {
-                                            setExportResource(resourceRow);
-                                            setIsExportModalOpen(true);
+                                            setExportResources([resourceRow]);
                                         }}
                                     >
                                         {t("exportAsBlueprint")}
@@ -871,17 +827,22 @@ export default function PublicResourcesTable({
                 title={t("resourcesDeleteSelected")}
             />
 
-            {exportResource && (
+            {exportResources.length > 0 && (
                 <ExportBlueprintModal
-                    open={isExportModalOpen}
+                    open
                     setOpen={(val) => {
-                        setIsExportModalOpen(val);
                         if (!val) {
-                            setExportResource(null);
+                            setExportResources([]);
                         }
                     }}
-                    endpoint={`/resource/${exportResource.id}/blueprint`}
-                    resourceName={exportResource.nice || exportResource.name}
+                    endpoints={exportResources.map(
+                        (r) => `/resource/${r.id}/blueprint`
+                    )}
+                    resourceName={
+                        exportResources.length === 1
+                            ? exportResources[0].nice || exportResources[0].name
+                            : "proxy-resources"
+                    }
                 />
             )}
 
@@ -936,6 +897,13 @@ export default function PublicResourcesTable({
                                             ? "resourcesDisableAuthSelected"
                                             : "resourcesEnableAuthSelected"
                                     )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        setExportResources(selectedResources)
+                                    }
+                                >
+                                    {t("exportAsBlueprint")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     onClick={() => setIsBulkDeleteOpen(true)}

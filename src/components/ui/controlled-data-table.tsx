@@ -24,6 +24,7 @@ import { DataTablePagination } from "@app/components/DataTablePagination";
 import type { DataTableAddAction } from "@app/components/ui/data-table";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader } from "@app/components/ui/card";
+import { Checkbox } from "@app/components/ui/checkbox";
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -55,6 +56,41 @@ export type ExtendedColumnDef<TData, TValue = unknown> = ColumnDef<
 > & {
     friendlyName?: string;
 };
+
+// Checkbox column for tables that pass rowSelection
+export function selectColumn<TData extends { name: string }>(
+    selectAllLabel: string
+): ExtendedColumnDef<TData> {
+    return {
+        id: "select",
+        enableHiding: false,
+        header: ({ table }) => (
+            <Checkbox
+                className="mx-3"
+                aria-label={selectAllLabel}
+                checked={
+                    table.getIsAllRowsSelected()
+                        ? true
+                        : table.getIsSomeRowsSelected()
+                          ? "indeterminate"
+                          : false
+                }
+                onCheckedChange={(checked) =>
+                    table.toggleAllRowsSelected(checked === true)
+                }
+            />
+        ),
+        cell: ({ row }) => (
+            <Checkbox
+                aria-label={row.original.name}
+                checked={row.getIsSelected()}
+                onCheckedChange={(checked) =>
+                    row.toggleSelected(checked === true)
+                }
+            />
+        )
+    };
+}
 
 type FilterOption = {
     id: string;
