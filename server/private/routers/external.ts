@@ -29,11 +29,13 @@ import * as misc from "#private/routers/misc";
 import * as reKey from "#private/routers/re-key";
 import * as approval from "#private/routers/approvals";
 import * as user from "#private/routers/user";
+import * as client from "#private/routers/client";
 import * as siteProvisioning from "#private/routers/siteProvisioning";
 import * as eventStreamingDestination from "#private/routers/eventStreamingDestination";
 import * as alertRule from "#private/routers/alertRule";
 import * as healthChecks from "#private/routers/healthChecks";
 import * as policy from "#private/routers/policy";
+import * as resource from "#private/routers/resource";
 
 import {
     verifyOrgAccess,
@@ -48,7 +50,8 @@ import {
     verifySiteProvisioningKeyAccess,
     verifyIsLoggedInUser,
     verifyAdmin,
-    verifyResourcePolicyAccess
+    verifyResourcePolicyAccess,
+    verifyResourceAccess
 } from "@server/middlewares";
 import { ActionsEnum } from "@server/auth/actions";
 import {
@@ -674,6 +677,36 @@ authenticated.post(
     user.setUserOrgRoles
 );
 
+authenticated.post(
+    "/client/:clientId/add-role/:roleId",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.addClientRole),
+    logActionAudit(ActionsEnum.addClientRole),
+    client.addClientRole
+);
+
+authenticated.delete(
+    "/client/:clientId/remove-role/:roleId",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.removeClientRole),
+    logActionAudit(ActionsEnum.removeClientRole),
+    client.removeClientRole
+);
+
+authenticated.post(
+    "/client/:clientId/roles",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setClientRoles),
+    logActionAudit(ActionsEnum.setClientRoles),
+    client.setClientRoles
+);
+
 authenticated.put(
     "/org/:orgId/site-provisioning-key",
     verifyValidLicense,
@@ -861,4 +894,26 @@ authenticated.post(
     "/org/:orgId/logs/access/attempt",
     verifyOrgAccess,
     logs.logAccessAuditAttempt
+);
+
+authenticated.put(
+    "/resource/:resourceId/mtls/certificate",
+    verifyResourceAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.createResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.createResourceMtlsCertificate),
+    resource.createResourceMtlsCertificate
+);
+authenticated.get(
+    "/resource/:resourceId/mtls/certificates",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.listResourceMtlsCertificates),
+    resource.listResourceMtlsCertificates
+);
+authenticated.delete(
+    "/resource/:resourceId/mtls/certificate/:mtlsCertificateId",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.deleteResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.deleteResourceMtlsCertificate),
+    resource.deleteResourceMtlsCertificate
 );

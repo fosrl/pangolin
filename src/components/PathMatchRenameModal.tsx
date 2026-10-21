@@ -1,11 +1,8 @@
 import { Settings } from "lucide-react";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
-} from "@/components/ui/select";
+    DescribedSelect,
+    type DescribedSelectOption
+} from "@app/components/DescribedSelect";
 
 import { Badge } from "@app/components/ui/badge";
 import { Label } from "@app/components/ui/label";
@@ -24,6 +21,30 @@ import {
 } from "./Credenza";
 import { useTranslations } from "next-intl";
 
+type PathMatchType = "prefix" | "exact" | "regex";
+type RewritePathType = "prefix" | "exact" | "regex" | "stripPrefix";
+
+const pathMatchTypes: PathMatchType[] = ["prefix", "exact", "regex"];
+
+function isPathMatchType(
+    value: string | null | undefined
+): value is PathMatchType {
+    return pathMatchTypes.includes(value as PathMatchType);
+}
+
+const rewritePathTypes: RewritePathType[] = [
+    "prefix",
+    "exact",
+    "regex",
+    "stripPrefix"
+];
+
+function isRewritePathType(
+    value: string | null | undefined
+): value is RewritePathType {
+    return rewritePathTypes.includes(value as RewritePathType);
+}
+
 export function PathMatchModal({
     value,
     onChange,
@@ -39,20 +60,42 @@ export function PathMatchModal({
     const t = useTranslations();
 
     const [open, setOpen] = useState(false);
-    const [matchType, setMatchType] = useState(
-        value?.pathMatchType || "prefix"
+    const [matchType, setMatchType] = useState<PathMatchType>(
+        isPathMatchType(value?.pathMatchType) ? value.pathMatchType : "prefix"
     );
     const [path, setPath] = useState(value?.path || "");
 
+    const matchOptions: DescribedSelectOption<PathMatchType>[] = [
+        {
+            value: "prefix",
+            title: t("pathMatchPrefix"),
+            description: t("pathMatchPrefixHelp")
+        },
+        {
+            value: "exact",
+            title: t("pathMatchExact"),
+            description: t("pathMatchExactHelp")
+        },
+        {
+            value: "regex",
+            title: t("pathMatchRegex"),
+            description: t("pathMatchRegexHelp")
+        }
+    ];
+
     useEffect(() => {
         if (open) {
-            setMatchType(value?.pathMatchType || "prefix");
+            setMatchType(
+                isPathMatchType(value?.pathMatchType)
+                    ? value.pathMatchType
+                    : "prefix"
+            );
             setPath(value?.path || "");
         }
     }, [open, value]);
 
     const handleSave = () => {
-        onChange({ pathMatchType: matchType as any, path: path.trim() });
+        onChange({ pathMatchType: matchType, path: path.trim() });
         setOpen(false);
     };
 
@@ -66,19 +109,6 @@ export function PathMatchModal({
             ? t("pathMatchRegexPlaceholder")
             : t("pathMatchDefaultPlaceholder");
 
-    const getHelpText = () => {
-        switch (matchType) {
-            case "prefix":
-                return t("pathMatchPrefixHelp");
-            case "exact":
-                return t("pathMatchExactHelp");
-            case "regex":
-                return t("pathMatchRegexHelp");
-            default:
-                return "";
-        }
-    };
-
     return (
         <Credenza open={open} onOpenChange={setOpen}>
             <CredenzaTrigger asChild>{trigger}</CredenzaTrigger>
@@ -91,23 +121,21 @@ export function PathMatchModal({
                 </CredenzaHeader>
                 <CredenzaBody className="grid gap-4 space-y-0">
                     <div className="grid gap-2">
-                        <Label htmlFor="match-type">{t("pathMatchType")}</Label>
-                        <Select value={matchType} onValueChange={setMatchType}>
-                            <SelectTrigger id="match-type">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="prefix">
-                                    {t("pathMatchPrefix")}
-                                </SelectItem>
-                                <SelectItem value="exact">
-                                    {t("pathMatchExact")}
-                                </SelectItem>
-                                <SelectItem value="regex">
-                                    {t("pathMatchRegex")}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Label>{t("pathMatchType")}</Label>
+                        <DescribedSelect<PathMatchType>
+                            options={matchOptions}
+                            value={matchType}
+                            onChange={setMatchType}
+                            searchPlaceholder={t("search")}
+                            emptyMessage={t("noResults")}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                            {
+                                matchOptions.find(
+                                    (option) => option.value === matchType
+                                )?.description
+                            }
+                        </p>
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="path-value">
@@ -119,9 +147,6 @@ export function PathMatchModal({
                             value={path}
                             onChange={(e) => setPath(e.target.value)}
                         />
-                        <p className="text-sm text-muted-foreground">
-                            {getHelpText()}
-                        </p>
                     </div>
                 </CredenzaBody>
                 <CredenzaFooter className="gap-2">
@@ -155,21 +180,50 @@ export function PathRewriteModal({
 }) {
     const t = useTranslations();
     const [open, setOpen] = useState(false);
-    const [rewriteType, setRewriteType] = useState(
-        value?.rewritePathType || "prefix"
+    const [rewriteType, setRewriteType] = useState<RewritePathType>(
+        isRewritePathType(value?.rewritePathType)
+            ? value.rewritePathType
+            : "prefix"
     );
     const [rewritePath, setRewritePath] = useState(value?.rewritePath || "");
 
+    const rewriteOptions: DescribedSelectOption<RewritePathType>[] = [
+        {
+            value: "prefix",
+            title: t("pathRewritePrefix"),
+            description: t("pathRewritePrefixHelp")
+        },
+        {
+            value: "exact",
+            title: t("pathRewriteExact"),
+            description: t("pathRewriteExactHelp")
+        },
+        {
+            value: "regex",
+            title: t("pathRewriteRegex"),
+            description: t("pathRewriteRegexHelp")
+        },
+        {
+            value: "stripPrefix",
+            title: t("pathRewriteStripPrefix"),
+            description: t("pathRewriteStripPrefixHelp")
+        }
+    ];
+
     useEffect(() => {
         if (open) {
-            setRewriteType(value?.rewritePathType || "prefix");
+            setRewriteType(
+                isRewritePathType(value?.rewritePathType)
+                    ? value.rewritePathType
+                    : "prefix"
+            );
             setRewritePath(value?.rewritePath || "");
         }
     }, [open, value]);
 
     const handleSave = () => {
         onChange({
-            rewritePathType: rewriteType as any,
+            rewritePathType: rewriteType,
             rewritePath: rewritePath.trim()
         });
         setOpen(false);
@@ -191,21 +245,6 @@ export function PathRewriteModal({
         }
     };
 
-    const getHelpText = () => {
-        switch (rewriteType) {
-            case "prefix":
-                return t("pathRewritePrefixHelp");
-            case "exact":
-                return t("pathRewriteExactHelp");
-            case "regex":
-                return t("pathRewriteRegexHelp");
-            case "stripPrefix":
-                return t("pathRewriteStripPrefixHelp");
-            default:
-                return "";
-        }
-    };
-
     return (
         <Credenza open={open} onOpenChange={(v) => !disabled && setOpen(v)}>
             <CredenzaTrigger asChild>{trigger}</CredenzaTrigger>
@@ -218,31 +257,21 @@ export function PathRewriteModal({
                 </CredenzaHeader>
                 <CredenzaBody className="grid gap-4 space-y-0">
                     <div className="grid gap-2">
-                        <Label htmlFor="rewrite-type">
-                            {t("pathRewriteType")}
-                        </Label>
-                        <Select
+                        <Label>{t("pathRewriteType")}</Label>
+                        <DescribedSelect<RewritePathType>
+                            options={rewriteOptions}
                             value={rewriteType}
-                            onValueChange={setRewriteType}
-                        >
-                            <SelectTrigger id="rewrite-type">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="prefix">
-                                    {t("pathRewritePrefixOption")}
-                                </SelectItem>
-                                <SelectItem value="exact">
-                                    {t("pathRewriteExactOption")}
-                                </SelectItem>
-                                <SelectItem value="regex">
-                                    {t("pathRewriteRegexOption")}
-                                </SelectItem>
-                                <SelectItem value="stripPrefix">
-                                    {t("pathRewriteStripPrefixOption")}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                            onChange={setRewriteType}
+                            searchPlaceholder={t("search")}
+                            emptyMessage={t("noResults")}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                            {
+                                rewriteOptions.find(
+                                    (option) => option.value === rewriteType
+                                )?.description
+                            }
+                        </p>
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="rewrite-value">
@@ -254,9 +283,6 @@ export function PathRewriteModal({
                             value={rewritePath}
                             onChange={(e) => setRewritePath(e.target.value)}
                         />
-                        <p className="text-sm text-muted-foreground">
-                            {getHelpText()}
-                        </p>
                     </div>
                 </CredenzaBody>
                 <CredenzaFooter className="gap-2">

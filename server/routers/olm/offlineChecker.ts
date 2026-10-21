@@ -5,11 +5,10 @@ import { eq, lt, isNull, and, or } from "drizzle-orm";
 import logger from "@server/logger";
 import { sendTerminateClient } from "../client/terminate";
 import { OlmErrorCodes } from "./error";
+import { getOfflineThresholds } from "#dynamic/lib/offlineThresholds";
 
 // Track if the offline checker interval is running
 let offlineCheckerInterval: NodeJS.Timeout | null = null;
-const OFFLINE_CHECK_INTERVAL = 30 * 1000; // Check every 30 seconds
-const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
 
 /**
  * Starts the background interval that checks for clients that haven't pinged recently
@@ -22,13 +21,13 @@ export const startOlmOfflineChecker = (): void => {
 
     offlineCheckerInterval = setInterval(async () => {
         try {
-            const twoMinutesAgo = Math.floor(
-                (Date.now() - OFFLINE_THRESHOLD_MS) / 1000
+            const offlineBefore = Math.floor(
+                (Date.now() - getOfflineThresholds().olmMs) / 1000
             );
 
             // TODO: WE NEED TO MAKE SURE THIS WORKS WITH DISTRIBUTED NODES ALL DOING THE SAME THING
 
-            // Find clients that haven't pinged in the last 2 minutes and mark them as offline
+            // Find clients that haven't pinged within the offline threshold and mark them as offline
             const offlineClients = await db
                 .update(clients)
                 .set({ online: false })
@@ -36,7 +35,7 @@ export const startOlmOfflineChecker = (): void => {
                     and(
                         eq(clients.online, true),
                         or(
-                            lt(clients.lastPing, twoMinutesAgo),
+                            lt(clients.lastPing, offlineBefore),
                             isNull(clients.lastPing)
                         )
                     )
@@ -75,7 +74,7 @@ export const startOlmOfflineChecker = (): void => {
         } catch (error) {
             logger.error("Error in offline checker interval", { error });
         }
-    }, OFFLINE_CHECK_INTERVAL);
+    }, getOfflineThresholds().checkIntervalMs);
 
     logger.debug("Started offline checker interval");
 };

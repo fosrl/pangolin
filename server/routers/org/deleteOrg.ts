@@ -7,7 +7,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { deleteOrgById, sendTerminationMessages } from "@server/lib/deleteOrg";
-import { db, userOrgs, orgs } from "@server/db";
+import { db, Org, userOrgs, orgs } from "@server/db";
 import { eq, and } from "drizzle-orm";
 
 const deleteOrgSchema = z.strictObject({
@@ -59,35 +59,60 @@ export async function deleteOrg(
         }
         const { orgId } = parsedParams.data;
 
-        const [data] = await db
-            .select()
-            .from(userOrgs)
-            .innerJoin(orgs, eq(userOrgs.orgId, orgs.orgId))
-            .where(
-                and(
-                    eq(userOrgs.orgId, orgId),
-                    eq(userOrgs.userId, req.user!.userId)
-                )
-            );
+        let org: Org | undefined;
 
-        const org = data?.orgs;
-        const userOrg = data?.userOrgs;
+        if (req.user) {
+            // Dashboard sessions may delete only an organization the user owns.
+            const [data] = await db
+                .select()
+                .from(userOrgs)
+                .innerJoin(orgs, eq(userOrgs.orgId, orgs.orgId))
+                .where(
+                    and(
+                        eq(userOrgs.orgId, orgId),
+                        eq(userOrgs.userId, req.user.userId)
+                    )
+                );
 
-        if (!org || !userOrg) {
+            if (!data) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Organization with ID ${orgId} not found`
+                    )
+                );
+            }
+
+            if (!data.userOrgs.isOwner) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Only organization owners can delete the organization"
+                    )
+                );
+            }
+
+            org = data.orgs;
+        } else if (req.apiKey) {
+            // Integration API requests carry no user session. The route is already
+            // restricted by verifyApiKeyIsRoot and verifyApiKeyHasAction(deleteOrg).
+            [org] = await db
+                .select()
+                .from(orgs)
+                .where(eq(orgs.orgId, orgId))
+                .limit(1);
+
+            if (!org) {
+                return next(
+                    createHttpError(
+                        HttpCode.NOT_FOUND,
+                        `Organization with ID ${orgId} not found`
+                    )
+                );
+            }
+        } else {
             return next(
-                createHttpError(
-                    HttpCode.NOT_FOUND,
-                    `Organization with ID ${orgId} not found`
-                )
-            );
-        }
-
-        if (!userOrg.isOwner) {
-            return next(
-                createHttpError(
-                    HttpCode.FORBIDDEN,
-                    "Only organization owners can delete the organization"
-                )
+                createHttpError(HttpCode.UNAUTHORIZED, "Not authenticated")
             );
         }
 

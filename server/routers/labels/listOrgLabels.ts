@@ -2,6 +2,7 @@ import { db, labels } from "@server/db";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import type { ListOrgLabelsResponse } from "@server/routers/labels/types";
+import { OpenAPITags, registry } from "@server/openApi";
 import HttpCode from "@server/types/HttpCode";
 import { and, asc, eq, like, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -50,6 +51,33 @@ function queryLabelsBase() {
         })
         .from(labels);
 }
+
+registry.registerPath({
+    method: "get",
+    path: "/org/{orgId}/labels",
+    description: "List labels in an organization.",
+    tags: [OpenAPITags.Label],
+    request: {
+        params: paramsSchema,
+        query: listLabelsSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
 
 export async function listOrgLabels(
     req: Request,

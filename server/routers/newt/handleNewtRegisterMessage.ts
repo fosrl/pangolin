@@ -112,7 +112,8 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
             return;
         }
 
-        const newSubnet = await getUniqueSubnetForExitNode(exitNode);
+        const { value: newSubnet, release: releaseSubnetLock } =
+            await getUniqueSubnetForExitNode(exitNode);
 
         if (!newSubnet) {
             logger.error(
@@ -124,15 +125,20 @@ export const handleNewtRegisterMessage: MessageHandler = async (context) => {
 
         siteSubnet = newSubnet;
 
-        await db
-            .update(sites)
-            .set({
-                pubKey: publicKey,
-                exitNodeId: exitNodeId,
-                exitNodeSubnet: newSubnet
-            })
-            .where(eq(sites.siteId, siteId))
-            .returning();
+        try {
+            await db
+                .update(sites)
+                .set({
+                    pubKey: publicKey,
+                    exitNodeId: exitNodeId,
+                    exitNodeSubnet: newSubnet
+                })
+                .where(eq(sites.siteId, siteId))
+                .returning();
+        } finally {
+            // only release once the subnet is persisted so no other node can pick it
+            await releaseSubnetLock();
+        }
     } else {
         await db
             .update(sites)

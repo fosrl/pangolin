@@ -9,9 +9,7 @@ interface RoundTripCompleteMessage {
     error?: string;
 }
 
-export const handleRoundTripMessage: MessageHandler = async (
-    context
-) => {
+export const handleRoundTripMessage: MessageHandler = async (context) => {
     const { message, client: c } = context;
 
     logger.info("Handling round trip message");
@@ -36,10 +34,14 @@ export const handleRoundTripMessage: MessageHandler = async (
             })
             .where(eq(roundTripMessageTracker.messageId, messageId));
 
-        logger.info(`Round trip message ${messageId} marked as complete: ${complete}`);
+        logger.info(
+            `Round trip message ${messageId} marked as complete: ${complete}`
+        );
 
         if (error) {
-            logger.warn(`Round trip message ${messageId} completed with error: ${error}`);
+            logger.debug(
+                `Round trip message ${messageId} did not complete: ${error}`
+            );
         }
     } catch (error) {
         logger.error("Error processing round trip message:", error);

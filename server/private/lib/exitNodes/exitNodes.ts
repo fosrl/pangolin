@@ -164,6 +164,7 @@ export async function listExitNodes(
             endpoint: exitNodes.endpoint,
             publicKey: exitNodes.publicKey,
             listenPort: exitNodes.listenPort,
+            relayPort: exitNodes.relayPort,
             reachableAt: exitNodes.reachableAt,
             maxConnections: exitNodes.maxConnections,
             online: exitNodes.online,

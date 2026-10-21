@@ -29,8 +29,8 @@ export async function traefikConfigProvider(
         const traefikConfig = await getTraefikConfig(
             currentExitNodeId,
             config.getRawConfig().traefik.site_types,
-            build == "oss", // filter out the namespace domains in open source
-            build != "oss", // generate the login pages on the cloud and and enterprise,
+            build === "oss", // filter out the namespace domains in open source
+            build !== "oss", // generate the login pages on the cloud and and enterprise,
             config.getRawConfig().traefik.allow_raw_resources,
             pangolinUIUrl,
             pangolinUIUrl,
@@ -75,8 +75,7 @@ export async function traefikConfigProvider(
                                 .resource_session_request_param,
 
                         remoteUserIdHeader:
-                            config.getRawConfig().server.remote_headers
-                                .user_id,
+                            config.getRawConfig().server.remote_headers.user_id,
 
                         remoteVirtualApiKeyIdHeader:
                             config.getRawConfig().server.remote_headers

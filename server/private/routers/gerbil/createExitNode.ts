@@ -34,6 +34,7 @@ export async function createExitNode(
             // TODO: eventually we will want to get the next available port so that we can multiple exit nodes
             // const listenPort = await getNextAvailablePort();
             const listenPort = config.getRawConfig().gerbil.start_port;
+            const relayPort = config.getRawConfig().gerbil.clients_start_port;
 
             const exitNodeName =
                 config.getRawConfig().gerbil.exit_node_name ||
@@ -49,6 +50,7 @@ export async function createExitNode(
                         privateConfig.getRawPrivateConfig().app.region || null,
                     address,
                     listenPort,
+                    relayPort,
                     online: true,
                     reachableAt,
                     name: exitNodeName

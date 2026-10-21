@@ -1,7 +1,6 @@
 import { sendToClient, sendToClientsBatch } from "#dynamic/routers/ws";
 import { clientSitesAssociationsCache, db, olms } from "@server/db";
 import { canCompress } from "@server/lib/clientVersionChecks";
-import config from "@server/lib/config";
 import logger from "@server/logger";
 import { and, eq, inArray } from "drizzle-orm";
 import { Alias } from "yaml";
@@ -155,6 +154,7 @@ export async function initPeerAddHandshake(
         siteId: number;
         exitNode: {
             publicKey: string;
+            relayPort: number;
             endpoint: string;
         };
     },
@@ -181,7 +181,7 @@ export async function initPeerAddHandshake(
                 siteId: peer.siteId,
                 exitNode: {
                     publicKey: peer.exitNode.publicKey,
-                    relayPort: config.getRawConfig().gerbil.clients_start_port,
+                    relayPort: peer.exitNode.relayPort,
                     endpoint: peer.exitNode.endpoint
                 },
                 chainId
@@ -297,6 +297,7 @@ export async function initPeerAddHandshakeBatch(
             siteId: number;
             exitNode: {
                 publicKey: string;
+                relayPort: number;
                 endpoint: string;
             };
         };
@@ -317,8 +318,7 @@ export async function initPeerAddHandshakeBatch(
                     siteId: item.peer.siteId,
                     exitNode: {
                         publicKey: item.peer.exitNode.publicKey,
-                        relayPort:
-                            config.getRawConfig().gerbil.clients_start_port,
+                        relayPort: item.peer.exitNode.relayPort,
                         endpoint: item.peer.exitNode.endpoint
                     },
                     chainId: item.chainId

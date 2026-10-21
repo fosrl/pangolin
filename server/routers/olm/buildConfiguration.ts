@@ -18,7 +18,6 @@ import {
 import logger from "@server/logger";
 import { and, eq, inArray } from "drizzle-orm";
 import { addPeer, deletePeer } from "../newt/peers";
-import config from "@server/lib/config";
 import { SiR } from "react-icons/si";
 
 export async function buildSiteConfigurationForOlmClient(
@@ -129,7 +128,6 @@ export async function buildSiteConfigurationForOlmClient(
         }
     }
 
-    const clientsStartPort = config.getRawConfig().gerbil.clients_start_port;
     const peerOps: Promise<unknown>[] = [];
 
     // Process each site
@@ -216,7 +214,7 @@ export async function buildSiteConfigurationForOlmClient(
                 logger.warn(`Exit node not found for site ${site.siteId}`);
                 continue;
             }
-            relayEndpoint = `${exitNode.endpoint}:${clientsStartPort}`;
+            relayEndpoint = `${exitNode.endpoint}:${exitNode.relayPort}`;
         }
 
         // Add site configuration to the array

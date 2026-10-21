@@ -20,7 +20,9 @@ const getStoredColumnVisibility = (
             const parsed = JSON.parse(stored);
             // Validate that it's an object
             if (typeof parsed === "object" && parsed !== null) {
-                return parsed;
+                // Stored choices win. Keys only present in the defaults
+                // (for example a newly hidden column) still apply.
+                return { ...(defaultVisibility || {}), ...parsed };
             }
         }
     } catch (error) {
@@ -60,8 +62,7 @@ export function useStoredColumnVisibility(
     const setColumnVisibility = useCallback(
         (
             updaterOrValue:
-                | VisibilityState
-                | ((old: VisibilityState) => VisibilityState)
+                VisibilityState | ((old: VisibilityState) => VisibilityState)
         ) => {
             if (typeof updaterOrValue === "function") {
                 setVisibility((oldValue) => {

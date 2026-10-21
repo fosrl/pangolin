@@ -383,6 +383,30 @@ function runSpecialCharacterTests() {
         "Deeply nested paths should still match"
     );
 
+    assertEquals(
+        isPathAllowed("*a*b", "xaxyb"),
+        true,
+        "Multiple wildcards within a segment should match"
+    );
+    assertEquals(
+        isPathAllowed("*a*b", "xaxyba"),
+        false,
+        "In-segment wildcard pattern must still be anchored at the end"
+    );
+
+    // a `.*`-style regex backtracks catastrophically here and never returns
+    const start = Date.now();
+    isPathAllowed("/" + "*a".repeat(10) + "b", "/" + "a".repeat(5000));
+    isPathAllowed(
+        "/" + Array(10).fill("*a*a*a*").join("/") + "/nevermatch",
+        "/" + Array(25).fill("a".repeat(200)).join("/")
+    );
+    assertEquals(
+        Date.now() - start < 1000,
+        true,
+        "In-segment wildcards should not backtrack exponentially"
+    );
+
     console.log("All special character tests passed!");
 }
 

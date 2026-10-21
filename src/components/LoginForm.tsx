@@ -14,20 +14,11 @@ import {
     FormLabel,
     FormMessage
 } from "@app/components/ui/form";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle
-} from "@app/components/ui/card";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { useParams, useRouter } from "next/navigation";
-import { LockIcon } from "lucide-react";
 import SecurityKeyAuthButton from "@app/components/SecurityKeyAuthButton";
 import { createApiClient } from "@app/lib/api";
 import Link from "next/link";
-import { GenerateOidcUrlResponse } from "@server/routers/idp";
 import { Separator } from "./ui/separator";
 import { useTranslations } from "next-intl";
 import { generateOidcUrlProxy, loginProxy } from "@app/actions/server";

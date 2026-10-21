@@ -34,10 +34,21 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import ActionBanner from "@app/components/ActionBanner";
 import { Shield, ShieldOff } from "lucide-react";
+import OrgRolesTagField from "@app/components/OrgRolesTagField";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 const GeneralFormSchema = z.object({
     name: z.string().nonempty("Name is required"),
-    niceId: z.string().min(1).max(255).optional()
+    niceId: z.string().min(1).max(255).optional(),
+    roles: z.array(
+        z.object({
+            id: z.string(),
+            text: z.string(),
+            isAdmin: z.boolean().optional()
+        })
+    )
 });
 
 type GeneralFormValues = z.infer<typeof GeneralFormSchema>;
@@ -45,17 +56,25 @@ type GeneralFormValues = z.infer<typeof GeneralFormSchema>;
 export default function GeneralPage() {
     const t = useTranslations();
     const { client, updateClient } = useClientContext();
-    const api = createApiClient(useEnvContext());
+    const { env } = useEnvContext();
+    const api = createApiClient({ env });
     const [loading, setLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const router = useRouter();
     const [, startTransition] = useTransition();
+    const { isPaidUser } = usePaidStatus();
+    const canAssignRoles = isPaidUser(tierMatrix.fullRbac);
+    const showRoles = !env.flags.disableEnterpriseFeatures;
 
     const form = useForm({
         resolver: zodResolver(GeneralFormSchema),
         defaultValues: {
             name: client?.name,
-            niceId: client?.niceId || ""
+            niceId: client?.niceId || "",
+            roles: (client?.roles ?? []).map((r) => ({
+                id: r.roleId.toString(),
+                text: r.name
+            }))
         },
         mode: "onChange"
     });
@@ -86,15 +105,33 @@ export default function GeneralPage() {
     }, [client?.clientId, client?.orgId, api, form]);
 
     async function onSubmit(data: GeneralFormValues) {
+        if (!client?.clientId) return;
         setLoading(true);
 
-        try {
-            await api.post(`/client/${client?.clientId}`, {
-                name: data.name,
-                niceId: data.niceId
-            });
+        const saveRoles = showRoles && canAssignRoles;
+        const roleIds = data.roles.map((r) => parseInt(r.id, 10));
 
-            updateClient({ name: data.name, niceId: data.niceId });
+        try {
+            await Promise.all([
+                api.post(`/client/${client.clientId}`, {
+                    name: data.name,
+                    niceId: data.niceId
+                }),
+                saveRoles
+                    ? api.post(`/client/${client.clientId}/roles`, { roleIds })
+                    : Promise.resolve()
+            ]);
+
+            updateClient({
+                name: data.name,
+                niceId: data.niceId,
+                ...(saveRoles && {
+                    roles: data.roles.map((r) => ({
+                        roleId: parseInt(r.id, 10),
+                        name: r.text
+                    }))
+                })
+            });
 
             toast({
                 title: t("clientUpdated"),
@@ -172,6 +209,10 @@ export default function GeneralPage() {
                 </SettingsSectionHeader>
 
                 <SettingsSectionBody>
+                    {showRoles && (
+                        <PaidFeaturesAlert tiers={tierMatrix.fullRbac} />
+                    )}
+
                     <SettingsSectionForm>
                         <Form {...form}>
                             <form
@@ -214,6 +255,18 @@ export default function GeneralPage() {
                                         </FormItem>
                                     )}
                                 />
+
+                                {showRoles && (
+                                    <OrgRolesTagField
+                                        form={form}
+                                        name="roles"
+                                        orgId={client.orgId}
+                                        supportsMultipleRolesPerUser={true}
+                                        showMultiRolePaywallMessage={false}
+                                        paywallMessage=""
+                                        disabled={!canAssignRoles}
+                                    />
+                                )}
                             </form>
                         </Form>
                     </SettingsSectionForm>

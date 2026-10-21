@@ -44,7 +44,7 @@ export default async function Page(props: {
     let inviteToken;
     if (searchParams.redirect && isInvite) {
         const parts = searchParams.redirect.split("token=");
-        if (parts.length) {
+        if (parts.length > 1) {
             const token = parts[1];
             const tokenParts = token.split("-");
             if (tokenParts.length === 2) {

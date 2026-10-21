@@ -1,45 +1,45 @@
-import { Request, Response, NextFunction } from "express";
-import { z } from "zod";
-import { db, Org, primaryDb } from "@server/db";
-import response from "@server/lib/response";
-import HttpCode from "@server/types/HttpCode";
-import createHttpError from "http-errors";
-import logger from "@server/logger";
-import { fromError } from "zod-validation-error";
-import {
-    idp,
-    idpOidcConfig,
-    idpOrg,
-    orgs,
-    Role,
-    roles,
-    userOrgRoles,
-    userOrgs,
-    users
-} from "@server/db";
-import { and, eq, inArray } from "drizzle-orm";
-import * as arctic from "arctic";
-import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
-import jmespath from "jmespath";
-import jsonwebtoken from "jsonwebtoken";
-import config from "@server/lib/config";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { unwrapRoleMapping } from "@app/lib/idpRoleMapping";
 import {
     createSession,
     generateId,
     generateSessionToken,
     serializeSessionCookie
 } from "@server/auth/sessions/app";
-import { decrypt } from "@server/lib/crypto";
-import { UserType } from "@server/types/UserTypes";
-import { LimitId } from "@server/lib/billing";
-import { usageService } from "@server/lib/billing/usageService";
 import { build } from "@server/build";
-import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
-import { isSubscribed } from "#dynamic/lib/isSubscribed";
-import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import {
+    db,
+    idp,
+    idpOidcConfig,
+    idpOrg,
+    Org,
+    orgs,
+    roles,
+    userOrgRoles,
+    userOrgs,
+    users
+} from "@server/db";
+import { LimitId } from "@server/lib/billing";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { usageService } from "@server/lib/billing/usageService";
+import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
+import { pushClientIdentitiesForUser } from "@server/lib/clientIdentities";
+import config from "@server/lib/config";
+import { decrypt } from "@server/lib/crypto";
+import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
+import response from "@server/lib/response";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
-import { unwrapRoleMapping } from "@app/lib/idpRoleMapping";
+import logger from "@server/logger";
+import HttpCode from "@server/types/HttpCode";
+import { UserType } from "@server/types/UserTypes";
+import * as arctic from "arctic";
+import { and, eq, inArray } from "drizzle-orm";
+import { NextFunction, Request, Response } from "express";
+import createHttpError from "http-errors";
+import jmespath from "jmespath";
+import jsonwebtoken from "jsonwebtoken";
+import { z } from "zod";
+import { fromError } from "zod-validation-error";
 
 const ensureTrailingSlash = (url: string): string => {
     return url;
@@ -641,6 +641,17 @@ export async function validateOidcCallback(
                     { error: err }
                 );
             });
+
+            if (existingUser) {
+                // The sync above may have changed the user's name, email or
+                // roles, all of which newt forwards as Remote-* headers.
+                pushClientIdentitiesForUser(userId!).catch((err) => {
+                    logger.error(
+                        "Error pushing client identities after syncing OIDC user",
+                        { error: err }
+                    );
+                });
+            }
 
             for (const orgCount of orgUserCounts) {
                 await usageService.updateCount(

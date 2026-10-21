@@ -133,8 +133,6 @@ export default function SitesTable({
         productUpdatesQueries.latestVersion(true)
     );
 
-    const latestNewtVersion = latestVersions?.data?.newt?.latestVersion;
-
     const booleanSearchFilterSchema = z
         .enum(["true", "false"])
         .optional()
@@ -378,13 +376,6 @@ export default function SitesTable({
                 cell: ({ row }) => {
                     const originalRow = row.original;
 
-                    const updateAvailable = Boolean(
-                        latestNewtVersion &&
-                        originalRow.newtVersion &&
-                        semver.valid(originalRow.newtVersion) &&
-                        semver.lt(originalRow.newtVersion, latestNewtVersion)
-                    );
-
                     if (originalRow.type === "newt") {
                         if (!originalRow.agent && !originalRow.newtVersion) {
                             // it has not checked in yet
@@ -394,25 +385,42 @@ export default function SitesTable({
                         // site still running an older Newt reports only newtVersion.
                         // Without these fallbacks the badge renders with no label and
                         // no version at all.
-                        const agentLabel =
-                            originalRow.agent == "cli"
-                                ? "Pangolin CLI"
-                                : "Newt";
-                        const agentVersion =
+                        const isCli = originalRow.agent === "cli";
+                        const agentLabel = isCli ? "Pangolin CLI" : "Newt";
+                        const displayedVersion =
                             originalRow.agentVersion ?? originalRow.newtVersion;
+                        // CLI sites report their own version in agentVersion. Older
+                        // Newt installs only have newtVersion.
+                        const comparedVersion = isCli
+                            ? originalRow.agentVersion
+                            : displayedVersion;
+                        const latestVersion = isCli
+                            ? latestVersions?.data?.cli?.latestVersion
+                            : latestVersions?.data?.newt?.latestVersion;
+                        const updateAvailable = Boolean(
+                            latestVersion &&
+                            comparedVersion &&
+                            semver.valid(comparedVersion) &&
+                            semver.valid(latestVersion) &&
+                            semver.lt(comparedVersion, latestVersion)
+                        );
                         return (
                             <div className="flex items-center space-x-1">
                                 <Badge variant="secondary">
                                     <div className="flex items-center space-x-1">
                                         <span>{agentLabel}</span>
-                                        {agentVersion && (
-                                            <span>v{agentVersion}</span>
+                                        {displayedVersion && (
+                                            <span>v{displayedVersion}</span>
                                         )}
                                     </div>
                                 </Badge>
                                 {updateAvailable && (
                                     <InfoPopup
-                                        info={t("newtUpdateAvailableInfo")}
+                                        info={t(
+                                            isCli
+                                                ? "cliUpdateAvailableInfo"
+                                                : "newtUpdateAvailableInfo"
+                                        )}
                                     />
                                 )}
                             </div>
@@ -656,7 +664,7 @@ export default function SitesTable({
         orgId,
         t,
         searchParams,
-        latestNewtVersion,
+        latestVersions,
         statusHistoryQuery.data,
         statusHistoryQuery.isLoading
     ]);

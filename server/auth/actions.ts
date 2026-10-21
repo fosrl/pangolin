@@ -61,6 +61,9 @@ export enum ActionsEnum {
     addUserRole = "addUserRole",
     removeUserRole = "removeUserRole",
     setUserOrgRoles = "setUserOrgRoles",
+    addClientRole = "addClientRole",
+    removeClientRole = "removeClientRole",
+    setClientRoles = "setClientRoles",
     // addUserSite = "addUserSite",
     // addUserAction = "addUserAction",
     // removeUserAction = "removeUserAction",
@@ -81,6 +84,9 @@ export enum ActionsEnum {
     deleteResourceRule = "deleteResourceRule",
     listResourceRules = "listResourceRules",
     updateResourceRule = "updateResourceRule",
+    createResourceMtlsCertificate = "createResourceMtlsCertificate",
+    deleteResourceMtlsCertificate = "deleteResourceMtlsCertificate",
+    listResourceMtlsCertificates = "listResourceMtlsCertificates",
     createSiteResource = "createSiteResource",
     deleteSiteResource = "deleteSiteResource",
     getSiteResource = "getSiteResource",
@@ -205,7 +211,12 @@ export enum ActionsEnum {
     deleteVirtualApiKey = "deleteVirtualApiKey",
     getVirtualApiKey = "getVirtualApiKey",
     listVirtualApiKeys = "listVirtualApiKeys",
-    updateVirtualApiKey = "updateVirtualApiKey"
+    updateVirtualApiKey = "updateVirtualApiKey",
+    createRedirect = "createRedirect",
+    deleteRedirect = "deleteRedirect",
+    getRedirect = "getRedirect",
+    listRedirects = "listRedirects",
+    updateRedirect = "updateRedirect"
 }
 
 export async function checkUserActionPermission(

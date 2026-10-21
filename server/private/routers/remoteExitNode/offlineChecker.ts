@@ -14,11 +14,10 @@
 import { db, exitNodes } from "@server/db";
 import { eq, lt, isNull, and, or } from "drizzle-orm";
 import logger from "@server/logger";
+import { getOfflineThresholds } from "#private/lib/offlineThresholds";
 
 // Track if the offline checker interval is running
 let offlineCheckerInterval: NodeJS.Timeout | null = null;
-const OFFLINE_CHECK_INTERVAL = 30 * 1000; // Check every 30 seconds
-const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
 
 /**
  * Starts the background interval that checks for clients that haven't pinged recently
@@ -31,11 +30,11 @@ export const startRemoteExitNodeOfflineChecker = (): void => {
 
     offlineCheckerInterval = setInterval(async () => {
         try {
-            const twoMinutesAgo = Math.floor(
-                (Date.now() - OFFLINE_THRESHOLD_MS) / 1000
+            const offlineBefore = Math.floor(
+                (Date.now() - getOfflineThresholds().remoteExitNodeMs) / 1000
             );
 
-            // Find clients that haven't pinged in the last 2 minutes and mark them as offline
+            // Find clients that haven't pinged within the offline threshold and mark them as offline
             const offlineNodes = await db
                 .update(exitNodes)
                 .set({ online: false })
@@ -44,7 +43,7 @@ export const startRemoteExitNodeOfflineChecker = (): void => {
                         eq(exitNodes.online, true),
                         eq(exitNodes.type, "remoteExitNode"),
                         or(
-                            lt(exitNodes.lastPing, twoMinutesAgo),
+                            lt(exitNodes.lastPing, offlineBefore),
                             isNull(exitNodes.lastPing)
                         )
                     )
@@ -65,7 +64,7 @@ export const startRemoteExitNodeOfflineChecker = (): void => {
         } catch (error) {
             logger.error("Error in offline checker interval", { error });
         }
-    }, OFFLINE_CHECK_INTERVAL);
+    }, getOfflineThresholds().checkIntervalMs);
 
     logger.debug("Started offline checker interval");
 };

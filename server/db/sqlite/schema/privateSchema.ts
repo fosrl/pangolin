@@ -696,6 +696,27 @@ export const aiSessionLog = sqliteTable(
     ]
 );
 
+export const resourceMtlsCertificates = sqliteTable(
+    "resourceMtlsCertificates",
+    {
+        mtlsCertificateId: integer("mtlsCertificateId").primaryKey({
+            autoIncrement: true
+        }),
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" }),
+        name: text("name"),
+        certificate: text("certificate").notNull(),
+        subject: text("subject"),
+        issuer: text("issuer"),
+        serialNumber: text("serialNumber"),
+        fingerprint: text("fingerprint"),
+        notBefore: integer("notBefore"),
+        notAfter: integer("notAfter"),
+        createdAt: integer("createdAt").notNull()
+    }
+);
+
 export type Approval = InferSelectModel<typeof approvals>;
 export type Limit = InferSelectModel<typeof limits>;
 export type Account = InferSelectModel<typeof account>;
@@ -735,3 +756,6 @@ export type AlertEmailRecipient = InferSelectModel<typeof alertEmailRecipients>;
 export type AlertWebhookAction = InferSelectModel<typeof alertWebhookActions>;
 export type TrialNotification = InferSelectModel<typeof trialNotifications>;
 export type AiSessionLog = InferSelectModel<typeof aiSessionLog>;
+export type ResourceMtlsCertificate = InferSelectModel<
+    typeof resourceMtlsCertificates
+>;

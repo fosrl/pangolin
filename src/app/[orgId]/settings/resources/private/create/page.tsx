@@ -151,7 +151,7 @@ export default function CreatePrivateResourcePage() {
         },
         {
             value: "http" as const,
-            title: t("createInternalResourceDialogModeHttp"),
+            title: t("resourceTypeHttp"),
             description: t("privateResourceTypeHttpDescription")
         },
         {
@@ -602,7 +602,7 @@ export default function CreatePrivateResourcePage() {
                         <SettingsSection>
                             <SettingsSectionHeader>
                                 <SettingsSectionTitle>
-                                    {t("httpSettings")}
+                                    {t("resourceTypeHttp")}
                                 </SettingsSectionTitle>
                                 <SettingsSectionDescription>
                                     {t(

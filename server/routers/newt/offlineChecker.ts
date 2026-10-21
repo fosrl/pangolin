@@ -3,12 +3,10 @@ import { hasActiveConnections } from "#dynamic/routers/ws";
 import { eq, lt, isNull, and, or, ne, not, inArray } from "drizzle-orm";
 import logger from "@server/logger";
 import { fireSiteOfflineAlert, fireSiteOnlineAlert } from "@server/lib/alerts";
+import { getOfflineThresholds } from "#dynamic/lib/offlineThresholds";
 
 // Track if the offline checker interval is running
 let offlineCheckerInterval: NodeJS.Timeout | null = null;
-const OFFLINE_CHECK_INTERVAL = 30 * 1000; // Check every 30 seconds
-const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
-const OFFLINE_THRESHOLD_BANDWIDTH_MS = 8 * 60 * 1000; // 8 minutes
 
 /**
  * Starts the background interval that checks for newt sites that haven't
@@ -24,8 +22,9 @@ export const startNewtOfflineChecker = (): void => {
 
     offlineCheckerInterval = setInterval(async () => {
         try {
-            const twoMinutesAgo = Math.floor(
-                (Date.now() - OFFLINE_THRESHOLD_MS) / 1000
+            const thresholds = getOfflineThresholds();
+            const offlineBefore = Math.floor(
+                (Date.now() - thresholds.newtMs) / 1000
             );
 
             // Find all online newt-type sites that haven't pinged recently
@@ -46,7 +45,7 @@ export const startNewtOfflineChecker = (): void => {
                         eq(sites.online, true),
                         eq(sites.type, "newt"),
                         or(
-                            lt(sites.lastPing, twoMinutesAgo),
+                            lt(sites.lastPing, offlineBefore),
                             isNull(sites.lastPing)
                         )
                     )
@@ -105,7 +104,7 @@ export const startNewtOfflineChecker = (): void => {
                 );
 
             const wireguardOfflineThreshold = Math.floor(
-                (Date.now() - OFFLINE_THRESHOLD_BANDWIDTH_MS) / 1000
+                (Date.now() - thresholds.newtWireguardMs) / 1000
             );
 
             // loop over each one. If its offline and there is a new update then mark it online. If its online and there is no update then mark it offline
@@ -117,7 +116,7 @@ export const startNewtOfflineChecker = (): void => {
                     site.online
                 ) {
                     logger.info(
-                        `Marking wireguard site ${site.siteId} offline: no bandwidth update in over ${OFFLINE_THRESHOLD_BANDWIDTH_MS / 60000} minutes`
+                        `Marking wireguard site ${site.siteId} offline: no bandwidth update in over ${thresholds.newtWireguardMs / 1000} seconds`
                     );
 
                     await db.transaction(async (trx) => {
@@ -161,7 +160,7 @@ export const startNewtOfflineChecker = (): void => {
         } catch (error) {
             logger.error("Error in newt offline checker interval", { error });
         }
-    }, OFFLINE_CHECK_INTERVAL);
+    }, getOfflineThresholds().checkIntervalMs);
 
     logger.debug("Started newt offline checker interval");
 };

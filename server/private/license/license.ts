@@ -11,7 +11,7 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { db, HostMeta, sites, users } from "@server/db";
+import { db, HostMeta, primaryDb, sites, users } from "@server/db";
 import { hostMeta, licenseKey } from "@server/db";
 import logger from "@server/logger";
 import { createLocalCache } from "@server/lib/createLocalCache";
@@ -91,6 +91,10 @@ export class License {
     private licenseKeyCache = createLocalCache();
 
     private statusKey = "status";
+    // Fingerprint of the license key rows the cached status was computed
+    // from. The caches are per-process, so when another node activates or
+    // deletes a key this no longer matches the DB and forces a recheck.
+    private keysFingerprint: string | undefined;
     private serverSecret!: string;
     private phoneHomeFailureCount = 0;
     private checkInProgress = false;
@@ -189,6 +193,9 @@ LQIDAQAB
         // Count used sites and users for license comparison
         const [siteCountRes] = await db.select({ value: count() }).from(sites);
         const [userCountRes] = await db.select({ value: count() }).from(users);
+        const keyIdsRes = await db
+            .select({ licenseKeyId: licenseKey.licenseKeyId })
+            .from(licenseKey);
 
         const status: LicenseStatus = {
             hostId: this.hostMeta.hostMetaId,
@@ -201,7 +208,11 @@ LQIDAQAB
         this.checkInProgress = true;
 
         try {
-            if (!this.doRecheck && this.statusCache.has(this.statusKey)) {
+            if (
+                !this.doRecheck &&
+                this.statusCache.has(this.statusKey) &&
+                this.keysFingerprint === this.fingerprintKeys(keyIdsRes)
+            ) {
                 const res = this.statusCache.get("status") as LicenseStatus;
                 res.usedSites = status.usedSites;
                 res.usedUsers = status.usedUsers;
@@ -211,13 +222,17 @@ LQIDAQAB
             // Build new cache in temporary Map before invalidating old cache
             const newCache = new Map<string, LicenseKeyCache>();
 
-            const allKeysRes = await db.select().from(licenseKey);
+            // Read from the primary so a key just written by this or another
+            // node is not missed due to replica lag
+            const allKeysRes = await primaryDb.select().from(licenseKey);
+            const keysFingerprint = this.fingerprintKeys(allKeysRes);
 
             if (allKeysRes.length === 0) {
                 status.isHostLicensed = false;
                 // Invalidate all and set new cache (empty)
                 this.licenseKeyCache.flushAll();
                 this.statusCache.set(this.statusKey, status, 0);
+                this.keysFingerprint = keysFingerprint;
                 return status;
             }
 
@@ -483,6 +498,7 @@ LQIDAQAB
             for (const [key, value] of newCache.entries()) {
                 this.licenseKeyCache.set(key, value, 0);
             }
+            this.keysFingerprint = keysFingerprint;
         } catch (error) {
             logger.error("Error checking license status:");
             logger.error(error);
@@ -494,6 +510,13 @@ LQIDAQAB
 
         this.statusCache.set(this.statusKey, status, 0);
         return status;
+    }
+
+    private fingerprintKeys(rows: { licenseKeyId: string }[]): string {
+        return rows
+            .map((row) => row.licenseKeyId)
+            .sort()
+            .join("|");
     }
 
     public async activateLicenseKey(key: string) {

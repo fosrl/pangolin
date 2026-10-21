@@ -97,6 +97,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
             logger.warn(
                 `handleOlmServerInitAddPeerHandshake: Multiple resources found matching the criteria`
             );
+            await sendCancel();
             return;
         }
 
@@ -216,6 +217,7 @@ export const handleOlmServerInitAddPeerHandshake: MessageHandler = async (
                 siteId: site.siteId,
                 exitNode: {
                     publicKey: exitNode.publicKey,
+                    relayPort: exitNode.relayPort,
                     endpoint: exitNode.endpoint
                 }
             },

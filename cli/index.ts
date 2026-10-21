@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import "@server/extendZod";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { setAdminCredentials } from "./commands/setAdminCredentials";
@@ -12,6 +13,7 @@ import { generateOrgCaKeys } from "./commands/generateOrgCaKeys";
 import { clearCertificates } from "./commands/clearCertificates";
 import { disableUser2fa } from "./commands/disableUser2fa";
 import { setServerAdmin } from "./commands/setServerAdmin";
+import { exportBlueprints } from "./commands/exportBlueprints";
 
 yargs(hideBin(process.argv))
     .scriptName("pangctl")
@@ -25,5 +27,6 @@ yargs(hideBin(process.argv))
     .command(clearCertificates)
     .command(disableUser2fa)
     .command(setServerAdmin)
+    .command(exportBlueprints)
     .demandCommand()
     .help().argv;

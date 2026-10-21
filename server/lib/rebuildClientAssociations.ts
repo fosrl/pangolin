@@ -1,5 +1,6 @@
 import {
     Client,
+    clientOrgRoles,
     clients,
     clientSiteResources,
     clientSiteResourcesAssociationsCache,
@@ -34,7 +35,6 @@ import {
 import { sendToExitNode } from "#dynamic/lib/exitNodes";
 import { sendToClientsBatch } from "#dynamic/routers/ws";
 import { canCompress } from "@server/lib/clientVersionChecks";
-import config from "@server/lib/config";
 import logger from "@server/logger";
 import {
     generateAliasConfig,
@@ -51,6 +51,10 @@ import {
     updatePeerDataBatch,
     updateTargets
 } from "@server/routers/client/targets";
+import {
+    pushClientIdentitiesToSites,
+    sendClientIdentitiesAdd
+} from "@server/lib/clientIdentities";
 import { lockManager } from "#dynamic/lib/lock";
 import { rebuildQueue } from "#dynamic/lib/rebuildQueue";
 import { withRetry, isTransientError } from "@server/lib/dbRetry";
@@ -257,9 +261,30 @@ export async function getClientSiteResourceAccess(
             eq(clientSiteResources.siteResourceId, siteResource.siteResourceId)
         );
 
-    const directClientIds = allClientSiteResources.map((row) => row.clientId);
+    // clients (machines) that get access through a role assigned directly to
+    // the client instead of through a user
+    const roleClientIds =
+        roleIds.length > 0
+            ? await trx
+                  .select({ clientId: clientOrgRoles.clientId })
+                  .from(clientOrgRoles)
+                  .where(
+                      and(
+                          inArray(clientOrgRoles.roleId, roleIds),
+                          eq(clientOrgRoles.orgId, siteResource.orgId)
+                      )
+                  )
+                  .then((rows) => rows.map((row) => row.clientId))
+            : [];
 
-    // Get full client details for directly associated clients
+    const directClientIds = Array.from(
+        new Set([
+            ...allClientSiteResources.map((row) => row.clientId),
+            ...roleClientIds
+        ])
+    );
+
+    // Get full client details for directly and client-role associated clients
     const directClients =
         directClientIds.length > 0
             ? await trx
@@ -286,7 +311,7 @@ export async function getClientSiteResourceAccess(
     const mergedAllClientIds = mergedAllClients.map((c) => c.clientId);
 
     logger.debug(
-        `rebuildClientAssociations: [getClientSiteResourceAccess] siteResourceId=${siteResource.siteResourceId} mergedClientCount=${mergedAllClientIds.length} clientIds=[${mergedAllClientIds.join(", ")}] (userBased=${newAllClients.length} direct=${directClients.length})`
+        `rebuildClientAssociations: [getClientSiteResourceAccess] siteResourceId=${siteResource.siteResourceId} mergedClientCount=${mergedAllClientIds.length} clientIds=[${mergedAllClientIds.join(", ")}] (userBased=${newAllClients.length} direct=${directClients.length} clientRoleBased=${roleClientIds.length})`
     );
 
     return {
@@ -816,6 +841,7 @@ async function handleMessagesForSiteClients(
             siteId: number;
             exitNode: {
                 publicKey: string;
+                relayPort: number;
                 endpoint: string;
             };
         };
@@ -961,6 +987,7 @@ async function handleMessagesForSiteClients(
                     siteId,
                     exitNode: {
                         publicKey: exitNode.publicKey,
+                        relayPort: exitNode.relayPort,
                         endpoint: exitNode.endpoint
                     }
                 },
@@ -1238,8 +1265,6 @@ async function syncClientExitNodeConnections(
             .map((r) => [r.clientId as number, r])
     );
 
-    const relayPort = config.getRawConfig().gerbil.clients_start_port;
-
     const connectPayloads: {
         clientId: string;
         message: { type: string; data: any };
@@ -1278,7 +1303,7 @@ async function syncClientExitNodeConnections(
                     data: {
                         connect: true,
                         endpoint: `${exitNode.endpoint}:${exitNode.listenPort}`,
-                        relayPort,
+                        relayPort: exitNode.relayPort,
                         publicKey: exitNode.publicKey,
                         serverIP: exitNode.address.split("/")[0],
                         tunnelIP: client.exitNodeSubnet.split("/")[0],
@@ -1416,6 +1441,8 @@ async function handleSubnetProxyTargetUpdates(
         >;
         version: string | null;
     }[] = [];
+    const identitiesToAddBatch: Parameters<typeof sendClientIdentitiesAdd>[0] =
+        [];
 
     for (const siteData of sitesList) {
         const siteId = siteData.siteId;
@@ -1452,6 +1479,14 @@ async function handleSubnetProxyTargetUpdates(
                         targets: targetsToAdd,
                         version: newt.version
                     });
+
+                    if (siteResource.mode === "http") {
+                        identitiesToAddBatch.push({
+                            newtId: newt.newtId,
+                            version: newt.version,
+                            clientIds: addedClients.map((c) => c.clientId)
+                        });
+                    }
                 }
 
                 olmJobs.push(
@@ -1560,6 +1595,10 @@ async function handleSubnetProxyTargetUpdates(
         }
     }
 
+    // Identities first so the HTTP proxy never serves an added client
+    // without its Remote-* headers.
+    await sendClientIdentitiesAdd(identitiesToAddBatch, trx);
+
     if (targetsToAddBatch.length > 0) {
         proxyJobs.push(addSubnetProxyTargetsBatch(targetsToAddBatch));
     }
@@ -1645,6 +1684,28 @@ export async function handleMessagingForUpdatedSiteResource(
     logger.debug(
         `handleMessagingForUpdatedSiteResource: generated updated targets count=${targets ? targets.length : 0}`
     );
+
+    // Make sure sites newly serving this resource over HTTP know the identity
+    // of each client that can reach it before targets are sent below. Sites
+    // that already served it over HTTP got them when the clients were added,
+    // so plain edits of an HTTP resource send nothing here.
+    if (targets && updatedSiteResource.mode === "http") {
+        const identitySiteIds =
+            existingSiteResource?.mode === "http"
+                ? updatedSiteIds.filter((id) => !existingSiteIds.includes(id))
+                : updatedSiteIds;
+        await sendClientIdentitiesAdd(
+            identitySiteIds
+                .map((siteId) => newtBySiteId.get(siteId))
+                .filter((newt) => newt !== undefined)
+                .map((newt) => ({
+                    newtId: newt.newtId,
+                    version: newt.version,
+                    clientIds: mergedAllClients.map((c) => c.clientId)
+                })),
+            trx
+        );
+    }
 
     const oldDestinationStillInUseClientSitePairs = new Set<string>();
     if (
@@ -2150,11 +2211,16 @@ export async function rebuildClientAssociationsFromClient(
     }
 }
 
-async function rebuildClientAssociationsFromClientImpl(
+// Derives the set of site resources a client should have access to from its
+// permissions: direct client associations, the owning user's direct and
+// role-based associations, and roles assigned directly to the client
+// (machine clients). Shared by the rebuild and the cache verification so they
+// can't drift apart.
+async function getClientSiteResourceIds(
     client: Client,
     trx: Transaction | typeof db = db
-): Promise<void> {
-    let newSiteResourceIds: number[] = [];
+): Promise<number[]> {
+    const newSiteResourceIds: number[] = [];
 
     // 1. Direct client associations
     const directSiteResources = await trx
@@ -2175,7 +2241,20 @@ async function rebuildClientAssociationsFromClientImpl(
         ...directSiteResources.map((r) => r.siteResourceId)
     );
 
-    // 2. User-based and role-based access (if client has a userId)
+    // 2. Roles assigned directly to the client (machine clients). These are
+    // locked onto this org or else cross-org access could happen
+    const roleIds = await trx
+        .select({ roleId: clientOrgRoles.roleId })
+        .from(clientOrgRoles)
+        .where(
+            and(
+                eq(clientOrgRoles.clientId, client.clientId),
+                eq(clientOrgRoles.orgId, client.orgId)
+            )
+        )
+        .then((rows) => rows.map((row) => row.roleId));
+
+    // 3. User-based and user role-based access (if client has a userId)
     if (client.userId) {
         // Direct user associations
         const userSiteResourceIds = await trx
@@ -2199,8 +2278,7 @@ async function rebuildClientAssociationsFromClientImpl(
             ...userSiteResourceIds.map((r) => r.siteResourceId)
         );
 
-        // Role-based access
-        const roleIds = await trx
+        const userRoleIds = await trx
             .select({ roleId: userOrgRoles.roleId })
             .from(userOrgRoles)
             .where(
@@ -2211,32 +2289,45 @@ async function rebuildClientAssociationsFromClientImpl(
             ) // this needs to be locked onto this org or else cross-org access could happen
             .then((rows) => rows.map((row) => row.roleId));
 
-        if (roleIds.length > 0) {
-            const roleSiteResourceIds = await trx
-                .select({ siteResourceId: roleSiteResources.siteResourceId })
-                .from(roleSiteResources)
-                .innerJoin(
-                    siteResources,
-                    eq(
-                        siteResources.siteResourceId,
-                        roleSiteResources.siteResourceId
-                    )
-                )
-                .where(
-                    and(
-                        inArray(roleSiteResources.roleId, roleIds),
-                        eq(siteResources.orgId, client.orgId) // filter by org to prevent cross-org associations
-                    )
-                );
+        roleIds.push(...userRoleIds);
+    }
 
-            newSiteResourceIds.push(
-                ...roleSiteResourceIds.map((r) => r.siteResourceId)
+    // Role-based access (client roles and user roles)
+    if (roleIds.length > 0) {
+        const roleSiteResourceIds = await trx
+            .select({ siteResourceId: roleSiteResources.siteResourceId })
+            .from(roleSiteResources)
+            .innerJoin(
+                siteResources,
+                eq(
+                    siteResources.siteResourceId,
+                    roleSiteResources.siteResourceId
+                )
+            )
+            .where(
+                and(
+                    inArray(
+                        roleSiteResources.roleId,
+                        Array.from(new Set(roleIds))
+                    ),
+                    eq(siteResources.orgId, client.orgId) // filter by org to prevent cross-org associations
+                )
             );
-        }
+
+        newSiteResourceIds.push(
+            ...roleSiteResourceIds.map((r) => r.siteResourceId)
+        );
     }
 
     // Remove duplicates
-    newSiteResourceIds = Array.from(new Set(newSiteResourceIds));
+    return Array.from(new Set(newSiteResourceIds));
+}
+
+async function rebuildClientAssociationsFromClientImpl(
+    client: Client,
+    trx: Transaction | typeof db = db
+): Promise<void> {
+    const newSiteResourceIds = await getClientSiteResourceIds(client, trx);
 
     // Get full siteResource details
     const newSiteResources =
@@ -2366,6 +2457,15 @@ async function rebuildClientAssociationsFromClientImpl(
 
     /////////// Send messages ///////////
 
+    // Push this client's identity to every site where it can reach an HTTP
+    // resource before any targets referencing it, so newt's HTTP proxy can
+    // set Remote-* headers from the first request. Also refreshes it after
+    // role changes, which land here as well. Skipped outright for clients
+    // without HTTP access, which is the common case.
+    if (newSiteResources.some((r) => r.mode === "http" && r.enabled)) {
+        await pushClientIdentitiesToSites([client.clientId], trx);
+    }
+
     // Handle messages for sites being added
     await handleMessagesForClientSites(client, sitesToAdd, sitesToRemove, trx);
 
@@ -2451,6 +2551,7 @@ async function handleMessagesForClientSites(
             siteId: number;
             exitNode: {
                 publicKey: string;
+                relayPort: number;
                 endpoint: string;
             };
         };
@@ -2550,6 +2651,7 @@ async function handleMessagesForClientSites(
                     siteId: site.siteId,
                     exitNode: {
                         publicKey: exitNode.publicKey,
+                        relayPort: exitNode.relayPort,
                         endpoint: exitNode.endpoint
                     }
                 },
@@ -2946,86 +3048,7 @@ export async function verifyClientAssociationsCache(
     client: Client,
     trx: Transaction | typeof db = db
 ): Promise<ClientAssociationsCacheVerification> {
-    let newSiteResourceIds: number[] = [];
-
-    // 1. Direct client associations
-    const directSiteResources = await trx
-        .select({ siteResourceId: clientSiteResources.siteResourceId })
-        .from(clientSiteResources)
-        .innerJoin(
-            siteResources,
-            eq(siteResources.siteResourceId, clientSiteResources.siteResourceId)
-        )
-        .where(
-            and(
-                eq(clientSiteResources.clientId, client.clientId),
-                eq(siteResources.orgId, client.orgId)
-            )
-        );
-
-    newSiteResourceIds.push(
-        ...directSiteResources.map((r) => r.siteResourceId)
-    );
-
-    // 2. User-based and role-based access (if client has a userId)
-    if (client.userId) {
-        const userSiteResourceIds = await trx
-            .select({ siteResourceId: userSiteResources.siteResourceId })
-            .from(userSiteResources)
-            .innerJoin(
-                siteResources,
-                eq(
-                    siteResources.siteResourceId,
-                    userSiteResources.siteResourceId
-                )
-            )
-            .where(
-                and(
-                    eq(userSiteResources.userId, client.userId),
-                    eq(siteResources.orgId, client.orgId)
-                )
-            );
-
-        newSiteResourceIds.push(
-            ...userSiteResourceIds.map((r) => r.siteResourceId)
-        );
-
-        const roleIds = await trx
-            .select({ roleId: userOrgRoles.roleId })
-            .from(userOrgRoles)
-            .where(
-                and(
-                    eq(userOrgRoles.userId, client.userId),
-                    eq(userOrgRoles.orgId, client.orgId)
-                )
-            )
-            .then((rows) => rows.map((row) => row.roleId));
-
-        if (roleIds.length > 0) {
-            const roleSiteResourceIds = await trx
-                .select({ siteResourceId: roleSiteResources.siteResourceId })
-                .from(roleSiteResources)
-                .innerJoin(
-                    siteResources,
-                    eq(
-                        siteResources.siteResourceId,
-                        roleSiteResources.siteResourceId
-                    )
-                )
-                .where(
-                    and(
-                        inArray(roleSiteResources.roleId, roleIds),
-                        eq(siteResources.orgId, client.orgId)
-                    )
-                );
-
-            newSiteResourceIds.push(
-                ...roleSiteResourceIds.map((r) => r.siteResourceId)
-            );
-        }
-    }
-
-    newSiteResourceIds = Array.from(new Set(newSiteResourceIds));
+    const newSiteResourceIds = await getClientSiteResourceIds(client, trx);
 
     const newSiteResources =
         newSiteResourceIds.length > 0

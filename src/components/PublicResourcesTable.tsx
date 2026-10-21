@@ -2,6 +2,7 @@
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import ExportBlueprintModal from "@app/components/ExportBlueprintModal";
 import { ResourceAccessCertIndicator } from "@app/components/ResourceAccessCertIndicator";
 import {
     ResourceSitesStatusCell,
@@ -166,6 +167,11 @@ export default function PublicResourcesTable({
     const allSsoEnabled =
         authEligibleResources.length > 0 &&
         authEligibleResources.every((r) => r.sso);
+
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportResource, setExportResource] = useState<ResourceRow | null>(
+        null
+    );
 
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
@@ -730,6 +736,14 @@ export default function PublicResourcesTable({
                                     </Link>
                                     <DropdownMenuItem
                                         onClick={() => {
+                                            setExportResource(resourceRow);
+                                            setIsExportModalOpen(true);
+                                        }}
+                                    >
+                                        {t("exportAsBlueprint")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => {
                                             setSelectedResource(resourceRow);
                                             setIsDeleteModalOpen(true);
                                         }}
@@ -856,6 +870,20 @@ export default function PublicResourcesTable({
                 })}
                 title={t("resourcesDeleteSelected")}
             />
+
+            {exportResource && (
+                <ExportBlueprintModal
+                    open={isExportModalOpen}
+                    setOpen={(val) => {
+                        setIsExportModalOpen(val);
+                        if (!val) {
+                            setExportResource(null);
+                        }
+                    }}
+                    endpoint={`/resource/${exportResource.id}/blueprint`}
+                    resourceName={exportResource.nice || exportResource.name}
+                />
+            )}
 
             <ControlledDataTable
                 columns={proxyColumns}

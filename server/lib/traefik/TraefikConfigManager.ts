@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { createHash } from "crypto";
 import config from "@server/lib/config";
 import logger from "@server/logger";
 import * as yaml from "js-yaml";
@@ -15,6 +16,10 @@ import { getValidCertificatesForDomains } from "@server/lib/certificates";
 import { sendToExitNode } from "#dynamic/lib/exitNodes";
 import { build } from "@server/build";
 import license from "#dynamic/license/license";
+
+// Flat files in the certificates dir; the per-domain directory scan and
+// cleanup only look at directories, so these don't collide with them.
+const MTLS_CA_FILE_PREFIX = "mtls-ca-";
 
 export class TraefikConfigManager {
     private intervalId: NodeJS.Timeout | null = null;
@@ -297,7 +302,7 @@ export class TraefikConfigManager {
                     const secondsUntilExpiry =
                         localState.expiresAt - nowInSeconds;
                     const daysUntilExpiry = secondsUntilExpiry / (60 * 60 * 24);
-                    if (daysUntilExpiry < 45) {
+                    if (daysUntilExpiry < 15) {
                         logger.info(
                             `Fetching certificates due to upcoming expiry for ${domain} (${Math.round(daysUntilExpiry)} days remaining)`
                         );
@@ -314,7 +319,7 @@ export class TraefikConfigManager {
                     const nowInSeconds = Math.floor(Date.now() / 1000);
                     const secondsUntilExpiry = state.expiresAt - nowInSeconds;
                     const daysUntilExpiry = secondsUntilExpiry / (60 * 60 * 24);
-                    if (daysUntilExpiry < 45) {
+                    if (daysUntilExpiry < 15) {
                         logger.info(
                             `Fetching certificates due to upcoming expiry for wildcard cert ${certDomain} (${Math.round(daysUntilExpiry)} days remaining)`
                         );
@@ -466,8 +471,18 @@ export class TraefikConfigManager {
                 await new Promise((resolve) => setTimeout(resolve, 500));
             }
 
+            // Swap inline mTLS CA PEMs for files in the certificates dir
+            const mtlsCaFiles = this.writeMtlsCaFiles(traefikConfig);
+
             // Write traefik config as YAML to a second dynamic config file if changed
-            await this.writeTraefikDynamicConfig(traefikConfig);
+            const dynamicConfigWritten =
+                await this.writeTraefikDynamicConfig(traefikConfig);
+
+            // Only remove stale CA files once the config on disk no longer
+            // references them
+            if (dynamicConfigWritten) {
+                this.cleanupUnusedMtlsCaFiles(mtlsCaFiles);
+            }
 
             // Send domains to SNI proxy
             let exitNodeForSni: typeof exitNodes.$inferSelect | undefined;
@@ -698,7 +713,9 @@ export class TraefikConfigManager {
     /**
      * Write traefik config as YAML to a second dynamic config file if changed
      */
-    private async writeTraefikDynamicConfig(traefikConfig: any): Promise<void> {
+    private async writeTraefikDynamicConfig(
+        traefikConfig: any
+    ): Promise<boolean> {
         const traefikDynamicConfigPath =
             config.getRawConfig().traefik.dynamic_router_config_path;
         let shouldWrite = false;
@@ -729,7 +746,101 @@ export class TraefikConfigManager {
                 logger.info("Traefik dynamic config updated");
             } catch (err) {
                 logger.error("Failed to write traefik dynamic config:", err);
+                return false;
             }
+        }
+        return true;
+    }
+
+    /**
+     * Replace inline PEM entries in tls.options[*].clientAuth.caFiles with
+     * paths to files in the certificates directory. Files are named by a
+     * hash of their content so a changed CA gets a new path, which changes
+     * the dynamic config and makes Traefik reload it. Returns the set of
+     * file paths the config now references.
+     */
+    private writeMtlsCaFiles(traefikConfig: any): Set<string> {
+        const referenced = new Set<string>();
+        const tlsOptions = traefikConfig?.tls?.options;
+        if (!tlsOptions) {
+            return referenced;
+        }
+
+        const certsPath = config.getRawConfig().traefik.certificates_path;
+
+        for (const [optionsName, options] of Object.entries<any>(
+            tlsOptions
+        )) {
+            const caFiles = options?.clientAuth?.caFiles;
+            if (!Array.isArray(caFiles)) continue;
+
+            const paths: string[] = [];
+            for (const pem of caFiles) {
+                if (typeof pem !== "string" || !pem.includes("-----BEGIN")) {
+                    // Already a file path (or not something we can handle)
+                    paths.push(pem);
+                    continue;
+                }
+
+                const hash = createHash("sha256")
+                    .update(pem)
+                    .digest("hex")
+                    .slice(0, 32);
+                const caPath = path.join(
+                    certsPath,
+                    `${MTLS_CA_FILE_PREFIX}${hash}.pem`
+                );
+                try {
+                    if (!fs.existsSync(caPath)) {
+                        this.atomicWriteFileSync(caPath, pem, 0o644);
+                        logger.info(
+                            `Wrote mTLS CA file for TLS options ${optionsName}`
+                        );
+                    }
+                    paths.push(caPath);
+                    referenced.add(caPath);
+                } catch (err) {
+                    logger.error(
+                        `Failed to write mTLS CA file for TLS options ${optionsName}, falling back to inline PEM:`,
+                        err
+                    );
+                    paths.push(pem);
+                }
+            }
+
+            options.clientAuth.caFiles = paths;
+        }
+
+        return referenced;
+    }
+
+    /**
+     * Remove mTLS CA files from the certificates directory that the current
+     * config no longer references
+     */
+    private cleanupUnusedMtlsCaFiles(referenced: Set<string>): void {
+        const certsPath = config.getRawConfig().traefik.certificates_path;
+        try {
+            if (!fs.existsSync(certsPath)) return;
+
+            for (const dirent of fs.readdirSync(certsPath, {
+                withFileTypes: true
+            })) {
+                if (
+                    !dirent.isFile() ||
+                    !dirent.name.startsWith(MTLS_CA_FILE_PREFIX) ||
+                    !dirent.name.endsWith(".pem")
+                ) {
+                    continue;
+                }
+                const filePath = path.join(certsPath, dirent.name);
+                if (!referenced.has(filePath)) {
+                    fs.rmSync(filePath, { force: true });
+                    logger.info(`Removed unused mTLS CA file ${dirent.name}`);
+                }
+            }
+        } catch (error) {
+            logger.error("Error cleaning up mTLS CA files:", error);
         }
     }
 

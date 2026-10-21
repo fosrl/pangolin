@@ -770,7 +770,7 @@ export default function Page() {
         { title: string; description: string }
     > = {
         http: {
-            title: t("createInternalResourceDialogModeHttp"),
+            title: t("resourceTypeHttp"),
             description: t("resourceTypeHttpDescription")
         },
         inference: {
