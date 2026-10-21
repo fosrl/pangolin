@@ -10,6 +10,10 @@ export default async function migration() {
         await db.execute(sql`BEGIN`);
 
         await db.execute(sql`
+            ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "createdAt" varchar;
+        `);
+
+        await db.execute(sql`
             ALTER TABLE "resources" RENAME COLUMN "headers" TO "requestHeaders"
         `);
 
