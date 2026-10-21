@@ -4428,5 +4428,12 @@
     "check": "Check",
     "rulesErrorInvalidMethod": "Invalid HTTP method",
     "rulesErrorInvalidMethodDescription": "Select at least one HTTP method.",
-    "rulesSelectMethods": "Select methods"
+    "rulesSelectMethods": "Select methods",
+    "dateAdded": "Date Added",
+    "resourcesSelectedCount": "{count} selected",
+    "resourcesEnableAuthSelected": "Enable SSO Authentication",
+    "resourcesDeleteSelected": "Delete Selected Resources",
+    "resourcesDeleteSelectedQuestion": "Are you sure you want to remove {count, plural, one {# resource} other {# resources}} from the organization?",
+    "resourcesDeleteSelectedConfirmString": "delete {count} resources",
+    "resourcesBulkActionFailed": "{count} of {total} resources failed to update"
 }

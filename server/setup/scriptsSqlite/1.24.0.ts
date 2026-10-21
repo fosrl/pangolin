@@ -31,6 +31,15 @@ export default async function migration() {
                 ALTER TABLE 'orgs' ADD 'settingsJitModeLimit' integer DEFAULT 250 NOT NULL;
                 `
             ).run();
+
+            const columns = db
+                .prepare(`PRAGMA table_info('resources')`)
+                .all() as { name: string }[];
+            if (!columns.some((column) => column.name === "createdAt")) {
+                db.prepare(
+                    `ALTER TABLE 'resources' ADD COLUMN 'createdAt' text;`
+                ).run();
+            }
         })();
 
         db.pragma("foreign_keys = ON");
