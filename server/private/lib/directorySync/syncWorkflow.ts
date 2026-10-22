@@ -11,12 +11,6 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-// This is important to make sure schemas imported from other files accept `z.openapi()` as a function
-extendZodWithOpenApi(z);
-
 import {
     db,
     idp,

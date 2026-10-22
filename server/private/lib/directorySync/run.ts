@@ -1,6 +1,8 @@
 // // Usage: npx tsx server/private/lib/directorySync/run.ts <idpId>
 // // Runs one directory sync for the IdP using its saved directory role mapping.
 // import { AzureDirectorySyncProvider } from "./azure";
+// must be imported first, before any module that calls `z.openapi()`
+import "@server/extendZod";
 import { runIdpDirectorySync } from "./syncWorkflow";
 
 await runIdpDirectorySync().then((changes) => {
