@@ -133,30 +133,25 @@ export default async function OrgAuthPage(props: {
         return <OrgSelectionForm />;
     }
 
-    let loginIdps: LoginFormIDP[] = [];
-    if (build === "saas") {
-        const idpsRes = await priv.get<AxiosResponse<ListOrgIdpsResponse>>(
-            `/org/${loginPage.orgId}/idp`
-        );
+    const idpsRes = await priv.get<AxiosResponse<ListOrgIdpsResponse>>(
+        `/org/${loginPage.orgId}/idp`
+    );
 
-        loginIdps = idpsRes.data.data.idps.map((idp) => ({
-            idpId: idp.idpId,
-            name: idp.name,
-            variant: idp.variant
-        })) as LoginFormIDP[];
-    }
+    const loginIdps = idpsRes.data.data.idps.map((idp) => ({
+        idpId: idp.idpId,
+        name: idp.name,
+        variant: idp.variant
+    })) as LoginFormIDP[];
 
     let branding: LoadLoginPageBrandingResponse | null = null;
-    if (build === "saas") {
-        try {
-            const res = await priv.get<
-                AxiosResponse<LoadLoginPageBrandingResponse>
-            >(`/login-page-branding?orgId=${loginPage.orgId}`);
-            if (res.status === 200) {
-                branding = res.data.data;
-            }
-        } catch (error) {}
-    }
+    try {
+        const res = await priv.get<
+            AxiosResponse<LoadLoginPageBrandingResponse>
+        >(`/login-page-branding?orgId=${loginPage.orgId}`);
+        if (res.status === 200) {
+            branding = res.data.data;
+        }
+    } catch (error) {}
 
     return (
         <OrgLoginPage

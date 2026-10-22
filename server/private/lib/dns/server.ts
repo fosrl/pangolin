@@ -18,13 +18,14 @@ import {
     createLocalCache,
     type LocalCache
 } from "@server/lib/createLocalCache";
-import { eq, and, gt, or, inArray, desc } from "drizzle-orm";
+import { eq, and, gt, or, inArray, desc, isNull } from "drizzle-orm";
 import {
     db,
     primaryDb,
     exitNodes,
     loginPage,
     newts,
+    redirects,
     resources,
     sites,
     targets,
@@ -429,6 +430,28 @@ export class AuthoritativeDNSServer {
             return;
         }
 
+        const redirectRecords = await this.getRedirectRecordsByFullDomain(
+            queryName,
+            queryType
+        );
+
+        if (redirectRecords.length > 0) {
+            const answers = this.convertRecordsToAnswers(
+                redirectRecords,
+                originalQueryName,
+                queryType
+            );
+            logger.info(
+                `Returning ${
+                    answers.length
+                } redirect answers for ${originalQueryName} (${queryType}): ${JSON.stringify(
+                    answers
+                )}`
+            );
+            this.sendResponse(packet, answers, rinfo, true, 0, []);
+            return;
+        }
+
         // Check if the domain exists (for NODATA vs NXDOMAIN)
         const [domainExists, soaRecord] = await Promise.all([
             this.domainExists(queryName, baseDomain!),
@@ -536,6 +559,14 @@ export class AuthoritativeDNSServer {
         queryName: string,
         baseDomain: string
     ): Promise<boolean> {
+        // Checked ahead of the `exists:` cache: getResourceRecordsByFullDomain
+        // pre-populates it with false for every name without a resource row,
+        // which includes standalone redirect hosts.
+        const redirectOrgId = await this.getStandaloneRedirectOrgId(
+            queryName
+        ).catch(() => null);
+        if (redirectOrgId) return true;
+
         const cacheKey = `exists:${queryName}`;
         const cached = this.cache.get<boolean>(cacheKey);
         if (cached !== undefined) return cached;
@@ -700,41 +731,16 @@ export class AuthoritativeDNSServer {
                     logger.info(
                         "No online exit nodes found for resource. Choosing a deterministic exit node."
                     );
-                    // TODO: EVENTUALLY WE SHOULD PICK THE CLOSEST EXIT NODE TO THE USER BASED ON LATENCY
-                    const orgId = resourceRows[0].orgId;
-                    const exitNodesList = await listExitNodes(orgId, true);
-
-                    if (!exitNodesList || exitNodesList.length === 0) {
-                        logger.warn(`No exit nodes found for orgId: ${orgId}`);
-                        this.cache.set(cacheKey, [], 10);
-                        return [];
-                    }
-
-                    // Prefer exit nodes in the same region as this DNS server, if any exist.
-                    const dnsRegion = config.getRawConfig().app.region;
-                    const regionExitNodes = dnsRegion
-                        ? exitNodesList.filter(
-                              (node) => node.region === dnsRegion
-                          )
-                        : [];
-                    const candidateExitNodes =
-                        regionExitNodes.length > 0
-                            ? regionExitNodes
-                            : exitNodesList;
-
-                    // Deterministically pick a node based on the queried name so
-                    // repeated queries for the same resource keep resolving to the
-                    // same exit node instead of changing on every cache miss.
-                    const selectedExitNode = this.selectDeterministicExitNode(
-                        name,
-                        candidateExitNodes
-                    );
-
-                    const ipRecords = await this.createRecordsFromEndpoint(
-                        selectedExitNode.endpoint,
+                    const ipRecords = await this.getRecordsFromRegionalExitNode(
+                        resourceRows[0].orgId,
                         name,
                         queryType
                     );
+
+                    if (ipRecords === null) {
+                        this.cache.set(cacheKey, [], 10);
+                        return [];
+                    }
 
                     this.cache.set(cacheKey, ipRecords);
                     return ipRecords;
@@ -768,6 +774,143 @@ export class AuthoritativeDNSServer {
                 return [];
             }
         });
+    }
+
+    // Standalone redirects (attached to a domain rather than a resource) have
+    // no targets or sites, and Traefik serves them on every exit node, so any
+    // online exit node in this region can answer for them. Resource-attached
+    // redirects listen on the resource's own fullDomain, so they are already
+    // resolved to the resource's exit nodes by getResourceRecordsByFullDomain.
+    private async getRedirectRecordsByFullDomain(
+        name: string,
+        queryType: dns.RecordType
+    ): Promise<DNSRecord[]> {
+        const cacheKey = `redirectRecords:${name}:${queryType}`;
+
+        const cached = this.cache.get<DNSRecord[]>(cacheKey);
+        if (cached) {
+            logger.debug(`Cache hit for ${cacheKey}`);
+            return cached;
+        }
+
+        return this.withInFlightDedup<DNSRecord[]>(cacheKey, async () => {
+            logger.debug(`Cache miss for ${cacheKey}, querying database`);
+
+            try {
+                const orgId = await this.getStandaloneRedirectOrgId(name);
+                if (!orgId) {
+                    this.cache.set(cacheKey, [], 60);
+                    return [];
+                }
+
+                const results = await this.getRecordsFromRegionalExitNode(
+                    orgId,
+                    name,
+                    queryType
+                );
+
+                if (results === null) {
+                    this.cache.set(cacheKey, [], 10);
+                    return [];
+                }
+
+                this.cache.set(cacheKey, results);
+                logger.info(`Cached ${results.length} records for ${cacheKey}`);
+
+                return results;
+            } catch (error) {
+                logger.error("Database query error:", error);
+                return [];
+            }
+        });
+    }
+
+    // Returns the orgId of the enabled standalone redirect listening on
+    // `name`, or null. The host is built the same way as in the Traefik
+    // config: [subdomain.]baseDomain of the redirect's domain.
+    private async getStandaloneRedirectOrgId(
+        name: string
+    ): Promise<string | null> {
+        const normalized = name.replace(/\.$/, "");
+        const cacheKey = `redirect:${normalized}`;
+
+        const cached = this.cache.get<string | null>(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        return this.withInFlightDedup<string | null>(cacheKey, async () => {
+            // The redirect's baseDomain must be a suffix of the queried name.
+            const labels = normalized.split(".");
+            const candidates = labels.map((_, i) => labels.slice(i).join("."));
+
+            const rows = await db
+                .select({
+                    orgId: redirects.orgId,
+                    subdomain: redirects.subdomain,
+                    baseDomain: domains.baseDomain
+                })
+                .from(redirects)
+                .innerJoin(domains, eq(domains.domainId, redirects.domainId))
+                .where(
+                    and(
+                        isNull(redirects.resourceId),
+                        eq(redirects.enabled, true),
+                        inArray(domains.baseDomain, candidates)
+                    )
+                );
+
+            const match = rows.find(
+                (r) =>
+                    [r.subdomain, r.baseDomain]
+                        .filter(Boolean)
+                        .join(".")
+                        .toLowerCase() === normalized
+            );
+
+            const orgId = match?.orgId ?? null;
+            this.cache.set(cacheKey, orgId, 60);
+            return orgId;
+        });
+    }
+
+    // Picks one of the org's online exit nodes for `name`, preferring nodes in
+    // the same region as this DNS server, and returns records pointing at it.
+    // Returns null when the org has no online exit nodes at all.
+    private async getRecordsFromRegionalExitNode(
+        orgId: string,
+        name: string,
+        queryType: dns.RecordType
+    ): Promise<DNSRecord[] | null> {
+        // TODO: EVENTUALLY WE SHOULD PICK THE CLOSEST EXIT NODE TO THE USER BASED ON LATENCY
+        const exitNodesList = await listExitNodes(orgId, true);
+
+        if (!exitNodesList || exitNodesList.length === 0) {
+            logger.warn(`No exit nodes found for orgId: ${orgId}`);
+            return null;
+        }
+
+        // Prefer exit nodes in the same region as this DNS server, if any exist.
+        const dnsRegion = config.getRawConfig().app.region;
+        const regionExitNodes = dnsRegion
+            ? exitNodesList.filter((node) => node.region === dnsRegion)
+            : [];
+        const candidateExitNodes =
+            regionExitNodes.length > 0 ? regionExitNodes : exitNodesList;
+
+        // Deterministically pick a node based on the queried name so repeated
+        // queries for the same name keep resolving to the same exit node
+        // instead of changing on every cache miss.
+        const selectedExitNode = this.selectDeterministicExitNode(
+            name,
+            candidateExitNodes
+        );
+
+        return this.createRecordsFromEndpoint(
+            selectedExitNode.endpoint,
+            name,
+            queryType
+        );
     }
 
     // Deterministically picks a node for `name` out of `nodes` by hashing the

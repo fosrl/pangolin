@@ -69,7 +69,7 @@ import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 import { REGIONS } from "@server/db/regions";
 import { localCache } from "#dynamic/lib/cache";
 import { APP_VERSION } from "@server/lib/consts";
-import { isSubscribed } from "#dynamic/lib/isSubscribed";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { eq } from "drizzle-orm";
 import type ResponseT from "@server/types/MessageResponse";
@@ -859,7 +859,9 @@ export async function verifyResourceSession(
                         res,
                         forwardedUserData(
                             resource,
-                            whitelistEmail ? { email: whitelistEmail } : undefined
+                            whitelistEmail
+                                ? { email: whitelistEmail }
+                                : undefined
                         ),
                         dontStripSession
                     );
@@ -1131,12 +1133,11 @@ async function notAllowed(
 ) {
     let loginPage: LoginPage | null = null;
     if (orgId) {
-        const subscribed = await isSubscribed(
-            // this is fine because the org login page is only a saas feature
+        const allowed = await isLicensedOrSubscribed(
             orgId,
             tierMatrix.loginPageDomain
         );
-        if (subscribed) {
+        if (allowed) {
             loginPage = await getOrgLoginPage(orgId);
         }
     }
@@ -1445,11 +1446,11 @@ async function headerAuthChallenged(
 ) {
     let loginPage: LoginPage | null = null;
     if (orgId) {
-        const subscribed = await isSubscribed(
+        const allowed = await isLicensedOrSubscribed(
             orgId,
             tierMatrix.loginPageDomain
-        ); // this is fine because the org login page is only a saas feature
-        if (subscribed) {
+        );
+        if (allowed) {
             loginPage = await getOrgLoginPage(orgId);
         }
     }

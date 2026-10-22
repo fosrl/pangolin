@@ -165,27 +165,25 @@ export default function CredentialsPage() {
                             </Alert>
                         )}
                     </SettingsSectionBody>
-                    {!env.flags.disableEnterpriseFeatures && (
-                        <SettingsSectionFooter>
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setShouldDisconnect(false);
-                                    setModalOpen(true);
-                                }}
-                            >
-                                {t("regenerateCredentialsButton")}
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    setShouldDisconnect(true);
-                                    setModalOpen(true);
-                                }}
-                            >
-                                {t("clientRegenerateAndDisconnect")}
-                            </Button>
-                        </SettingsSectionFooter>
-                    )}
+                    <SettingsSectionFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShouldDisconnect(false);
+                                setModalOpen(true);
+                            }}
+                        >
+                            {t("regenerateCredentialsButton")}
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setShouldDisconnect(true);
+                                setModalOpen(true);
+                            }}
+                        >
+                            {t("clientRegenerateAndDisconnect")}
+                        </Button>
+                    </SettingsSectionFooter>
                 </SettingsSection>
 
                 <OlmInstallCommands
