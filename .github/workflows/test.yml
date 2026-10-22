@@ -19,6 +19,12 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
+          # Pin to the version the app actually ships on (Dockerfile /
+          # Dockerfile.dev both use 24.18.1; .nvmrc pins the 24 major).
+          # A bare '24' floats to the latest 24.x; Node >= 24.19.0 added
+          # node::ObjectWrap cleanup hooks that crash better-sqlite3 on teardown
+          # ("Assertion failed: (env) != nullptr" in RemoveEnvironmentCleanupHook),
+          # which intermittently kills `npm run dev` in the step below.
           node-version: '24.18.1'
 
       - name: Copy config file
@@ -57,6 +63,9 @@ jobs:
               echo "App is up"
               exit 0
             fi
+            # Fail fast (and show why) if the process is gone. Read the PID
+            # safely: if it's missing/empty (e.g. nohup never started), treat
+            # that as "not running" instead of passing a bad arg to kill.
             pid="$(cat app.pid 2>/dev/null || true)"
             if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
               echo "App process exited before becoming available. Output:"
