@@ -632,38 +632,48 @@ export const userSiteResources = sqliteTable("userSiteResources", {
         .references(() => siteResources.siteResourceId, { onDelete: "cascade" })
 });
 
-export const users = sqliteTable("user", {
-    userId: text("id").primaryKey(),
-    email: text("email"),
-    username: text("username").notNull(),
-    name: text("name"),
-    type: text("type").notNull(), // "internal", "oidc"
-    idpId: integer("idpId").references(() => idp.idpId, {
-        onDelete: "cascade"
-    }),
-    passwordHash: text("passwordHash"),
-    twoFactorEnabled: integer("twoFactorEnabled", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    twoFactorSetupRequested: integer("twoFactorSetupRequested", {
-        mode: "boolean"
-    }).default(false),
-    twoFactorSecret: text("twoFactorSecret"),
-    emailVerified: integer("emailVerified", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    dateCreated: text("dateCreated").notNull(),
-    termsAcceptedTimestamp: text("termsAcceptedTimestamp"),
-    termsVersion: text("termsVersion"),
-    marketingEmailConsent: integer("marketingEmailConsent", {
-        mode: "boolean"
-    }).default(false),
-    serverAdmin: integer("serverAdmin", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    lastPasswordChange: integer("lastPasswordChange"),
-    locale: text("locale")
-});
+export const users = sqliteTable(
+    "user",
+    {
+        userId: text("id").primaryKey(),
+        email: text("email"),
+        username: text("username").notNull(),
+        name: text("name"),
+        type: text("type").notNull(), // "internal", "oidc"
+        idpId: integer("idpId").references(() => idp.idpId, {
+            onDelete: "cascade"
+        }),
+        externalUserId: text("externalUserId"), // user's ID in the external IdP (e.g. Azure object id)
+        passwordHash: text("passwordHash"),
+        twoFactorEnabled: integer("twoFactorEnabled", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        twoFactorSetupRequested: integer("twoFactorSetupRequested", {
+            mode: "boolean"
+        }).default(false),
+        twoFactorSecret: text("twoFactorSecret"),
+        emailVerified: integer("emailVerified", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        dateCreated: text("dateCreated").notNull(),
+        termsAcceptedTimestamp: text("termsAcceptedTimestamp"),
+        termsVersion: text("termsVersion"),
+        marketingEmailConsent: integer("marketingEmailConsent", {
+            mode: "boolean"
+        }).default(false),
+        serverAdmin: integer("serverAdmin", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        lastPasswordChange: integer("lastPasswordChange"),
+        locale: text("locale")
+    },
+    (t) => [
+        uniqueIndex("idx_user_idpId_externalUserId").on(
+            t.idpId,
+            t.externalUserId
+        )
+    ]
+);
 
 export const securityKeys = sqliteTable("webauthnCredentials", {
     credentialId: text("credentialId").primaryKey(),
@@ -1017,6 +1027,9 @@ export const userOrgs = sqliteTable(
             .notNull()
             .default(false),
         autoProvisioned: integer("autoProvisioned", {
+            mode: "boolean"
+        }).default(false),
+        directorySynched: integer("directorySynched", {
             mode: "boolean"
         }).default(false),
         pamUsername: text("pamUsername") // cleaned username for ssh and such

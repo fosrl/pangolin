@@ -654,29 +654,40 @@ export const userSiteResources = pgTable(
     ]
 );
 
-export const users = pgTable("user", {
-    userId: varchar("id").primaryKey(),
-    email: varchar("email"),
-    username: varchar("username").notNull(),
-    name: varchar("name"),
-    type: varchar("type").notNull(), // "internal", "oidc"
-    idpId: integer("idpId").references(() => idp.idpId, {
-        onDelete: "cascade"
-    }),
-    externalUserId: varchar("externalUserId"), // user's ID in the external IdP (e.g. Azure object id)
-    passwordHash: varchar("passwordHash"),
-    twoFactorEnabled: boolean("twoFactorEnabled").notNull().default(false),
-    twoFactorSetupRequested: boolean("twoFactorSetupRequested").default(false),
-    twoFactorSecret: varchar("twoFactorSecret"),
-    emailVerified: boolean("emailVerified").notNull().default(false),
-    dateCreated: varchar("dateCreated").notNull(),
-    termsAcceptedTimestamp: varchar("termsAcceptedTimestamp"),
-    termsVersion: varchar("termsVersion"),
-    marketingEmailConsent: boolean("marketingEmailConsent").default(false),
-    serverAdmin: boolean("serverAdmin").notNull().default(false),
-    lastPasswordChange: bigint("lastPasswordChange", { mode: "number" }),
-    locale: varchar("locale")
-});
+export const users = pgTable(
+    "user",
+    {
+        userId: varchar("id").primaryKey(),
+        email: varchar("email"),
+        username: varchar("username").notNull(),
+        name: varchar("name"),
+        type: varchar("type").notNull(), // "internal", "oidc"
+        idpId: integer("idpId").references(() => idp.idpId, {
+            onDelete: "cascade"
+        }),
+        externalUserId: varchar("externalUserId"), // user's ID in the external IdP (e.g. Azure object id)
+        passwordHash: varchar("passwordHash"),
+        twoFactorEnabled: boolean("twoFactorEnabled").notNull().default(false),
+        twoFactorSetupRequested: boolean("twoFactorSetupRequested").default(
+            false
+        ),
+        twoFactorSecret: varchar("twoFactorSecret"),
+        emailVerified: boolean("emailVerified").notNull().default(false),
+        dateCreated: varchar("dateCreated").notNull(),
+        termsAcceptedTimestamp: varchar("termsAcceptedTimestamp"),
+        termsVersion: varchar("termsVersion"),
+        marketingEmailConsent: boolean("marketingEmailConsent").default(false),
+        serverAdmin: boolean("serverAdmin").notNull().default(false),
+        lastPasswordChange: bigint("lastPasswordChange", { mode: "number" }),
+        locale: varchar("locale")
+    },
+    (t) => [
+        uniqueIndex("idx_user_idpId_externalUserId").on(
+            t.idpId,
+            t.externalUserId
+        )
+    ]
+);
 
 export const newts = pgTable(
     "newt",
@@ -742,7 +753,8 @@ export const userOrgs = pgTable(
     },
     (t) => [
         index("idx_userOrgs_userid").on(t.userId),
-        index("idx_userOrgs_orgid").on(t.orgId)
+        index("idx_userOrgs_orgid").on(t.orgId),
+        unique().on(t.userId, t.orgId)
     ]
 );
 

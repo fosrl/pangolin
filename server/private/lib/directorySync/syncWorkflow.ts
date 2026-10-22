@@ -10,12 +10,21 @@
  *
  * This file is not licensed under the AGPLv3.
  */
+
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod";
+
+// This is important to make sure schemas imported from other files accept `z.openapi()` as a function
+extendZodWithOpenApi(z);
+
 import {
     db,
     idp,
     idpOidcConfig,
     idpOrg,
+    orgs,
     roles,
+    userOrgRoles,
     userOrgs,
     users,
     type Role
@@ -27,14 +36,11 @@ import {
     type DirectorySyncRoleMappingConfig
 } from "@app/lib/idpDirectorySyncRoleMapping";
 import { generateId } from "@server/auth/sessions/app";
+import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
+import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
+import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
-import {
-    and,
-    eq,
-    inArray,
-    type InferInsertModel,
-    type InferSelectModel
-} from "drizzle-orm";
+import { and, eq, inArray, sql, type InferInsertModel } from "drizzle-orm";
 import { AzureDirectorySyncProvider } from "./azure";
 import type {
     DirectoryFetchContext,
@@ -48,12 +54,27 @@ type UpdateUser = Pick<
     "username" | "email" | "name" | "userId" | "externalUserId"
 >;
 
-type SyncedUser<T> = {
-    user: T;
-    /** What to do with the user's membership in `orgId`. */
-    membershipAction: "add" | "updateRoles" | "remove" | "unchanged";
-    /** Roles the user should have in `orgId` after the sync. */
-    roles: Array<{ id: number; name: string }>;
+type SyncedRole = { id: number; name: string };
+
+/** What happens to one user: their Pangolin profile and their membership in `orgId` are decided separately. */
+export type UserSyncEntry = {
+    /** `null` when the user is in Pangolin but gone from the directory. */
+    directoryUser: DirectoryUser | null;
+    user:
+        | { operation: "create"; data: InsertUser }
+        | { operation: "update"; data: UpdateUser }
+        | { operation: "unchanged"; userId: string }
+        /** New directory user not provisioned in Pangolin. */
+        | { operation: "skip" };
+
+    membership:
+        | { operation: "add" | "updateRoles"; roles: SyncedRole[] }
+        /** Removed from the org, the user itself is not deleted. */
+        | { operation: "remove" }
+        | {
+              operation: "unchanged";
+              reason: "noMatchingRoles" | "manualMembership" | "owner";
+          };
 };
 
 // the planned changes for one idpOrg, computed first and
@@ -61,12 +82,7 @@ type SyncedUser<T> = {
 export type IdpOrgSyncPlan = {
     idpId: number;
     orgId: string;
-    usersToCreate: SyncedUser<InsertUser>[];
-    usersToUpdate: SyncedUser<UpdateUser>[];
-    /** Users still in Pangolin but gone from the directory (or no longer matching any role); removed from the org, not deleted. */
-    userIdsToRemoveFromOrg: string[];
-    /** Directory users not provisioned because they don't match any role in the org. */
-    skippedUsers: DirectoryUser[];
+    entries: UserSyncEntry[];
 };
 
 // Track if the offline checker interval is running
@@ -236,10 +252,7 @@ for each membership with flag = true whose user is not in the remote set:
     const syncPlan: IdpOrgSyncPlan = {
         idpId: ctx.idpId,
         orgId: ctx.orgId,
-        usersToCreate: [],
-        usersToUpdate: [],
-        userIdsToRemoveFromOrg: [],
-        skippedUsers: []
+        entries: []
     };
 
     for (const user of result.users) {
@@ -253,93 +266,233 @@ for each membership with flag = true whose user is not in the remote set:
         if (!pangolinUser) {
             // the user doesn't match any group/role on the org
             if (roles.length === 0) {
-                syncPlan.skippedUsers.push(user);
+                syncPlan.entries.push({
+                    directoryUser: user,
+                    user: { operation: "skip" },
+                    membership: {
+                        operation: "unchanged",
+                        reason: "noMatchingRoles"
+                    }
+                });
                 continue;
             }
 
-            syncPlan.usersToCreate.push({
+            syncPlan.entries.push({
+                directoryUser: user,
                 user: {
-                    userId: generateId(15),
-                    username: user.username,
-                    externalUserId: user.externalId,
-                    email: user.email,
-                    name: user.name,
-                    type: UserType.OIDC,
-                    idpId: ctx.idpId,
-                    emailVerified: true, // OIDC users are always verified
-                    dateCreated: new Date().toISOString()
+                    operation: "create",
+                    data: {
+                        userId: generateId(15),
+                        username: user.username,
+                        externalUserId: user.externalId,
+                        email: user.email,
+                        name: user.name,
+                        type: UserType.OIDC,
+                        idpId: ctx.idpId,
+                        emailVerified: true, // OIDC users are always verified
+                        dateCreated: new Date().toISOString()
+                    }
                 },
-                roles,
-                membershipAction: "add"
+                membership: { operation: "add", roles }
             });
         } else {
             const membership = existingPangolinUserOrgs.get(
                 pangolinUser.userId
             );
 
-            let membershipAction: SyncedUser<UpdateUser>["membershipAction"] =
-                "updateRoles";
+            let membershipOperation: UserSyncEntry["membership"];
 
             if (!membership) {
-                if (roles.length === 0) {
-                    // skip users which don't belong to the org
-                    membershipAction = "unchanged";
-                    syncPlan.skippedUsers.push(user);
-                } else {
-                    membershipAction = "add";
-                }
+                membershipOperation =
+                    roles.length === 0
+                        ? // skip users which don't belong to the org
+                          { operation: "unchanged", reason: "noMatchingRoles" }
+                        : { operation: "add", roles };
             } else if (
                 membership.userOrgs.autoProvisioned ||
                 membership.userOrgs.directorySynched
             ) {
                 if (membership.userOrgs.isOwner) {
-                    // skip owner membership
-                    syncPlan.skippedUsers.push(user);
-                    membershipAction = "unchanged";
+                    membershipOperation = {
+                        operation: "unchanged",
+                        reason: "owner"
+                    };
                 } else if (roles.length === 0) {
-                    syncPlan.userIdsToRemoveFromOrg.push(pangolinUser.userId);
-                    membershipAction = "remove";
+                    membershipOperation = { operation: "remove" };
+                } else {
+                    membershipOperation = { operation: "updateRoles", roles };
                 }
             } else {
-                // skip manual memberships
-                syncPlan.skippedUsers.push(user);
-                membershipAction = "unchanged";
+                membershipOperation = {
+                    operation: "unchanged",
+                    reason: "manualMembership"
+                };
             }
 
-            syncPlan.usersToUpdate.push({
+            syncPlan.entries.push({
+                directoryUser: user,
                 user: {
-                    userId: pangolinUser.userId,
-                    username: user.username,
-                    email: user.email,
-                    name: user.name,
-                    externalUserId: user.externalId
+                    operation: "update",
+                    data: {
+                        userId: pangolinUser.userId,
+                        username: user.username,
+                        email: user.email,
+                        name: user.name,
+                        externalUserId: user.externalId
+                    }
                 },
-                roles,
-                membershipAction
+                membership: membershipOperation
             });
         }
     }
 
-    // await db.transaction(async (trx) => {
-    //     await trx.insert(users).values(usersToInsert);
+    // users still in the org through sync/provisioning but gone from the directory
+    const directoryUserIds = new Set(
+        syncPlan.entries.flatMap((e) =>
+            e.user.operation === "update" ? [e.user.data.userId] : []
+        )
+    );
+    for (const { user, userOrgs: membership } of existingUserOrgs) {
+        if (directoryUserIds.has(user.userId)) continue;
+        if (!membership.autoProvisioned && !membership.directorySynched)
+            continue;
+        if (membership.isOwner) continue;
 
-    //     await Promise.all(
-    //         usersToUpdate.map((u) =>
-    //             trx.update(users).set(u).where(eq(users.userId, u.userId))
-    //         )
-    //     );
-    // });
+        syncPlan.entries.push({
+            directoryUser: null,
+            user: { operation: "unchanged", userId: user.userId },
+            membership: { operation: "remove" }
+        });
+    }
 
-    // ...
-    // console.dir(
-    //     {
-    //         result
-    //     },
-    //     { depth: null }
-    // );
-    // await db.select().from(idp)
+    const [org] = await db.select().from(orgs).where(eq(orgs.orgId, ctx.orgId));
+    if (!org) {
+        throw new Error(`Org ${ctx.orgId} not found for directory sync`);
+    }
+
+    // the upsert can return an existing row's userId instead of the generated one
+    // if a user is synched in multiple orgs, the generated `userId` will be
+    // different when creating the same user, but the `externalId` will be the same
+    const userIdsByExternalId = new Map<string, string>();
+
+    await db.transaction(async (trx) => {
+        // create new users
+        // upsert so the same directory user synced into several orgs isn't created twice
+        const usersToUpsert = syncPlan.entries.flatMap((e) =>
+            e.user.operation === "create" ? [e.user.data] : []
+        );
+        if (usersToUpsert.length > 0) {
+            const upsertedUsers = await trx
+                .insert(users)
+                .values(usersToUpsert)
+                .onConflictDoUpdate({
+                    target: [users.idpId, users.externalUserId],
+                    set: {
+                        username: sql`excluded.username`,
+                        email: sql`excluded.email`,
+                        name: sql`excluded.name`
+                    }
+                })
+                .returning({
+                    userId: users.userId,
+                    externalUserId: users.externalUserId
+                });
+
+            for (const u of upsertedUsers) {
+                userIdsByExternalId.set(u.externalUserId!, u.userId);
+            }
+        }
+
+        // update existing users by userId, this also backfills `externalUserId`
+        // for users previously matched by username
+        const usersToUpdate = syncPlan.entries.flatMap((e) =>
+            e.user.operation === "update" ? [e.user.data] : []
+        );
+        await Promise.all(
+            usersToUpdate.map((u) =>
+                trx
+                    .update(users)
+                    .set(u)
+                    .where(
+                        and(
+                            eq(users.userId, u.userId),
+                            eq(users.idpId, ctx.idpId)
+                        )
+                    )
+            )
+        );
+
+        // apply memberships sequentially, `assignUserToOrg` and `removeUserFromOrg`
+        // read the user's other orgs for billing
+        for (const entry of syncPlan.entries) {
+            const userId = getEntryUserId(entry, userIdsByExternalId);
+            if (!userId) continue;
+
+            switch (entry.membership.operation) {
+                case "add":
+                    await assignUserToOrg(
+                        org,
+                        { userId, orgId: ctx.orgId, directorySynched: true },
+                        entry.membership.roles.map((r) => r.id),
+                        trx
+                    );
+                    break;
+                case "updateRoles":
+                    // remove previous roles
+                    await trx
+                        .delete(userOrgRoles)
+                        .where(
+                            and(
+                                eq(userOrgRoles.userId, userId),
+                                eq(userOrgRoles.orgId, ctx.orgId)
+                            )
+                        );
+                    // add new roles
+                    await trx.insert(userOrgRoles).values(
+                        entry.membership.roles.map((r) => ({
+                            userId,
+                            orgId: ctx.orgId,
+                            roleId: r.id
+                        }))
+                    );
+                    break;
+                case "remove":
+                    await removeUserFromOrg(org, userId, trx);
+                    break;
+            }
+        }
+    });
+
+    for (const entry of syncPlan.entries) {
+        if (entry.membership.operation === "unchanged") continue;
+        const userId = getEntryUserId(entry, userIdsByExternalId);
+        if (!userId) continue;
+
+        calculateUserClientsForOrgs(userId).catch((error) => {
+            logger.error(
+                "Error calculating user clients after directory sync",
+                { error }
+            );
+        });
+    }
 
     return syncPlan;
+}
+
+function getEntryUserId(
+    entry: UserSyncEntry,
+    userIdsByExternalId: Map<string, string>
+) {
+    switch (entry.user.operation) {
+        case "create":
+            return userIdsByExternalId.get(entry.user.data.externalUserId!);
+        case "update":
+            return entry.user.data.userId;
+        case "unchanged":
+            return entry.user.userId;
+        case "skip":
+            return undefined;
+    }
 }
 
 async function resolveUserRoles(
