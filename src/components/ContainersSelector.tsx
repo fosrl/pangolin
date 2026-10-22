@@ -422,7 +422,7 @@ const DockerContainersTable: FC<{
 
     if (initialFilters.length === 0) {
         return (
-            <div className="rounded-md max-h-[500px] overflow-hidden flex flex-col">
+            <div className="rounded-lg border max-h-[500px] overflow-hidden flex flex-col">
                 <div className="flex-1 flex items-center justify-center py-8">
                     <div className="text-center text-muted-foreground space-y-3">
                         {(hideContainersWithoutPorts ||
@@ -467,7 +467,7 @@ const DockerContainersTable: FC<{
     }
 
     return (
-        <div className="rounded-md max-h-[500px] overflow-hidden flex flex-col">
+        <div className="rounded-lg border max-h-[500px] overflow-hidden flex flex-col">
             <div className="p-1 space-y-3">
                 <div className="flex items-center gap-2">
                     <div className="relative flex-1">

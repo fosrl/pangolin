@@ -28,7 +28,8 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@app/components/ui/table";
 import {
     Tooltip,
@@ -886,7 +887,7 @@ export const ProxyResourceTargetsForm = forwardRef<
 
     const targetsTable = (
         <>
-            <div className="overflow-x-auto">
+            <TableContainer>
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -958,7 +959,7 @@ export const ProxyResourceTargetsForm = forwardRef<
                         )}
                     </TableBody>
                 </Table>
-            </div>
+            </TableContainer>
             {hasTargets && (
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center justify-between w-full gap-2">

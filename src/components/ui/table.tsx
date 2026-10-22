@@ -2,8 +2,23 @@ import * as React from "react";
 
 import { cn } from "@app/lib/cn";
 
-export function TableContainer({ children }: { children: React.ReactNode }) {
-    return <div className="border rounded-lg bg-card">{children}</div>;
+export function TableContainer({
+    children,
+    className
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return (
+        <div
+            className={cn(
+                "w-full min-w-0 overflow-hidden rounded-lg border bg-card",
+                className
+            )}
+        >
+            {children}
+        </div>
+    );
 }
 
 const Table = React.forwardRef<
@@ -17,7 +32,10 @@ const Table = React.forwardRef<
     >
         <table
             ref={ref}
-            className={cn("w-full caption-bottom text-sm", className)}
+            className={cn(
+                "w-full caption-bottom border-collapse text-sm",
+                className
+            )}
             {...props}
         />
     </div>
@@ -31,7 +49,7 @@ const TableHeader = React.forwardRef<
     <thead
         ref={ref}
         className={cn(
-            "[&_tr]:border-b",
+            "bg-table-header [&_tr]:border-b",
             {
                 "sticky top-0": sticky
             },
@@ -75,10 +93,7 @@ const TableRow = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <tr
         ref={ref}
-        className={cn(
-            "border-b transition-colors data-[state=selected]:bg-muted",
-            className
-        )}
+        className={cn("border-b data-[state=selected]:bg-muted", className)}
         {...props}
     />
 ));
@@ -91,8 +106,10 @@ const TableHead = React.forwardRef<
     <th
         ref={ref}
         className={cn(
-            "h-10 text-left align-middle font-medium text-muted-foreground [&_button]:font-medium [&:has([role=checkbox])]:pr-0",
-            className
+            "h-10 text-left align-middle text-xs font-semibold whitespace-nowrap text-foreground shadow-[inset_1px_0_0_var(--border)] transition-[background-color] first:shadow-none has-[>button]:hover:bg-muted [&_button]:text-xs [&_button]:font-semibold [&_button]:text-foreground [&_button]:hover:bg-transparent [&_button]:hover:text-foreground [&>button]:h-10 [&>button]:w-full [&>button]:justify-start [&>button]:rounded-none [&:has([role=checkbox])]:pr-0",
+            className,
+            // Header cells (including sticky ones) always keep the header tint
+            "bg-table-header"
         )}
         {...props}
     />
@@ -106,7 +123,7 @@ const TableCell = React.forwardRef<
     <td
         ref={ref}
         className={cn(
-            "p-3 align-middle [&:has([role=checkbox])]:pr-0",
+            "h-10 px-3 py-2 align-middle [&:has([role=checkbox])]:pr-0",
             className
         )}
         {...props}

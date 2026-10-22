@@ -15,17 +15,12 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@/components/ui/table";
 import { Button } from "@app/components/ui/button";
 import { useMemo, useState } from "react";
 import { ExternalLink, Plus, RefreshCw } from "lucide-react";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle
-} from "@app/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
 import { useTranslations } from "next-intl";
 import { Badge } from "./ui/badge";
@@ -102,28 +97,28 @@ export function DNSRecordsDataTable<TData, TValue>({
     });
 
     return (
-        <div className="container mx-auto max-w-12xl">
-            <Card>
-                <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-4">
-                    <div className="flex flex-row space-y-3 w-full sm:mr-2 gap-2 justify-between">
-                        <div className="relative w-full sm:max-w-sm flex flex-row gap-4 items-center">
-                            <h1 className="font-semibold">{t("dnsRecord")}</h1>
-                            <Badge variant="secondary">{t("required")}</Badge>
-                        </div>
-                        <Link
-                            href="https://docs.pangolin.net/manage/domains"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hidden sm:block"
-                        >
-                            <Button variant="outline">
-                                <ExternalLink className="h-4 w-4 mr-1" />
-                                {t("howToAddRecords")}
-                            </Button>
-                        </Link>
+        <div className="flex w-full min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-row space-y-3 w-full sm:mr-2 gap-2 justify-between">
+                    <div className="relative w-full sm:max-w-sm flex flex-row gap-4 items-center">
+                        <h1 className="font-semibold">{t("dnsRecord")}</h1>
+                        <Badge variant="secondary">{t("required")}</Badge>
                     </div>
-                </CardHeader>
-                <CardContent>
+                    <Link
+                        href="https://docs.pangolin.net/manage/domains"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hidden sm:block"
+                    >
+                        <Button variant="outline">
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            {t("howToAddRecords")}
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+            <div className="relative flex flex-col gap-4">
+                <TableContainer>
                     <Table>
                         <TableHeader>
                             {table.getHeaderGroups().map((headerGroup) => (
@@ -173,8 +168,8 @@ export function DNSRecordsDataTable<TData, TValue>({
                             )}
                         </TableBody>
                     </Table>
-                </CardContent>
-            </Card>
+                </TableContainer>
+            </div>
         </div>
     );
 }
