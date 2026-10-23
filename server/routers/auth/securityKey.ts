@@ -230,6 +230,7 @@ export async function startRegistration(
             rpID,
             userID: isoBase64URL.toBuffer(user.userId),
             userName: user.email || user.username,
+            userDisplayName: user.name || user.email || user.username, // Safari fails to register a passkey with empty display name - #3931
             attestationType: "none",
             excludeCredentials,
             authenticatorSelection: {
