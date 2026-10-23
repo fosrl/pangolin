@@ -1,5 +1,5 @@
 # FROM node:24.22.1-slim AS base
-FROM public.ecr.aws/docker/library/node:24.22.1-slim AS base
+FROM public.ecr.aws/docker/library/node:26.12.1-slim AS base
 
 WORKDIR /app
 
@@ -36,7 +36,7 @@ RUN npm prune --omit=dev && \
 RUN touch /app/GeoLite2-Country.mmdb /app/GeoLite2-ASN.mmdb
 
 # FROM node:24.22.1-slim AS runner
-FROM public.ecr.aws/docker/library/node:24.22.1-slim AS runner
+FROM public.ecr.aws/docker/library/node:26.12.1-slim AS runner
 
 WORKDIR /app
 
