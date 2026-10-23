@@ -1,7 +1,28 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
+import CopyToClipboard from "@app/components/CopyToClipboard";
+import DirectorySyncConfigWidget from "@app/components/DirectorySyncConfigWidget";
+import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
+import IdpTypeBadge from "@app/components/IdpTypeBadge";
+import {
+    InfoSection,
+    InfoSectionContent,
+    InfoSections,
+    InfoSectionTitle
+} from "@app/components/InfoSection";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import {
+    SettingsContainer,
+    SettingsSection,
+    SettingsSectionBody,
+    SettingsSectionDescription,
+    SettingsSectionForm,
+    SettingsSectionGrid,
+    SettingsSectionHeader,
+    SettingsSectionTitle
+} from "@app/components/Settings";
 import { Button } from "@app/components/ui/button";
 import {
     Form,
@@ -13,42 +34,9 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 import { Input } from "@app/components/ui/input";
-import { useForm } from "react-hook-form";
-import { toast } from "@app/hooks/useToast";
-import { useRouter, useParams, redirect } from "next/navigation";
-import {
-    SettingsContainer,
-    SettingsSection,
-    SettingsSectionHeader,
-    SettingsSectionTitle,
-    SettingsSectionDescription,
-    SettingsSectionBody,
-    SettingsSectionForm,
-    SettingsSectionFooter,
-    SettingsSectionGrid
-} from "@app/components/Settings";
-import { formatAxiosError } from "@app/lib/api";
-import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import { useState, useEffect } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
-import { InfoIcon, ExternalLink } from "lucide-react";
-import {
-    InfoSection,
-    InfoSectionContent,
-    InfoSections,
-    InfoSectionTitle
-} from "@app/components/InfoSection";
-import CopyToClipboard from "@app/components/CopyToClipboard";
-import IdpTypeBadge from "@app/components/IdpTypeBadge";
-import { useTranslations } from "next-intl";
-import { AxiosResponse } from "axios";
-import { ListRolesResponse } from "@server/routers/role";
-import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
-import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { toast } from "@app/hooks/useToast";
+import { createApiClient, formatAxiosError } from "@app/lib/api";
 import {
     compileRoleMappingExpression,
     createMappingBuilderRule,
@@ -57,6 +45,21 @@ import {
     MappingBuilderRule,
     RoleMappingMode
 } from "@app/lib/idpRoleMapping";
+import {
+    createDefaultDirectorySyncRoleMappingConfig,
+    DirectorySyncRoleMappingConfig,
+    parseDirectorySyncRoleMapping,
+    serializeDirectorySyncRoleMapping
+} from "@app/lib/idpDirectorySyncRoleMapping";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { ListRolesResponse } from "@server/routers/role";
+import { AxiosResponse } from "axios";
+import { useTranslations } from "next-intl";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -75,6 +78,10 @@ export default function GeneralPage() {
         MappingBuilderRule[]
     >([createMappingBuilderRule()]);
     const [rawRoleExpression, setRawRoleExpression] = useState("");
+    const [directoryRoleMapping, setDirectoryRoleMapping] =
+        useState<DirectorySyncRoleMappingConfig>(
+            createDefaultDirectorySyncRoleMappingConfig
+        );
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
@@ -105,6 +112,8 @@ export default function GeneralPage() {
         namePath: z.string().nullable().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
         autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
         orgMapping: z.string().optional()
     });
 
@@ -118,6 +127,8 @@ export default function GeneralPage() {
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
         autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
         orgMapping: z.string().optional()
     });
 
@@ -132,6 +143,8 @@ export default function GeneralPage() {
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
         autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
         orgMapping: z.string().optional()
     });
 
@@ -139,9 +152,7 @@ export default function GeneralPage() {
     type GoogleFormValues = z.infer<typeof GoogleFormSchema>;
     type AzureFormValues = z.infer<typeof AzureFormSchema>;
     type GeneralFormValues =
-        | OidcFormValues
-        | GoogleFormValues
-        | AzureFormValues;
+        OidcFormValues | GoogleFormValues | AzureFormValues;
 
     // Get the appropriate schema based on variant
     const getFormSchema = () => {
@@ -168,6 +179,8 @@ export default function GeneralPage() {
             namePath: "name",
             scopes: "openid profile email",
             autoProvision: true,
+            directorySyncEnabled: false,
+            directorySyncDeletions: true,
             roleMapping: null,
             roleId: null,
             tenantId: "",
@@ -220,6 +233,9 @@ export default function GeneralPage() {
                         clientId: data.idpOidcConfig.clientId,
                         clientSecret: data.idpOidcConfig.clientSecret,
                         autoProvision: data.idp.autoProvision,
+                        directorySyncEnabled: data.idp.directorySyncEnabled,
+                        directorySyncDeletions:
+                            data.idpOrg?.directorySyncDeletions ?? true,
                         roleMapping: roleMapping || null,
                         roleId: null,
                         orgMapping: data.idpOrg?.orgMapping ?? ""
@@ -253,6 +269,12 @@ export default function GeneralPage() {
                     );
                     setRawRoleExpression(
                         detectedRoleMappingConfig.rawExpression
+                    );
+
+                    setDirectoryRoleMapping(
+                        parseDirectorySyncRoleMapping(
+                            data.idpOrg.directoryRoleMapping
+                        )
                     );
                 }
             } catch (e) {
@@ -345,8 +367,14 @@ export default function GeneralPage() {
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
                 autoProvision: data.autoProvision,
+                directorySyncEnabled:
+                    (variant === "google" || variant === "azure") &&
+                    data.directorySyncEnabled,
                 roleMapping: roleMappingExpression,
-                orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed
+                orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed,
+                directoryRoleMapping:
+                    serializeDirectorySyncRoleMapping(directoryRoleMapping),
+                directorySyncDeletions: data.directorySyncDeletions
             };
 
             // Add variant-specific fields
@@ -557,6 +585,12 @@ export default function GeneralPage() {
                                     autoProvision={form.watch("autoProvision")}
                                     onAutoProvisionChange={(checked) => {
                                         form.setValue("autoProvision", checked);
+                                        if (checked) {
+                                            form.setValue(
+                                                "directorySyncEnabled",
+                                                false
+                                            );
+                                        }
                                     }}
                                     orgId={orgId as string}
                                     roleMappingMode={roleMappingMode}
@@ -587,6 +621,63 @@ export default function GeneralPage() {
                         </Form>
                     </SettingsSectionBody>
                 </SettingsSection>
+
+                {/* Directory Sync Settings */}
+                {(variant === "google" || variant === "azure") && (
+                    <SettingsSection>
+                        <SettingsSectionHeader>
+                            <SettingsSectionTitle>
+                                {t("idpDirectorySync")}
+                            </SettingsSectionTitle>
+                            <SettingsSectionDescription>
+                                {t("idpDirectorySyncDescription")}
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <SettingsSectionBody>
+                            <Form {...form}>
+                                <form
+                                    onSubmit={form.handleSubmit(onSubmit)}
+                                    className="space-y-4"
+                                    id="general-settings-form"
+                                >
+                                    <DirectorySyncConfigWidget
+                                        directorySyncEnabled={form.watch(
+                                            "directorySyncEnabled"
+                                        )}
+                                        onDirectorySyncEnabledChange={(
+                                            checked
+                                        ) => {
+                                            form.setValue(
+                                                "directorySyncEnabled",
+                                                checked
+                                            );
+                                            if (checked) {
+                                                form.setValue(
+                                                    "autoProvision",
+                                                    false
+                                                );
+                                            }
+                                        }}
+                                        orgId={orgId as string}
+                                        roleMapping={directoryRoleMapping}
+                                        syncDeletions={form.watch(
+                                            "directorySyncDeletions"
+                                        )}
+                                        onSyncDeletionsChange={(checked) =>
+                                            form.setValue(
+                                                "directorySyncDeletions",
+                                                checked
+                                            )
+                                        }
+                                        onRoleMappingChange={
+                                            setDirectoryRoleMapping
+                                        }
+                                    />
+                                </form>
+                            </Form>
+                        </SettingsSectionBody>
+                    </SettingsSection>
+                )}
 
                 {/* Google Configuration */}
                 {variant === "google" && (

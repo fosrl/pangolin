@@ -42,9 +42,12 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
     autoProvision: z.boolean().optional(),
+    directorySyncEnabled: z.boolean().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc"),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
+    directoryRoleMapping: z.string().nullish(),
+    directorySyncDeletions: z.boolean().optional(),
     tags: z.string().optional()
 });
 
@@ -122,6 +125,9 @@ export async function createOrgOidcIdp(
             variant,
             roleMapping,
             orgMapping: orgMappingBody,
+            directorySyncEnabled,
+            directoryRoleMapping,
+            directorySyncDeletions,
             tags
         } = parsedBody.data;
 
@@ -138,6 +144,15 @@ export async function createOrgOidcIdp(
             }
         }
 
+        if (autoProvision && directorySyncEnabled) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Auto provisioning and directory sync cannot both be enabled"
+                )
+            );
+        }
+
         const key = config.getRawConfig().server.secret!;
 
         const encryptedSecret = encrypt(clientSecret, key);
@@ -150,6 +165,10 @@ export async function createOrgOidcIdp(
                 .values({
                     name,
                     autoProvision,
+                    // directory sync is only supported for google/azure idps
+                    directorySyncEnabled:
+                        (variant === "google" || variant === "azure") &&
+                        !!directorySyncEnabled,
                     type: "oidc",
                     tags
                 })
@@ -174,7 +193,9 @@ export async function createOrgOidcIdp(
                 idpId: idpRes.idpId,
                 orgId: orgId,
                 roleMapping: roleMapping || null,
-                orgMapping: orgMappingBody
+                orgMapping: orgMappingBody,
+                directoryRoleMapping: directoryRoleMapping || null,
+                directorySyncDeletions: directorySyncDeletions ?? true
             });
         });
 
