@@ -141,10 +141,15 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
                     await new Promise((resolve) => setTimeout(resolve, 100));
                 }
 
-                if (redirectUrl.startsWith("http")) {
-                    window.location.href = data.redirectUrl; // this is validated by the parent using this component
+                if (
+                    redirectUrl.startsWith("/") &&
+                    !redirectUrl.startsWith("//")
+                ) {
+                    router.push(redirectUrl);
                 } else {
-                    router.push(data.redirectUrl);
+                    // Only relative, same-origin paths are allowed to avoid
+                    // open redirects. Fall back to the dashboard otherwise.
+                    router.push(env.app.dashboardUrl);
                 }
             } catch (e: any) {
                 console.error(e);

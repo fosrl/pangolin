@@ -65,6 +65,24 @@ export type ValidateOidcUrlCallbackResponse = {
     redirectUrl: string;
 };
 
+function sanitizeRedirectUrl(input: string | undefined | null): string {
+    if (!input || typeof input !== "string") return "/";
+    const trimmed = input.trim();
+    if (
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://") ||
+        trimmed.startsWith("//") ||
+        trimmed.startsWith("javascript:") ||
+        trimmed.startsWith("data:")
+    ) {
+        return "/";
+    }
+    if (!trimmed.startsWith("/")) {
+        return "/";
+    }
+    return trimmed;
+}
+
 export async function validateOidcCallback(
     req: Request,
     res: Response,
@@ -672,10 +690,11 @@ export async function validateOidcCallback(
 
             res.appendHeader("Set-Cookie", cookie);
 
-            let finalRedirectUrl = postAuthRedirectUrl;
+            const safeRedirectUrl = sanitizeRedirectUrl(postAuthRedirectUrl);
+let finalRedirectUrl = safeRedirectUrl;
             if (loginPageId) {
                 finalRedirectUrl = `/auth/org/?redirect=${encodeURIComponent(
-                    postAuthRedirectUrl
+                    safeRedirectUrl
                 )}`;
             }
 
@@ -731,7 +750,7 @@ export async function validateOidcCallback(
 
             return response<ValidateOidcUrlCallbackResponse>(res, {
                 data: {
-                    redirectUrl: postAuthRedirectUrl
+                    redirectUrl: sanitizeRedirectUrl(postAuthRedirectUrl)
                 },
                 success: true,
                 error: false,

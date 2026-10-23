@@ -27,6 +27,25 @@ const bodySchema = z.strictObject({
     redirectUrl: z.string()
 });
 
+// Only allow relative, same-origin paths to prevent open redirects.
+function sanitizeRedirectUrl(input: string): string {
+    if (!input || typeof input !== "string") return "/";
+    const trimmed = input.trim();
+    if (
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://") ||
+        trimmed.startsWith("//") ||
+        trimmed.startsWith("javascript:") ||
+        trimmed.startsWith("data:")
+    ) {
+        return "/";
+    }
+    if (!trimmed.startsWith("/")) {
+        return "/";
+    }
+    return trimmed;
+}
+
 const querySchema = z.object({
     orgId: z.string().optional() // check what actuall calls it
 });
@@ -67,7 +86,8 @@ export async function generateOidcUrl(
             );
         }
 
-        const { redirectUrl: postAuthRedirectUrl } = parsedBody.data;
+        const { redirectUrl: requestedRedirectUrl } = parsedBody.data;
+        const postAuthRedirectUrl = sanitizeRedirectUrl(requestedRedirectUrl);
 
         const parsedQuery = querySchema.safeParse(req.query);
         if (!parsedQuery.success) {
@@ -172,7 +192,7 @@ export async function generateOidcUrl(
 
         const stateJwt = jsonwebtoken.sign(
             {
-                redirectUrl: postAuthRedirectUrl, // TODO: validate that this is safe
+                redirectUrl: postAuthRedirectUrl,
                 state,
                 codeVerifier
             },
