@@ -25,6 +25,7 @@ import cache from "@server/lib/cache";
 import z from "zod";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { ensureValidIdp, type IdpDbResponse } from "./ensureValidIdp";
 
 const userBodySchema = z.object({
     "@odata.nextLink": z.url().optional(),
@@ -85,7 +86,6 @@ type GraphGroupNode = {
     userIds: Set<string>;
 };
 
-type IdpDbResponse = Awaited<ReturnType<typeof ensureValidIdp>>;
 export class AzureDirectorySyncProvider implements DirectorySyncProvider {
     #TOKEN_CACHE_KEY_PREFIX = "azureDirectorySyncToken";
     #microsoftGraphBaseUrl = "https://graph.microsoft.com/v1.0";
@@ -93,7 +93,7 @@ export class AzureDirectorySyncProvider implements DirectorySyncProvider {
     async fetch(ctx: DirectoryFetchContext): Promise<DirectoryFetchResult> {
         const directoryUsers: Record<string, DirectoryUser> = {};
         // 0. fetch idp and check that it is valid
-        const idpRes = await ensureValidIdp(ctx.idpId);
+        const idpRes = await ensureValidIdp(ctx.idpId, "azure");
 
         // 1. get access token (and cache)
         const token = await this.#getToken(idpRes);
@@ -432,39 +432,4 @@ export class AzureDirectorySyncProvider implements DirectorySyncProvider {
             deltaLink
         };
     }
-}
-
-async function ensureValidIdp(idpId: number) {
-    const [idpRes] = await db
-        .select()
-        .from(idp)
-        .where(eq(idp.idpId, idpId))
-        .innerJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId))
-        .innerJoin(idpOrg, and(eq(idpOrg.idpId, idp.idpId)))
-        .limit(1);
-
-    if (!idpRes) {
-        throw new Error(
-            `Directory sync: IdP ${idpId} not found, or it has no OIDC config or org mapping`
-        );
-    }
-
-    if (idpRes.idpOidcConfig.variant !== "azure") {
-        throw new Error(
-            `Directory sync: IdP ${idpId} has variant "${idpRes.idpOidcConfig.variant}", expected "azure"`
-        );
-    }
-
-    if (!idpRes.idp.directorySyncEnabled) {
-        throw new Error(
-            `Directory sync: directory sync is not enabled on IdP ${idpId}`
-        );
-    }
-
-    if (idpRes.idp.autoProvision) {
-        throw new Error(
-            `Directory sync: IdP ${idpId} has both directory sync and auto-provisioning enabled; only one can be active`
-        );
-    }
-    return idpRes;
 }
