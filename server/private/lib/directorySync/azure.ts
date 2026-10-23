@@ -40,8 +40,10 @@ const userBodySchema = z.object({
     )
 });
 
-// we only do initial delta rounds for groups (no stored `deltaLink`), which return the
-// current state of the directory and never contain `@removed` entries
+// entries flagged as removed (e.g. soft-deleted groups or removed members), these
+//    can show up even in initial delta rounds (no stored `deltaLink`)
+const removedSchema = z.object({ reason: z.string() }).optional();
+
 const groupBodySchema = z.object({
     "@odata.nextLink": z.url().optional(),
     "@odata.deltaLink": z.url().optional(),
@@ -51,13 +53,15 @@ const groupBodySchema = z.object({
             // large groups can be returned several times with their members split
             //    across the entries, the repeated entries may not have `displayName`
             displayName: z.string().nullish(),
+            "@removed": removedSchema,
             // omitted when the group has no members
             "members@delta": z
                 .array(
                     z.object({
                         // user, group, device, servicePrincipal, orgContact...
                         "@odata.type": z.string(),
-                        id: z.uuid()
+                        id: z.uuid(),
+                        "@removed": removedSchema
                     })
                 )
                 .default([])
@@ -150,12 +154,20 @@ export class AzureDirectorySyncProvider implements DirectorySyncProvider {
         };
 
         for (const group of groupResponse.groups) {
+            if (group["@removed"]) {
+                continue;
+            }
+
             const node = getGroupNode(group.id);
             if (group.displayName) {
                 node.displayName = group.displayName;
             }
 
             for (const member of group["members@delta"]) {
+                if (member["@removed"]) {
+                    continue;
+                }
+
                 if (member["@odata.type"] === "#microsoft.graph.user") {
                     node.userIds.add(member.id);
                 } else if (member["@odata.type"] === "#microsoft.graph.group") {
