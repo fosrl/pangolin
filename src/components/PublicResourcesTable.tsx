@@ -22,6 +22,7 @@ import { Switch } from "@app/components/ui/switch";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { useOptimisticLabels } from "@app/hooks/useOptimisticLabels";
+import { useRowSelection } from "@app/hooks/useRowSelection";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { orgQueries } from "@app/lib/queries";
@@ -62,7 +63,7 @@ import { ColumnFilterButton } from "./ColumnFilterButton";
 import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
 import { LabelsTableCell } from "./LabelsTableCell";
 import { SitesColumnFilterButton } from "./SitesColumnFilterButton";
-import { ControlledDataTable } from "./ui/controlled-data-table";
+import { ControlledDataTable, selectColumn } from "./ui/controlled-data-table";
 import { UptimeMiniBar } from "./UptimeMiniBar";
 
 export type TargetHealth = {
@@ -94,6 +95,8 @@ export type ResourceRow = {
     health?: "healthy" | "degraded" | "unhealthy" | "unknown";
     sites: ResourceSiteRow[];
     wildcard?: boolean;
+    createdAt?: string | null;
+    sso?: boolean;
     labels?: Array<{
         labelId: number;
         name: string;
@@ -140,11 +143,20 @@ export default function PublicResourcesTable({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedResource, setSelectedResource] =
         useState<ResourceRow | null>();
-
-    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportResource, setExportResource] = useState<ResourceRow | null>(
-        null
+    const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+    const {
+        rowSelection,
+        setRowSelection,
+        selectedRows: selectedResources
+    } = useRowSelection(resources);
+    const authEligibleResources = selectedResources.filter(
+        (r) => r.authState !== "none"
     );
+    const allSsoEnabled =
+        authEligibleResources.length > 0 &&
+        authEligibleResources.every((r) => r.sso);
+
+    const [exportResources, setExportResources] = useState<ResourceRow[]>([]);
 
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
@@ -212,8 +224,28 @@ export default function PublicResourcesTable({
         }
     }
 
+    async function runBulkAction(
+        ids: number[],
+        request: (resourceId: number) => Promise<unknown>
+    ) {
+        const results = await Promise.allSettled(ids.map(request));
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed > 0) {
+            toast({
+                variant: "destructive",
+                title: t("resourcesBulkActionFailed", {
+                    count: failed,
+                    total: ids.length
+                })
+            });
+        }
+        setRowSelection({});
+        router.refresh();
+    }
+
     const proxyColumns = useMemo<ExtendedColumnDef<ResourceRow>[]>(() => {
         const cols: ExtendedColumnDef<ResourceRow>[] = [
+            selectColumn<ResourceRow>(t("selectAll")),
             {
                 accessorKey: "name",
                 enableHiding: false,
@@ -577,6 +609,42 @@ export default function PublicResourcesTable({
                 )
             },
             {
+                accessorKey: "createdAt",
+                friendlyName: t("dateAdded"),
+                header: () => {
+                    const createdAtOrder = getSortDirection(
+                        "createdAt",
+                        searchParams
+                    );
+                    const Icon =
+                        createdAtOrder === "asc"
+                            ? ArrowDown01Icon
+                            : createdAtOrder === "desc"
+                              ? ArrowUp10Icon
+                              : ChevronsUpDownIcon;
+
+                    return (
+                        <Button
+                            variant="ghost"
+                            className="p-3"
+                            onClick={() => toggleSort("createdAt")}
+                        >
+                            {t("dateAdded")}
+                            <Icon className="ml-2 h-4 w-4" />
+                        </Button>
+                    );
+                },
+                cell: ({ row }) => (
+                    <span suppressHydrationWarning>
+                        {row.original.createdAt
+                            ? new Date(
+                                  row.original.createdAt
+                              ).toLocaleDateString()
+                            : "-"}
+                    </span>
+                )
+            },
+            {
                 id: "labels",
                 accessorKey: "labels",
                 header: () => (
@@ -625,8 +693,7 @@ export default function PublicResourcesTable({
                                     </Link>
                                     <DropdownMenuItem
                                         onClick={() => {
-                                            setExportResource(resourceRow);
-                                            setIsExportModalOpen(true);
+                                            setExportResources([resourceRow]);
                                         }}
                                     >
                                         {t("exportAsBlueprint")}
@@ -734,17 +801,48 @@ export default function PublicResourcesTable({
                 />
             )}
 
-            {exportResource && (
+            <ConfirmDeleteDialog
+                open={isBulkDeleteOpen}
+                setOpen={setIsBulkDeleteOpen}
+                dialog={
+                    <div className="space-y-2">
+                        <p>
+                            {t("resourcesDeleteSelectedQuestion", {
+                                count: selectedResources.length
+                            })}
+                        </p>
+                        <p>{t("resourceMessageRemove")}</p>
+                    </div>
+                }
+                buttonText={t("resourcesDeleteSelected")}
+                onConfirm={() =>
+                    runBulkAction(
+                        selectedResources.map((r) => r.id),
+                        (resourceId) => api.delete(`/resource/${resourceId}`)
+                    )
+                }
+                string={t("resourcesDeleteSelectedConfirmString", {
+                    count: selectedResources.length
+                })}
+                title={t("resourcesDeleteSelected")}
+            />
+
+            {exportResources.length > 0 && (
                 <ExportBlueprintModal
-                    open={isExportModalOpen}
+                    open
                     setOpen={(val) => {
-                        setIsExportModalOpen(val);
                         if (!val) {
-                            setExportResource(null);
+                            setExportResources([]);
                         }
                     }}
-                    endpoint={`/resource/${exportResource.id}/blueprint`}
-                    resourceName={exportResource.nice || exportResource.name}
+                    endpoints={exportResources.map(
+                        (r) => `/resource/${r.id}/blueprint`
+                    )}
+                    resourceName={
+                        exportResources.length === 1
+                            ? exportResources[0].nice || exportResources[0].name
+                            : "proxy-resources"
+                    }
                 />
             )}
 
@@ -758,6 +856,66 @@ export default function PublicResourcesTable({
                 searchQuery={searchParams.get("query")?.toString()}
                 onSearch={handleSearchChange}
                 onPaginationChange={handlePaginationChange}
+                getRowId={(row) => String(row.id)}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
+                filterExtras={
+                    selectedResources.length > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
+                                    {t("resourcesSelectedCount", {
+                                        count: selectedResources.length
+                                    })}
+                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuItem
+                                    disabled={
+                                        authEligibleResources.length === 0
+                                    }
+                                    onClick={() =>
+                                        runBulkAction(
+                                            authEligibleResources
+                                                .filter(
+                                                    (r) =>
+                                                        !!r.sso ===
+                                                        allSsoEnabled
+                                                )
+                                                .map((r) => r.id),
+                                            (resourceId) =>
+                                                api.post(
+                                                    `resource/${resourceId}`,
+                                                    { sso: !allSsoEnabled }
+                                                )
+                                        )
+                                    }
+                                >
+                                    {t(
+                                        allSsoEnabled
+                                            ? "resourcesDisableAuthSelected"
+                                            : "resourcesEnableAuthSelected"
+                                    )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        setExportResources(selectedResources)
+                                    }
+                                >
+                                    {t("exportAsBlueprint")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setIsBulkDeleteOpen(true)}
+                                >
+                                    <span className="text-red-500">
+                                        {t("resourcesDeleteSelected")}
+                                    </span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )
+                }
                 onAdd={() =>
                     startNavigation(() =>
                         router.push(
