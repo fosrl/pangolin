@@ -5,7 +5,10 @@
 import "@server/extendZod";
 import { runIdpDirectorySync } from "./syncWorkflow";
 
-await runIdpDirectorySync().then((changes) => {
+// pass `--dry-run` to only compute the sync plans, without applying them
+const dryRun = process.argv.includes("--dry-run");
+
+await runIdpDirectorySync(dryRun).then((changes) => {
     console.dir(
         {
             changes

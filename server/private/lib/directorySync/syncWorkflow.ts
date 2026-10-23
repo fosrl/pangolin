@@ -83,7 +83,7 @@ export type IdpOrgSyncPlan = {
 let directorySyncInterval: NodeJS.Timeout | null = null;
 const DIRECTORY_SYNC_RUN_INTERVAL = durationToMs(5, "minutes");
 
-export async function runIdpDirectorySync() {
+export async function runIdpDirectorySync(dryRun: boolean = false) {
     // to sync idps, we need
     const idpsToSync = await db
         .select()
@@ -110,7 +110,7 @@ export async function runIdpDirectorySync() {
                         idpOrg.directoryRoleMapping
                     )
                 } satisfies DirectoryFetchContext;
-                return syncIdp(azureSyncProvider, ctx);
+                return syncIdp(azureSyncProvider, ctx, dryRun);
             }
             return null;
         })
@@ -121,7 +121,8 @@ export async function runIdpDirectorySync() {
 
 async function syncIdp(
     provider: DirectorySyncProvider,
-    ctx: DirectoryFetchContext
+    ctx: DirectoryFetchContext,
+    dryRun: boolean
 ) {
     // Note
     // username is unique only within IDPs or within internal ?
@@ -250,7 +251,12 @@ for each membership with flag = true whose user is not in the remote set:
     };
 
     for (const user of result.users) {
-        const roles = await resolveUserRoles(user, ctx.roleMapping, ctx.orgId);
+        const roles = await resolveUserRoles(
+            user,
+            ctx.roleMapping,
+            ctx.orgId,
+            dryRun
+        );
 
         const pangolinUser =
             existingPangolinUsers.get(user.externalId) ??
@@ -348,9 +354,11 @@ for each membership with flag = true whose user is not in the remote set:
     );
     for (const { user, userOrgs: membership } of existingUserOrgs) {
         if (directoryUserIds.has(user.userId)) continue;
-        if (!membership.autoProvisioned && !membership.directorySynched)
+        if (
+            membership.isOwner ||
+            (!membership.autoProvisioned && !membership.directorySynched)
+        )
             continue;
-        if (membership.isOwner) continue;
 
         syncPlan.entries.push({
             directoryUser: null,
@@ -362,6 +370,10 @@ for each membership with flag = true whose user is not in the remote set:
     const [org] = await db.select().from(orgs).where(eq(orgs.orgId, ctx.orgId));
     if (!org) {
         throw new Error(`Org ${ctx.orgId} not found for directory sync`);
+    }
+
+    if (dryRun) {
+        return syncPlan;
     }
 
     // the upsert can return an existing row's userId instead of the generated one
@@ -492,8 +504,9 @@ function getEntryUserId(
 async function resolveUserRoles(
     user: DirectoryUser,
     roleMapping: DirectorySyncRoleMappingConfig,
-    orgId: string
-) {
+    orgId: string,
+    dryRun: boolean
+): Promise<SyncedRole[]> {
     if (!user.enabled) return [];
 
     let matchedRoles: Role[] = [];
@@ -567,9 +580,24 @@ async function resolveUserRoles(
             }
 
             if (roleMapping.createMissingRoles) {
-                const missingRoles = new Set(
-                    matchedRoles.map((r) => r.name)
-                ).difference(new Set(roleNames));
+                const missingRoles = new Set(roleNames).difference(
+                    new Set(matchedRoles.map((r) => r.name))
+                );
+
+                if (missingRoles.size === 0) {
+                    break;
+                }
+
+                if (dryRun) {
+                    // the roles would be created when applying the plan, they don't have an id yet
+                    return [
+                        ...matchedRoles.map((role) => ({
+                            id: role.roleId,
+                            name: role.name
+                        })),
+                        ...[...missingRoles].map((name) => ({ id: -1, name }))
+                    ];
+                }
 
                 const result = await db
                     .insert(roles)
