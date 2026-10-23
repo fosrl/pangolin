@@ -659,6 +659,20 @@ export type SubnetProxyTargetV2 = {
 export type CertRef = { id: string; cert: string; key: string };
 
 /**
+ * Returns the targets that may be removed even when the
+ * destination is still served by another resource on the same
+ * site. Alias targets carry the resource's own alias address,
+ * so they are never shared, while destination based targets
+ * (no rewriteTo) all map onto the newt's single
+ * per-(client, destination) rule.
+ */
+export function aliasTargetsOnly(
+    targets: SubnetProxyTargetV2[]
+): SubnetProxyTargetV2[] {
+    return targets.filter((target) => target.rewriteTo !== undefined);
+}
+
+/**
  * Replaces each target's inline tlsCert/tlsKey with a tlsCertId reference
  * into a deduplicated certs array, so that many targets sharing the same
  * certificate (e.g. a wildcard cert used by thousands of site resources)
