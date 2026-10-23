@@ -18,6 +18,7 @@ import * as aiBudget from "./aiBudget";
 import * as virtualApiKey from "./virtualApiKey";
 import * as redirect from "./redirect";
 import * as labels from "./labels";
+import * as reKey from "./re-key";
 import {
     verifyApiKey,
     verifyApiKeyOrgAccess,
@@ -147,6 +148,24 @@ authenticated.post(
     verifyApiKeyHasAction(ActionsEnum.updateSite),
     logActionAudit(ActionsEnum.updateSite),
     site.updateSite
+);
+
+authenticated.post(
+    "/re-key/:siteId/regenerate-site-secret",
+    verifyApiKeySiteAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.reGenerateSecret),
+    logActionAudit(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateSiteSecret
+);
+
+authenticated.put(
+    "/re-key/:orgId/regenerate-remote-exit-node-secret",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.reGenerateSecret),
+    logActionAudit(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateExitNodeSecret
 );
 
 authenticated.post(
@@ -1045,6 +1064,39 @@ authenticated.put(
     policy.setResourcePolicyRules
 );
 
+authenticated.put(
+    [
+        "/resource-policy/:resourcePolicyId/mtls/certificate",
+        "/public-resource-policy/:resourcePolicyId/mtls/certificate"
+    ],
+    verifyApiKeyResourcePolicyAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateResourcePolicy),
+    logActionAudit(ActionsEnum.updateResourcePolicy),
+    policy.createResourcePolicyMtlsCertificate
+);
+
+authenticated.get(
+    [
+        "/resource-policy/:resourcePolicyId/mtls/certificates",
+        "/public-resource-policy/:resourcePolicyId/mtls/certificates"
+    ],
+    verifyApiKeyResourcePolicyAccess,
+    verifyApiKeyHasAction(ActionsEnum.getResourcePolicy),
+    policy.listResourcePolicyMtlsCertificates
+);
+
+authenticated.delete(
+    [
+        "/resource-policy/:resourcePolicyId/mtls/certificate/:mtlsCertificateId",
+        "/public-resource-policy/:resourcePolicyId/mtls/certificate/:mtlsCertificateId"
+    ],
+    verifyApiKeyResourcePolicyAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateResourcePolicy),
+    logActionAudit(ActionsEnum.updateResourcePolicy),
+    policy.deleteResourcePolicyMtlsCertificate
+);
+
 authenticated.post(
     [
         "/resource/:resourceId/roles/add",
@@ -1530,6 +1582,15 @@ authenticated.post(
     client.updateClient
 );
 
+authenticated.post(
+    "/re-key/:clientId/regenerate-client-secret",
+    verifyApiKeyClientAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.reGenerateSecret),
+    logActionAudit(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateClientSecret
+);
+
 authenticated.put(
     "/org/:orgId/blueprint",
     verifyApiKeyOrgAccess,
@@ -1967,4 +2028,37 @@ authenticated.put(
     verifyApiKeyHasAction(ActionsEnum.detachLabelFromItem),
     logActionAudit(ActionsEnum.detachLabelFromItem),
     labels.detachLabelFromItem
+);
+
+authenticated.put(
+    [
+        "/resource/:resourceId/mtls/certificate",
+        "/public-resource/:resourceId/mtls/certificate"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.createResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.createResourceMtlsCertificate),
+    resource.createResourceMtlsCertificate
+);
+
+authenticated.get(
+    [
+        "/resource/:resourceId/mtls/certificates",
+        "/public-resource/:resourceId/mtls/certificates"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyApiKeyHasAction(ActionsEnum.listResourceMtlsCertificates),
+    resource.listResourceMtlsCertificates
+);
+
+authenticated.delete(
+    [
+        "/resource/:resourceId/mtls/certificate/:mtlsCertificateId",
+        "/public-resource/:resourceId/mtls/certificate/:mtlsCertificateId"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.deleteResourceMtlsCertificate),
+    resource.deleteResourceMtlsCertificate
 );

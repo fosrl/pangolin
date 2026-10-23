@@ -133,6 +133,7 @@ function ProxyResourceHttpForm({
                     message: t("proxyErrorInvalidHeader")
                 }
             ),
+        forwardIdentityHeaders: z.boolean(),
         requestHeaders: z
             .array(z.object({ name: z.string(), value: z.string() }))
             .nullable(),
@@ -150,6 +151,7 @@ function ProxyResourceHttpForm({
             tlsServerName: resource.tlsServerName || "",
             verifyUpstreamTls: resource.verifyUpstreamTls ?? false,
             setHostHeader: resource.setHostHeader || "",
+            forwardIdentityHeaders: resource.forwardIdentityHeaders,
             requestHeaders: resource.requestHeaders,
             responseHeaders: resource.responseHeaders
         },
@@ -192,6 +194,7 @@ function ProxyResourceHttpForm({
                     tlsServerName: data.tlsServerName?.trim() || null,
                     verifyUpstreamTls: data.verifyUpstreamTls,
                     setHostHeader: data.setHostHeader || null,
+                    forwardIdentityHeaders: data.forwardIdentityHeaders,
                     requestHeaders: data.requestHeaders || null,
                     responseHeaders: data.responseHeaders || null
                 }
@@ -216,6 +219,7 @@ function ProxyResourceHttpForm({
                 tlsServerName: data.tlsServerName?.trim() || null,
                 verifyUpstreamTls: data.verifyUpstreamTls,
                 setHostHeader: data.setHostHeader || null,
+                forwardIdentityHeaders: data.forwardIdentityHeaders,
                 requestHeaders: data.requestHeaders || null,
                 responseHeaders: data.responseHeaders || null
             });
@@ -404,6 +408,32 @@ function ProxyResourceHttpForm({
                                                     />
                                                 </FormControl>
                                                 <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </SettingsFormCell>
+
+                                <SettingsFormCell span="full">
+                                    <FormField
+                                        control={form.control}
+                                        name="forwardIdentityHeaders"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <SwitchInput
+                                                        id="forward-identity-headers-toggle"
+                                                        label={t(
+                                                            "proxyForwardIdentityHeaders"
+                                                        )}
+                                                        description={t(
+                                                            "proxyForwardIdentityHeadersDescription"
+                                                        )}
+                                                        checked={field.value}
+                                                        onCheckedChange={
+                                                            field.onChange
+                                                        }
+                                                    />
+                                                </FormControl>
                                             </FormItem>
                                         )}
                                     />

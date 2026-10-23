@@ -1,16 +1,3 @@
-/*
- * This file is part of a proprietary work.
- *
- * Copyright (c) 2025-2026 Fossorial, Inc.
- * All rights reserved.
- *
- * This file is licensed under the Fossorial Commercial License.
- * You may not use this file except in compliance with the License.
- * Unauthorized use, copying, modification, or distribution is strictly prohibited.
- *
- * This file is not licensed under the AGPLv3.
- */
-
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, Olm, olms } from "@server/db";
@@ -23,7 +10,7 @@ import { eq, and } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { hashPassword } from "@server/auth/password";
-import { disconnectClient, sendToClient } from "#private/routers/ws";
+import { disconnectClient, sendToClient } from "#dynamic/routers/ws";
 import { OlmErrorCodes, sendOlmError } from "@server/routers/olm/error";
 import { sendTerminateClient } from "@server/routers/client/terminate";
 
@@ -38,6 +25,40 @@ const reGenerateSecretBodySchema = z.strictObject({
 });
 
 export type ReGenerateSecretBody = z.infer<typeof reGenerateSecretBodySchema>;
+
+registry.registerPath({
+    method: "post",
+    path: "/re-key/{clientId}/regenerate-client-secret",
+    description:
+        "Regenerate the secret for a machine client's olm. Optionally disconnects the olm so it must reconnect with the new secret.",
+    tags: [OpenAPITags.Client],
+    request: {
+        params: reGenerateSecretParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: reGenerateSecretBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.object({ olmId: z.string() }),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
 
 export async function reGenerateClientSecret(
     req: Request,

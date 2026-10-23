@@ -228,6 +228,7 @@ export type GetClientResponse = NonNullable<
     olmId: string | null;
     agent: string | null;
     olmVersion: string | null;
+    agentVersion: string | null;
     userEmail: string | null;
     userName: string | null;
     userUsername: string | null;
@@ -421,6 +422,7 @@ export async function getClient(
             olmId: client.olms ? client.olms.olmId : null,
             agent: client.olms?.agent || null,
             olmVersion: client.olms?.version || null,
+            agentVersion: client.olms?.agentVersion || null,
             userEmail: client.user?.email ?? null,
             userName: client.user?.name ?? null,
             userUsername: client.user?.username ?? null,

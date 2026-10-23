@@ -5,6 +5,7 @@ import {
     db,
     ExitNode,
     networks,
+    olms,
     remoteExitNodeResources,
     resources,
     Site,
@@ -14,7 +15,7 @@ import {
     targets
 } from "@server/db";
 import logger from "@server/logger";
-import { initPeerAddHandshake, updatePeer } from "../olm/peers";
+import { initPeerAddHandshakeBatch, updatePeersBatch } from "../olm/peers";
 import { eq, and, inArray, or, isNotNull, sql } from "drizzle-orm";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
@@ -35,8 +36,10 @@ export async function buildClientConfigurationForNewtClient(
 ) {
     const siteId = site.siteId;
 
+    const sendPeers = !!(site.publicKey && site.endpoint && exitNode);
+
     // Get all clients connected to this site
-    const clientsRes = await db
+    const clientsQuery = db
         .select()
         .from(clients)
         .innerJoin(
@@ -45,114 +48,25 @@ export async function buildClientConfigurationForNewtClient(
         )
         .where(eq(clientSitesAssociationsCache.siteId, siteId));
 
-    let peers: Array<{
-        publicKey: string;
-        allowedIps: string[];
-        endpoint?: string;
-    }> = [];
-
-    if (site.publicKey && site.endpoint && exitNode) {
-        // Prepare peers data for the response
-        peers = await Promise.all(
-            clientsRes
-                .filter((client) => {
-                    if (!client.clients.pubKey) {
-                        logger.debug(
-                            `Client ${client.clients.clientId} has no public key, skipping`
-                        );
-                        return false;
-                    }
-                    if (!client.clients.subnet) {
-                        logger.debug(
-                            `Client ${client.clients.clientId} has no subnet, skipping`
-                        );
-                        return false;
-                    }
-                    return true;
-                })
-                .map(async (client) => {
-                    // Add or update this peer on the olm if it is connected
-
-                    // const allSiteResources = await db // only get the site resources that this client has access to
-                    //     .select()
-                    //     .from(siteResources)
-                    //     .innerJoin(
-                    //         clientSiteResourcesAssociationsCache,
-                    //         eq(
-                    //             siteResources.siteResourceId,
-                    //             clientSiteResourcesAssociationsCache.siteResourceId
-                    //         )
-                    //     )
-                    //     .where(
-                    //         and(
-                    //             eq(siteResources.siteId, site.siteId),
-                    //             eq(
-                    //                 clientSiteResourcesAssociationsCache.clientId,
-                    //                 client.clients.clientId
-                    //             )
-                    //         )
-                    //     );
-
-                    if (!client.clientSitesAssociationsCache.isJitMode) {
-                        // if we are adding sites through jit then dont add the site to the olm
-                        // update the peer info on the olm
-                        // if the peer has not been added yet this will be a no-op
-                        await updatePeer(client.clients.clientId, {
-                            siteId: site.siteId,
-                            endpoint: site.endpoint!,
-                            relayEndpoint: formatEndpoint(
-                                exitNode.endpoint,
-                                exitNode.relayPort
-                            ),
-                            publicKey: site.publicKey!,
-                            serverIP: site.address,
-                            serverPort: site.listenPort
-                            // remoteSubnets: generateRemoteSubnets(
-                            //     allSiteResources.map(
-                            //         ({ siteResources }) => siteResources
-                            //     )
-                            // ),
-                            // aliases: generateAliasConfig(
-                            //     allSiteResources.map(
-                            //         ({ siteResources }) => siteResources
-                            //     )
-                            // )
-                        });
-
-                        // also trigger the peer add handshake in case the peer was not already added to the olm and we need to hole punch
-                        // if it has already been added this will be a no-op
-                        await initPeerAddHandshake(
-                            // this will kick off the add peer process for the client
-                            client.clients.clientId,
-                            {
-                                siteId,
-                                exitNode: {
-                                    publicKey: exitNode.publicKey,
-                                    relayPort: exitNode.relayPort,
-                                    endpoint: exitNode.endpoint
-                                }
-                            }
-                        );
-                    }
-
-                    return {
-                        publicKey: client.clients.pubKey!,
-                        allowedIps: [
-                            `${client.clients.subnet.split("/")[0]}/32`
-                        ], // we want to only allow from that client
-                        endpoint: client.clientSitesAssociationsCache.isRelayed
-                            ? ""
-                            : client.clientSitesAssociationsCache.endpoint! // if its relayed it should be localhost
-                    };
-                })
-        );
-    }
-
-    // Filter out any null values from peers that didn't have an olm
-    const validPeers = peers.filter((peer) => peer !== null);
+    // Batch-fetch the olm for every client on this site so the peer updates
+    // can be sent as one batch instead of looking up the olm per client
+    const olmRowsQuery = sendPeers
+        ? db
+              .select({
+                  clientId: olms.clientId,
+                  olmId: olms.olmId,
+                  version: olms.version
+              })
+              .from(olms)
+              .innerJoin(
+                  clientSitesAssociationsCache,
+                  eq(olms.clientId, clientSitesAssociationsCache.clientId)
+              )
+              .where(eq(clientSitesAssociationsCache.siteId, siteId))
+        : Promise.resolve([]);
 
     // Get all enabled site resources for this site by joining through siteNetworks and networks
-    const allSiteResources = await db
+    const allSiteResourcesQuery = db
         .select()
         .from(siteResources)
         .innerJoin(networks, eq(siteResources.networkId, networks.networkId))
@@ -165,11 +79,110 @@ export async function buildClientConfigurationForNewtClient(
         )
         .then((rows) => rows.map((r) => r.siteResources));
 
+    const [clientsRes, olmRows, allSiteResources] = await Promise.all([
+        clientsQuery,
+        olmRowsQuery,
+        allSiteResourcesQuery
+    ]);
+
+    const peers: Array<{
+        publicKey: string;
+        allowedIps: string[];
+        endpoint?: string;
+    }> = [];
+
+    if (sendPeers) {
+        const olmByClientId = new Map<
+            number,
+            { olmId: string; version: string | null }
+        >();
+        for (const row of olmRows) {
+            if (row.clientId !== null && !olmByClientId.has(row.clientId)) {
+                olmByClientId.set(row.clientId, {
+                    olmId: row.olmId,
+                    version: row.version
+                });
+            }
+        }
+
+        const olmPeerUpdates: Parameters<typeof updatePeersBatch>[0] = [];
+        const olmPeerAddHandshakes: Parameters<
+            typeof initPeerAddHandshakeBatch
+        >[0] = [];
+
+        // Prepare peers data for the response
+        for (const client of clientsRes) {
+            if (!client.clients.pubKey) {
+                logger.debug(
+                    `Client ${client.clients.clientId} has no public key, skipping`
+                );
+                continue;
+            }
+            if (!client.clients.subnet) {
+                logger.debug(
+                    `Client ${client.clients.clientId} has no subnet, skipping`
+                );
+                continue;
+            }
+
+            // Add or update this peer on the olm if it is connected
+            const olm = olmByClientId.get(client.clients.clientId);
+            if (olm && !client.clientSitesAssociationsCache.isJitMode) {
+                // if we are adding sites through jit then dont add the site to the olm
+                // update the peer info on the olm
+                // if the peer has not been added yet this will be a no-op
+                olmPeerUpdates.push({
+                    clientId: client.clients.clientId,
+                    peer: {
+                        siteId: site.siteId,
+                        endpoint: site.endpoint!,
+                        relayEndpoint: formatEndpoint(
+                            exitNode!.endpoint,
+                            exitNode!.relayPort
+                        ),
+                        publicKey: site.publicKey!,
+                        serverIP: site.address,
+                        serverPort: site.listenPort
+                    },
+                    olmId: olm.olmId,
+                    version: olm.version
+                });
+
+                // also trigger the peer add handshake in case the peer was not already added to the olm and we need to hole punch
+                // if it has already been added this will be a no-op
+                olmPeerAddHandshakes.push({
+                    clientId: client.clients.clientId,
+                    peer: {
+                        siteId,
+                        exitNode: {
+                            publicKey: exitNode!.publicKey,
+                            relayPort: exitNode!.relayPort,
+                            endpoint: exitNode!.endpoint
+                        }
+                    },
+                    olmId: olm.olmId
+                });
+            }
+
+            peers.push({
+                publicKey: client.clients.pubKey,
+                allowedIps: [`${client.clients.subnet.split("/")[0]}/32`], // we want to only allow from that client
+                endpoint: client.clientSitesAssociationsCache.isRelayed
+                    ? ""
+                    : client.clientSitesAssociationsCache.endpoint! // if its relayed it should be localhost
+            });
+        }
+
+        // send the updates before the handshakes, matching the per-client order
+        await updatePeersBatch(olmPeerUpdates);
+        await initPeerAddHandshakeBatch(olmPeerAddHandshakes);
+    }
+
     const targetsToSend: SubnetProxyTargetV2[] = [];
 
     if (allSiteResources.length === 0) {
         return {
-            peers: validPeers,
+            peers,
             targets: targetsToSend,
             clientIdentities: [] as ClientIdentity[]
         };
@@ -256,7 +269,7 @@ export async function buildClientConfigurationForNewtClient(
     );
 
     return {
-        peers: validPeers,
+        peers,
         targets: targetsToSend,
         clientIdentities
     };
@@ -268,7 +281,7 @@ export async function buildTargetConfigurationForNewtClient(
     remoteExitNodeId?: string
 ) {
     // Get enabled HTTP/TCP/UDP targets for resources and AI providers
-    const allTargets = await db
+    const allTargetsQuery = db
         .select({
             resourceId: targets.resourceId,
             targetId: targets.targetId,
@@ -292,7 +305,7 @@ export async function buildTargetConfigurationForNewtClient(
             )
         );
 
-    const allHealthChecks = await db
+    const allHealthChecksQuery = db
         .select({
             targetHealthCheckId: targetHealthCheck.targetHealthCheckId,
             hcEnabled: targetHealthCheck.hcEnabled,
@@ -316,7 +329,7 @@ export async function buildTargetConfigurationForNewtClient(
         .where(eq(targetHealthCheck.siteId, siteId));
 
     // Get all enabled targets with their resource mode information
-    const allBrowserGatewayTargets = await db
+    const allBrowserGatewayTargetsQuery = db
         .select({
             resourceId: targets.resourceId,
             targetId: targets.targetId,
@@ -336,6 +349,27 @@ export async function buildTargetConfigurationForNewtClient(
                 inArray(targets.mode, ["ssh", "rdp", "vnc"])
             )
         );
+
+    const remoteNodeResourcesQuery = remoteExitNodeId
+        ? db
+              .select()
+              .from(remoteExitNodeResources)
+              .where(
+                  eq(remoteExitNodeResources.remoteExitNodeId, remoteExitNodeId)
+              )
+        : Promise.resolve([]);
+
+    const [
+        allTargets,
+        allHealthChecks,
+        allBrowserGatewayTargets,
+        remoteNodeResources
+    ] = await Promise.all([
+        allTargetsQuery,
+        allHealthChecksQuery,
+        allBrowserGatewayTargetsQuery,
+        remoteNodeResourcesQuery
+    ]);
 
     const { tcpTargets, udpTargets } = allTargets.reduce(
         (acc, target) => {
@@ -424,18 +458,10 @@ export async function buildTargetConfigurationForNewtClient(
         };
     });
 
-    let remoteExitNodeSubnets: string[] = [];
-    if (remoteExitNodeId) {
-        const remoteNodeResources = await db
-            .select()
-            .from(remoteExitNodeResources)
-            .where(
-                eq(remoteExitNodeResources.remoteExitNodeId, remoteExitNodeId)
-            );
-
-        // filter through these and provide the subnets
-        remoteExitNodeSubnets = remoteNodeResources.map((r) => r.destination);
-    }
+    // filter through these and provide the subnets
+    const remoteExitNodeSubnets: string[] = remoteNodeResources.map(
+        (r) => r.destination
+    );
 
     return {
         validHealthCheckTargets,

@@ -1,5 +1,5 @@
-# FROM node:24.18.1-slim AS base
-FROM public.ecr.aws/docker/library/node:24.18.1-slim AS base
+# FROM node:24.22.1-slim AS base
+FROM public.ecr.aws/docker/library/node:24.22.1-slim AS base
 
 WORKDIR /app
 
@@ -31,15 +31,12 @@ RUN if [ "$BUILD" = "oss" ]; then rm -rf server/private; fi && \
 RUN npm prune --omit=dev && \
     node trace-deps.mjs -o .next/standalone dist/server.mjs dist/migrations.mjs dist/cli.mjs
 
-# MaxMind databases are only shipped in saas builds
-RUN mkdir -p maxmind && \
-    if [ "$BUILD" = "saas" ]; then \
-        touch GeoLite2-Country.mmdb GeoLite2-ASN.mmdb && \
-        mv GeoLite2-Country.mmdb GeoLite2-ASN.mmdb maxmind/; \
-    fi
+# Create placeholder files for MaxMind databases to avoid COPY errors
+# Real files should be present for saas builds, placeholders for oss builds
+RUN touch /app/GeoLite2-Country.mmdb /app/GeoLite2-ASN.mmdb
 
-# FROM node:24.18.1-slim AS runner
-FROM public.ecr.aws/docker/library/node:24.18.1-slim AS runner
+# FROM node:24.22.1-slim AS runner
+FROM public.ecr.aws/docker/library/node:24.22.1-slim AS runner
 
 WORKDIR /app
 
@@ -58,12 +55,14 @@ COPY server/db/ios_models.json ./dist/ios_models.json
 COPY server/db/mac_models.json ./dist/mac_models.json
 COPY public ./public
 
-# Copy MaxMind databases (empty directory for non-saas builds)
-ARG BUILD=oss
+RUN mkdir -p ./maxmind
 
-COPY --from=builder-dev /app/maxmind ./maxmind
+# Copy MaxMind databases (empty placeholders unless real files were in the build context)
+COPY --from=builder-dev /app/GeoLite2-Country.mmdb ./maxmind/GeoLite2-Country.mmdb
+COPY --from=builder-dev /app/GeoLite2-ASN.mmdb ./maxmind/GeoLite2-ASN.mmdb
 
-RUN if [ "$BUILD" != "saas" ]; then rmdir ./maxmind; fi
+# Remove empty placeholder MaxMind databases (and the directory if nothing real is left)
+RUN find ./maxmind -empty -delete
 
 # OCI Image Labels - Build Args for dynamic values
 ARG VERSION="dev"

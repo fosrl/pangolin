@@ -536,6 +536,53 @@ export default function LicensePage() {
                                     </div>
                                 )}
                             </div>
+                            <div className="space-y-2">
+                                <div className="text-sm font-medium">
+                                    {t("licenseUsageMachines")}
+                                </div>
+                                <div className="text-2xl">
+                                    {t("licenseMachinesUsed", {
+                                        count: licenseStatus?.usedMachines || 0
+                                    })}
+                                </div>
+                                {licenseStatus?.maxMachines ? (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">
+                                                {t("licenseMachinesUsedMax", {
+                                                    usedMachines:
+                                                        licenseStatus.usedMachines ||
+                                                        0,
+                                                    maxMachines:
+                                                        licenseStatus.maxMachines
+                                                })}
+                                            </span>
+                                            <span className="text-muted-foreground">
+                                                {Math.round(
+                                                    ((licenseStatus.usedMachines ||
+                                                        0) /
+                                                        licenseStatus.maxMachines) *
+                                                        100
+                                                )}
+                                                %
+                                            </span>
+                                        </div>
+                                        <Progress
+                                            value={
+                                                ((licenseStatus.usedMachines ||
+                                                    0) /
+                                                    licenseStatus.maxMachines) *
+                                                100
+                                            }
+                                            className="h-5"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-muted-foreground">
+                                        {t("licenseNoMachineLimit")}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </SettingsSection>
                     <SettingsSection>

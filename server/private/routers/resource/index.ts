@@ -12,6 +12,3 @@
  */
 
 export * from "./getMaintenanceInfo";
-export * from "./deleteResourceMtlsCertificate";
-export * from "./createResourceMtlsCertificate";
-export * from "./listResourceMtlsCertificates";

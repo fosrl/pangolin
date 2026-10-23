@@ -30,6 +30,11 @@ import {
 } from "@server/db";
 import { getUniqueResourcePolicyName } from "@server/db/names";
 import { idpExistsForOrg } from "@server/lib/idp/idpExistsForOrg";
+import { addMtlsCertificates } from "@server/lib/mtls";
+import {
+    MAX_MTLS_CERTIFICATES_PER_RESOURCE,
+    parseCaCertificates
+} from "@server/lib/mtlsCertificate";
 import response from "@server/lib/response";
 import {
     getResourceRuleValueValidationError,
@@ -112,7 +117,27 @@ const createResourcePolicyBodySchema = z.strictObject({
         .default([]),
     // rules
     applyRules: z.boolean().default(false),
-    rules: z.array(ruleSchema).optional().default([])
+    rules: z.array(ruleSchema).optional().default([]),
+    // mTLS
+    mtlsEnabled: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe(
+            "Require clients to present a certificate signed by one of mtlsCaCertificates. Only takes effect on resources with SSL enabled (not TCP/UDP)."
+        ),
+    mtlsCaCertificates: z
+        .array(
+            z.strictObject({
+                certificate: z.string().min(1).max(100_000),
+                name: z.string().min(1).max(255).optional()
+            })
+        )
+        .optional()
+        .default([])
+        .describe(
+            "PEM-encoded trusted CA certificates for mTLS. Each certificate may be a bundle; the name is only kept for a single certificate."
+        )
 });
 
 registry.registerPath({
@@ -197,8 +222,51 @@ export async function createResourcePolicy(
             pincode,
             headerAuth,
             emails,
-            rules
+            rules,
+            mtlsEnabled,
+            mtlsCaCertificates
         } = parsedBody.data;
+
+        // Validate the CA certificates up front so bad input is a 400
+        const mtlsFingerprints = new Set<string>();
+        for (const { certificate } of mtlsCaCertificates) {
+            try {
+                for (const cert of parseCaCertificates(certificate)) {
+                    if (mtlsFingerprints.has(cert.fingerprint)) {
+                        return next(
+                            createHttpError(
+                                HttpCode.BAD_REQUEST,
+                                "The same CA certificate was provided more than once"
+                            )
+                        );
+                    }
+                    mtlsFingerprints.add(cert.fingerprint);
+                }
+            } catch (e) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        e instanceof Error ? e.message : "Invalid certificate"
+                    )
+                );
+            }
+        }
+        if (mtlsFingerprints.size > MAX_MTLS_CERTIFICATES_PER_RESOURCE) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    `At most ${MAX_MTLS_CERTIFICATES_PER_RESOURCE} trusted CA certificates can be added`
+                )
+            );
+        }
+        if (mtlsEnabled && mtlsFingerprints.size === 0) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Add at least one trusted CA certificate before enabling mTLS."
+                )
+            );
+        }
 
         // Check if Identity provider in `skipToIdpId` exists
         if (skipToIdpId) {
@@ -274,7 +342,8 @@ export async function createResourcePolicy(
                     sso,
                     idpId: skipToIdpId,
                     applyRules,
-                    emailWhitelistEnabled
+                    emailWhitelistEnabled,
+                    mtlsEnabled
                 })
                 .returning();
 
@@ -366,6 +435,18 @@ export async function createResourcePolicy(
                         resourcePolicyId: newPolicy.resourcePolicyId,
                         ...rule
                     }))
+                );
+            }
+
+            for (const { certificate, name } of mtlsCaCertificates) {
+                await addMtlsCertificates(
+                    {
+                        type: "policy",
+                        resourcePolicyId: newPolicy.resourcePolicyId
+                    },
+                    certificate,
+                    name,
+                    trx
                 );
             }
 

@@ -4488,7 +4488,7 @@
     "rdpFull": "Fuldt",
     "rdpReal": "Ekte",
     "rdpMeta": "Meta",
-    "rdpUploadFiles": "Upload filer",
+    "rdpUploadFiles": "Upload Filer",
     "rdpFilesReadyToPaste": "Filer klare til at limes ind",
     "rdpFilesReadyToPasteDescription": "{count} fil(er) kopieret til fjernudklipsholderen — trykk Ctrl+V på fjernskrivebordet for at indsætte.",
     "rdpUploadFailed": "Uploaden mislykkedes",

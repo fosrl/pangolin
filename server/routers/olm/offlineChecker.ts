@@ -5,7 +5,7 @@ import { eq, lt, isNull, and, or } from "drizzle-orm";
 import logger from "@server/logger";
 import { sendTerminateClient } from "../client/terminate";
 import { OlmErrorCodes } from "./error";
-import { getOfflineThresholds } from "#dynamic/lib/offlineThresholds";
+import { getOfflineThresholds } from "@server/lib/offlineThresholds";
 
 // Track if the offline checker interval is running
 let offlineCheckerInterval: NodeJS.Timeout | null = null;

@@ -55,13 +55,15 @@ import type {
     ListLauncherSitesResponse,
     ListLauncherViewsResponse
 } from "@server/routers/launcher/types";
-import type { GetResourcePolicyResponse } from "@server/routers/policy";
+import type {
+    GetResourcePolicyResponse,
+    ListResourcePolicyMtlsCertificatesResponse
+} from "@server/routers/policy";
 import type { ListRemoteExitNodesResponse } from "@server/routers/remoteExitNode/types";
 import type {
     GetResourcePoliciesResponse,
     GetResourceWhitelistResponse,
     ListResourceAiModelsResponse,
-    ListResourceMtlsCertificatesResponse,
     ListResourceNamesResponse,
     ListResourceRolesResponse,
     ListResourceRulesResponse,
@@ -927,6 +929,27 @@ export const orgQueries = {
 
                 return res.data.data;
             }
+        }),
+    resourcePolicyMtlsCertificates: ({
+        resourcePolicyId
+    }: {
+        resourcePolicyId: number;
+    }) =>
+        queryOptions({
+            queryKey: [
+                "RESOURCE_POLICY",
+                resourcePolicyId,
+                "MTLS_CERTIFICATES"
+            ] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<ListResourcePolicyMtlsCertificatesResponse>
+                >(`/resource-policy/${resourcePolicyId}/mtls/certificates`, {
+                    signal
+                });
+
+                return res.data.data.certificates;
+            }
         })
 };
 
@@ -1655,17 +1678,6 @@ export const resourceQueries = {
                 >(`/resource/${resourceId}/whitelist`, { signal });
 
                 return res.data.data.whitelist;
-            }
-        }),
-    resourceMtlsCertificates: ({ resourceId }: { resourceId: number }) =>
-        queryOptions({
-            queryKey: ["RESOURCES", resourceId, "MTLS_CERTIFICATES"] as const,
-            queryFn: async ({ signal, meta }) => {
-                const res = await meta!.api.get<
-                    AxiosResponse<ListResourceMtlsCertificatesResponse>
-                >(`/resource/${resourceId}/mtls/certificates`, { signal });
-
-                return res.data.data.certificates;
             }
         }),
     policies: ({ resourceId }: { resourceId: number }) =>

@@ -857,7 +857,10 @@ export async function verifyResourceSession(
 
                     return allowed(
                         res,
-                        whitelistEmail ? { email: whitelistEmail } : undefined,
+                        forwardedUserData(
+                            resource,
+                            whitelistEmail ? { email: whitelistEmail } : undefined
+                        ),
                         dontStripSession
                     );
                 }
@@ -899,7 +902,11 @@ export async function verifyResourceSession(
                             parsedBody.data
                         );
 
-                        return allowed(res, userData, dontStripSession);
+                        return allowed(
+                            res,
+                            forwardedUserData(resource, userData),
+                            dontStripSession
+                        );
                     }
 
                     logger.debug(
@@ -951,7 +958,10 @@ export async function verifyResourceSession(
 
                         return allowed(
                             res,
-                            { ...allowedUserData, dontStripSession },
+                            forwardedUserData(resource, {
+                                ...allowedUserData,
+                                dontStripSession
+                            }),
                             dontStripSession
                         );
                     }
@@ -1158,6 +1168,19 @@ async function notAllowed(
     return response<VerifyUserResponse>(res, data);
 }
 
+// Badger only sets the Remote-* identity headers for fields present in the
+// response, so omitting the user data is enough to keep them off the upstream
+// request. Some backends (e.g. embedded device web servers) reject requests
+// carrying headers they don't recognize. Inference resources skip this since
+// the AI gateway relies on those headers for attribution.
+function forwardedUserData<T>(
+    resource: Resource,
+    userData: T | undefined
+): T | undefined {
+    // Treat a missing value (older hybrid payloads) as enabled
+    return resource.forwardIdentityHeaders === false ? undefined : userData;
+}
+
 function allowed(
     res: Response,
     userData?: BasicUserData | EmailOnlyUserData,
@@ -1209,7 +1232,11 @@ async function allowAccessToken(
 
     if (!tokenItem.persistSession) {
         logAccessTokenAccessAudit(tokenItem, resource, userData, auditBody);
-        return allowed(res, userData, dontStripSession);
+        return allowed(
+            res,
+            forwardedUserData(resource, userData),
+            dontStripSession
+        );
     }
 
     const resourceSessionToken = extractResourceSessionToken(
@@ -1241,7 +1268,11 @@ async function allowAccessToken(
             logger.debug(
                 "Resource allowed because existing access token session is valid"
             );
-            return allowed(res, userData, dontStripSession);
+            return allowed(
+                res,
+                forwardedUserData(resource, userData),
+                dontStripSession
+            );
         }
     }
 
@@ -1274,7 +1305,7 @@ async function createAccessTokenSession(
     );
     res.appendHeader("Set-Cookie", cookie);
     logger.debug("Access token is valid, creating new session");
-    return allowed(res, userData);
+    return allowed(res, forwardedUserData(resource, userData));
 }
 
 async function getAccessTokenUserData(

@@ -36,7 +36,8 @@ function getActionsCategories(root: boolean) {
             [t("createOrgUser")]: "createOrgUser",
             [t("actionApplyBlueprint")]: "applyBlueprint",
             [t("actionListBlueprints")]: "listBlueprints",
-            [t("actionGetBlueprint")]: "getBlueprint"
+            [t("actionGetBlueprint")]: "getBlueprint",
+            [t("actionReGenerateSecret")]: "reGenerateSecret"
         },
 
         Domain: {

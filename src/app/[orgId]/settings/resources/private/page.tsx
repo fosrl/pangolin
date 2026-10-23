@@ -6,7 +6,6 @@ import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { getCachedOrg } from "@app/lib/api/getCachedOrg";
 import OrgProvider from "@app/providers/OrgProvider";
-import { build } from "@server/build";
 import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import type { ListAllSiteResourcesByOrgResponse } from "@server/routers/siteResource";
 import type { AxiosResponse } from "axios";
@@ -120,7 +119,7 @@ export default async function ClientResourcesPage(
     );
 
     let initialCertificates: GetBatchedCertificateResponse | undefined;
-    if (build !== "oss" && certDomains.length > 0) {
+    if (certDomains.length > 0) {
         try {
             const certSearchParams = new URLSearchParams(
                 certDomains.map((domain) => ["domains", domain])

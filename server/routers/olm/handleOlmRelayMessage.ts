@@ -148,16 +148,35 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
     );
 
     if (isBatch) {
+        // olm treats relayPort as a single value shared by the whole batch, so
+        // send one batched ack per distinct relay port
+        const byPort = new Map<number, typeof pushable>();
+        for (const v of pushable) {
+            const group = byPort.get(v.relayPort);
+            if (group) {
+                group.push(v);
+            } else {
+                byPort.set(v.relayPort, [v]);
+            }
+        }
+
+        const messages = [...byPort.entries()].map(([relayPort, group]) => ({
+            type: "olm/wg/peer/relay",
+            data: {
+                siteIds: group.map((v) => v.siteId),
+                relayEndpoints: group.map((v) => v.relayEndpoint),
+                relayPort,
+                chainIds: group.map((v) => v.chainId)
+            }
+        }));
+
+        const last = messages.pop()!;
+        for (const msg of messages) {
+            await sendToClient(olm.olmId, msg);
+        }
+
         return {
-            message: {
-                type: "olm/wg/peer/relay",
-                data: {
-                    siteIds: pushable.map((v) => v.siteId),
-                    relayEndpoints: pushable.map((v) => v.relayEndpoint),
-                    relayPort: pushable.map((v) => v.relayPort),
-                    chainIds: pushable.map((v) => v.chainId)
-                }
-            },
+            message: last,
             broadcast: false,
             excludeSender: false
         };

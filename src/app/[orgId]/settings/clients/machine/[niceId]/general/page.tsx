@@ -209,10 +209,6 @@ export default function GeneralPage() {
                 </SettingsSectionHeader>
 
                 <SettingsSectionBody>
-                    {showRoles && (
-                        <PaidFeaturesAlert tiers={tierMatrix.fullRbac} />
-                    )}
-
                     <SettingsSectionForm>
                         <Form {...form}>
                             <form
@@ -257,15 +253,21 @@ export default function GeneralPage() {
                                 />
 
                                 {showRoles && (
-                                    <OrgRolesTagField
-                                        form={form}
-                                        name="roles"
-                                        orgId={client.orgId}
-                                        supportsMultipleRolesPerUser={true}
-                                        showMultiRolePaywallMessage={false}
-                                        paywallMessage=""
-                                        disabled={!canAssignRoles}
-                                    />
+                                    <>
+                                        <PaidFeaturesAlert
+                                            tiers={tierMatrix.fullRbac}
+                                        />
+
+                                        <OrgRolesTagField
+                                            form={form}
+                                            name="roles"
+                                            orgId={client.orgId}
+                                            supportsMultipleRolesPerUser={true}
+                                            showMultiRolePaywallMessage={false}
+                                            paywallMessage=""
+                                            disabled={!canAssignRoles}
+                                        />
+                                    </>
                                 )}
                             </form>
                         </Form>

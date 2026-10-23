@@ -4,7 +4,8 @@ export type PolicyAuthMethodId =
     | "pincode"
     | "passcode"
     | "email"
-    | "headerAuth";
+    | "headerAuth"
+    | "mtls";
 
 export const setPasswordSchema = z.object({
     password: z.string().min(4).max(100)

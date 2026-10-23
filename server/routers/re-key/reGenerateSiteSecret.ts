@@ -1,16 +1,3 @@
-/*
- * This file is part of a proprietary work.
- *
- * Copyright (c) 2025-2026 Fossorial, Inc.
- * All rights reserved.
- *
- * This file is licensed under the Fossorial Commercial License.
- * You may not use this file except in compliance with the License.
- * Unauthorized use, copying, modification, or distribution is strictly prohibited.
- *
- * This file is not licensed under the AGPLv3.
- */
-
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, Newt, newts, sites } from "@server/db";
@@ -24,7 +11,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { hashPassword } from "@server/auth/password";
 import { addPeer, deletePeer } from "@server/routers/gerbil/peers";
 import { getAllowedIps } from "@server/routers/target/helpers";
-import { disconnectClient, sendToClient } from "#private/routers/ws";
+import { disconnectClient, sendToClient } from "#dynamic/routers/ws";
 
 const updateSiteParamsSchema = z.strictObject({
     siteId: z.coerce.number().int().positive()
@@ -35,6 +22,40 @@ const updateSiteBodySchema = z.strictObject({
     secret: z.string().min(1).max(255).optional(),
     pubKey: z.string().optional(),
     disconnect: z.boolean().optional().default(true)
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/re-key/{siteId}/regenerate-site-secret",
+    description:
+        "Regenerate the credentials for a site. For newt sites a new secret is required; for wireguard sites a new public key is required.",
+    tags: [OpenAPITags.Site],
+    request: {
+        params: updateSiteParamsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: updateSiteBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.object({ newtId: z.string().optional() }),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function reGenerateSiteSecret(

@@ -222,15 +222,18 @@ export async function handleSubscriptionCreated(
 
                 let numUsers: number;
                 let numSites: number;
+                let numMachines: number;
                 let tier = "enterprise";
 
                 if (subscriptionPriceId === priceSet[LicenseId.TIER1]) {
                     numUsers = 25;
                     numSites = 25;
+                    numMachines = 25;
                     tier = "tier1";
                 } else if (subscriptionPriceId === priceSet[LicenseId.TIER2]) {
                     numUsers = 50;
                     numSites = 100;
+                    numMachines = 50;
                     tier = "tier2";
                 } else {
                     logger.error(
@@ -240,7 +243,7 @@ export async function handleSubscriptionCreated(
                 }
 
                 logger.debug(
-                    `License type determined: ${numUsers} users, ${numSites} sites for subscription ${subscription.id}`
+                    `License type determined: ${numUsers} users, ${numSites} sites, ${numMachines} machines for subscription ${subscription.id}`
                 );
 
                 // Grace period of 5 days added on top of the current billing
@@ -266,6 +269,7 @@ export async function handleSubscriptionCreated(
                             paidFor: true,
                             users: numUsers,
                             sites: numSites,
+                            machines: numMachines,
                             tier: tier,
                             expiresAt: expiresAt
                         })
@@ -293,6 +297,7 @@ export async function handleSubscriptionCreated(
                             personalUseOnly: false,
                             users: numUsers,
                             sites: numSites,
+                            machines: numMachines,
                             modifySubscriptionLink: `${config.getRawConfig().app.dashboard_url}/${customer.orgId}/settings/billing`
                         }),
                         {

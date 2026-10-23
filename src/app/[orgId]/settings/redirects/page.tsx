@@ -5,6 +5,7 @@ import type { SelectedResource } from "@app/components/resource-selector";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
+import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import { GetDomainResponse } from "@server/routers/domain/getDomain";
 import type { ListRedirectsResponse } from "@server/routers/redirect";
 import { GetResourceResponse } from "@server/routers/resource/getResource";
@@ -127,6 +128,50 @@ export default async function RedirectIndexPage(props: RedirectIndexPageProps) {
         baseDomain: redirect.baseDomain
     }));
 
+    // Prefetched in one batched call so the table doesn't fire a separate
+    // certificate request per visible row once it mounts on the client.
+    const certDomains = Array.from(
+        new Set(
+            redirectRows
+                .map((redirect) => {
+                    if (redirect.resourceId) {
+                        if (
+                            redirect.resourceSsl &&
+                            redirect.resourceFullDomain
+                        ) {
+                            return redirect.resourceFullDomain;
+                        }
+                        return null;
+                    }
+                    if (!redirect.ssl || !redirect.baseDomain) {
+                        return null;
+                    }
+                    return [redirect.subdomain, redirect.baseDomain]
+                        .filter(Boolean)
+                        .join(".");
+                })
+                .filter((domain): domain is string => Boolean(domain))
+        )
+    );
+
+    let initialCertificates: GetBatchedCertificateResponse | undefined;
+    if (certDomains.length > 0) {
+        try {
+            const certSearchParams = new URLSearchParams(
+                certDomains.map((domain) => ["domains", domain])
+            );
+            const certRes = await internal.get<
+                AxiosResponse<GetBatchedCertificateResponse>
+            >(
+                `/org/${orgId}/batched-certificates?${certSearchParams.toString()}`,
+                header
+            );
+            initialCertificates = certRes.data.data;
+        } catch {
+            // leave undefined so each row falls back to fetching its own
+        }
+    }
+
     return (
         <>
             <SettingsSectionTitle
@@ -144,6 +189,7 @@ export default async function RedirectIndexPage(props: RedirectIndexPageProps) {
                 }}
                 initialFilterResource={initialFilterResource}
                 initialFilterDomain={initialFilterDomain}
+                initialCertificates={initialCertificates}
             />
         </>
     );

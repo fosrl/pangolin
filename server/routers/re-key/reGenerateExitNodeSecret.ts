@@ -1,16 +1,3 @@
-/*
- * This file is part of a proprietary work.
- *
- * Copyright (c) 2025-2026 Fossorial, Inc.
- * All rights reserved.
- *
- * This file is licensed under the Fossorial Commercial License.
- * You may not use this file except in compliance with the License.
- * Unauthorized use, copying, modification, or distribution is strictly prohibited.
- *
- * This file is not licensed under the AGPLv3.
- */
-
 import { NextFunction, Request, Response } from "express";
 import {
     db,
@@ -30,7 +17,7 @@ import { hashPassword } from "@server/auth/password";
 import logger from "@server/logger";
 import { and, eq } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
-import { disconnectClient, sendToClient } from "#private/routers/ws";
+import { disconnectClient, sendToClient } from "#dynamic/routers/ws";
 
 export const paramsSchema = z.object({
     orgId: z.string()
@@ -40,6 +27,40 @@ const bodySchema = z.strictObject({
     remoteExitNodeId: z.string().length(15),
     secret: z.string().length(48),
     disconnect: z.boolean().optional().default(true)
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/re-key/{orgId}/regenerate-remote-exit-node-secret",
+    description:
+        "Regenerate the secret for a remote exit node. Optionally disconnects the node so it must reconnect with the new secret.",
+    tags: [OpenAPITags.RemoteExitNode],
+    request: {
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: bodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.null(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function reGenerateExitNodeSecret(
@@ -68,12 +89,25 @@ export async function reGenerateExitNodeSecret(
             );
         }
 
+        const { orgId } = parsedParams.data;
         const { remoteExitNodeId, secret, disconnect } = parsedBody.data;
 
+        // Only allow re-keying a node that belongs to this org (a node can be
+        // shared across several orgs; any of them may re-key it)
         const [existingRemoteExitNode] = await db
-            .select()
+            .select({ remoteExitNodeId: remoteExitNodes.remoteExitNodeId })
             .from(remoteExitNodes)
-            .where(eq(remoteExitNodes.remoteExitNodeId, remoteExitNodeId));
+            .innerJoin(
+                exitNodeOrgs,
+                eq(exitNodeOrgs.exitNodeId, remoteExitNodes.exitNodeId)
+            )
+            .where(
+                and(
+                    eq(remoteExitNodes.remoteExitNodeId, remoteExitNodeId),
+                    eq(exitNodeOrgs.orgId, orgId)
+                )
+            )
+            .limit(1);
 
         if (!existingRemoteExitNode) {
             return next(

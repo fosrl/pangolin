@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { portRangeStringSchema } from "@server/lib/ip";
 import { MaintenanceSchema } from "#dynamic/lib/blueprints/MaintenanceSchema";
 import { MtlsSchema } from "#dynamic/lib/blueprints/MtlsSchema";
+import { resourceModeSupportsMtls } from "@server/lib/mtlsModes";
 import { isValidRegionId } from "@server/db/regions";
 import { isValidHttpMethodList } from "@server/lib/validators";
 import { wildcardSubdomainSchema } from "@server/lib/schemas";
@@ -58,6 +59,7 @@ const healthCheckHostnameSchema = z
     );
 
 export const TargetHealthCheckSchema = z.object({
+    name: z.string().optional(),
     hostname: healthCheckHostnameSchema,
     port: z.int().min(1).max(65535),
     enabled: z.boolean().optional().default(true),
@@ -123,8 +125,27 @@ export const AuthSchema = z.object({
         }),
     "sso-users": z.array(z.string()).optional().default([]),
     "whitelist-users": z.array(z.email()).optional().default([]),
-    "auto-login-idp": z.int().positive().optional()
+    "auto-login-idp": z.int().positive().optional(),
+    mtls: MtlsSchema.optional()
 });
+
+// The shape MtlsSchema has where mTLS is supported; the open-source schema is
+// empty, so callers read the fields through this type.
+export type BlueprintMtls = {
+    enabled?: boolean;
+    "ca-certificates"?: string[];
+};
+
+/**
+ * A resource's mTLS settings: under 'auth' like the other auth methods, or
+ * the deprecated top-level 'mtls'.
+ */
+export function getBlueprintResourceMtls(resource: {
+    auth?: { mtls?: unknown };
+    mtls?: unknown;
+}): BlueprintMtls | undefined {
+    return (resource.auth?.mtls ?? resource.mtls) as BlueprintMtls | undefined;
+}
 
 export const RuleSchema = z
     .object({
@@ -326,17 +347,20 @@ export const PublicResourceSchema = z
         targets: z.array(TargetSchema.nullable()).optional().default([]),
         auth: AuthSchema.optional(),
         "host-header": z.string().optional(),
+        "forward-identity-headers": z.boolean().optional(),
         "tls-server-name": z.string().optional(),
         "verify-upstream-tls": z.boolean().optional(),
         "load-balancing-strategy": z
             .enum(["wrr", "p2c", "hrw", "leasttime"])
             .optional(),
-        headers: z.array(HeaderSchema).optional(), // deprecated alias for requestHeaders
-        requestHeaders: z.array(HeaderSchema).optional(),
-        responseHeaders: z.array(HeaderSchema).optional(),
+        "request-headers": z.array(HeaderSchema).optional(),
+        "response-headers": z.array(HeaderSchema).optional(),
+        headers: z.array(HeaderSchema).optional(), // deprecated alias for request-headers
+        requestHeaders: z.array(HeaderSchema).optional(), // deprecated alias for request-headers
+        responseHeaders: z.array(HeaderSchema).optional(), // deprecated alias for response-headers
         rules: z.array(RuleSchema).optional(),
         maintenance: MaintenanceSchema.optional(),
-        mtls: MtlsSchema.optional(),
+        mtls: MtlsSchema.optional(), // deprecated alias for auth.mtls
         "auth-daemon": AuthDaemonSchema.optional(),
         "proxy-protocol": z.boolean().optional(),
         "proxy-protocol-version": z.int().min(1).optional(),
@@ -453,43 +477,51 @@ export const PublicResourceSchema = z
     )
     .refine(
         (resource) => {
-            if (isTargetsOnlyResource(resource) || !resource.mtls?.enabled) {
+            if (
+                isTargetsOnlyResource(resource) ||
+                !getBlueprintResourceMtls(resource)?.enabled
+            ) {
                 return true;
             }
 
-            return (resource.mode ?? resource.protocol) === "http";
+            return resourceModeSupportsMtls(resource.mode ?? resource.protocol);
         },
         {
-            path: ["mtls"],
-            error: "mTLS is only supported when mode is 'http'"
+            path: ["auth", "mtls"],
+            error: "mTLS is only supported when mode is 'http', 'ssh', 'rdp', 'vnc' or 'inference'"
         }
     )
     .refine(
         (resource) => {
-            if (isTargetsOnlyResource(resource) || !resource.mtls?.enabled) {
+            if (
+                isTargetsOnlyResource(resource) ||
+                !getBlueprintResourceMtls(resource)?.enabled
+            ) {
                 return true;
             }
 
             return resource.ssl !== false;
         },
         {
-            path: ["mtls"],
+            path: ["auth", "mtls"],
             error: "mTLS requires 'ssl' to be enabled"
         }
     )
     .refine(
         (resource) => {
-            if (isTargetsOnlyResource(resource) || !resource.mtls?.enabled) {
+            if (
+                isTargetsOnlyResource(resource) ||
+                !getBlueprintResourceMtls(resource)?.enabled
+            ) {
                 return true;
             }
 
-            const caCertificates = (
-                resource.mtls as { "ca-certificates"?: string[] }
-            )["ca-certificates"];
+            const caCertificates =
+                getBlueprintResourceMtls(resource)?.["ca-certificates"];
             return (caCertificates?.length ?? 0) > 0;
         },
         {
-            path: ["mtls", "ca-certificates"],
+            path: ["auth", "mtls", "ca-certificates"],
             error: "mTLS requires at least one entry in 'ca-certificates'"
         }
     )
@@ -829,47 +861,62 @@ export const PrivateResourceSchema = z
 
 export const ResourcePolicyRuleSchema = RuleSchema;
 
-export const ResourcePolicySchema = z.object({
-    name: z.string().min(1).max(255),
-    sso: z.boolean().optional().default(true),
-    "auto-login-idp": z.int().positive().optional().nullable(),
-    "sso-roles": z
-        .array(z.string())
-        .optional()
-        .default([])
-        .refine((roles) => !roles.includes("Admin"), {
-            error: "Admin role cannot be included in sso-roles"
-        }),
-    "sso-users": z.array(z.string()).optional().default([]),
-    password: z.string().min(4).max(100).optional().nullable(),
-    pincode: z
-        .string()
-        .regex(/^\d{6}$/)
-        .optional()
-        .nullable(),
-    "basic-auth": z
-        .object({
-            user: z.string().min(4).max(100),
-            password: z.string().min(4).max(100),
-            "extended-compatibility": z.boolean().default(true)
-        })
-        .optional()
-        .nullable(),
-    "email-whitelist-enabled": z.boolean().optional().default(false),
-    "whitelist-users": z
-        .array(
-            z.email().or(
-                z.string().regex(/^\*@[\w.-]+\.[a-zA-Z]{2,}$/, {
-                    error: "Invalid email address. Wildcard (*) must be the entire local part."
-                })
+export const ResourcePolicySchema = z
+    .object({
+        name: z.string().min(1).max(255),
+        sso: z.boolean().optional().default(true),
+        "auto-login-idp": z.int().positive().optional().nullable(),
+        "sso-roles": z
+            .array(z.string())
+            .optional()
+            .default([])
+            .refine((roles) => !roles.includes("Admin"), {
+                error: "Admin role cannot be included in sso-roles"
+            }),
+        "sso-users": z.array(z.string()).optional().default([]),
+        password: z.string().min(4).max(100).optional().nullable(),
+        pincode: z
+            .string()
+            .regex(/^\d{6}$/)
+            .optional()
+            .nullable(),
+        "basic-auth": z
+            .object({
+                user: z.string().min(4).max(100),
+                password: z.string().min(4).max(100),
+                "extended-compatibility": z.boolean().default(true)
+            })
+            .optional()
+            .nullable(),
+        "email-whitelist-enabled": z.boolean().optional().default(false),
+        "whitelist-users": z
+            .array(
+                z.email().or(
+                    z.string().regex(/^\*@[\w.-]+\.[a-zA-Z]{2,}$/, {
+                        error: "Invalid email address. Wildcard (*) must be the entire local part."
+                    })
+                )
             )
-        )
-        .transform((v) => v.map((e) => e.toLowerCase()))
-        .optional()
-        .default([]),
-    "apply-rules": z.boolean().optional().default(false),
-    rules: z.array(ResourcePolicyRuleSchema).optional().default([])
-});
+            .transform((v) => v.map((e) => e.toLowerCase()))
+            .optional()
+            .default([]),
+        "apply-rules": z.boolean().optional().default(false),
+        rules: z.array(ResourcePolicyRuleSchema).optional().default([]),
+        mtls: MtlsSchema.optional()
+    })
+    .refine(
+        (policy) => {
+            const mtls = policy.mtls as BlueprintMtls | undefined;
+            if (!mtls?.enabled) {
+                return true;
+            }
+            return (mtls["ca-certificates"]?.length ?? 0) > 0;
+        },
+        {
+            path: ["mtls", "ca-certificates"],
+            error: "mTLS requires at least one entry in 'ca-certificates'"
+        }
+    );
 export type ResourcePolicyData = z.infer<typeof ResourcePolicySchema>;
 
 // Schema for the entire configuration object

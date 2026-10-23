@@ -449,7 +449,7 @@ export default function RedirectForm({
                                                 />
                                             </SettingsFormCell>
 
-                                            <SettingsFormCell span="full">
+                                            {/* <SettingsFormCell span="full">
                                                 <FormField
                                                     control={form.control}
                                                     name="permanent"
@@ -476,7 +476,7 @@ export default function RedirectForm({
                                                         </FormItem>
                                                     )}
                                                 />
-                                            </SettingsFormCell>
+                                            </SettingsFormCell> */}
                                         </>
                                     )}
                                 </SettingsFormGrid>

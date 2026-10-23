@@ -19,6 +19,7 @@ import createHttpError from "http-errors";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { build } from "@server/build";
+import { isResourceMtlsEnforced } from "@server/lib/mtls";
 
 const getResourceAuthInfoSchema = z.strictObject({
     resourceGuid: z.string()
@@ -39,6 +40,8 @@ export type GetResourceAuthInfoResponse = {
     wildcard: boolean;
     fullDomain: string | null;
     whitelist: boolean;
+    // a client certificate is required during the TLS handshake
+    mtls: boolean;
     skipToIdpId: number | null;
     orgId: string;
     postAuthPath: string | null;
@@ -226,6 +229,7 @@ export async function getResourceAuthInfo(
                 wildcard: resource.wildcard ?? false,
                 fullDomain: resource.fullDomain,
                 whitelist: effectivePolicy?.emailWhitelistEnabled ?? false,
+                mtls: await isResourceMtlsEnforced(resource.resourceId),
                 skipToIdpId: effectivePolicy?.idpId ?? resource.skipToIdpId,
                 orgId: resource.orgId,
                 postAuthPath: resource.postAuthPath ?? null,

@@ -256,6 +256,27 @@ export default function GenerateLicenseKeysTable({
             }
         },
         {
+            accessorKey: "machines",
+            friendlyName: t("machineClients"),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() =>
+                            column.toggleSorting(column.getIsSorted() === "asc")
+                        }
+                    >
+                        {t("machineClients")}
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                );
+            },
+            cell: ({ row }) => {
+                const machines = row.original.machines;
+                return machines === -1 ? "∞" : machines;
+            }
+        },
+        {
             accessorKey: "terminateAt",
             friendlyName: t("licenseTableValidUntil"),
             header: ({ column }) => {

@@ -92,6 +92,7 @@ export default async function ClientsPage(props: ClientsPageProps) {
             orgId: params.orgId,
             online: client.online,
             olmVersion: client.olmVersion || undefined,
+            agentVersion: client.agentVersion || undefined,
             olmUpdateAvailable: Boolean(client.olmUpdateAvailable),
             userId: client.userId,
             username: client.username,

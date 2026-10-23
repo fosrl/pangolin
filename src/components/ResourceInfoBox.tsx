@@ -19,7 +19,6 @@ import {
 import { useTranslations } from "next-intl";
 import CertificateStatus from "@app/components/CertificateStatus";
 import { toUnicode } from "punycode";
-import { build } from "@server/build";
 
 type ResourceInfoBoxType = {};
 
@@ -118,7 +117,8 @@ export default function ResourceInfoBox({}: ResourceInfoBoxType) {
                                         authInfo.pincode ||
                                         authInfo.sso ||
                                         authInfo.whitelist ||
-                                        authInfo.headerAuth ? (
+                                        authInfo.headerAuth ||
+                                        authInfo.mtls ? (
                                             <div className="flex items-center space-x-2">
                                                 <ShieldCheck className="w-4 h-4 flex-shrink-0 text-green-500" />
                                                 <span>{t("protected")}</span>

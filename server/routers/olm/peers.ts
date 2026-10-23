@@ -148,6 +148,55 @@ export async function updatePeer(
     logger.info(`Updated peer ${peer.publicKey} on olm ${olmId}`);
 }
 
+export async function updatePeersBatch(
+    updates: {
+        clientId: number;
+        peer: {
+            siteId: number;
+            publicKey: string;
+            endpoint: string;
+            relayEndpoint?: string;
+            serverIP?: string | null;
+            serverPort?: number | null;
+            remoteSubnets?: string[] | null;
+            aliases?: Alias[] | null;
+        };
+        olmId: string;
+        version?: string | null;
+    }[]
+) {
+    if (updates.length === 0) {
+        return;
+    }
+
+    await sendToClientsBatch(
+        updates.map((item) => ({
+            clientId: item.olmId,
+            message: {
+                type: "olm/wg/peer/update",
+                data: {
+                    siteId: item.peer.siteId,
+                    publicKey: item.peer.publicKey,
+                    endpoint: item.peer.endpoint,
+                    relayEndpoint: item.peer.relayEndpoint,
+                    serverIP: item.peer.serverIP,
+                    serverPort: item.peer.serverPort,
+                    remoteSubnets: item.peer.remoteSubnets,
+                    aliases: item.peer.aliases
+                }
+            },
+            options: {
+                incrementConfigVersion: true,
+                compress: canCompress(item.version, "olm")
+            }
+        }))
+    ).catch((error) => {
+        logger.warn(`Error sending batched olm peer updates:`, error);
+    });
+
+    logger.info(`Updated ${updates.length} peer(s) on olms (batch)`);
+}
+
 export async function initPeerAddHandshake(
     clientId: number,
     peer: {
@@ -330,20 +379,28 @@ export async function initPeerAddHandshakeBatch(
         logger.warn(`Error sending batched olm handshakes:`, error);
     });
 
+    // One update per site instead of one per handshake
+    const clientIdsBySiteId = new Map<number, number[]>();
+    for (const item of handshakes) {
+        const clientIds = clientIdsBySiteId.get(item.peer.siteId);
+        if (clientIds) {
+            clientIds.push(item.clientId);
+        } else {
+            clientIdsBySiteId.set(item.peer.siteId, [item.clientId]);
+        }
+    }
+
     await Promise.all(
-        handshakes.map((item) =>
+        Array.from(clientIdsBySiteId.entries()).map(([siteId, clientIds]) =>
             db
                 .update(clientSitesAssociationsCache)
                 .set({ isJitMode: false })
                 .where(
                     and(
-                        eq(
+                        eq(clientSitesAssociationsCache.siteId, siteId),
+                        inArray(
                             clientSitesAssociationsCache.clientId,
-                            item.clientId
-                        ),
-                        eq(
-                            clientSitesAssociationsCache.siteId,
-                            item.peer.siteId
+                            clientIds
                         )
                     )
                 )

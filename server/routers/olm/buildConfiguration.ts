@@ -3,8 +3,8 @@ import {
     clientSiteResourcesAssociationsCache,
     clientSitesAssociationsCache,
     db,
-    exitNodes,
     networks,
+    newts,
     SiteResource,
     siteNetworks,
     siteResources,
@@ -16,9 +16,8 @@ import {
     generateRemoteSubnets
 } from "@server/lib/ip";
 import logger from "@server/logger";
-import { and, eq, inArray } from "drizzle-orm";
-import { addPeer, deletePeer } from "../newt/peers";
-import { SiR } from "react-icons/si";
+import { and, eq } from "drizzle-orm";
+import { addPeersBatch, deletePeersBatch } from "../newt/peers";
 
 export async function buildSiteConfigurationForOlmClient(
     client: Client,
@@ -41,7 +40,7 @@ export async function buildSiteConfigurationForOlmClient(
     let exitNodeAliases: string[] = [];
 
     // Get all sites data
-    const sitesData = await db
+    const sitesDataQuery = db
         .select()
         .from(sites)
         .innerJoin(
@@ -50,10 +49,26 @@ export async function buildSiteConfigurationForOlmClient(
         )
         .where(eq(clientSitesAssociationsCache.clientId, client.clientId));
 
+    // Batch-fetch the newt for every site so peer updates can be sent as one
+    // batch instead of looking up the newt per site. Not needed in JIT mode
+    // because no peers are pushed to the sites there.
+    const newtRowsQuery = jitMode
+        ? Promise.resolve([])
+        : db
+              .select({ siteId: newts.siteId, newtId: newts.newtId })
+              .from(newts)
+              .innerJoin(
+                  clientSitesAssociationsCache,
+                  eq(newts.siteId, clientSitesAssociationsCache.siteId)
+              )
+              .where(
+                  eq(clientSitesAssociationsCache.clientId, client.clientId)
+              );
+
     // Batch-fetch every site resource this client has access to across ALL sites
     // in a single query, then group by siteId in memory. This avoids issuing one
     // query per site (which would be N round-trips for N sites).
-    const allClientSiteResources = await db
+    const allClientSiteResourcesQuery = db
         .select({
             siteResource: siteResources,
             siteId: siteNetworks.siteId
@@ -77,6 +92,19 @@ export async function buildSiteConfigurationForOlmClient(
                 eq(siteResources.enabled, true)
             )
         );
+
+    const [sitesData, newtRows, allClientSiteResources] = await Promise.all([
+        sitesDataQuery,
+        newtRowsQuery,
+        allClientSiteResourcesQuery
+    ]);
+
+    const newtIdBySiteId = new Map<number, string>();
+    for (const row of newtRows) {
+        if (row.siteId != null && !newtIdBySiteId.has(row.siteId)) {
+            newtIdBySiteId.set(row.siteId, row.newtId);
+        }
+    }
 
     const siteResourcesBySiteId = new Map<number, SiteResource[]>();
     const siteResourcesForExitNode = [];
@@ -107,28 +135,8 @@ export async function buildSiteConfigurationForOlmClient(
         };
     }
 
-    // Batch-fetch exit nodes for all sites in one query (only needed in relay mode).
-    const exitNodesById = new Map<number, typeof exitNodes.$inferSelect>();
-    if (!jitMode && relay) {
-        const exitNodeIds = Array.from(
-            new Set(
-                sitesData
-                    .map(({ sites: s }) => s.exitNodeId)
-                    .filter((id): id is number => id != null)
-            )
-        );
-        if (exitNodeIds.length > 0) {
-            const nodes = await db
-                .select()
-                .from(exitNodes)
-                .where(inArray(exitNodes.exitNodeId, exitNodeIds));
-            for (const n of nodes) {
-                exitNodesById.set(n.exitNodeId, n);
-            }
-        }
-    }
-
-    const peerOps: Promise<unknown>[] = [];
+    const peersToDelete: Parameters<typeof deletePeersBatch>[0] = [];
+    const peersToAdd: Parameters<typeof addPeersBatch>[0] = [];
 
     // Process each site
     for (const {
@@ -175,12 +183,23 @@ export async function buildSiteConfigurationForOlmClient(
         //     continue;
         // }
 
+        const newtId = newtIdBySiteId.get(site.siteId);
+        if (!newtId) {
+            logger.warn(
+                `Newt not found for site ${site.siteId}, skipping peer updates`
+            );
+        }
+
         // If public key changed, delete old peer from this site
-        if (client.pubKey && client.pubKey != publicKey) {
-            logger.info(
+        if (newtId && client.pubKey && client.pubKey != publicKey) {
+            logger.debug(
                 `Public key mismatch. Deleting old peer from site ${site.siteId}...`
             );
-            peerOps.push(deletePeer(site.siteId, client.pubKey!));
+            peersToDelete.push({
+                siteId: site.siteId,
+                publicKey: client.pubKey,
+                newtId
+            });
         }
 
         if (!site.exitNodeSubnet) {
@@ -191,37 +210,30 @@ export async function buildSiteConfigurationForOlmClient(
         // Add the peer to the exit node for this site. The endpoint comes from
         // the already-joined association row above, so no extra query needed.
         if (association.endpoint && publicKey) {
-            logger.info(
-                `Adding peer ${publicKey} to site ${site.siteId} with endpoint ${association.endpoint}`
-            );
-            peerOps.push(
-                addPeer(site.siteId, {
-                    publicKey: publicKey,
-                    allowedIps: [`${client.subnet.split("/")[0]}/32`], // we want to only allow from that client
-                    endpoint: relay ? "" : association.endpoint
-                })
-            );
+            if (newtId) {
+                logger.debug(
+                    `Adding peer ${publicKey} to site ${site.siteId} with endpoint ${association.endpoint}`
+                );
+                peersToAdd.push({
+                    siteId: site.siteId,
+                    newtId,
+                    peer: {
+                        publicKey: publicKey,
+                        allowedIps: [`${client.subnet.split("/")[0]}/32`], // we want to only allow from that client
+                        endpoint: relay ? "" : association.endpoint
+                    }
+                });
+            }
         } else {
             logger.warn(
                 `Client ${client.clientId} has no endpoint, skipping peer addition`
             );
         }
 
-        let relayEndpoint: string | undefined = undefined;
-        if (relay) {
-            const exitNode = exitNodesById.get(site.exitNodeId);
-            if (!exitNode) {
-                logger.warn(`Exit node not found for site ${site.siteId}`);
-                continue;
-            }
-            relayEndpoint = `${exitNode.endpoint}:${exitNode.relayPort}`;
-        }
-
         // Add site configuration to the array
         siteConfigurations.push({
             siteId: site.siteId,
             name: site.name,
-            // relayEndpoint: relayEndpoint, // this can be undefined now if not relayed // lets not do this for now because it would conflict with the hole punch testing
             endpoint: site.endpoint,
             localEndpoints: site.localEndpoints
                 ? JSON.parse(site.localEndpoints)
@@ -234,10 +246,14 @@ export async function buildSiteConfigurationForOlmClient(
         });
     }
 
-    // Run all peer add/delete operations concurrently rather than serially per
-    // site, so total time is bounded by the slowest call instead of the sum.
-    if (peerOps.length > 0) {
-        Promise.allSettled(peerOps).catch((err) => {
+    // Send the peer removals and additions to the newts as one batch each
+    // without blocking the response on them. Removals go first so the old key
+    // is gone before the new one is added.
+    if (peersToDelete.length > 0 || peersToAdd.length > 0) {
+        (async () => {
+            await deletePeersBatch(peersToDelete);
+            await addPeersBatch(peersToAdd);
+        })().catch((err) => {
             logger.error("Error processing peer operations: ", err);
         });
     }

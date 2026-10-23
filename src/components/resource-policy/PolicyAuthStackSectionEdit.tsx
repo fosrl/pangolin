@@ -18,6 +18,7 @@ import { Button } from "@app/components/ui/button";
 import { Form, FormField } from "@app/components/ui/form";
 import { toast } from "@app/hooks/useToast";
 import { useEnvContext } from "@app/hooks/useEnvContext";
+import { usePolicyMtls } from "@app/hooks/usePolicyMtls";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
 import { resourceQueries } from "@app/lib/queries";
@@ -31,14 +32,7 @@ import type { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { toUnicode } from "punycode";
-import {
-    useActionState,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState
-} from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { createPolicySchema } from ".";
 import {
@@ -49,6 +43,7 @@ import {
 } from "./PolicyAuthMethodCredenzas";
 import { PolicyAuthOtherMethodsSection } from "./PolicyAuthOtherMethodsSection";
 import { PolicyAuthSsoSection } from "./PolicyAuthSsoSection";
+import { PolicyMtlsCertificatesCredenza } from "./PolicyMtlsCertificatesCredenza";
 import type { PolicyAuthMethodId } from "./policy-auth-method-id";
 import { SharedPolicyResourceNotice } from "./SharedPolicyResourceNotice";
 import z from "zod";
@@ -258,6 +253,10 @@ export function PolicyAuthStackSectionEdit({
     const [editingMethod, setEditingMethod] =
         useState<PolicyAuthMethodId | null>(null);
 
+    const mtls = usePolicyMtls();
+    const canSaveMtls =
+        mtls.isDirty && !(mtls.enabled && !mtls.hasCertificates);
+
     const sso = useWatch({ control: form.control, name: "sso" });
     const skipToIdpId = useWatch({
         control: form.control,
@@ -283,8 +282,22 @@ export function PolicyAuthStackSectionEdit({
         }
     }, [isInferenceResource, form]);
 
-    const [, formAction, isSubmitting] = useActionState(onSubmit, null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSavingOverlay, setIsSavingOverlay] = useState(false);
+
+    // Not using <form action>: React 19 resets the form after the action
+    // completes, and Radix Switch listens for that reset and flips controlled
+    // switches (e.g. SSO) back to their initial value.
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+            await onSubmit();
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
 
     async function onSubmit() {
         if (readonly && !isResourceOverlay) return;
@@ -416,6 +429,10 @@ export function PolicyAuthStackSectionEdit({
             policyUpdates.emailWhitelistEnabled = payload.emailWhitelistEnabled;
         }
 
+        if (canSaveMtls) {
+            requests.push(mtls.save().catch(handleError));
+        }
+
         try {
             const results = await Promise.all(requests);
             if (results.every((res) => res && res.status === 200)) {
@@ -437,15 +454,22 @@ export function PolicyAuthStackSectionEdit({
 
                 updatePolicy(policyUpdates);
 
+                // Traefik only enforces mTLS with a trusted CA and SSL.
+                const mtlsEnforced =
+                    mtls.supported &&
+                    mtls.enabled &&
+                    mtls.hasCertificates &&
+                    mtls.sslEnabled;
                 resourceContext?.updateAuthInfo(
                     isInferenceResource
-                        ? { sso: true }
+                        ? { sso: true, mtls: mtlsEnforced }
                         : {
                               sso: payload.sso,
                               whitelist: payload.emailWhitelistEnabled,
                               password: passcodeOnServerRef.current,
                               pincode: pincodeOnServerRef.current,
-                              headerAuth: headerAuthOnServerRef.current
+                              headerAuth: headerAuthOnServerRef.current,
+                              mtls: mtlsEnforced
                           }
                 );
 
@@ -537,7 +561,7 @@ export function PolicyAuthStackSectionEdit({
 
     return (
         <Form {...form}>
-            <form action={formAction}>
+            <form onSubmit={handleSubmit}>
                 <SettingsSection>
                     <SettingsSectionHeader>
                         <SettingsSectionTitle>
@@ -646,8 +670,9 @@ export function PolicyAuthStackSectionEdit({
                                 }
                             />
 
-                            {!isInferenceResource && (
+                            {(!isInferenceResource || mtls.supported) && (
                                 <PolicyAuthOtherMethodsSection
+                                    credentialMethods={!isInferenceResource}
                                     pinActive={pinActive}
                                     passcodeActive={passcodeActive}
                                     emailWhitelistEnabled={Boolean(
@@ -691,6 +716,32 @@ export function PolicyAuthStackSectionEdit({
                                                 );
                                             }
                                         )
+                                    }
+                                    mtls={
+                                        mtls.supported
+                                            ? {
+                                                  active: mtls.enabled,
+                                                  certificateCount:
+                                                      mtls.certificates.length,
+                                                  sslEnabled: mtls.sslEnabled,
+                                                  disabled: authReadonly,
+                                                  onConfigure: () =>
+                                                      openMethodEditor("mtls"),
+                                                  onToggle: (active) =>
+                                                      handleToggle(
+                                                          "mtls",
+                                                          active,
+                                                          () =>
+                                                              mtls.setEnabled(
+                                                                  false
+                                                              ),
+                                                          () =>
+                                                              mtls.setEnabled(
+                                                                  true
+                                                              )
+                                                      )
+                                              }
+                                            : undefined
                                     }
                                 />
                             )}
@@ -771,6 +822,29 @@ export function PolicyAuthStackSectionEdit({
                                     }}
                                 />
                             </>
+                        )}
+
+                        {mtls.supported && (
+                            <PolicyMtlsCertificatesCredenza
+                                open={editingMethod === "mtls"}
+                                onOpenChange={(open) => {
+                                    if (open) return;
+                                    closeCredenza();
+                                    // mTLS can't be enabled without a trusted CA.
+                                    if (!mtls.hasCertificates) {
+                                        mtls.setEnabled(false);
+                                    }
+                                }}
+                                resourcePolicyId={policy.resourcePolicyId}
+                                certificates={mtls.certificates}
+                                isLoading={mtls.isLoadingCertificates}
+                                onMtlsDisabled={() => {
+                                    updatePolicy({ mtlsEnabled: false });
+                                    resourceContext?.updateAuthInfo({
+                                        mtls: false
+                                    });
+                                }}
+                            />
                         )}
                     </SettingsSectionBody>
                     <SettingsSectionFooter>

@@ -8,6 +8,7 @@ import { db, orgs, resourcePolicies, type ResourcePolicy } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import logger from "@server/logger";
 import response from "@server/lib/response";
+import { countMtlsCertificates } from "@server/lib/mtls";
 
 const updateResourcePolicyParamsSchema = z.strictObject({
     resourcePolicyId: z.string().transform(Number).pipe(z.int().positive())
@@ -15,7 +16,13 @@ const updateResourcePolicyParamsSchema = z.strictObject({
 
 const updateResourcePolicyBodySchema = z.strictObject({
     name: z.string().min(1).max(255).optional(),
-    niceId: z.string().min(1).max(255).optional()
+    niceId: z.string().min(1).max(255).optional(),
+    mtlsEnabled: z
+        .boolean()
+        .optional()
+        .describe(
+            "Require clients to present a certificate signed by one of the policy's trusted CA certificates. Requires at least one CA certificate, and only takes effect on resources with SSL enabled (not TCP/UDP)."
+        )
 });
 
 registry.registerPath({
@@ -166,6 +173,21 @@ export async function updateResourcePolicy(
                     createHttpError(
                         HttpCode.CONFLICT,
                         `A resource policy with niceId "${updateData.niceId}" already exists`
+                    )
+                );
+            }
+        }
+
+        if (updateData.mtlsEnabled === true) {
+            const certificateCount = await countMtlsCertificates({
+                type: "policy",
+                resourcePolicyId: policy.resourcePolicyId
+            });
+            if (certificateCount === 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Add at least one trusted CA certificate before enabling mTLS."
                     )
                 );
             }

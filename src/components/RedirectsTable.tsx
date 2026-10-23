@@ -2,6 +2,7 @@
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import { ResourceAccessCertIndicator } from "@app/components/ResourceAccessCertIndicator";
 import {
     ResourceSelector,
     type SelectedResource
@@ -40,6 +41,7 @@ import { cn } from "@app/lib/cn";
 import { dataTableFilterPopoverContentClassName } from "@app/lib/dataTableFilterPopover";
 import { orgQueries } from "@app/lib/queries";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
+import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import { useQuery } from "@tanstack/react-query";
 import type { PaginationState } from "@tanstack/react-table";
 import {
@@ -113,6 +115,8 @@ type RedirectsTableProps = {
     rowCount: number;
     initialFilterResource?: SelectedResource | null;
     initialFilterDomain?: RedirectFilterDomain | null;
+    /** Certificates prefetched on the server, keyed by full domain. */
+    initialCertificates?: GetBatchedCertificateResponse;
 };
 
 export default function RedirectsTable({
@@ -121,7 +125,8 @@ export default function RedirectsTable({
     pagination,
     rowCount,
     initialFilterResource = null,
-    initialFilterDomain = null
+    initialFilterDomain = null,
+    initialCertificates
 }: RedirectsTableProps) {
     const router = useRouter();
     const t = useTranslations();
@@ -460,7 +465,36 @@ export default function RedirectsTable({
                         return <span>-</span>;
                     }
 
-                    return <CopyToClipboard text={source} isLink={false} />;
+                    const certDomainId = redirect.resourceId
+                        ? redirect.resourceDomainId
+                        : redirect.domainId;
+                    const certHostname = redirect.resourceId
+                        ? redirect.resourceFullDomain
+                        : domainHost;
+                    const showHttpsCertIndicator =
+                        sourceSsl &&
+                        certHostname != null &&
+                        certHostname !== "" &&
+                        certDomainId != null &&
+                        certDomainId !== "";
+
+                    return (
+                        <div className="flex items-center gap-2 min-w-0">
+                            {showHttpsCertIndicator ? (
+                                <ResourceAccessCertIndicator
+                                    orgId={orgId}
+                                    domainId={certDomainId}
+                                    fullDomain={certHostname}
+                                    initialCertValue={
+                                        initialCertificates?.[certHostname]
+                                    }
+                                />
+                            ) : null}
+                            <div className="">
+                                <CopyToClipboard text={source} isLink={false} />
+                            </div>
+                        </div>
+                    );
                 }
             },
             {
@@ -647,7 +681,8 @@ export default function RedirectsTable({
             domainFilterOpen,
             resourceFilterOpen,
             selectedDomain,
-            selectedResource
+            selectedResource,
+            initialCertificates
         ]
     );
 

@@ -186,6 +186,7 @@ export default function NetworkingPage() {
                             rel="noopener noreferrer"
                             className="text-primary hover:underline inline-flex items-center gap-1"
                         >
+                            {" "}
                             {t("learnMore")}
                             <ExternalLink className="size-3.5 shrink-0" />
                         </a>

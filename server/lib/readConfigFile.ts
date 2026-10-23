@@ -4,6 +4,16 @@ import { configFilePath1, configFilePath2 } from "./consts";
 import { z } from "zod";
 import stoi from "./stoi";
 import { getEnvOrYaml, readEnvOrFile } from "./getEnvOrYaml";
+// type-only: offlineThresholds imports config, which imports this file
+import type { OfflineThresholds } from "@server/lib/offlineThresholds";
+
+export const DEFAULT_OFFLINE_THRESHOLDS: OfflineThresholds = {
+    checkIntervalMs: 30 * 1000, // 30 seconds
+    newtMs: 2 * 60 * 1000, // 2 minutes
+    newtWireguardMs: 8 * 60 * 1000, // 8 minutes
+    olmMs: 2 * 60 * 1000, // 2 minutes
+    remoteExitNodeMs: 2 * 60 * 1000 // 2 minutes
+};
 
 const portSchema = z.number().positive().gt(0).lte(65535);
 
@@ -455,6 +465,36 @@ export const configSchema = z
                             .default(12)
                     })
                     .prefault({})
+            })
+            .prefault({}),
+        // How long a newt site / olm client / remote exit node has to go
+        // without a ping before the offline checker marks it offline, and how
+        // often the checkers run.
+        offline_checker: z
+            .object({
+                check_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.checkIntervalMs),
+                newt_threshold_ms: z
+                    .number()
+                    .int()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.newtMs),
+                // wireguard sites don't ping, so they are judged by their
+                // last bandwidth update instead
+                newt_wireguard_threshold_ms: z
+                    .number()
+                    .int()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.newtWireguardMs),
+                olm_threshold_ms: z
+                    .number()
+                    .int()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.olmMs),
+                remote_exit_node_threshold_ms: z
+                    .number()
+                    .int()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.remoteExitNodeMs)
             })
             .prefault({})
     })

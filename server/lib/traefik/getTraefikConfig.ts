@@ -48,6 +48,7 @@ import {
     buildTcpUdpLoadBalancerServers
 } from "./loadBalancer";
 import { applyPathRewriteMiddleware } from "./middleware";
+import { applyMtlsConfig, getMtlsCaCertificatesByResource } from "./mtls";
 import { buildRedirectConfig, RedirectRouteRow } from "./redirect";
 import { appendPathMatch, buildHostRule, computeRoutePriority } from "./rule";
 import { buildSiteResourceAliasCertPlaceholders } from "./siteResourceAlias";
@@ -416,6 +417,7 @@ export async function getTraefikConfig(
             wildcard: row.resourceWildcard,
             ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
             attachedTo: attachedToResource ? "resource" : "domain",
+            resourceId: row.resourceId,
             matchPath: row.matchPath,
             pathMatchType: row.pathMatchType,
             priority: row.priority,
@@ -423,6 +425,24 @@ export async function getTraefikConfig(
             preferWildcardCert: row.preferWildcardCert
         });
     }
+
+    // Trusted client-CA certificates for resources that require mTLS: HTTP,
+    // browser-gateway (SSH/RDP/VNC) and inference resources served over SSL,
+    // and the redirects attached to them.
+    const mtlsCaCertsByResource = await getMtlsCaCertificatesByResource([
+        ...[...resourcesMap.values()]
+            .filter((r) => r.mode === "http" && r.ssl)
+            .map((r) => r.resourceId as number),
+        ...[...browserGatewayResourcesMap.values()]
+            .filter((r) => r.ssl)
+            .map((r) => r.resourceId),
+        ...inferenceResources.filter((r) => r.ssl).map((r) => r.resourceId),
+        // redirects attached to a resource share its host, and are emitted
+        // even on exit nodes that don't serve the resource itself
+        ...redirectRoutes
+            .filter((r) => r.attachedTo === "resource" && r.ssl)
+            .map((r) => r.resourceId!)
+    ]);
 
     // make sure we have at least one resource
     if (
@@ -475,7 +495,7 @@ export async function getTraefikConfig(
                 config_output.http.services = {};
             }
 
-            const tls = buildWildcardTls({
+            let tls: Record<string, any> = buildWildcardTls({
                 fullDomain,
                 hasSubdomain: !!resource.subdomain,
                 domainCertResolver: resource.domainCertResolver,
@@ -516,6 +536,18 @@ export async function getTraefikConfig(
                 config_output.http.middlewares[headersMiddlewareName] =
                     customHeadersMiddleware;
                 routerMiddlewares.push(headersMiddlewareName);
+            }
+
+            const mtlsOptionsName = resource.ssl
+                ? applyMtlsConfig(
+                      config_output,
+                      resource.resourceId,
+                      mtlsCaCertsByResource.get(resource.resourceId),
+                      routerMiddlewares
+                  )
+                : undefined;
+            if (mtlsOptionsName) {
+                tls = { ...tls, options: mtlsOptionsName };
             }
 
             // Build routing rules
@@ -617,6 +649,7 @@ export async function getTraefikConfig(
     buildRedirectConfig({
         config_output,
         redirects: redirectRoutes,
+        mtlsCaCertsByResource,
         badgerMiddlewareName,
         redirectHttpsMiddlewareName,
         resolveTls: (redirect) =>
@@ -633,6 +666,7 @@ export async function getTraefikConfig(
         buildBrowserGatewayConfig({
             config_output,
             browserGatewayResourcesMap,
+            mtlsCaCertsByResource,
             browserGatewayUiUrl,
             maintenancePageUiUrl,
             badgerMiddlewareName,
@@ -740,7 +774,7 @@ export async function getTraefikConfig(
 
             const rule = buildHostRule(fullDomain, ir.wildcard);
 
-            const tls = buildWildcardTls({
+            let tls: Record<string, any> = buildWildcardTls({
                 fullDomain,
                 hasSubdomain: !!ir.subdomain,
                 domainCertResolver: ir.domainCertResolver,
@@ -759,6 +793,18 @@ export async function getTraefikConfig(
                 irHeadersMiddlewareName,
                 ...additionalMiddlewares
             ];
+
+            const mtlsOptionsName = ir.ssl
+                ? applyMtlsConfig(
+                      config_output,
+                      ir.resourceId,
+                      mtlsCaCertsByResource.get(ir.resourceId),
+                      routerMiddlewares
+                  )
+                : undefined;
+            if (mtlsOptionsName) {
+                tls = { ...tls, options: mtlsOptionsName };
+            }
 
             const { routers, services } = buildAiGatewayRouterAndService({
                 routerName,

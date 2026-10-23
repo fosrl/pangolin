@@ -14,7 +14,7 @@
 import { db, exitNodes } from "@server/db";
 import { eq, lt, isNull, and, or } from "drizzle-orm";
 import logger from "@server/logger";
-import { getOfflineThresholds } from "#private/lib/offlineThresholds";
+import { getOfflineThresholds } from "@server/lib/offlineThresholds";
 
 // Track if the offline checker interval is running
 let offlineCheckerInterval: NodeJS.Timeout | null = null;

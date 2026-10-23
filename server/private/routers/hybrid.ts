@@ -98,6 +98,7 @@ import { checkOrgAccessPolicy } from "@server/lib/checkOrgAccessPolicy";
 import { sanitizeString } from "@server/lib/sanitize";
 import {
     getRedirectsByHost,
+    getWhitelistEmail,
     type RedirectByHost
 } from "@server/db/queries/verifySessionQueries";
 
@@ -1881,8 +1882,19 @@ hybridRouter.post(
                 resourceId
             );
 
+            // Lets the node forward the whitelisted email downstream as
+            // Remote-Email, same as verifySession does locally
+            const whitelistEmail = result.resourceSession
+                ? await getWhitelistEmail(
+                      result.resourceSession.whitelistId,
+                      result.resourceSession.policyWhitelistId
+                  )
+                : null;
+
             // this is for backward compatibility with nodes that did not have the policy id checking
-            const modifiedResult: ResourceSessionValidationResult = {
+            const modifiedResult: ResourceSessionValidationResult & {
+                whitelistEmail: string | null;
+            } = {
                 ...result,
                 resourceSession: result.resourceSession
                     ? {
@@ -1901,7 +1913,8 @@ hybridRouter.post(
                               result.resourceSession.whitelistId ??
                               null
                       }
-                    : null
+                    : null,
+                whitelistEmail
             };
 
             return response(res, {

@@ -1,5 +1,6 @@
 import logger from "@server/logger";
 import config from "@server/lib/config";
+import { applyMtlsConfig } from "@server/lib/traefik/mtls";
 import {
     buildHostRule,
     appendPathMatch,
@@ -12,6 +13,8 @@ export type RedirectRouteRow = {
     fullDomain: string;
     hasSubdomain: boolean;
     attachedTo: "resource" | "domain";
+    /** Set when attachedTo is "resource". */
+    resourceId: number | null;
     enabled: boolean;
     name: string;
     wildcard: boolean | null;
@@ -35,13 +38,16 @@ export function buildRedirectConfig(params: {
     badgerMiddlewareName: string;
     redirectHttpsMiddlewareName: string;
     resolveTls: (row: RedirectRouteRow) => any | null;
+    // trusted client-CA PEMs for resources that require mTLS
+    mtlsCaCertsByResource: Map<number, string[]>;
 }): void {
     const {
         config_output,
         redirects,
         badgerMiddlewareName,
         redirectHttpsMiddlewareName,
-        resolveTls
+        resolveTls,
+        mtlsCaCertsByResource
     } = params;
 
     if (redirects.length === 0) {
@@ -69,6 +75,27 @@ export function buildRedirectConfig(params: {
             tls = resolveTls(redirect);
             if (tls === null) {
                 continue;
+            }
+        }
+
+        // A redirect attached to a resource listens on the resource's host,
+        // and Traefik resolves TLS options per host: unless it references the
+        // resource's mTLS options too, Traefik falls back to the defaults and
+        // the resource's mTLS is no longer enforced.
+        const redirectMiddlewares = [...routerMiddlewares];
+        if (
+            redirect.ssl &&
+            redirect.attachedTo === "resource" &&
+            redirect.resourceId !== null
+        ) {
+            const mtlsOptionsName = applyMtlsConfig(
+                config_output,
+                redirect.resourceId,
+                mtlsCaCertsByResource.get(redirect.resourceId),
+                redirectMiddlewares
+            );
+            if (mtlsOptionsName) {
+                tls = { ...tls, options: mtlsOptionsName };
             }
         }
 
@@ -113,7 +140,7 @@ export function buildRedirectConfig(params: {
 
         config_output.http.routers[routerName] = {
             entryPoints: [redirect.ssl ? httpsEntrypoint : httpEntrypoint],
-            middlewares: routerMiddlewares,
+            middlewares: redirectMiddlewares,
             service: NOOP_SERVICE,
             rule,
             priority,

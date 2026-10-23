@@ -6,3 +6,6 @@ export * from "./setResourcePolicyPincode";
 export * from "./setResourcePolicyHeaderAuth";
 export * from "./setResourcePolicyWhitelist";
 export * from "./setResourcePolicyRules";
+export * from "./createResourcePolicyMtlsCertificate";
+export * from "./listResourcePolicyMtlsCertificates";
+export * from "./deleteResourcePolicyMtlsCertificate";

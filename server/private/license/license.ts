@@ -11,12 +11,12 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { db, HostMeta, primaryDb, sites, users } from "@server/db";
+import { clients, db, HostMeta, primaryDb, sites, users } from "@server/db";
 import { hostMeta, licenseKey } from "@server/db";
 import logger from "@server/logger";
 import { createLocalCache } from "@server/lib/createLocalCache";
 import { validateJWT } from "./licenseJwt";
-import { count, eq } from "drizzle-orm";
+import { count, eq, isNull } from "drizzle-orm";
 import moment from "moment";
 import { encrypt, decrypt } from "@server/lib/crypto";
 import {
@@ -77,6 +77,7 @@ type TokenPayload = {
     tier: LicenseKeyTier;
     quantity: number;
     quantity_2: number;
+    quantity_3: number;
     terminateAt: string; // ISO
     iat: number; // Issued at
 };
@@ -190,9 +191,13 @@ LQIDAQAB
             };
         }
 
-        // Count used sites and users for license comparison
+        // Count used sites, users, and machine clients for license comparison
         const [siteCountRes] = await db.select({ value: count() }).from(sites);
         const [userCountRes] = await db.select({ value: count() }).from(users);
+        const [machineCountRes] = await db
+            .select({ value: count() })
+            .from(clients)
+            .where(isNull(clients.userId));
         const keyIdsRes = await db
             .select({ licenseKeyId: licenseKey.licenseKeyId })
             .from(licenseKey);
@@ -202,7 +207,8 @@ LQIDAQAB
             isHostLicensed: true,
             isLicenseValid: false,
             usedSites: siteCountRes?.value ?? 0,
-            usedUsers: userCountRes?.value ?? 0
+            usedUsers: userCountRes?.value ?? 0,
+            usedMachines: machineCountRes?.value ?? 0
         };
 
         this.checkInProgress = true;
@@ -216,6 +222,7 @@ LQIDAQAB
                 const res = this.statusCache.get("status") as LicenseStatus;
                 res.usedSites = status.usedSites;
                 res.usedUsers = status.usedUsers;
+                res.usedMachines = status.usedMachines;
                 return res;
             }
             logger.debug("Checking license status...");
@@ -273,7 +280,8 @@ LQIDAQAB
                         iat: new Date(payload.iat * 1000),
                         terminateAt: new Date(payload.terminateAt),
                         quantity: payload.quantity,
-                        quantity_2: payload.quantity_2
+                        quantity_2: payload.quantity_2,
+                        quantity_3: payload.quantity_3
                     });
 
                     if (payload.type === "host") {
@@ -391,6 +399,7 @@ LQIDAQAB
                     cached.terminateAt = new Date(payload.terminateAt);
                     cached.quantity = payload.quantity;
                     cached.quantity_2 = payload.quantity_2;
+                    cached.quantity_3 = payload.quantity_3;
 
                     // Encrypt the updated token before storing
                     const encryptedKey = encrypt(
@@ -445,7 +454,8 @@ LQIDAQAB
                 }
             }
 
-            // Compute host status: quantity = users, quantity_2 = sites
+            // Compute host status: quantity = users, quantity_2 = sites,
+            // quantity_3 = machine clients
             // When multiple host keys are active, prefer a valid key over an
             // invalid one, and among equally-valid keys prefer the highest tier.
             let selectedHostKey: LicenseKeyCache | undefined;
@@ -468,13 +478,20 @@ LQIDAQAB
                     continue;
                 }
 
-                // Only consider quantity if defined and >= 0 (quantity = users, quantity_2 = sites)
+                // Only consider quantity if defined and >= 0 (quantity = users,
+                // quantity_2 = sites, quantity_3 = machine clients). Keys issued
+                // before machine limits existed omit quantity_3 and so impose no
+                // machine limit.
                 if (cached.quantity_2 !== undefined && cached.quantity_2 >= 0) {
                     status.maxSites =
                         (status.maxSites ?? 0) + cached.quantity_2;
                 }
                 if (cached.quantity !== undefined && cached.quantity >= 0) {
                     status.maxUsers = (status.maxUsers ?? 0) + cached.quantity;
+                }
+                if (cached.quantity_3 !== undefined && cached.quantity_3 >= 0) {
+                    status.maxMachines =
+                        (status.maxMachines ?? 0) + cached.quantity_3;
                 }
             }
 
@@ -483,12 +500,14 @@ LQIDAQAB
                 status.tier = selectedHostKey.tier;
             }
 
-            // Invalidate license if over user or site limits
+            // Invalidate license if over user, site, or machine client limits
             if (
                 (status.maxSites !== undefined &&
                     (status.usedSites ?? 0) > status.maxSites) ||
                 (status.maxUsers !== undefined &&
-                    (status.usedUsers ?? 0) > status.maxUsers)
+                    (status.usedUsers ?? 0) > status.maxUsers) ||
+                (status.maxMachines !== undefined &&
+                    (status.usedMachines ?? 0) > status.maxMachines)
             ) {
                 status.isLicenseValid = false;
             }

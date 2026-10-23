@@ -93,7 +93,7 @@ export const handleNewtGetConfigMessage: MessageHandler = async (context) => {
             .where(eq(exitNodes.exitNodeId, site.exitNodeId))
             .limit(1);
         if (
-            exitNode.reachableAt &&
+            exitNode?.reachableAt &&
             existingSite.exitNodeSubnet &&
             existingSite.listenPort
         ) {

@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 import { InferSelectModel, sql } from "drizzle-orm";
 import {
-    check,
     index,
     integer,
     primaryKey,
@@ -232,6 +231,11 @@ export const resources = sqliteTable(
         mtlsEnabled: integer("mtlsEnabled", { mode: "boolean" })
             .notNull()
             .default(false),
+        forwardIdentityHeaders: integer("forwardIdentityHeaders", {
+            mode: "boolean"
+        })
+            .notNull()
+            .default(true),
         postAuthPath: text("postAuthPath"),
         health: text("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: integer("wildcard", { mode: "boolean" })
@@ -537,7 +541,7 @@ export const exitNodes = sqliteTable("exitNodes", {
     endpoint: text("endpoint").notNull(), // this is how to reach gerbil externally - gets put into the wireguard config
     publicKey: text("publicKey").notNull(),
     listenPort: integer("listenPort").notNull(),
-    relayPort: integer("relayPort").notNull(),
+    relayPort: integer("relayPort").notNull().default(21820),
     reachableAt: text("reachableAt"), // this is the internal address of the gerbil http server for command control
     maxConnections: integer("maxConnections"),
     online: integer("online", { mode: "boolean" }).notNull().default(false),
@@ -851,6 +855,7 @@ export const olms = sqliteTable(
         dateCreated: text("dateCreated").notNull(),
         version: text("version"),
         agent: text("agent"),
+        agentVersion: text("agentVersion"),
         name: text("name"),
         clientId: integer("clientId").references(() => clients.clientId, {
             // we will switch this depending on the current org it wants to connect to
@@ -1565,6 +1570,9 @@ export const resourcePolicies = sqliteTable("resourcePolicies", {
     emailWhitelistEnabled: integer("emailWhitelistEnabled", { mode: "boolean" })
         .notNull()
         .default(false),
+    mtlsEnabled: integer("mtlsEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
     niceId: text("niceId").notNull(),
     idpId: integer("idpId").references(() => idp.idpId, {
         onDelete: "set null"
@@ -2102,6 +2110,50 @@ export const certificates = sqliteTable("certificates", {
     keyFile: text("keyFile")
 });
 
+export const resourceMtlsCertificates = sqliteTable(
+    "resourceMtlsCertificates",
+    {
+        mtlsCertificateId: integer("mtlsCertificateId").primaryKey({
+            autoIncrement: true
+        }),
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" }),
+        name: text("name"),
+        certificate: text("certificate").notNull(),
+        subject: text("subject"),
+        issuer: text("issuer"),
+        serialNumber: text("serialNumber"),
+        fingerprint: text("fingerprint"),
+        notBefore: integer("notBefore"),
+        notAfter: integer("notAfter"),
+        createdAt: integer("createdAt").notNull()
+    }
+);
+
+export const resourcePolicyMtlsCertificates = sqliteTable(
+    "resourcePolicyMtlsCertificates",
+    {
+        mtlsCertificateId: integer("mtlsCertificateId").primaryKey({
+            autoIncrement: true
+        }),
+        resourcePolicyId: integer("resourcePolicyId")
+            .notNull()
+            .references(() => resourcePolicies.resourcePolicyId, {
+                onDelete: "cascade"
+            }),
+        name: text("name"),
+        certificate: text("certificate").notNull(),
+        subject: text("subject"),
+        issuer: text("issuer"),
+        serialNumber: text("serialNumber"),
+        fingerprint: text("fingerprint"),
+        notBefore: integer("notBefore"),
+        notAfter: integer("notAfter"),
+        createdAt: integer("createdAt").notNull()
+    }
+);
+
 export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
@@ -2203,3 +2255,9 @@ export type SiteResourceAiProvider = InferSelectModel<
 export type ResourceAiModel = InferSelectModel<typeof resourceAiModels>;
 export type SiteResourceAiModel = InferSelectModel<typeof siteResourceAiModels>;
 export type Certificate = InferSelectModel<typeof certificates>;
+export type ResourceMtlsCertificate = InferSelectModel<
+    typeof resourceMtlsCertificates
+>;
+export type ResourcePolicyMtlsCertificate = InferSelectModel<
+    typeof resourcePolicyMtlsCertificates
+>;

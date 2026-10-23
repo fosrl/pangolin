@@ -32,6 +32,7 @@ import m23 from "./scriptsPg/1.22.0";
 import m24 from "./scriptsPg/1.23.0";
 import m25 from "./scriptsPg/1.24.0";
 import m26 from "./scriptsPg/1.25.0";
+import m27 from "./scriptsPg/1.25.3";
 
 // THIS CANNOT IMPORT ANYTHING FROM THE SERVER
 // EXCEPT FOR THE DATABASE AND THE SCHEMA
@@ -63,7 +64,8 @@ const migrations = [
     { version: "1.22.0", run: m23 },
     { version: "1.23.0", run: m24 },
     { version: "1.24.0", run: m25 },
-    { version: "1.25.0", run: m26 }
+    { version: "1.25.0", run: m26 },
+    { version: "1.25.3", run: m27 }
     // Add new migrations here as they are created
 ] as {
     version: string;

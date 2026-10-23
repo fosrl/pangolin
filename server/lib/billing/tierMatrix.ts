@@ -10,7 +10,6 @@ export enum TierFeature {
     ActionLogs = "actionLogs", // set the retention period to none on downgrade
     ConnectionLogs = "connectionLogs",
     AISessionLogs = "aiSessionLogs",
-    RotateCredentials = "rotateCredentials",
     MaintenancePage = "maintenancePage", // handle downgrade
     DevicePosture = "devicePosture",
     TwoFactorEnforcement = "twoFactorEnforcement", // handle downgrade by setting to optional
@@ -26,8 +25,7 @@ export enum TierFeature {
     WildcardSubdomain = "wildcardSubdomain",
     NewtAutoUpdate = "newtAutoUpdate",
     ResourcePolicies = "resourcePolicies",
-    RoleBasedSSHControls = "roleBasedSSHControls",
-    Mtls = "mtls" // handle downgrade by disabling mTLS on resources
+    RoleBasedSSHControls = "roleBasedSSHControls"
 }
 
 export const tierMatrix: Record<TierFeature, Tier[]> = {
@@ -40,7 +38,6 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.ActionLogs]: ["tier2", "tier3", "enterprise"],
     [TierFeature.ConnectionLogs]: ["tier2", "tier3", "enterprise"],
     [TierFeature.AISessionLogs]: ["tier2", "tier3", "enterprise"],
-    [TierFeature.RotateCredentials]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.MaintenancePage]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.DevicePosture]: ["tier2", "tier3", "enterprise"],
     [TierFeature.TwoFactorEnforcement]: [
@@ -71,6 +68,5 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.WildcardSubdomain]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.NewtAutoUpdate]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.ResourcePolicies]: ["tier3", "enterprise"],
-    [TierFeature.RoleBasedSSHControls]: ["tier3", "enterprise"],
-    [TierFeature.Mtls]: ["tier3", "enterprise"]
+    [TierFeature.RoleBasedSSHControls]: ["tier3", "enterprise"]
 };

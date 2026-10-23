@@ -20,6 +20,7 @@ export interface RebuildQueueManager {
     enqueue(job: RebuildJob): Promise<void>;
     startProcessing(handlers: RebuildJobHandlers): void;
     isQueued(job: RebuildJob): Promise<boolean>;
+    anyQueued(jobs: RebuildJob[]): Promise<boolean>;
 }
 
 // In-process FIFO used when there is no Redis to back a distributed queue
@@ -46,6 +47,10 @@ class InMemoryRebuildQueue implements RebuildQueueManager {
 
     async isQueued(job: RebuildJob): Promise<boolean> {
         return this.queuedSet.has(dedupeKey(job));
+    }
+
+    async anyQueued(jobs: RebuildJob[]): Promise<boolean> {
+        return jobs.some((job) => this.queuedSet.has(dedupeKey(job)));
     }
 
     async enqueue(job: RebuildJob): Promise<void> {

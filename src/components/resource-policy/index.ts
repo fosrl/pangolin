@@ -32,6 +32,17 @@ export const createPolicySchema = z.object({
         })
         .nullable()
         .default(null),
+    mtlsEnabled: z.boolean().default(false),
+    // PEM blocks held locally until the policy is created
+    mtlsCertificates: z
+        .array(
+            z.object({
+                mtlsCertificateId: z.number(),
+                name: z.string().nullable(),
+                certificate: z.string()
+            })
+        )
+        .default([]),
     applyRules: z.boolean().default(false),
     rules: z
         .array(

@@ -22,6 +22,7 @@ import * as newt from "./newt";
 import * as olm from "./olm";
 import * as ssh from "./ssh";
 import * as serverInfo from "./serverInfo";
+import * as reKey from "./re-key";
 import HttpCode from "@server/types/HttpCode";
 import {
     verifyAccessTokenAccess,
@@ -1101,6 +1102,28 @@ authenticated.put(
     policy.setResourcePolicyRules
 );
 
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/mtls/certificate",
+    verifyResourcePolicyAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.updateResourcePolicy),
+    logActionAudit(ActionsEnum.updateResourcePolicy),
+    policy.createResourcePolicyMtlsCertificate
+);
+authenticated.get(
+    "/resource-policy/:resourcePolicyId/mtls/certificates",
+    verifyResourcePolicyAccess,
+    verifyUserHasAction(ActionsEnum.getResourcePolicy),
+    policy.listResourcePolicyMtlsCertificates
+);
+authenticated.delete(
+    "/resource-policy/:resourcePolicyId/mtls/certificate/:mtlsCertificateId",
+    verifyResourcePolicyAccess,
+    verifyUserHasAction(ActionsEnum.updateResourcePolicy),
+    logActionAudit(ActionsEnum.updateResourcePolicy),
+    policy.deleteResourcePolicyMtlsCertificate
+);
+
 authenticated.post(
     `/resource/:resourceId/password`,
     verifyResourceAccess,
@@ -1994,6 +2017,52 @@ authenticated.post(
     verifyUserHasAction(ActionsEnum.restartCertificate),
     logActionAudit(ActionsEnum.restartCertificate),
     certificates.restartCertificate
+);
+
+authenticated.post(
+    "/re-key/:clientId/regenerate-client-secret",
+    verifyClientAccess, // this is first to set the org id
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateClientSecret
+);
+
+authenticated.post(
+    "/re-key/:siteId/regenerate-site-secret",
+    verifySiteAccess, // this is first to set the org id
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateSiteSecret
+);
+
+authenticated.put(
+    "/re-key/:orgId/regenerate-remote-exit-node-secret",
+    verifyOrgAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateExitNodeSecret
+);
+
+authenticated.put(
+    "/resource/:resourceId/mtls/certificate",
+    verifyResourceAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.createResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.createResourceMtlsCertificate),
+    resource.createResourceMtlsCertificate
+);
+authenticated.get(
+    "/resource/:resourceId/mtls/certificates",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.listResourceMtlsCertificates),
+    resource.listResourceMtlsCertificates
+);
+authenticated.delete(
+    "/resource/:resourceId/mtls/certificate/:mtlsCertificateId",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.deleteResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.deleteResourceMtlsCertificate),
+    resource.deleteResourceMtlsCertificate
 );
 
 // Auth routes

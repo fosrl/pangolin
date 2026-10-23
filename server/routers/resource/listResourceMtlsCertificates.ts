@@ -1,39 +1,22 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, resourceMtlsCertificates, resources } from "@server/db";
-import { asc, eq } from "drizzle-orm";
+import { db, resources } from "@server/db";
+import { eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { getResourceMtlsOwner, listMtlsCertificates } from "@server/lib/mtls";
 import { ListResourceMtlsCertificatesResponse } from "@server/routers/resource/types";
 
 const listResourceMtlsCertificatesParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
 
-function queryResourceMtlsCertificates(resourceId: number) {
-    return db
-        .select({
-            mtlsCertificateId: resourceMtlsCertificates.mtlsCertificateId,
-            resourceId: resourceMtlsCertificates.resourceId,
-            name: resourceMtlsCertificates.name,
-            subject: resourceMtlsCertificates.subject,
-            issuer: resourceMtlsCertificates.issuer,
-            serialNumber: resourceMtlsCertificates.serialNumber,
-            fingerprint: resourceMtlsCertificates.fingerprint,
-            notBefore: resourceMtlsCertificates.notBefore,
-            notAfter: resourceMtlsCertificates.notAfter,
-            createdAt: resourceMtlsCertificates.createdAt
-        })
-        .from(resourceMtlsCertificates)
-        .where(eq(resourceMtlsCertificates.resourceId, resourceId))
-        .orderBy(asc(resourceMtlsCertificates.mtlsCertificateId));
-}
-
-const description = "List the trusted CA certificates for a resource's mTLS.";
+const description =
+    "List the trusted CA certificates for a resource's mTLS. When no shared resource policy is assigned, these are the resource's inline policy certificates.";
 
 registry.registerPath({
     method: "get",
@@ -77,7 +60,11 @@ export async function listResourceMtlsCertificates(
         const { resourceId } = parsedParams.data;
 
         const [resource] = await db
-            .select({ resourceId: resources.resourceId })
+            .select({
+                resourceId: resources.resourceId,
+                resourcePolicyId: resources.resourcePolicyId,
+                defaultResourcePolicyId: resources.defaultResourcePolicyId
+            })
             .from(resources)
             .where(eq(resources.resourceId, resourceId))
             .limit(1);
@@ -91,7 +78,9 @@ export async function listResourceMtlsCertificates(
             );
         }
 
-        const certificates = await queryResourceMtlsCertificates(resourceId);
+        const certificates = (
+            await listMtlsCertificates(getResourceMtlsOwner(resource))
+        ).map((c) => ({ ...c, resourceId }));
 
         return response<ListResourceMtlsCertificatesResponse>(res, {
             data: { certificates },

@@ -28,10 +28,7 @@ import {
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { InfoIcon } from "lucide-react";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { OlmInstallCommands } from "@app/components/olm-install-commands";
-import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 export default function CredentialsPage() {
     const { env } = useEnvContext();
@@ -52,8 +49,6 @@ export default function CredentialsPage() {
     );
     const [showCredentialsAlert, setShowCredentialsAlert] = useState(false);
     const [shouldDisconnect, setShouldDisconnect] = useState(true);
-
-    const { isPaidUser } = usePaidStatus();
 
     const handleConfirmRegenerate = async () => {
         try {
@@ -119,10 +114,6 @@ export default function CredentialsPage() {
                         </SettingsSectionDescription>
                     </SettingsSectionHeader>
                     <SettingsSectionBody>
-                        <PaidFeaturesAlert
-                            tiers={tierMatrix.rotateCredentials}
-                        />
-
                         <InfoSections cols={3}>
                             <InfoSection>
                                 <InfoSectionTitle>
@@ -174,33 +165,25 @@ export default function CredentialsPage() {
                             </Alert>
                         )}
                     </SettingsSectionBody>
-                    {!env.flags.disableEnterpriseFeatures && (
-                        <SettingsSectionFooter>
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setShouldDisconnect(false);
-                                    setModalOpen(true);
-                                }}
-                                disabled={
-                                    !isPaidUser(tierMatrix.rotateCredentials)
-                                }
-                            >
-                                {t("regenerateCredentialsButton")}
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    setShouldDisconnect(true);
-                                    setModalOpen(true);
-                                }}
-                                disabled={
-                                    !isPaidUser(tierMatrix.rotateCredentials)
-                                }
-                            >
-                                {t("clientRegenerateAndDisconnect")}
-                            </Button>
-                        </SettingsSectionFooter>
-                    )}
+                    <SettingsSectionFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShouldDisconnect(false);
+                                setModalOpen(true);
+                            }}
+                        >
+                            {t("regenerateCredentialsButton")}
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setShouldDisconnect(true);
+                                setModalOpen(true);
+                            }}
+                        >
+                            {t("clientRegenerateAndDisconnect")}
+                        </Button>
+                    </SettingsSectionFooter>
                 </SettingsSection>
 
                 <OlmInstallCommands

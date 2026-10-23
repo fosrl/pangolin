@@ -16,6 +16,8 @@ export type LicenseStatus = {
     usedSites?: number;
     maxUsers?: number;
     usedUsers?: number;
+    maxMachines?: number;
+    usedMachines?: number;
 };
 
 export type LicenseKeyCache = {
@@ -28,6 +30,7 @@ export type LicenseKeyCache = {
     terminateAt?: Date;
     quantity?: number;
     quantity_2?: number;
+    quantity_3?: number;
 };
 
 export class License {

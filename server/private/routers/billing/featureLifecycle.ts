@@ -24,6 +24,7 @@ import {
     loginPageBrandingOrg,
     loginPageOrg,
     orgs,
+    resourcePolicies,
     resources,
     roles,
     siteResources,
@@ -295,16 +296,8 @@ async function disableFeature(
                 await disableAISessionLogs(orgId);
                 break;
 
-            case TierFeature.RotateCredentials:
-                await disableRotateCredentials(orgId);
-                break;
-
             case TierFeature.MaintenancePage:
                 await disablemaintenancePage(orgId);
-                break;
-
-            case TierFeature.Mtls:
-                await disableMtls(orgId);
                 break;
 
             case TierFeature.DevicePosture:
@@ -532,7 +525,16 @@ async function disableMtls(orgId: string): Promise<void> {
         })
         .where(eq(resources.orgId, orgId));
 
-    logger.info(`Disabled mTLS on all resources for org ${orgId}`);
+    await db
+        .update(resourcePolicies)
+        .set({
+            mtlsEnabled: false
+        })
+        .where(eq(resourcePolicies.orgId, orgId));
+
+    logger.info(
+        `Disabled mTLS on all resources and resource policies for org ${orgId}`
+    );
 }
 
 async function disableDevicePosture(orgId: string): Promise<void> {}

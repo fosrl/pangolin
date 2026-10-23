@@ -3,7 +3,7 @@ import { hasActiveConnections } from "#dynamic/routers/ws";
 import { eq, lt, isNull, and, or, ne, not, inArray } from "drizzle-orm";
 import logger from "@server/logger";
 import { fireSiteOfflineAlert, fireSiteOnlineAlert } from "@server/lib/alerts";
-import { getOfflineThresholds } from "#dynamic/lib/offlineThresholds";
+import { getOfflineThresholds } from "@server/lib/offlineThresholds";
 
 // Track if the offline checker interval is running
 let offlineCheckerInterval: NodeJS.Timeout | null = null;

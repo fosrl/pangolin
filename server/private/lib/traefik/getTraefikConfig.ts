@@ -22,7 +22,6 @@ import {
     domains,
     exitNodes,
     loginPage,
-    resourceMtlsCertificates,
     redirects,
     resources,
     siteNetworks,
@@ -53,6 +52,10 @@ import {
 } from "@server/lib/traefik/browserGateway";
 import { buildWildcardTls } from "@server/lib/traefik/certResolver";
 import { buildCustomHeadersMiddleware } from "@server/lib/traefik/headersMiddleware";
+import {
+    applyMtlsConfig,
+    getMtlsCaCertificatesByResource
+} from "@server/lib/traefik/mtls";
 import {
     buildHttpLoadBalancerServers,
     buildLoadBalancingStrategy,
@@ -153,8 +156,6 @@ export async function getTraefikConfig(
             maintenanceTitle: resources.maintenanceTitle,
             maintenanceMessage: resources.maintenanceMessage,
             maintenanceEstimatedTime: resources.maintenanceEstimatedTime,
-
-            mtlsEnabled: resources.mtlsEnabled,
 
             // Target fields
             targetId: targets.targetId,
@@ -305,9 +306,7 @@ export async function getTraefikConfig(
                 maintenanceModeType: row.maintenanceModeType,
                 maintenanceTitle: row.maintenanceTitle,
                 maintenanceMessage: row.maintenanceMessage,
-                maintenanceEstimatedTime: row.maintenanceEstimatedTime,
-
-                mtlsEnabled: row.mtlsEnabled
+                maintenanceEstimatedTime: row.maintenanceEstimatedTime
             });
         }
 
@@ -336,33 +335,6 @@ export async function getTraefikConfig(
             .filter((r) => r.mode === "http" && r.verifyUpstreamTls)
             .map((r) => r.resourceId)
     );
-
-    // Trusted client-CA certificates for resources that require mTLS.
-    const mtlsResourceIds = [
-        ...new Set(
-            [...resourcesMap.values()]
-                .filter((r) => r.mode === "http" && r.mtlsEnabled)
-                .map((r) => r.resourceId as number)
-        )
-    ];
-    const mtlsCaCertsByResource = new Map<number, string[]>();
-    if (mtlsResourceIds.length > 0) {
-        const caRows = await db
-            .select({
-                resourceId: resourceMtlsCertificates.resourceId,
-                certificate: resourceMtlsCertificates.certificate
-            })
-            .from(resourceMtlsCertificates)
-            .where(
-                inArray(resourceMtlsCertificates.resourceId, mtlsResourceIds)
-            )
-            .orderBy(resourceMtlsCertificates.mtlsCertificateId);
-        for (const row of caRows) {
-            const list = mtlsCaCertsByResource.get(row.resourceId) ?? [];
-            list.push(row.certificate);
-            mtlsCaCertsByResource.set(row.resourceId, list);
-        }
-    }
 
     // Group browser gateway targets by resource
     const browserGatewayResourcesMap = browserGatewayUiUrl
@@ -526,6 +498,7 @@ export async function getTraefikConfig(
             wildcard: row.resourceWildcard,
             ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
             attachedTo: attachedToResource ? "resource" : "domain",
+            resourceId: row.resourceId,
             matchPath: row.matchPath,
             pathMatchType: row.pathMatchType,
             priority: row.priority,
@@ -583,6 +556,24 @@ export async function getTraefikConfig(
         validCerts = await getValidCertificatesForDomains(domains, true); // we are caching here because this is called often
         // logger.debug(`Valid certs for domains: ${JSON.stringify(validCerts)}`);
     }
+
+    // Trusted client-CA certificates for resources that require mTLS: HTTP,
+    // browser-gateway (SSH/RDP/VNC) and inference resources served over SSL,
+    // and the redirects attached to them.
+    const mtlsCaCertsByResource = await getMtlsCaCertificatesByResource([
+        ...[...resourcesMap.values()]
+            .filter((r) => r.mode === "http" && r.ssl)
+            .map((r) => r.resourceId as number),
+        ...[...browserGatewayResourcesMap.values()]
+            .filter((r) => r.ssl)
+            .map((r) => r.resourceId),
+        ...inferenceResources.filter((r) => r.ssl).map((r) => r.resourceId),
+        // redirects attached to a resource share its host, and are emitted
+        // even on exit nodes that don't serve the resource itself
+        ...redirectRoutes
+            .filter((r) => r.attachedTo === "resource" && r.ssl)
+            .map((r) => r.resourceId!)
+    ]);
 
     const traefikRateLimit = config.getRawConfig().traefik.rate_limit;
 
@@ -695,56 +686,17 @@ export async function getTraefikConfig(
                 }
             }
 
-            // mTLS: Traefik resolves TLS options per hostname, and routers on
-            // the same host that reference different options make it fall back
-            // to the defaults, so the options are keyed on the resource (not
-            // the per-path router key) and every TLS router below (including
-            // the maintenance ones) references the same name.
-            const mtlsCaCerts =
-                resource.mtlsEnabled && resource.ssl
-                    ? mtlsCaCertsByResource.get(resource.resourceId)
-                    : undefined;
-            if (mtlsCaCerts && mtlsCaCerts.length > 0) {
-                const mtlsOptionsName = `resource-${resource.resourceId}-mtls`;
-                const mtlsHeadersMiddlewareName = `resource-${resource.resourceId}-mtls-headers`;
-
-                if (!config_output.tls) {
-                    config_output.tls = {};
-                }
-                if (!config_output.tls.options) {
-                    config_output.tls.options = {};
-                }
-                // caFiles entries are Traefik FileOrContent values: anything
-                // that isn't an existing file path is read as inline PEM, so
-                // the CA certs travel in this config to any exit node.
-                config_output.tls.options[mtlsOptionsName] = {
-                    clientAuth: {
-                        caFiles: mtlsCaCerts,
-                        clientAuthType: "RequireAndVerifyClientCert"
-                    }
-                };
-
-                config_output.http.middlewares[mtlsHeadersMiddlewareName] = {
-                    passTLSClientCert: {
-                        pem: false,
-                        info: {
-                            notAfter: true,
-                            notBefore: true,
-                            serialNumber: true,
-                            sans: true,
-                            subject: {
-                                commonName: true,
-                                organization: true
-                            },
-                            issuer: {
-                                commonName: true,
-                                organization: true
-                            }
-                        }
-                    }
-                };
-                routerMiddlewares.unshift(mtlsHeadersMiddlewareName);
-
+            const mtlsOptionsName = resource.ssl
+                ? applyMtlsConfig(
+                      config_output,
+                      resource.resourceId,
+                      mtlsCaCertsByResource.get(resource.resourceId),
+                      routerMiddlewares
+                  )
+                : undefined;
+            if (mtlsOptionsName) {
+                // every TLS router below (including the maintenance ones)
+                // must reference the same options
                 tls = { ...tls, options: mtlsOptionsName };
             }
 
@@ -979,6 +931,7 @@ export async function getTraefikConfig(
     buildRedirectConfig({
         config_output,
         redirects: redirectRoutes,
+        mtlsCaCertsByResource,
         badgerMiddlewareName,
         redirectHttpsMiddlewareName,
         resolveTls: (redirect) => {
@@ -1008,6 +961,7 @@ export async function getTraefikConfig(
         buildBrowserGatewayConfig({
             config_output,
             browserGatewayResourcesMap,
+            mtlsCaCertsByResource,
             browserGatewayUiUrl,
             maintenancePageUiUrl,
             badgerMiddlewareName,
@@ -1187,6 +1141,18 @@ export async function getTraefikConfig(
             }
 
             routerMiddlewares.push(...additionalMiddlewares);
+
+            const mtlsOptionsName = ir.ssl
+                ? applyMtlsConfig(
+                      config_output,
+                      ir.resourceId,
+                      mtlsCaCertsByResource.get(ir.resourceId),
+                      routerMiddlewares
+                  )
+                : undefined;
+            if (mtlsOptionsName) {
+                tls = { ...tls, options: mtlsOptionsName };
+            }
 
             const { routers, services } = buildAiGatewayRouterAndService({
                 routerName,

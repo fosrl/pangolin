@@ -93,7 +93,9 @@ export function CreatePolicyForm({}: CreatePolicyFormProps) {
             rules: [],
             password: null,
             headerAuth: null,
-            pincode: null
+            pincode: null,
+            mtlsEnabled: false,
+            mtlsCertificates: []
         }
     });
 
@@ -122,6 +124,16 @@ export function CreatePolicyForm({}: CreatePolicyFormProps) {
                         // email OTP
                         emailWhitelistEnabled: payload.emailWhitelistEnabled,
                         emails: payload.emails.map((email) => email.text),
+                        // mTLS
+                        mtlsEnabled:
+                            payload.mtlsEnabled &&
+                            payload.mtlsCertificates.length > 0,
+                        mtlsCaCertificates: payload.mtlsEnabled
+                            ? payload.mtlsCertificates.map((c) => ({
+                                  certificate: c.certificate,
+                                  ...(c.name ? { name: c.name } : {})
+                              }))
+                            : [],
                         // rules
                         applyRules: payload.applyRules,
                         rules: payload.rules

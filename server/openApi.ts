@@ -34,7 +34,8 @@ export enum OpenAPITags {
     AiBudget = "AI Budget",
     VirtualApiKey = "Virtual API Key",
     Redirect = "Redirect",
-    Label = "Label"
+    Label = "Label",
+    RemoteExitNode = "Remote Exit Node"
 }
 
 // Order here controls the order tags are displayed in Swagger UI

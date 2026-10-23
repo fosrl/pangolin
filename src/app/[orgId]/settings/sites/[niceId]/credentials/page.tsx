@@ -35,10 +35,7 @@ import {
     generateObfuscatedWireGuardConfig
 } from "@app/lib/wireguard";
 import { QRCodeCanvas } from "qrcode.react";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { NewtSiteInstallCommands } from "@app/components/newt-install-commands";
-import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { AxiosResponse } from "axios";
 import { useQuery } from "@tanstack/react-query";
 import { productUpdatesQueries } from "@app/lib/queries";
@@ -66,8 +63,6 @@ export default function CredentialsPage() {
     const [showWireGuardAlert, setShowWireGuardAlert] = useState(false);
     const [loadingDefaults, setLoadingDefaults] = useState(false);
     const [shouldDisconnect, setShouldDisconnect] = useState(true);
-
-    const { isPaidUser } = usePaidStatus();
 
     const { data: latestVersions } = useQuery(
         productUpdatesQueries.latestVersion(true)
@@ -206,10 +201,6 @@ export default function CredentialsPage() {
                                 </SettingsSectionDescription>
                             </SettingsSectionHeader>
 
-                            <PaidFeaturesAlert
-                                tiers={tierMatrix.rotateCredentials}
-                            />
-
                             <SettingsSectionBody>
                                 <InfoSections cols={3}>
                                     <InfoSection>
@@ -272,37 +263,25 @@ export default function CredentialsPage() {
                                     </Alert>
                                 )}
                             </SettingsSectionBody>
-                            {!env.flags.disableEnterpriseFeatures && (
-                                <SettingsSectionFooter>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            setShouldDisconnect(false);
-                                            setModalOpen(true);
-                                        }}
-                                        disabled={
-                                            !isPaidUser(
-                                                tierMatrix.rotateCredentials
-                                            )
-                                        }
-                                    >
-                                        {t("regenerateCredentialsButton")}
-                                    </Button>
-                                    <Button
-                                        onClick={() => {
-                                            setShouldDisconnect(true);
-                                            setModalOpen(true);
-                                        }}
-                                        disabled={
-                                            !isPaidUser(
-                                                tierMatrix.rotateCredentials
-                                            )
-                                        }
-                                    >
-                                        {t("siteRegenerateAndDisconnect")}
-                                    </Button>
-                                </SettingsSectionFooter>
-                            )}
+                            <SettingsSectionFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setShouldDisconnect(false);
+                                        setModalOpen(true);
+                                    }}
+                                >
+                                    {t("regenerateCredentialsButton")}
+                                </Button>
+                                <Button
+                                    onClick={() => {
+                                        setShouldDisconnect(true);
+                                        setModalOpen(true);
+                                    }}
+                                >
+                                    {t("siteRegenerateAndDisconnect")}
+                                </Button>
+                            </SettingsSectionFooter>
                         </SettingsSection>
 
                         <NewtSiteInstallCommands
@@ -323,10 +302,6 @@ export default function CredentialsPage() {
                                 {t("regenerateCredentials")}
                             </SettingsSectionDescription>
                         </SettingsSectionHeader>
-
-                        <PaidFeaturesAlert
-                            tiers={tierMatrix.rotateCredentials}
-                        />
 
                         <SettingsSectionBody>
                             {!loadingDefaults && (
@@ -391,20 +366,11 @@ export default function CredentialsPage() {
                                 </>
                             )}
                         </SettingsSectionBody>
-                        {!env.flags.disableEnterpriseFeatures && (
-                            <SettingsSectionFooter>
-                                <Button
-                                    onClick={() => setModalOpen(true)}
-                                    disabled={
-                                        !isPaidUser(
-                                            tierMatrix.rotateCredentials
-                                        )
-                                    }
-                                >
-                                    {t("siteRegenerateAndDisconnect")}
-                                </Button>
-                            </SettingsSectionFooter>
-                        )}
+                        <SettingsSectionFooter>
+                            <Button onClick={() => setModalOpen(true)}>
+                                {t("siteRegenerateAndDisconnect")}
+                            </Button>
+                        </SettingsSectionFooter>
                     </SettingsSection>
                 )}
             </SettingsContainer>

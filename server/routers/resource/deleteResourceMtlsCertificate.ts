@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, resourceMtlsCertificates, resources } from "@server/db";
-import { and, count, eq } from "drizzle-orm";
+import { db, resources } from "@server/db";
+import { eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { getResourceMtlsOwner, removeMtlsCertificate } from "@server/lib/mtls";
 import { DeleteResourceMtlsCertificateResponse } from "@server/routers/resource/types";
 
 const deleteResourceMtlsCertificateParamsSchema = z.strictObject({
@@ -16,7 +17,7 @@ const deleteResourceMtlsCertificateParamsSchema = z.strictObject({
 });
 
 const description =
-    "Remove a trusted CA certificate from a resource. If it is the last one, mTLS is disabled on the resource since it can no longer verify any client.";
+    "Remove a trusted CA certificate from a resource. If it is the last one, mTLS is disabled on the resource since it can no longer verify any client. When no shared resource policy is assigned, this updates the resource's inline policy.";
 
 registry.registerPath({
     method: "delete",
@@ -58,21 +59,31 @@ export async function deleteResourceMtlsCertificate(
         }
         const { resourceId, mtlsCertificateId } = parsedParams.data;
 
-        const [existing] = await db
-            .select()
-            .from(resourceMtlsCertificates)
-            .where(
-                and(
-                    eq(
-                        resourceMtlsCertificates.mtlsCertificateId,
-                        mtlsCertificateId
-                    ),
-                    eq(resourceMtlsCertificates.resourceId, resourceId)
-                )
-            )
+        const [resource] = await db
+            .select({
+                resourceId: resources.resourceId,
+                resourcePolicyId: resources.resourcePolicyId,
+                defaultResourcePolicyId: resources.defaultResourcePolicyId
+            })
+            .from(resources)
+            .where(eq(resources.resourceId, resourceId))
             .limit(1);
 
-        if (!existing) {
+        if (!resource) {
+            return next(
+                createHttpError(
+                    HttpCode.NOT_FOUND,
+                    `Resource with ID ${resourceId} not found`
+                )
+            );
+        }
+
+        const result = await removeMtlsCertificate(
+            getResourceMtlsOwner(resource),
+            mtlsCertificateId
+        );
+
+        if (!result) {
             return next(
                 createHttpError(
                     HttpCode.NOT_FOUND,
@@ -81,39 +92,7 @@ export async function deleteResourceMtlsCertificate(
             );
         }
 
-        let mtlsDisabled = false;
-        await db.transaction(async (trx) => {
-            await trx
-                .delete(resourceMtlsCertificates)
-                .where(
-                    eq(
-                        resourceMtlsCertificates.mtlsCertificateId,
-                        mtlsCertificateId
-                    )
-                );
-
-            const [{ remaining }] = await trx
-                .select({ remaining: count() })
-                .from(resourceMtlsCertificates)
-                .where(eq(resourceMtlsCertificates.resourceId, resourceId));
-
-            // With no CA left there is nothing to verify clients against, so
-            // leaving mTLS "enabled" would either lock everyone out or be
-            // silently ignored by the Traefik config builder.
-            if (remaining === 0) {
-                const updated = await trx
-                    .update(resources)
-                    .set({ mtlsEnabled: false })
-                    .where(
-                        and(
-                            eq(resources.resourceId, resourceId),
-                            eq(resources.mtlsEnabled, true)
-                        )
-                    )
-                    .returning({ resourceId: resources.resourceId });
-                mtlsDisabled = updated.length > 0;
-            }
-        });
+        const { mtlsDisabled } = result;
 
         return response<DeleteResourceMtlsCertificateResponse>(res, {
             data: { mtlsDisabled },

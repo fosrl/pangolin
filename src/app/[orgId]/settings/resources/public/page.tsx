@@ -5,7 +5,6 @@ import PublicResourcesBanner from "@app/components/PublicResourcesBanner";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import OrgProvider from "@app/providers/OrgProvider";
-import { build } from "@server/build";
 import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
 import type { GetOrgResponse } from "@server/routers/org";
 import type { ListResourcesResponse } from "@server/routers/resource";
@@ -99,6 +98,7 @@ export default async function ProxyResourcesPage(
                     resource.pincodeId !== null ||
                     resource.passwordId !== null ||
                     resource.whitelist ||
+                    resource.mtls ||
                     resource.headerAuthId
                   ? "protected"
                   : "not_protected",
@@ -131,7 +131,7 @@ export default async function ProxyResourcesPage(
     );
 
     let initialCertificates: GetBatchedCertificateResponse | undefined;
-    if (build !== "oss" && certDomains.length > 0) {
+    if (certDomains.length > 0) {
         try {
             const certSearchParams = new URLSearchParams(
                 certDomains.map((domain) => ["domains", domain])

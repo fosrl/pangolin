@@ -41,6 +41,7 @@ export interface LicenseKey {
     type: string;
     quantity: number;
     quantity_2: number;
+    quantity_3: number;
     isValid: boolean;
     updatedAt: string;
     createdAt: string;

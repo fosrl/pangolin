@@ -6,7 +6,6 @@ import {
     loginPage,
     resourceHeaderAuth,
     resourceHeaderAuthExtendedCompatibility,
-    resourceMtlsCertificates,
     resourcePassword,
     resourcePincode,
     resourceRules,
@@ -25,7 +24,7 @@ import {
     resourcePolicies,
     resources
 } from "@server/db";
-import { eq, and, ne, count } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -49,6 +48,13 @@ import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { applyInlinePolicyFields } from "./inlinePolicyFields";
+import {
+    clearMtls,
+    countMtlsCertificates,
+    getResourceMtlsOwner,
+    isMtlsEnabled
+} from "@server/lib/mtls";
+import { resourceModeSupportsMtls } from "@server/lib/mtlsModes";
 
 const updateResourceParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -99,6 +105,12 @@ const updateHttpResourceBodySchema = z
         tlsServerName: z.string().nullable().optional(),
         verifyUpstreamTls: z.boolean().optional(),
         setHostHeader: z.string().nullable().optional(),
+        forwardIdentityHeaders: z
+            .boolean()
+            .optional()
+            .describe(
+                "Whether to forward the authenticated user's identity to the backend in the Remote-User, Remote-Email, Remote-Name, Remote-Role, and Remote-User-Id headers."
+            ),
         skipToIdpId: z
             .int()
             .positive()
@@ -129,7 +141,7 @@ const updateHttpResourceBodySchema = z
             .boolean()
             .optional()
             .describe(
-                "Require clients to present a certificate signed by one of the resource's trusted CA certificates. Requires SSL and at least one CA certificate."
+                "Require clients to present a certificate signed by one of the resource's trusted CA certificates. Requires SSL and at least one CA certificate. When no shared resource policy is assigned (resourcePolicyId is null), updates the resource's inline policy. When a shared policy is assigned, this applies to this resource only if the shared policy does not enable mTLS itself."
             ),
         postAuthPath: z.string().nullable().optional(),
         // SSH settings
@@ -419,7 +431,7 @@ async function clearResourceSpecificSettings(
     if (adminRole.length === 0) {
         throw new Error(`Admin role not found for org ${orgId}`);
     }
-    // remove the resource specific pincode, password, header auth, rules, nad whitelist entries so that the resource will fall back to the policy settings
+    // remove the resource specific pincode, password, header auth, rules, whitelist entries and mTLS so that the resource will fall back to the policy settings
     await Promise.all([
         trx
             .delete(resourcePassword)
@@ -444,6 +456,7 @@ async function clearResourceSpecificSettings(
         trx
             .delete(resourceRules)
             .where(eq(resourceRules.resourceId, resourceId)),
+        clearMtls({ type: "resource", resourceId }, trx),
         // delete the roles and the users as well
         trx
             .delete(userResources)
@@ -522,38 +535,22 @@ async function updateHttpResource(
         }
     }
 
+    const mtlsOwner = getResourceMtlsOwner(resource);
     const effectiveSsl = updateData.ssl ?? resource.ssl;
-    const effectiveMtlsEnabled = updateData.mtlsEnabled ?? resource.mtlsEnabled;
+    const effectiveMtlsEnabled =
+        updateData.mtlsEnabled ?? (await isMtlsEnabled(mtlsOwner));
 
     if (updateData.mtlsEnabled === true) {
-        if (resource.mode !== "http") {
+        if (!resourceModeSupportsMtls(resource.mode)) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
-                    "mTLS is only supported on HTTP resources."
+                    "mTLS is not supported on TCP/UDP resources."
                 )
             );
         }
 
-        const isMtlsLicensed = await isLicensedOrSubscribed(
-            resource.orgId,
-            tierMatrix.mtls
-        );
-        if (!isMtlsLicensed) {
-            return next(
-                createHttpError(
-                    HttpCode.FORBIDDEN,
-                    "mTLS is not supported on your current plan. Please upgrade to access this feature."
-                )
-            );
-        }
-
-        const [{ certificateCount }] = await db
-            .select({ certificateCount: count() })
-            .from(resourceMtlsCertificates)
-            .where(eq(resourceMtlsCertificates.resourceId, resource.resourceId));
-
-        if (certificateCount === 0) {
+        if ((await countMtlsCertificates(mtlsOwner)) === 0) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
@@ -573,8 +570,10 @@ async function updateHttpResource(
     }
 
     // catch when the resource policy changes or gets cleared
-    if (updateData.resourcePolicyId !== undefined &&
-        resource.resourcePolicyId !== updateData.resourcePolicyId) {
+    if (
+        updateData.resourcePolicyId !== undefined &&
+        resource.resourcePolicyId !== updateData.resourcePolicyId
+    ) {
         await clearResourceSpecificSettings(
             resource.resourceId,
             resource.orgId,
@@ -814,6 +813,7 @@ async function updateHttpResource(
             emailWhitelistEnabled,
             applyRules,
             skipToIdpId,
+            mtlsEnabled,
             ...resourceOnlyDataRest
         } = updateData;
 
@@ -831,6 +831,7 @@ async function updateHttpResource(
             policyUpdate.emailWhitelistEnabled = emailWhitelistEnabled;
         if (applyRules !== undefined) policyUpdate.applyRules = applyRules;
         if (skipToIdpId !== undefined) policyUpdate.idpId = skipToIdpId;
+        if (mtlsEnabled !== undefined) policyUpdate.mtlsEnabled = mtlsEnabled;
 
         if (Object.keys(policyUpdate).length > 0) {
             await db
