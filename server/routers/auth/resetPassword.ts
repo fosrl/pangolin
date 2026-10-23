@@ -49,12 +49,12 @@ export async function resetPassword(
     const { token, newPassword, code, email } = parsedBody.data;
 
     try {
-        const resetRequest = await db
+        const resetRequests = await db
             .select()
             .from(passwordResetTokens)
             .where(eq(passwordResetTokens.email, email));
 
-        if (!resetRequest || !resetRequest.length) {
+        if (!resetRequests || !resetRequests.length) {
             if (config.getRawConfig().app.log_failed_attempts) {
                 logger.info(
                     `Password reset code is incorrect. Email: ${email}. IP: ${req.ip}.`
@@ -68,7 +68,32 @@ export async function resetPassword(
             );
         }
 
-        if (!isWithinExpirationDate(new Date(resetRequest[0].expiresAt))) {
+        // There can be more than one token for an email address, for example
+        // when a user was deleted and recreated with the same email address.
+        // Only the token that matches the one that was sent can be used.
+        let resetRequest: (typeof resetRequests)[number] | undefined;
+        for (const request of resetRequests) {
+            if (await verifyPassword(token, request.tokenHash)) {
+                resetRequest = request;
+                break;
+            }
+        }
+
+        if (!resetRequest) {
+            if (config.getRawConfig().app.log_failed_attempts) {
+                logger.info(
+                    `Password reset code is incorrect. Email: ${email}. IP: ${req.ip}.`
+                );
+            }
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Invalid password reset token"
+                )
+            );
+        }
+
+        if (!isWithinExpirationDate(new Date(resetRequest.expiresAt))) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
@@ -80,7 +105,7 @@ export async function resetPassword(
         const user = await db
             .select()
             .from(users)
-            .where(eq(users.userId, resetRequest[0].userId));
+            .where(eq(users.userId, resetRequest.userId));
 
         if (!user || !user.length) {
             return next(
@@ -123,32 +148,13 @@ export async function resetPassword(
             }
         }
 
-        const isTokenValid = await verifyPassword(
-            token,
-            resetRequest[0].tokenHash
-        );
-
-        if (!isTokenValid) {
-            if (config.getRawConfig().app.log_failed_attempts) {
-                logger.info(
-                    `Password reset code is incorrect. Email: ${email}. IP: ${req.ip}.`
-                );
-            }
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "Invalid password reset token"
-                )
-            );
-        }
-
         const passwordHash = await hashPassword(newPassword);
 
         await db.transaction(async (trx) => {
             await trx
                 .update(users)
                 .set({ passwordHash, lastPasswordChange: new Date().getTime() })
-                .where(eq(users.userId, resetRequest[0].userId));
+                .where(eq(users.userId, resetRequest.userId));
 
             await trx
                 .delete(passwordResetTokens)
@@ -156,7 +162,7 @@ export async function resetPassword(
         });
 
         try {
-            await invalidateAllSessions(resetRequest[0].userId);
+            await invalidateAllSessions(resetRequest.userId);
         } catch (e) {
             logger.error("Failed to invalidate user sessions", e);
         }

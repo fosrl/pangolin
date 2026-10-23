@@ -86,7 +86,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build Docker image sqlite
-        run: make dev-build-sqlite
+        run: |
+          # The pull of the base image from the registry is rate limited and
+          # fails from time to time, build with the mirror of the image when
+          # the pull fails.
+          if make dev-build-sqlite; then
+            exit 0
+          fi
+          echo "The build failed, retrying it with the mirror of the base image"
+          make dev-build-sqlite NODE_IMAGE=mirror.gcr.io/library/node:24.18.1-slim
 
   build-postgres:
     runs-on: ubuntu-latest
@@ -95,4 +103,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build Docker image pg
-        run: make dev-build-pg
+        run: |
+          # The pull of the base image from the registry is rate limited and
+          # fails from time to time, build with the mirror of the image when
+          # the pull fails.
+          if make dev-build-pg; then
+            exit 0
+          fi
+          echo "The build failed, retrying it with the mirror of the base image"
+          make dev-build-pg NODE_IMAGE=mirror.gcr.io/library/node:24.18.1-slim

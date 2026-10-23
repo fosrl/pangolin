@@ -1,3 +1,7 @@
+import "@server/extendZod";
+// the database is imported first, it breaks the circular import between the
+// config and the logger
+import "@server/db";
 import { assertEquals } from "@test/assert";
 import { isDomainCoveredByWildcard } from "./TraefikConfigManager";
 

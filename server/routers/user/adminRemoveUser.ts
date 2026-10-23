@@ -9,6 +9,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
+import { deleteUser } from "@server/lib/deleteUser";
 
 const removeUserSchema = z.strictObject({
     userId: z.string()
@@ -52,7 +53,7 @@ export async function adminRemoveUser(
         }
 
         await db.transaction(async (trx) => {
-            await trx.delete(users).where(eq(users.userId, userId));
+            await deleteUser(userId, trx);
         });
 
         calculateUserClientsForOrgs(userId).catch((e) => {

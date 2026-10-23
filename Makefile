@@ -3,6 +3,9 @@
 major_tag := $(shell echo $(tag) | cut -d. -f1)
 minor_tag := $(shell echo $(tag) | cut -d. -f1,2)
 
+# The base image of the docker build, it can be pointed at a mirror of it
+NODE_IMAGE ?= public.ecr.aws/docker/library/node:24.18.1-slim
+
 # OCI label variables
 CREATED := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 REVISION := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -509,6 +512,7 @@ dev-build-sqlite:
 	@CREATED=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
 	REVISION=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
 	docker build \
+		--build-arg NODE_IMAGE=$(NODE_IMAGE) \
 		--build-arg DATABASE=sqlite \
 		--build-arg VERSION=dev \
 		--build-arg REVISION=$$REVISION \
@@ -521,6 +525,7 @@ dev-build-pg:
 	@CREATED=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
 	REVISION=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
 	docker build \
+		--build-arg NODE_IMAGE=$(NODE_IMAGE) \
 		--build-arg DATABASE=pg \
 		--build-arg VERSION=dev \
 		--build-arg REVISION=$$REVISION \

@@ -10,9 +10,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const migrationsScript = path.join(here, "migrationsSqlite.ts");
 
+const SEED_VERSION = "1.21.0";
+
 const SEED_STATEMENTS = [
     `CREATE TABLE versionMigrations (version TEXT PRIMARY KEY, executedAt INTEGER NOT NULL)`,
-    `INSERT INTO versionMigrations (version, executedAt) VALUES ('1.21.0', 1750000000000)`,
+    `INSERT INTO versionMigrations (version, executedAt) VALUES ('${SEED_VERSION}', 1750000000000)`,
     `CREATE TABLE sites (siteId INTEGER PRIMARY KEY AUTOINCREMENT, subnet TEXT)`,
     `INSERT INTO sites (subnet) VALUES ('10.0.0.0/24')`,
     `CREATE TABLE roles (roleId INTEGER PRIMARY KEY AUTOINCREMENT, orgId TEXT, isAdmin INTEGER DEFAULT 0, sshSudoMode TEXT DEFAULT 'none')`,
@@ -26,7 +28,11 @@ const SEED_STATEMENTS = [
     `CREATE TABLE siteResources (siteResourceId INTEGER PRIMARY KEY AUTOINCREMENT)`,
     `CREATE TABLE eventStreamingDestinations (destinationId INTEGER PRIMARY KEY AUTOINCREMENT)`,
     `CREATE TABLE roleActions (roleId INTEGER, actionId TEXT, orgId TEXT)`,
-    `CREATE TABLE newt (newtId INTEGER PRIMARY KEY AUTOINCREMENT)`
+    `CREATE TABLE newt (newtId INTEGER PRIMARY KEY AUTOINCREMENT)`,
+    // the migrations after 1.21.0 change these tables, they are part of every
+    // installation that is older than the migration that changes them
+    `CREATE TABLE resources (resourceId INTEGER PRIMARY KEY AUTOINCREMENT, orgId TEXT, niceId TEXT, headers TEXT)`,
+    `CREATE TABLE exitNodes (exitNodeId INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, address TEXT, endpoint TEXT, publicKey TEXT, listenPort INTEGER, reachableAt TEXT, type TEXT)`
 ];
 
 function seedDatabase(dbPath: string) {
@@ -160,10 +166,17 @@ function testMultipleSequentialMigrations() {
                   .filter((file) => file.endsWith(".sqlite"))
             : [];
 
-        // Upgrading from 1.21.0 runs 1.22.0 and 1.23.0 -> produces 2 distinct backups
+        // Every migration that runs takes its own backup before it runs, the
+        // seeded version is not a migration that runs.
+        const appliedVersions = executedMigrationVersions(
+            path.join(workdir, "config", "db", "db.sqlite")
+        );
+        const expectedBackupCount = appliedVersions.filter(
+            (version) => version !== SEED_VERSION
+        ).length;
         assertEquals(
             backups.length,
-            2,
+            expectedBackupCount,
             "Each migration must have its own distinct backup snapshot"
         );
 

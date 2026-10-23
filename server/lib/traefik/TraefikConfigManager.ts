@@ -1392,12 +1392,24 @@ export function isDomainCoveredByWildcard(
 ): boolean {
     for (const [certDomain, state] of lastLocalCertificateState) {
         if (state.exists && state.wildcard) {
+            // the wildcard certificate can be stored with or without the
+            // wildcard prefix
+            const normalizedCertDomain = certDomain.startsWith("*.")
+                ? certDomain.slice(2)
+                : certDomain;
+
+            // the wildcard certificate of a domain is also used for the domain
+            // itself, see server/lib/certificates.ts
+            if (domain === normalizedCertDomain) {
+                return true;
+            }
+
             // If stored as example.com but is wildcard, check subdomains
-            if (domain.endsWith("." + certDomain)) {
+            if (domain.endsWith("." + normalizedCertDomain)) {
                 // Check that it's only one level deep (wildcard only covers one level)
                 const prefix = domain.substring(
                     0,
-                    domain.length - ("." + certDomain).length
+                    domain.length - ("." + normalizedCertDomain).length
                 );
                 // If prefix contains a dot, it's more than one level deep
                 if (!prefix.includes(".")) {

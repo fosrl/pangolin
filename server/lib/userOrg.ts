@@ -28,14 +28,65 @@ export async function assignUserToOrg(
         throw new Error("assignUserToOrg requires at least one roleId");
     }
 
-    const [userOrg] = await trx.insert(userOrgs).values(values).returning();
-    await trx.insert(userOrgRoles).values(
-        uniqueRoleIds.map((roleId) => ({
-            userId: userOrg.userId,
-            orgId: userOrg.orgId,
-            roleId
-        }))
+    // A user can only be a member of an org once. Adding a second membership
+    // for the same org makes the user show up twice in the member list and
+    // blocks removing them from the org.
+    const [existingUserOrg] = await trx
+        .select()
+        .from(userOrgs)
+        .where(
+            and(
+                eq(userOrgs.userId, values.userId),
+                eq(userOrgs.orgId, values.orgId)
+            )
+        )
+        .limit(1);
+
+    let userOrg = existingUserOrg;
+    const isNewMembership = !userOrg;
+
+    if (!userOrg) {
+        [userOrg] = await trx.insert(userOrgs).values(values).returning();
+    } else if (values.isOwner && !userOrg.isOwner) {
+        const [updatedUserOrg] = await trx
+            .update(userOrgs)
+            .set({ isOwner: true })
+            .where(eq(userOrgs.userId, userOrg.userId))
+            .returning();
+        userOrg = updatedUserOrg;
+    }
+
+    // only add the roles the user does not have in this org yet
+    const existingRoleRows = await trx
+        .select({ roleId: userOrgRoles.roleId })
+        .from(userOrgRoles)
+        .where(
+            and(
+                eq(userOrgRoles.userId, userOrg.userId),
+                eq(userOrgRoles.orgId, userOrg.orgId)
+            )
+        );
+    const existingRoleIds = new Set(
+        existingRoleRows.map((role) => role.roleId)
     );
+    const rolesToAdd = uniqueRoleIds.filter(
+        (roleId) => !existingRoleIds.has(roleId)
+    );
+
+    if (rolesToAdd.length > 0) {
+        await trx.insert(userOrgRoles).values(
+            rolesToAdd.map((roleId) => ({
+                userId: userOrg.userId,
+                orgId: userOrg.orgId,
+                roleId
+            }))
+        );
+    }
+
+    // the user was already a member of this org, so nothing was added
+    if (!isNewMembership) {
+        return;
+    }
 
     // calculate if the user is in any other of the orgs before we count it as an add to the billing org
     if (org.billingOrgId) {

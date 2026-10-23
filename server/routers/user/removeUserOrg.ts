@@ -62,17 +62,17 @@ export async function removeUserOrg(
 
         const { userId, orgId } = parsedParams.data;
 
-        // get the user first
-        const [user] = await db
+        // get the memberships of the user first
+        const memberships = await db
             .select()
             .from(userOrgs)
             .where(and(eq(userOrgs.userId, userId), eq(userOrgs.orgId, orgId)));
 
-        if (!user) {
+        if (!memberships.length) {
             return next(createHttpError(HttpCode.NOT_FOUND, "User not found"));
         }
 
-        if (user.isOwner) {
+        if (memberships.some((membership) => membership.isOwner)) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,

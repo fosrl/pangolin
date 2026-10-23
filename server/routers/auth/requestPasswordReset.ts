@@ -90,9 +90,12 @@ export async function requestPasswordReset(
 
         const token = generateRandomString(8, alphabet("0-9", "A-Z", "a-z"));
         await db.transaction(async (trx) => {
+            // Remove every token of the email address, not only the ones of
+            // this user. A user that was deleted can leave a token behind and
+            // that token would otherwise be used instead of the new one.
             await trx
                 .delete(passwordResetTokens)
-                .where(eq(passwordResetTokens.userId, existingUser[0].userId));
+                .where(eq(passwordResetTokens.email, email));
 
             const tokenHash = await hashPassword(token);
 

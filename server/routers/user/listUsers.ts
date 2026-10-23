@@ -126,18 +126,26 @@ const listUsersSchema = z.strictObject({
         })
 });
 
-function queryUsersBase() {
+function queryUsersBase(orgId: string) {
+    // A user can have more than one membership row for the same org if the
+    // membership was added twice. The memberships are de-duplicated so that
+    // every user is only listed once.
+    const orgMemberships = db
+        .selectDistinct({ userId: userOrgs.userId, orgId: userOrgs.orgId })
+        .from(userOrgs)
+        .where(eq(userOrgs.orgId, orgId))
+        .as("orgMemberships");
+
     return db
         .select({
             id: users.userId,
             email: users.email,
             emailVerified: users.emailVerified,
             dateCreated: users.dateCreated,
-            orgId: userOrgs.orgId,
+            orgId: orgMemberships.orgId,
             username: users.username,
             name: users.name,
             type: users.type,
-            isOwner: userOrgs.isOwner,
             idpName: idp.name,
             idpId: users.idpId,
             idpType: idp.type,
@@ -145,7 +153,7 @@ function queryUsersBase() {
             twoFactorEnabled: users.twoFactorEnabled
         })
         .from(users)
-        .leftJoin(userOrgs, eq(users.userId, userOrgs.userId))
+        .innerJoin(orgMemberships, eq(users.userId, orgMemberships.userId))
         .leftJoin(idp, eq(users.idpId, idp.idpId))
         .leftJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId));
 }
@@ -153,6 +161,7 @@ function queryUsersBase() {
 export type ListUsersResponse = PaginatedResponse<{
     users: Array<
         NonNullable<Awaited<ReturnType<typeof queryUsersBase>>>[number] & {
+            isOwner: boolean;
             roles: Array<{
                 roleId: number;
                 roleName: string;
@@ -253,7 +262,7 @@ export async function listUsers(
             }
         }
 
-        const conditions = [and(eq(userOrgs.orgId, orgId))];
+        const conditions = [];
 
         if (query) {
             conditions.push(
@@ -280,11 +289,24 @@ export async function listUsers(
             conditions.push(eq(users.idpId, idp_id));
         }
 
+        const ownerUserIds = (
+            await db
+                .select({ userId: userOrgs.userId })
+                .from(userOrgs)
+                .where(
+                    and(eq(userOrgs.orgId, orgId), eq(userOrgs.isOwner, true))
+                )
+        ).map((owner) => owner.userId);
+
         if (roleIds.length > 0 || includeOwner) {
             const roleFilterParts = [];
 
             if (includeOwner) {
-                roleFilterParts.push(eq(userOrgs.isOwner, true));
+                roleFilterParts.push(
+                    ownerUserIds.length > 0
+                        ? inArray(users.userId, ownerUserIds)
+                        : sql`1 = 0`
+                );
             }
 
             if (roleIds.length > 0) {
@@ -312,12 +334,12 @@ export async function listUsers(
         }
 
         const countQuery = db.$count(
-            queryUsersBase()
+            queryUsersBase(orgId)
                 .where(and(...conditions))
                 .as("filtered_users")
         );
 
-        const userListQuery = queryUsersBase()
+        const userListQuery = queryUsersBase(orgId)
             .where(and(...conditions))
             .limit(pageSize)
             .offset(pageSize * (page - 1))
@@ -364,11 +386,13 @@ export async function listUsers(
         }
 
         const usersWithRoles: ListUsersResponse["users"] = [];
+        const ownerUserIdSet = new Set(ownerUserIds);
 
         for (const user of usersWithoutRoles) {
             const userRoles = rolesByUser.get(user.id) ?? [];
             usersWithRoles.push({
                 ...user,
+                isOwner: ownerUserIdSet.has(user.id),
                 roles: userRoles
             });
         }

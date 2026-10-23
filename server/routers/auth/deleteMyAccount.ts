@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, orgs, userOrgs, users, primaryDb } from "@server/db";
+import { db, orgs, userOrgs, primaryDb } from "@server/db";
 import { eq, and, inArray, not } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -21,6 +21,7 @@ import { deleteOrgById, sendTerminationMessages } from "@server/lib/deleteOrg";
 import { UserType } from "@server/types/UserTypes";
 import { usageService } from "@server/lib/billing/usageService";
 import { LimitId } from "@server/lib/billing";
+import { deleteUser } from "@server/lib/deleteUser";
 
 const deleteMyAccountBody = z.strictObject({
     password: z.string().optional(),
@@ -224,7 +225,7 @@ export async function deleteMyAccount(
             );
 
         await db.transaction(async (trx) => {
-            await trx.delete(users).where(eq(users.userId, userId));
+            await deleteUser(userId, trx);
             // loop through the other orgs and decrement the count
             for (const userOrg of otherOrgsTheUserWasIn) {
                 await usageService.add(userOrg.orgId, LimitId.USERS, -1, trx);
