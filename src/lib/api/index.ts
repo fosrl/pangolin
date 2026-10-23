@@ -1,4 +1,5 @@
 import { Env } from "@app/lib/types/env";
+import { resolveClientApiBaseUrl } from "@app/lib/publicEnv";
 import axios, { AxiosInstance } from "axios";
 
 let apiInstance: AxiosInstance | null = null;
@@ -13,16 +14,14 @@ export function createApiClient({ env }: { env: Env }): AxiosInstance {
         return;
     }
 
-    let baseURL;
-    const suffix = "api/v1";
+    const { baseURL, directAccess } = resolveClientApiBaseUrl({
+        env,
+        windowLocation: window.location
+    });
 
-    if (window.location.port === env.server.nextPort) {
+    if (directAccess) {
         // this means the user is addressing the server directly
-        baseURL = `${window.location.protocol}//${window.location.hostname}:${env.server.externalPort}/${suffix}`;
         axios.defaults.withCredentials = true;
-    } else {
-        // user is accessing through a proxy
-        baseURL = `${env.app.dashboardUrl}/${suffix}`;
     }
 
     if (!baseURL) {
