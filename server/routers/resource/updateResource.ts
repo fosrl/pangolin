@@ -103,6 +103,7 @@ const updateHttpResourceBodySchema = z
                 "How requests are distributed across targets: wrr (weighted round robin, default), p2c (power of two choices), hrw (highest random weight / client IP hashing), leasttime (lowest response time)."
             ),
         tlsServerName: z.string().nullable().optional(),
+        verifyUpstreamTls: z.boolean().optional(),
         setHostHeader: z.string().nullable().optional(),
         forwardIdentityHeaders: z
             .boolean()

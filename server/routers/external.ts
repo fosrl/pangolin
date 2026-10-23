@@ -775,6 +775,30 @@ authenticated.get(
 );
 
 authenticated.get(
+    "/resource/:resourceId/upstream-ca",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.getResource),
+    resource.getResourceUpstreamCa
+);
+
+authenticated.put(
+    "/resource/:resourceId/upstream-ca",
+    verifyResourceAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.updateResource),
+    logActionAudit(ActionsEnum.updateResource),
+    resource.putResourceUpstreamCa
+);
+
+authenticated.delete(
+    "/resource/:resourceId/upstream-ca",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.updateResource),
+    logActionAudit(ActionsEnum.updateResource),
+    resource.deleteResourceUpstreamCa
+);
+
+authenticated.get(
     "/resource/:resourceId/blueprint",
     verifyResourceAccess,
     verifyUserHasAction(ActionsEnum.getResource),

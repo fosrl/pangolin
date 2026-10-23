@@ -54,6 +54,8 @@ import { appendPathMatch, buildHostRule, computeRoutePriority } from "./rule";
 import { buildSiteResourceAliasCertPlaceholders } from "./siteResourceAlias";
 import { TargetWithSite } from "./types";
 import { encodePath, sanitize, validatePathRewriteConfig } from "./utils";
+import { attachUpstreamTlsTransport } from "./upstreamTls";
+import { loadUpstreamCa } from "./loadUpstreamCa";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const badgerMiddlewareName = "badger";
@@ -99,6 +101,7 @@ export async function getTraefikConfig(
             stickySession: resources.stickySession,
             loadBalancingStrategy: resources.loadBalancingStrategy,
             tlsServerName: resources.tlsServerName,
+            verifyUpstreamTls: resources.verifyUpstreamTls,
             setHostHeader: resources.setHostHeader,
             enableProxy: resources.enableProxy,
             requestHeaders: resources.requestHeaders,
@@ -230,6 +233,7 @@ export async function getTraefikConfig(
                 stickySession: row.stickySession,
                 loadBalancingStrategy: row.loadBalancingStrategy,
                 tlsServerName: row.tlsServerName,
+                verifyUpstreamTls: row.verifyUpstreamTls,
                 setHostHeader: row.setHostHeader,
                 enableProxy: row.enableProxy,
                 targets: [],
@@ -266,6 +270,12 @@ export async function getTraefikConfig(
             }
         });
     });
+
+    const upstreamCaByResource = await loadUpstreamCa(
+        [...resourcesMap.values()]
+            .filter((r) => r.mode === "http" && r.verifyUpstreamTls)
+            .map((r) => r.resourceId)
+    );
 
     // Group browser gateway targets by resource (SSH/VNC/RDP-mode resources
     // served through the browser gateway web UI instead of a real target).
@@ -586,21 +596,14 @@ export async function getTraefikConfig(
                 }
             };
 
-            // Add the serversTransport if TLS server name is provided
-            if (resource.tlsServerName) {
-                if (!config_output.http.serversTransports) {
-                    config_output.http.serversTransports = {};
-                }
-                config_output.http.serversTransports![transportName] = {
-                    serverName: resource.tlsServerName,
-                    //unfortunately the following needs to be set. traefik doesn't merge the default serverTransport settings
-                    // if defined in the static config and here. if not set, self-signed certs won't work
-                    insecureSkipVerify: true
-                };
-                config_output.http.services![
-                    serviceName
-                ].loadBalancer.serversTransport = transportName;
-            }
+            attachUpstreamTlsTransport(
+                config_output,
+                serviceName,
+                transportName,
+                resource.tlsServerName,
+                resource.verifyUpstreamTls,
+                upstreamCaByResource.get(resource.resourceId)
+            );
         } else if (resource.mode === "tcp" || resource.mode === "udp") {
             // Non-HTTP (TCP/UDP) configuration
             if (!resource.enableProxy || !resource.proxyPort) {
