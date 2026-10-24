@@ -1,3 +1,4 @@
+import "../extendZod";
 import { cidrToRange, findNextAvailableCidr } from "./ip";
 import { assertEquals } from "@test/assert";
 

@@ -29,7 +29,8 @@
         "email": "email dev --dir server/emails/templates --port 3005",
         "build:cli": "node esbuild.mjs -e cli/index.ts -o dist/cli.mjs",
         "format:check": "prettier --check .",
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "test": "node scripts/run-tests.mjs"
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "9.1.0",
