@@ -16,7 +16,6 @@ import privateConfig from "#private/lib/config";
 import license from "#private/license/license";
 import { build } from "@server/build";
 import {
-    certificates,
     db,
     domainNamespaces,
     domains,
@@ -177,14 +176,12 @@ export async function getTraefikConfig(
             // Namespace
             domainNamespaceId: domainNamespaces.domainNamespaceId,
             // Certificate
-            certificateStatus: certificates.status,
             domainCertResolver: domains.certResolver,
             preferWildcardCert: domains.preferWildcardCert
         })
         .from(sites)
         .innerJoin(targets, eq(targets.siteId, sites.siteId))
         .innerJoin(resources, eq(resources.resourceId, targets.resourceId))
-        .leftJoin(certificates, eq(certificates.domainId, resources.domainId))
         .leftJoin(domains, eq(domains.domainId, resources.domainId))
         .leftJoin(
             targetHealthCheck,
