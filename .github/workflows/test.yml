@@ -79,6 +79,9 @@ jobs:
           print_log
           exit 1
 
+      - name: Smoke test
+        run: node scripts/smoke-test.mjs
+
   build-sqlite:
     runs-on: ubuntu-latest
     steps:
