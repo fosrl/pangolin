@@ -1,5 +1,15 @@
+import type { PaginatedResponse } from "@server/types/Pagination";
+
+export const resourceSessionAuthMethods = [
+    "sso",
+    "password",
+    "pincode",
+    "whitelist",
+    "accessToken"
+] as const;
+
 export type ResourceSessionAuthMethod =
-    "sso" | "password" | "pincode" | "whitelist" | "accessToken";
+    (typeof resourceSessionAuthMethods)[number];
 
 export type ResourceSessionItem = {
     sessionId: string;
@@ -21,11 +31,6 @@ export type ResourceSessionItem = {
     accessTokenTitle: string | null;
 };
 
-export type ListResourceSessionsResponse = {
+export type ListResourceSessionsResponse = PaginatedResponse<{
     sessions: ResourceSessionItem[];
-    pagination: {
-        total: number;
-        limit: number;
-        offset: number;
-    };
-};
+}>;

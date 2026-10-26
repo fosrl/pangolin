@@ -25,6 +25,7 @@ export async function createResourceSession(opts: {
     doNotExtend?: boolean;
     expiresAt?: number | null;
     sessionLength?: number | null;
+    requestSessionId?: string | null;
 }): Promise<ResourceSession> {
     if (
         !opts.passwordId &&
@@ -60,7 +61,8 @@ export async function createResourceSession(opts: {
         policyWhitelistId: opts.policyWhitelistId || null,
         isRequestToken: opts.isRequestToken || false,
         userSessionId: opts.userSessionId || null,
-        issuedAt: new Date().getTime()
+        issuedAt: new Date().getTime(),
+        requestSessionId: opts.requestSessionId || null
     };
 
     await db.insert(resourceSessions).values(session);

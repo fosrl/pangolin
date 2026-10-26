@@ -13,7 +13,12 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, resources, resourceSessions } from "@server/db";
+import {
+    db,
+    resources,
+    resourceSessionReauth,
+    resourceSessions
+} from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -21,7 +26,6 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq } from "drizzle-orm";
-import { invalidateResourceSession } from "@server/auth/sessions/resource";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty(),
@@ -32,7 +36,7 @@ registry.registerPath({
     method: "delete",
     path: "/org/{orgId}/resource-session/{sessionId}",
     description:
-        "Revoke a resource session. The client will need to authenticate to the resource again.",
+        "Revoke a resource session. The client will need to authenticate to the resource again. For SSO sessions, the user must log in again even if they are still logged in to the dashboard.",
     tags: [OpenAPITags.ResourceSession],
     request: {
         params: paramsSchema
@@ -76,7 +80,11 @@ export async function deleteResourceSession(
         // Scope the lookup to the org so a session id from another org is
         // indistinguishable from one that doesn't exist.
         const [existing] = await db
-            .select({ sessionId: resourceSessions.sessionId })
+            .select({
+                sessionId: resourceSessions.sessionId,
+                resourceId: resourceSessions.resourceId,
+                userSessionId: resourceSessions.userSessionId
+            })
             .from(resourceSessions)
             .innerJoin(
                 resources,
@@ -101,7 +109,33 @@ export async function deleteResourceSession(
 
         // verifySession caches validated sessions by token for a few seconds,
         // so the revocation takes effect once that entry expires.
-        await invalidateResourceSession(existing.sessionId);
+        const { userSessionId, resourceId } = existing;
+        await db.transaction(async (trx) => {
+            if (!userSessionId) {
+                await trx
+                    .delete(resourceSessions)
+                    .where(eq(resourceSessions.sessionId, existing.sessionId));
+                return;
+            }
+
+            // A dashboard session gets a new resource session every time it
+            // passes through the resource auth page, so revoke all of them
+            // for this resource, and stop that dashboard session from
+            // silently minting a new one until the user logs in again.
+            await trx
+                .delete(resourceSessions)
+                .where(
+                    and(
+                        eq(resourceSessions.userSessionId, userSessionId),
+                        eq(resourceSessions.resourceId, resourceId)
+                    )
+                );
+
+            await trx
+                .insert(resourceSessionReauth)
+                .values({ userSessionId, resourceId, revokedAt: Date.now() })
+                .onConflictDoNothing();
+        });
 
         return response<null>(res, {
             data: null,

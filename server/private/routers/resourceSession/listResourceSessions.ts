@@ -30,34 +30,109 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
-import type {
-    ListResourceSessionsResponse,
-    ResourceSessionAuthMethod
+import {
+    and,
+    asc,
+    desc,
+    eq,
+    gt,
+    inArray,
+    isNotNull,
+    isNull,
+    like,
+    or,
+    sql,
+    type SQL
+} from "drizzle-orm";
+import {
+    resourceSessionAuthMethods,
+    type ListResourceSessionsResponse,
+    type ResourceSessionAuthMethod
 } from "@server/routers/resourceSession/types";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
 });
 
-const querySchema = z.strictObject({
-    limit: z
-        .string()
+const listSchema = z.object({
+    pageSize: z.coerce
+        .number<string>()
+        .int()
+        .positive()
         .optional()
-        .default("1000")
-        .transform(Number)
-        .pipe(z.number().int().nonnegative()),
-    offset: z
-        .string()
+        .catch(20)
+        .default(20)
+        .openapi({
+            type: "integer",
+            default: 20,
+            description: "Number of items per page"
+        }),
+    page: z.coerce
+        .number<string>()
+        .int()
+        .min(0)
         .optional()
-        .default("0")
-        .transform(Number)
-        .pipe(z.number().int().nonnegative()),
-    resourceId: z
-        .string()
+        .catch(1)
+        .default(1)
+        .openapi({
+            type: "integer",
+            default: 1,
+            description: "Page number to retrieve"
+        }),
+    query: z.string().optional().openapi({
+        type: "string",
+        description:
+            "Search by user, email, shareable link title, or resource name"
+    }),
+    sort_by: z
+        .enum(["issuedAt", "expiresAt"])
         .optional()
-        .transform((v) => (v !== undefined ? Number(v) : undefined))
-        .pipe(z.number().int().positive().optional())
+        .catch(undefined)
+        .openapi({
+            type: "string",
+            enum: ["issuedAt", "expiresAt"],
+            description: "Field to sort by"
+        }),
+    order: z
+        .enum(["asc", "desc"])
+        .optional()
+        .default("desc")
+        .catch("desc")
+        .openapi({
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order"
+        }),
+    resourceId: z.coerce
+        .number<string>()
+        .int()
+        .positive()
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "integer",
+            description: "Filter sessions for this resource"
+        }),
+    userId: z.string().nonempty().optional().catch(undefined).openapi({
+        type: "string",
+        description:
+            "Filter sessions held by this user, through SSO or a shareable link"
+    }),
+    authMethod: z
+        .enum(resourceSessionAuthMethods)
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "string",
+            enum: [...resourceSessionAuthMethods],
+            description: "Filter sessions by how they were authenticated"
+        }),
+    sessionId: z.string().nonempty().optional().catch(undefined).openapi({
+        type: "string",
+        description:
+            "Find a single session. Also matches the id of the login request it was created from, as recorded in the access logs."
+    })
 });
 
 registry.registerPath({
@@ -67,26 +142,108 @@ registry.registerPath({
         "List active resource sessions for all public resources in an organization.",
     tags: [OpenAPITags.ResourceSession],
     request: {
-        query: querySchema,
-        params: paramsSchema
+        params: paramsSchema,
+        query: listSchema
     },
     responses: {
         200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
+            description: "Successful response"
         }
     }
 });
+
+function authMethodCondition(method: ResourceSessionAuthMethod): SQL {
+    switch (method) {
+        case "sso":
+            return isNotNull(resourceSessions.userSessionId);
+        case "accessToken":
+            return isNotNull(resourceSessions.accessTokenId);
+        case "whitelist":
+            return or(
+                isNotNull(resourceSessions.whitelistId),
+                isNotNull(resourceSessions.policyWhitelistId)
+            )!;
+        case "password":
+            return or(
+                isNotNull(resourceSessions.passwordId),
+                isNotNull(resourceSessions.policyPasswordId)
+            )!;
+        case "pincode":
+            return or(
+                isNotNull(resourceSessions.pincodeId),
+                isNotNull(resourceSessions.policyPincodeId)
+            )!;
+    }
+}
+
+// SSO sessions belong to the user behind the dashboard session; shareable
+// link sessions to the user the link was created for.
+function userCondition(userId: string): SQL {
+    return or(
+        inArray(
+            resourceSessions.userSessionId,
+            db
+                .select({ sessionId: sessions.sessionId })
+                .from(sessions)
+                .where(eq(sessions.userId, userId))
+        ),
+        inArray(
+            resourceSessions.accessTokenId,
+            db
+                .select({ accessTokenId: resourceAccessToken.accessTokenId })
+                .from(resourceAccessToken)
+                .where(eq(resourceAccessToken.userId, userId))
+        )
+    )!;
+}
+
+function searchCondition(query: string): SQL {
+    const term = "%" + query.toLowerCase() + "%";
+    const matchesUser = or(
+        like(sql`LOWER(${users.email})`, term),
+        like(sql`LOWER(${users.username})`, term),
+        like(sql`LOWER(${users.name})`, term)
+    );
+
+    return or(
+        like(sql`LOWER(${resources.name})`, term),
+        inArray(
+            resourceSessions.userSessionId,
+            db
+                .select({ sessionId: sessions.sessionId })
+                .from(sessions)
+                .innerJoin(users, eq(users.userId, sessions.userId))
+                .where(matchesUser)
+        ),
+        inArray(
+            resourceSessions.accessTokenId,
+            db
+                .select({ accessTokenId: resourceAccessToken.accessTokenId })
+                .from(resourceAccessToken)
+                .leftJoin(users, eq(users.userId, resourceAccessToken.userId))
+                .where(
+                    or(
+                        like(sql`LOWER(${resourceAccessToken.title})`, term),
+                        matchesUser
+                    )
+                )
+        ),
+        inArray(
+            resourceSessions.whitelistId,
+            db
+                .select({ whitelistId: resourceWhitelist.whitelistId })
+                .from(resourceWhitelist)
+                .where(like(sql`LOWER(${resourceWhitelist.email})`, term))
+        ),
+        inArray(
+            resourceSessions.policyWhitelistId,
+            db
+                .select({ whitelistId: resourcePolicyWhiteList.whitelistId })
+                .from(resourcePolicyWhiteList)
+                .where(like(sql`LOWER(${resourcePolicyWhiteList.email})`, term))
+        )
+    )!;
+}
 
 export async function listResourceSessions(
     req: Request,
@@ -105,7 +262,7 @@ export async function listResourceSessions(
         }
         const { orgId } = parsedParams.data;
 
-        const parsedQuery = querySchema.safeParse(req.query);
+        const parsedQuery = listSchema.safeParse(req.query);
         if (!parsedQuery.success) {
             return next(
                 createHttpError(
@@ -114,21 +271,64 @@ export async function listResourceSessions(
                 )
             );
         }
-        const { limit, offset, resourceId } = parsedQuery.data;
+        const {
+            pageSize,
+            page,
+            query,
+            sort_by,
+            order,
+            resourceId,
+            userId,
+            authMethod,
+            sessionId
+        } = parsedQuery.data;
 
         // Request tokens are short-lived exchange tokens, not usable sessions,
         // and expired rows are only cleaned up lazily, so hide both.
-        const whereClause = and(
+        const conditions: SQL[] = [
             eq(resources.orgId, orgId),
             gt(resourceSessions.expiresAt, Date.now()),
             or(
                 isNull(resourceSessions.isRequestToken),
                 eq(resourceSessions.isRequestToken, false)
-            ),
-            resourceId !== undefined
-                ? eq(resourceSessions.resourceId, resourceId)
-                : undefined
-        );
+            )!
+        ];
+
+        if (typeof resourceId !== "undefined") {
+            conditions.push(eq(resourceSessions.resourceId, resourceId));
+        }
+
+        if (typeof userId !== "undefined") {
+            conditions.push(userCondition(userId));
+        }
+
+        if (typeof authMethod !== "undefined") {
+            conditions.push(authMethodCondition(authMethod));
+        }
+
+        if (typeof sessionId !== "undefined") {
+            conditions.push(
+                or(
+                    eq(resourceSessions.sessionId, sessionId),
+                    eq(resourceSessions.requestSessionId, sessionId)
+                )!
+            );
+        }
+
+        if (query) {
+            conditions.push(searchCondition(query));
+        }
+
+        const whereClause = and(...conditions);
+
+        const sortColumn =
+            sort_by === "expiresAt"
+                ? resourceSessions.expiresAt
+                : resourceSessions.issuedAt;
+        const orderBy = [
+            order === "asc" ? asc(sortColumn) : desc(sortColumn),
+            desc(resourceSessions.sessionId)
+        ];
 
         // SSO sessions resolve the user through the user session, access
         // token sessions through the token owner.
@@ -199,9 +399,9 @@ export async function listResourceSessions(
                     )
                 )
                 .where(whereClause)
-                .orderBy(desc(resourceSessions.issuedAt))
-                .limit(limit)
-                .offset(offset),
+                .orderBy(...orderBy)
+                .limit(pageSize)
+                .offset(pageSize * (page - 1)),
             db
                 .select({ count: sql<number>`count(*)` })
                 .from(resourceSessions)
@@ -244,8 +444,8 @@ export async function listResourceSessions(
                 })),
                 pagination: {
                     total: Number(count),
-                    limit,
-                    offset
+                    pageSize,
+                    page
                 }
             },
             success: true,
