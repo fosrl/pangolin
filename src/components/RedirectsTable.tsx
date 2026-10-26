@@ -27,18 +27,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger
-} from "@app/components/ui/popover";
 import { Switch } from "@app/components/ui/switch";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { cn } from "@app/lib/cn";
-import { dataTableFilterPopoverContentClassName } from "@app/lib/dataTableFilterPopover";
 import { orgQueries } from "@app/lib/queries";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import type { GetBatchedCertificateResponse } from "@server/routers/certificates/types";
@@ -53,7 +47,6 @@ import {
     ArrowUpRight,
     CheckIcon,
     ChevronsUpDownIcon,
-    Funnel,
     MinusIcon,
     MoreHorizontal
 } from "lucide-react";
@@ -67,10 +60,10 @@ import {
     useRef,
     useState,
     useTransition,
-    type ComponentRef,
-    type ReactNode
+    type ComponentRef
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
+import { ColumnEntityFilter } from "./ColumnEntityFilter";
 import { ColumnFilterButton } from "./ColumnFilterButton";
 import { InfoPopup } from "./ui/info-popup";
 
@@ -778,72 +771,6 @@ function RedirectEnabledForm({
                 onCheckedChange={() => formRef.current?.requestSubmit()}
             />
         </form>
-    );
-}
-
-type ColumnEntityFilterProps = {
-    label: string;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    selectedName?: string | null;
-    clearLabel: string;
-    onClear: () => void;
-    children: ReactNode;
-};
-
-function ColumnEntityFilter({
-    label,
-    open,
-    onOpenChange,
-    selectedName,
-    clearLabel,
-    onClear,
-    children
-}: ColumnEntityFilterProps) {
-    return (
-        <Popover open={open} onOpenChange={onOpenChange}>
-            <PopoverTrigger asChild>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    role="combobox"
-                    className={cn(
-                        "justify-between text-sm h-8 px-2 w-full p-3",
-                        !selectedName && "text-muted-foreground"
-                    )}
-                >
-                    <div className="flex items-center gap-2 min-w-0">
-                        {label}
-                        <Funnel className="size-4 flex-none" />
-                        {selectedName && (
-                            <Badge
-                                className="truncate max-w-[10rem]"
-                                variant="secondary"
-                            >
-                                {selectedName}
-                            </Badge>
-                        )}
-                    </div>
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent
-                className={dataTableFilterPopoverContentClassName}
-                align="start"
-            >
-                <div className="border-b p-1">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-full justify-start font-normal"
-                        onClick={onClear}
-                    >
-                        {clearLabel}
-                    </Button>
-                </div>
-                {children}
-            </PopoverContent>
-        </Popover>
     );
 }
 

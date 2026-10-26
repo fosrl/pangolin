@@ -11,6 +11,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { ArrowUpRight, Key, User } from "lucide-react";
 import Link from "next/link";
+import { LogRowLinks } from "@app/components/LogRowLinks";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { ColumnMultiFilterButton } from "@app/components/ColumnMultiFilterButton";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
@@ -539,6 +540,12 @@ export default function GeneralPage() {
                             </p>
                         </div>
                     )}
+                    <LogRowLinks
+                        orgId={orgId as string}
+                        actorType={row.actorType}
+                        actorId={row.actorId}
+                        metadata={row.metadata}
+                    />
                     <div>
                         <strong>Metadata:</strong>
                         <pre className="text-muted-foreground mt-1 text-xs bg-background p-2 rounded border overflow-auto">

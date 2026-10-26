@@ -171,7 +171,7 @@ export async function authWithPassword(
         }
 
         const token = generateSessionToken();
-        await createResourceSession({
+        const requestSession = await createResourceSession({
             resourceId,
             token,
             passwordId: isPolicyPassword ? null : definedPassword.passwordId,
@@ -189,6 +189,7 @@ export async function authWithPassword(
             resourceId: resource.resourceId,
             action: true,
             type: "password",
+            metadata: { resourceSessionId: requestSession.sessionId },
             userAgent: req.headers["user-agent"],
             requestIp: req.ip
         });

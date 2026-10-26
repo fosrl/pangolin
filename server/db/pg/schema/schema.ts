@@ -1160,7 +1160,10 @@ export const resourceSessions = pgTable("resourceSessions", {
             onDelete: "cascade"
         }
     ),
-    issuedAt: bigint("issuedAt", { mode: "number" })
+    issuedAt: bigint("issuedAt", { mode: "number" }),
+    // Id of the short-lived request token this session was exchanged from.
+    // Login audit logs reference that id, so this links them to the session.
+    requestSessionId: varchar("requestSessionId")
 });
 
 export const resourceWhitelist = pgTable("resourceWhitelist", {

@@ -297,7 +297,7 @@ export async function authWithWhitelist(
         }
 
         const token = generateSessionToken();
-        await createResourceSession({
+        const requestSession = await createResourceSession({
             resourceId,
             token,
             whitelistId: isPolicyWhitelist
@@ -316,7 +316,7 @@ export async function authWithWhitelist(
             orgId: org.orgId,
             resourceId: resource.resourceId,
             action: true,
-            metadata: { email },
+            metadata: { email, resourceSessionId: requestSession.sessionId },
             type: "whitelistedEmail",
             userAgent: req.headers["user-agent"],
             requestIp: req.ip
