@@ -27,7 +27,8 @@ export enum TierFeature {
     NewtAutoUpdate = "newtAutoUpdate",
     ResourcePolicies = "resourcePolicies",
     RoleBasedSSHControls = "roleBasedSSHControls",
-    CustomDnsRecords = "customDnsRecords" // handle downgrade by disabling custom DNS records
+    CustomDnsRecords = "customDnsRecords", // handle downgrade by disabling custom DNS records
+    ResourceSessions = "resourceSessions"
 }
 
 export const tierMatrix: Record<TierFeature, Tier[]> = {
@@ -72,5 +73,6 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.NewtAutoUpdate]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.ResourcePolicies]: ["tier3", "enterprise"],
     [TierFeature.RoleBasedSSHControls]: ["tier3", "enterprise"],
-    [TierFeature.CustomDnsRecords]: ["tier1", "tier2", "tier3", "enterprise"]
+    [TierFeature.CustomDnsRecords]: ["tier1", "tier2", "tier3", "enterprise"],
+    [TierFeature.ResourceSessions]: ["tier2", "tier3", "enterprise"]
 };
