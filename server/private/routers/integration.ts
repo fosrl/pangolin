@@ -179,6 +179,34 @@ authenticated.get(
     exportAiSessionLogs
 );
 
+authenticated.get(
+    "/org/:orgId/logs/ssh",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.sshSessionLogs),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.viewLogs),
+    logs.querySshSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh/export",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.logExport),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.exportLogs),
+    logActionAudit(ActionsEnum.exportLogs),
+    logs.exportSshSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh/:sshSessionLogId/commands",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.sshSessionLogs),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.viewLogs),
+    logs.querySshSessionCommands
+);
+
 authenticated.put(
     "/org/:orgId/idp/oidc",
     verifyValidLicense,

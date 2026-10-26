@@ -10,6 +10,7 @@ export enum TierFeature {
     ActionLogs = "actionLogs", // set the retention period to none on downgrade
     ConnectionLogs = "connectionLogs",
     AISessionLogs = "aiSessionLogs",
+    SSHSessionLogs = "sshSessionLogs",
     MaintenancePage = "maintenancePage", // handle downgrade
     DevicePosture = "devicePosture",
     TwoFactorEnforcement = "twoFactorEnforcement", // handle downgrade by setting to optional
@@ -38,6 +39,7 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.ActionLogs]: ["tier2", "tier3", "enterprise"],
     [TierFeature.ConnectionLogs]: ["tier2", "tier3", "enterprise"],
     [TierFeature.AISessionLogs]: ["tier2", "tier3", "enterprise"],
+    [TierFeature.SSHSessionLogs]: ["tier2", "tier3", "enterprise"],
     [TierFeature.MaintenancePage]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.DevicePosture]: ["tier2", "tier3", "enterprise"],
     [TierFeature.TwoFactorEnforcement]: [

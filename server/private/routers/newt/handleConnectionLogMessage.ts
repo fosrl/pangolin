@@ -11,10 +11,10 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { clientSitesAssociationsCache, db } from "@server/db";
+import { db } from "@server/db";
 import { MessageHandler } from "@server/routers/ws";
-import { sites, Newt, clients, orgs } from "@server/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { sites, Newt, orgs } from "@server/db";
+import { eq } from "drizzle-orm";
 import logger from "@server/logger";
 import { inflate } from "zlib";
 import { promisify } from "util";
@@ -23,6 +23,10 @@ import {
     flushConnectionLogToDb,
     cleanUpOldLogs
 } from "#private/lib/logConnectionAudit";
+import {
+    resolveClientsBySourceAddr,
+    sourceAddrToIp
+} from "#private/lib/resolveClientsBySourceAddr";
 
 export { flushConnectionLogToDb, cleanUpOldLogs };
 
@@ -120,12 +124,6 @@ export const handleConnectionLogMessage: MessageHandler = async (context) => {
         return;
     }
 
-    // Extract the CIDR suffix (e.g. "/16") from the org subnet so we can
-    // reconstruct the exact subnet string stored on each client record.
-    const cidrSuffix = site.orgSubnet?.includes("/")
-        ? site.orgSubnet.substring(site.orgSubnet.indexOf("/"))
-        : null;
-
     let sessions: ConnectionSessionData[];
     try {
         sessions = await decompressConnectionLog(message.data.compressed);
@@ -140,77 +138,12 @@ export const handleConnectionLogMessage: MessageHandler = async (context) => {
 
     logger.debug(`Sessions: ${JSON.stringify(sessions)}`);
 
-    // Build a map from sourceAddr → { clientId, userId } by querying clients
-    // whose subnet field matches exactly. Client subnets are stored with the
-    // org's CIDR suffix (e.g. "100.90.128.5/16"), so we reconstruct that from
-    // each unique sourceAddr + the org's CIDR suffix and do a targeted IN query.
-    const ipToClient = new Map<
-        string,
-        {
-            clientId: number;
-            userId: string | null;
-            clientEndpoint: string | null;
-        }
-    >();
-
-    if (cidrSuffix) {
-        // Collect unique source addresses so we only query for what we need
-        const uniqueSourceAddrs = new Set<string>();
-        for (const session of sessions) {
-            if (session.sourceAddr) {
-                uniqueSourceAddrs.add(session.sourceAddr);
-            }
-        }
-
-        if (uniqueSourceAddrs.size > 0) {
-            // Construct the exact subnet strings as stored in the DB
-            const subnetQueries = Array.from(uniqueSourceAddrs).map((addr) => {
-                // Strip port if present (e.g. "100.90.128.1:38004" → "100.90.128.1")
-                const ip = addr.includes(":") ? addr.split(":")[0] : addr;
-                return `${ip}${cidrSuffix}`;
-            });
-
-            logger.debug(`Subnet queries: ${JSON.stringify(subnetQueries)}`);
-
-            const matchedClients = await db
-                .select({
-                    clientId: clients.clientId,
-                    userId: clients.userId,
-                    subnet: clients.subnet,
-                    clientEndpoint: clientSitesAssociationsCache.endpoint
-                })
-                .from(clients)
-                .leftJoin(
-                    // this should be one to one
-                    clientSitesAssociationsCache,
-                    and(
-                        eq(
-                            clients.clientId,
-                            clientSitesAssociationsCache.clientId
-                        ),
-                        eq(clientSitesAssociationsCache.siteId, newt.siteId)
-                    )
-                )
-                .where(
-                    and(
-                        eq(clients.orgId, orgId),
-                        inArray(clients.subnet, subnetQueries)
-                    )
-                );
-
-            for (const c of matchedClients) {
-                const ip = c.subnet.split("/")[0];
-                logger.debug(
-                    `Client ${c.clientId} subnet ${c.subnet} matches ${ip}`
-                );
-                ipToClient.set(ip, {
-                    clientId: c.clientId,
-                    userId: c.userId,
-                    clientEndpoint: c.clientEndpoint
-                });
-            }
-        }
-    }
+    const ipToClient = await resolveClientsBySourceAddr({
+        orgId,
+        orgSubnet: site.orgSubnet,
+        siteId: newt.siteId,
+        sourceAddrs: sessions.map((session) => session.sourceAddr)
+    });
 
     // Convert to DB records and hand off to the audit logger
     for (const session of sessions) {
@@ -236,14 +169,9 @@ export const handleConnectionLogMessage: MessageHandler = async (context) => {
             continue;
         }
 
-        // Match the source address to a client. The sourceAddr is the
-        // client's IP on the WireGuard network, which corresponds to the IP
-        // portion of the client's subnet CIDR (e.g. "100.90.128.5/24").
-        // Strip port if present (e.g. "100.90.128.1:38004" → "100.90.128.1")
-        const sourceIp = session.sourceAddr.includes(":")
-            ? session.sourceAddr.split(":")[0]
-            : session.sourceAddr;
-        const clientInfo = ipToClient.get(sourceIp) ?? null;
+        // Match the source address to a client by its WireGuard IP.
+        const clientInfo =
+            ipToClient.get(sourceAddrToIp(session.sourceAddr)) ?? null;
 
         logConnectionAudit({
             sessionId: session.sessionId,
