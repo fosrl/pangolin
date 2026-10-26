@@ -22,14 +22,46 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { LoadLoginPageResponse } from "@server/routers/loginPage/types";
 
-const querySchema = z.object({
-    resourceId: z.coerce.number<number>().int().positive().optional(),
-    idpId: z.coerce.number<number>().int().positive().optional(),
-    orgId: z.string().min(1).optional(),
-    fullDomain: z.string().min(1)
-});
+const querySchema = z
+    .object({
+        resourceId: z.coerce.number<number>().int().positive().optional(),
+        idpId: z.coerce.number<number>().int().positive().optional(),
+        orgId: z.string().min(1).optional(),
+        fullDomain: z.string().min(1).optional()
+    })
+    .refine((data) => Boolean(data.fullDomain || data.orgId), {
+        error: "orgId or fullDomain is required"
+    });
 
-async function query(orgId: string | undefined, fullDomain: string) {
+async function query(
+    orgId: string | undefined,
+    fullDomain: string | undefined
+) {
+    if (orgId && !fullDomain) {
+        const [res] = await db
+            .select()
+            .from(loginPageOrg)
+            .where(eq(loginPageOrg.orgId, orgId))
+            .innerJoin(
+                loginPage,
+                eq(loginPage.loginPageId, loginPageOrg.loginPageId)
+            )
+            .limit(1);
+
+        if (!res) {
+            return null;
+        }
+
+        return {
+            ...res.loginPage,
+            orgId: res.loginPageOrg.orgId
+        };
+    }
+
+    if (!fullDomain) {
+        return null;
+    }
+
     if (!orgId) {
         const [res] = await db
             .select()
