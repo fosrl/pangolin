@@ -12,3 +12,4 @@
  */
 
 export * from "./handleConnectionLogMessage";
+export * from "./handleSshSessionLogMessage";

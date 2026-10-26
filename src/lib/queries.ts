@@ -31,7 +31,9 @@ import type {
     QueryActionAuditLogResponse,
     QueryAiSessionLogResponse,
     QueryConnectionAuditLogResponse,
-    QueryRequestAuditLogResponse
+    QueryRequestAuditLogResponse,
+    QuerySshSessionCommandsResponse,
+    QuerySshSessionLogResponse
 } from "@server/routers/auditLogs/types";
 import type { GetCertificateResponse } from "@server/routers/certificates/types";
 import type {
@@ -1135,6 +1137,34 @@ export const aiSessionLogsFiltersSchema = z.object({
 
 export type AiSessionLogFilters = z.output<typeof aiSessionLogsFiltersSchema>;
 
+export const sshSessionLogsFiltersSchema = z.object({
+    timeStart: z
+        .string()
+        .refine((val) => !isNaN(Date.parse(val)), {
+            error: "timeStart must be a valid ISO date string"
+        })
+        .optional()
+        .catch(undefined),
+    timeEnd: z
+        .string()
+        .refine((val) => !isNaN(Date.parse(val)), {
+            error: "timeEnd must be a valid ISO date string"
+        })
+        .optional()
+        .catch(undefined),
+    page: z.coerce.number().optional().catch(0).default(0),
+    pageSize: z.coerce.number().optional().catch(20).default(20),
+    siteResourceId: z.string().optional().catch(undefined),
+    resourceId: z.string().optional().catch(undefined),
+    siteId: z.string().optional().catch(undefined),
+    transport: z.string().optional().catch(undefined),
+    clientId: z.string().optional().catch(undefined),
+    userId: z.string().optional().catch(undefined),
+    username: z.string().optional().catch(undefined)
+});
+
+export type SshSessionLogFilters = z.output<typeof sshSessionLogsFiltersSchema>;
+
 export const logQueries = {
     requestAnalytics: ({
         orgId,
@@ -1281,6 +1311,56 @@ export const logQueries = {
                         limit: pageSize,
                         offset: page * pageSize
                     },
+                    signal
+                });
+                return res.data.data;
+            }
+        }),
+
+    sshSessions: ({
+        orgId,
+        filters
+    }: {
+        orgId: string;
+        filters: SshSessionLogFilters;
+    }) =>
+        queryOptions({
+            queryKey: ["SSH_SESSION_LOGS", orgId, "ALL", filters] as const,
+            queryFn: async ({ signal, meta }) => {
+                const { page, pageSize, ...rest } = filters;
+                const res = await meta!.api.get<
+                    AxiosResponse<QuerySshSessionLogResponse>
+                >(`/org/${orgId}/logs/ssh`, {
+                    params: {
+                        ...rest,
+                        limit: pageSize,
+                        offset: page * pageSize
+                    },
+                    signal
+                });
+                return res.data.data;
+            }
+        }),
+
+    sshSessionCommands: ({
+        orgId,
+        sshSessionLogId
+    }: {
+        orgId: string;
+        sshSessionLogId: number;
+    }) =>
+        queryOptions({
+            queryKey: [
+                "SSH_SESSION_LOGS",
+                orgId,
+                "COMMANDS",
+                sshSessionLogId
+            ] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<QuerySshSessionCommandsResponse>
+                >(`/org/${orgId}/logs/ssh/${sshSessionLogId}/commands`, {
+                    params: { limit: 5000 },
                     signal
                 });
                 return res.data.data;
