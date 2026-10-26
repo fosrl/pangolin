@@ -27,6 +27,7 @@ import {
 } from "@server/routers/auditLogs";
 import * as misc from "#private/routers/misc";
 import * as approval from "#private/routers/approvals";
+import * as resourceSession from "#private/routers/resourceSession";
 import * as user from "#private/routers/user";
 import * as client from "#private/routers/client";
 import * as siteProvisioning from "#private/routers/siteProvisioning";
@@ -395,6 +396,25 @@ authenticated.get(
     verifyUserHasAction(ActionsEnum.listApprovals),
     logActionAudit(ActionsEnum.listApprovals),
     approval.listApprovals
+);
+
+authenticated.get(
+    "/org/:orgId/resource-sessions",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.resourceSessions),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.listResourceSessions),
+    resourceSession.listResourceSessions
+);
+
+authenticated.delete(
+    "/org/:orgId/resource-session/:sessionId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.resourceSessions),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.deleteResourceSession),
+    logActionAudit(ActionsEnum.deleteResourceSession),
+    resourceSession.deleteResourceSession
 );
 
 authenticated.get(

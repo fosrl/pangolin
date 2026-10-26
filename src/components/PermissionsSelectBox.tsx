@@ -121,6 +121,11 @@ function getActionsCategories(root: boolean) {
             [t("actionListAccessTokens")]: "listAccessTokens"
         },
 
+        "Resource Session": {
+            [t("actionListResourceSessions")]: "listResourceSessions",
+            [t("actionDeleteResourceSession")]: "deleteResourceSession"
+        },
+
         "Resource Rule": {
             [t("actionCreateResourceRule")]: "createResourceRule",
             [t("actionDeleteResourceRule")]: "deleteResourceRule",

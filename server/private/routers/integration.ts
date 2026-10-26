@@ -20,6 +20,7 @@ import * as siteProvisioning from "#private/routers/siteProvisioning";
 import * as policy from "#private/routers/policy";
 import * as eventStreamingDestination from "#private/routers/eventStreamingDestination";
 import * as alertRule from "#private/routers/alertRule";
+import * as resourceSession from "#private/routers/resourceSession";
 import * as healthChecks from "#private/routers/healthChecks";
 import * as resource from "#private/routers/resource";
 import {
@@ -427,6 +428,25 @@ authenticated.get(
     verifyApiKeyOrgAccess,
     verifyApiKeyHasAction(ActionsEnum.getAlertRule),
     alertRule.getAlertRule
+);
+
+authenticated.get(
+    "/org/:orgId/resource-sessions",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.resourceSessions),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.listResourceSessions),
+    resourceSession.listResourceSessions
+);
+
+authenticated.delete(
+    "/org/:orgId/resource-session/:sessionId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.resourceSessions),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteResourceSession),
+    logActionAudit(ActionsEnum.deleteResourceSession),
+    resourceSession.deleteResourceSession
 );
 
 authenticated.get(
