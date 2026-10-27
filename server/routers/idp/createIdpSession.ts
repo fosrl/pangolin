@@ -7,17 +7,17 @@ import logger from "@server/logger";
 import { response } from "@server/lib/response";
 import { OpenAPITags, registry } from "@server/openApi";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
-import { createSessionForIdpUser } from "@server/auth/sessions/createSessionForIdpUser";
+import { db, users } from "@server/db";
+import { eq } from "drizzle-orm";
+import {
+    createSession,
+    generateSessionToken
+} from "@server/auth/sessions/app";
 
 const paramsSchema = z.strictObject({
-    orgId: z.string().nonempty().openapi({
-        description:
-            "ID of the organization that owns both the identity provider and the API key making this call.",
-        example: "myorg"
-    }),
     idpId: z.coerce.number<number>().openapi({
         description:
-            "ID of the identity provider the user belongs to. Must be owned by the organization in orgId.",
+            "ID of the identity provider the user belongs to. The provided user must have users.idpId equal to this value.",
         example: 1
     })
 });
@@ -25,7 +25,7 @@ const paramsSchema = z.strictObject({
 const bodySchema = z.strictObject({
     userId: z.string().nonempty().openapi({
         description:
-            "Pangolin user ID of the already-provisioned external IdP user to mint a session for. The user must already exist, have users.idpId equal to idpId, and hold a membership in the organization.",
+            "Pangolin user ID of the already-provisioned external IdP user to mint a session for. The user must already exist and have users.idpId equal to idpId.",
         example: "abc123def456"
     })
 });
@@ -49,10 +49,10 @@ const CreateIdpSessionResponseDataSchema = z.object({
 
 registry.registerPath({
     method: "post",
-    path: "/org/{orgId}/idp/{idpId}/oidc/exchange-token",
+    path: "/idp/{idpId}/oidc/create-session",
     description:
-        "Mint a Pangolin session for an already-provisioned external IdP user, bridging an external IdP session into Pangolin without the interactive browser OIDC flow. The caller is trusted via an org-scoped API key holding the createIdpSession action; the external JWT is never sent. No claim-mapping or autoprovision is performed — the user must already exist and be a member of the organization.",
-    tags: [OpenAPITags.OrgIdp],
+        "Mint a Pangolin session for an already-provisioned external IdP user, bridging an external IdP session into Pangolin without the interactive browser OIDC flow. This is an impersonation-capable, highly privileged route: it requires a ROOT API key holding the createIdpSession action, and must be enabled with the enable_idp_create_session flag in config.yml (off by default, self-hosted only). The external JWT is never sent. No claim-mapping or autoprovision is performed — the user must already exist and belong to the identity provider.",
+    tags: [OpenAPITags.GlobalIdp],
     request: {
         params: paramsSchema,
         body: {
@@ -80,7 +80,7 @@ registry.registerPath({
         },
         401: {
             description:
-                "The user does not belong to the specified identity provider, or is not a member of the specified organization."
+                "The user does not belong to the specified identity provider."
         },
         404: {
             description: "No user exists with the given userId."
@@ -89,12 +89,13 @@ registry.registerPath({
 });
 
 /**
- * Mints a Pangolin user session token for an already-authenticated external
+ * Mints a Pangolin user session token for an already-provisioned external
  * identity, bridging an external IdP session into Pangolin without the
- * interactive browser OIDC flow. The caller is trusted via an org-scoped API
- * key granted the createIdpSession action; the external JWT is not sent. The
- * user must already be provisioned into the org — no claim-mapping or
- * autoprovision happens here.
+ * interactive browser OIDC flow. The caller is trusted via a ROOT API key
+ * granted the createIdpSession action; the external JWT is not sent. The user
+ * must already exist and belong to the identity provider — no claim-mapping or
+ * autoprovision happens here. Minting a session yields the full user identity,
+ * which is why this is root-gated rather than org-scoped.
  */
 export async function createIdpSession(
     req: Request,
@@ -122,16 +123,32 @@ export async function createIdpSession(
     }
 
     try {
-        const { orgId, idpId } = parsedParams.data;
+        const { idpId } = parsedParams.data;
         const { userId } = parsedBody.data;
 
-        const { token, expiresAt } = await createSessionForIdpUser(userId, {
-            orgId,
-            idpId
-        });
+        const [existingUser] = await db
+            .select()
+            .from(users)
+            .where(eq(users.userId, userId));
+
+        if (!existingUser) {
+            return next(createHttpError(HttpCode.NOT_FOUND, "User not found"));
+        }
+
+        if (existingUser.idpId !== idpId) {
+            return next(
+                createHttpError(
+                    HttpCode.UNAUTHORIZED,
+                    "User does not belong to the specified IdP"
+                )
+            );
+        }
+
+        const token = generateSessionToken();
+        const sess = await createSession(token, existingUser.userId);
 
         return response<CreateIdpSessionResponse>(res, {
-            data: { token, expiresAt },
+            data: { token, expiresAt: sess.expiresAt },
             success: true,
             error: false,
             message: "Session created successfully",

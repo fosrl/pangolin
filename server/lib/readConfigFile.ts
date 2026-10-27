@@ -423,6 +423,7 @@ export const configSchema = z
                 disable_user_create_org: z.boolean().optional(),
                 allow_raw_resources: z.boolean().optional(),
                 enable_integration_api: z.boolean().optional(),
+                enable_idp_create_session: z.boolean().optional().default(false),
                 disable_local_sites: z.boolean().optional(),
                 disable_basic_wireguard_sites: z.boolean().optional(),
                 disable_config_managed_domains: z.boolean().optional(),
