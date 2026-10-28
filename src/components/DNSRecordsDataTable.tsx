@@ -106,9 +106,18 @@ export function DNSRecordsDataTable<TData, TValue>({
             <Card>
                 <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-4">
                     <div className="flex flex-row space-y-3 w-full sm:mr-2 gap-2 justify-between">
-                        <div className="relative w-full sm:max-w-sm flex flex-row gap-4 items-center">
-                            <h1 className="font-semibold">{t("dnsRecord")}</h1>
-                            <Badge variant="secondary">{t("required")}</Badge>
+                        <div className="relative w-full space-y-1">
+                            <div className="flex flex-row gap-4 items-center">
+                                <h1 className="font-semibold">
+                                    {t("dnsRecord")}
+                                </h1>
+                                <Badge variant="secondary">
+                                    {t("required")}
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                {t("domainSetupRecordsDescription")}
+                            </p>
                         </div>
                         <Link
                             href="https://docs.pangolin.net/manage/domains"
