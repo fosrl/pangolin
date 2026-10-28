@@ -16,11 +16,19 @@ FROM ${NODE_IMAGE} AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+COPY package.json ./
 
-COPY package*.json .npmrc ./
-
-RUN npm ci
+# esbuild.mjs marks every npm package external, so bundling needs only the
+# bundler's own tooling (at the versions package.json pins), not the full
+# dependency tree. Installed outside /app so the root package.json's
+# dependencies aren't pulled in with it.
+RUN mkdir /tools && cd /tools && echo '{"private": true}' > package.json && \
+    npm install --no-audit --no-fund --no-package-lock $(node -p ' \
+        const p = require("/app/package.json"); \
+        const all = { ...p.dependencies, ...p.devDependencies }; \
+        ["esbuild", "esbuild-node-externals", "yargs"] \
+            .map((n) => `${n}@${all[n]}`).join(" ")') && \
+    ln -s /tools/node_modules /app/node_modules
 
 COPY . .
 
@@ -28,15 +36,24 @@ COPY . .
 ARG BUILD=enterprise
 ARG DATABASE=pg
 
+# Bundle, then write a package.json listing only the packages the bundle
+# imports at runtime
 RUN npm run set:$DATABASE && \
     npm run set:$BUILD && \
     mkdir -p dist && \
-    node esbuild.mjs -e server/private/dnsServer.ts -o dist/dns.mjs && \
-    test -f dist/dns.mjs
+    node esbuild.mjs -e server/private/dnsServer.ts -o dist/dns.mjs -m dist/dns.meta.json && \
+    node scripts/bundle-package-json.mjs dist/dns.meta.json /out/package.json
 
-# Copy only the node_modules files the bundle can load
-RUN npm prune --omit=dev && \
-    node trace-deps.mjs -o /out dist/dns.mjs
+FROM ${NODE_IMAGE} AS deps
+
+WORKDIR /app
+
+# Installing the trimmed package.json against the root lockfile keeps every
+# transitive version pinned to what the main Pangolin image ships
+COPY --from=builder /out/package.json ./package.json
+COPY package-lock.json .npmrc ./
+
+RUN npm install --omit=dev --no-audit --no-fund
 
 FROM ${NODE_IMAGE} AS runner
 
@@ -44,9 +61,9 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y tzdata && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /out ./
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
 COPY --from=builder /app/dist/dns.mjs ./dist/dns.mjs
-COPY --from=builder /app/package.json ./package.json
 
 ENV ENVIRONMENT=prod
 ENV NODE_ENV=production

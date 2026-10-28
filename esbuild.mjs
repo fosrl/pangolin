@@ -45,6 +45,11 @@ const argv = yargs(hideBin(process.argv))
         choices: ["oss", "saas", "enterprise"],
         default: build
     })
+    .option("metafile", {
+        alias: "m",
+        describe: "Write the esbuild metafile (inputs/imports) to this path",
+        type: "string"
+    })
     .help()
     .alias("help", "h").argv;
 
@@ -281,6 +286,7 @@ esbuild
             })
         ],
         sourcemap: "inline",
+        metafile: Boolean(argv.metafile),
         target: "node24"
     })
     .then((result) => {
@@ -304,6 +310,10 @@ esbuild
             }
 
             process.exit(1);
+        }
+
+        if (argv.metafile) {
+            fs.writeFileSync(argv.metafile, JSON.stringify(result.metafile));
         }
 
         console.log("Build completed successfully");
