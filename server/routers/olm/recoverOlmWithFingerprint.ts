@@ -1,7 +1,7 @@
 import { db, currentFingerprint, olms } from "@server/db";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import response from "@server/lib/response";
 import createHttpError from "http-errors";
@@ -71,22 +71,14 @@ export async function recoverOlmWithFingerprint(
                     )
                 )
             )
-            .orderBy(currentFingerprint.lastSeen);
+            .orderBy(desc(currentFingerprint.lastSeen))
+            .limit(1);
 
         if (!result || result.length == 0) {
             return next(
                 createHttpError(
                     HttpCode.NOT_FOUND,
                     "corresponding olm with this fingerprint not found"
-                )
-            );
-        }
-
-        if (result.length > 1) {
-            return next(
-                createHttpError(
-                    HttpCode.CONFLICT,
-                    "multiple matching fingerprints found, not resetting secrets"
                 )
             );
         }
