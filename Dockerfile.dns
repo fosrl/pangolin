@@ -52,6 +52,8 @@ ENV ENVIRONMENT=prod
 ENV NODE_ENV=production
 
 EXPOSE 53/udp
+# HTTP health check (GET /healthz)
+EXPOSE 8053/tcp
 
 ARG VERSION="dev"
 ARG REVISION=""
