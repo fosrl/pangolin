@@ -146,6 +146,17 @@ async function capRetentionDays(
         );
     }
 
+    if (
+        org.settingsLogRetentionDaysSsh !== null &&
+        org.settingsLogRetentionDaysSsh > maxRetentionDays
+    ) {
+        updates.settingsLogRetentionDaysSsh = maxRetentionDays;
+        needsUpdate = true;
+        logger.info(
+            `Capping SSH session log retention from ${org.settingsLogRetentionDaysSsh} to ${maxRetentionDays} days for org ${orgId}`
+        );
+    }
+
     // Apply updates if needed
     if (needsUpdate) {
         await db.update(orgs).set(updates).where(eq(orgs.orgId, orgId));
@@ -294,6 +305,10 @@ async function disableFeature(
 
             case TierFeature.AISessionLogs:
                 await disableAISessionLogs(orgId);
+                break;
+
+            case TierFeature.SSHSessionLogs:
+                await disableSSHSessionLogs(orgId);
                 break;
 
             case TierFeature.MaintenancePage:
@@ -501,6 +516,15 @@ async function disableAISessionLogs(orgId: string): Promise<void> {
         .where(eq(orgs.orgId, orgId));
 
     logger.info(`Disabled AI session logs for org ${orgId}`);
+}
+
+async function disableSSHSessionLogs(orgId: string): Promise<void> {
+    await db
+        .update(orgs)
+        .set({ settingsLogRetentionDaysSsh: 0 })
+        .where(eq(orgs.orgId, orgId));
+
+    logger.info(`Disabled SSH session logs for org ${orgId}`);
 }
 
 async function disableRotateCredentials(orgId: string): Promise<void> {}

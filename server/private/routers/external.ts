@@ -614,6 +614,34 @@ authenticated.get(
     exportAiSessionLogs
 );
 
+authenticated.get(
+    "/org/:orgId/logs/ssh",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.sshSessionLogs),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.viewLogs),
+    logs.querySshSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh/export",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.logExport),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.exportLogs),
+    logActionAudit(ActionsEnum.exportLogs),
+    logs.exportSshSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh/:sshSessionLogId/commands",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.sshSessionLogs),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.viewLogs),
+    logs.querySshSessionCommands
+);
+
 authenticated.post(
     "/user/:userId/add-role/:roleId",
     verifyRoleAccess,

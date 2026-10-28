@@ -697,6 +697,96 @@ export const aiSessionLog = pgTable(
     ]
 );
 
+// One row per SSH connection to a site's native SSH server. Newt reports a
+// long-running session once per flush, so rows are upserted on
+// (siteId, sessionId) and commandCount accumulates across flushes.
+export const sshSessionLog = pgTable(
+    "sshSessionLog",
+    {
+        id: serial("id").primaryKey(),
+        sessionId: varchar("sessionId").notNull(),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        siteId: integer("siteId")
+            .notNull()
+            .references(() => sites.siteId, { onDelete: "cascade" }),
+        siteResourceId: integer("siteResourceId").references(
+            () => siteResources.siteResourceId,
+            { onDelete: "set null" }
+        ),
+        // public resource, for sessions opened through the browser gateway
+        resourceId: integer("resourceId").references(
+            () => resources.resourceId,
+            { onDelete: "set null" }
+        ),
+        clientId: integer("clientId").references(() => clients.clientId, {
+            onDelete: "set null"
+        }),
+        userId: varchar("userId").references(() => users.userId, {
+            onDelete: "set null"
+        }),
+        transport: varchar("transport").notNull().default("ssh"), // ssh or browser
+        sourceAddr: varchar("sourceAddr").notNull(),
+        destAddr: varchar("destAddr").notNull(),
+        username: varchar("username").notNull(), // system user on the host
+        authMethod: varchar("authMethod"), // publickey, certificate, password
+        keyFingerprint: varchar("keyFingerprint"),
+        certKeyId: varchar("certKeyId"),
+        commandCount: integer("commandCount").notNull().default(0),
+        startedAt: bigint("startedAt", { mode: "number" }).notNull(), // epoch seconds
+        endedAt: bigint("endedAt", { mode: "number" })
+    },
+    (t) => [
+        uniqueIndex("idx_ssh_session_log_site_session").on(
+            t.siteId,
+            t.sessionId
+        ),
+        index("idx_ssh_session_log_org_started").on(t.orgId, t.startedAt),
+        index("idx_ssh_session_log_org_site_resource_started").on(
+            t.orgId,
+            t.siteResourceId,
+            t.startedAt
+        ),
+        index("idx_ssh_session_log_org_resource_started").on(
+            t.orgId,
+            t.resourceId,
+            t.startedAt
+        ),
+        index("idx_ssh_session_log_org_user_started").on(
+            t.orgId,
+            t.userId,
+            t.startedAt
+        )
+    ]
+);
+
+export const sshCommandLog = pgTable(
+    "sshCommandLog",
+    {
+        id: serial("id").primaryKey(),
+        sshSessionLogId: integer("sshSessionLogId")
+            .notNull()
+            .references(() => sshSessionLog.id, { onDelete: "cascade" }),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        command: text("command").notNull(),
+        channel: varchar("channel").notNull(), // shell or exec
+        // Interactive line edited with history recall or tab completion, so
+        // the reconstructed text may differ from what the shell ran.
+        inexact: boolean("inexact").notNull().default(false),
+        timestamp: bigint("timestamp", { mode: "number" }).notNull() // epoch seconds
+    },
+    (t) => [
+        index("idx_ssh_command_log_session_timestamp").on(
+            t.sshSessionLogId,
+            t.timestamp
+        ),
+        index("idx_ssh_command_log_org_timestamp").on(t.orgId, t.timestamp)
+    ]
+);
+
 export type Approval = InferSelectModel<typeof approvals>;
 export type Limit = InferSelectModel<typeof limits>;
 export type Account = InferSelectModel<typeof account>;
@@ -744,3 +834,5 @@ export type AlertEmailRecipients = InferSelectModel<
 export type AlertWebhookActions = InferSelectModel<typeof alertWebhookActions>;
 export type TrialNotification = InferSelectModel<typeof trialNotifications>;
 export type AiSessionLog = InferSelectModel<typeof aiSessionLog>;
+export type SshSessionLog = InferSelectModel<typeof sshSessionLog>;
+export type SshCommandLog = InferSelectModel<typeof sshCommandLog>;
