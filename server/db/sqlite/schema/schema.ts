@@ -1538,7 +1538,10 @@ export const idp = sqliteTable("idp", {
         mode: "boolean"
     })
         .notNull()
-        .default(false)
+        .default(false),
+    // Provider-defined JSON, encrypted (e.g. Google service account key + admin email).
+    // Null = the provider reuses the OIDC client credentials (Azure).
+    directorySyncConfig: text("directorySyncConfig")
 });
 
 // Identity Provider OAuth Configuration
@@ -1667,35 +1670,6 @@ export const idpOrg = sqliteTable("idpOrg", {
         .notNull()
         .default(true)
 });
-
-// Runtime state of the directory sync job, one row per IdP. Deleting the row
-// forces a full sync on the next run.
-export const idpSyncState = sqliteTable("idpSyncState", {
-    idpId: integer("idpId")
-        .primaryKey()
-        .references(() => idp.idpId, { onDelete: "cascade" }),
-    // Provider-defined opaque JSON (e.g. Azure delta links). Null = full sync.
-    cursor: text("cursor"),
-    lastSyncStartedAt: integer("lastSyncStartedAt"),
-    lastSyncSucceededAt: integer("lastSyncSucceededAt"),
-    lastError: text("lastError"),
-    consecutiveFailures: integer("consecutiveFailures").notNull().default(0)
-});
-
-// Links a directory user (stable provider ID) to the Pangolin user sync manages.
-export const idpSyncUser = sqliteTable(
-    "idpSyncUser",
-    {
-        idpId: integer("idpId")
-            .notNull()
-            .references(() => idp.idpId, { onDelete: "cascade" }),
-        externalId: text("externalId").notNull(),
-        userId: text("userId")
-            .notNull()
-            .references(() => users.userId, { onDelete: "cascade" })
-    },
-    (t) => [primaryKey({ columns: [t.idpId, t.externalId] })]
-);
 
 // Blueprint runs
 export const blueprints = sqliteTable("blueprints", {
