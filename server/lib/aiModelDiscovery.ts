@@ -129,6 +129,11 @@ export function expandProviderModels(
             candidates.add(allow);
         }
     }
+    for (const configuredKey of provider.configured.keys()) {
+        if (!isModelKeyPattern(configuredKey)) {
+            candidates.add(configuredKey);
+        }
+    }
     for (const modelId of provider.catalog.keys()) {
         candidates.add(modelId);
     }
