@@ -21,6 +21,7 @@ import { verifyPassword } from "@server/auth/password";
 import { verifySession } from "@server/auth/sessions/verifySession";
 import { UserType } from "@server/types/UserTypes";
 import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
+import { isResourceReauthRequired } from "#dynamic/lib/resourceSessionReauth";
 
 export const loginBodySchema = z.strictObject({
     email: z.email().toLowerCase(),
@@ -48,7 +49,13 @@ export async function login(
         req,
         forceLogin === "true"
     );
-    if (existingSession) {
+    if (
+        existingSession &&
+        !(await isReauthRequiredForLogin(
+            existingSession.sessionId,
+            req.body?.resourceGuid
+        ))
+    ) {
         return response<null>(res, {
             data: null,
             success: true,
@@ -277,4 +284,28 @@ export async function login(
             )
         );
     }
+}
+
+// An admin revoked this dashboard session's SSO access to the resource, so the
+// user is logging in again from the resource auth page. Let the login go
+// through (replacing the old session) instead of short-circuiting.
+async function isReauthRequiredForLogin(
+    sessionId: string,
+    resourceGuid: unknown
+): Promise<boolean> {
+    if (typeof resourceGuid !== "string" || !resourceGuid) {
+        return false;
+    }
+
+    const [resource] = await db
+        .select({ resourceId: resources.resourceId })
+        .from(resources)
+        .where(eq(resources.resourceGuid, resourceGuid))
+        .limit(1);
+
+    if (!resource) {
+        return false;
+    }
+
+    return await isResourceReauthRequired(sessionId, resource.resourceId);
 }

@@ -29,6 +29,8 @@ import { isOrgSubscribed } from "@app/lib/api/isOrgSubscribed";
 import { normalizePostAuthPath } from "@server/lib/normalizePostAuthPath";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { Alert, AlertDescription } from "@app/components/ui/alert";
 
 export async function generateMetadata(): Promise<Metadata> {
     const env = pullEnv();
@@ -236,6 +238,7 @@ export default async function ResourceAuthPage(props: {
 
     // convert the dashboard token into a resource session token
     let userIsUnauthorized = false;
+    let reauthRequired = false;
     if (user && authInfo.sso) {
         let redirectToUrl: string | undefined;
         try {
@@ -247,7 +250,10 @@ export default async function ResourceAuthPage(props: {
                 cookie
             );
 
-            if (res.data.data.requestToken) {
+            if (res.data.data.reauthRequired) {
+                // fall through to the login form so the user signs in again
+                reauthRequired = true;
+            } else if (res.data.data.requestToken) {
                 const paramName = env.server.resourceSessionRequestParam;
                 // append the param with the token to the redirect url
                 const fullUrl = new URL(redirectUrl);
@@ -317,6 +323,8 @@ export default async function ResourceAuthPage(props: {
         }
     }
 
+    const t = await getTranslations();
+
     let branding: LoadLoginPageBrandingResponse | null = null;
     try {
         if (hasLoginPageBranding) {
@@ -337,6 +345,13 @@ export default async function ResourceAuthPage(props: {
                 </div>
             ) : (
                 <div className="w-full max-w-md">
+                    {reauthRequired && (
+                        <Alert className="mb-4">
+                            <AlertDescription>
+                                {t("resourceSessionReauthRequired")}
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     <ResourceAuthPortal
                         methods={{
                             password: authInfo.password,

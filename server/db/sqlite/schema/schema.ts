@@ -1437,7 +1437,10 @@ export const resourceSessions = sqliteTable("resourceSessions", {
             onDelete: "cascade"
         }
     ),
-    issuedAt: integer("issuedAt")
+    issuedAt: integer("issuedAt"),
+    // Id of the short-lived request token this session was exchanged from.
+    // Login audit logs reference that id, so this links them to the session.
+    requestSessionId: text("requestSessionId")
 });
 
 export const resourceWhitelist = sqliteTable("resourceWhitelist", {

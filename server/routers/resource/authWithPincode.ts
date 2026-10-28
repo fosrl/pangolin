@@ -170,7 +170,7 @@ export async function authWithPincode(
         }
 
         const token = generateSessionToken();
-        await createResourceSession({
+        const requestSession = await createResourceSession({
             resourceId,
             token,
             pincodeId: isPolicyPincode ? null : definedPincode.pincodeId,
@@ -186,6 +186,7 @@ export async function authWithPincode(
             resourceId: resource.resourceId,
             action: true,
             type: "pincode",
+            metadata: { resourceSessionId: requestSession.sessionId },
             userAgent: req.headers["user-agent"],
             requestIp: req.ip
         });

@@ -9,6 +9,7 @@ import {
     Building2Icon,
     Cable,
     ChartLine,
+    Cookie,
     Coins,
     CreditCard,
     Fingerprint,
@@ -218,6 +219,15 @@ export const orgNavSections = (
                           title: "sidebarApprovals",
                           href: "/{orgId}/settings/access/approvals",
                           icon: <UserCheck className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "sidebarResourceSessions",
+                          href: "/{orgId}/settings/access/resource-sessions",
+                          icon: <Cookie className="size-4 flex-none" />
                       }
                   ]
                 : []),
@@ -538,6 +548,15 @@ export const commandBarNavSections = (
                           title: "commandApprovals",
                           href: "/{orgId}/settings/access/approvals",
                           icon: <UserCog className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "commandResourceSessions",
+                          href: "/{orgId}/settings/access/resource-sessions",
+                          icon: <Cookie className="size-4 flex-none" />
                       }
                   ]
                 : []),

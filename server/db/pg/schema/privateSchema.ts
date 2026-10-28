@@ -697,6 +697,24 @@ export const aiSessionLog = pgTable(
     ]
 );
 
+// Marks a dashboard session that must log in again before it can get a new
+// SSO session for a resource, set when an admin revokes that resource session.
+export const resourceSessionReauth = pgTable(
+    "resourceSessionReauth",
+    {
+        userSessionId: varchar("userSessionId")
+            .notNull()
+            .references(() => sessions.sessionId, { onDelete: "cascade" }),
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" }),
+        revokedAt: bigint("revokedAt", { mode: "number" }).notNull()
+    },
+    (table) => [
+        primaryKey({ columns: [table.userSessionId, table.resourceId] })
+    ]
+);
+
 export type Approval = InferSelectModel<typeof approvals>;
 export type Limit = InferSelectModel<typeof limits>;
 export type Account = InferSelectModel<typeof account>;
@@ -744,3 +762,6 @@ export type AlertEmailRecipients = InferSelectModel<
 export type AlertWebhookActions = InferSelectModel<typeof alertWebhookActions>;
 export type TrialNotification = InferSelectModel<typeof trialNotifications>;
 export type AiSessionLog = InferSelectModel<typeof aiSessionLog>;
+export type ResourceSessionReauth = InferSelectModel<
+    typeof resourceSessionReauth
+>;
