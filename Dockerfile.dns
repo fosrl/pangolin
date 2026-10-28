@@ -1,0 +1,71 @@
+# Standalone image that runs only the authoritative DNS server
+# (server/private/dnsServer.ts) against an existing Pangolin database.
+#
+# Build:  docker build -f Dockerfile.dns -t pangolin-dns .
+# Run:    docker run -v ./config:/app/config -p 53:53/udp pangolin-dns
+#
+# The mounted config directory needs the same config.yml (database
+# connection) and privateConfig.yml (dns section with
+# enabled: true) as the Pangolin server whose database it reads.
+
+# Mirror of docker.io/library/node, kept in sync by
+# .github/workflows/mirror-node.yml (avoids Docker Hub / ECR pull rate limits)
+ARG NODE_IMAGE=ghcr.io/fosrl/node:24.22.1-slim
+
+FROM ${NODE_IMAGE} AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json .npmrc ./
+
+RUN npm ci
+
+COPY . .
+
+# The DNS server is private code, so only saas/enterprise builds include it
+ARG BUILD=enterprise
+ARG DATABASE=pg
+
+RUN npm run set:$DATABASE && \
+    npm run set:$BUILD && \
+    mkdir -p dist && \
+    node esbuild.mjs -e server/private/dnsServer.ts -o dist/dns.mjs && \
+    test -f dist/dns.mjs
+
+# Copy only the node_modules files the bundle can load
+RUN npm prune --omit=dev && \
+    node trace-deps.mjs -o /out dist/dns.mjs
+
+FROM ${NODE_IMAGE} AS runner
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y tzdata && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /out ./
+COPY --from=builder /app/dist/dns.mjs ./dist/dns.mjs
+COPY --from=builder /app/package.json ./package.json
+
+ENV ENVIRONMENT=prod
+ENV NODE_ENV=production
+
+EXPOSE 53/udp
+
+ARG VERSION="dev"
+ARG REVISION=""
+ARG CREATED=""
+
+LABEL org.opencontainers.image.source="https://github.com/fosrl/pangolin" \
+      org.opencontainers.image.url="https://github.com/fosrl/pangolin" \
+      org.opencontainers.image.documentation="https://docs.pangolin.net" \
+      org.opencontainers.image.vendor="Fossorial" \
+      org.opencontainers.image.licenses="Fossorial Commercial License" \
+      org.opencontainers.image.title="Pangolin DNS" \
+      org.opencontainers.image.description="Standalone Pangolin authoritative DNS server" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.created="${CREATED}"
+
+CMD ["node", "--disable-warning=ExperimentalWarning", "--enable-source-maps", "dist/dns.mjs"]

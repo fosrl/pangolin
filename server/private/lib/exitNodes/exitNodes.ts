@@ -333,6 +333,52 @@ export async function listExitNodes(
     return exitNodesList;
 }
 
+// Like listExitNodes, but gerbil nodes are not restricted to this server's
+// region, so a caller that prefers same-region nodes (e.g. the DNS server)
+// can still fall back to another region when this one has none online.
+export async function listExitNodesAcrossRegions(
+    orgId: string,
+    filterOnline = false
+) {
+    const allExitNodes = await db
+        .select({
+            exitNodeId: exitNodes.exitNodeId,
+            endpoint: exitNodes.endpoint,
+            online: exitNodes.online,
+            type: exitNodes.type,
+            region: exitNodes.region
+        })
+        .from(exitNodes)
+        .leftJoin(
+            exitNodeOrgs,
+            eq(exitNodes.exitNodeId, exitNodeOrgs.exitNodeId)
+        )
+        .where(
+            or(
+                eq(exitNodes.type, "gerbil"),
+                and(
+                    eq(exitNodes.type, "remoteExitNode"),
+                    eq(exitNodeOrgs.orgId, orgId)
+                )
+            )
+        );
+
+    const onlineNodes = allExitNodes.filter(
+        (node) => !filterOnline || node.online
+    );
+    const remoteExitNodesList = onlineNodes.filter(
+        (node) => node.type === "remoteExitNode"
+    );
+    const gerbilExitNodes = onlineNodes.filter(
+        (node) => node.type === "gerbil"
+    );
+
+    // An org's own remote exit nodes take precedence over the cloud ones
+    return remoteExitNodesList.length > 0
+        ? remoteExitNodesList
+        : gerbilExitNodes;
+}
+
 export type ExitNodePingResult = {
     exitNodeId: number;
     latencyMs: number;
