@@ -28,6 +28,7 @@ import config from "@server/lib/config";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
+import { resolveDirectorySyncConfig } from "#private/lib/directorySync/config";
 
 const paramsSchema = z
     .object({
@@ -52,6 +53,8 @@ const bodySchema = z.strictObject({
     orgMapping: z.string().nullish(),
     directoryRoleMapping: z.string().nullish(),
     directorySyncDeletions: z.boolean().optional(),
+    // provider-specific, omitted secrets are kept from the stored config
+    directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
     tags: z.string().optional()
 });
 
@@ -133,6 +136,7 @@ export async function updateOrgOidcIdp(
             directorySyncEnabled,
             directoryRoleMapping,
             directorySyncDeletions,
+            directorySyncConfig,
             tags
         } = parsedBody.data;
 
@@ -216,11 +220,30 @@ export async function updateOrgOidcIdp(
             ? directorySyncEnabled
             : false;
 
+        const resolvedDirectorySyncConfig = resolveDirectorySyncConfig({
+            variant: existingOidcConfig?.variant ?? "oidc",
+            incoming: directorySyncConfig,
+            existingEncrypted: existingIdp.directorySyncConfig,
+            directorySyncEnabled: !!(
+                effectiveDirectorySyncEnabled ??
+                existingIdp.directorySyncEnabled
+            )
+        });
+        if (!resolvedDirectorySyncConfig.success) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    resolvedDirectorySyncConfig.error
+                )
+            );
+        }
+
         await db.transaction(async (trx) => {
             const idpData = {
                 name,
                 autoProvision,
                 directorySyncEnabled: effectiveDirectorySyncEnabled,
+                directorySyncConfig: resolvedDirectorySyncConfig.value,
                 tags
             };
 

@@ -36,6 +36,14 @@ export async function ensureValidIdp(
             `Directory sync: IdP ${idpId} has both directory sync and auto-provisioning enabled; only one can be active`
         );
     }
+
+    if (
+        idpRes.idpOidcConfig.variant === "google" &&
+        !idpRes.idp.directorySyncConfig
+    ) {
+        throw new Error(`Directory sync: Google IdP ${idpId} has no directory sync config; a service account is required`);
+    }
+
     return idpRes;
 }
 

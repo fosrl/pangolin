@@ -28,6 +28,7 @@ import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
+import { resolveDirectorySyncConfig } from "#private/lib/directorySync/config";
 
 const paramsSchema = z.strictObject({ orgId: z.string().nonempty() });
 
@@ -48,6 +49,8 @@ const bodySchema = z.strictObject({
     orgMapping: z.string().nullish(),
     directoryRoleMapping: z.string().nullish(),
     directorySyncDeletions: z.boolean().optional(),
+    // provider-specific, validated against the variant's schema
+    directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
     tags: z.string().optional()
 });
 
@@ -128,6 +131,7 @@ export async function createOrgOidcIdp(
             directorySyncEnabled,
             directoryRoleMapping,
             directorySyncDeletions,
+            directorySyncConfig,
             tags
         } = parsedBody.data;
 
@@ -153,6 +157,26 @@ export async function createOrgOidcIdp(
             );
         }
 
+        // directory sync is only supported for google/azure idps
+        const effectiveDirectorySyncEnabled =
+            (variant === "google" || variant === "azure") &&
+            !!directorySyncEnabled;
+
+        const resolvedDirectorySyncConfig = resolveDirectorySyncConfig({
+            variant,
+            incoming: directorySyncConfig,
+            existingEncrypted: null,
+            directorySyncEnabled: effectiveDirectorySyncEnabled
+        });
+        if (!resolvedDirectorySyncConfig.success) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    resolvedDirectorySyncConfig.error
+                )
+            );
+        }
+
         const key = config.getRawConfig().server.secret!;
 
         const encryptedSecret = encrypt(clientSecret, key);
@@ -165,10 +189,8 @@ export async function createOrgOidcIdp(
                 .values({
                     name,
                     autoProvision,
-                    // directory sync is only supported for google/azure idps
-                    directorySyncEnabled:
-                        (variant === "google" || variant === "azure") &&
-                        !!directorySyncEnabled,
+                    directorySyncEnabled: effectiveDirectorySyncEnabled,
+                    directorySyncConfig: resolvedDirectorySyncConfig.value,
                     type: "oidc",
                     tags
                 })

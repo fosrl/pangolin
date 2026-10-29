@@ -2,6 +2,11 @@
 
 import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
 import DirectorySyncConfigWidget from "@app/components/DirectorySyncConfigWidget";
+import GoogleDirectorySyncConfigFields, {
+    buildGoogleDirectorySyncConfig,
+    googleDirectorySyncFormFields,
+    refineGoogleDirectorySyncFields
+} from "@app/components/GoogleDirectorySyncConfigFields";
 import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import {
@@ -104,7 +109,15 @@ export default function Page() {
         roleId: z.number().nullable().optional(),
         orgMapping: z.string().optional(),
         directorySyncEnabled: z.boolean().default(false),
-        directorySyncDeletions: z.boolean().default(true)
+        directorySyncDeletions: z.boolean().default(true),
+        ...googleDirectorySyncFormFields
+    }).superRefine((data, ctx) => {
+        if (data.type === "google") {
+            refineGoogleDirectorySyncFields(data, ctx, {
+                keyRequired: true,
+                t
+            });
+        }
     });
 
     type CreateIdpFormValues = z.infer<typeof createIdpFormSchema>;
@@ -128,7 +141,10 @@ export default function Page() {
             roleId: null,
             orgMapping: "",
             directorySyncEnabled: false,
-            directorySyncDeletions: true
+            directorySyncDeletions: true,
+            googleServiceAccountKey: "",
+            googleAdminEmail: "",
+            googleCustomerId: ""
         }
     });
 
@@ -213,6 +229,10 @@ export default function Page() {
                 scopes: data.scopes,
                 variant: data.type
             };
+            if (data.type === "google") {
+                payload.directorySyncConfig =
+                    buildGoogleDirectorySyncConfig(data);
+            }
             const trimmedOrgMapping = data.orgMapping?.trim();
             if (trimmedOrgMapping) {
                 payload.orgMapping = trimmedOrgMapping;
@@ -452,6 +472,12 @@ export default function Page() {
                                                 )
                                             }
                                         />
+                                        {form.watch("type") === "google" &&
+                                            form.watch(
+                                                "directorySyncEnabled"
+                                            ) && (
+                                                <GoogleDirectorySyncConfigFields />
+                                            )}
                                     </form>
                                 </Form>
                             </SettingsSectionBody>

@@ -3,6 +3,11 @@
 import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import DirectorySyncConfigWidget from "@app/components/DirectorySyncConfigWidget";
+import GoogleDirectorySyncConfigFields, {
+    buildGoogleDirectorySyncConfig,
+    googleDirectorySyncFormFields,
+    refineGoogleDirectorySyncFields
+} from "@app/components/GoogleDirectorySyncConfigFields";
 import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
 import IdpTypeBadge from "@app/components/IdpTypeBadge";
@@ -83,6 +88,8 @@ export default function GeneralPage() {
             createDefaultDirectorySyncRoleMappingConfig
         );
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
+    const [configuredServiceAccountEmail, setConfiguredServiceAccountEmail] =
+        useState<string | undefined>();
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
     const [pendingPayload, setPendingPayload] = useState<Record<
@@ -129,8 +136,15 @@ export default function GeneralPage() {
         autoProvision: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
         directorySyncDeletions: z.boolean().default(true),
-        orgMapping: z.string().optional()
-    });
+        orgMapping: z.string().optional(),
+        ...googleDirectorySyncFormFields
+    }).superRefine((data, ctx) =>
+        refineGoogleDirectorySyncFields(data, ctx, {
+            // the stored key is kept when the field is left empty
+            keyRequired: !configuredServiceAccountEmail,
+            t
+        })
+    );
 
     // Azure form schema (simplified with tenant ID)
     const AzureFormSchema = z.object({
@@ -184,7 +198,10 @@ export default function GeneralPage() {
             roleMapping: null,
             roleId: null,
             tenantId: "",
-            orgMapping: ""
+            orgMapping: "",
+            googleServiceAccountKey: "",
+            googleAdminEmail: "",
+            googleCustomerId: ""
         }
     });
 
@@ -253,6 +270,14 @@ export default function GeneralPage() {
                         formData.scopes = data.idpOidcConfig.scopes;
                     } else if (idpVariant === "azure") {
                         formData.tenantId = tenantId;
+                    } else if (idpVariant === "google") {
+                        const syncConfig = data.idp.directorySyncConfig;
+                        formData.googleServiceAccountKey = "";
+                        formData.googleAdminEmail = syncConfig?.adminEmail ?? "";
+                        formData.googleCustomerId = syncConfig?.customerId ?? "";
+                        setConfiguredServiceAccountEmail(
+                            syncConfig?.serviceAccountEmail
+                        );
                     }
 
                     form.reset(formData);
@@ -412,7 +437,10 @@ export default function GeneralPage() {
                     identifierPath: "email",
                     emailPath: "email",
                     namePath: "name",
-                    scopes: "openid profile email"
+                    scopes: "openid profile email",
+                    directorySyncConfig: buildGoogleDirectorySyncConfig(
+                        data as GoogleFormValues
+                    )
                 };
             }
 
@@ -448,6 +476,15 @@ export default function GeneralPage() {
         if (res.status === 200) {
             if (typeof payload.identifierPath === "string") {
                 setOriginalIdentifierPath(payload.identifierPath);
+            }
+            const syncConfig = payload.directorySyncConfig as
+                | ReturnType<typeof buildGoogleDirectorySyncConfig>
+                | undefined;
+            if (syncConfig?.serviceAccountKey) {
+                setConfiguredServiceAccountEmail(
+                    syncConfig.serviceAccountKey.client_email
+                );
+                form.setValue("googleServiceAccountKey", "");
             }
             toast({
                 title: t("success"),
@@ -673,6 +710,14 @@ export default function GeneralPage() {
                                             setDirectoryRoleMapping
                                         }
                                     />
+                                    {variant === "google" &&
+                                        form.watch("directorySyncEnabled") && (
+                                            <GoogleDirectorySyncConfigFields
+                                                configuredServiceAccountEmail={
+                                                    configuredServiceAccountEmail
+                                                }
+                                            />
+                                        )}
                                 </form>
                             </Form>
                         </SettingsSectionBody>
