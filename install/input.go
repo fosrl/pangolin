@@ -48,7 +48,22 @@ func runField(field huh.Field) error {
 	return form.Run()
 }
 
+// nonInteractiveDefault reports the value used for a prompt when running with
+// --non-interactive, so the decision stays visible in the install log.
+func nonInteractiveDefault(prompt string, value string) {
+	fmt.Printf("%s: %s (non-interactive)\n", prompt, value)
+}
+
 func readString(prompt string, defaultValue string) string {
+	if isNonInteractive() {
+		if defaultValue == "" {
+			fmt.Printf("Error: no value for %q in non-interactive mode\n", prompt)
+			os.Exit(1)
+		}
+		nonInteractiveDefault(prompt, defaultValue)
+		return defaultValue
+	}
+
 	var value string
 
 	title := prompt
@@ -86,6 +101,11 @@ func readString(prompt string, defaultValue string) string {
 }
 
 func readPassword(prompt string) string {
+	if isNonInteractive() {
+		fmt.Printf("Error: no value for %q in non-interactive mode\n", prompt)
+		os.Exit(1)
+	}
+
 	var value string
 
 	for {
@@ -114,6 +134,11 @@ func readPassword(prompt string) string {
 }
 
 func readBool(prompt string, defaultValue bool) bool {
+	if isNonInteractive() {
+		nonInteractiveDefault(prompt, strconv.FormatBool(defaultValue))
+		return defaultValue
+	}
+
 	var value = defaultValue
 
 	confirm := huh.NewConfirm().
@@ -138,6 +163,11 @@ func readBool(prompt string, defaultValue bool) bool {
 }
 
 func readBoolNoDefault(prompt string) bool {
+	if isNonInteractive() {
+		nonInteractiveDefault(prompt, "false")
+		return false
+	}
+
 	var value bool
 
 	confirm := huh.NewConfirm().
@@ -162,6 +192,11 @@ func readBoolNoDefault(prompt string) bool {
 }
 
 func readInt(prompt string, defaultValue int) int {
+	if isNonInteractive() {
+		nonInteractiveDefault(prompt, strconv.Itoa(defaultValue))
+		return defaultValue
+	}
+
 	var value string
 
 	title := fmt.Sprintf("%s (default: %d)", prompt, defaultValue)

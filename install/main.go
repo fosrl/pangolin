@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"embed"
 	"encoding/base64"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -72,13 +71,9 @@ const (
 	Undefined SupportedContainer = "undefined"
 )
 
-var redisFlag *bool
-
 func main() {
 
-	crowdsecFlag := flag.Bool("crowdsec", false, "Enable the CrowdSec installation prompt")
-	redisFlag = flag.Bool("redis", false, "Install Redis as caching solution. Required for HA. Not required for the Enterprise version.")
-	flag.Parse()
+	parseFlags()
 
 	// print a banner about prerequisites - opening port 80, 443, 51820, and 21820 on the VPS and firewall and pointing your domain to the VPS IP with a records. Docs are at http://localhost:3000/Getting%20Started/dns-networking
 
@@ -142,7 +137,7 @@ func main() {
 
 		fmt.Println("\n=== Starting installation ===")
 
-		if readBool("Would you like to install and start the containers?", true) {
+		if boolAnswer("start-containers", *startContainersFlag, "Would you like to install and start the containers?", true) {
 
 			config.InstallationContainerType = podmanOrDocker()
 
@@ -326,6 +321,21 @@ func findOrSelectInstallDirectory() string {
 		os.Exit(1)
 	}
 
+	// An explicit --install-dir skips detection and prompts
+	if setFlags["install-dir"] && *installDirFlag != "" {
+		installDir, err := filepath.Abs(*installDirFlag)
+		if err != nil {
+			fmt.Printf("Error resolving path: %v\n", err)
+			os.Exit(1)
+		}
+		if err := os.MkdirAll(installDir, 0755); err != nil {
+			fmt.Printf("Error creating directory: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Installation directory: %s\n", installDir)
+		return installDir
+	}
+
 	// 1. Check current directory for existing install
 	if hasExistingInstall(cwd) {
 		fmt.Printf("Found existing Pangolin installation in current directory: %s\n", cwd)
@@ -422,7 +432,7 @@ func changeDirectoryOwnership(dir string) {
 }
 
 func podmanOrDocker() SupportedContainer {
-	inputContainer := readString("Would you like to run Pangolin as Docker or Podman containers?", "docker")
+	inputContainer := stringAnswer("container-type", *containerTypeFlag, "Would you like to run Pangolin as Docker or Podman containers?", "docker")
 
 	chosenContainer := Docker
 	if strings.EqualFold(inputContainer, "docker") {
@@ -495,40 +505,44 @@ func collectUserInput() Config {
 	// Basic configuration
 	fmt.Println("\n=== Basic Configuration ===")
 
-	config.IsEnterprise = readBoolNoDefault("Do you want to install the Enterprise version of Pangolin? The EE is free for personal use or for businesses making less than 100k USD annually.")
+	if setFlags["enterprise"] {
+		config.IsEnterprise = *enterpriseFlag
+	} else {
+		config.IsEnterprise = readBoolNoDefault("Do you want to install the Enterprise version of Pangolin? The EE is free for personal use or for businesses making less than 100k USD annually.")
+	}
     if config.IsEnterprise {
         if *redisFlag {
 			config.IsRedis = true
-            config.IsRedisPass = readPassword("Enter a unique password for the Redis service.")
+            config.IsRedisPass = passwordAnswer("redis-password", *redisPasswordFlag, "Enter a unique password for the Redis service.")
         }
     }
 
-    config.IsPostgreSQL = readBool("Do you want to use PostgreSQL (not recommended for most users)?", false)
+    config.IsPostgreSQL = boolAnswer("postgres", *postgresFlag, "Do you want to use PostgreSQL (not recommended for most users)?", false)
 	if config.IsPostgreSQL {
-		config.IsPostgreSQLPass = readPassword("Enter a unique password for the PostgreSQL pangolin user.")
+		config.IsPostgreSQLPass = passwordAnswer("postgres-password", *postgresPasswordFlag, "Enter a unique password for the PostgreSQL pangolin user.")
 	}
 
-	config.BaseDomain = readString("Enter your base domain (no subdomain e.g. example.com)", "")
+	config.BaseDomain = stringAnswer("base-domain", *baseDomainFlag, "Enter your base domain (no subdomain e.g. example.com)", "")
 
 	// Set default dashboard domain after base domain is collected
 	defaultDashboardDomain := ""
 	if config.BaseDomain != "" {
 		defaultDashboardDomain = "pangolin." + config.BaseDomain
 	}
-	config.DashboardDomain = readString("Enter the domain for the Pangolin dashboard", defaultDashboardDomain)
-	config.LetsEncryptEmail = readString("Enter email for Let's Encrypt certificates", "")
-	config.InstallGerbil = readBool("Do you want to use Gerbil to allow tunneled connections", true)
+	config.DashboardDomain = stringAnswer("dashboard-domain", *dashboardDomainFlag, "Enter the domain for the Pangolin dashboard", defaultDashboardDomain)
+	config.LetsEncryptEmail = stringAnswer("letsencrypt-email", *letsEncryptEmailFlag, "Enter email for Let's Encrypt certificates", "")
+	config.InstallGerbil = boolAnswer("gerbil", *gerbilFlag, "Do you want to use Gerbil to allow tunneled connections", true)
 
 	// Email configuration
 	fmt.Println("\n=== Email Configuration ===")
-	config.EnableEmail = readBool("Enable email functionality (SMTP)", false)
+	config.EnableEmail = boolAnswer("email", *emailFlag, "Enable email functionality (SMTP)", false)
 
 	if config.EnableEmail {
-		config.EmailSMTPHost = readString("Enter SMTP host", "")
-		config.EmailSMTPPort = readInt("Enter SMTP port (default 587)", 587)
-		config.EmailSMTPUser = readString("Enter SMTP username", "")
-		config.EmailSMTPPass = readPassword("Enter SMTP password")
-		config.EmailNoReply = readString("Enter no-reply email address (often the same as SMTP username)", "")
+		config.EmailSMTPHost = stringAnswer("smtp-host", *smtpHostFlag, "Enter SMTP host", "")
+		config.EmailSMTPPort = intAnswer("smtp-port", *smtpPortFlag, "Enter SMTP port (default 587)", 587)
+		config.EmailSMTPUser = stringAnswer("smtp-user", *smtpUserFlag, "Enter SMTP username", "")
+		config.EmailSMTPPass = passwordAnswer("smtp-pass", *smtpPassFlag, "Enter SMTP password")
+		config.EmailNoReply = stringAnswer("smtp-no-reply", *smtpNoReplyFlag, "Enter no-reply email address (often the same as SMTP username)", "")
 	}
 
 	// Validate required fields
@@ -549,8 +563,8 @@ func collectUserInput() Config {
 
 	fmt.Println("\n=== Advanced Configuration ===")
 
-	config.EnableIPv6 = readBool("Is your server IPv6 capable?", true)
-	config.EnableMaxMind = readBool("Do you want to download the MaxMind GeoLite2 Country and ASN databases for blocking functionality?", true)
+	config.EnableIPv6 = boolAnswer("ipv6", *ipv6Flag, "Is your server IPv6 capable?", true)
+	config.EnableMaxMind = boolAnswer("maxmind", *maxmindFlag, "Do you want to download the MaxMind GeoLite2 Country and ASN databases for blocking functionality?", true)
 
 	if config.DashboardDomain == "" {
 		fmt.Println("Error: Dashboard Domain name is required")
