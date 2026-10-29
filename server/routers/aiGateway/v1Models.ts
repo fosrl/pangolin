@@ -114,11 +114,12 @@ async function loadProviderModelLists(
     return lists;
 }
 
-function catalogMetadataForType(
-    type: AiProviderType
+function catalogMetadataForProvider(
+    type: AiProviderType,
+    niceId: string
 ): Map<string, CatalogModelMetadata> {
     const metadata = new Map<string, CatalogModelMetadata>();
-    for (const entry of listCatalogEntriesForType(type)) {
+    for (const entry of listCatalogEntriesForType(type, undefined, niceId)) {
         metadata.set(entry.model, {
             maxInputTokens: entry.limits.input,
             maxOutputTokens: entry.limits.output,
@@ -148,8 +149,9 @@ function buildDiscoveryProviders(
             providerId,
             allows,
             blocks,
-            catalog: catalogMetadataForType(
-                attachment.provider.type as AiProviderType
+            catalog: catalogMetadataForProvider(
+                attachment.provider.type as AiProviderType,
+                attachment.provider.niceId
             ),
             configured: lists.configuredByProvider.get(providerId) ?? new Map()
         };

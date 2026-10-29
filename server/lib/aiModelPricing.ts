@@ -66,18 +66,43 @@ function findEntry(
     return null;
 }
 
+function findCustomEntry(
+    modelId: string,
+    providerNiceId: string | null | undefined
+): AiModelCatalogEntry | null {
+    for (const key of [modelId, stripVendorPrefix(modelId)]) {
+        if (key == null) {
+            continue;
+        }
+        const match = aiModelCatalog.getCustom(providerNiceId, key);
+        if (match) {
+            return match;
+        }
+    }
+    return null;
+}
+
 /**
  * Looks up per-token pricing for a model, scoped first to the catalog
- * provider that corresponds to our provider type, then falling back to a
- * global search across every provider (marked `approximate`) for provider
- * types that proxy arbitrary underlying models.
+ * provider that corresponds to our provider type (or, for custom providers,
+ * the operator's `custom` entries for this provider's niceId), then falling
+ * back to a global search across every provider (marked `approximate`) for
+ * provider types that proxy arbitrary underlying models.
  */
 export function getModelPricing(
     providerType: AiProviderType,
-    modelId: string | undefined
+    modelId: string | undefined,
+    providerNiceId?: string | null
 ): AiModelPricing | null {
     if (!modelId) {
         return null;
+    }
+
+    if (providerType === "custom") {
+        const custom = findCustomEntry(modelId, providerNiceId);
+        if (custom) {
+            return toPricing(custom, false);
+        }
     }
 
     const catalogProvider = getCatalogProviderForType(providerType);
