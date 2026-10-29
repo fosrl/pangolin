@@ -54,6 +54,7 @@ type Config struct {
 	InstallGerbil             bool
 	TraefikBouncerKey         string
 	DoCrowdsecInstall         bool
+	EnableBotDetection        bool
 	EnableMaxMind             bool
 	Secret                    string
 	IsEnterprise              bool
@@ -270,6 +271,8 @@ func main() {
 					config.InstallationContainerType = detectedType
 					fmt.Printf("Detected container type: %s\n", config.InstallationContainerType)
 				}
+
+				config.EnableBotDetection = readBool("Would you like to enable CrowdSec bot detection (alpha)? Browsers must solve a challenge before reaching any resource; non-browser clients such as mobile apps and API tools may be blocked.", false)
 
 				config.DoCrowdsecInstall = true
 				err := installCrowdsec(config, installDir)
