@@ -25,6 +25,7 @@ import {
 import { InfoPopup } from "@app/components/ui/info-popup";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
+import { useRowSelection } from "@app/hooks/useRowSelection";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
@@ -48,6 +49,7 @@ import z from "zod";
 import { ColumnFilterButton } from "./ColumnFilterButton";
 import {
     ControlledDataTable,
+    selectColumn,
     type ExtendedColumnDef
 } from "./ui/controlled-data-table";
 
@@ -114,6 +116,14 @@ export default function SitesTable({
         useState<SiteRow | null>(null);
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
+    const [isBulkRestartOpen, setIsBulkRestartOpen] = useState(false);
+    const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+    const {
+        rowSelection,
+        setRowSelection,
+        selectedRows: selectedSites
+    } = useRowSelection(sites);
+    const restartableSites = selectedSites.filter((s) => s.type === "newt");
 
     const siteIds = useMemo(() => sites.map((s) => s.id), [sites]);
 
@@ -210,8 +220,32 @@ export default function SitesTable({
         });
     }
 
+    // One at a time: deleting sites with resources in parallel races on
+    // resources shared between the selected sites
+    async function runBulkAction(
+        ids: number[],
+        request: (siteId: number) => Promise<unknown>
+    ) {
+        let failed = 0;
+        for (const id of ids) {
+            await request(id).catch(() => failed++);
+        }
+        if (failed > 0) {
+            toast({
+                variant: "destructive",
+                title: t("sitesBulkActionFailed", {
+                    count: failed,
+                    total: ids.length
+                })
+            });
+        }
+        setRowSelection({});
+        router.refresh();
+    }
+
     const columns = useMemo<ExtendedColumnDef<SiteRow>[]>(() => {
         const cols: ExtendedColumnDef<SiteRow>[] = [
+            selectColumn<SiteRow>(t("selectAll")),
             {
                 accessorKey: "name",
                 enableHiding: false,
@@ -795,6 +829,75 @@ export default function SitesTable({
                 />
             )}
 
+            <ConfirmDeleteDialog
+                open={isBulkRestartOpen}
+                setOpen={setIsBulkRestartOpen}
+                dialog={
+                    <p>
+                        {t("sitesRestartSelectedQuestion", {
+                            count: restartableSites.length
+                        })}
+                    </p>
+                }
+                buttonText={t("sitesRestartSelected")}
+                onConfirm={() =>
+                    runBulkAction(
+                        restartableSites.map((s) => s.id),
+                        (siteId) => api.post(`/site/${siteId}/restart`)
+                    )
+                }
+                string={t("sitesRestartSelectedConfirmString", {
+                    count: restartableSites.length
+                })}
+                warningText={t("siteRestartWarning")}
+                title={t("sitesRestartSelected")}
+            />
+
+            <ConfirmDeleteDialog
+                open={isBulkDeleteOpen}
+                setOpen={setIsBulkDeleteOpen}
+                dialog={
+                    <div className="space-y-2">
+                        <p>
+                            {deleteWithResources
+                                ? t("sitesDeleteSelectedAndResourcesQuestion", {
+                                      count: selectedSites.length
+                                  })
+                                : t("sitesDeleteSelectedQuestion", {
+                                      count: selectedSites.length
+                                  })}
+                        </p>
+                        <p>
+                            {deleteWithResources
+                                ? t("siteMessageRemoveAndResources")
+                                : t("siteMessageRemove")}
+                        </p>
+                    </div>
+                }
+                buttonText={
+                    deleteWithResources
+                        ? t("sitesDeleteSelectedAndResources")
+                        : t("sitesDeleteSelected")
+                }
+                onConfirm={() =>
+                    runBulkAction(
+                        selectedSites.map((s) => s.id),
+                        (siteId) =>
+                            api.delete(`/site/${siteId}`, {
+                                params: { deleteResources: deleteWithResources }
+                            })
+                    )
+                }
+                string={t("sitesDeleteSelectedConfirmString", {
+                    count: selectedSites.length
+                })}
+                title={
+                    deleteWithResources
+                        ? t("sitesDeleteSelectedAndResources")
+                        : t("sitesDeleteSelected")
+                }
+            />
+
             <ControlledDataTable
                 columns={columns}
                 rows={sites}
@@ -810,6 +913,58 @@ export default function SitesTable({
                 isNavigatingToAddPage={isNavigatingToAddPage}
                 searchQuery={searchParams.get("query")?.toString()}
                 onSearch={handleSearchChange}
+                getRowId={(row) => String(row.id)}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
+                filterExtras={
+                    selectedSites.length > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
+                                    {t("resourcesSelectedCount", {
+                                        count: selectedSites.length
+                                    })}
+                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuItem
+                                    disabled={restartableSites.length === 0}
+                                    onClick={() => setIsBulkRestartOpen(true)}
+                                >
+                                    {t("sitesRestartSelected")}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        setDeleteWithResources(false);
+                                        setIsBulkDeleteOpen(true);
+                                    }}
+                                >
+                                    <span className="text-red-500">
+                                        {t("sitesDeleteSelected")}
+                                    </span>
+                                </DropdownMenuItem>
+                                {selectedSites.every(
+                                    (s) => s.resourceCount <= 250
+                                ) && (
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setDeleteWithResources(true);
+                                            setIsBulkDeleteOpen(true);
+                                        }}
+                                    >
+                                        <span className="text-red-500">
+                                            {t(
+                                                "sitesDeleteSelectedAndResources"
+                                            )}
+                                        </span>
+                                    </DropdownMenuItem>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )
+                }
                 addButtonText={t("siteAdd")}
                 onRefresh={refreshData}
                 isRefreshing={isRefreshing || isFiltering}

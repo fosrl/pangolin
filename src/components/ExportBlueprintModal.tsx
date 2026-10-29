@@ -19,18 +19,41 @@ import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { cn } from "@app/lib/cn";
 import { Check, Copy, Download, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Document, parseDocument, type Scalar, type YAMLMap } from "yaml";
 
 type ExportBlueprintModalProps = {
     open: boolean;
     setOpen: (open: boolean) => void;
-    endpoint: string;
+    endpoints: string[];
     resourceName: string;
 };
+
+// Each export is `<section>: { <niceId>: config }` with its notes as a leading
+// comment, so fold them into one document and move each note onto its resource
+function mergeBlueprints(contents: string[]): string {
+    const merged = new Document({});
+    for (const content of contents) {
+        const doc = parseDocument(content);
+        const sections = doc.contents as YAMLMap<
+            Scalar<string>,
+            YAMLMap<Scalar>
+        >;
+        for (const section of sections.items) {
+            const [resource] = section.value!.items;
+            resource.key.commentBefore = doc.commentBefore;
+            if (!merged.has(section.key.value)) {
+                merged.set(section.key.value, merged.createNode({}));
+            }
+            (merged.get(section.key.value) as YAMLMap).add(resource);
+        }
+    }
+    return merged.toString();
+}
 
 export default function ExportBlueprintModal({
     open,
     setOpen,
-    endpoint,
+    endpoints,
     resourceName
 }: ExportBlueprintModalProps) {
     const t = useTranslations();
@@ -50,10 +73,18 @@ export default function ExportBlueprintModal({
         setContents(null);
         setLoading(true);
 
-        api.get(endpoint)
-            .then((res) => {
-                setContents(res.data.data.contents);
-                setFileName(res.data.data.name || resourceName);
+        Promise.all(endpoints.map((endpoint) => api.get(endpoint)))
+            .then((responses) => {
+                const exports = responses.map((res) => res.data.data);
+                if (exports.length === 1) {
+                    setContents(exports[0].contents);
+                    setFileName(exports[0].name || resourceName);
+                } else {
+                    setContents(
+                        mergeBlueprints(exports.map((e) => e.contents))
+                    );
+                    setFileName(resourceName);
+                }
             })
             .catch((e) => {
                 toast({
@@ -68,7 +99,7 @@ export default function ExportBlueprintModal({
             })
             .finally(() => setLoading(false));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, endpoint]);
+    }, [open, endpoints.join()]);
 
     async function handleCopy() {
         if (!contents) {
@@ -106,9 +137,13 @@ export default function ExportBlueprintModal({
                 <CredenzaHeader>
                     <CredenzaTitle>{t("exportBlueprintTitle")}</CredenzaTitle>
                     <CredenzaDescription>
-                        {t("exportBlueprintDescription", {
-                            name: resourceName
-                        })}
+                        {endpoints.length === 1
+                            ? t("exportBlueprintDescription", {
+                                  name: resourceName
+                              })
+                            : t("exportBlueprintDescriptionMultiple", {
+                                  count: endpoints.length
+                              })}
                     </CredenzaDescription>
                 </CredenzaHeader>
                 <CredenzaBody>
