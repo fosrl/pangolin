@@ -10,6 +10,7 @@ import { idp, idpOidcConfig, idpOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import * as arctic from "arctic";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
+import { cleanRedirect } from "@app/lib/cleanRedirect";
 import jsonwebtoken from "jsonwebtoken";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
@@ -67,7 +68,11 @@ export async function generateOidcUrl(
             );
         }
 
-        const { redirectUrl: postAuthRedirectUrl } = parsedBody.data;
+        const { redirectUrl: rawPostAuthRedirectUrl } = parsedBody.data;
+        const postAuthRedirectUrl = cleanRedirect(rawPostAuthRedirectUrl, {
+            fallback: "/",
+            allowAllQueryParams: true
+        });
 
         const parsedQuery = querySchema.safeParse(req.query);
         if (!parsedQuery.success) {
@@ -172,7 +177,7 @@ export async function generateOidcUrl(
 
         const stateJwt = jsonwebtoken.sign(
             {
-                redirectUrl: postAuthRedirectUrl, // TODO: validate that this is safe
+                redirectUrl: postAuthRedirectUrl,
                 state,
                 codeVerifier
             },
