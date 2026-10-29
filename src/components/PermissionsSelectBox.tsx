@@ -95,7 +95,13 @@ function getActionsCategories(root: boolean) {
             [t("actionListResourceAiModels")]: "listResourceAiModels",
             [t("actionSetResourceAiModels")]: "setResourceAiModels",
             [t("actionCreateResourceSessionToken")]:
-                "createResourceSessionToken"
+                "createResourceSessionToken",
+            [t("actionCreateResourceMtlsCertificate")]:
+                "createResourceMtlsCertificate",
+            [t("actionDeleteResourceMtlsCertificate")]:
+                "deleteResourceMtlsCertificate",
+            [t("actionListResourceMtlsCertificates")]:
+                "listResourceMtlsCertificates"
         },
 
         Target: {
@@ -164,6 +170,41 @@ function getActionsCategories(root: boolean) {
         Logs: {
             [t("actionExportLogs")]: "exportLogs",
             [t("actionViewLogs")]: "viewLogs"
+        },
+
+        Label: {
+            [t("actionListOrgLabels")]: "listOrgLabels",
+            [t("actionCreateOrgLabel")]: "createOrgLabel",
+            [t("actionUpdateOrgLabel")]: "updateOrgLabel",
+            [t("actionDeleteOrgLabel")]: "deleteOrgLabel",
+            [t("actionAttachLabelToItem")]: "attachLabelToItem",
+            [t("actionDetachLabelFromItem")]: "detachLabelFromItem"
+        },
+
+        "Event Streaming": {
+            [t("actionCreateEventStreamingDestination")]:
+                "createEventStreamingDestination",
+            [t("actionUpdateEventStreamingDestination")]:
+                "updateEventStreamingDestination",
+            [t("actionDeleteEventStreamingDestination")]:
+                "deleteEventStreamingDestination",
+            [t("actionListEventStreamingDestinations")]:
+                "listEventStreamingDestinations"
+        },
+
+        "Alert Rule": {
+            [t("actionCreateAlertRule")]: "createAlertRule",
+            [t("actionUpdateAlertRule")]: "updateAlertRule",
+            [t("actionDeleteAlertRule")]: "deleteAlertRule",
+            [t("actionGetAlertRule")]: "getAlertRule",
+            [t("actionListAlertRules")]: "listAlertRules"
+        },
+
+        "Health Check": {
+            [t("actionCreateHealthCheck")]: "createHealthCheck",
+            [t("actionUpdateHealthCheck")]: "updateHealthCheck",
+            [t("actionDeleteHealthCheck")]: "deleteHealthCheck",
+            [t("actionListHealthChecks")]: "listHealthChecks"
         },
 
         "Site Provisioning Key": {
