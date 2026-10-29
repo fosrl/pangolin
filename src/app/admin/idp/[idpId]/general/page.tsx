@@ -42,6 +42,7 @@ import {
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import IdpTypeBadge from "@app/components/IdpTypeBadge";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
+import IdpAutoProvisionEnableDialog from "@app/components/IdpAutoProvisionEnableDialog";
 import { useTranslations } from "next-intl";
 
 export default function GeneralPage() {
@@ -54,6 +55,9 @@ export default function GeneralPage() {
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
+    const [originalAutoProvision, setOriginalAutoProvision] = useState(false);
+    const [autoProvisionConfirmOpen, setAutoProvisionConfirmOpen] =
+        useState(false);
     const [pendingPayload, setPendingPayload] = useState<Record<
         string,
         unknown
@@ -100,9 +104,7 @@ export default function GeneralPage() {
     type GoogleFormValues = z.infer<typeof GoogleFormSchema>;
     type AzureFormValues = z.infer<typeof AzureFormSchema>;
     type GeneralFormValues =
-        | OidcFormValues
-        | GoogleFormValues
-        | AzureFormValues;
+        OidcFormValues | GoogleFormValues | AzureFormValues;
 
     const getFormSchema = () => {
         switch (variant) {
@@ -144,13 +146,12 @@ export default function GeneralPage() {
                     const data = res.data.data;
                     const idpVariant =
                         (data.idpOidcConfig?.variant as
-                            | "oidc"
-                            | "google"
-                            | "azure") || "oidc";
+                            "oidc" | "google" | "azure") || "oidc";
                     setVariant(idpVariant);
                     setOriginalIdentifierPath(
                         data.idpOidcConfig?.identifierPath ?? "sub"
                     );
+                    setOriginalAutoProvision(Boolean(data.idp.autoProvision));
 
                     let tenantId = "";
                     if (idpVariant === "azure" && data.idpOidcConfig?.authUrl) {
@@ -273,6 +274,15 @@ export default function GeneralPage() {
                     ? (data as OidcFormValues).identifierPath
                     : undefined;
 
+            // When auto provisioning is being switched from disabled to enabled,
+            // confirm with the administrator because existing memberships for
+            // users of this IdP become IdP-managed on their next login (#3973).
+            if (data.autoProvision === true && !originalAutoProvision) {
+                setPendingPayload(payload);
+                setAutoProvisionConfirmOpen(true);
+                return;
+            }
+
             if (
                 typeof nextIdentifierPath === "string" &&
                 nextIdentifierPath !== originalIdentifierPath
@@ -301,11 +311,50 @@ export default function GeneralPage() {
             if (typeof payload.identifierPath === "string") {
                 setOriginalIdentifierPath(payload.identifierPath);
             }
+            if (typeof payload.autoProvision === "boolean") {
+                setOriginalAutoProvision(payload.autoProvision);
+            }
             toast({
                 title: t("success"),
                 description: t("idpUpdatedDescription")
             });
             router.refresh();
+        }
+    }
+
+    async function confirmAutoProvisionChange() {
+        if (!pendingPayload) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const payload = pendingPayload;
+            setPendingPayload(null);
+            // Identifier path may have changed at the same time; ask for the
+            // second confirmation before persisting in that case.
+            const nextIdentifierPath =
+                variant === "oidc"
+                    ? (payload.identifierPath as string | undefined)
+                    : undefined;
+            if (
+                typeof nextIdentifierPath === "string" &&
+                nextIdentifierPath !== originalIdentifierPath
+            ) {
+                setPendingPayload(payload);
+                setIdentifierConfirmOpen(true);
+                return;
+            }
+
+            await persistIdp(payload);
+        } catch (e) {
+            toast({
+                title: t("error"),
+                description: formatAxiosError(e),
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -344,6 +393,16 @@ export default function GeneralPage() {
                     }
                 }}
                 onConfirm={confirmIdentifierChange}
+            />
+            <IdpAutoProvisionEnableDialog
+                open={autoProvisionConfirmOpen}
+                setOpen={(open) => {
+                    setAutoProvisionConfirmOpen(open);
+                    if (!open) {
+                        setPendingPayload(null);
+                    }
+                }}
+                onConfirm={confirmAutoProvisionChange}
             />
             <SettingsContainer>
                 <SettingsSection>

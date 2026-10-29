@@ -25,6 +25,7 @@ import { idp, idpOidcConfig } from "@server/db";
 import { eq, and } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
+import { convertMembershipsOnAutoProvisionEnabled } from "@server/lib/idp/convertMembershipsOnAutoProvisionEnabled";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
@@ -59,7 +60,6 @@ const UpdateOrgIdpResponseDataSchema = z.object({
     idpId: z.number()
 });
 
-
 registry.registerPath({
     method: "post",
     path: "/org/{orgId}/idp/{idpId}/oidc",
@@ -80,7 +80,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateOrgIdpResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateOrgIdpResponseDataSchema
+                    )
                 }
             }
         }
@@ -239,6 +241,15 @@ export async function updateOrgOidcIdp(
                         and(eq(idpOrg.idpId, idpId), eq(idpOrg.orgId, orgId))
                     );
             }
+
+            // Convert existing memberships when auto provisioning is enabled
+            // for an IdP that previously had it disabled (#3973).
+            await convertMembershipsOnAutoProvisionEnabled(
+                idpId,
+                existingIdp.autoProvision,
+                autoProvision,
+                trx
+            );
         });
 
         return response<UpdateOrgIdpResponse>(res, {

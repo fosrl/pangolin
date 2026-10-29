@@ -12,6 +12,7 @@ import { idp, idpOidcConfig } from "@server/db";
 import { eq } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
+import { convertMembershipsOnAutoProvisionEnabled } from "@server/lib/idp/convertMembershipsOnAutoProvisionEnabled";
 
 const paramsSchema = z
     .object({
@@ -42,7 +43,6 @@ export type UpdateIdpResponse = {
 const UpdateIdpResponseDataSchema = z.object({
     idpId: z.number()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -191,6 +191,19 @@ export async function updateOidcIdp(
                     .set(configData)
                     .where(eq(idpOidcConfig.idpId, idpId));
             }
+
+            // When auto provisioning is turned on for an IdP that previously had
+            // it disabled, the memberships that were created while it was
+            // disabled are still marked as locally managed (autoProvisioned =
+            // false) and would never be synchronized by the OIDC callback.
+            // Convert them to IdP-managed memberships inside the same transaction
+            // so that both changes commit or roll back together (#3973).
+            await convertMembershipsOnAutoProvisionEnabled(
+                idpId,
+                existingIdp.autoProvision,
+                autoProvision,
+                trx
+            );
         });
 
         return response<UpdateIdpResponse>(res, {
