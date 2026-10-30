@@ -118,6 +118,8 @@ function getActionsCategories(root: boolean) {
             [t("actionGetRole")]: "getRole",
             [t("actionListRole")]: "listRoles",
             [t("actionUpdateRole")]: "updateRole",
+            [t("actionGetRoleClientSettings")]: "getRoleClientSettings",
+            [t("actionUpdateRoleClientSettings")]: "updateRoleClientSettings",
             [t("actionListAllowedRoleResources")]: "listRoleResources",
             [t("actionAddUserRole")]: "addUserRole",
             [t("actionRemoveUserRole")]: "removeUserRole",

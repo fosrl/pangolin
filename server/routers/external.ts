@@ -890,6 +890,12 @@ authenticated.get(
     role.listRoles
 );
 
+authenticated.get(
+    "/org/:orgId/my-client-settings",
+    verifyOrgAccess,
+    role.getMyClientSettings
+);
+
 authenticated.post(
     "/role/:roleId",
     verifyRoleAccess,
@@ -928,13 +934,12 @@ authenticated.put(
     policy.updateResourcePolicy
 );
 
-// authenticated.get(
-//     "/role/:roleId",
-//     verifyRoleAccess,
-//     verifyUserInRole,
-//     verifyUserHasAction(ActionsEnum.getRole),
-//     role.getRole
-// );
+authenticated.get(
+    "/role/:roleId",
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.getRole),
+    role.getRole
+);
 // authenticated.post(
 //     "/role/:roleId",
 //     verifyRoleAccess,

@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { roles } from "@server/db";
-import { eq } from "drizzle-orm";
+import { roleActions, roles } from "@server/db";
+import { and, eq } from "drizzle-orm";
+import { ActionsEnum } from "@server/auth/actions";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -73,8 +74,19 @@ export async function getRole(
             );
         }
 
+        const [signSshKeyAction] = await db
+            .select({ roleId: roleActions.roleId })
+            .from(roleActions)
+            .where(
+                and(
+                    eq(roleActions.roleId, roleId),
+                    eq(roleActions.actionId, ActionsEnum.signSshKey)
+                )
+            )
+            .limit(1);
+
         return response(res, {
-            data: role[0],
+            data: { ...role[0], allowSsh: !!signSshKeyAction },
             success: true,
             error: false,
             message: "Role retrieved successfully",
