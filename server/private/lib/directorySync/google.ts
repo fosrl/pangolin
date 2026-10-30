@@ -203,13 +203,6 @@ export class GoogleDirectorySyncProvider implements DirectorySyncProvider {
             }
         });
 
-        console.dir(
-            {
-                directoryUsers
-            },
-            { depth: null }
-        );
-
         return {
             users: Object.values(directoryUsers)
         };
