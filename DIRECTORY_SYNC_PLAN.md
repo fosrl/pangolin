@@ -1,235 +1,249 @@
-# Plan: IdP directory sync (Microsoft Entra ID and Google Workspace)
+# Plan: IdP API integration (JIT enrichment + directory sync)
 
-## What already exists
+Covers Microsoft Entra ID (`azure`) and Google Workspace (`google`). Generic OIDC IdPs have no API integration.
 
-- `idp.directorySyncEnabled` exists. It is mutually exclusive with `autoProvision` (see [decision #2](#2-sync-replaces-auto-provisioning-and-owns-org-and-role-mapping)) and only allowed when the variant is `google` or `azure`.
-  - Global IdPs: [createOidcIdp.ts](server/routers/idp/createOidcIdp.ts), [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts).
-  - Org IdPs: [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts), [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts).
-  - Create and update return `400` if both would be on. In the UI, only the org IdP pages expose the toggle (exclusive with auto provisioning). The global admin IdP pages don't show it for now.
-- A first Azure sync prototype exists in [directorySync/azure.ts](server/private/lib/directorySync/azure.ts). It refuses to run when `autoProvision` is on. [idpDirectorySync.ts](server/routers/idp/idpDirectorySync.ts) is empty.
-- Provisioning only happens at login, in [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts):
-  - `users.username` = JMESPath(`identifierPath`) applied to the ID token claims.
-  - Org and role mappings are JMESPath expressions over those same claims.
-  - It only ever removes `userOrgs` rows where `autoProvisioned = true`.
-- The Azure tenant ID isn't stored as its own field. The UI re-parses it from `authUrl` ([general/page.tsx](src/app/admin/idp/[idpId]/general/page.tsx)).
-- Building blocks for a scheduler:
-  - [server/startSchedulers.ts](server/startSchedulers.ts) and [server/private/startSchedulers.ts](server/private/startSchedulers.ts) start the existing background jobs.
-  - [LockManager](server/private/lib/lock.ts) provides a Redis-backed lock that falls back to a local lock, so jobs work with multiple instances.
+## Configuration flow
 
-## Goals and non-goals
+An admin configures an IdP in three steps.
 
-**Goals**
+### 1. Enable the API integration
 
-- Create and update users in Pangolin without waiting for them to log in.
-- Deactivating or removing users who left the directory is **not confirmed yet** (see [Deprovisioning](#4-deprovisioning-not-confirmed)).
-- Keep org and role assignments current from group membership.
-- Map directory groups to org roles with an explicit sync-only mapping.
+This turns the IdP from plain OIDC into a tighter integration that unlocks the features below, and possibly more later.
 
-**Non-goals (v1)**
+- Each provider has its own fields:
+  - **Google:** service account JSON key, admin email to impersonate (optional), customer ID (optional).
+  - **Azure:** reuses the OIDC client ID and secret. The tenant ID is parsed from `authUrl` for now.
+- The fields are stored encrypted in `idp.directorySyncConfig` ([idpDirectorySyncConfig.ts](src/lib/idpDirectorySyncConfig.ts), [config.ts](server/private/lib/directorySync/config.ts)).
+- The integration on its own doesn't provision anyone. It only makes the API available to JIT and sync.
 
-- SCIM push.
-- Webhooks or push notifications.
-- Generic OIDC providers.
-- Two-way sync.
+### 2. How users are created
 
-## Provider study
+The admin can turn on any combination of these three methods.
 
-|                  | Microsoft Entra (done)                                                           | Google Workspace (to study)                                                                                                                                                            |
-| ---------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| API              | Microsoft Graph                                                                  | Admin SDK Directory API (`admin.googleapis.com/admin/directory/v1`)                                                                                                                    |
-| Users            | `GET /users`, 999 per page                                                       | `users.list?customer=my_customer`, 500 per page                                                                                                                                        |
-| Groups / members | `/groups`, `/groups/{id}/members` or `/transitiveMembers`                        | `groups.list` (200 per page), `members.list?includeDerivedMembership=true`                                                                                                             |
-| Incremental      | ✅ `/users/delta` and `/groups/delta` (with `members@delta`)                      | ❌ No delta API: full snapshot every run, then diff on our side                                                                                                                         |
-| App-only auth    | Client credentials using the **existing** clientId and secret, plus tenant       | **Service account + domain-wide delegation** impersonating an admin, so **new credentials**: SA JSON key and admin email                                                               |
-| Permissions      | `User.Read.All` and `GroupMember.Read.All` (application), plus **admin consent** | Scopes `admin.directory.user.readonly`, `admin.directory.group.readonly` and `admin.directory.group.member.readonly`, authorized in the Admin console under **Domain-wide delegation** |
-| Throttling       | Per app per tenant, `429` + `Retry-After`                                        | Per project quota (believed to be about 2,400 queries/min, to verify), `403 rateLimitExceeded` / `429`, exponential backoff                                                            |
-| Disabled users   | `accountEnabled = false`                                                         | `suspended`, `archived`                                                                                                                                                                |
-| Stable user ID   | `id` (= `oid` claim)                                                             | `id` (= `sub` claim)                                                                                                                                                                   |
+| Method | When it runs | Needs the API integration |
+| --- | --- | --- |
+| **Manual** (default) | An admin pre-provisions users | No |
+| **Just in time (JIT)** | At login, in the OIDC callback | No, but it uses the API when enabled |
+| **Sync** | Background job on an interval | Yes |
 
-### Request counts per sync (Entra)
+**Manual**
 
-With N users, G groups, and up to 999 items per page:
+- When manual is off, the IdP doesn't appear on the create-user page, and the create-user API rejects that IdP.
 
-- Full sync (per group): `ceil(N/999) + ceil(G/999) + Σ ceil(members_g / 999)` ≈ `N/999 + G`. For example, 5,000 users and 200 groups ≈ 206 requests.
-- Per user (`/users/{id}/memberOf` for every user): `ceil(N/999) + N`. Avoid this approach.
-- Delta sync with no changes: 2 requests (users delta + groups delta).
-- `$expand=memberOf` cuts off at about 20 groups per user. Don't rely on it.
+**Just in time** (the existing `autoProvision` field, unchanged in the DB and API)
 
-### Google items to verify
+- When the API integration is enabled, the callback fetches the user's groups (and any other extra data) from the provider. The groups are injected into the claims as `groups` before any mapping runs.
+  - On Google, ID tokens never carry groups, so this is the only way JIT can map groups to roles.
+  - On Azure, it also covers the groups overage case (more than 200 groups puts `_claim_names` in the token instead of `groups`) and apps that weren't configured to emit the `groups` claim.
+- If the API call fails, log a warning and continue with the token claims only. Login must not break because of the API.
+- The org and role mappings for JIT run on these claims (see [step 3](#3-org-and-role-mappings)).
 
-1. That the Google ID token's `sub` really equals the Directory `user.id`. This is believed true, but the matching logic depends on it.
-2. Whether to support a second auth option: admin OAuth consent with an offline refresh token and the extra directory scopes on the existing OAuth client. Setup is easier, but sync stops working if that admin leaves.
-3. Real quota numbers and how errors look. The Directory API often returns `403` with `reason: rateLimitExceeded` rather than `429`.
-4. Group identifiers: group email vs `id`, and which one is friendlier in role mappings.
-5. Whether `includeDerivedMembership` is enough for nested groups, or whether we need the Cloud Identity `searchTransitiveGroups` API.
-6. The library choice: `google-auth-library`, or signing the JWT-bearer assertion ourselves. Neither `jose` nor any Google or Azure SDK is a dependency today.
+**Sync** (routine-based background sync)
 
-## How other products do it
+- Fetches every user and their transitive groups from the provider.
+- For each user, it builds a **claims payload** that mirrors the provider's ID token as closely as the API allows (see [Sync claims payload](#sync-claims-payload)). It's fine for some token claims to be missing.
+- Sync then runs the same pipeline as JIT on that payload:
+  1. `identifierPath` gives the username.
+  2. The org mapping decides whether the user is in the org.
+  3. The role mapping decides the roles.
 
-- **NetBird:** syncs users and groups. Synced groups play the part that roles play in Pangolin: access controls are set per group.
-- **defguard:** works the same way.
-- Neither relies much on the IdP's own roles (Entra app roles, Google admin roles). Groups are what gets synced and used.
+  Because the identifier and the mappings are the same JMESPath that login runs, a synced user and the same person logging in end up with the same `users.username`.
 
-**What this means for Pangolin:**
+### 3. Org and role mappings
 
-- **Org IdPs** (one IdP per org): an IdP group can map one-to-one to a Pangolin role in that org, like NetBird and defguard do.
-- **Global IdPs** (one IdP shared by several orgs): it's harder. A group has to resolve to an org *and* a role, so a direct group → role mapping isn't enough. Either keep the existing JMESPath org and role mappings, or add a mapping that is scoped per org.
+Mappings are stored per method: one set for JIT, one set for sync.
 
-## Key design decisions
+- **One editor by default.** The UI shows a single mapping editor that writes to both the JIT and the sync columns, so admins don't define their mappings twice.
+- **Advanced toggle: "Configure JIT and sync separately".** It splits the editor in two. This lets an admin map orgs or roles differently per method to avoid conflicts. Most people won't need it.
 
-### 1. Matching synced users to users who log in (biggest risk)
+**Org mapping**
 
-Synced users must get the same `username` that login computes with `identifierPath`.
+- A JMESPath expression that decides whether the user is added to the org.
+- It runs before the role mapping.
+- It must return `true`, `false`, or the orgId.
+- `{{orgId}}` is replaced with the org's ID before evaluation (`hydrateOrgMapping` already does this for JIT).
 
-- **Azure:** the default `identifierPath` is `sub`. Entra's `sub` is **unique per app and is not the Graph user ID**, so a synced user can't be linked to a logged-in one. Options:
-  - require `oid` as the identifier when sync is on, or
-  - map Graph `id` to `oid` and refuse to enable sync if `identifierPath` isn't `oid`, or
-  - fall back to matching by email.
+**Role mapping**
 
-  Existing Azure IdPs that use `sub` need a migration story.
-- **Google:** `sub` = Directory `id`, so the default works (pending verification item 1).
+- Three modes, with the mapping builder as the default:
+  - **Mapping builder:** group → roles rules.
+  - **Fixed roles:** every user gets the same roles.
+  - **JMESPath expression:** the current JIT behavior.
+- **Create missing roles** is a separate option. It is no longer tied to a mode. When it's on, every role name the mapping returns that doesn't exist in the org gets created.
+- The current sync-only `automatic` mode (role name = group display name) becomes the mapping builder with a "use the group name" rule, or a JMESPath expression such as `groups`, plus "Create missing roles". It isn't kept as its own mode.
 
-### 2. Sync replaces auto provisioning and owns org and role mapping
+## Sync claims payload
 
-An IdP uses **either** auto provisioning (claim-based JMESPath mappings, applied at login) **or** directory sync (group mapping, applied by the sync job), never both. The two use different role mappings, so running both would make them fight over the same memberships.
+A documented JSON object per user that mirrors the provider's ID token. Only claims we can source from the API are included. Token metadata (`iss`, `aud`, `azp`, `iat`, `exp`, `nbf`, `at_hash`, `sid`, `uti`, `rh`, `ver`) is never included.
 
-Directory API responses (Graph `user`, Directory `user`) don't look like ID token claims. Faking claims only matches login for a few fields (`oid`, `name`, `upn`, `groups`), and silently diverges for the rest (`sub` is per-app in Entra, `email` is optional, `roles` and custom claims don't exist in Graph). So sync doesn't run the login org/role mappings.
+### Azure (Microsoft Graph)
 
-- **Identifier:** fixed rule, not configurable. It must produce the same `users.username` login computes, so sync only runs when `identifierPath` resolves from directory data. Azure: `oid` → Graph `id`, `preferred_username`/`upn` → `userPrincipalName`; `sub` is refused. Google: `sub` → Directory `id`.
-- **Email / name:** read directly from directory fields (Azure `mail` / `displayName`).
-- **Orgs and roles:** an explicit table `idpGroupMapping (idpId, externalGroupId, orgId, roleId)`. A user gets every role mapped to a group they're a (transitive) member of; an org membership exists wherever they have at least one role. Without full RBAC, only the first mapped role per org is kept.
-- Only mapped groups are fetched, which also bounds the request count.
-- The admin UI can list directory groups so admins pick from a list instead of pasting IDs. Same model works for Google, where tokens carry no groups at all.
+Verified on a test tenant: the token's `oid` claim equals the Graph user `id`, so `oid` is the external ID.
 
-**Login when sync is on.** Since `autoProvision` is off, login takes the non-provisioning branch of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts):
+| Claim | Graph source | Matches the token? |
+| --- | --- | --- |
+| `oid` | `id` | ✅ Same value |
+| `tid` | tenant ID | ✅ |
+| `name` | `displayName` | ✅ |
+| `email` | `mail`, falling back to `otherMails[0]` | ⚠️ Usually. The token claim is optional. |
+| `preferred_username` | `userPrincipalName` | ⚠️ Matches for members. For guests, the token has the real email, but Graph has `user_domain#EXT#@tenant.onmicrosoft.com`. |
+| `groups` | transitive group **object IDs** | ✅ Same format: the token's `groups` claim also holds object IDs, not names. It's optional in the token (only present when the app emits it), but sync always includes it. |
+| `sub` | — | ❌ Can't be built: it's a pairwise ID per app |
+| `wids` | — | Not included. It's optional in the token and holds directory role template IDs, which aren't useful for mappings. |
+| `idp` | — | Not included. It's only present for guest accounts. |
 
-- It only authenticates. It doesn't create users or touch orgs, roles or profile fields.
-- A user who hasn't been synced yet, or has no org membership, is refused with "unprovisioned". Admins can run "Sync now" to fix this.
-- Sync is the only writer for users, memberships and roles of that IdP. That includes email and name updates, since login no longer updates them.
+Extra field outside the token: `groupNames` (display names). This lets the mapping builder match on names while `groups` stays token-compatible.
 
-### 3. Shared write path (optional refactor)
+**Identifier:** an Azure IdP using sync must have an `identifierPath` that resolves from the payload. `oid` is the recommended value; `sub` is refused when sync is enabled.
 
-Login and sync no longer run on the same IdP, so sharing code isn't needed for correctness. It's still worth pulling the "apply" half of the provisioning block out of `validateOidcCallback.ts` into a shared function, for example `applyUserMemberships(trx, idp, user, desired: { orgId, roleIds }[])`: upsert the user, add orgs, re-sync roles on `autoProvisioned` orgs. Login computes `desired` from claims, sync from `idpGroupMapping`. Sync writes memberships with `autoProvisioned = true`, so the existing rule that only those rows are ever changed or removed still holds.
+### Google (Admin SDK Directory API)
 
-### 4. Deprovisioning (not confirmed)
+Verified: the token's `sub` equals the Directory user `id`, so `sub` is the external ID. `sub` is also the same across OAuth clients (unlike Entra's `sub`).
 
-> ⚠️ Removing or deactivating users during sync has **not been approved**. It's risky: a bad credential, a wrong group filter, a partial API response or a bug in the diff could lock a whole org out at once. Until a decision is made, sync **must not delete, disable or remove anything**.
+| Claim | Directory source | Matches the token? |
+| --- | --- | --- |
+| `sub` | `id` | ✅ Same value |
+| `email` | `primaryEmail` | ✅ |
+| `email_verified` | always `true` | ✅ |
+| `name` | `name.fullName` | ✅ |
+| `given_name` / `family_name` | `name.givenName` / `name.familyName` | ✅ |
+| `hd` | the primary email's domain | ✅ The token only has it for Workspace accounts, and every synced user is one |
+| `picture` | — | Not included. The Directory `thumbnailPhotoUrl` is a different URL. |
+| `groups` | transitive group emails | — Not in the token. Same shape that JIT injects. |
 
-**Until a decision is made (v1 default):**
+Extra field: `groupNames`.
 
-- Sync only creates and updates users, memberships and roles.
-- Users who are missing from the directory, disabled or suspended are only **detected and reported**: logged, counted in the sync run, and possibly listed in the UI as "would be removed". Nothing changes for them in Pangolin.
+### Shared rules
 
-**If deprovisioning is approved later, it needs safeguards:**
+- Disabled, suspended or archived users get no orgs, whatever the mappings return.
+- JIT enrichment and sync build `groups` / `groupNames` with the **same provider function**, so a mapping can't behave differently between the two.
 
-- An explicit per-IdP opt-in, off by default.
-- It only ever touches `autoProvisioned` memberships. Manually added memberships (`autoProvisioned = false`) are never touched, which matches what login does today.
-- Prefer disabling over deleting, with a grace period, for example only acting after a user has been missing for N consecutive syncs.
-- A circuit breaker: abort the run if more than X% of the IdP's users, or more than N users, would be removed.
-- Never deprovision after an incomplete or failed fetch. That covers a page error mid-run, a throttled run, or an empty response.
-- A dry-run mode that shows what would be removed before turning it on.
+## JIT and sync writing the same memberships
 
-**Questions to answer before approving:**
+This is the main design risk. Both methods can now be on at once, and both write `userOrgs` and `userOrgRoles`. Each membership row records which method created it:
 
-- Delete the `users` row, disable it, or only remove `autoProvisioned` org memberships?
-- Revoke sessions right away?
-- What counts as "gone": deleted only, or also disabled/suspended/archived, or also removed from the synced groups?
+- `userOrgs.autoProvisioned` covers JIT.
+- `userOrgs.directorySynched` covers sync.
 
-### 5. Sync scope
+The rules:
 
-Add an optional filter for which groups to sync, or only sync users assigned to the app (Azure: `appRoleAssignedTo`). This keeps request counts down for large tenants.
+- Each method only removes or re-roles the rows it owns. Manually created rows (both flags `false`) are never touched.
+- If a row is owned by one method and the other method also matches the user, it adds its flag. The row is only removed when no method still claims it.
+- Roles: each method replaces only the roles it granted. We can track this per role on `userOrgRoles` (e.g. a `source` column), or simply recompute the full role set from whichever methods are on. **To decide.**
+- If the two methods use different mappings, the user's roles flip back and forth between logins and sync runs. The UI should warn about this when the mappings are split.
 
-## Data model (pg and sqlite schemas, plus a migration)
+## Data model changes (pg and sqlite, plus migrations)
 
-- **`idpDirectorySyncConfig`**: provider-specific credentials and options.
-  - Google: SA client email, private key (encrypted), admin email to impersonate, customer ID.
-  - Both: group filter.
-  - Azure: an explicit `tenantId` column, instead of parsing `authUrl`.
-- **`idpGroupMapping`**: `idpId`, `externalGroupId`, `orgId`, `roleId`. Sync-only org/role mapping (see decision #2).
-- **`idpSyncState`**: one row per IdP. Columns: `usersDeltaLink`, `groupsDeltaLink`, `status`, `lastSyncStartedAt`, `lastSyncSucceededAt`, `lastError`, `consecutiveFailures`, `nextSyncAt`.
-- **`idpSyncRun`**: optional run history with counts, request count and error. Old rows are pruned.
+**`idp`**
 
-Individual Graph or Directory requests and retries are logged, not stored in the DB. Access tokens are cached in memory (or Redis), never stored in the DB.
+- `apiIntegrationEnabled`: rename or reuse `directorySyncEnabled`.
+- `directorySyncConfig`: kept (the encrypted provider credentials).
+- `allowManualProvisioning`: new, default `true`.
+- `autoProvision`: kept as is in the DB and API, and it means JIT. Only the UI may label it "Just in time".
+- `directorySyncEnabled`: now means "sync on". Requires the API integration.
+- Remove the `autoProvision` ⟂ `directorySyncEnabled` exclusivity check in the global and org IdP create/update routes.
+- `defaultOrgMapping` / `defaultRoleMapping` become separate JIT and sync variants for global IdPs.
+
+**`idpOrg`**
+
+- Replace `orgMapping`, `roleMapping` and `directoryRoleMapping` with:
+  - `jitOrgMapping`
+  - `jitRoleMapping`
+  - `syncOrgMapping`
+  - `syncRoleMapping`
+  - `mappingsLinked` (boolean): the UI's "one editor" state.
+- The role mappings use a single serialized config: `{ mode: "builder" | "fixed" | "jmespath", createMissingRoles, ... }`. This extends [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts) and replaces the JIT `roleMapping` format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts).
+- The migration copies the existing `orgMapping` / `roleMapping` into both the JIT and the sync columns.
+- `directorySyncDeletions`: kept, scoped to sync.
+
+**Sync state.** `idpSyncState` and `idpSyncUser` were dropped (migration 0031). We'll need run state again for the scheduler: `lastSyncStartedAt`, `lastSyncSucceededAt`, `lastError`, `consecutiveFailures`, `nextSyncAt`, plus the Azure delta cursor. Add it back as columns on `idp` or as one small table.
 
 ## Sync engine
 
-```
-server/(private/)lib/directorySync/
-  providers/azure.ts     // token, paging, delta, 429 handling
-  providers/google.ts    // JWT-bearer token, paging, full snapshot
-  types.ts               // DirectoryProvider interface
-  runSync.ts             // group mapping resolution, diff, apply
-  scheduler.ts
-```
+The current code lives in [server/private/lib/directorySync/](server/private/lib/directorySync/).
 
-- **Provider interface.** Each provider returns either:
-  - `{ kind: "delta", changedUsers, removedUserIds, membershipChanges, nextState }` (Azure), or
-  - `{ kind: "snapshot", users, groups, memberships }` (Google, and Azure's first run).
+**Providers** ([azure.ts](server/private/lib/directorySync/azure.ts), [google.ts](server/private/lib/directorySync/google.ts))
 
-  For a snapshot, the core diffs against the users Pangolin already has for that IdP. Users who are missing, plus Azure `@removed` entries, are only reported for now; see [Deprovisioning](#4-deprovisioning-not-confirmed).
-- **Scheduler.**
-  - A tick runs every minute and selects IdPs where `directorySyncEnabled` is set and `nextSyncAt <= now`.
-  - It takes the `idp-sync:{idpId}` lock, caps how many IdPs sync at once, and staggers `nextSyncAt`.
-  - Default interval: 15 to 60 minutes, possibly configurable per IdP.
-- **Failure handling.**
-  - A short `Retry-After` → sleep in memory and retry the same page.
-  - A long `Retry-After`, or repeated failures → stop the run, set `nextSyncAt`, and don't save delta links. The backoff is `nextSyncAt = now + min(interval * 2^consecutiveFailures, 24h)`, reset on success.
-  - `410` / `syncStateNotFound` → clear the delta links and do a full sync.
-- Save the new delta links only after the whole run succeeds.
-- Access tokens are cached in memory until shortly before they expire.
+- They keep returning the neutral `DirectoryUser` from [types.ts](server/private/lib/directorySync/types.ts).
+- New per-provider function: `toClaims(user)`, which builds the sync claims payload.
+- New per-provider function: `fetchUserGroups(externalId)`, used by JIT enrichment.
+
+**Workflow** ([syncWorkflow.ts](server/private/lib/directorySync/syncWorkflow.ts))
+
+Today the workflow sets `username` straight from the email and resolves roles with its own modes. It changes to:
+
+1. Build the claims.
+2. Apply `identifierPath`.
+3. Evaluate the sync org mapping for each `idpOrg`.
+4. Evaluate the sync role mapping.
+5. Diff and apply.
+
+**Shared mapping code**
+
+- Pull the org/role evaluation out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into a function that both JIT and sync call, e.g. `resolveOrgMemberships(claims, idpOrgs, method)`.
+- Do the same for the "apply" half (upsert the user, add or remove orgs, re-sync roles), with ownership rules that depend on the method.
+
+**Deprovisioning** keeps the safeguards from the previous plan:
+
+- It's opt-in through `directorySyncDeletions`.
+- It only touches rows the method owns.
+- It never runs after a partial or failed fetch.
+- A circuit breaker aborts the run on mass removals.
+- Dry-run mode is already implemented.
+
+**Scheduler**
+
+- A tick runs every minute and syncs the IdPs that are due.
+- A `LockManager` lock per IdP, plus exponential backoff on failures.
+- Fixed sync interval: one constant in code, not configurable globally or per IdP.
 
 ## API and UI
 
-- `POST /idp/:idpId/sync`: "Sync now".
-- `GET /idp/:idpId/sync-status`: last sync time, status, error, counts.
-- The IdP settings page gets:
-  - Google service account fields.
-  - Azure tenant ID as a stored field.
-  - A sync status card.
-  - Setup instructions: Azure application permissions plus admin consent; Google DWD scopes.
-- Clear errors for the usual failures: `403` → "admin consent missing" or "DWD not authorized"; `401` → "bad secret or key".
+**IdP settings**
+
+- "API integration" section: a toggle plus the provider fields.
+- "User provisioning" section: three toggles for Manual, JIT and Sync.
+- Mappings section:
+  - Org mapping.
+  - Role mapping, with the builder as the default.
+  - "Create missing roles".
+  - "Configure JIT and sync separately" toggle.
+- Sync status card and a "Sync now" button.
+
+**Create user page / API**
+
+- Filter out IdPs with `allowManualProvisioning = false`.
+
+**Endpoints**
+
+- `POST /idp/:idpId/sync` ("Sync now", with a dry-run option).
+- `GET /idp/:idpId/sync-status`.
+
+**Docs**
+
+- The claims payload per provider (the tables above).
+- Setup: Azure application permissions plus admin consent; Google domain-wide delegation scopes.
 
 ## Phases
 
-1. **Study:** finish the Google verification items above. Confirm `oid` vs `sub` behavior on a test Entra tenant.
-2. **Refactor (optional):** extract `applyUserMemberships` from the OIDC callback, with no change in behavior. Add tests.
-3. **Schema:** add the sync config and state tables and migrations, and store Azure `tenantId` explicitly.
-4. **Azure provider:** full sync, then delta.
-5. **Scheduler:** locking, backoff, status API, "Sync now".
-6. **Google provider:** snapshot plus diff.
-7. **UI and docs:** credentials, status card, setup guides.
-8. **Deprovisioning, only if approved:** opt-in setting, dry run, grace period, circuit breaker.
+1. **Mapping refactor:**
+   - Unified role-mapping config.
+   - Split JIT and sync columns, with a migration.
+   - Extract the shared evaluate/apply code from the OIDC callback, with no change in behavior.
+2. **Provisioning flags:**
+   - Manual on/off, plus the create-user filtering.
+   - Drop the JIT ⟂ sync exclusivity.
+   - Membership ownership rules.
+3. **Sync on the claims payload:**
+   - `toClaims` for Azure and Google.
+   - Rewire the workflow to the shared mapping code.
+4. **JIT enrichment:** `fetchUserGroups` in the OIDC callback.
+5. **Scheduler and status:** sync state, locking, backoff, "Sync now", status API.
+6. **UI and docs.**
+7. **Deprovisioning safeguards:** circuit breaker, then enabled by default only if approved.
 
 ## Open questions
 
-- Is this an enterprise/licensed feature? If so, the engine belongs in `server/private`. The flag currently sits on the shared `idp` table and routes.
-- **Blocking for deprovisioning:** should sync remove or disable users at all? See the questions in [Deprovisioning](#4-deprovisioning-not-confirmed).
-- How to handle existing Azure IdPs with `identifierPath = "sub"`: block sync, migrate them, or match by email?
-- Which group identifiers to expose in mappings for Google: emails or IDs?
-- Org IdPs ([server/private/routers/orgIdp](server/private/routers/orgIdp)) can already store the flag. For them, should `idpGroupMapping` be limited to the IdP's own org? Org IdPs fit the group = role model most easily (see [How other products do it](#how-other-products-do-it)).
-- For global IdPs, how should a synced group resolve to an org and a role? Keep the JMESPath mappings, or add per-org group → role mappings?
-- Global sync interval, or configurable per IdP?
-
-## References
-
-**Microsoft Graph / Entra**
-
-- List users: https://learn.microsoft.com/en-us/graph/api/user-list
-- User delta: https://learn.microsoft.com/en-us/graph/api/user-delta
-- Delta query overview: https://learn.microsoft.com/en-us/graph/delta-query-overview
-- Group delta: https://learn.microsoft.com/en-us/graph/api/group-delta
-- Group members: https://learn.microsoft.com/en-us/graph/api/group-list-members
-- Transitive members: https://learn.microsoft.com/en-us/graph/api/group-list-transitivemembers
-- App role assignments: https://learn.microsoft.com/en-us/graph/api/serviceprincipal-list-approleassignedto
-- Client credentials flow: https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow
-- Permissions reference: https://learn.microsoft.com/en-us/graph/permissions-reference
-- Admin consent: https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/grant-admin-consent
-- Paging: https://learn.microsoft.com/en-us/graph/paging
-- Throttling: https://learn.microsoft.com/en-us/graph/throttling
-- Throttling limits per service: https://learn.microsoft.com/en-us/graph/throttling-limits
-- National clouds: https://learn.microsoft.com/en-us/graph/deployments
-
-**Google Workspace (to fill in during the study)**
-
-- Admin SDK Directory API: https://developers.google.com/admin-sdk/directory
-- Domain-wide delegation: https://developers.google.com/workspace/guides/create-credentials#optional_set_up_domain-wide_delegation_for_a_service_account
+- **Role ownership:** do we track it per role (`userOrgRoles.source`), or recompute the whole role set from the active methods?
+- **Existing Azure IdPs with `identifierPath = "sub"`:** block sync, migrate them to `oid` (which changes every username), or match by email once?
+- **Global IdPs:** do the JIT and sync defaults (`defaultOrgMapping` / `defaultRoleMapping`) also get split, or do they stay shared?
