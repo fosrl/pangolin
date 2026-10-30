@@ -360,6 +360,7 @@ export const PublicResourceSchema = z
         ssl: z.boolean().optional(),
         scheme: z.enum(["http", "https"]).optional(),
         "full-domain": fullDomainSchema.optional(),
+        "match-base-domain": z.boolean().optional(),
         "proxy-port": z.int().min(1).max(65535).optional(),
         enabled: z.boolean().optional(),
         targets: z.array(TargetSchema.nullable()).optional().default([]),
@@ -675,6 +676,21 @@ export const PublicResourceSchema = z
             path: ["full-domain"],
             message:
                 'Wildcard full-domain must have "*" as the leftmost label only, followed by at least two valid hostname labels (e.g. "*.example.com" or "*.level1.example.com"). Patterns like "*example.com" or "level2.*.example.com" are not supported.'
+        }
+    )
+    .refine(
+        (resource) => {
+            if (!resource["match-base-domain"]) return true;
+            const effectiveMode = resource.mode ?? resource.protocol;
+            return (
+                effectiveMode === "http" &&
+                !!resource["full-domain"]?.startsWith("*.")
+            );
+        },
+        {
+            path: ["match-base-domain"],
+            message:
+                "'match-base-domain' can only be set on 'http' resources with a wildcard 'full-domain'"
         }
     )
     .refine(

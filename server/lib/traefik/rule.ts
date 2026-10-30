@@ -23,17 +23,38 @@ export function ruleValue(value: string): string {
 }
 
 // Build the Host()/HostRegexp() Traefik rule for a resource's domain.
-// Wildcard resources match any single subdomain via HostRegexp.
+// Wildcard resources match any single subdomain via HostRegexp, and the host
+// the wildcard sits under too when matchBaseDomain is set. That stays a single
+// matcher rather than an || so appended && clauses apply to both hosts.
 export function buildHostRule(
     fullDomain: string,
-    wildcard?: boolean | null
+    wildcard?: boolean | null,
+    matchBaseDomain?: boolean | null
 ): string {
     if (wildcard && fullDomain.startsWith("*.")) {
         // Convert *.foo.bar.com -> HostRegexp(`^[^.]+\.foo\.bar\.com$`)
         const escaped = fullDomain.slice(2).replace(/\./g, "\\.");
-        return `HostRegexp(${ruleValue(`^[^.]+\\.${escaped}$`)})`;
+        const label = matchBaseDomain ? "([^.]+\\.)?" : "[^.]+\\.";
+        return `HostRegexp(${ruleValue(`^${label}${escaped}$`)})`;
     }
     return `Host(${ruleValue(fullDomain)})`;
+}
+
+/**
+ * Pick the resource serving `host` from the rows that matched it. An exact
+ * fullDomain wins, then the most specific wildcard, which is what Traefik
+ * routes to when a broader wildcard also matches.
+ */
+export function pickResourceForHost<T>(
+    rows: T[],
+    host: string,
+    getFullDomain: (row: T) => string | null | undefined
+): T | undefined {
+    const length = (row: T) => getFullDomain(row)?.length ?? 0;
+    return (
+        rows.find((row) => getFullDomain(row) === host) ??
+        [...rows].sort((a, b) => length(b) - length(a))[0]
+    );
 }
 
 // Append a path-matching clause to a Traefik rule based on the resource's

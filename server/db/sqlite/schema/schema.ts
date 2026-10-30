@@ -236,6 +236,9 @@ export const resources = sqliteTable(
         wildcard: integer("wildcard", { mode: "boolean" })
             .notNull()
             .default(false),
+        matchBaseDomain: integer("matchBaseDomain", { mode: "boolean" }) // wildcard resources only: also serve the host the wildcard sits under
+            .notNull()
+            .default(false),
         mode: text("mode")
             .default("http")
             .$type<

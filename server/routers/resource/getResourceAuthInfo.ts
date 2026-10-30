@@ -38,6 +38,7 @@ export type GetResourceAuthInfoResponse = {
     blockAccess: boolean;
     url: string;
     wildcard: boolean;
+    matchBaseDomain: boolean;
     fullDomain: string | null;
     whitelist: boolean;
     // a client certificate is required during the TLS handshake
@@ -227,6 +228,7 @@ export async function getResourceAuthInfo(
                 blockAccess: resource.blockAccess,
                 url: url ?? "",
                 wildcard: resource.wildcard ?? false,
+                matchBaseDomain: resource.matchBaseDomain,
                 fullDomain: resource.fullDomain,
                 whitelist: effectivePolicy?.emailWhitelistEnabled ?? false,
                 mtls: await isResourceMtlsEnforced(resource.resourceId),

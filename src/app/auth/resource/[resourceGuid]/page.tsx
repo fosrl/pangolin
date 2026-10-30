@@ -141,6 +141,11 @@ export default async function ResourceAuthPage(props: {
                 host: string
             ): boolean => {
                 if (!wildcardDomain.startsWith("*.")) return false;
+                if (
+                    authInfo.matchBaseDomain &&
+                    host === wildcardDomain.slice(2)
+                )
+                    return true;
                 const suffix = wildcardDomain.slice(1); // e.g. ".wildcard.owen.fosrl.io"
                 return host.endsWith(suffix) && host.length > suffix.length;
             };

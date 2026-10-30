@@ -664,17 +664,10 @@ export class AuthoritativeDNSServer {
             }
 
             // Check resources table (exact or wildcard match)
-            const wildcardPattern = this.getWildcardPattern(normalizedQuery);
-            const existsCondition = wildcardPattern
-                ? or(
-                      eq(resources.fullDomain, queryName),
-                      eq(resources.fullDomain, wildcardPattern)
-                  )!
-                : eq(resources.fullDomain, queryName);
             const [row] = await db
                 .select({ fullDomain: resources.fullDomain })
                 .from(resources)
-                .where(existsCondition)
+                .where(this.getResourceDomainCondition(queryName))
                 .limit(1);
             const exists = !!row;
             this.cache.set(cacheKey, exists, 60);
@@ -728,14 +721,6 @@ export class AuthoritativeDNSServer {
             logger.debug(`Cache miss for ${cacheKey}, querying database`);
 
             try {
-                const wildcardPattern = this.getWildcardPattern(name);
-                const domainCondition = wildcardPattern
-                    ? or(
-                          eq(resources.fullDomain, name),
-                          eq(resources.fullDomain, wildcardPattern)
-                      )!
-                    : eq(resources.fullDomain, name);
-
                 // LEFT JOINs so we always get the resource row (and its orgId) even
                 // when the resource has no targets/sites/exitNodes assigned yet.
                 const resourceRows = await db
@@ -756,7 +741,7 @@ export class AuthoritativeDNSServer {
                         exitNodes,
                         eq(sites.exitNodeId, exitNodes.exitNodeId)
                     )
-                    .where(domainCondition);
+                    .where(this.getResourceDomainCondition(name));
 
                 if (resourceRows.length === 0) {
                     // Resource doesn't exist at all — also pre-populate the domainExists
@@ -1902,6 +1887,23 @@ export class AuthoritativeDNSServer {
         const dotIndex = normalized.indexOf(".");
         if (dotIndex === -1) return null;
         return `*.${normalized.slice(dotIndex + 1)}`;
+    }
+
+    // A name resolves through its own resource, a wildcard resource one level
+    // up, or a wildcard resource directly under it that also serves its base
+    private getResourceDomainCondition(name: string) {
+        const normalized = name.replace(/\.$/, "");
+        const wildcardPattern = this.getWildcardPattern(normalized);
+        return or(
+            eq(resources.fullDomain, name),
+            wildcardPattern
+                ? eq(resources.fullDomain, wildcardPattern)
+                : undefined,
+            and(
+                eq(resources.fullDomain, `*.${normalized}`),
+                eq(resources.matchBaseDomain, true)
+            )
+        )!;
     }
 
     private createRecordFromIp(

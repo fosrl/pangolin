@@ -26,6 +26,7 @@ import {
     type StrategyOption
 } from "@app/components/StrategySelect";
 import { BrowserGatewayTargetForm } from "@app/components/BrowserGatewayTargetForm";
+import { SwitchInput } from "@app/components/SwitchInput";
 import {
     SitesSelector,
     type SelectedSite
@@ -103,7 +104,8 @@ function createBaseResourceFormSchema(t: TranslateFn) {
 function createHttpResourceFormSchema(t: TranslateFn) {
     return z.object({
         domainId: z.string().min(1, { message: t("domainRequired") }),
-        subdomain: z.string().optional()
+        subdomain: z.string().optional(),
+        matchBaseDomain: z.boolean().optional()
     });
 }
 
@@ -377,6 +379,11 @@ export default function Page() {
         defaultValues: {}
     });
 
+    // The host a wildcard sits under, which the resource can opt in to serving
+    const [wildcardBaseHost, setWildcardBaseHost] = useState<string | null>(
+        null
+    );
+
     const tcpUdpForm = useForm({
         resolver: zodResolver(tcpUdpResourceFormSchema),
         defaultValues: {
@@ -481,7 +488,12 @@ export default function Page() {
                         : undefined,
                     domainId: httpData.domainId,
                     protocol: "tcp",
-                    mode: resourceType
+                    mode: resourceType,
+                    ...(resourceType === "http" &&
+                        wildcardBaseHost &&
+                        httpData.matchBaseDomain && {
+                            matchBaseDomain: true
+                        })
                 });
 
                 if (resourceType === "inference") {
@@ -959,6 +971,13 @@ export default function Page() {
                                                                                         true
                                                                                 }
                                                                             );
+                                                                            setWildcardBaseHost(
+                                                                                res.wildcard
+                                                                                    ? res.fullDomain.slice(
+                                                                                          2
+                                                                                      )
+                                                                                    : null
+                                                                            );
                                                                         }}
                                                                     />
                                                                     <FormMessage />
@@ -970,6 +989,48 @@ export default function Page() {
                                                                 </FormItem>
                                                             )}
                                                         />
+                                                        {resourceType ===
+                                                            "http" &&
+                                                            wildcardBaseHost && (
+                                                                <FormField
+                                                                    control={
+                                                                        httpForm.control
+                                                                    }
+                                                                    name="matchBaseDomain"
+                                                                    render={({
+                                                                        field
+                                                                    }) => (
+                                                                        <FormItem className="mt-4">
+                                                                            <FormControl>
+                                                                                <SwitchInput
+                                                                                    id="match-base-domain"
+                                                                                    checked={
+                                                                                        field.value ??
+                                                                                        false
+                                                                                    }
+                                                                                    label={t(
+                                                                                        "resourceMatchBaseDomain",
+                                                                                        {
+                                                                                            host: wildcardBaseHost
+                                                                                        }
+                                                                                    )}
+                                                                                    onCheckedChange={
+                                                                                        field.onChange
+                                                                                    }
+                                                                                />
+                                                                            </FormControl>
+                                                                            <FormDescription>
+                                                                                {t(
+                                                                                    "resourceMatchBaseDomainDescription",
+                                                                                    {
+                                                                                        host: wildcardBaseHost
+                                                                                    }
+                                                                                )}
+                                                                            </FormDescription>
+                                                                        </FormItem>
+                                                                    )}
+                                                                />
+                                                            )}
                                                     </Form>
                                                 </SettingsFormCell>
                                             )}

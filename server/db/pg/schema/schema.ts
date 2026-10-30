@@ -210,6 +210,7 @@ export const resources = pgTable(
         postAuthPath: text("postAuthPath"),
         health: varchar("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: boolean("wildcard").notNull().default(false),
+        matchBaseDomain: boolean("matchBaseDomain").notNull().default(false), // wildcard resources only: also serve the host the wildcard sits under
         mode: text("mode")
             .default("http")
             .$type<

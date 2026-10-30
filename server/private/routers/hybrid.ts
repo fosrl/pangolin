@@ -62,6 +62,8 @@ import {
     resourceAccessToken
 } from "@server/db";
 import { eq, and, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { resourceHostCondition } from "@server/db/queries/verifySessionQueries";
+import { pickResourceForHost } from "@server/lib/traefik/rule";
 import { alias } from "@server/db";
 import { response } from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -599,14 +601,6 @@ hybridRouter.get(
                 );
             }
 
-            // Build wildcard domain candidates for the requested domain.
-            // e.g. "me.example.test.com" -> ["*.example.test.com", "*.test.com"]
-            const domainParts = domain.split(".");
-            const wildcardCandidates: string[] = [];
-            for (let i = 1; i < domainParts.length; i++) {
-                wildcardCandidates.push(`*.${domainParts.slice(i).join(".")}`);
-            }
-
             const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
             const defaultPolicy = alias(resourcePolicies, "defaultPolicy");
             const sharedPolicyPincode = alias(
@@ -713,28 +707,13 @@ hybridRouter.get(
                     )
                 )
                 .innerJoin(orgs, eq(orgs.orgId, resources.orgId))
-                .where(
-                    or(
-                        // Exact match
-                        eq(resources.fullDomain, domain),
-                        // Wildcard match
-                        wildcardCandidates.length > 0
-                            ? and(
-                                  eq(resources.wildcard, true),
-                                  inArray(
-                                      resources.fullDomain,
-                                      wildcardCandidates
-                                  )
-                              )
-                            : sql`false`
-                    )
-                );
+                .where(resourceHostCondition(domain));
 
-            // Prefer exact match over wildcard match
-            const exactMatch = potentialResults.find(
-                (r) => r.resources?.fullDomain === domain
+            const result = pickResourceForHost(
+                potentialResults,
+                domain,
+                (r) => r.resources?.fullDomain
             );
-            const result = exactMatch ?? potentialResults[0];
 
             if (
                 result &&

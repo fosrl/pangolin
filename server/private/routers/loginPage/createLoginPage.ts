@@ -27,7 +27,7 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { validateAndConstructDomain } from "@server/lib/domainUtils";
 import { createCertificate } from "@server/routers/certificates/createCertificate";
 
@@ -107,7 +107,16 @@ export async function createLoginPage(
         const existingResource = await db
             .select()
             .from(resources)
-            .where(eq(resources.fullDomain, fullDomain));
+            .where(
+                or(
+                    eq(resources.fullDomain, fullDomain),
+                    // a wildcard resource also serving this as its base
+                    and(
+                        eq(resources.fullDomain, `*.${fullDomain}`),
+                        eq(resources.matchBaseDomain, true)
+                    )
+                )
+            );
 
         if (existingResource.length > 0) {
             return next(

@@ -417,6 +417,9 @@ export async function buildPublicResourceBlueprintConfig(
         if (resource.fullDomain) {
             resourceConfig["full-domain"] = resource.fullDomain;
         }
+        if (resource.matchBaseDomain) {
+            resourceConfig["match-base-domain"] = true;
+        }
         resourceConfig.ssl = resource.ssl;
     } else {
         if (resource.proxyPort) {

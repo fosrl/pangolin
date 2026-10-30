@@ -311,6 +311,8 @@
     "privateResourceTypeGatewayDescription": "Send all internet traffic to exit through the site network.",
     "resourceTypeGatewayDescription": "Send all internet traffic to exit through the site network.",
     "resourceDomainDescription": "The resource will be served at this fully qualified domain name.",
+    "resourceMatchBaseDomain": "Also match {host}",
+    "resourceMatchBaseDomainDescription": "A wildcard only matches hostnames under {host}. Enable this to route {host} through this resource as well.",
     "resourceHTTPSSettings": "HTTPS Settings",
     "resourceHTTPSSettingsDescription": "Configure how the resource will be accessed over HTTPS",
     "resourcePortDescription": "The external port on the Pangolin instance or node where the resource will be accessible.",

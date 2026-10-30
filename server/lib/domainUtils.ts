@@ -1,8 +1,16 @@
 import { db } from "@server/db";
-import { domains, orgDomains, domainNamespaces, resources } from "@server/db";
-import { eq, and, like, not } from "drizzle-orm";
+import {
+    domains,
+    orgDomains,
+    domainNamespaces,
+    loginPage,
+    resources,
+    Transaction
+} from "@server/db";
+import { eq, and, like, not, or } from "drizzle-orm";
 import { subdomainSchema, wildcardSubdomainSchema } from "@server/lib/schemas";
 import { fromError } from "zod-validation-error";
+import { build } from "@server/build";
 import config from "./config";
 
 export type DomainValidationResult =
@@ -187,13 +195,22 @@ export async function validateAndConstructDomain(
  * or (if the fullDomain is itself a wildcard) whether any existing resources would
  * be matched by it.
  *
+ * A wildcard resource with matchBaseDomain also serves the host it sits under,
+ * so that host has to be free too. Traefik and badger resolve hosts
+ * independently, so two resources claiming one host could authenticate against
+ * one and route to the other.
+ *
  * @param fullDomain - The fully-constructed domain to check (may contain a leading `*`)
  * @param excludeResourceId - Optional resource ID to exclude from the check (for updates)
+ * @param matchBaseDomain - Whether the wildcard `fullDomain` also serves its base host
+ * @param trx - Transaction to read through, when called from inside one
  * @returns An object with `conflict: true` and a human-readable `message`, or `conflict: false`
  */
 export async function checkWildcardDomainConflict(
     fullDomain: string,
-    excludeResourceId?: number
+    excludeResourceId?: number,
+    matchBaseDomain: boolean = false,
+    trx: Transaction | typeof db = db
 ): Promise<{ conflict: false } | { conflict: true; message: string }> {
     const isWildcard = fullDomain.startsWith("*.");
 
@@ -203,27 +220,50 @@ export async function checkWildcardDomainConflict(
 
         // Find any existing non-wildcard resource whose fullDomain ends with this suffix
         // e.g. "test.example.com" or "foo.example.com"
-        const conflicting = await db
+        const conflicting = await trx
             .select({
                 resourceId: resources.resourceId,
-                fullDomain: resources.fullDomain
+                fullDomain: resources.fullDomain,
+                matchBaseDomain: resources.matchBaseDomain
             })
             .from(resources)
             .where(like(resources.fullDomain, `%${suffix}`));
 
-        const matches = conflicting.filter(
-            (r) =>
-                !r.fullDomain!.startsWith("*.") &&
-                r.fullDomain!.endsWith(suffix) &&
-                (excludeResourceId === undefined ||
-                    r.resourceId !== excludeResourceId)
-        );
+        const matches = conflicting.filter((r) => {
+            if (
+                excludeResourceId !== undefined &&
+                r.resourceId === excludeResourceId
+            ) {
+                return false;
+            }
+
+            if (!r.fullDomain!.startsWith("*.")) {
+                return r.fullDomain!.endsWith(suffix);
+            }
+
+            // "*.foo.example.com" serving "foo.example.com" collides with
+            // this wildcard, which matches any single label under suffix
+            const baseHost = r.fullDomain!.slice(2);
+            return (
+                r.matchBaseDomain &&
+                baseHost.endsWith(suffix) &&
+                !baseHost.slice(0, -suffix.length).includes(".")
+            );
+        });
 
         if (matches.length > 0) {
             return {
                 conflict: true,
                 message: `Wildcard domain ${fullDomain} conflicts with existing resource(s): ${matches.map((r) => r.fullDomain).join(", ")}`
             };
+        }
+
+        if (matchBaseDomain) {
+            return checkBaseHostConflict(
+                fullDomain.slice(2),
+                excludeResourceId,
+                trx
+            );
         }
     } else {
         // Specific domain — check if any existing wildcard would match it.
@@ -234,13 +274,22 @@ export async function checkWildcardDomainConflict(
             const suffix = fullDomain.slice(dotIndex); // ".example.com"
             const wildcardPattern = `*.${fullDomain.slice(dotIndex + 1)}`; // "*.example.com"
 
-            const conflicting = await db
+            const conflicting = await trx
                 .select({
                     resourceId: resources.resourceId,
                     fullDomain: resources.fullDomain
                 })
                 .from(resources)
-                .where(eq(resources.fullDomain, wildcardPattern));
+                .where(
+                    or(
+                        eq(resources.fullDomain, wildcardPattern),
+                        // "*.test.example.com" serving this host as its base
+                        and(
+                            eq(resources.fullDomain, `*.${fullDomain}`),
+                            eq(resources.matchBaseDomain, true)
+                        )
+                    )
+                );
 
             const matches = conflicting.filter(
                 (r) =>
@@ -258,4 +307,48 @@ export async function checkWildcardDomainConflict(
     }
 
     return { conflict: false };
+}
+
+// Whether a wildcard resource can take on baseHost in addition to its own
+// fullDomain: the same rules as a resource being created at that host.
+async function checkBaseHostConflict(
+    baseHost: string,
+    excludeResourceId: number | undefined,
+    trx: Transaction | typeof db
+): Promise<{ conflict: false } | { conflict: true; message: string }> {
+    const dashboardUrl = config.getRawConfig().app.dashboard_url;
+    if (dashboardUrl && new URL(dashboardUrl).hostname === baseHost) {
+        return {
+            conflict: true,
+            message: `Base domain ${baseHost} cannot be the same as the dashboard domain`
+        };
+    }
+
+    if (build != "oss") {
+        const existingLoginPages = await trx
+            .select()
+            .from(loginPage)
+            .where(eq(loginPage.fullDomain, baseHost));
+
+        if (existingLoginPages.length > 0) {
+            return {
+                conflict: true,
+                message: `Login page with base domain ${baseHost} already exists`
+            };
+        }
+    }
+
+    const existingResources = await trx
+        .select({ resourceId: resources.resourceId })
+        .from(resources)
+        .where(eq(resources.fullDomain, baseHost));
+
+    if (existingResources.some((r) => r.resourceId !== excludeResourceId)) {
+        return {
+            conflict: true,
+            message: `Resource with base domain ${baseHost} already exists`
+        };
+    }
+
+    return checkWildcardDomainConflict(baseHost, excludeResourceId, false, trx);
 }
