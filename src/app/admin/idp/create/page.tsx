@@ -270,34 +270,34 @@ export default function Page() {
                     </SettingsSectionBody>
                 </SettingsSection>
 
-                <SettingsSection className="min-h-0">
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("idpAutoProvisionUsers")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            <IdpAutoProvisionUsersDescription />
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <SwitchInput
-                            id="auto-provision-toggle"
-                            label={t("idpAutoProvisionUsers")}
-                            defaultChecked={form.getValues("autoProvision")}
-                            onCheckedChange={(checked) => {
-                                form.setValue("autoProvision", checked);
-                            }}
-                            description={t(
-                                "idpAutoProvisionConfigureAfterCreate"
-                            )}
-                        />
-                    </SettingsSectionBody>
-                </SettingsSection>
-
                 <fieldset
                     disabled={templatesLocked}
-                    className="min-w-0 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60"
+                    className="min-w-0 space-y-6 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60"
                 >
+                    <SettingsSection className="min-h-0">
+                        <SettingsSectionHeader>
+                            <SettingsSectionTitle>
+                                {t("idpAutoProvisionUsers")}
+                            </SettingsSectionTitle>
+                            <SettingsSectionDescription>
+                                <IdpAutoProvisionUsersDescription />
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <SettingsSectionBody>
+                            <SwitchInput
+                                id="auto-provision-toggle"
+                                label={t("idpAutoProvisionUsers")}
+                                defaultChecked={form.getValues("autoProvision")}
+                                onCheckedChange={(checked) => {
+                                    form.setValue("autoProvision", checked);
+                                }}
+                                description={t(
+                                    "idpAutoProvisionConfigureAfterCreate"
+                                )}
+                            />
+                        </SettingsSectionBody>
+                    </SettingsSection>
+
                     {watchedType === "google" && (
                         <SettingsSection>
                             <SettingsSectionHeader>
