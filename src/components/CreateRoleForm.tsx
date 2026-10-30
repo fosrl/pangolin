@@ -1,18 +1,7 @@
 "use client";
 
-import {
-    Credenza,
-    CredenzaBody,
-    CredenzaClose,
-    CredenzaContent,
-    CredenzaDescription,
-    CredenzaFooter,
-    CredenzaHeader,
-    CredenzaTitle
-} from "@app/components/Credenza";
 import { Button } from "@app/components/ui/button";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import { useOrgContext } from "@app/hooks/useOrgContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
@@ -26,20 +15,23 @@ import {
     RoleForm,
     type RoleFormValues
 } from "./RoleForm";
+import { saveRoleClientSettings } from "./RoleClientSettingsFields";
+import SettingsSectionTitle from "./SettingsSectionTitle";
+import {
+    SettingsContainer,
+    SettingsSection,
+    SettingsSectionBody,
+    SettingsSectionFooter
+} from "./Settings";
+import { useRouter } from "next/navigation";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 type CreateRoleFormProps = {
-    open: boolean;
-    setOpen: (open: boolean) => void;
-    afterCreate?: (res: CreateRoleResponse) => void;
+    orgId: string;
 };
 
-export default function CreateRoleForm({
-    open,
-    setOpen,
-    afterCreate
-}: CreateRoleFormProps) {
-    const { org } = useOrgContext();
+export default function CreateRoleForm({ orgId }: CreateRoleFormProps) {
+    const router = useRouter();
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
     const api = createApiClient(useEnvContext());
@@ -65,9 +57,10 @@ export default function CreateRoleForm({
             }
         }
         const res = await api
-            .put<
-                AxiosResponse<CreateRoleResponse>
-            >(`/org/${org?.org.orgId}/role`, payload)
+            .put<AxiosResponse<CreateRoleResponse>>(
+                `/org/${orgId}/role`,
+                payload
+            )
             .catch((e) => {
                 toast({
                     variant: "destructive",
@@ -89,7 +82,7 @@ export default function CreateRoleForm({
                 try {
                     await Promise.all(
                         pendingBudgets.map((budget) =>
-                            api.put(`/org/${org?.org.orgId}/ai-budget`, {
+                            api.put(`/org/${orgId}/ai-budget`, {
                                 roleId: createdRole.roleId,
                                 amount: Number(budget.amount),
                                 unit: budget.unit,
@@ -106,47 +99,75 @@ export default function CreateRoleForm({
                 }
             }
 
+            if (values.clientSettings?.enabled) {
+                try {
+                    await saveRoleClientSettings(
+                        api,
+                        createdRole.roleId,
+                        values.clientSettings
+                    );
+                } catch (e) {
+                    toast({
+                        variant: "destructive",
+                        title: t("accessRoleErrorUpdate"),
+                        description: formatAxiosError(
+                            e,
+                            t("accessRoleErrorUpdateDescription")
+                        )
+                    });
+                }
+            }
+
             toast({
                 variant: "default",
                 title: t("accessRoleCreated"),
                 description: t("accessRoleCreatedDescription")
             });
-            if (open) setOpen(false);
-            afterCreate?.(createdRole);
+            router.push(
+                `/${orgId}/settings/access/roles/${createdRole.roleId}`
+            );
         }
     }
 
     return (
-        <Credenza open={open} onOpenChange={setOpen}>
-            <CredenzaContent>
-                <CredenzaHeader>
-                    <CredenzaTitle>{t("accessRoleCreate")}</CredenzaTitle>
-                    <CredenzaDescription>
-                        {t("accessRoleCreateDescription")}
-                    </CredenzaDescription>
-                </CredenzaHeader>
-                <CredenzaBody>
-                    <RoleForm
-                        variant="create"
-                        onSubmit={(values) =>
-                            startTransition(() => onSubmit(values))
-                        }
-                    />
-                </CredenzaBody>
-                <CredenzaFooter>
-                    <CredenzaClose asChild>
-                        <Button variant="outline">{t("close")}</Button>
-                    </CredenzaClose>
-                    <Button
-                        type="submit"
-                        form="create-role-form"
-                        loading={loading}
-                        disabled={loading}
-                    >
-                        {t("accessRoleCreateSubmit")}
-                    </Button>
-                </CredenzaFooter>
-            </CredenzaContent>
-        </Credenza>
+        <>
+            <div className="flex justify-between">
+                <SettingsSectionTitle
+                    title={t("accessRoleCreate")}
+                    description={t("accessRoleCreateDescription")}
+                />
+                <Button
+                    variant="outline"
+                    onClick={() =>
+                        router.push(`/${orgId}/settings/access/roles`)
+                    }
+                >
+                    {t("cancel")}
+                </Button>
+            </div>
+            <SettingsContainer>
+                <SettingsSection>
+                    <SettingsSectionBody>
+                        <RoleForm
+                            variant="create"
+                            orgId={orgId}
+                            onSubmit={(values) =>
+                                startTransition(() => onSubmit(values))
+                            }
+                        />
+                    </SettingsSectionBody>
+                    <SettingsSectionFooter>
+                        <Button
+                            type="submit"
+                            form="create-role-form"
+                            loading={loading}
+                            disabled={loading}
+                        >
+                            {t("accessRoleCreateSubmit")}
+                        </Button>
+                    </SettingsSectionFooter>
+                </SettingsSection>
+            </SettingsContainer>
+        </>
     );
 }

@@ -635,6 +635,32 @@ export const alertWebhookActions = pgTable("alertWebhookActions", {
     lastSentAt: bigint("lastSentAt", { mode: "number" }) // nullable
 });
 
+export const roleClientSettings = pgTable("roleClientSettings", {
+    roleId: integer("roleId")
+        .primaryKey()
+        .references(() => roles.roleId, { onDelete: "cascade" }),
+    orgId: varchar("orgId", { length: 255 })
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // Off means clients get nothing from this role, even if values are saved below
+    enabled: boolean("enabled").notNull().default(false),
+    // For every setting below, null means the server doesn't manage it
+    overrideDns: boolean("overrideDns"),
+    mtu: integer("mtu"),
+    tunnelDns: boolean("tunnelDns"),
+    primaryDns: varchar("primaryDns", { length: 255 }),
+    secondaryDns: varchar("secondaryDns", { length: 255 }),
+    exitNodeTakesPrecedence: boolean("exitNodeTakesPrecedence"),
+    exitNodeSiteResourceId: integer("exitNodeSiteResourceId").references(
+        () => siteResources.siteResourceId,
+        { onDelete: "set null" }
+    ),
+    // false: the exit node is a default the user can change; true: it is forced
+    exitNodeLocked: boolean("exitNodeLocked").notNull().default(false),
+    matchDomains: text("matchDomains"), // JSON array of FQDN wildcard patterns
+    preferLocalRoutes: boolean("preferLocalRoutes")
+});
+
 export const trialNotifications = pgTable("trialNotifications", {
     notificationId: serial("notificationId").primaryKey(),
     subscriptionId: varchar("subscriptionId", { length: 255 })
@@ -775,3 +801,4 @@ export type AlertEmailRecipients = InferSelectModel<
 export type AlertWebhookActions = InferSelectModel<typeof alertWebhookActions>;
 export type TrialNotification = InferSelectModel<typeof trialNotifications>;
 export type AiSessionLog = InferSelectModel<typeof aiSessionLog>;
+export type RoleClientSettings = InferSelectModel<typeof roleClientSettings>;

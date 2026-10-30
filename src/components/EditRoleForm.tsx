@@ -1,15 +1,5 @@
 "use client";
 
-import {
-    Credenza,
-    CredenzaBody,
-    CredenzaClose,
-    CredenzaContent,
-    CredenzaDescription,
-    CredenzaFooter,
-    CredenzaHeader,
-    CredenzaTitle
-} from "@app/components/Credenza";
 import { Button } from "@app/components/ui/button";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
@@ -29,21 +19,23 @@ import {
     type RoleFormValues
 } from "./RoleForm";
 import { saveBudgetRows } from "./BudgetsEditor";
+import { saveRoleClientSettings } from "./RoleClientSettingsFields";
+import SettingsSectionTitle from "./SettingsSectionTitle";
+import {
+    SettingsContainer,
+    SettingsSection,
+    SettingsSectionBody,
+    SettingsSectionFooter
+} from "./Settings";
+import { useRouter } from "next/navigation";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 type EditRoleFormProps = {
     role: Role;
-    open: boolean;
-    setOpen: (open: boolean) => void;
-    onSuccess?: (res: UpdateRoleResponse) => void;
 };
 
-export default function EditRoleForm({
-    open,
-    role,
-    setOpen,
-    onSuccess
-}: EditRoleFormProps) {
+export default function EditRoleForm({ role }: EditRoleFormProps) {
+    const router = useRouter();
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
     const api = createApiClient(useEnvContext());
@@ -72,9 +64,10 @@ export default function EditRoleForm({
             }
         }
         const res = await api
-            .post<
-                AxiosResponse<UpdateRoleResponse>
-            >(`/role/${role.roleId}`, payload)
+            .post<AxiosResponse<UpdateRoleResponse>>(
+                `/role/${role.roleId}`,
+                payload
+            )
             .catch((e) => {
                 toast({
                     variant: "destructive",
@@ -112,48 +105,78 @@ export default function EditRoleForm({
                 }
             }
 
+            if (values.clientSettings) {
+                try {
+                    await saveRoleClientSettings(
+                        api,
+                        role.roleId,
+                        values.clientSettings
+                    );
+                    await queryClient.invalidateQueries({
+                        queryKey: ["ROLE", role.roleId, "CLIENT_SETTINGS"]
+                    });
+                } catch (e) {
+                    toast({
+                        variant: "destructive",
+                        title: t("accessRoleErrorUpdate"),
+                        description: formatAxiosError(
+                            e,
+                            t("accessRoleErrorUpdateDescription")
+                        )
+                    });
+                    return;
+                }
+            }
+
             toast({
                 variant: "default",
                 title: t("accessRoleUpdated"),
                 description: t("accessRoleUpdatedDescription")
             });
-            if (open) setOpen(false);
-            onSuccess?.(res.data.data);
+            router.refresh();
         }
     }
 
     return (
-        <Credenza open={open} onOpenChange={setOpen}>
-            <CredenzaContent>
-                <CredenzaHeader>
-                    <CredenzaTitle>{t("accessRoleEdit")}</CredenzaTitle>
-                    <CredenzaDescription>
-                        {t("accessRoleEditDescription")}
-                    </CredenzaDescription>
-                </CredenzaHeader>
-                <CredenzaBody>
-                    <RoleForm
-                        variant="edit"
-                        role={role}
-                        onSubmit={(values) =>
-                            startTransition(() => onSubmit(values))
-                        }
-                    />
-                </CredenzaBody>
-                <CredenzaFooter>
-                    <CredenzaClose asChild>
-                        <Button variant="outline">{t("close")}</Button>
-                    </CredenzaClose>
-                    <Button
-                        type="submit"
-                        form="create-role-form"
-                        loading={loading}
-                        disabled={loading}
-                    >
-                        {t("accessRoleUpdateSubmit")}
-                    </Button>
-                </CredenzaFooter>
-            </CredenzaContent>
-        </Credenza>
+        <>
+            <div className="flex justify-between">
+                <SettingsSectionTitle
+                    title={t("accessRoleEdit")}
+                    description={t("accessRoleEditDescription")}
+                />
+                <Button
+                    variant="outline"
+                    onClick={() =>
+                        router.push(`/${role.orgId}/settings/access/roles`)
+                    }
+                >
+                    {t("close")}
+                </Button>
+            </div>
+            <SettingsContainer>
+                <SettingsSection>
+                    <SettingsSectionBody>
+                        <RoleForm
+                            variant="edit"
+                            orgId={role.orgId}
+                            role={role}
+                            onSubmit={(values) =>
+                                startTransition(() => onSubmit(values))
+                            }
+                        />
+                    </SettingsSectionBody>
+                    <SettingsSectionFooter>
+                        <Button
+                            type="submit"
+                            form="create-role-form"
+                            loading={loading}
+                            disabled={loading}
+                        >
+                            {t("accessRoleUpdateSubmit")}
+                        </Button>
+                    </SettingsSectionFooter>
+                </SettingsSection>
+            </SettingsContainer>
+        </>
     );
 }

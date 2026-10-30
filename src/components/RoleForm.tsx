@@ -46,6 +46,13 @@ import { aiBudgetQueries } from "@app/lib/queries";
 import type { AiBudgetPeriod, AiBudgetUnit } from "@app/lib/aiBudgetScope";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { Role } from "@server/db";
+import type { RoleClientSettingsValues } from "@server/routers/role/types";
+import {
+    defaultRoleClientSettings,
+    RoleClientSettingsFields
+} from "@app/components/RoleClientSettingsFields";
+import { createApiClient } from "@app/lib/api";
+import type { AxiosResponse } from "axios";
 
 export const SSH_SUDO_MODE_VALUES = ["none", "full", "commands"] as const;
 export type SshSudoMode = (typeof SSH_SUDO_MODE_VALUES)[number];
@@ -108,10 +115,12 @@ export type RoleFormValues = {
     sshCreateHomeDir?: boolean;
     sshUnixGroups?: string;
     budgets?: PendingRoleBudget[];
+    clientSettings?: RoleClientSettingsValues;
 };
 
 type RoleFormProps = {
     variant: "create" | "edit";
+    orgId: string;
     role?: Role;
     onSubmit: (values: RoleFormValues) => void | Promise<void>;
     formId?: string;
@@ -128,13 +137,16 @@ type PendingTextImport = {
 
 export function RoleForm({
     variant,
+    orgId,
     role,
     onSubmit,
     formId = "create-role-form"
 }: RoleFormProps) {
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
-    const { env } = useEnvContext();
+    const envContext = useEnvContext();
+    const { env } = envContext;
+    const api = createApiClient(envContext);
 
     const formSchema = z
         .object({
@@ -229,6 +241,28 @@ export function RoleForm({
         enabled: variant === "edit" && !!role
     });
 
+    const clientSettingsDisabled = !isPaidUser(tierMatrix.clientSettings);
+    const [pendingClientSettings, setPendingClientSettings] =
+        useState<RoleClientSettingsValues>(defaultRoleClientSettings);
+
+    const clientSettingsQuery = useQuery({
+        queryKey: ["ROLE", role?.roleId, "CLIENT_SETTINGS"] as const,
+        queryFn: async ({ signal }) => {
+            const res = await api.get<AxiosResponse<RoleClientSettingsValues>>(
+                `/role/${role?.roleId}/client-settings`,
+                { signal }
+            );
+            return res.data.data;
+        },
+        enabled: variant === "edit" && !!role && !clientSettingsDisabled
+    });
+
+    useEffect(() => {
+        if (clientSettingsQuery.data) {
+            setPendingClientSettings(clientSettingsQuery.data);
+        }
+    }, [clientSettingsQuery.data]);
+
     useEffect(() => {
         if (variant !== "edit" || !budgetsQuery.data) return;
         setPendingBudgetRows(rowsFromBudgets(budgetsQuery.data));
@@ -302,7 +336,16 @@ export function RoleForm({
                     unit,
                     period
                 })
-            )
+            ),
+            clientSettings: clientSettingsDisabled
+                ? undefined
+                : {
+                      ...pendingClientSettings,
+                      matchDomains:
+                          pendingClientSettings.matchDomains
+                              ?.map((domain) => domain.trim())
+                              .filter(Boolean) ?? null
+                  }
         });
     }
 
@@ -390,6 +433,10 @@ export function RoleForm({
                                 : [{ title: t("sshAccess"), href: "#" }]),
                             {
                                 title: t("accessRoleInferenceBudget"),
+                                href: "#"
+                            },
+                            {
+                                title: t("accessRoleClientSettings"),
                                 href: "#"
                             }
                         ]}
@@ -709,6 +756,21 @@ export function RoleForm({
                                     variant === "edit" && budgetsQuery.isLoading
                                 }
                                 attemptedSave={attemptedBudgetsSave}
+                            />
+                        </div>
+
+                        <div className="space-y-4 mt-4">
+                            <p className="text-sm text-muted-foreground">
+                                {t("accessRoleClientSettingsDescription")}
+                            </p>
+                            <RoleClientSettingsFields
+                                orgId={orgId}
+                                value={pendingClientSettings}
+                                onChange={setPendingClientSettings}
+                                disabled={
+                                    clientSettingsDisabled ||
+                                    clientSettingsQuery.isLoading
+                                }
                             />
                         </div>
                     </HorizontalTabs>

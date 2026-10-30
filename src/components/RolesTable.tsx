@@ -1,6 +1,5 @@
 "use client";
 
-import CreateRoleForm from "@app/components/CreateRoleForm";
 import DeleteRoleForm from "@app/components/DeleteRoleForm";
 import { Button } from "@app/components/ui/button";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
@@ -16,10 +15,10 @@ import {
     MoreHorizontal
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import EditRoleForm from "./EditRoleForm";
 import { ControlledDataTable } from "./ui/controlled-data-table";
 import {
     DropdownMenu,
@@ -41,11 +40,9 @@ export default function UsersTable({
     pagination,
     rowCount
 }: RolesTableProps) {
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const router = useRouter();
+    const { orgId } = useParams();
     const [isRefreshing, startTransition] = useTransition();
     const {
         navigate: filter,
@@ -155,14 +152,12 @@ export default function UsersTable({
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
-                        <Button
-                            variant={"outline"}
-                            onClick={() => {
-                                setEditingRole(roleRow);
-                                setIsEditDialogOpen(true);
-                            }}
-                        >
-                            {t("edit")}
+                        <Button variant={"outline"} asChild>
+                            <Link
+                                href={`/${orgId}/settings/access/roles/${roleRow.roleId}`}
+                            >
+                                {t("edit")}
+                            </Link>
                         </Button>
                     </div>
                 );
@@ -196,32 +191,6 @@ export default function UsersTable({
 
     return (
         <>
-            {editingRole && (
-                <EditRoleForm
-                    role={editingRole}
-                    open={isEditDialogOpen}
-                    key={editingRole.roleId}
-                    setOpen={setIsEditDialogOpen}
-                    onSuccess={() => {
-                        // Delay refresh to allow modal to close smoothly
-                        setTimeout(() => {
-                            startTransition(async () => {
-                                await refreshData().then(() =>
-                                    setEditingRole(null)
-                                );
-                            });
-                        }, 150);
-                    }}
-                />
-            )}
-            <CreateRoleForm
-                open={isCreateModalOpen}
-                setOpen={setIsCreateModalOpen}
-                afterCreate={() => {
-                    startTransition(refreshData);
-                }}
-            />
-
             {roleToRemove && (
                 <DeleteRoleForm
                     open={isDeleteModalOpen}
@@ -249,7 +218,7 @@ export default function UsersTable({
                 rowCount={rowCount}
                 pagination={pagination}
                 onAdd={() => {
-                    setIsCreateModalOpen(true);
+                    router.push(`/${orgId}/settings/access/roles/create`);
                 }}
                 onRefresh={() => startTransition(refreshData)}
                 isRefreshing={isRefreshing}

@@ -35,6 +35,7 @@ import * as alertRule from "#private/routers/alertRule";
 import * as healthChecks from "#private/routers/healthChecks";
 import * as policy from "#private/routers/policy";
 import * as customDnsRecord from "#private/routers/customDnsRecord";
+import * as roleClientSettings from "#private/routers/roleClientSettings";
 import {
     verifyOrgAccess,
     verifyDomainAccess,
@@ -906,4 +907,23 @@ authenticated.post(
     "/org/:orgId/logs/access/attempt",
     verifyOrgAccess,
     logs.logAccessAuditAttempt
+);
+
+authenticated.get(
+    "/role/:roleId/client-settings",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.clientSettings),
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.getRoleClientSettings),
+    roleClientSettings.getRoleClientSettings
+);
+
+authenticated.post(
+    "/role/:roleId/client-settings",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.clientSettings),
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.updateRoleClientSettings),
+    logActionAudit(ActionsEnum.updateRoleClientSettings),
+    roleClientSettings.updateRoleClientSettings
 );

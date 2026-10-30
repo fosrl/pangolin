@@ -479,6 +479,20 @@ export const orgQueries = {
             }
         }),
 
+    gatewayResources: ({ orgId }: { orgId: string }) =>
+        queryOptions({
+            queryKey: ["ORG", orgId, "GATEWAY_RESOURCES"] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<ListAllSiteResourcesByOrgResponse>
+                >(`/org/${orgId}/site-resources?mode=gateway&pageSize=10000`, {
+                    signal
+                });
+
+                return res.data.data.siteResources;
+            }
+        }),
+
     healthChecks: ({
         orgId,
         perPage = 10_000
