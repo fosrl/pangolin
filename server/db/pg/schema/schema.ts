@@ -185,6 +185,9 @@ export const resources = pgTable(
             .notNull()
             .default("wrr"), // traefik http loadBalancer.strategy
         tlsServerName: varchar("tlsServerName"),
+        verifyUpstreamTls: boolean("verifyUpstreamTls")
+            .notNull()
+            .default(false),
         setHostHeader: varchar("setHostHeader"),
         enableProxy: boolean("enableProxy").default(true),
         skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {
@@ -235,6 +238,13 @@ export const resources = pgTable(
         index("idx_resources_orgid_niceid").on(t.orgId, t.niceId)
     ]
 );
+
+export const resourceUpstreamCa = pgTable("resourceUpstreamCa", {
+    resourceId: integer("resourceId")
+        .primaryKey()
+        .references(() => resources.resourceId, { onDelete: "cascade" }),
+    certificatePem: text("certificatePem").notNull()
+});
 
 export const redirects = pgTable("redirects", {
     redirectId: serial("redirectId").primaryKey(),
@@ -2114,6 +2124,7 @@ export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
 export type Resource = InferSelectModel<typeof resources>;
+export type ResourceUpstreamCa = InferSelectModel<typeof resourceUpstreamCa>;
 export type ExitNode = InferSelectModel<typeof exitNodes>;
 export type Target = InferSelectModel<typeof targets>;
 export type Session = InferSelectModel<typeof sessions>;

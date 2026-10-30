@@ -651,6 +651,39 @@ authenticated.get(
 
 authenticated.get(
     [
+        "/resource/:resourceId/upstream-ca",
+        "/public-resource/:resourceId/upstream-ca"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyApiKeyHasAction(ActionsEnum.getResource),
+    resource.getResourceUpstreamCa
+);
+
+authenticated.put(
+    [
+        "/resource/:resourceId/upstream-ca",
+        "/public-resource/:resourceId/upstream-ca"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateResource),
+    logActionAudit(ActionsEnum.updateResource),
+    resource.putResourceUpstreamCa
+);
+
+authenticated.delete(
+    [
+        "/resource/:resourceId/upstream-ca",
+        "/public-resource/:resourceId/upstream-ca"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateResource),
+    logActionAudit(ActionsEnum.updateResource),
+    resource.deleteResourceUpstreamCa
+);
+
+authenticated.get(
+    [
         "/resource-policy/:resourcePolicyId",
         "/public-resource-policy/:resourcePolicyId"
     ],

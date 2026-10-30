@@ -14,6 +14,7 @@ import {
     resourcePincode,
     resourcePolicies,
     resourceRules,
+    resourceUpstreamCa,
     resources,
     resourceWhitelist,
     roles,
@@ -435,6 +436,9 @@ export async function buildPublicResourceBlueprintConfig(
     if (resource.tlsServerName) {
         resourceConfig["tls-server-name"] = resource.tlsServerName;
     }
+    if (resource.verifyUpstreamTls) {
+        resourceConfig["verify-upstream-tls"] = true;
+    }
     if (
         resource.loadBalancingStrategy &&
         resource.loadBalancingStrategy !== "wrr"
@@ -493,6 +497,22 @@ export async function buildPublicResourceBlueprintConfig(
     const { policy, auth, rules, notes } = await buildPublicAuthAndRules(
         resource
     );
+
+    if (mode === "http") {
+        const [upstreamCa] = await db
+            .select({ resourceId: resourceUpstreamCa.resourceId })
+            .from(resourceUpstreamCa)
+            .where(eq(resourceUpstreamCa.resourceId, resourceId))
+            .limit(1);
+
+        if (upstreamCa) {
+            notes.push(
+                "A custom upstream root CA is configured on this resource. " +
+                    "CA certificates are not included in blueprints; " +
+                    "upload the CA again after applying this blueprint."
+            );
+        }
+    }
     if (policy) {
         resourceConfig.policy = policy;
     }
