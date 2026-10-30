@@ -28,6 +28,7 @@ import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
+import { resolveDirectorySyncConfig } from "#private/lib/directorySync/config";
 
 const paramsSchema = z.strictObject({ orgId: z.string().nonempty() });
 
@@ -42,9 +43,14 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
     autoProvision: z.boolean().optional(),
+    directorySyncEnabled: z.boolean().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc"),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
+    syncRoleMapping: z.string().nullish(),
+    directorySyncDeletions: z.boolean().optional(),
+    // provider-specific, validated against the variant's schema
+    directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
     tags: z.string().optional()
 });
 
@@ -122,6 +128,10 @@ export async function createOrgOidcIdp(
             variant,
             roleMapping,
             orgMapping: orgMappingBody,
+            directorySyncEnabled,
+            syncRoleMapping,
+            directorySyncDeletions,
+            directorySyncConfig,
             tags
         } = parsedBody.data;
 
@@ -138,6 +148,35 @@ export async function createOrgOidcIdp(
             }
         }
 
+        if (autoProvision && directorySyncEnabled) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Auto provisioning and directory sync cannot both be enabled"
+                )
+            );
+        }
+
+        // directory sync is only supported for google/azure idps
+        const effectiveDirectorySyncEnabled =
+            (variant === "google" || variant === "azure") &&
+            !!directorySyncEnabled;
+
+        const resolvedDirectorySyncConfig = resolveDirectorySyncConfig({
+            variant,
+            incoming: directorySyncConfig,
+            existingEncrypted: null,
+            directorySyncEnabled: effectiveDirectorySyncEnabled
+        });
+        if (!resolvedDirectorySyncConfig.success) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    resolvedDirectorySyncConfig.error
+                )
+            );
+        }
+
         const key = config.getRawConfig().server.secret!;
 
         const encryptedSecret = encrypt(clientSecret, key);
@@ -150,6 +189,8 @@ export async function createOrgOidcIdp(
                 .values({
                     name,
                     autoProvision,
+                    directorySyncEnabled: effectiveDirectorySyncEnabled,
+                    directorySyncConfig: resolvedDirectorySyncConfig.value,
                     type: "oidc",
                     tags
                 })
@@ -174,7 +215,9 @@ export async function createOrgOidcIdp(
                 idpId: idpRes.idpId,
                 orgId: orgId,
                 roleMapping: roleMapping || null,
-                orgMapping: orgMappingBody
+                orgMapping: orgMappingBody,
+                syncRoleMapping: syncRoleMapping || null,
+                directorySyncDeletions: directorySyncDeletions ?? true
             });
         });
 

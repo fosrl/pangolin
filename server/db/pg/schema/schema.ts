@@ -697,28 +697,40 @@ export const userSiteResources = pgTable(
     ]
 );
 
-export const users = pgTable("user", {
-    userId: varchar("id").primaryKey(),
-    email: varchar("email"),
-    username: varchar("username").notNull(),
-    name: varchar("name"),
-    type: varchar("type").notNull(), // "internal", "oidc"
-    idpId: integer("idpId").references(() => idp.idpId, {
-        onDelete: "cascade"
-    }),
-    passwordHash: varchar("passwordHash"),
-    twoFactorEnabled: boolean("twoFactorEnabled").notNull().default(false),
-    twoFactorSetupRequested: boolean("twoFactorSetupRequested").default(false),
-    twoFactorSecret: varchar("twoFactorSecret"),
-    emailVerified: boolean("emailVerified").notNull().default(false),
-    dateCreated: varchar("dateCreated").notNull(),
-    termsAcceptedTimestamp: varchar("termsAcceptedTimestamp"),
-    termsVersion: varchar("termsVersion"),
-    marketingEmailConsent: boolean("marketingEmailConsent").default(false),
-    serverAdmin: boolean("serverAdmin").notNull().default(false),
-    lastPasswordChange: bigint("lastPasswordChange", { mode: "number" }),
-    locale: varchar("locale")
-});
+export const users = pgTable(
+    "user",
+    {
+        userId: varchar("id").primaryKey(),
+        email: varchar("email"),
+        username: varchar("username").notNull(),
+        name: varchar("name"),
+        type: varchar("type").notNull(), // "internal", "oidc"
+        idpId: integer("idpId").references(() => idp.idpId, {
+            onDelete: "cascade"
+        }),
+        externalUserId: varchar("externalUserId"), // user's ID in the external IdP (e.g. Azure object id)
+        passwordHash: varchar("passwordHash"),
+        twoFactorEnabled: boolean("twoFactorEnabled").notNull().default(false),
+        twoFactorSetupRequested: boolean("twoFactorSetupRequested").default(
+            false
+        ),
+        twoFactorSecret: varchar("twoFactorSecret"),
+        emailVerified: boolean("emailVerified").notNull().default(false),
+        dateCreated: varchar("dateCreated").notNull(),
+        termsAcceptedTimestamp: varchar("termsAcceptedTimestamp"),
+        termsVersion: varchar("termsVersion"),
+        marketingEmailConsent: boolean("marketingEmailConsent").default(false),
+        serverAdmin: boolean("serverAdmin").notNull().default(false),
+        lastPasswordChange: bigint("lastPasswordChange", { mode: "number" }),
+        locale: varchar("locale")
+    },
+    (t) => [
+        uniqueIndex("idx_user_idpId_externalUserId").on(
+            t.idpId,
+            t.externalUserId
+        )
+    ]
+);
 
 export const newts = pgTable(
     "newt",
@@ -779,11 +791,13 @@ export const userOrgs = pgTable(
             .notNull(),
         isOwner: boolean("isOwner").notNull().default(false),
         autoProvisioned: boolean("autoProvisioned").default(false),
+        directorySynched: boolean("directorySynched").default(false),
         pamUsername: varchar("pamUsername") // cleaned username for ssh and such
     },
     (t) => [
         index("idx_userOrgs_userid").on(t.userId),
-        index("idx_userOrgs_orgid").on(t.orgId)
+        index("idx_userOrgs_orgid").on(t.orgId),
+        unique().on(t.userId, t.orgId)
     ]
 );
 
@@ -1274,11 +1288,27 @@ export const supporterKey = pgTable("supporterKey", {
 export const idp = pgTable("idp", {
     idpId: serial("idpId").primaryKey(),
     name: varchar("name").notNull(),
-    type: varchar("type").notNull(),
+    type: varchar("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
+    // Just in time provisioning, at login
     autoProvision: boolean("autoProvision").notNull().default(false),
-    tags: text("tags")
+    // When false, admins can't pre-provision users for this IdP
+    allowManualProvisioning: boolean("allowManualProvisioning")
+        .notNull()
+        .default(true),
+    tags: text("tags"),
+    // Unlocks provider API features (JIT enrichment, directory sync)
+    apiIntegrationEnabled: boolean("apiIntegrationEnabled")
+        .notNull()
+        .default(false),
+    // Background sync, requires `apiIntegrationEnabled`
+    directorySyncEnabled: boolean("directorySyncEnabled")
+        .notNull()
+        .default(false),
+    // Provider-defined JSON, encrypted (e.g. Google service account key + admin email).
+    // Null = the provider reuses the OIDC client credentials (Azure).
+    directorySyncConfig: text("directorySyncConfig")
 });
 
 export const idpOidcConfig = pgTable("idpOidcConfig", {
@@ -1286,7 +1316,10 @@ export const idpOidcConfig = pgTable("idpOidcConfig", {
     idpId: integer("idpId")
         .notNull()
         .references(() => idp.idpId, { onDelete: "cascade" }),
-    variant: varchar("variant").notNull().default("oidc"),
+    variant: varchar("variant")
+        .notNull()
+        .$type<"oidc" | "google" | "azure">()
+        .default("oidc"),
     clientId: varchar("clientId").notNull(),
     clientSecret: varchar("clientSecret").notNull(),
     authUrl: varchar("authUrl").notNull(),
@@ -1390,8 +1423,17 @@ export const idpOrg = pgTable("idpOrg", {
     orgId: varchar("orgId")
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // JIT mappings
     roleMapping: varchar("roleMapping"),
-    orgMapping: varchar("orgMapping")
+    orgMapping: varchar("orgMapping"),
+    // Directory sync mappings
+    syncRoleMapping: varchar("syncRoleMapping"),
+    syncOrgMapping: varchar("syncOrgMapping"),
+    // When true, the UI edits JIT and sync mappings as one
+    mappingsLinked: boolean("mappingsLinked").notNull().default(true),
+    directorySyncDeletions: boolean("directorySyncDeletions")
+        .notNull()
+        .default(true)
 });
 
 export const clients = pgTable(
