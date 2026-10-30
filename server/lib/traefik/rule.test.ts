@@ -5,6 +5,7 @@ import {
     computeRedirectPriority,
     computeRoutePriority,
     matchesPath,
+    pickResourceForHost,
     ruleValue
 } from "./rule";
 
@@ -146,6 +147,62 @@ function runTests() {
         "HostRegexp(`^[^.]+\\.example\\.com$`)",
         "wildcard host"
     );
+    assertEquals(
+        buildHostRule("*.example.com", true, false),
+        "HostRegexp(`^[^.]+\\.example\\.com$`)",
+        "wildcard host without its base"
+    );
+    assertEquals(
+        buildHostRule("*.apps.example.com", true, true),
+        "HostRegexp(`^([^.]+\\.)?apps\\.example\\.com$`)",
+        "wildcard host with its base"
+    );
+    assertEquals(
+        buildHostRule("app.example.com", false, true),
+        "Host(`app.example.com`)",
+        "matchBaseDomain is ignored without a wildcard"
+    );
+
+    const withBase = new RegExp("^([^.]+\\.)?apps\\.example\\.com$");
+    assertEquals(withBase.test("apps.example.com"), true, "matches the base");
+    assertEquals(withBase.test("a.apps.example.com"), true, "matches a label");
+    assertEquals(
+        withBase.test("a.b.apps.example.com"),
+        false,
+        "one label only"
+    );
+    assertEquals(withBase.test("xapps.example.com"), false, "no suffix match");
+
+    // The path clause has to bind to both hosts, which an || would not
+    assertEquals(
+        appendPathMatch(
+            buildHostRule("*.example.com", true, true),
+            "/x",
+            "exact"
+        ),
+        "HostRegexp(`^([^.]+\\.)?example\\.com$`) && Path(`/x`)",
+        "path applies to the wildcard and its base"
+    );
+
+    const pick = (host: string, rows: string[]) =>
+        pickResourceForHost(rows, host, (r) => r);
+    assertEquals(
+        pick("a.example.com", ["*.example.com", "a.example.com"]),
+        "a.example.com",
+        "exact beats wildcard"
+    );
+    assertEquals(
+        pick("apps.example.com", ["*.example.com", "*.apps.example.com"]),
+        "*.apps.example.com",
+        "base of the narrower wildcard beats the broader wildcard"
+    );
+    assertEquals(
+        pick("a.b.example.com", ["*.example.com", "*.b.example.com"]),
+        "*.b.example.com",
+        "most specific wildcard wins"
+    );
+    assertEquals(pick("a.example.com", []), undefined, "no match");
+
     assertEquals(
         appendPathMatch("Host(`a.com`)", "/x", "exact"),
         "Host(`a.com`) && Path(`/x`)",

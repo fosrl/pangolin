@@ -147,6 +147,7 @@ export async function getTraefikConfig(
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
             wildcard: resources.wildcard,
+            matchBaseDomain: resources.matchBaseDomain,
             mode: resources.mode,
 
             maintenanceModeEnabled: resources.maintenanceModeEnabled,
@@ -298,6 +299,7 @@ export async function getTraefikConfig(
                 domainCertResolver: row.domainCertResolver,
                 preferWildcardCert: row.preferWildcardCert,
                 wildcard: row.wildcard,
+                matchBaseDomain: row.matchBaseDomain,
 
                 maintenanceModeEnabled: row.maintenanceModeEnabled,
                 maintenanceModeType: row.maintenanceModeType,
@@ -428,6 +430,7 @@ export async function getTraefikConfig(
             resourceSubdomain: resources.subdomain,
             resourceSsl: resources.ssl,
             resourceWildcard: resources.wildcard,
+            resourceMatchBaseDomain: resources.matchBaseDomain,
             // Domain (the redirect's own, or the resource's)
             baseDomain: domains.baseDomain,
             domainCertResolver: domains.certResolver,
@@ -487,6 +490,7 @@ export async function getTraefikConfig(
                 ? !!row.resourceSubdomain
                 : !!row.subdomain,
             wildcard: row.resourceWildcard,
+            matchBaseDomain: row.resourceMatchBaseDomain,
             ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
             attachedTo: attachedToResource ? "resource" : "domain",
             resourceId: row.resourceId,
@@ -647,7 +651,11 @@ export async function getTraefikConfig(
                 ...additionalMiddlewares
             ];
 
-            let rule: string = buildHostRule(fullDomain, resource.wildcard);
+            let rule: string = buildHostRule(
+                fullDomain,
+                resource.wildcard,
+                resource.matchBaseDomain
+            );
 
             const priority = computeRoutePriority(
                 resource.priority,
@@ -662,7 +670,8 @@ export async function getTraefikConfig(
                     hasSubdomain: !!resource.subdomain,
                     domainCertResolver: resource.domainCertResolver,
                     preferWildcardCert:
-                        resource.preferWildcardCert || resource.wildcard
+                        resource.preferWildcardCert || resource.wildcard,
+                    matchBaseDomain: resource.matchBaseDomain
                 });
             } else {
                 // find a cert that matches the full domain, if not continue
@@ -938,7 +947,8 @@ export async function getTraefikConfig(
                     hasSubdomain: redirect.hasSubdomain,
                     domainCertResolver: redirect.domainCertResolver,
                     preferWildcardCert:
-                        redirect.preferWildcardCert || redirect.wildcard
+                        redirect.preferWildcardCert || redirect.wildcard,
+                    matchBaseDomain: redirect.matchBaseDomain
                 });
             }
             const matchingCert = validCerts.find(

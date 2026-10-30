@@ -10,6 +10,10 @@ export default async function migration() {
         await db.execute(sql`BEGIN`);
 
         await db.execute(sql`
+            ALTER TABLE "resources" ADD "matchBaseDomain" boolean DEFAULT false NOT NULL;
+        `);
+
+        await db.execute(sql`
             ALTER TABLE "orgs" ADD COLUMN "settingsLogRetentionDaysSsh" integer DEFAULT 0 NOT NULL;
         `);
 

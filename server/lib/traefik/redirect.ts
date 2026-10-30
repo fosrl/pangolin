@@ -18,6 +18,7 @@ export type RedirectRouteRow = {
     enabled: boolean;
     name: string;
     wildcard: boolean | null;
+    matchBaseDomain?: boolean | null;
     ssl: boolean;
     matchPath: string | null;
     pathMatchType: string;
@@ -115,7 +116,11 @@ export function buildRedirectConfig(params: {
         }
 
         const rule = appendPathMatch(
-            buildHostRule(redirect.fullDomain, redirect.wildcard),
+            buildHostRule(
+                redirect.fullDomain,
+                redirect.wildcard,
+                redirect.matchBaseDomain
+            ),
             redirect.matchPath,
             redirect.pathMatchType
         );

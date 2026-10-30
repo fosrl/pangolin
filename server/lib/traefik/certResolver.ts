@@ -11,9 +11,18 @@ export function buildWildcardTls(params: {
     hasSubdomain: boolean;
     domainCertResolver?: string | null;
     preferWildcardCert?: boolean | null;
-}): { certResolver: string | undefined; domains?: { main: string }[] } {
-    const { fullDomain, hasSubdomain, domainCertResolver, preferWildcardCert } =
-        params;
+    matchBaseDomain?: boolean | null;
+}): {
+    certResolver: string | undefined;
+    domains?: { main: string; sans?: string[] }[];
+} {
+    const {
+        fullDomain,
+        hasSubdomain,
+        domainCertResolver,
+        preferWildcardCert,
+        matchBaseDomain
+    } = params;
 
     const domainParts = fullDomain.split(".");
     let wildCard =
@@ -37,8 +46,16 @@ export function buildWildcardTls(params: {
             ? preferWildcardCert
             : globalDefaultPreferWildcard;
 
+    // A wildcard cert does not cover the name it sits under
+    const baseDomainSans =
+        matchBaseDomain && fullDomain.startsWith("*.")
+            ? { sans: [fullDomain.slice(2)] }
+            : {};
+
     return {
         certResolver: resolverName,
-        ...(preferWildcard ? { domains: [{ main: wildCard }] } : {})
+        ...(preferWildcard
+            ? { domains: [{ main: wildCard, ...baseDomainSans }] }
+            : {})
     };
 }
