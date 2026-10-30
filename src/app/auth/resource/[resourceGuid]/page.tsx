@@ -311,7 +311,12 @@ export default async function ResourceAuthPage(props: {
                     resourceId={authInfo.resourceId}
                     skipToIdpId={authInfo.skipToIdpId}
                     redirectUrl={postAuthRedirect}
-                    orgId={build === "saas" ? authInfo.orgId : undefined}
+                    orgId={
+                        build === "saas" ||
+                        env.app.identityProviderMode === "org"
+                            ? authInfo.orgId
+                            : undefined
+                    }
                 />
             );
         }
@@ -350,7 +355,12 @@ export default async function ResourceAuthPage(props: {
                         }}
                         redirect={postAuthRedirect}
                         idps={loginIdps}
-                        orgId={build === "saas" ? authInfo.orgId : undefined}
+                        orgId={
+                            build === "saas" ||
+                            env.app.identityProviderMode === "org"
+                                ? authInfo.orgId
+                                : undefined
+                        }
                         branding={
                             !branding || build === "oss"
                                 ? undefined

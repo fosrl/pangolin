@@ -21,7 +21,9 @@ export function requireOrgIdentityProviderMode(
     _res: Response,
     next: NextFunction
 ): void {
-    if (privateConfig.getRawPrivateConfig().app.identity_provider_mode !== "org") {
+    if (
+        privateConfig.getRawPrivateConfig().app.identity_provider_mode !== "org"
+    ) {
         return next(
             createHttpError(
                 HttpCode.BAD_REQUEST,

@@ -1251,23 +1251,30 @@ export async function getTraefikConfig(
         }
     }
 
+    const usePangolinDns =
+        privateConfig.getRawPrivateConfig().flags.use_pangolin_dns;
+
     if (generateLoginPageRouters) {
         const exitNodeLoginPages = await db
             .select({
                 loginPageId: loginPage.loginPageId,
                 fullDomain: loginPage.fullDomain,
+                subdomain: loginPage.subdomain,
                 exitNodeId: exitNodes.exitNodeId,
-                domainId: loginPage.domainId
+                domainId: loginPage.domainId,
+                domainCertResolver: domains.certResolver,
+                preferWildcardCert: domains.preferWildcardCert
             })
             .from(loginPage)
             .innerJoin(
                 exitNodes,
                 eq(exitNodes.exitNodeId, loginPage.exitNodeId)
             )
+            .leftJoin(domains, eq(domains.domainId, loginPage.domainId))
             .where(eq(exitNodes.exitNodeId, exitNodeId));
 
         let validCertsLoginPages: CertificateResult[] = [];
-        if (pangolinCertModeEnabled) {
+        if (usePangolinDns) {
             // create a list of all domains to get certs for
             const domains = new Set<string>();
             for (const lp of exitNodeLoginPages) {
@@ -1311,9 +1318,14 @@ export async function getTraefikConfig(
                     continue;
                 }
 
-                const tls = {};
-                if (!pangolinCertModeEnabled) {
-                    // TODO: we need to add the wildcard logic here too
+                let tls: Record<string, any> = {};
+                if (!usePangolinDns) {
+                    tls = buildWildcardTls({
+                        fullDomain: lp.fullDomain,
+                        hasSubdomain: !!lp.subdomain,
+                        domainCertResolver: lp.domainCertResolver,
+                        preferWildcardCert: lp.preferWildcardCert
+                    });
                 } else {
                     // find a cert that matches the full domain, if not continue
                     const matchingCert = validCertsLoginPages.find(
