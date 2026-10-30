@@ -75,7 +75,7 @@ export default function Page() {
         MappingBuilderRule[]
     >([createMappingBuilderRule()]);
     const [rawRoleExpression, setRawRoleExpression] = useState("");
-    const [directoryRoleMapping, setDirectoryRoleMapping] =
+    const [syncRoleMapping, setSyncRoleMapping] =
         useState<DirectorySyncRoleMappingConfig>(
             createDefaultDirectorySyncRoleMappingConfig
         );
@@ -222,8 +222,8 @@ export default function Page() {
                 directorySyncEnabled:
                     (data.type === "google" || data.type === "azure") &&
                     data.directorySyncEnabled,
-                directoryRoleMapping:
-                    serializeDirectorySyncRoleMapping(directoryRoleMapping),
+                syncRoleMapping:
+                    serializeDirectorySyncRoleMapping(syncRoleMapping),
                 directorySyncDeletions: data.directorySyncDeletions,
                 roleMapping: roleMappingExpression,
                 scopes: data.scopes,
@@ -456,9 +456,9 @@ export default function Page() {
                                                 }
                                             }}
                                             orgId={params.orgId as string}
-                                            roleMapping={directoryRoleMapping}
+                                            roleMapping={syncRoleMapping}
                                             onRoleMappingChange={
-                                                setDirectoryRoleMapping
+                                                setSyncRoleMapping
                                             }
                                             syncDeletions={
                                                 form.watch(

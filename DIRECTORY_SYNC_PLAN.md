@@ -20,11 +20,11 @@ This turns the IdP from plain OIDC into a tighter integration that unlocks the f
 
 The admin can turn on any combination of these three methods.
 
-| Method | When it runs | Needs the API integration |
-| --- | --- | --- |
-| **Manual** (default) | An admin pre-provisions users | No |
+| Method                 | When it runs                   | Needs the API integration            |
+| ---------------------- | ------------------------------ | ------------------------------------ |
+| **Manual** (default)   | An admin pre-provisions users  | No                                   |
 | **Just in time (JIT)** | At login, in the OIDC callback | No, but it uses the API when enabled |
-| **Sync** | Background job on an interval | Yes |
+| **Sync**               | Background job on an interval  | Yes                                  |
 
 **Manual**
 
@@ -80,17 +80,17 @@ A documented JSON object per user that mirrors the provider's ID token. Only cla
 
 Verified on a test tenant: the token's `oid` claim equals the Graph user `id`, so `oid` is the external ID.
 
-| Claim | Graph source | Matches the token? |
-| --- | --- | --- |
-| `oid` | `id` | ✅ Same value |
-| `tid` | tenant ID | ✅ |
-| `name` | `displayName` | ✅ |
-| `email` | `mail`, falling back to `otherMails[0]` | ⚠️ Usually. The token claim is optional. |
-| `preferred_username` | `userPrincipalName` | ⚠️ Matches for members. For guests, the token has the real email, but Graph has `user_domain#EXT#@tenant.onmicrosoft.com`. |
-| `groups` | transitive group **object IDs** | ✅ Same format: the token's `groups` claim also holds object IDs, not names. It's optional in the token (only present when the app emits it), but sync always includes it. |
-| `sub` | — | ❌ Can't be built: it's a pairwise ID per app |
-| `wids` | — | Not included. It's optional in the token and holds directory role template IDs, which aren't useful for mappings. |
-| `idp` | — | Not included. It's only present for guest accounts. |
+| Claim                | Graph source                            | Matches the token?                                                                                                                                                        |
+| -------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `oid`                | `id`                                    | ✅ Same value                                                                                                                                                              |
+| `tid`                | tenant ID                               | ✅                                                                                                                                                                         |
+| `name`               | `displayName`                           | ✅                                                                                                                                                                         |
+| `email`              | `mail`, falling back to `otherMails[0]` | ⚠️ Usually. The token claim is optional.                                                                                                                                   |
+| `preferred_username` | `userPrincipalName`                     | ⚠️ Matches for members. For guests, the token has the real email, but Graph has `user_domain#EXT#@tenant.onmicrosoft.com`.                                                 |
+| `groups`             | transitive group **object IDs**         | ✅ Same format: the token's `groups` claim also holds object IDs, not names. It's optional in the token (only present when the app emits it), but sync always includes it. |
+| `sub`                | —                                       | ❌ Can't be built: it's a pairwise ID per app                                                                                                                              |
+| `wids`               | —                                       | Not included. It's optional in the token and holds directory role template IDs, which aren't useful for mappings.                                                         |
+| `idp`                | —                                       | Not included. It's only present for guest accounts.                                                                                                                       |
 
 Extra field outside the token: `groupNames` (display names). This lets the mapping builder match on names while `groups` stays token-compatible.
 
@@ -100,16 +100,16 @@ Extra field outside the token: `groupNames` (display names). This lets the mappi
 
 Verified: the token's `sub` equals the Directory user `id`, so `sub` is the external ID. `sub` is also the same across OAuth clients (unlike Entra's `sub`).
 
-| Claim | Directory source | Matches the token? |
-| --- | --- | --- |
-| `sub` | `id` | ✅ Same value |
-| `email` | `primaryEmail` | ✅ |
-| `email_verified` | always `true` | ✅ |
-| `name` | `name.fullName` | ✅ |
-| `given_name` / `family_name` | `name.givenName` / `name.familyName` | ✅ |
-| `hd` | the primary email's domain | ✅ The token only has it for Workspace accounts, and every synced user is one |
-| `picture` | — | Not included. The Directory `thumbnailPhotoUrl` is a different URL. |
-| `groups` | transitive group emails | — Not in the token. Same shape that JIT injects. |
+| Claim                        | Directory source                     | Matches the token?                                                           |
+| ---------------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |
+| `sub`                        | `id`                                 | ✅ Same value                                                                 |
+| `email`                      | `primaryEmail`                       | ✅                                                                            |
+| `email_verified`             | always `true`                        | ✅                                                                            |
+| `name`                       | `name.fullName`                      | ✅                                                                            |
+| `given_name` / `family_name` | `name.givenName` / `name.familyName` | ✅                                                                            |
+| `hd`                         | the primary email's domain           | ✅ The token only has it for Workspace accounts, and every synced user is one |
+| `picture`                    | —                                    | Not included. The Directory `thumbnailPhotoUrl` is a different URL.          |
+| `groups`                     | transitive group emails              | — Not in the token. Same shape that JIT injects.                             |
 
 Extra field: `groupNames`.
 
@@ -136,7 +136,7 @@ The rules:
 
 **`idp`**
 
-- `apiIntegrationEnabled`: rename or reuse `directorySyncEnabled`.
+- `apiIntegrationEnabled`: new, default `false`. Existing rows with `directorySyncEnabled = true` get `true`.
 - `directorySyncConfig`: kept (the encrypted provider credentials).
 - `allowManualProvisioning`: new, default `true`.
 - `autoProvision`: kept as is in the DB and API, and it means JIT. Only the UI may label it "Just in time".
@@ -146,14 +146,12 @@ The rules:
 
 **`idpOrg`**
 
-- Replace `orgMapping`, `roleMapping` and `directoryRoleMapping` with:
-  - `jitOrgMapping`
-  - `jitRoleMapping`
-  - `syncOrgMapping`
-  - `syncRoleMapping`
-  - `mappingsLinked` (boolean): the UI's "one editor" state.
+- `orgMapping` / `roleMapping`: kept as is, they're the JIT mappings.
+- `syncOrgMapping`: new.
+- `syncRoleMapping`: replaces `directoryRoleMapping` (which only existed on this branch).
+- `mappingsLinked`: new boolean, default `true`. It's the UI's "one editor" state.
 - The role mappings use a single serialized config: `{ mode: "builder" | "fixed" | "jmespath", createMissingRoles, ... }`. This extends [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts) and replaces the JIT `roleMapping` format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts).
-- The migration copies the existing `orgMapping` / `roleMapping` into both the JIT and the sync columns.
+- The migration copies the existing `orgMapping` / `roleMapping` into `syncOrgMapping` / `syncRoleMapping`.
 - `directorySyncDeletions`: kept, scoped to sync.
 
 **Sync state.** `idpSyncState` and `idpSyncUser` were dropped (migration 0031). We'll need run state again for the scheduler: `lastSyncStartedAt`, `lastSyncSucceededAt`, `lastError`, `consecutiveFailures`, `nextSyncAt`, plus the Azure delta cursor. Add it back as columns on `idp` or as one small table.
@@ -211,7 +209,7 @@ Today the workflow sets `username` straight from the email and resolves roles wi
 - Sync status card and a "Sync now" button.
 
 **Create user page / API**
-
+i
 - Filter out IdPs with `allowManualProvisioning = false`.
 
 **Endpoints**

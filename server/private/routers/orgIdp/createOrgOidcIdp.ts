@@ -47,7 +47,7 @@ const bodySchema = z.strictObject({
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc"),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
-    directoryRoleMapping: z.string().nullish(),
+    syncRoleMapping: z.string().nullish(),
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, validated against the variant's schema
     directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
@@ -129,7 +129,7 @@ export async function createOrgOidcIdp(
             roleMapping,
             orgMapping: orgMappingBody,
             directorySyncEnabled,
-            directoryRoleMapping,
+            syncRoleMapping,
             directorySyncDeletions,
             directorySyncConfig,
             tags
@@ -216,7 +216,7 @@ export async function createOrgOidcIdp(
                 orgId: orgId,
                 roleMapping: roleMapping || null,
                 orgMapping: orgMappingBody,
-                directoryRoleMapping: directoryRoleMapping || null,
+                syncRoleMapping: syncRoleMapping || null,
                 directorySyncDeletions: directorySyncDeletions ?? true
             });
         });

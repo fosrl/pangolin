@@ -57,7 +57,7 @@ function toStringArray(value: unknown): string[] {
         : [];
 }
 
-/** Parse the stored `idpOrg.directoryRoleMapping` value. Invalid values fall back to defaults. */
+/** Parse the stored `idpOrg.syncRoleMapping` value. Invalid values fall back to defaults. */
 export function parseDirectorySyncRoleMapping(
     stored: string | null | undefined
 ): DirectorySyncRoleMappingConfig {
@@ -103,7 +103,7 @@ export function parseDirectorySyncRoleMapping(
 }
 
 /**
- * Serialize for `idpOrg.directoryRoleMapping`. Only the active mode's fields are kept.
+ * Serialize for `idpOrg.syncRoleMapping`. Only the active mode's fields are kept.
  * Returns null when the active mode has nothing configured.
  */
 export function serializeDirectorySyncRoleMapping(

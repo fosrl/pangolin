@@ -116,7 +116,7 @@ export async function runIdpDirectorySync(dryRun: boolean = false) {
                 orgId: idpOrg.orgId,
                 identifierPath: idpOidcConfig.identifierPath,
                 roleMapping: parseDirectorySyncRoleMapping(
-                    idpOrg.directoryRoleMapping
+                    idpOrg.syncRoleMapping
                 )
             } satisfies DirectoryFetchContext;
             return syncIdp(provider, ctx, dryRun);

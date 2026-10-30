@@ -1528,12 +1528,26 @@ export const idp = sqliteTable("idp", {
     type: text("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: text("defaultRoleMapping"),
     defaultOrgMapping: text("defaultOrgMapping"),
+    // Just in time provisioning, at login
     autoProvision: integer("autoProvision", {
         mode: "boolean"
     })
         .notNull()
         .default(false),
+    // When false, admins can't pre-provision users for this IdP
+    allowManualProvisioning: integer("allowManualProvisioning", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(true),
     tags: text("tags"),
+    // Unlocks provider API features (JIT enrichment, directory sync)
+    apiIntegrationEnabled: integer("apiIntegrationEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    // Background sync, requires `apiIntegrationEnabled`
     directorySyncEnabled: integer("directorySyncEnabled", {
         mode: "boolean"
     })
@@ -1661,9 +1675,16 @@ export const idpOrg = sqliteTable("idpOrg", {
     orgId: text("orgId")
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // JIT (autoProvision) mappings
     roleMapping: text("roleMapping"),
     orgMapping: text("orgMapping"),
-    directoryRoleMapping: text("directoryRoleMapping"),
+    // Directory sync mappings
+    syncRoleMapping: text("syncRoleMapping"),
+    syncOrgMapping: text("syncOrgMapping"),
+    // When true, the UI edits JIT and sync mappings as one
+    mappingsLinked: integer("mappingsLinked", { mode: "boolean" })
+        .notNull()
+        .default(true),
     directorySyncDeletions: integer("directorySyncDeletions", {
         mode: "boolean"
     })

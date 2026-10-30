@@ -83,7 +83,7 @@ export default function GeneralPage() {
         MappingBuilderRule[]
     >([createMappingBuilderRule()]);
     const [rawRoleExpression, setRawRoleExpression] = useState("");
-    const [directoryRoleMapping, setDirectoryRoleMapping] =
+    const [syncRoleMapping, setSyncRoleMapping] =
         useState<DirectorySyncRoleMappingConfig>(
             createDefaultDirectorySyncRoleMappingConfig
         );
@@ -296,9 +296,9 @@ export default function GeneralPage() {
                         detectedRoleMappingConfig.rawExpression
                     );
 
-                    setDirectoryRoleMapping(
+                    setSyncRoleMapping(
                         parseDirectorySyncRoleMapping(
-                            data.idpOrg.directoryRoleMapping
+                            data.idpOrg.syncRoleMapping
                         )
                     );
                 }
@@ -397,8 +397,8 @@ export default function GeneralPage() {
                     data.directorySyncEnabled,
                 roleMapping: roleMappingExpression,
                 orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed,
-                directoryRoleMapping:
-                    serializeDirectorySyncRoleMapping(directoryRoleMapping),
+                syncRoleMapping:
+                    serializeDirectorySyncRoleMapping(syncRoleMapping),
                 directorySyncDeletions: data.directorySyncDeletions
             };
 
@@ -696,7 +696,7 @@ export default function GeneralPage() {
                                             }
                                         }}
                                         orgId={orgId as string}
-                                        roleMapping={directoryRoleMapping}
+                                        roleMapping={syncRoleMapping}
                                         syncDeletions={form.watch(
                                             "directorySyncDeletions"
                                         )}
@@ -707,7 +707,7 @@ export default function GeneralPage() {
                                             )
                                         }
                                         onRoleMappingChange={
-                                            setDirectoryRoleMapping
+                                            setSyncRoleMapping
                                         }
                                     />
                                     {variant === "google" &&

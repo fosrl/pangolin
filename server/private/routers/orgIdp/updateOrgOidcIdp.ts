@@ -51,7 +51,7 @@ const bodySchema = z.strictObject({
     directorySyncEnabled: z.boolean().optional(),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
-    directoryRoleMapping: z.string().nullish(),
+    syncRoleMapping: z.string().nullish(),
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, omitted secrets are kept from the stored config
     directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
@@ -134,7 +134,7 @@ export async function updateOrgOidcIdp(
             roleMapping,
             orgMapping,
             directorySyncEnabled,
-            directoryRoleMapping,
+            syncRoleMapping,
             directorySyncDeletions,
             directorySyncConfig,
             tags
@@ -283,7 +283,7 @@ export async function updateOrgOidcIdp(
             const idpOrgPolicyPatch: {
                 roleMapping?: string;
                 orgMapping?: string | null;
-                directoryRoleMapping?: string | null;
+                syncRoleMapping?: string | null;
                 directorySyncDeletions?: boolean;
             } = {};
             if (roleMapping !== undefined) {
@@ -292,8 +292,8 @@ export async function updateOrgOidcIdp(
             if (orgMapping !== undefined) {
                 idpOrgPolicyPatch.orgMapping = orgMapping;
             }
-            if (directoryRoleMapping !== undefined) {
-                idpOrgPolicyPatch.directoryRoleMapping = directoryRoleMapping;
+            if (syncRoleMapping !== undefined) {
+                idpOrgPolicyPatch.syncRoleMapping = syncRoleMapping;
             }
             if (directorySyncDeletions !== undefined) {
                 idpOrgPolicyPatch.directorySyncDeletions =

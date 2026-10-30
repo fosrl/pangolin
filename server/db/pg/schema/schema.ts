@@ -1226,8 +1226,18 @@ export const idp = pgTable("idp", {
     type: varchar("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
+    // Just in time provisioning, at login
     autoProvision: boolean("autoProvision").notNull().default(false),
+    // When false, admins can't pre-provision users for this IdP
+    allowManualProvisioning: boolean("allowManualProvisioning")
+        .notNull()
+        .default(true),
     tags: text("tags"),
+    // Unlocks provider API features (JIT enrichment, directory sync)
+    apiIntegrationEnabled: boolean("apiIntegrationEnabled")
+        .notNull()
+        .default(false),
+    // Background sync, requires `apiIntegrationEnabled`
     directorySyncEnabled: boolean("directorySyncEnabled")
         .notNull()
         .default(false),
@@ -1348,9 +1358,14 @@ export const idpOrg = pgTable("idpOrg", {
     orgId: varchar("orgId")
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // JIT mappings
     roleMapping: varchar("roleMapping"),
     orgMapping: varchar("orgMapping"),
-    directoryRoleMapping: varchar("directoryRoleMapping"),
+    // Directory sync mappings
+    syncRoleMapping: varchar("syncRoleMapping"),
+    syncOrgMapping: varchar("syncOrgMapping"),
+    // When true, the UI edits JIT and sync mappings as one
+    mappingsLinked: boolean("mappingsLinked").notNull().default(true),
     directorySyncDeletions: boolean("directorySyncDeletions")
         .notNull()
         .default(true)
