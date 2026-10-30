@@ -7,7 +7,12 @@ import logger from "@server/logger";
 import { response } from "@server/lib/response";
 import { db, deviceWebAuthCodes } from "@server/db";
 import { eq, and, gt } from "drizzle-orm";
-import { createSession, generateSessionToken } from "@server/auth/sessions/app";
+import {
+    createSession,
+    generateSessionToken,
+    invalidateSession
+} from "@server/auth/sessions/app";
+import { inheritIdpGrant } from "@server/auth/sessions/idpRevalidation";
 import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { stripPortFromHost } from "@server/lib/ip";
@@ -112,7 +117,25 @@ export async function pollDeviceWebAuth(
 
         // Generate session token
         const token = generateSessionToken();
-        await createSession(token, deviceCode.userId);
+        const sess = await createSession(token, deviceCode.userId);
+        if (
+            deviceCode.approvingSessionId &&
+            !(await inheritIdpGrant(
+                deviceCode.approvingSessionId,
+                sess.sessionId
+            ))
+        ) {
+            await invalidateSession(sess.sessionId);
+            await db
+                .delete(deviceWebAuthCodes)
+                .where(eq(deviceWebAuthCodes.codeId, deviceCode.codeId));
+            return next(
+                createHttpError(
+                    HttpCode.UNAUTHORIZED,
+                    "The login that approved this device is no longer valid"
+                )
+            );
+        }
 
         // Delete the code after successful exchange for a token
         await db

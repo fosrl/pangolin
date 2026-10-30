@@ -27,6 +27,8 @@ import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
+import { clearIdpSessionGrants } from "@server/auth/sessions/idpRevalidation";
 import { build } from "@server/build";
 
 const paramsSchema = z
@@ -47,6 +49,7 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().optional(),
     autoProvision: z.boolean().optional(),
+    sessionRevalidation: z.boolean().optional(),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
     tags: z.string().optional()
@@ -58,7 +61,6 @@ export type UpdateOrgIdpResponse = {
 const UpdateOrgIdpResponseDataSchema = z.object({
     idpId: z.number()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -80,7 +82,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateOrgIdpResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateOrgIdpResponseDataSchema
+                    )
                 }
             }
         }
@@ -119,7 +123,6 @@ export async function updateOrgOidcIdp(
             clientSecret,
             authUrl,
             tokenUrl,
-            scopes,
             identifierPath,
             emailPath,
             namePath,
@@ -129,7 +132,7 @@ export async function updateOrgOidcIdp(
             tags
         } = parsedBody.data;
 
-        let { autoProvision } = parsedBody.data;
+        let { autoProvision, scopes, sessionRevalidation } = parsedBody.data;
 
         if (build == "saas") {
             // this is not paywalled with a ee license because this whole endpoint is restricted
@@ -139,6 +142,24 @@ export async function updateOrgOidcIdp(
             );
             if (!subscribed) {
                 autoProvision = false;
+            }
+        }
+
+        if (sessionRevalidation === true) {
+            const [existingConfig] = await db
+                .select({
+                    scopes: idpOidcConfig.scopes,
+                    variant: idpOidcConfig.variant
+                })
+                .from(idpOidcConfig)
+                .where(eq(idpOidcConfig.idpId, idpId))
+                .limit(1);
+            const baseScopes = scopes ?? existingConfig?.scopes;
+            if (baseScopes) {
+                scopes = scopesForSessionRevalidation(
+                    baseScopes,
+                    existingConfig?.variant
+                );
             }
         }
 
@@ -185,6 +206,7 @@ export async function updateOrgOidcIdp(
             const idpData = {
                 name,
                 autoProvision,
+                sessionRevalidation,
                 tags
             };
 
@@ -240,6 +262,10 @@ export async function updateOrgOidcIdp(
                     );
             }
         });
+
+        if (sessionRevalidation === false) {
+            await clearIdpSessionGrants(idpId);
+        }
 
         return response<UpdateOrgIdpResponse>(res, {
             data: {

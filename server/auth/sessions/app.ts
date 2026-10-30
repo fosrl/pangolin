@@ -17,6 +17,7 @@ import config from "@server/lib/config";
 import type { RandomReader } from "@oslojs/crypto/random";
 import { generateRandomString } from "@oslojs/crypto/random";
 import logger from "@server/logger";
+import { revalidateIdpSession } from "@server/auth/sessions/idpRevalidation";
 
 export const SESSION_COOKIE_NAME =
     config.getRawConfig().server.session_cookie_name;
@@ -74,6 +75,9 @@ export async function validateSessionToken(
         return { session: null, user: null };
     }
     const { user, session } = result[0];
+    if (!(await revalidateIdpSession(session.sessionId))) {
+        return { session: null, user: null };
+    }
     if (Date.now() >= session.expiresAt) {
         await db
             .delete(sessions)
@@ -212,5 +216,4 @@ export function generateIdFromEntropySize(size: number): string {
 }
 
 export type SessionValidationResult =
-    | { session: Session; user: User }
-    | { session: null; user: null };
+    { session: Session; user: User } | { session: null; user: null };

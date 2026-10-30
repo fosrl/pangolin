@@ -12,6 +12,8 @@ import { idp, idpOidcConfig } from "@server/db";
 import { eq } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
+import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
+import { clearIdpSessionGrants } from "@server/auth/sessions/idpRevalidation";
 
 const paramsSchema = z
     .object({
@@ -30,6 +32,7 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().optional(),
     autoProvision: z.boolean().optional(),
+    sessionRevalidation: z.boolean().optional(),
     defaultRoleMapping: z.string().optional(),
     defaultOrgMapping: z.string().optional(),
     tags: z.string().optional(),
@@ -42,7 +45,6 @@ export type UpdateIdpResponse = {
 const UpdateIdpResponseDataSchema = z.object({
     idpId: z.number()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -103,7 +105,6 @@ export async function updateOidcIdp(
             clientSecret,
             authUrl,
             tokenUrl,
-            scopes,
             identifierPath,
             emailPath,
             namePath,
@@ -114,6 +115,8 @@ export async function updateOidcIdp(
             tags,
             variant
         } = parsedBody.data;
+
+        let { scopes, sessionRevalidation } = parsedBody.data;
 
         if (process.env.IDENTITY_PROVIDER_MODE === "org") {
             return next(
@@ -143,6 +146,25 @@ export async function updateOidcIdp(
             );
         }
 
+        if (sessionRevalidation === true) {
+            const [existingConfig] = await db
+                .select({
+                    scopes: idpOidcConfig.scopes,
+                    variant: idpOidcConfig.variant
+                })
+                .from(idpOidcConfig)
+                .where(eq(idpOidcConfig.idpId, idpId))
+                .limit(1);
+            const effectiveVariant = variant ?? existingConfig?.variant;
+            const baseScopes = scopes ?? existingConfig?.scopes;
+            if (baseScopes) {
+                scopes = scopesForSessionRevalidation(
+                    baseScopes,
+                    effectiveVariant
+                );
+            }
+        }
+
         const key = config.getRawConfig().server.secret!;
         const encryptedSecret = clientSecret
             ? encrypt(clientSecret, key)
@@ -153,6 +175,7 @@ export async function updateOidcIdp(
             const idpData = {
                 name,
                 autoProvision,
+                sessionRevalidation,
                 defaultRoleMapping,
                 defaultOrgMapping,
                 tags
@@ -192,6 +215,10 @@ export async function updateOidcIdp(
                     .where(eq(idpOidcConfig.idpId, idpId));
             }
         });
+
+        if (sessionRevalidation === false) {
+            await clearIdpSessionGrants(idpId);
+        }
 
         return response<UpdateIdpResponse>(res, {
             data: {

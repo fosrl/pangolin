@@ -6,6 +6,7 @@ import {
     generateSessionToken,
     serializeSessionCookie
 } from "@server/auth/sessions/app";
+import { storeIdpRefreshToken } from "@server/auth/sessions/idpRevalidation";
 import { build } from "@server/build";
 import {
     db,
@@ -663,6 +664,11 @@ export async function validateOidcCallback(
 
             const token = generateSessionToken();
             const sess = await createSession(token, existingUserId!);
+            await storeIdpRefreshToken(
+                sess.sessionId,
+                existingIdp.idp.idpId,
+                tokens
+            );
             const isSecure = req.protocol === "https";
             const cookie = serializeSessionCookie(
                 token,
@@ -720,6 +726,11 @@ export async function validateOidcCallback(
 
             const token = generateSessionToken();
             const sess = await createSession(token, existingUser.userId);
+            await storeIdpRefreshToken(
+                sess.sessionId,
+                existingIdp.idp.idpId,
+                tokens
+            );
             const isSecure = req.protocol === "https";
             const cookie = serializeSessionCookie(
                 token,

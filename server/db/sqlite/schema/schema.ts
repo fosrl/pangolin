@@ -1036,6 +1036,28 @@ export const sessions = sqliteTable(
     (table) => [index("idx_sessions_userId").on(table.userId)]
 );
 
+export const idpGrants = sqliteTable("idpGrants", {
+    grantId: text("grantId").primaryKey(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    refreshToken: text("refreshToken").notNull(),
+    validatedAt: integer("validatedAt").notNull(),
+    attemptedAt: integer("attemptedAt"),
+    leaseId: text("leaseId"),
+    leaseExpiresAt: integer("leaseExpiresAt"),
+    revokedAt: integer("revokedAt")
+});
+
+export const sessionIdpGrants = sqliteTable("sessionIdpGrants", {
+    sessionId: text("sessionId")
+        .primaryKey()
+        .references(() => sessions.sessionId, { onDelete: "cascade" }),
+    grantId: text("grantId")
+        .notNull()
+        .references(() => idpGrants.grantId, { onDelete: "cascade" })
+});
+
 export const newtSessions = sqliteTable("newtSession", {
     sessionId: text("id").primaryKey(),
     newtId: text("newtId")
@@ -1594,6 +1616,11 @@ export const idp = sqliteTable("idp", {
     })
         .notNull()
         .default(false),
+    sessionRevalidation: integer("sessionRevalidation", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
     tags: text("tags")
 });
 
@@ -1781,7 +1808,8 @@ export const deviceWebAuthCodes = sqliteTable("deviceWebAuthCodes", {
     verified: integer("verified", { mode: "boolean" }).notNull().default(false),
     userId: text("userId").references(() => users.userId, {
         onDelete: "cascade"
-    })
+    }),
+    approvingSessionId: text("approvingSessionId")
 });
 
 export const roundTripMessageTracker = sqliteTable("roundTripMessageTracker", {
@@ -2205,6 +2233,7 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;
 export type SecurityKey = InferSelectModel<typeof securityKeys>;

@@ -758,6 +758,28 @@ export const sessions = pgTable(
     (t) => [index("idx_sessions_userid").on(t.userId)]
 );
 
+export const idpGrants = pgTable("idpGrants", {
+    grantId: varchar("grantId").primaryKey(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    refreshToken: text("refreshToken").notNull(),
+    validatedAt: bigint("validatedAt", { mode: "number" }).notNull(),
+    attemptedAt: bigint("attemptedAt", { mode: "number" }),
+    leaseId: varchar("leaseId"),
+    leaseExpiresAt: bigint("leaseExpiresAt", { mode: "number" }),
+    revokedAt: bigint("revokedAt", { mode: "number" })
+});
+
+export const sessionIdpGrants = pgTable("sessionIdpGrants", {
+    sessionId: varchar("sessionId")
+        .primaryKey()
+        .references(() => sessions.sessionId, { onDelete: "cascade" }),
+    grantId: varchar("grantId")
+        .notNull()
+        .references(() => idpGrants.grantId, { onDelete: "cascade" })
+});
+
 export const newtSessions = pgTable("newtSession", {
     sessionId: varchar("id").primaryKey(),
     newtId: varchar("newtId")
@@ -1278,6 +1300,7 @@ export const idp = pgTable("idp", {
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
     autoProvision: boolean("autoProvision").notNull().default(false),
+    sessionRevalidation: boolean("sessionRevalidation").notNull().default(false),
     tags: text("tags")
 });
 
@@ -1740,7 +1763,8 @@ export const deviceWebAuthCodes = pgTable("deviceWebAuthCodes", {
     verified: boolean("verified").notNull().default(false),
     userId: varchar("userId").references(() => users.userId, {
         onDelete: "cascade"
-    })
+    }),
+    approvingSessionId: varchar("approvingSessionId")
 });
 
 export const roundTripMessageTracker = pgTable("roundTripMessageTracker", {
@@ -2158,6 +2182,7 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;
 export type SecurityKey = InferSelectModel<typeof securityKeys>;

@@ -27,6 +27,7 @@ import config from "@server/lib/config";
 import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
 import { build } from "@server/build";
 
 const paramsSchema = z.strictObject({ orgId: z.string().nonempty() });
@@ -42,6 +43,7 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
     autoProvision: z.boolean().optional(),
+    sessionRevalidation: z.boolean().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc"),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
@@ -114,7 +116,6 @@ export async function createOrgOidcIdp(
             clientSecret,
             authUrl,
             tokenUrl,
-            scopes,
             identifierPath,
             emailPath,
             namePath,
@@ -125,7 +126,11 @@ export async function createOrgOidcIdp(
             tags
         } = parsedBody.data;
 
-        let { autoProvision } = parsedBody.data;
+        let {
+            autoProvision,
+            scopes,
+            sessionRevalidation = false
+        } = parsedBody.data;
 
         if (build == "saas") {
             // this is not paywalled with a ee license because this whole endpoint is restricted
@@ -136,6 +141,10 @@ export async function createOrgOidcIdp(
             if (!subscribed) {
                 autoProvision = false;
             }
+        }
+
+        if (sessionRevalidation) {
+            scopes = scopesForSessionRevalidation(scopes, variant);
         }
 
         const key = config.getRawConfig().server.secret!;
@@ -150,6 +159,7 @@ export async function createOrgOidcIdp(
                 .values({
                     name,
                     autoProvision,
+                    sessionRevalidation,
                     type: "oidc",
                     tags
                 })

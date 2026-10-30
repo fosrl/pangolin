@@ -151,6 +151,12 @@ export const configSchema = z
                     .gt(0)
                     .optional()
                     .default(720),
+                idp_session_revalidation_minutes: z
+                    .number()
+                    .positive()
+                    .gt(0)
+                    .optional()
+                    .default(5),
                 cors: z
                     .object({
                         origins: z.array(z.string()).optional(),
