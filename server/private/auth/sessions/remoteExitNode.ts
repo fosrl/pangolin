@@ -43,9 +43,15 @@ export async function createRemoteExitNodeSession(
 export async function validateRemoteExitNodeSessionToken(
     token: string
 ): Promise<SessionValidationResult> {
-    const sessionId = encodeHexLowerCase(
-        sha256(new TextEncoder().encode(token))
+    return validateRemoteExitNodeSession(
+        encodeHexLowerCase(sha256(new TextEncoder().encode(token)))
     );
+}
+
+// For callers that only have the hash of the token, like the WebSocket gateway
+export async function validateRemoteExitNodeSession(
+    sessionId: string
+): Promise<SessionValidationResult> {
     const result = await db
         .select({
             remoteExitNode: remoteExitNodes,

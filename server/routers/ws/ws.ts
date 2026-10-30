@@ -361,12 +361,10 @@ const setupConnection = async (
 
             const response = await handler({
                 message,
-                senderWs: ws,
                 client: ws.client,
                 clientType: ws.clientType!,
                 sendToClient,
-                broadcastToAllExcept,
-                connectedClients
+                broadcastToAllExcept
             });
 
             if (response) {

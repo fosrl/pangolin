@@ -13,7 +13,7 @@
 
 import { rateLimitService } from "#private/lib/rateLimit";
 import { logStreamingManager } from "#private/lib/logStreaming";
-import { cleanup as wsCleanup } from "#private/routers/ws";
+import { cleanup as wsCleanup, stopGatewayBridge } from "#private/routers/ws";
 import { flushBandwidthToDb } from "@server/routers/newt/handleReceiveBandwidthMessage";
 import { flushConnectionLogToDb } from "#private/routers/newt";
 import { flushSiteBandwidthToDb } from "@server/routers/gerbil/receiveBandwidth";
@@ -24,6 +24,8 @@ import { stopDnsServer } from "./dns";
 import { stopCertificateManager } from "./certificates";
 
 async function cleanup() {
+    // Before the flushes below, which save what these handlers record
+    await stopGatewayBridge();
     await stopPingAccumulator();
     await flushBandwidthToDb();
     await flushConnectionLogToDb();

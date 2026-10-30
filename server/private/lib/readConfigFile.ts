@@ -179,6 +179,9 @@ export const privateConfigSchema = z
         flags: z
             .object({
                 enable_redis: z.boolean().optional().default(false),
+                // Handle devices connected through the standalone WebSocket
+                // gateway (Dockerfile.ws). Needs redis.regional_redis.
+                enable_ws_gateway: z.boolean().optional().default(false),
                 use_pangolin_dns: z.boolean().optional().default(false),
                 use_org_only_idp: z.boolean().optional(),
                 // @deprecated Moved to the public config file as

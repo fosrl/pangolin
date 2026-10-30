@@ -50,7 +50,6 @@ export interface HandlerResponse {
 
 export interface HandlerContext {
     message: WSMessage;
-    senderWs: WebSocket;
     client: Newt | Olm | RemoteExitNode | undefined;
     clientType: ClientType;
     sendToClient: (
@@ -63,7 +62,6 @@ export interface HandlerContext {
         excludeClientId?: string,
         options?: SendMessageOptions
     ) => Promise<void>;
-    connectedClients: Map<string, WebSocket[]>;
 }
 
 export type MessageHandler = (
@@ -82,7 +80,8 @@ export interface BatchSendMessage {
     options?: SendMessageOptions;
 }
 
-// Redis message types for cross-node communication
+// Redis message types for cross-node communication. The id lets one Pangolin
+// per region claim a message when forwarding it to the WebSocket gateways.
 export type RedisMessage =
     | {
           type: "direct";
@@ -92,6 +91,7 @@ export type RedisMessage =
       }
     | {
           type: "direct-batch";
+          id?: string;
           messages: {
               targetClientId: string;
               message: WSMessage;
@@ -100,6 +100,7 @@ export type RedisMessage =
       }
     | {
           type: "broadcast";
+          id?: string;
           excludeClientId?: string;
           message: WSMessage;
           fromNodeId: string;
@@ -107,6 +108,7 @@ export type RedisMessage =
       }
     | {
           type: "disconnect";
+          id?: string;
           targetClientId: string;
           fromNodeId: string;
       };

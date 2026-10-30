@@ -58,9 +58,15 @@ export async function createSession(
 export async function validateSessionToken(
     token: string
 ): Promise<SessionValidationResult> {
-    const sessionId = encodeHexLowerCase(
-        sha256(new TextEncoder().encode(token))
+    return validateSessionById(
+        encodeHexLowerCase(sha256(new TextEncoder().encode(token)))
     );
+}
+
+// For callers that only have the hash of the token, like the WebSocket gateway
+export async function validateSessionById(
+    sessionId: string
+): Promise<SessionValidationResult> {
 
     const result = await safeRead((db) =>
         db
