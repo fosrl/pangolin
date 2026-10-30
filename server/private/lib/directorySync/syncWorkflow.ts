@@ -36,6 +36,7 @@ import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
 import { and, eq, inArray, sql, type InferInsertModel } from "drizzle-orm";
 import { AzureDirectorySyncProvider } from "./azure";
+import { GoogleDirectorySyncProvider } from "./google";
 import type {
     DirectoryFetchContext,
     DirectorySyncProvider,
@@ -98,21 +99,27 @@ export async function runIdpDirectorySync(dryRun: boolean = false) {
             )
         );
 
-    const azureSyncProvider = new AzureDirectorySyncProvider();
+    const providers: Partial<
+        Record<(typeof idpsToSync)[number]["idpOidcConfig"]["variant"], DirectorySyncProvider>
+    > = {
+        azure: new AzureDirectorySyncProvider(),
+        google: new GoogleDirectorySyncProvider()
+    };
     const fetchPromises = idpsToSync
         .map(({ idp, idpOidcConfig, idpOrg }) => {
-            if (idpOidcConfig.variant === "azure") {
-                const ctx = {
-                    idpId: idp.idpId,
-                    orgId: idpOrg.orgId,
-                    identifierPath: idpOidcConfig.identifierPath,
-                    roleMapping: parseDirectorySyncRoleMapping(
-                        idpOrg.directoryRoleMapping
-                    )
-                } satisfies DirectoryFetchContext;
-                return syncIdp(azureSyncProvider, ctx, dryRun);
+            const provider = providers[idpOidcConfig.variant];
+            if (!provider) {
+                return null;
             }
-            return null;
+            const ctx = {
+                idpId: idp.idpId,
+                orgId: idpOrg.orgId,
+                identifierPath: idpOidcConfig.identifierPath,
+                roleMapping: parseDirectorySyncRoleMapping(
+                    idpOrg.directoryRoleMapping
+                )
+            } satisfies DirectoryFetchContext;
+            return syncIdp(provider, ctx, dryRun);
         })
         .filter((p) => p != null);
 
