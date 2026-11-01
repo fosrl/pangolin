@@ -203,6 +203,22 @@ function getActionsCategories(root: boolean) {
             [t("actionGetVirtualApiKey")]: "getVirtualApiKey",
             [t("actionListVirtualApiKeys")]: "listVirtualApiKeys",
             [t("actionUpdateVirtualApiKey")]: "updateVirtualApiKey"
+        },
+
+        "Alert Rule": {
+            [t("actionCreateAlertRule")]: "createAlertRule",
+            [t("actionUpdateAlertRule")]: "updateAlertRule",
+            [t("actionDeleteAlertRule")]: "deleteAlertRule",
+            [t("actionGetAlertRule")]: "getAlertRule",
+            [t("actionListAlertRules")]: "listAlertRules",
+            [t("actionTestAlertRule")]: "testAlertRule"
+        },
+
+        "Health Check": {
+            [t("actionCreateHealthCheck")]: "createHealthCheck",
+            [t("actionUpdateHealthCheck")]: "updateHealthCheck",
+            [t("actionDeleteHealthCheck")]: "deleteHealthCheck",
+            [t("actionListHealthChecks")]: "listHealthChecks"
         }
     };
 
