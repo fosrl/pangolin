@@ -1243,7 +1243,7 @@ export const idp = pgTable("idp", {
         .default(false),
     // Provider-defined JSON, encrypted (e.g. Google service account key + admin email).
     // Null = the provider reuses the OIDC client credentials (Azure).
-    directorySyncConfig: text("directorySyncConfig")
+    apiConfig: text("apiConfig")
 });
 
 export const idpOidcConfig = pgTable("idpOidcConfig", {

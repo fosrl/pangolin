@@ -22,7 +22,7 @@ export type IDPGroup = {
     displayName: string | null;
 };
 
-export type IDPUser = {
+export type IDPDirectoryUser = {
     /** Stable provider user ID (Entra object ID, Google directory ID). */
     externalId: string;
     /** Value that login computes as `users.username` (already resolved from `identifierPath`). */
@@ -36,7 +36,7 @@ export type IDPUser = {
 };
 
 export type IDPDirectoryFetchResult = {
-    users: IDPUser[];
+    users: IDPDirectoryUser[];
 };
 
 export type DirectoryFetchContext = {
@@ -52,5 +52,9 @@ export interface IDPAPIProvider {
         ctx: DirectoryFetchContext
     ): Promise<IDPDirectoryFetchResult>;
 
-    fetchUserGroups(user: IDPUser): Promise<IDPGroup[]>;
+    fetchUserGroups(
+        user: Pick<IDPDirectoryUser, "externalId">
+    ): Promise<IDPGroup[]>;
+
+    toClaims(user: IDPDirectoryUser): object;
 }

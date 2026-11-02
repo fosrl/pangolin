@@ -91,7 +91,7 @@ export async function getIdp(
         }
 
         // directory sync credentials are only managed through org IdPs
-        idpRes.idp.directorySyncConfig = null;
+        idpRes.idp.apiConfig = null;
 
         return response<GetIdpResponse>(res, {
             data: idpRes,

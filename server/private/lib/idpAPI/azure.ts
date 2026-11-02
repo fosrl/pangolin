@@ -11,22 +11,20 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { db, idp, idpOidcConfig, idpOrg } from "@server/db";
-import { eq, and } from "drizzle-orm";
-import type {
-    DirectoryFetchContext,
-    IDPDirectoryFetchResult,
-    IDPAPIProvider,
-    IDPUser,
-    IDPGroup
-} from "./types";
-import { decrypt } from "@server/lib/crypto";
-import config from "@server/lib/config";
 import cache from "@server/lib/cache";
-import z from "zod";
+import config from "@server/lib/config";
+import { decrypt } from "@server/lib/crypto";
 import logger from "@server/logger";
+import z from "zod";
 import { fromError } from "zod-validation-error";
 import { ensureValidIdp, type IdpDbResponse } from "./ensureValidIdp";
+import type {
+    DirectoryFetchContext,
+    IDPAPIProvider,
+    IDPDirectoryFetchResult,
+    IDPGroup,
+    IDPDirectoryUser
+} from "./types";
 
 const userBodySchema = z.object({
     "@odata.nextLink": z.url().optional(),
@@ -88,17 +86,50 @@ type GraphGroupNode = {
 };
 
 export class AzureDirectorySyncProvider implements IDPAPIProvider {
-    fetchUserGroups(user: IDPUser): Promise<IDPGroup[]> {
+    fetchUserGroups(
+        user: Pick<IDPDirectoryUser, "externalId">
+    ): Promise<IDPGroup[]> {
         throw new Error("Method not implemented.");
+    }
+
+    toClaims(user: IDPDirectoryUser): object {
+        return {
+            iss: `https://login.microsoftonline.com/${this.#tenantId}/v2.0`,
+            oid: user.externalId,
+            tid: this.#tenantId,
+            name: user.name,
+            email: user.email,
+            preferred_username: user.email,
+            groups: user.groups.map((g) => g.id),
+            groupNames: user.groups.map((g) => g.displayName)
+        };
     }
 
     #TOKEN_CACHE_KEY_PREFIX = "azureDirectorySyncToken";
     #microsoftGraphBaseUrl = "https://graph.microsoft.com/v1.0";
+    #idp: IdpDbResponse;
+
+    constructor(idp: IdpDbResponse) {
+        this.#idp = idp;
+    }
+
+    get #tenantId() {
+        let tenantId = "";
+        if (this.#idp.idpOidcConfig?.authUrl) {
+            const tenantMatch = this.#idp.idpOidcConfig.authUrl.match(
+                /login\.microsoftonline\.com\/([^/]+)\/oauth2/
+            );
+            if (tenantMatch) {
+                tenantId = tenantMatch[1];
+            }
+        }
+        return tenantId;
+    }
 
     async fetchAllDirectoryUsers(
         ctx: DirectoryFetchContext
     ): Promise<IDPDirectoryFetchResult> {
-        const directoryUsers: Record<string, IDPUser> = {};
+        const directoryUsers: Record<string, IDPDirectoryUser> = {};
         // 0. fetch idp and check that it is valid
         const idpRes = await ensureValidIdp(ctx.idpId, "azure");
 

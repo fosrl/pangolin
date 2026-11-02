@@ -15,7 +15,7 @@ import type {
     DirectoryFetchContext,
     IDPDirectoryFetchResult,
     IDPAPIProvider,
-    IDPUser,
+    IDPDirectoryUser,
     IDPGroup
 } from "./types";
 import { ensureValidIdp, type IdpDbResponse } from "./ensureValidIdp";
@@ -100,18 +100,41 @@ export class GoogleDirectorySyncProvider implements IDPAPIProvider {
     // retries on rate limiting (429) and transient server errors (5xx)
     #MAX_RETRIES = 3;
 
-    fetchUserGroups(user: IDPUser): Promise<IDPGroup[]> {
+    #idp: IdpDbResponse;
+
+    constructor(idp: IdpDbResponse) {
+        this.#idp = idp;
+    }
+
+    toClaims(user: IDPDirectoryUser): object {
+        const splitted = user.email?.split("@") ?? [];
+        const baseDomain = splitted.at(-1);
+        return {
+            iss: "https://accounts.google.com",
+            sub: user.externalId,
+            name: user.name,
+            email: user.email,
+            email_verified: true,
+            hd: baseDomain,
+            groups: user.groups.map((g) => g.id),
+            groupNames: user.groups.map((g) => g.displayName)
+        };
+    }
+
+    fetchUserGroups(
+        user: Pick<IDPDirectoryUser, "externalId">
+    ): Promise<IDPGroup[]> {
         throw new Error("Method not implemented.");
     }
 
     async fetchAllDirectoryUsers(
         ctx: DirectoryFetchContext
     ): Promise<IDPDirectoryFetchResult> {
-        const directoryUsers: Record<string, IDPUser> = {};
+        const directoryUsers: Record<string, IDPDirectoryUser> = {};
         // 0. fetch idp and check that it is valid
         const idpRes = await ensureValidIdp(ctx.idpId, "google");
         const idpId = idpRes.idp.idpId;
-        const syncConfig = this.#getSyncConfig(idpRes);
+        const syncConfig = this.#getAPIConfig(idpRes);
         const customer = syncConfig.customerId ?? "my_customer";
 
         // 1. get access token (and cache)
@@ -215,10 +238,10 @@ export class GoogleDirectorySyncProvider implements IDPAPIProvider {
         };
     }
 
-    #getSyncConfig(idpRes: IdpDbResponse): GoogleDirectorySyncConfig {
+    #getAPIConfig(idpRes: IdpDbResponse): GoogleDirectorySyncConfig {
         try {
             return googleDirectorySyncConfigSchema.parse(
-                decryptDirectorySyncConfig(idpRes.idp.directorySyncConfig)
+                decryptDirectorySyncConfig(idpRes.idp.apiConfig)
             );
         } catch (e) {
             throw new Error(

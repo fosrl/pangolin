@@ -15,33 +15,32 @@ export async function ensureValidIdp(
 
     if (!idpRes) {
         throw new Error(
-            `Directory sync: IdP ${idpId} not found, or it has no OIDC config or org mapping`
+            `IDP API: IdP ${idpId} not found, or it has no OIDC config or org mapping`
+        );
+    }
+
+    if (!idpRes.idp.apiIntegrationEnabled) {
+        throw new Error(
+            `IDP API: API integration is not enabled on IdP ${idpId}`
         );
     }
 
     if (idpRes.idpOidcConfig.variant !== variant) {
         throw new Error(
-            `Directory sync: IdP ${idpId} has variant "${idpRes.idpOidcConfig.variant}", expected "${variant}"`
+            `IDP API: IdP ${idpId} has variant "${idpRes.idpOidcConfig.variant}", expected "${variant}"`
         );
     }
 
-    if (!idpRes.idp.directorySyncEnabled) {
+    if (!idpRes.idp.directorySyncEnabled && !idpRes.idp.autoProvision) {
         throw new Error(
-            `Directory sync: directory sync is not enabled on IdP ${idpId}`
+            `IDP API: IdP ${idpId} has neither directory sync nor auto-provisioning enabled; at least one is required`
         );
     }
 
-    if (idpRes.idp.autoProvision) {
+    if (idpRes.idpOidcConfig.variant === "google" && !idpRes.idp.apiConfig) {
         throw new Error(
-            `Directory sync: IdP ${idpId} has both directory sync and auto-provisioning enabled; only one can be active`
+            `IDP API: Google IdP ${idpId} has no API config; a service account is required`
         );
-    }
-
-    if (
-        idpRes.idpOidcConfig.variant === "google" &&
-        !idpRes.idp.directorySyncConfig
-    ) {
-        throw new Error(`Directory sync: Google IdP ${idpId} has no directory sync config; a service account is required`);
     }
 
     return idpRes;

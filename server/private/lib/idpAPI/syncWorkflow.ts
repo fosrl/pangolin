@@ -37,7 +37,12 @@ import { UserType } from "@server/types/UserTypes";
 import { and, eq, inArray, sql, type InferInsertModel } from "drizzle-orm";
 import { AzureDirectorySyncProvider } from "./azure";
 import { GoogleDirectorySyncProvider } from "./google";
-import type { DirectoryFetchContext, IDPAPIProvider, IDPUser } from "./types";
+import type {
+    DirectoryFetchContext,
+    IDPAPIProvider,
+    IDPDirectoryUser
+} from "./types";
+import jmespath from "jmespath";
 
 type InsertUser = InferInsertModel<typeof users>;
 type UpdateUser = Pick<
@@ -50,7 +55,7 @@ type SyncedRole = { id: number; name: string };
 /** What happens to one user: their Pangolin profile and their membership in `orgId` are decided separately. */
 export type UserSyncEntry = {
     /** `null` when the user is in Pangolin but gone from the directory. */
-    directoryUser: IDPUser | null;
+    directoryUser: IDPDirectoryUser | null;
     user:
         | { operation: "create"; data: InsertUser }
         | { operation: "update"; data: UpdateUser }
@@ -90,23 +95,32 @@ export async function runIdpDirectorySync(dryRun: boolean = false) {
         .where(
             and(
                 inArray(idpOidcConfig.variant, ["azure", "google"]),
-                eq(idp.directorySyncEnabled, true),
-                eq(idp.autoProvision, false)
+                eq(idp.apiIntegrationEnabled, true),
+                eq(idp.directorySyncEnabled, true)
             )
         );
 
-    const providers: Partial<
-        Record<
-            (typeof idpsToSync)[number]["idpOidcConfig"]["variant"],
-            IDPAPIProvider
-        >
-    > = {
-        azure: new AzureDirectorySyncProvider(),
-        google: new GoogleDirectorySyncProvider()
-    };
     const fetchPromises = idpsToSync
         .map(({ idp, idpOidcConfig, idpOrg }) => {
-            const provider = providers[idpOidcConfig.variant];
+            let provider: IDPAPIProvider | null = null;
+            switch (idpOidcConfig.variant) {
+                case "azure":
+                    provider = new AzureDirectorySyncProvider({
+                        idp,
+                        idpOidcConfig,
+                        idpOrg
+                    });
+                    break;
+                case "google":
+                    provider = new GoogleDirectorySyncProvider({
+                        idp,
+                        idpOidcConfig,
+                        idpOrg
+                    });
+                    break;
+                default:
+                    break;
+            }
             if (!provider) {
                 return null;
             }
@@ -508,7 +522,7 @@ function getEntryUserId(
 }
 
 async function resolveUserRoles(
-    user: IDPUser,
+    user: IDPDirectoryUser,
     roleMapping: DirectorySyncRoleMappingConfig,
     orgId: string,
     dryRun: boolean

@@ -223,7 +223,7 @@ export async function updateOrgOidcIdp(
         const resolvedDirectorySyncConfig = resolveDirectorySyncConfig({
             variant: existingOidcConfig?.variant ?? "oidc",
             incoming: directorySyncConfig,
-            existingEncrypted: existingIdp.directorySyncConfig,
+            existingEncrypted: existingIdp.apiConfig,
             directorySyncEnabled: !!(
                 effectiveDirectorySyncEnabled ??
                 existingIdp.directorySyncEnabled

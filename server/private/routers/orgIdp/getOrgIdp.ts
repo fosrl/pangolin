@@ -119,7 +119,7 @@ export async function getOrgIdp(
         const directorySyncConfig = idpRes.idpOidcConfig
             ? redactDirectorySyncConfig(
                   idpRes.idpOidcConfig.variant,
-                  decryptDirectorySyncConfig(idpRes.idp.directorySyncConfig)
+                  decryptDirectorySyncConfig(idpRes.idp.apiConfig)
               )
             : null;
 
