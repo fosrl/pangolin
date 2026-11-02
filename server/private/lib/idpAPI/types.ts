@@ -16,13 +16,13 @@ import type { DirectorySyncRoleMappingConfig } from "@app/lib/idpDirectorySyncRo
 // Provider-neutral shapes used by the directory sync engine (runSync.ts).
 // Each provider (Azure, Google, ...) turns its API into these.
 
-export type DirectoryGroup = {
+export type IDPGroup = {
     /** Stable provider group ID. */
     id: string;
     displayName: string | null;
 };
 
-export type DirectoryUser = {
+export type IDPUser = {
     /** Stable provider user ID (Entra object ID, Google directory ID). */
     externalId: string;
     /** Value that login computes as `users.username` (already resolved from `identifierPath`). */
@@ -32,12 +32,11 @@ export type DirectoryUser = {
     /** False when the account is disabled or suspended in the directory. */
     enabled: boolean;
     /** Every group the user belongs to, nested memberships included. */
-    groups: DirectoryGroup[];
+    groups: IDPGroup[];
 };
 
-export type DirectoryFetchResult = {
-    users: DirectoryUser[];
-    // nextCursor: string | null;
+export type IDPDirectoryFetchResult = {
+    users: IDPUser[];
 };
 
 export type DirectoryFetchContext = {
@@ -46,13 +45,12 @@ export type DirectoryFetchContext = {
     roleMapping: DirectorySyncRoleMappingConfig;
     /** `idpOidcConfig.identifierPath`, used to compute `DirectoryUser.username`. */
     identifierPath: string;
-    /** Opaque provider state from the previous successful run. Null = full fetch. */
-    // cursor: string | null;
 };
 
-export interface DirectorySyncProvider {
-    fetch(ctx: DirectoryFetchContext): Promise<DirectoryFetchResult>;
-}
+export interface IDPAPIProvider {
+    fetchAllDirectoryUsers(
+        ctx: DirectoryFetchContext
+    ): Promise<IDPDirectoryFetchResult>;
 
-/** Thrown by a provider when the stored cursor can't be used anymore; the engine retries with a full fetch. */
-export class DirectoryCursorExpiredError extends Error {}
+    fetchUserGroups(user: IDPUser): Promise<IDPGroup[]>;
+}

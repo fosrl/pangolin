@@ -37,11 +37,7 @@ import { UserType } from "@server/types/UserTypes";
 import { and, eq, inArray, sql, type InferInsertModel } from "drizzle-orm";
 import { AzureDirectorySyncProvider } from "./azure";
 import { GoogleDirectorySyncProvider } from "./google";
-import type {
-    DirectoryFetchContext,
-    DirectorySyncProvider,
-    DirectoryUser
-} from "./types";
+import type { DirectoryFetchContext, IDPAPIProvider, IDPUser } from "./types";
 
 type InsertUser = InferInsertModel<typeof users>;
 type UpdateUser = Pick<
@@ -54,7 +50,7 @@ type SyncedRole = { id: number; name: string };
 /** What happens to one user: their Pangolin profile and their membership in `orgId` are decided separately. */
 export type UserSyncEntry = {
     /** `null` when the user is in Pangolin but gone from the directory. */
-    directoryUser: DirectoryUser | null;
+    directoryUser: IDPUser | null;
     user:
         | { operation: "create"; data: InsertUser }
         | { operation: "update"; data: UpdateUser }
@@ -102,7 +98,7 @@ export async function runIdpDirectorySync(dryRun: boolean = false) {
     const providers: Partial<
         Record<
             (typeof idpsToSync)[number]["idpOidcConfig"]["variant"],
-            DirectorySyncProvider
+            IDPAPIProvider
         >
     > = {
         azure: new AzureDirectorySyncProvider(),
@@ -130,7 +126,7 @@ export async function runIdpDirectorySync(dryRun: boolean = false) {
 }
 
 async function syncIdp(
-    provider: DirectorySyncProvider,
+    provider: IDPAPIProvider,
     ctx: DirectoryFetchContext,
     dryRun: boolean
 ) {
@@ -155,7 +151,7 @@ async function syncIdp(
     // for global idps, if there is not an org policy for a specific org, the user is not added to that org
 
     // 1. Fetch
-    const result = await provider.fetch(ctx);
+    const result = await provider.fetchAllDirectoryUsers(ctx);
 
     /**
      * user =>
@@ -512,7 +508,7 @@ function getEntryUserId(
 }
 
 async function resolveUserRoles(
-    user: DirectoryUser,
+    user: IDPUser,
     roleMapping: DirectorySyncRoleMappingConfig,
     orgId: string,
     dryRun: boolean

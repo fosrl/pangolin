@@ -13,9 +13,10 @@
 
 import type {
     DirectoryFetchContext,
-    DirectoryFetchResult,
-    DirectorySyncProvider,
-    DirectoryUser
+    IDPDirectoryFetchResult,
+    IDPAPIProvider,
+    IDPUser,
+    IDPGroup
 } from "./types";
 import { ensureValidIdp, type IdpDbResponse } from "./ensureValidIdp";
 
@@ -91,7 +92,7 @@ type GoogleUser = z.output<typeof userBodySchema>["users"][number];
 type GoogleGroup = z.output<typeof groupBodySchema>["groups"][number];
 type GoogleMember = z.output<typeof memberBodySchema>["members"][number];
 
-export class GoogleDirectorySyncProvider implements DirectorySyncProvider {
+export class GoogleDirectorySyncProvider implements IDPAPIProvider {
     #TOKEN_CACHE_KEY_PREFIX = "googleDirectorySyncToken";
     #googleAPIBaseUrl = "https://admin.googleapis.com/admin/directory/v1";
     // number of groups whose members are fetched in parallel
@@ -99,8 +100,14 @@ export class GoogleDirectorySyncProvider implements DirectorySyncProvider {
     // retries on rate limiting (429) and transient server errors (5xx)
     #MAX_RETRIES = 3;
 
-    async fetch(ctx: DirectoryFetchContext): Promise<DirectoryFetchResult> {
-        const directoryUsers: Record<string, DirectoryUser> = {};
+    fetchUserGroups(user: IDPUser): Promise<IDPGroup[]> {
+        throw new Error("Method not implemented.");
+    }
+
+    async fetchAllDirectoryUsers(
+        ctx: DirectoryFetchContext
+    ): Promise<IDPDirectoryFetchResult> {
+        const directoryUsers: Record<string, IDPUser> = {};
         // 0. fetch idp and check that it is valid
         const idpRes = await ensureValidIdp(ctx.idpId, "google");
         const idpId = idpRes.idp.idpId;

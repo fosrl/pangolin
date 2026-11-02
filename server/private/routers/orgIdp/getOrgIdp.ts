@@ -27,7 +27,7 @@ import { decrypt } from "@server/lib/crypto";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { GetOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { redactDirectorySyncConfig } from "@app/lib/idpDirectorySyncConfig";
-import { decryptDirectorySyncConfig } from "#private/lib/directorySync/config";
+import { decryptDirectorySyncConfig } from "@server/private/lib/idpAPI/config";
 
 const paramsSchema = z
     .object({

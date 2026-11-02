@@ -15,9 +15,10 @@ import { db, idp, idpOidcConfig, idpOrg } from "@server/db";
 import { eq, and } from "drizzle-orm";
 import type {
     DirectoryFetchContext,
-    DirectoryFetchResult,
-    DirectorySyncProvider,
-    DirectoryUser
+    IDPDirectoryFetchResult,
+    IDPAPIProvider,
+    IDPUser,
+    IDPGroup
 } from "./types";
 import { decrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
@@ -86,12 +87,18 @@ type GraphGroupNode = {
     userIds: Set<string>;
 };
 
-export class AzureDirectorySyncProvider implements DirectorySyncProvider {
+export class AzureDirectorySyncProvider implements IDPAPIProvider {
+    fetchUserGroups(user: IDPUser): Promise<IDPGroup[]> {
+        throw new Error("Method not implemented.");
+    }
+
     #TOKEN_CACHE_KEY_PREFIX = "azureDirectorySyncToken";
     #microsoftGraphBaseUrl = "https://graph.microsoft.com/v1.0";
 
-    async fetch(ctx: DirectoryFetchContext): Promise<DirectoryFetchResult> {
-        const directoryUsers: Record<string, DirectoryUser> = {};
+    async fetchAllDirectoryUsers(
+        ctx: DirectoryFetchContext
+    ): Promise<IDPDirectoryFetchResult> {
+        const directoryUsers: Record<string, IDPUser> = {};
         // 0. fetch idp and check that it is valid
         const idpRes = await ensureValidIdp(ctx.idpId, "azure");
 

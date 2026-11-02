@@ -28,7 +28,7 @@ import config from "@server/lib/config";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
-import { resolveDirectorySyncConfig } from "#private/lib/directorySync/config";
+import { resolveDirectorySyncConfig } from "@server/private/lib/idpAPI/config";
 
 const paramsSchema = z
     .object({
