@@ -1,6 +1,9 @@
 import { APP_PATH } from "@server/lib/consts";
 import Database from "better-sqlite3";
+import { integer } from "drizzle-orm/gel-core";
+import { text } from "express";
 import path from "path";
+import { no } from "zod/v4/locales";
 
 const version = "1.26.0";
 
@@ -85,6 +88,86 @@ export default async function migration() {
             ).run();
             db.prepare(
                 `CREATE INDEX 'idx_ssh_command_log_org_timestamp' ON 'sshCommandLog' ('orgId','timestamp');`
+            ).run();
+
+            db.prepare(
+                `CREATE TABLE 'customDnsRecords' (
+                    'customDnsRecordId' integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    'domainId' text NOT NULL,
+                    'name' text NOT NULL,
+                    'fullDomain' text NOT NULL,
+                    'type' text NOT NULL,
+                    'values' text NOT NULL,
+                    'ttl' integer DEFAULT 300 NOT NULL,
+                    'priority' integer,
+                    'weight' integer,
+                    'port' integer,
+                    'enabled' integer DEFAULT true NOT NULL,
+                    'createdAt' integer NOT NULL,
+                    'updatedAt' integer NOT NULL,
+                    FOREIGN KEY ('domainId') REFERENCES 'domains'('domainId') ON UPDATE no action ON DELETE cascade
+                );`
+            ).run();
+
+            db.prepare(
+                `CREATE INDEX 'idx_customDnsRecords_fullDomain' ON 'customDnsRecords' ('fullDomain');`
+            ).run();
+
+            db.prepare(
+                `CREATE INDEX 'idx_customDnsRecords_domainId' ON 'customDnsRecords' ('domainId');`
+            ).run();
+
+            db.prepare(
+                `CREATE TABLE 'resourceSessionReauth' (
+                    'userSessionId' text NOT NULL,
+                    'resourceId' integer NOT NULL,
+                    'revokedAt' integer NOT NULL,
+                    PRIMARY KEY('userSessionId', 'resourceId'),`
+            ).run();
+
+            db.prepare(
+                `ALTER TABLE 'deviceWebAuthCodes' ADD 'approvingSessionId' text;`
+            ).run();
+
+            db.prepare(
+                `ALTER TABLE 'idp' ADD 'sessionRevalidation' integer DEFAULT false NOT NULL;
+                    FOREIGN KEY ('userSessionId') REFERENCES 'session'('id') ON UPDATE no action ON DELETE cascade,
+                    FOREIGN KEY ('resourceId') REFERENCES 'resources'('resourceId') ON UPDATE no action ON DELETE cascade
+                );`
+            ).run();
+
+            db.prepare(
+                `CREATE TABLE 'idpGrants' (
+                    'grantId' text PRIMARY KEY NOT NULL,
+                    'idpId' integer NOT NULL,
+                    'refreshToken' text NOT NULL,
+                    'validatedAt' integer NOT NULL,
+                    'attemptedAt' integer,
+                    'leaseId' text,
+                    'leaseExpiresAt' integer,
+                    'revokedAt' integer,
+                    FOREIGN KEY ('idpId') REFERENCES 'idp'('idpId') ON UPDATE no action ON DELETE cascade
+                );`
+            ).run();
+
+            db.prepare(
+                `CREATE TABLE 'sessionIdpGrants' (
+                    'sessionId' text PRIMARY KEY NOT NULL,
+                    'grantId' text NOT NULL,
+                    FOREIGN KEY ('sessionId') REFERENCES 'session'('id') ON UPDATE no action ON DELETE cascade,
+                    FOREIGN KEY ('grantId') REFERENCES 'idpGrants'('grantId') ON UPDATE no action ON DELETE cascade
+                );`
+            ).run();
+
+            db.prepare(
+                `ALTER TABLE 'deviceWebAuthCodes' ADD 'approvingSessionId' text;`
+            ).run();
+            db.prepare(
+                `ALTER TABLE 'idp' ADD 'sessionRevalidation' integer DEFAULT false NOT NULL;`
+            ).run();
+
+            db.prepare(
+                `ALTER TABLE 'resourceSessions' ADD 'requestSessionId' text;`
             ).run();
         })();
 

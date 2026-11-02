@@ -97,6 +97,86 @@ export default async function migration() {
         await db.execute(
             sql`CREATE INDEX "idx_ssh_command_log_org_timestamp" ON "sshCommandLog" USING btree ("orgId","timestamp");`
         );
+        await db.execute(
+            sql`
+            CREATE TABLE "customDnsRecords" (
+                "customDnsRecordId" serial PRIMARY KEY NOT NULL,
+                "domainId" varchar NOT NULL,
+                "name" varchar(255) NOT NULL,
+                "fullDomain" varchar(255) NOT NULL,
+                "type" varchar(10) NOT NULL,
+                "values" text NOT NULL,
+                "ttl" integer DEFAULT 300 NOT NULL,
+                "priority" integer,
+                "weight" integer,
+                "port" integer,
+                "enabled" boolean DEFAULT true NOT NULL,
+                "createdAt" bigint NOT NULL,
+                "updatedAt" bigint NOT NULL
+            );`
+        );
+        await db.execute(
+            sql`
+            CREATE TABLE "resourceSessionReauth" (
+                "userSessionId" varchar NOT NULL,
+                "resourceId" integer NOT NULL,
+                "revokedAt" bigint NOT NULL,
+                CONSTRAINT "resourceSessionReauth_userSessionId_resourceId_pk" PRIMARY KEY("userSessionId","resourceId")
+            );`
+        );
+        await db.execute(
+            sql`
+            CREATE TABLE "idpGrants" (
+                "grantId" varchar PRIMARY KEY NOT NULL,
+                "idpId" integer NOT NULL,
+                "refreshToken" text NOT NULL,
+                "validatedAt" bigint NOT NULL,
+                "attemptedAt" bigint,
+                "leaseId" varchar,
+                "leaseExpiresAt" bigint,
+                "revokedAt" bigint
+            );`
+        );
+        await db.execute(
+            sql`
+            CREATE TABLE "sessionIdpGrants" (
+                "sessionId" varchar PRIMARY KEY NOT NULL,
+                "grantId" varchar NOT NULL
+            );`
+        );
+        await db.execute(
+            sql`ALTER TABLE "deviceWebAuthCodes" ADD COLUMN "approvingSessionId" varchar;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "idp" ADD COLUMN "sessionRevalidation" boolean DEFAULT false NOT NULL;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "resourceSessions" ADD COLUMN "requestSessionId" varchar;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "customDnsRecords" ADD CONSTRAINT "customDnsRecords_domainId_domains_domainId_fk" FOREIGN KEY ("domainId") REFERENCES "public"."domains"("domainId") ON DELETE cascade ON UPDATE no action;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "resourceSessionReauth" ADD CONSTRAINT "resourceSessionReauth_userSessionId_session_id_fk" FOREIGN KEY ("userSessionId") REFERENCES "public"."session"("id") ON DELETE cascade ON UPDATE no action;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "resourceSessionReauth" ADD CONSTRAINT "resourceSessionReauth_resourceId_resources_resourceId_fk" FOREIGN KEY ("resourceId") REFERENCES "public"."resources"("resourceId") ON DELETE cascade ON UPDATE no action;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "idpGrants" ADD CONSTRAINT "idpGrants_idpId_idp_idpId_fk" FOREIGN KEY ("idpId") REFERENCES "public"."idp"("idpId") ON DELETE cascade ON UPDATE no action;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "sessionIdpGrants" ADD CONSTRAINT "sessionIdpGrants_sessionId_session_id_fk" FOREIGN KEY ("sessionId") REFERENCES "public"."session"("id") ON DELETE cascade ON UPDATE no action;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "sessionIdpGrants" ADD CONSTRAINT "sessionIdpGrants_grantId_idpGrants_grantId_fk" FOREIGN KEY ("grantId") REFERENCES "public"."idpGrants"("grantId") ON DELETE cascade ON UPDATE no action;`
+        );
+        await db.execute(
+            sql`CREATE INDEX "idx_customDnsRecords_fullDomain" ON "customDnsRecords" USING btree ("fullDomain");`
+        );
+        await db.execute(
+            sql`CREATE INDEX "idx_customDnsRecords_domainId" ON "customDnsRecords" USING btree ("domainId");`
+        );
 
         await db.execute(sql`COMMIT`);
         console.log("Migrated database");
