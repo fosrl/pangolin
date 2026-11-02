@@ -1307,7 +1307,9 @@ export const idp = pgTable("idp", {
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
     autoProvision: boolean("autoProvision").notNull().default(false),
-    sessionRevalidation: boolean("sessionRevalidation").notNull().default(false),
+    sessionRevalidation: boolean("sessionRevalidation")
+        .notNull()
+        .default(false),
     tags: text("tags")
 });
 
@@ -1421,7 +1423,8 @@ export const idpOrg = pgTable("idpOrg", {
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
     roleMapping: varchar("roleMapping"),
-    orgMapping: varchar("orgMapping")
+    orgMapping: varchar("orgMapping"),
+    autoProvision: boolean("autoProvision").notNull().default(false)
 });
 
 export const clients = pgTable(

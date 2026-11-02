@@ -158,7 +158,7 @@ export async function createOrgOidcIdp(
                 .insert(idp)
                 .values({
                     name,
-                    autoProvision,
+                    autoProvision: false,
                     sessionRevalidation,
                     type: "oidc",
                     tags
@@ -184,7 +184,8 @@ export async function createOrgOidcIdp(
                 idpId: idpRes.idpId,
                 orgId: orgId,
                 roleMapping: roleMapping || null,
-                orgMapping: orgMappingBody
+                orgMapping: orgMappingBody,
+                autoProvision: autoProvision ?? false
             });
         });
 

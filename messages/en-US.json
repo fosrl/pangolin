@@ -776,7 +776,7 @@
     "userSavedDescription": "The user has been updated.",
     "autoProvisioned": "Auto Provisioned",
     "autoProvisionSettings": "Auto Provision Settings",
-    "autoProvisionedDescription": "Allow this user to be automatically managed by identity provider",
+    "autoProvisionedDescription": "If the identity provider has auto-provisioning enabled, allow this user to be automatically managed.",
     "accessControlsDescription": "Manage what this user can access and do in the organization",
     "accessControlsSubmit": "Save Access Controls",
     "singleRolePerUserPlanNotice": "Your plan only supports one role per user.",

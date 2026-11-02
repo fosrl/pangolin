@@ -1,5 +1,6 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 const SESSION_REVALIDATION_DOCS_URL =
@@ -20,9 +21,10 @@ export default function IdpSessionRevalidationDescription({
                 href={SESSION_REVALIDATION_DOCS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-primary hover:underline inline-flex items-center gap-1"
             >
                 {t("learnMore")}
+                <ExternalLink className="size-3.5 shrink-0" />
             </a>
         </span>
     );

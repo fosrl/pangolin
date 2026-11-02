@@ -205,7 +205,6 @@ export async function updateOrgOidcIdp(
         await db.transaction(async (trx) => {
             const idpData = {
                 name,
-                autoProvision,
                 sessionRevalidation,
                 tags
             };
@@ -246,12 +245,16 @@ export async function updateOrgOidcIdp(
             const idpOrgPolicyPatch: {
                 roleMapping?: string;
                 orgMapping?: string | null;
+                autoProvision?: boolean;
             } = {};
             if (roleMapping !== undefined) {
                 idpOrgPolicyPatch.roleMapping = roleMapping;
             }
             if (orgMapping !== undefined) {
                 idpOrgPolicyPatch.orgMapping = orgMapping;
+            }
+            if (autoProvision !== undefined) {
+                idpOrgPolicyPatch.autoProvision = autoProvision;
             }
             if (Object.keys(idpOrgPolicyPatch).length > 0) {
                 await trx

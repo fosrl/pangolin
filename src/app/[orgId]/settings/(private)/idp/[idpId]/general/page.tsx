@@ -224,7 +224,9 @@ export default function GeneralPage() {
                         name: data.idp.name,
                         clientId: data.idpOidcConfig.clientId,
                         clientSecret: data.idpOidcConfig.clientSecret,
-                        autoProvision: data.idp.autoProvision,
+                        autoProvision:
+                            data.idpOrg?.autoProvision ??
+                            data.idp.autoProvision,
                         sessionRevalidation:
                             data.idp.sessionRevalidation ?? false,
                         roleMapping: roleMapping || null,

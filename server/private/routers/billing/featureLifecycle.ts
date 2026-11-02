@@ -17,7 +17,6 @@ import { Tier } from "@server/types/Tiers";
 import logger from "@server/logger";
 import {
     db,
-    idp,
     idpOrg,
     loginPage,
     loginPageBranding,
@@ -639,17 +638,10 @@ async function disableStandaloneHealthChecks(orgId: string): Promise<void> {
 }
 
 async function disableAutoProvisioning(orgId: string): Promise<void> {
-    // Get all IDP IDs for this org through the idpOrg join table
-    const orgIdps = await db
-        .select({ idpId: idpOrg.idpId })
-        .from(idpOrg)
+    // Disable auto-provision only for this org's IdP links so shared IdPs
+    // keep auto-provision enabled in sibling orgs.
+    await db
+        .update(idpOrg)
+        .set({ autoProvision: false })
         .where(eq(idpOrg.orgId, orgId));
-
-    // Update autoProvision to false for all IDPs in this org
-    for (const { idpId } of orgIdps) {
-        await db
-            .update(idp)
-            .set({ autoProvision: false })
-            .where(eq(idp.idpId, idpId));
-    }
 }

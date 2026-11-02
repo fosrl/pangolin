@@ -1748,7 +1748,12 @@ export const idpOrg = sqliteTable("idpOrg", {
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
     roleMapping: text("roleMapping"),
-    orgMapping: text("orgMapping")
+    orgMapping: text("orgMapping"),
+    autoProvision: integer("autoProvision", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false)
 });
 
 // Blueprint runs
