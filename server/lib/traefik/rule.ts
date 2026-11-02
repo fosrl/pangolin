@@ -53,7 +53,15 @@ export function appendPathMatch(
     if (pathMatchType === "exact") {
         return `${rule} && Path(${ruleValue(p)})`;
     } else if (pathMatchType === "prefix") {
-        return `${rule} && PathPrefix(${ruleValue(p)})`;
+        // Traefik's PathPrefix is a plain string prefix, so `/office/zz` would
+        // also match `/office/zzabc`. That disagrees with matchesPath, which
+        // badger uses to decide whether a request belongs to a redirect: the
+        // router would match, badger would pass the request through, and the
+        // noop service would answer 418. Emit the same segment-aware match.
+        if (p.endsWith("/")) {
+            return `${rule} && PathPrefix(${ruleValue(p)})`;
+        }
+        return `${rule} && (Path(${ruleValue(p)}) || PathPrefix(${ruleValue(`${p}/`)}))`;
     } else if (pathMatchType === "regex") {
         return `${rule} && PathRegexp(${ruleValue(path)})`; // this is the raw path because it's a regex
     }

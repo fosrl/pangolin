@@ -156,6 +156,23 @@ function runTests() {
         "Host(`a.com`) && PathRegexp(`^/v[0-9]+/`)",
         "plain regex path"
     );
+    // PathPrefix is a string prefix in Traefik, so it must be paired with an
+    // exact Path to stay segment-aware like matchesPath.
+    assertEquals(
+        appendPathMatch("Host(`a.com`)", "/products", "prefix"),
+        "Host(`a.com`) && (Path(`/products`) || PathPrefix(`/products/`))",
+        "plain prefix path stays segment-aware"
+    );
+    assertEquals(
+        appendPathMatch("Host(`a.com`)", "products", "prefix"),
+        "Host(`a.com`) && (Path(`/products`) || PathPrefix(`/products/`))",
+        "prefix path gets a leading slash"
+    );
+    assertEquals(
+        appendPathMatch("Host(`a.com`)", "/products/", "prefix"),
+        "Host(`a.com`) && PathPrefix(`/products/`)",
+        "prefix ending in a slash needs no exact clause"
+    );
 
     // A backtick must not be able to close the literal and inject matchers
     const injectedPath = "/a`) || Host(`victim.example.com`) && PathPrefix(`/";
