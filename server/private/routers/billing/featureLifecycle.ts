@@ -17,7 +17,6 @@ import { Tier } from "@server/types/Tiers";
 import logger from "@server/logger";
 import {
     db,
-    idp,
     idpOrg,
     loginPage,
     loginPageBranding,
@@ -145,6 +144,17 @@ async function capRetentionDays(
         needsUpdate = true;
         logger.info(
             `Capping AI session log retention from ${org.settingsLogRetentionDaysAISessions} to ${maxRetentionDays} days for org ${orgId}`
+        );
+    }
+
+    if (
+        org.settingsLogRetentionDaysSsh !== null &&
+        org.settingsLogRetentionDaysSsh > maxRetentionDays
+    ) {
+        updates.settingsLogRetentionDaysSsh = maxRetentionDays;
+        needsUpdate = true;
+        logger.info(
+            `Capping SSH session log retention from ${org.settingsLogRetentionDaysSsh} to ${maxRetentionDays} days for org ${orgId}`
         );
     }
 
@@ -296,6 +306,10 @@ async function disableFeature(
 
             case TierFeature.AISessionLogs:
                 await disableAISessionLogs(orgId);
+                break;
+
+            case TierFeature.SSHSessionLogs:
+                await disableSSHSessionLogs(orgId);
                 break;
 
             case TierFeature.MaintenancePage:
@@ -509,6 +523,15 @@ async function disableAISessionLogs(orgId: string): Promise<void> {
     logger.info(`Disabled AI session logs for org ${orgId}`);
 }
 
+async function disableSSHSessionLogs(orgId: string): Promise<void> {
+    await db
+        .update(orgs)
+        .set({ settingsLogRetentionDaysSsh: 0 })
+        .where(eq(orgs.orgId, orgId));
+
+    logger.info(`Disabled SSH session logs for org ${orgId}`);
+}
+
 async function disableRotateCredentials(orgId: string): Promise<void> {}
 
 async function disablemaintenancePage(orgId: string): Promise<void> {
@@ -615,17 +638,10 @@ async function disableStandaloneHealthChecks(orgId: string): Promise<void> {
 }
 
 async function disableAutoProvisioning(orgId: string): Promise<void> {
-    // Get all IDP IDs for this org through the idpOrg join table
-    const orgIdps = await db
-        .select({ idpId: idpOrg.idpId })
-        .from(idpOrg)
+    // Disable auto-provision only for this org's IdP links so shared IdPs
+    // keep auto-provision enabled in sibling orgs.
+    await db
+        .update(idpOrg)
+        .set({ autoProvision: false })
         .where(eq(idpOrg.orgId, orgId));
-
-    // Update autoProvision to false for all IDPs in this org
-    for (const { idpId } of orgIdps) {
-        await db
-            .update(idp)
-            .set({ autoProvision: false })
-            .where(eq(idp.idpId, idpId));
-    }
 }

@@ -95,6 +95,12 @@ const createHttpResourceSchema = z
                 "Deprecated. Use `mode` instead. Legacy compatibility only."
         }),
         domainId: z.string(),
+        matchBaseDomain: z
+            .boolean()
+            .optional()
+            .describe(
+                "For HTTP resources with a wildcard subdomain: also serve the host the wildcard sits under, so *.apps.example.com also matches apps.example.com."
+            ),
         stickySession: z.boolean().optional(),
         postAuthPath: z.string().nullable().optional(),
         mode: z
@@ -386,6 +392,7 @@ async function createHttpResource(
     } = parsedBody.data;
     const subdomain = parsedBody.data.subdomain;
     const stickySession = parsedBody.data.stickySession;
+    const matchBaseDomain = parsedBody.data.matchBaseDomain ?? false;
 
     const effectiveMode = mode ?? "http";
 
@@ -479,6 +486,24 @@ async function createHttpResource(
 
     logger.debug(`Full domain: ${fullDomain}`);
 
+    if (matchBaseDomain && effectiveMode !== "http") {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "Matching the base domain is only supported on HTTP resources."
+            )
+        );
+    }
+
+    if (matchBaseDomain && !wildcard) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "Matching the base domain requires a wildcard subdomain."
+            )
+        );
+    }
+
     // make sure the full domain is unique. Inference resources are routed
     // through the central AI gateway rather than normal target-based
     // proxying, so they're allowed to share a full-domain with a
@@ -505,7 +530,11 @@ async function createHttpResource(
         );
     }
 
-    const wildcardConflict = await checkWildcardDomainConflict(fullDomain);
+    const wildcardConflict = await checkWildcardDomainConflict(
+        fullDomain,
+        undefined,
+        matchBaseDomain
+    );
     if (wildcardConflict.conflict) {
         return next(
             createHttpError(HttpCode.CONFLICT, wildcardConflict.message)
@@ -602,6 +631,7 @@ async function createHttpResource(
                 stickySession: stickySession,
                 postAuthPath: postAuthPath,
                 wildcard,
+                matchBaseDomain,
                 health: "unknown",
                 defaultResourcePolicyId: defaultPolicy.resourcePolicyId
             })

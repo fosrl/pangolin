@@ -27,9 +27,12 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { validateAndConstructDomain } from "@server/lib/domainUtils";
 import { createCertificate } from "@server/routers/certificates/createCertificate";
+import { build } from "@server/build";
+import privateConfig from "#private/lib/config";
+import { getCurrentExitNodeId } from "@server/lib/exitNodes";
 
 import { CreateLoginPageResponse } from "@server/routers/loginPage/types";
 
@@ -107,7 +110,16 @@ export async function createLoginPage(
         const existingResource = await db
             .select()
             .from(resources)
-            .where(eq(resources.fullDomain, fullDomain));
+            .where(
+                or(
+                    eq(resources.fullDomain, fullDomain),
+                    // a wildcard resource also serving this as its base
+                    and(
+                        eq(resources.fullDomain, `*.${fullDomain}`),
+                        eq(resources.matchBaseDomain, true)
+                    )
+                )
+            );
 
         if (existingResource.length > 0) {
             return next(
@@ -134,42 +146,53 @@ export async function createLoginPage(
 
         let returned: LoginPage | undefined;
         await db.transaction(async (trx) => {
-            const orgSites = await trx
-                .select()
-                .from(sites)
-                .innerJoin(
-                    exitNodes,
-                    eq(exitNodes.exitNodeId, sites.exitNodeId)
-                )
-                .where(
-                    and(
-                        eq(sites.orgId, orgId),
-                        eq(exitNodes.type, "gerbil"),
-                        eq(exitNodes.online, true)
-                    )
-                )
-                .limit(10);
+            let exitNodeId: number | undefined;
 
-            let exitNodesList = orgSites.map((s) => s.exitNodes);
-
-            if (exitNodesList.length === 0) {
-                exitNodesList = await trx
+            if (
+                build === "enterprise" &&
+                !privateConfig.getRawPrivateConfig().flags.use_pangolin_dns
+            ) {
+                exitNodeId = await getCurrentExitNodeId();
+            } else {
+                const orgSites = await trx
                     .select()
-                    .from(exitNodes)
+                    .from(sites)
+                    .innerJoin(
+                        exitNodes,
+                        eq(exitNodes.exitNodeId, sites.exitNodeId)
+                    )
                     .where(
                         and(
+                            eq(sites.orgId, orgId),
                             eq(exitNodes.type, "gerbil"),
                             eq(exitNodes.online, true)
                         )
                     )
                     .limit(10);
+
+                let exitNodesList = orgSites.map((s) => s.exitNodes);
+
+                if (exitNodesList.length === 0) {
+                    exitNodesList = await trx
+                        .select()
+                        .from(exitNodes)
+                        .where(
+                            and(
+                                eq(exitNodes.type, "gerbil"),
+                                eq(exitNodes.online, true)
+                            )
+                        )
+                        .limit(10);
+                }
+
+                const randomExitNode =
+                    exitNodesList[
+                        Math.floor(Math.random() * exitNodesList.length)
+                    ];
+                exitNodeId = randomExitNode?.exitNodeId;
             }
 
-            // select a random exit node
-            const randomExitNode =
-                exitNodesList[Math.floor(Math.random() * exitNodesList.length)];
-
-            if (!randomExitNode) {
+            if (!exitNodeId) {
                 throw new Error("No exit nodes available");
             }
 
@@ -179,7 +202,7 @@ export async function createLoginPage(
                     subdomain: finalSubdomain,
                     fullDomain,
                     domainId,
-                    exitNodeId: randomExitNode.exitNodeId
+                    exitNodeId
                 })
                 .returning();
 

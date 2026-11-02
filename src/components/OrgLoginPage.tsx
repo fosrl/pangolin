@@ -17,6 +17,7 @@ import { replacePlaceholder } from "@app/lib/replacePlaceholder";
 import PoweredByPangolin from "@app/components/PoweredByPangolin";
 import BrandedAuthSurface from "@app/components/BrandedAuthSurface";
 import { getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
 import { pullEnv } from "@app/lib/pullEnv";
 
 type OrgLoginPageProps = {
@@ -52,6 +53,10 @@ export default async function OrgLoginPage({
 }: OrgLoginPageProps) {
     const env = pullEnv();
     const t = await getTranslations();
+    const host = (await headers()).get("host");
+    const dashboardHost = env.app.dashboardUrl.split("//")[1];
+    const onDashboardHost = host === dashboardHost;
+
     return (
         <BrandedAuthSurface primaryColor={branding?.primaryColor ?? null}>
             <PoweredByPangolin />
@@ -88,6 +93,7 @@ export default async function OrgLoginPage({
                         <IdpLoginButtons
                             idps={loginIdps}
                             orgId={loginPage?.orgId}
+                            passOrgIdToOidcUrl={!onDashboardHost}
                             redirect={searchParams.redirect}
                         />
                     ) : (

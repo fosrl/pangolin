@@ -58,7 +58,9 @@ Legacy SASE platforms got the idea right: connectivity and security belong toget
 
 - Get started for free with [Pangolin Cloud](https://app.pangolin.net/).
 - Or, check out the [quick install guide](https://docs.pangolin.net/self-host/quick-install) for how to self-host Pangolin.
-  - Install from the [DigitalOcean marketplace](https://marketplace.digitalocean.com/apps/pangolin-ce-1?refcode=edf0480eeb81) for a one-click pre-configured installer.
+- Or, deploy in minutes from a prebuilt image on [AWS or DigitalOcean](https://docs.pangolin.net/self-host/one-click-deploy):
+  - **AWS:** Community and Enterprise AMIs for x86 and Graviton. Configure at launch with user-data or CloudFormation.
+  - **DigitalOcean:** install from the [DigitalOcean marketplace](https://marketplace.digitalocean.com/apps/pangolin-ce-1?refcode=edf0480eeb81) for a one-click pre-configured installer.
 
 <img src="public/screenshots/hero.png" alt="Pangolin" width="100%" />
 

@@ -69,6 +69,9 @@ export const orgs = pgTable("orgs", {
     ) // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
         .notNull()
         .default(0),
+    settingsLogRetentionDaysSsh: integer("settingsLogRetentionDaysSsh") // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
+        .notNull()
+        .default(0),
     sshCaPrivateKey: text("sshCaPrivateKey"), // Encrypted SSH CA private key (PEM format)
     sshCaPublicKey: text("sshCaPublicKey"), // SSH CA public key (OpenSSH format)
     isBillingOrg: boolean("isBillingOrg"),
@@ -210,6 +213,7 @@ export const resources = pgTable(
         postAuthPath: text("postAuthPath"),
         health: varchar("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: boolean("wildcard").notNull().default(false),
+        matchBaseDomain: boolean("matchBaseDomain").notNull().default(false), // wildcard resources only: also serve the host the wildcard sits under
         mode: text("mode")
             .default("http")
             .$type<
@@ -758,6 +762,28 @@ export const sessions = pgTable(
     (t) => [index("idx_sessions_userid").on(t.userId)]
 );
 
+export const idpGrants = pgTable("idpGrants", {
+    grantId: varchar("grantId").primaryKey(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    refreshToken: text("refreshToken").notNull(),
+    validatedAt: bigint("validatedAt", { mode: "number" }).notNull(),
+    attemptedAt: bigint("attemptedAt", { mode: "number" }),
+    leaseId: varchar("leaseId"),
+    leaseExpiresAt: bigint("leaseExpiresAt", { mode: "number" }),
+    revokedAt: bigint("revokedAt", { mode: "number" })
+});
+
+export const sessionIdpGrants = pgTable("sessionIdpGrants", {
+    sessionId: varchar("sessionId")
+        .primaryKey()
+        .references(() => sessions.sessionId, { onDelete: "cascade" }),
+    grantId: varchar("grantId")
+        .notNull()
+        .references(() => idpGrants.grantId, { onDelete: "cascade" })
+});
+
 export const newtSessions = pgTable("newtSession", {
     sessionId: varchar("id").primaryKey(),
     newtId: varchar("newtId")
@@ -1160,7 +1186,10 @@ export const resourceSessions = pgTable("resourceSessions", {
             onDelete: "cascade"
         }
     ),
-    issuedAt: bigint("issuedAt", { mode: "number" })
+    issuedAt: bigint("issuedAt", { mode: "number" }),
+    // Id of the short-lived request token this session was exchanged from.
+    // Login audit logs reference that id, so this links them to the session.
+    requestSessionId: varchar("requestSessionId")
 });
 
 export const resourceWhitelist = pgTable("resourceWhitelist", {
@@ -1278,6 +1307,9 @@ export const idp = pgTable("idp", {
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
     autoProvision: boolean("autoProvision").notNull().default(false),
+    sessionRevalidation: boolean("sessionRevalidation")
+        .notNull()
+        .default(false),
     tags: text("tags")
 });
 
@@ -1391,7 +1423,8 @@ export const idpOrg = pgTable("idpOrg", {
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
     roleMapping: varchar("roleMapping"),
-    orgMapping: varchar("orgMapping")
+    orgMapping: varchar("orgMapping"),
+    autoProvision: boolean("autoProvision").notNull().default(false)
 });
 
 export const clients = pgTable(
@@ -1740,7 +1773,8 @@ export const deviceWebAuthCodes = pgTable("deviceWebAuthCodes", {
     verified: boolean("verified").notNull().default(false),
     userId: varchar("userId").references(() => users.userId, {
         onDelete: "cascade"
-    })
+    }),
+    approvingSessionId: varchar("approvingSessionId")
 });
 
 export const roundTripMessageTracker = pgTable("roundTripMessageTracker", {
@@ -2158,6 +2192,7 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;
 export type SecurityKey = InferSelectModel<typeof securityKeys>;

@@ -32,6 +32,7 @@ import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useState, useEffect } from "react";
 import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
 import { SwitchInput } from "@app/components/SwitchInput";
 import {
     InfoSection,
@@ -42,6 +43,7 @@ import {
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import IdpTypeBadge from "@app/components/IdpTypeBadge";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
+import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 import { useTranslations } from "next-intl";
 
 export default function GeneralPage() {
@@ -74,7 +76,8 @@ export default function GeneralPage() {
         emailPath: z.string().optional(),
         namePath: z.string().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
-        autoProvision: z.boolean().default(false)
+        autoProvision: z.boolean().default(false),
+        sessionRevalidation: z.boolean().default(false)
     });
 
     const GoogleFormSchema = z.object({
@@ -83,7 +86,8 @@ export default function GeneralPage() {
         clientSecret: z
             .string()
             .min(1, { message: t("idpClientSecretRequired") }),
-        autoProvision: z.boolean().default(false)
+        autoProvision: z.boolean().default(false),
+        sessionRevalidation: z.boolean().default(false)
     });
 
     const AzureFormSchema = z.object({
@@ -93,16 +97,15 @@ export default function GeneralPage() {
             .string()
             .min(1, { message: t("idpClientSecretRequired") }),
         tenantId: z.string().min(1, { message: t("idpTenantIdRequired") }),
-        autoProvision: z.boolean().default(false)
+        autoProvision: z.boolean().default(false),
+        sessionRevalidation: z.boolean().default(false)
     });
 
     type OidcFormValues = z.infer<typeof OidcFormSchema>;
     type GoogleFormValues = z.infer<typeof GoogleFormSchema>;
     type AzureFormValues = z.infer<typeof AzureFormSchema>;
     type GeneralFormValues =
-        | OidcFormValues
-        | GoogleFormValues
-        | AzureFormValues;
+        OidcFormValues | GoogleFormValues | AzureFormValues;
 
     const getFormSchema = () => {
         switch (variant) {
@@ -128,6 +131,7 @@ export default function GeneralPage() {
             namePath: "name",
             scopes: "openid profile email",
             autoProvision: true,
+            sessionRevalidation: false,
             tenantId: ""
         }
     });
@@ -144,9 +148,7 @@ export default function GeneralPage() {
                     const data = res.data.data;
                     const idpVariant =
                         (data.idpOidcConfig?.variant as
-                            | "oidc"
-                            | "google"
-                            | "azure") || "oidc";
+                            "oidc" | "google" | "azure") || "oidc";
                     setVariant(idpVariant);
                     setOriginalIdentifierPath(
                         data.idpOidcConfig?.identifierPath ?? "sub"
@@ -166,7 +168,9 @@ export default function GeneralPage() {
                         name: data.idp.name,
                         clientId: data.idpOidcConfig.clientId,
                         clientSecret: data.idpOidcConfig.clientSecret,
-                        autoProvision: data.idp.autoProvision
+                        autoProvision: data.idp.autoProvision,
+                        sessionRevalidation:
+                            data.idp.sessionRevalidation ?? false
                     };
 
                     if (idpVariant === "oidc") {
@@ -229,11 +233,16 @@ export default function GeneralPage() {
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
                 autoProvision: data.autoProvision,
+                sessionRevalidation: data.sessionRevalidation,
                 variant
             };
 
             if (variant === "oidc") {
                 const oidcData = data as OidcFormValues;
+                let scopes = oidcData.scopes;
+                if (data.sessionRevalidation) {
+                    scopes = scopesForSessionRevalidation(scopes, "oidc");
+                }
                 payload = {
                     ...payload,
                     authUrl: oidcData.authUrl,
@@ -241,12 +250,16 @@ export default function GeneralPage() {
                     identifierPath: oidcData.identifierPath,
                     emailPath: oidcData.emailPath ?? "",
                     namePath: oidcData.namePath ?? "",
-                    scopes: oidcData.scopes
+                    scopes
                 };
             } else if (variant === "azure") {
                 const azureData = data as AzureFormValues;
                 const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
                 const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
+                let scopes = "openid profile email";
+                if (data.sessionRevalidation) {
+                    scopes = scopesForSessionRevalidation(scopes, "azure");
+                }
                 payload = {
                     ...payload,
                     authUrl,
@@ -254,9 +267,10 @@ export default function GeneralPage() {
                     identifierPath: "email",
                     emailPath: "email",
                     namePath: "name",
-                    scopes: "openid profile email"
+                    scopes
                 };
             } else if (variant === "google") {
+                // Google refresh tokens use access_type=offline, not offline_access
                 payload = {
                     ...payload,
                     authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -399,13 +413,48 @@ export default function GeneralPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    <div className="space-y-2">
+                                        <SwitchInput
+                                            id="session-revalidation-toggle"
+                                            label={t("idpSessionRevalidation")}
+                                            checked={form.watch(
+                                                "sessionRevalidation"
+                                            )}
+                                            onCheckedChange={(checked) => {
+                                                form.setValue(
+                                                    "sessionRevalidation",
+                                                    checked
+                                                );
+                                                if (
+                                                    checked &&
+                                                    variant === "oidc"
+                                                ) {
+                                                    const current =
+                                                        form.getValues(
+                                                            "scopes"
+                                                        ) ||
+                                                        "openid profile email";
+                                                    form.setValue(
+                                                        "scopes",
+                                                        scopesForSessionRevalidation(
+                                                            current,
+                                                            "oidc"
+                                                        )
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                        <FormDescription>
+                                            <IdpSessionRevalidationDescription />
+                                        </FormDescription>
+                                    </div>
                                 </form>
                             </Form>
                         </SettingsSectionForm>
                     </SettingsSectionBody>
                 </SettingsSection>
 
-                <SettingsSection>
+                <SettingsSection className="min-h-0">
                     <SettingsSectionHeader>
                         <SettingsSectionTitle>
                             {t("idpAutoProvisionUsers")}
@@ -421,42 +470,31 @@ export default function GeneralPage() {
                                 className="space-y-4"
                                 id="general-settings-form"
                             >
-                                <div className="flex items-start mb-0">
-                                    <SwitchInput
-                                        id="auto-provision-toggle"
-                                        label={t("idpAutoProvisionUsers")}
-                                        defaultChecked={form.getValues(
-                                            "autoProvision"
+                                <SwitchInput
+                                    id="auto-provision-toggle"
+                                    label={t("idpAutoProvisionUsers")}
+                                    checked={form.watch("autoProvision")}
+                                    onCheckedChange={(checked) => {
+                                        form.setValue("autoProvision", checked);
+                                    }}
+                                />
+                                {form.watch("autoProvision") && (
+                                    <FormDescription>
+                                        {t.rich(
+                                            "idpAdminAutoProvisionPoliciesTabHint",
+                                            {
+                                                policiesTabLink: (chunks) => (
+                                                    <Link
+                                                        href={`/admin/idp/${idpId}/policies`}
+                                                        className="text-primary hover:underline inline-flex items-center gap-1"
+                                                    >
+                                                        {chunks}
+                                                    </Link>
+                                                )
+                                            }
                                         )}
-                                        onCheckedChange={(checked) => {
-                                            form.setValue(
-                                                "autoProvision",
-                                                checked
-                                            );
-                                        }}
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    {form.watch("autoProvision") && (
-                                        <FormDescription>
-                                            {t.rich(
-                                                "idpAdminAutoProvisionPoliciesTabHint",
-                                                {
-                                                    policiesTabLink: (
-                                                        chunks
-                                                    ) => (
-                                                        <Link
-                                                            href={`/admin/idp/${idpId}/policies`}
-                                                            className="text-primary hover:underline inline-flex items-center gap-1"
-                                                        >
-                                                            {chunks}
-                                                        </Link>
-                                                    )
-                                                }
-                                            )}
-                                        </FormDescription>
-                                    )}
-                                </div>
+                                    </FormDescription>
+                                )}
                             </form>
                         </Form>
                     </SettingsSectionBody>

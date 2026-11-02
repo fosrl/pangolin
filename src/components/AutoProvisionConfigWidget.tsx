@@ -82,15 +82,13 @@ export default function AutoProvisionConfigWidget({
     return (
         <div className="space-y-4">
             {showAutoProvisionSwitch && (
-                <div className="mb-4">
-                    <SwitchInput
-                        id={autoProvisionSwitchId}
-                        label={t("idpAutoProvisionUsers")}
-                        defaultChecked={autoProvision}
-                        onCheckedChange={onAutoProvisionChange}
-                        disabled={!isPaidUser(tierMatrix.autoProvisioning)}
-                    />
-                </div>
+                <SwitchInput
+                    id={autoProvisionSwitchId}
+                    label={t("idpAutoProvisionUsers")}
+                    defaultChecked={autoProvision}
+                    onCheckedChange={onAutoProvisionChange}
+                    disabled={!isPaidUser(tierMatrix.autoProvisioning)}
+                />
             )}
 
             {showMappingTabs && (

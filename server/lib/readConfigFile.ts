@@ -4,6 +4,7 @@ import { configFilePath1, configFilePath2 } from "./consts";
 import { z } from "zod";
 import stoi from "./stoi";
 import { getEnvOrYaml, readEnvOrFile } from "./getEnvOrYaml";
+import { getRunMode } from "./runMode";
 // type-only: offlineThresholds imports config, which imports this file
 import type { OfflineThresholds } from "@server/lib/offlineThresholds";
 
@@ -150,6 +151,12 @@ export const configSchema = z
                     .gt(0)
                     .optional()
                     .default(720),
+                idp_session_revalidation_minutes: z
+                    .number()
+                    .positive()
+                    .gt(0)
+                    .optional()
+                    .default(5),
                 cors: z
                     .object({
                         origins: z.array(z.string()).optional(),
@@ -325,6 +332,10 @@ export const configSchema = z
                 base_endpoint: z
                     .string()
                     .optional()
+                    // The standalone DNS server never creates exit nodes
+                    .transform((url) =>
+                        url === undefined && getRunMode() === "dns" ? "" : url
+                    )
                     .pipe(z.string())
                     .transform((url) => url.toLowerCase()),
                 subnet_group: z.string().optional().default("100.89.137.0/18"),
@@ -516,6 +527,10 @@ export const configSchema = z
     )
     .refine(
         (data) => {
+            // The standalone DNS server never uses the secret
+            if (getRunMode() === "dns") {
+                return true;
+            }
             // If hybrid is not defined, server secret must be defined
             return (
                 data.server?.secret !== undefined &&

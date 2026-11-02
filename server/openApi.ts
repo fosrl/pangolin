@@ -16,6 +16,7 @@ export enum OpenAPITags {
     Rule = "Rule",
     Invitation = "User Invitation",
     AccessToken = "Access Token",
+    ResourceSession = "Resource Session",
     GlobalIdp = "Identity Provider (Global)",
     OrgIdp = "Identity Provider (Organization Only)",
     ApiKey = "API Key",

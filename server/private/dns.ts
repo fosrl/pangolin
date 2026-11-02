@@ -16,13 +16,15 @@ import { privateConfig } from "#private/lib/config";
 
 let dnsServer: AuthoritativeDNSServer | undefined;
 
-export async function startDnsServer() {
+export async function startDnsServer(
+    options: { requireLicense?: boolean } = {}
+) {
     const dnsConfig = privateConfig.getRawPrivateConfig().dns;
     if (!dnsConfig || !dnsConfig.enabled) {
         return;
     }
 
-    dnsServer = new AuthoritativeDNSServer(dnsConfig.listen_port);
+    dnsServer = new AuthoritativeDNSServer(dnsConfig.listen_port, options);
 
     await dnsServer.start();
 }

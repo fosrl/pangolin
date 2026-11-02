@@ -98,7 +98,7 @@ export async function authWithAccessToken(
         }
 
         const token = generateSessionToken();
-        await createResourceSession({
+        const requestSession = await createResourceSession({
             resourceId: resource.resourceId,
             token,
             accessTokenId: tokenItem.accessTokenId,
@@ -141,9 +141,10 @@ export async function authWithAccessToken(
             metadata: accessAuditUser
                 ? {
                       accessTokenId: tokenItem.accessTokenId,
-                      accessTokenTitle: tokenItem.title
+                      accessTokenTitle: tokenItem.title,
+                      resourceSessionId: requestSession.sessionId
                   }
-                : undefined,
+                : { resourceSessionId: requestSession.sessionId },
             userAgent: req.headers["user-agent"],
             requestIp: req.ip
         });

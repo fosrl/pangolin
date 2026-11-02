@@ -29,6 +29,8 @@ import { isOrgSubscribed } from "@app/lib/api/isOrgSubscribed";
 import { normalizePostAuthPath } from "@server/lib/normalizePostAuthPath";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { Alert, AlertDescription } from "@app/components/ui/alert";
 
 export async function generateMetadata(): Promise<Metadata> {
     const env = pullEnv();
@@ -141,6 +143,11 @@ export default async function ResourceAuthPage(props: {
                 host: string
             ): boolean => {
                 if (!wildcardDomain.startsWith("*.")) return false;
+                if (
+                    authInfo.matchBaseDomain &&
+                    host === wildcardDomain.slice(2)
+                )
+                    return true;
                 const suffix = wildcardDomain.slice(1); // e.g. ".wildcard.owen.fosrl.io"
                 return host.endsWith(suffix) && host.length > suffix.length;
             };
@@ -236,6 +243,7 @@ export default async function ResourceAuthPage(props: {
 
     // convert the dashboard token into a resource session token
     let userIsUnauthorized = false;
+    let reauthRequired = false;
     if (user && authInfo.sso) {
         let redirectToUrl: string | undefined;
         try {
@@ -247,7 +255,10 @@ export default async function ResourceAuthPage(props: {
                 cookie
             );
 
-            if (res.data.data.requestToken) {
+            if (res.data.data.reauthRequired) {
+                // fall through to the login form so the user signs in again
+                reauthRequired = true;
+            } else if (res.data.data.requestToken) {
                 const paramName = env.server.resourceSessionRequestParam;
                 // append the param with the token to the redirect url
                 const fullUrl = new URL(redirectUrl);
@@ -311,11 +322,18 @@ export default async function ResourceAuthPage(props: {
                     resourceId={authInfo.resourceId}
                     skipToIdpId={authInfo.skipToIdpId}
                     redirectUrl={postAuthRedirect}
-                    orgId={build === "saas" ? authInfo.orgId : undefined}
+                    orgId={
+                        build === "saas" ||
+                        env.app.identityProviderMode === "org"
+                            ? authInfo.orgId
+                            : undefined
+                    }
                 />
             );
         }
     }
+
+    const t = await getTranslations();
 
     let branding: LoadLoginPageBrandingResponse | null = null;
     try {
@@ -337,6 +355,13 @@ export default async function ResourceAuthPage(props: {
                 </div>
             ) : (
                 <div className="w-full max-w-md">
+                    {reauthRequired && (
+                        <Alert className="mb-4">
+                            <AlertDescription>
+                                {t("resourceSessionReauthRequired")}
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     <ResourceAuthPortal
                         methods={{
                             password: authInfo.password,
@@ -350,7 +375,12 @@ export default async function ResourceAuthPage(props: {
                         }}
                         redirect={postAuthRedirect}
                         idps={loginIdps}
-                        orgId={build === "saas" ? authInfo.orgId : undefined}
+                        orgId={
+                            build === "saas" ||
+                            env.app.identityProviderMode === "org"
+                                ? authInfo.orgId
+                                : undefined
+                        }
                         branding={
                             !branding || build === "oss"
                                 ? undefined

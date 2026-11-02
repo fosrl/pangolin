@@ -9,6 +9,7 @@ import {
     Building2Icon,
     Cable,
     ChartLine,
+    Cookie,
     Coins,
     CreditCard,
     Fingerprint,
@@ -31,6 +32,7 @@ import {
     ShieldIcon,
     Sparkles,
     SquareMousePointer,
+    SquareTerminal,
     TagIcon,
     TicketCheck,
     Unplug,
@@ -221,6 +223,15 @@ export const orgNavSections = (
                       }
                   ]
                 : []),
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "sidebarResourceSessions",
+                          href: "/{orgId}/settings/access/resource-sessions",
+                          icon: <Cookie className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             {
                 title: "sidebarShareableLinks",
                 href: "/{orgId}/settings/share-links",
@@ -288,6 +299,13 @@ export const orgNavSections = (
                                   title: "sidebarLogsConnection",
                                   href: "/{orgId}/settings/logs/connection",
                                   icon: <Cable className="size-4 flex-none" />
+                              },
+                              {
+                                  title: "sidebarLogsSsh",
+                                  href: "/{orgId}/settings/logs/ssh",
+                                  icon: (
+                                      <SquareTerminal className="size-4 flex-none" />
+                                  )
                               },
                               {
                                   title: "sidebarLogsStreaming",
@@ -541,6 +559,15 @@ export const commandBarNavSections = (
                       }
                   ]
                 : []),
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "commandResourceSessions",
+                          href: "/{orgId}/settings/access/resource-sessions",
+                          icon: <Cookie className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             {
                 title: "commandShareableLinks",
                 href: "/{orgId}/settings/share-links",
@@ -602,6 +629,11 @@ export const commandBarNavSections = (
                           title: "commandLogsConnection",
                           href: "/{orgId}/settings/logs/connection",
                           icon: <Cable className="size-4 flex-none" />
+                      },
+                      {
+                          title: "commandLogsSsh",
+                          href: "/{orgId}/settings/logs/ssh",
+                          icon: <SquareTerminal className="size-4 flex-none" />
                       },
                       {
                           title: "commandLogsStreaming",

@@ -45,6 +45,10 @@ const updateOrgBodySchema = z
             .number()
             .min(build === "saas" ? 0 : -1)
             .optional(),
+        settingsLogRetentionDaysSsh: z
+            .number()
+            .min(build === "saas" ? 0 : -1)
+            .optional(),
         settingsEnableGlobalNewtAutoUpdate: z.boolean().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
@@ -183,6 +187,15 @@ export async function updateOrg(
             parsedBody.data.settingsLogRetentionDaysAISessions = undefined;
         }
 
+        // Check SSH session logs feature
+        const hasSSHSessionLogsFeature = await isLicensedOrSubscribed(
+            orgId,
+            tierMatrix[TierFeature.SSHSessionLogs]
+        );
+        if (!hasSSHSessionLogsFeature) {
+            parsedBody.data.settingsLogRetentionDaysSsh = undefined;
+        }
+
         if (build == "saas") {
             const { tier } = await getOrgTierData(orgId);
 
@@ -265,6 +278,18 @@ export async function updateOrg(
                         )
                     );
                 }
+                if (
+                    parsedBody.data.settingsLogRetentionDaysSsh !== undefined &&
+                    parsedBody.data.settingsLogRetentionDaysSsh >
+                        maxRetentionDays
+                ) {
+                    return next(
+                        createHttpError(
+                            HttpCode.FORBIDDEN,
+                            `You are not allowed to set log retention days greater than ${maxRetentionDays} with your current subscription`
+                        )
+                    );
+                }
             }
         }
 
@@ -285,6 +310,8 @@ export async function updateOrg(
                     parsedBody.data.settingsLogRetentionDaysConnection,
                 settingsLogRetentionDaysAISessions:
                     parsedBody.data.settingsLogRetentionDaysAISessions,
+                settingsLogRetentionDaysSsh:
+                    parsedBody.data.settingsLogRetentionDaysSsh,
                 settingsEnableGlobalNewtAutoUpdate:
                     parsedBody.data.settingsEnableGlobalNewtAutoUpdate
             })

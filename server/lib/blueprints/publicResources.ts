@@ -47,6 +47,7 @@ import logger from "@server/logger";
 import { defaultRoleAllowedActions } from "@server/routers/role/createRole";
 import { pickPort } from "@server/routers/target/helpers";
 import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
+import { checkWildcardDomainConflict } from "@server/lib/domainUtils";
 import { tierMatrix } from "../billing/tierMatrix";
 import {
     isValidCIDR,
@@ -328,7 +329,8 @@ export async function updatePublicResources(
                     resourceData["full-domain"]!,
                     orgId,
                     resourceData.mode === "inference",
-                    trx
+                    trx,
+                    resourceData["match-base-domain"]
                 );
 
                 await enforceDomainNamespacePaywall(
@@ -415,6 +417,8 @@ export async function updatePublicResources(
                             subdomain: domain ? domain.subdomain : null,
                             domainId: domain ? domain.domainId : null,
                             wildcard: domain ? domain.wildcard : false,
+                            matchBaseDomain:
+                                resourceData["match-base-domain"] ?? false,
                             enabled: resourceEnabled,
                             sso: resourceData.auth?.["sso-enabled"] || false,
                             skipToIdpId:
@@ -644,6 +648,8 @@ export async function updatePublicResources(
                             subdomain: domain ? domain.subdomain : null,
                             domainId: domain ? domain.domainId : null,
                             wildcard: domain ? domain.wildcard : false,
+                            matchBaseDomain:
+                                resourceData["match-base-domain"] ?? false,
                             enabled: resourceEnabled,
                             ssl: resourceSsl,
                             setHostHeader: resourceData["host-header"] || null,
@@ -1191,7 +1197,8 @@ export async function updatePublicResources(
                     resourceData["full-domain"]!,
                     orgId,
                     resourceData.mode === "inference",
-                    trx
+                    trx,
+                    resourceData["match-base-domain"]
                 );
 
                 await enforceDomainNamespacePaywall(
@@ -1291,6 +1298,7 @@ export async function updatePublicResources(
                     subdomain: domain ? domain.subdomain : null,
                     domainId: domain ? domain.domainId : null,
                     wildcard: domain ? domain.wildcard : false,
+                    matchBaseDomain: resourceData["match-base-domain"] ?? false,
                     enabled: resourceEnabled,
                     setHostHeader: resourceData["host-header"] || null,
                     forwardIdentityHeaders:
@@ -2252,7 +2260,8 @@ export async function getDomain(
     fullDomain: string,
     orgId: string,
     isInference: boolean,
-    trx: Transaction
+    trx: Transaction,
+    matchBaseDomain: boolean = false
 ) {
     const [fullDomainExists] = await trx
         .select({ resourceId: resources.resourceId })
@@ -2288,6 +2297,18 @@ export async function getDomain(
         throw new Error(
             `Domain not found for full-domain: ${fullDomain} in org ${orgId}`
         );
+    }
+
+    if (matchBaseDomain) {
+        const wildcardConflict = await checkWildcardDomainConflict(
+            fullDomain,
+            resourceId,
+            true,
+            trx
+        );
+        if (wildcardConflict.conflict) {
+            throw new Error(wildcardConflict.message);
+        }
     }
 
     await createCertificate(domain.domainId, fullDomain, trx);

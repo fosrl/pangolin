@@ -68,6 +68,9 @@ export const orgs = sqliteTable("orgs", {
     ) // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
         .notNull()
         .default(7),
+    settingsLogRetentionDaysSsh: integer("settingsLogRetentionDaysSsh") // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
+        .notNull()
+        .default(0),
     sshCaPrivateKey: text("sshCaPrivateKey"), // Encrypted SSH CA private key (PEM format)
     sshCaPublicKey: text("sshCaPublicKey"), // SSH CA public key (OpenSSH format)
     isBillingOrg: integer("isBillingOrg", { mode: "boolean" }),
@@ -234,6 +237,9 @@ export const resources = sqliteTable(
         postAuthPath: text("postAuthPath"),
         health: text("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: integer("wildcard", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        matchBaseDomain: integer("matchBaseDomain", { mode: "boolean" }) // wildcard resources only: also serve the host the wildcard sits under
             .notNull()
             .default(false),
         mode: text("mode")
@@ -1036,6 +1042,28 @@ export const sessions = sqliteTable(
     (table) => [index("idx_sessions_userId").on(table.userId)]
 );
 
+export const idpGrants = sqliteTable("idpGrants", {
+    grantId: text("grantId").primaryKey(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    refreshToken: text("refreshToken").notNull(),
+    validatedAt: integer("validatedAt").notNull(),
+    attemptedAt: integer("attemptedAt"),
+    leaseId: text("leaseId"),
+    leaseExpiresAt: integer("leaseExpiresAt"),
+    revokedAt: integer("revokedAt")
+});
+
+export const sessionIdpGrants = sqliteTable("sessionIdpGrants", {
+    sessionId: text("sessionId")
+        .primaryKey()
+        .references(() => sessions.sessionId, { onDelete: "cascade" }),
+    grantId: text("grantId")
+        .notNull()
+        .references(() => idpGrants.grantId, { onDelete: "cascade" })
+});
+
 export const newtSessions = sqliteTable("newtSession", {
     sessionId: text("id").primaryKey(),
     newtId: text("newtId")
@@ -1437,7 +1465,10 @@ export const resourceSessions = sqliteTable("resourceSessions", {
             onDelete: "cascade"
         }
     ),
-    issuedAt: integer("issuedAt")
+    issuedAt: integer("issuedAt"),
+    // Id of the short-lived request token this session was exchanged from.
+    // Login audit logs reference that id, so this links them to the session.
+    requestSessionId: text("requestSessionId")
 });
 
 export const resourceWhitelist = sqliteTable("resourceWhitelist", {
@@ -1594,6 +1625,11 @@ export const idp = sqliteTable("idp", {
     })
         .notNull()
         .default(false),
+    sessionRevalidation: integer("sessionRevalidation", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
     tags: text("tags")
 });
 
@@ -1712,7 +1748,12 @@ export const idpOrg = sqliteTable("idpOrg", {
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
     roleMapping: text("roleMapping"),
-    orgMapping: text("orgMapping")
+    orgMapping: text("orgMapping"),
+    autoProvision: integer("autoProvision", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false)
 });
 
 // Blueprint runs
@@ -1781,7 +1822,8 @@ export const deviceWebAuthCodes = sqliteTable("deviceWebAuthCodes", {
     verified: integer("verified", { mode: "boolean" }).notNull().default(false),
     userId: text("userId").references(() => users.userId, {
         onDelete: "cascade"
-    })
+    }),
+    approvingSessionId: text("approvingSessionId")
 });
 
 export const roundTripMessageTracker = sqliteTable("roundTripMessageTracker", {
@@ -2205,6 +2247,7 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;
 export type SecurityKey = InferSelectModel<typeof securityKeys>;
