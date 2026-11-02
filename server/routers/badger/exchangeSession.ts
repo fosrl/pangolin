@@ -11,7 +11,8 @@ import {
     sessions
 } from "@server/db";
 import { db } from "@server/db";
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { resourceHostCondition } from "@server/db/queries/verifySessionQueries";
 import {
     createResourceSession,
     serializeResourceSessionCookie,
@@ -25,6 +26,7 @@ import { SESSION_COOKIE_EXPIRES as RESOURCE_SESSION_COOKIE_EXPIRES } from "@serv
 import config from "@server/lib/config";
 import { response } from "@server/lib/response";
 import { stripPortFromHost } from "@server/lib/ip";
+import { pickResourceForHost } from "@server/lib/traefik/rule";
 
 const exchangeSessionBodySchema = z.object({
     requestToken: z.string(),
@@ -70,31 +72,16 @@ export async function exchangeSession(
 
         const clientIp = requestIp ? stripPortFromHost(requestIp) : undefined;
 
-        const parts = cleanHost.split(".");
-        const wildcardCandidates: string[] = [];
-        for (let i = 1; i < parts.length; i++) {
-            wildcardCandidates.push(`*.${parts.slice(i).join(".")}`);
-        }
-
         const potentialResources = await db
             .select()
             .from(resources)
-            .where(
-                or(
-                    eq(resources.fullDomain, cleanHost),
-                    wildcardCandidates.length > 0
-                        ? and(
-                              eq(resources.wildcard, true),
-                              inArray(resources.fullDomain, wildcardCandidates)
-                          )
-                        : sql`false`
-                )
-            );
+            .where(resourceHostCondition(cleanHost));
 
-        const exactMatch = potentialResources.find(
-            (r) => r.fullDomain === cleanHost
+        const resource = pickResourceForHost(
+            potentialResources,
+            cleanHost,
+            (r) => r.fullDomain
         );
-        const resource = exactMatch ?? potentialResources[0];
 
         if (!resource) {
             return next(

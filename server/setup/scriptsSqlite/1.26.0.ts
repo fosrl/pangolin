@@ -13,6 +13,11 @@ export default async function migration() {
     try {
         db.transaction(() => {
             db.prepare(
+                `
+                ALTER TABLE 'resources' ADD 'matchBaseDomain' integer DEFAULT false NOT NULL;
+                `
+            ).run();
+            db.prepare(
                 `ALTER TABLE 'orgs' ADD 'settingsLogRetentionDaysSsh' integer DEFAULT 0 NOT NULL;`
             ).run();
             db.prepare(
