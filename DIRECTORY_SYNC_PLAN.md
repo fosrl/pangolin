@@ -241,20 +241,20 @@ Each step can ship on its own.
      - `0032_red_devos.sql` doesn't run the two data copies above yet.
      - Rows where the JIT and sync mappings differ after the copy need `mappingsLinked = false`, or the single editor overwrites one of them.
 2. **Unified role-mapping format.** Sync stores and evaluates its role mapping exactly like JIT: a string read as JMESPath, using the format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts) (fixed roles and the builder both compile to JMESPath). The JIT side and `idp.defaultRoleMapping` don't change.
-   - **Shared evaluation** (in `src/lib/idpRoleMapping.ts` or a server-side helper):
-     - [ ] Move `normalizeRoleMappingResult` out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into the shared lib.
-     - [ ] Add `evaluateRoleMapping(stored, claims): string[]`: `unwrapRoleMapping` → `jmespath.search` → `normalizeRoleMappingResult`.
-     - [ ] Make JIT call it. Login behavior must stay the same.
+   - **Shared evaluation** ([evaluateRoleMapping.ts](server/lib/idp/evaluateRoleMapping.ts), server-side so `jmespath` stays out of the client bundle):
+     - [x] Move `normalizeRoleMappingResult` out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into [evaluateRoleMapping.ts](server/lib/idp/evaluateRoleMapping.ts).
+     - [x] Add `evaluateRoleMapping(stored, claims): string[]`: `unwrapRoleMapping` → `jmespath.search` → `normalizeRoleMappingResult`.
+     - [x] Make JIT call it. Login behavior must stay the same.
    - **Create missing roles:** deferred (see [Open questions](#open-questions)). In this step, sync only assigns roles that already exist in the org, like JIT.
    - **Sync engine** ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts), [types.ts](server/private/lib/idpAPI/types.ts)):
-     - [ ] Change `roleMapping` in `types.ts` from `DirectorySyncRoleMappingConfig` to the stored string.
-     - [ ] Rewrite `resolveUserRoles`. Build interim claims `{ groups: <group ids>, groupNames: <display names> }` from `IDPDirectoryUser` (step 7 replaces this with `toClaims`), evaluate them with `evaluateRoleMapping`, then look up roles by name.
-     - [ ] Remove the role-creation branch for now. Keep the dry-run handling.
-     - [ ] Drop the `parseDirectorySyncRoleMapping` call and the `fixedRoles / groupMapping / automatic` switch.
+     - [x] Change `roleMapping` in `types.ts` from `DirectorySyncRoleMappingConfig` to the stored string.
+     - [x] Rewrite `resolveUserRoles`. Evaluate the claims from `provider.toClaims(user)` (they already carry `groups` and `groupNames`) with `evaluateRoleMapping`, then look up roles by name.
+     - [x] Remove the role-creation branch for now. Keep the dry-run handling.
+     - [x] Drop the `parseDirectorySyncRoleMapping` call and the `fixedRoles / groupMapping / automatic` switch.
    - **API:**
-     - [ ] [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) / [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts): `syncRoleMapping` takes the same string as `roleMapping`.
+     - [x] [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) / [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts): `syncRoleMapping` takes the same string as `roleMapping` (already `z.string()`, no change needed).
    - **Verify:**
-     - [ ] Unit-test `evaluateRoleMapping` on `'Member'`, `['A','B']`, the builder prefix, a raw expression and null.
+     - [x] Unit-test `evaluateRoleMapping` on `'Member'`, `['A','B']`, the builder prefix, a raw expression and null.
      - [ ] JIT login gives the same roles as before.
      - [ ] Sync dry run with a fixed mapping, a builder mapping and a raw expression.
      - [ ] `tsc` + `eslint`.
