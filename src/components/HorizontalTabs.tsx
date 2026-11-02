@@ -24,6 +24,10 @@ interface HorizontalTabsProps {
     disabled?: boolean;
     clientSide?: boolean;
     defaultTab?: number;
+    /** Client-side only: controlled active tab index. */
+    activeTab?: number;
+    /** Client-side only: called with the clicked tab index. */
+    onTabChange?: (index: number) => void;
 }
 
 export function HorizontalTabs({
@@ -31,13 +35,17 @@ export function HorizontalTabs({
     items,
     disabled = false,
     clientSide = false,
-    defaultTab = 0
+    defaultTab = 0,
+    activeTab,
+    onTabChange
 }: HorizontalTabsProps) {
     const pathname = usePathname();
     const params = useParams();
     const { licenseStatus, isUnlocked } = useLicenseStatusContext();
     const t = useTranslations();
-    const [activeClientTab, setActiveClientTab] = useState(defaultTab);
+    const [uncontrolledClientTab, setUncontrolledClientTab] =
+        useState(defaultTab);
+    const activeClientTab = activeTab ?? uncontrolledClientTab;
 
     function hydrateHref(href: string) {
         return href
@@ -75,7 +83,8 @@ export function HorizontalTabs({
                                         type="button"
                                         onClick={() => {
                                             if (!isDisabled) {
-                                                setActiveClientTab(index);
+                                                setUncontrolledClientTab(index);
+                                                onTabChange?.(index);
                                             }
                                         }}
                                         className={cn(

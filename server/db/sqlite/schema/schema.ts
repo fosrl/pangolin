@@ -681,38 +681,48 @@ export const userSiteResources = sqliteTable("userSiteResources", {
         .references(() => siteResources.siteResourceId, { onDelete: "cascade" })
 });
 
-export const users = sqliteTable("user", {
-    userId: text("id").primaryKey(),
-    email: text("email"),
-    username: text("username").notNull(),
-    name: text("name"),
-    type: text("type").notNull(), // "internal", "oidc"
-    idpId: integer("idpId").references(() => idp.idpId, {
-        onDelete: "cascade"
-    }),
-    passwordHash: text("passwordHash"),
-    twoFactorEnabled: integer("twoFactorEnabled", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    twoFactorSetupRequested: integer("twoFactorSetupRequested", {
-        mode: "boolean"
-    }).default(false),
-    twoFactorSecret: text("twoFactorSecret"),
-    emailVerified: integer("emailVerified", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    dateCreated: text("dateCreated").notNull(),
-    termsAcceptedTimestamp: text("termsAcceptedTimestamp"),
-    termsVersion: text("termsVersion"),
-    marketingEmailConsent: integer("marketingEmailConsent", {
-        mode: "boolean"
-    }).default(false),
-    serverAdmin: integer("serverAdmin", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    lastPasswordChange: integer("lastPasswordChange"),
-    locale: text("locale")
-});
+export const users = sqliteTable(
+    "user",
+    {
+        userId: text("id").primaryKey(),
+        email: text("email"),
+        username: text("username").notNull(),
+        name: text("name"),
+        type: text("type").notNull(), // "internal", "oidc"
+        idpId: integer("idpId").references(() => idp.idpId, {
+            onDelete: "cascade"
+        }),
+        externalUserId: text("externalUserId"), // user's ID in the external IdP (e.g. Azure object id)
+        passwordHash: text("passwordHash"),
+        twoFactorEnabled: integer("twoFactorEnabled", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        twoFactorSetupRequested: integer("twoFactorSetupRequested", {
+            mode: "boolean"
+        }).default(false),
+        twoFactorSecret: text("twoFactorSecret"),
+        emailVerified: integer("emailVerified", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        dateCreated: text("dateCreated").notNull(),
+        termsAcceptedTimestamp: text("termsAcceptedTimestamp"),
+        termsVersion: text("termsVersion"),
+        marketingEmailConsent: integer("marketingEmailConsent", {
+            mode: "boolean"
+        }).default(false),
+        serverAdmin: integer("serverAdmin", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        lastPasswordChange: integer("lastPasswordChange"),
+        locale: text("locale")
+    },
+    (t) => [
+        uniqueIndex("idx_user_idpId_externalUserId").on(
+            t.idpId,
+            t.externalUserId
+        )
+    ]
+);
 
 export const securityKeys = sqliteTable("webauthnCredentials", {
     credentialId: text("credentialId").primaryKey(),
@@ -1067,6 +1077,9 @@ export const userOrgs = sqliteTable(
             .notNull()
             .default(false),
         autoProvisioned: integer("autoProvisioned", {
+            mode: "boolean"
+        }).default(false),
+        directorySynched: integer("directorySynched", {
             mode: "boolean"
         }).default(false),
         pamUsername: text("pamUsername") // cleaned username for ssh and such
@@ -1586,15 +1599,37 @@ export const supporterKey = sqliteTable("supporterKey", {
 export const idp = sqliteTable("idp", {
     idpId: integer("idpId").primaryKey({ autoIncrement: true }),
     name: text("name").notNull(),
-    type: text("type").notNull(),
+    type: text("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: text("defaultRoleMapping"),
     defaultOrgMapping: text("defaultOrgMapping"),
+    // Just in time provisioning, at login
     autoProvision: integer("autoProvision", {
         mode: "boolean"
     })
         .notNull()
         .default(false),
-    tags: text("tags")
+    // When false, admins can't pre-provision users for this IdP
+    allowManualProvisioning: integer("allowManualProvisioning", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(true),
+    tags: text("tags"),
+    // Unlocks provider API features (JIT enrichment, directory sync)
+    apiIntegrationEnabled: integer("apiIntegrationEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    // Background sync, requires `apiIntegrationEnabled`
+    directorySyncEnabled: integer("directorySyncEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    // Provider-defined JSON, encrypted (e.g. Google service account key + admin email).
+    // Null = the provider reuses the OIDC client credentials (Azure).
+    directorySyncConfig: text("directorySyncConfig")
 });
 
 // Identity Provider OAuth Configuration
@@ -1602,7 +1637,10 @@ export const idpOidcConfig = sqliteTable("idpOidcConfig", {
     idpOauthConfigId: integer("idpOauthConfigId").primaryKey({
         autoIncrement: true
     }),
-    variant: text("variant").notNull().default("oidc"),
+    variant: text("variant")
+        .notNull()
+        .$type<"oidc" | "google" | "azure">()
+        .default("oidc"),
     idpId: integer("idpId")
         .notNull()
         .references(() => idp.idpId, { onDelete: "cascade" }),
@@ -1711,8 +1749,21 @@ export const idpOrg = sqliteTable("idpOrg", {
     orgId: text("orgId")
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // JIT (autoProvision) mappings
     roleMapping: text("roleMapping"),
-    orgMapping: text("orgMapping")
+    orgMapping: text("orgMapping"),
+    // Directory sync mappings
+    syncRoleMapping: text("syncRoleMapping"),
+    syncOrgMapping: text("syncOrgMapping"),
+    // When true, the UI edits JIT and sync mappings as one
+    mappingsLinked: integer("mappingsLinked", { mode: "boolean" })
+        .notNull()
+        .default(true),
+    directorySyncDeletions: integer("directorySyncDeletions", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(true)
 });
 
 // Blueprint runs

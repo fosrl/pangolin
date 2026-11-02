@@ -12,7 +12,7 @@ export function startSchedulers() {
     // updates into periodic bulk writes, preventing connection pool exhaustion.
     startPingAccumulator();
 
-    if (build != "saas") {
+    if (build !== "saas") {
         startOlmOfflineChecker(); // this is to handle the offline check for olms
         startNewtOfflineChecker(); // this is to handle the offline check for newts
     }

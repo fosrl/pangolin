@@ -86,7 +86,7 @@ export default function AutoProvisionConfigWidget({
                     <SwitchInput
                         id={autoProvisionSwitchId}
                         label={t("idpAutoProvisionUsers")}
-                        defaultChecked={autoProvision}
+                        checked={autoProvision}
                         onCheckedChange={onAutoProvisionChange}
                         disabled={!isPaidUser(tierMatrix.autoProvisioning)}
                     />
