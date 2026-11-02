@@ -100,7 +100,10 @@ export async function runIdpDirectorySync(dryRun: boolean = false) {
         );
 
     const providers: Partial<
-        Record<(typeof idpsToSync)[number]["idpOidcConfig"]["variant"], DirectorySyncProvider>
+        Record<
+            (typeof idpsToSync)[number]["idpOidcConfig"]["variant"],
+            DirectorySyncProvider
+        >
     > = {
         azure: new AzureDirectorySyncProvider(),
         google: new GoogleDirectorySyncProvider()
