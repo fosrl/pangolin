@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { ArrowUpRight, Key, Lock, Unlock, User } from "lucide-react";
 import Link from "next/link";
+import { LogRowLinks } from "@app/components/LogRowLinks";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { useStoredPageSize } from "@app/hooks/useStoredPageSize";
@@ -707,6 +708,12 @@ export default function GeneralPage() {
                             {row.scheme || "N/A"}
                         </p>
                     </div> */}
+                    <LogRowLinks
+                        orgId={orgId as string}
+                        actorType={row.actorType}
+                        actorId={row.actorId}
+                        metadata={row.metadata}
+                    />
                     <div>
                         <strong>Metadata:</strong>
                         <pre className="text-muted-foreground mt-1 text-xs bg-background p-2 rounded border overflow-auto">

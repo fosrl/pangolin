@@ -821,6 +821,23 @@ export const sshCommandLog = sqliteTable(
         index("idx_ssh_command_log_org_timestamp").on(t.orgId, t.timestamp)
     ]
 );
+// Marks a dashboard session that must log in again before it can get a new
+// SSO session for a resource, set when an admin revokes that resource session.
+export const resourceSessionReauth = sqliteTable(
+    "resourceSessionReauth",
+    {
+        userSessionId: text("userSessionId")
+            .notNull()
+            .references(() => sessions.sessionId, { onDelete: "cascade" }),
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" }),
+        revokedAt: integer("revokedAt").notNull()
+    },
+    (table) => [
+        primaryKey({ columns: [table.userSessionId, table.resourceId] })
+    ]
+);
 
 export type Approval = InferSelectModel<typeof approvals>;
 export type Limit = InferSelectModel<typeof limits>;
@@ -864,3 +881,6 @@ export type TrialNotification = InferSelectModel<typeof trialNotifications>;
 export type AiSessionLog = InferSelectModel<typeof aiSessionLog>;
 export type SshSessionLog = InferSelectModel<typeof sshSessionLog>;
 export type SshCommandLog = InferSelectModel<typeof sshCommandLog>;
+export type ResourceSessionReauth = InferSelectModel<
+    typeof resourceSessionReauth
+>;

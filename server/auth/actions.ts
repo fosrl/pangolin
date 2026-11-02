@@ -155,6 +155,8 @@ export enum ActionsEnum {
     exportLogs = "exportLogs",
     listApprovals = "listApprovals",
     updateApprovals = "updateApprovals",
+    listResourceSessions = "listResourceSessions",
+    deleteResourceSession = "deleteResourceSession",
     signSshKey = "signSshKey",
     createEventStreamingDestination = "createEventStreamingDestination",
     updateEventStreamingDestination = "updateEventStreamingDestination",
