@@ -23,7 +23,7 @@ import {
     redirects,
     resources
 } from "@server/db";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import HttpCode from "@server/types/HttpCode";
 import { privateConfig as config } from "#private/lib/config";
 import {
@@ -548,7 +548,16 @@ export async function checkCustomDnsRecordConflicts(
         const [resource] = await db
             .select({ resourceId: resources.resourceId })
             .from(resources)
-            .where(eq(resources.fullDomain, fullDomain))
+            .where(
+                or(
+                    eq(resources.fullDomain, fullDomain),
+                    // a wildcard resource also serving this as its base
+                    and(
+                        eq(resources.fullDomain, `*.${fullDomain}`),
+                        eq(resources.matchBaseDomain, true)
+                    )
+                )
+            )
             .limit(1);
         const [page] = await db
             .select({ loginPageId: loginPage.loginPageId })
