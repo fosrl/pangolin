@@ -1,9 +1,6 @@
 import { APP_PATH } from "@server/lib/consts";
 import Database from "better-sqlite3";
-import { integer } from "drizzle-orm/gel-core";
-import { text } from "express";
 import path from "path";
-import { no } from "zod/v4/locales";
 
 const version = "1.26.0";
 
@@ -122,15 +119,7 @@ export default async function migration() {
                     'userSessionId' text NOT NULL,
                     'resourceId' integer NOT NULL,
                     'revokedAt' integer NOT NULL,
-                    PRIMARY KEY('userSessionId', 'resourceId'),`
-            ).run();
-
-            db.prepare(
-                `ALTER TABLE 'deviceWebAuthCodes' ADD 'approvingSessionId' text;`
-            ).run();
-
-            db.prepare(
-                `ALTER TABLE 'idp' ADD 'sessionRevalidation' integer DEFAULT false NOT NULL;
+                    PRIMARY KEY('userSessionId', 'resourceId'),
                     FOREIGN KEY ('userSessionId') REFERENCES 'session'('id') ON UPDATE no action ON DELETE cascade,
                     FOREIGN KEY ('resourceId') REFERENCES 'resources'('resourceId') ON UPDATE no action ON DELETE cascade
                 );`
