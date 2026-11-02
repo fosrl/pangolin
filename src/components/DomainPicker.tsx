@@ -584,20 +584,9 @@ export default function DomainPicker({
                         !wildcardAllowed &&
                         showSubdomainInput &&
                         isWildcardSubdomain(subdomainInput) && (
-                            <>
-                                <p className="text-sm text-red-500">
-                                    {t(
-                                        "domainPickerWildcardSubdomainNotAllowed"
-                                    )}
-                                </p>
-                                <PaidFeaturesAlert
-                                    tiers={
-                                        tierMatrix[
-                                            TierFeature.WildcardSubdomain
-                                        ]
-                                    }
-                                />
-                            </>
+                            <p className="text-sm text-red-500">
+                                {t("domainPickerWildcardSubdomainNotAllowed")}
+                            </p>
                         )}
                 </div>
 
@@ -791,6 +780,15 @@ export default function DomainPicker({
                     </Popover>
                 </div>
             </div>
+
+            {allowWildcard &&
+                !wildcardAllowed &&
+                showSubdomainInput &&
+                isWildcardSubdomain(subdomainInput) && (
+                    <PaidFeaturesAlert
+                        tiers={tierMatrix[TierFeature.WildcardSubdomain]}
+                    />
+                )}
 
             {requiresPaywall && !hideFreeDomain && (
                 <Card className="mt-3 border-black-500/30 bg-linear-to-br from-black-500/10 via-background to-background overflow-hidden">
