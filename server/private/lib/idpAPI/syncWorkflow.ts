@@ -124,26 +124,15 @@ export async function runIdpDirectorySync(dryRun: boolean = false) {
             if (!provider) {
                 return null;
             }
-            const ctx = {
-                idpId: idp.idpId,
-                orgId: idpOrg.orgId,
-                identifierPath: idpOidcConfig.identifierPath,
-                roleMapping: parseDirectorySyncRoleMapping(
-                    idpOrg.syncRoleMapping
-                )
-            } satisfies DirectoryFetchContext;
-            return syncIdp(provider, ctx, dryRun);
+
+            return syncIdp(provider, dryRun);
         })
         .filter((p) => p != null);
 
     return await Promise.allSettled(fetchPromises);
 }
 
-async function syncIdp(
-    provider: IDPAPIProvider,
-    ctx: DirectoryFetchContext,
-    dryRun: boolean
-) {
+async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
     // Note
     // username is unique only within IDPs or within internal ?
     // we can have two users with the same username, one in an IDP and another `internal`
@@ -165,7 +154,7 @@ async function syncIdp(
     // for global idps, if there is not an org policy for a specific org, the user is not added to that org
 
     // 1. Fetch
-    const result = await provider.fetchAllDirectoryUsers(ctx);
+    const result = await provider.fetchAllDirectoryUsers();
 
     /**
      * user =>
@@ -232,16 +221,22 @@ for each membership with flag = true whose user is not in the remote set:
      
                 */
 
+    const {
+        idp: { idpId },
+        idpOrg: { orgId, syncRoleMapping },
+        idpOidcConfig: { identifierPath }
+    } = provider.idp;
+
     const existingUsers = await db
         .select()
         .from(users)
-        .where(eq(users.idpId, ctx.idpId));
+        .where(eq(users.idpId, idpId));
 
     const existingUserOrgs = await db
         .select()
         .from(users)
         .innerJoin(userOrgs, eq(userOrgs.userId, users.userId))
-        .where(and(eq(users.idpId, ctx.idpId), eq(userOrgs.orgId, ctx.orgId)));
+        .where(and(eq(users.idpId, idpId), eq(userOrgs.orgId, orgId)));
 
     const existingPangolinUsers = new Map<
         string,
@@ -265,16 +260,21 @@ for each membership with flag = true whose user is not in the remote set:
     }
 
     const syncPlan: IdpOrgSyncPlan = {
-        idpId: ctx.idpId,
-        orgId: ctx.orgId,
+        idpId: idpId,
+        orgId: orgId,
         entries: []
     };
 
     for (const user of result.users) {
+        const claims = provider.toClaims(user);
+
+        let userIdentifier = jmespath.search(claims, identifierPath) as
+            string | null;
+
         const roles = await resolveUserRoles(
             user,
-            ctx.roleMapping,
-            ctx.orgId,
+            syncRoleMapping!,
+            orgId,
             dryRun
         );
 
@@ -308,7 +308,7 @@ for each membership with flag = true whose user is not in the remote set:
                         email: user.email,
                         name: user.name,
                         type: UserType.OIDC,
-                        idpId: ctx.idpId,
+                        idpId: idpId,
                         emailVerified: true, // OIDC users are always verified
                         dateCreated: new Date().toISOString()
                     }
@@ -387,9 +387,9 @@ for each membership with flag = true whose user is not in the remote set:
         });
     }
 
-    const [org] = await db.select().from(orgs).where(eq(orgs.orgId, ctx.orgId));
+    const [org] = await db.select().from(orgs).where(eq(orgs.orgId, orgId));
     if (!org) {
-        throw new Error(`Org ${ctx.orgId} not found for directory sync`);
+        throw new Error(`Org ${orgId} not found for directory sync`);
     }
 
     if (dryRun) {
@@ -440,10 +440,7 @@ for each membership with flag = true whose user is not in the remote set:
                     .update(users)
                     .set(u)
                     .where(
-                        and(
-                            eq(users.userId, u.userId),
-                            eq(users.idpId, ctx.idpId)
-                        )
+                        and(eq(users.userId, u.userId), eq(users.idpId, idpId))
                     )
             )
         );
@@ -458,7 +455,7 @@ for each membership with flag = true whose user is not in the remote set:
                 case "add":
                     await assignUserToOrg(
                         org,
-                        { userId, orgId: ctx.orgId, directorySynched: true },
+                        { userId, orgId: orgId, directorySynched: true },
                         entry.membership.roles.map((r) => r.id),
                         trx
                     );
@@ -470,14 +467,14 @@ for each membership with flag = true whose user is not in the remote set:
                         .where(
                             and(
                                 eq(userOrgRoles.userId, userId),
-                                eq(userOrgRoles.orgId, ctx.orgId)
+                                eq(userOrgRoles.orgId, orgId)
                             )
                         );
                     // add new roles
                     await trx.insert(userOrgRoles).values(
                         entry.membership.roles.map((r) => ({
                             userId,
-                            orgId: ctx.orgId,
+                            orgId: orgId,
                             roleId: r.id
                         }))
                     );

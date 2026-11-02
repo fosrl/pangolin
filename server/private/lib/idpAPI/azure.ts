@@ -18,9 +18,9 @@ import logger from "@server/logger";
 import z from "zod";
 import { fromError } from "zod-validation-error";
 import { ensureValidIdp, type IdpDbResponse } from "./ensureValidIdp";
+import { IDPAPIProvider } from "./types";
 import type {
     DirectoryFetchContext,
-    IDPAPIProvider,
     IDPDirectoryFetchResult,
     IDPGroup,
     IDPDirectoryUser
@@ -85,7 +85,7 @@ type GraphGroupNode = {
     userIds: Set<string>;
 };
 
-export class AzureDirectorySyncProvider implements IDPAPIProvider {
+export class AzureDirectorySyncProvider extends IDPAPIProvider {
     fetchUserGroups(
         user: Pick<IDPDirectoryUser, "externalId">
     ): Promise<IDPGroup[]> {
@@ -107,16 +107,11 @@ export class AzureDirectorySyncProvider implements IDPAPIProvider {
 
     #TOKEN_CACHE_KEY_PREFIX = "azureDirectorySyncToken";
     #microsoftGraphBaseUrl = "https://graph.microsoft.com/v1.0";
-    #idp: IdpDbResponse;
-
-    constructor(idp: IdpDbResponse) {
-        this.#idp = idp;
-    }
 
     get #tenantId() {
         let tenantId = "";
-        if (this.#idp.idpOidcConfig?.authUrl) {
-            const tenantMatch = this.#idp.idpOidcConfig.authUrl.match(
+        if (this.idp.idpOidcConfig?.authUrl) {
+            const tenantMatch = this.idp.idpOidcConfig.authUrl.match(
                 /login\.microsoftonline\.com\/([^/]+)\/oauth2/
             );
             if (tenantMatch) {
@@ -126,12 +121,10 @@ export class AzureDirectorySyncProvider implements IDPAPIProvider {
         return tenantId;
     }
 
-    async fetchAllDirectoryUsers(
-        ctx: DirectoryFetchContext
-    ): Promise<IDPDirectoryFetchResult> {
+    async fetchAllDirectoryUsers(): Promise<IDPDirectoryFetchResult> {
         const directoryUsers: Record<string, IDPDirectoryUser> = {};
         // 0. fetch idp and check that it is valid
-        const idpRes = await ensureValidIdp(ctx.idpId, "azure");
+        const idpRes = this.idp;
 
         // 1. get access token (and cache)
         const token = await this.#getToken(idpRes);

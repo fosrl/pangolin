@@ -11,10 +11,10 @@
  * This file is not licensed under the AGPLv3.
  */
 
+import { IDPAPIProvider } from "./types";
 import type {
     DirectoryFetchContext,
     IDPDirectoryFetchResult,
-    IDPAPIProvider,
     IDPDirectoryUser,
     IDPGroup
 } from "./types";
@@ -92,19 +92,13 @@ type GoogleUser = z.output<typeof userBodySchema>["users"][number];
 type GoogleGroup = z.output<typeof groupBodySchema>["groups"][number];
 type GoogleMember = z.output<typeof memberBodySchema>["members"][number];
 
-export class GoogleDirectorySyncProvider implements IDPAPIProvider {
+export class GoogleDirectorySyncProvider extends IDPAPIProvider {
     #TOKEN_CACHE_KEY_PREFIX = "googleDirectorySyncToken";
     #googleAPIBaseUrl = "https://admin.googleapis.com/admin/directory/v1";
     // number of groups whose members are fetched in parallel
     #MEMBERS_FETCH_CONCURRENCY = 5;
     // retries on rate limiting (429) and transient server errors (5xx)
     #MAX_RETRIES = 3;
-
-    #idp: IdpDbResponse;
-
-    constructor(idp: IdpDbResponse) {
-        this.#idp = idp;
-    }
 
     toClaims(user: IDPDirectoryUser): object {
         const splitted = user.email?.split("@") ?? [];
@@ -127,12 +121,11 @@ export class GoogleDirectorySyncProvider implements IDPAPIProvider {
         throw new Error("Method not implemented.");
     }
 
-    async fetchAllDirectoryUsers(
-        ctx: DirectoryFetchContext
-    ): Promise<IDPDirectoryFetchResult> {
+    async fetchAllDirectoryUsers(): Promise<IDPDirectoryFetchResult> {
         const directoryUsers: Record<string, IDPDirectoryUser> = {};
         // 0. fetch idp and check that it is valid
-        const idpRes = await ensureValidIdp(ctx.idpId, "google");
+        const idpRes = this.idp;
+
         const idpId = idpRes.idp.idpId;
         const syncConfig = this.#getAPIConfig(idpRes);
         const customer = syncConfig.customerId ?? "my_customer";

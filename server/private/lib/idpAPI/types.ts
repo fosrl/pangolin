@@ -12,6 +12,7 @@
  */
 
 import type { DirectorySyncRoleMappingConfig } from "@app/lib/idpDirectorySyncRoleMapping";
+import type { IdpDbResponse } from "./ensureValidIdp";
 
 // Provider-neutral shapes used by the directory sync engine (runSync.ts).
 // Each provider (Azure, Google, ...) turns its API into these.
@@ -40,21 +41,19 @@ export type IDPDirectoryFetchResult = {
 };
 
 export type DirectoryFetchContext = {
-    idpId: number;
-    orgId: string;
     roleMapping: DirectorySyncRoleMappingConfig;
     /** `idpOidcConfig.identifierPath`, used to compute `DirectoryUser.username`. */
     identifierPath: string;
 };
 
-export interface IDPAPIProvider {
-    fetchAllDirectoryUsers(
-        ctx: DirectoryFetchContext
-    ): Promise<IDPDirectoryFetchResult>;
+export abstract class IDPAPIProvider {
+    constructor(public readonly idp: IdpDbResponse) {}
 
-    fetchUserGroups(
+    abstract fetchAllDirectoryUsers(): Promise<IDPDirectoryFetchResult>;
+
+    abstract fetchUserGroups(
         user: Pick<IDPDirectoryUser, "externalId">
     ): Promise<IDPGroup[]>;
 
-    toClaims(user: IDPDirectoryUser): object;
+    abstract toClaims(user: IDPDirectoryUser): object;
 }
