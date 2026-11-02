@@ -154,6 +154,26 @@ export default async function migration() {
             sql`ALTER TABLE "resourceSessions" ADD COLUMN "requestSessionId" varchar;`
         );
         await db.execute(
+            sql`ALTER TABLE "resourceSessions" ADD COLUMN "ip" varchar;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "resourceSessions" ADD COLUMN "userAgent" text;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "resourceSessions" ADD COLUMN "countryCode" varchar;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "resourceSessions" ADD COLUMN "asn" integer;`
+        );
+        await db.execute(sql`ALTER TABLE "session" ADD COLUMN "ip" varchar;`);
+        await db.execute(
+            sql`ALTER TABLE "session" ADD COLUMN "userAgent" text;`
+        );
+        await db.execute(
+            sql`ALTER TABLE "session" ADD COLUMN "countryCode" varchar;`
+        );
+        await db.execute(sql`ALTER TABLE "session" ADD COLUMN "asn" integer;`);
+        await db.execute(
             sql`ALTER TABLE "customDnsRecords" ADD CONSTRAINT "customDnsRecords_domainId_domains_domainId_fk" FOREIGN KEY ("domainId") REFERENCES "public"."domains"("domainId") ON DELETE cascade ON UPDATE no action;`
         );
         await db.execute(

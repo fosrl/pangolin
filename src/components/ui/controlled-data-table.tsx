@@ -37,6 +37,7 @@ import { dataTableFilterDropdownContentClassName } from "@app/lib/dataTableFilte
 
 import {
     ChevronDown,
+    ChevronRight,
     Columns,
     Filter,
     Plus,
@@ -44,7 +45,13 @@ import {
     Search
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState, type ReactNode } from "react";
+import {
+    Fragment,
+    useMemo,
+    useState,
+    type MouseEvent,
+    type ReactNode
+} from "react";
 
 // Extended ColumnDef type that includes optional friendlyName for column visibility dropdown
 export type ExtendedColumnDef<TData, TValue = unknown> = ColumnDef<
@@ -98,7 +105,23 @@ type ControlledDataTableProps<TData, TValue> = {
     stickyRightColumn?: string; // Column ID or accessorKey for right sticky column (typically "actions")
     rowCount: number;
     pagination: PaginationState;
+    /** Renders details below a row; rows become expandable when set. */
+    renderExpandedRow?: (row: TData) => ReactNode;
+    /** Stable row ids keep rows expanded across refreshes. */
+    getRowId?: (row: TData) => string;
 };
+
+const EXPAND_COLUMN_ID = "expand";
+
+// Clicks on controls inside a row shouldn't also toggle it
+function isInteractiveTarget(event: MouseEvent): boolean {
+    const target = event.target as HTMLElement | null;
+    return Boolean(
+        target?.closest(
+            "a, button, input, select, textarea, [role='button'], [role='checkbox'], [role='menuitem']"
+        )
+    );
+}
 
 export function ControlledDataTable<TData, TValue>({
     columns,
@@ -124,9 +147,55 @@ export function ControlledDataTable<TData, TValue>({
     onPaginationChange,
     stickyRightColumn,
     rowCount,
-    isNavigatingToAddPage
+    isNavigatingToAddPage,
+    renderExpandedRow,
+    getRowId
 }: ControlledDataTableProps<TData, TValue>) {
     const t = useTranslations();
+
+    const expandable = Boolean(renderExpandedRow);
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+    const toggleRowExpansion = (rowId: string) => {
+        setExpandedRows((prev) => {
+            const next = new Set(prev);
+            if (next.has(rowId)) {
+                next.delete(rowId);
+            } else {
+                next.add(rowId);
+            }
+            return next;
+        });
+    };
+
+    const tableColumns = useMemo<ExtendedColumnDef<TData, TValue>[]>(() => {
+        if (!expandable) {
+            return columns;
+        }
+        const expandColumn: ExtendedColumnDef<TData, TValue> = {
+            id: EXPAND_COLUMN_ID,
+            enableHiding: false,
+            header: () => null,
+            cell: ({ row }) => (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    aria-label={t("toggleRowDetails")}
+                    aria-expanded={expandedRows.has(row.id)}
+                    onClick={() => toggleRowExpansion(row.id)}
+                >
+                    {expandedRows.has(row.id) ? (
+                        <ChevronDown className="h-4 w-4" />
+                    ) : (
+                        <ChevronRight className="h-4 w-4" />
+                    )}
+                </Button>
+            ),
+            size: 40
+        };
+        return [expandColumn, ...columns];
+    }, [columns, expandable, expandedRows, t]);
 
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
@@ -146,7 +215,8 @@ export function ControlledDataTable<TData, TValue>({
 
     const table = useReactTable({
         data: rows,
-        columns,
+        columns: tableColumns,
+        getRowId: getRowId ? (row) => getRowId(row) : undefined,
         getCoreRowModel: getCoreRowModel(),
         // getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
@@ -558,54 +628,93 @@ export function ControlledDataTable<TData, TValue>({
                             <TableBody>
                                 {(table.getRowModel().rows ?? []).length > 0 ? (
                                     table.getRowModel().rows.map((row) => (
-                                        <TableRow
-                                            key={row.id}
-                                            data-state={
-                                                row.getIsSelected() &&
-                                                "selected"
-                                            }
-                                        >
-                                            {row
-                                                .getVisibleCells()
-                                                .map((cell) => {
-                                                    const columnId =
-                                                        cell.column.id;
-                                                    const accessorKey = (
-                                                        cell.column
-                                                            .columnDef as any
-                                                    ).accessorKey as
-                                                        | string
-                                                        | undefined;
-                                                    const stickyClasses =
-                                                        getStickyClasses(
-                                                            columnId,
-                                                            accessorKey
+                                        <Fragment key={row.id}>
+                                            <TableRow
+                                                data-state={
+                                                    row.getIsSelected() &&
+                                                    "selected"
+                                                }
+                                                className={
+                                                    expandable
+                                                        ? "cursor-pointer"
+                                                        : undefined
+                                                }
+                                                onClick={
+                                                    expandable
+                                                        ? (e) => {
+                                                              if (
+                                                                  !isInteractiveTarget(
+                                                                      e
+                                                                  )
+                                                              ) {
+                                                                  toggleRowExpansion(
+                                                                      row.id
+                                                                  );
+                                                              }
+                                                          }
+                                                        : undefined
+                                                }
+                                            >
+                                                {row
+                                                    .getVisibleCells()
+                                                    .map((cell) => {
+                                                        const columnId =
+                                                            cell.column.id;
+                                                        const accessorKey = (
+                                                            cell.column
+                                                                .columnDef as any
+                                                        ).accessorKey as
+                                                            string | undefined;
+                                                        const stickyClasses =
+                                                            getStickyClasses(
+                                                                columnId,
+                                                                accessorKey
+                                                            );
+                                                        const isRightSticky =
+                                                            isStickyColumn(
+                                                                columnId,
+                                                                accessorKey,
+                                                                "right"
+                                                            );
+                                                        return (
+                                                            <TableCell
+                                                                key={cell.id}
+                                                                className={`whitespace-nowrap ${stickyClasses} ${isRightSticky ? "text-right" : ""}`}
+                                                            >
+                                                                {flexRender(
+                                                                    cell.column
+                                                                        .columnDef
+                                                                        .cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </TableCell>
                                                         );
-                                                    const isRightSticky =
-                                                        isStickyColumn(
-                                                            columnId,
-                                                            accessorKey,
-                                                            "right"
-                                                        );
-                                                    return (
+                                                    })}
+                                            </TableRow>
+                                            {expandable &&
+                                                expandedRows.has(row.id) && (
+                                                    <TableRow className="hover:bg-transparent">
                                                         <TableCell
-                                                            key={cell.id}
-                                                            className={`whitespace-nowrap ${stickyClasses} ${isRightSticky ? "text-right" : ""}`}
+                                                            colSpan={
+                                                                row.getVisibleCells()
+                                                                    .length
+                                                            }
+                                                            className="bg-muted/50 p-4"
                                                         >
-                                                            {flexRender(
-                                                                cell.column
-                                                                    .columnDef
-                                                                    .cell,
-                                                                cell.getContext()
-                                                            )}
+                                                            {/* w-0 min-w-full keeps the details from widening the table's columns */}
+                                                            <div className="w-0 min-w-full">
+                                                                {renderExpandedRow?.(
+                                                                    row.original
+                                                                )}
+                                                            </div>
                                                         </TableCell>
-                                                    );
-                                                })}
-                                        </TableRow>
+                                                    </TableRow>
+                                                )}
+                                        </Fragment>
                                     ))
                                 ) : (
                                     <DataTableEmptyState
-                                        colSpan={columns.length}
+                                        colSpan={tableColumns.length}
                                         action={
                                             showAddActionInEmptyState ? (
                                                 <div className="hidden sm:block">

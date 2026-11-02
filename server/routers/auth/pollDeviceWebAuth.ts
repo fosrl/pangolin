@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
@@ -117,7 +118,11 @@ export async function pollDeviceWebAuth(
 
         // Generate session token
         const token = generateSessionToken();
-        const sess = await createSession(token, deviceCode.userId);
+        const sess = await createSession(
+            token,
+            deviceCode.userId,
+            getRequestClientInfo(req)
+        );
         if (
             deviceCode.approvingSessionId &&
             !(await inheritIdpGrant(

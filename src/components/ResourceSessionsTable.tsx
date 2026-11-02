@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import type { PaginationState } from "@tanstack/react-table";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
@@ -44,6 +44,8 @@ import {
     type ResourceSessionAuthMethod,
     type ResourceSessionItem
 } from "@server/routers/resourceSession/types";
+import { countryCodeToFlagEmoji } from "@app/lib/countryCodeToFlagEmoji";
+import { parseUserAgent } from "@app/lib/parseUserAgent";
 import moment from "moment";
 import { useTranslations } from "next-intl";
 
@@ -74,6 +76,30 @@ const AUTH_METHOD_TRANSLATION_KEYS: Record<
 
 function formatRelativeTimestamp(value: number): string {
     return `${moment(value).format("lll")} (${moment(value).fromNow()})`;
+}
+
+const DEVICE_TRANSLATION_KEYS = {
+    desktop: "resourceSessionsDetailDeviceDesktop",
+    mobile: "resourceSessionsDetailDeviceMobile",
+    tablet: "resourceSessionsDetailDeviceTablet",
+    bot: "resourceSessionsDetailDeviceBot"
+} as const;
+
+function DetailItem({
+    label,
+    children
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="min-w-0">
+            <div className="font-medium">{label}</div>
+            <div className="mt-1 text-muted-foreground break-all">
+                {children}
+            </div>
+        </div>
+    );
 }
 
 function getResourceSessionIdentity(session: ResourceSessionItem): string {
@@ -287,6 +313,68 @@ export default function ResourceSessionsTable({
                 {label}
                 <Icon className="ml-2 h-4 w-4" />
             </Button>
+        );
+    }
+
+    function renderExpandedRow(session: ResourceSessionItem) {
+        const hasClientInfo = Boolean(session.ip || session.userAgent);
+        const parsedUserAgent = parseUserAgent(session.userAgent);
+        const notRecorded = (
+            <span>{t("resourceSessionsDetailNotRecorded")}</span>
+        );
+
+        return (
+            <div className="space-y-4 text-xs whitespace-normal">
+                {!hasClientInfo && (
+                    <p className="text-muted-foreground">
+                        {t("resourceSessionsDetailNotRecordedDescription")}
+                    </p>
+                )}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailItem label={t("resourceSessionsDetailIp")}>
+                        {session.ip ? (
+                            <span className="font-mono">{session.ip}</span>
+                        ) : (
+                            notRecorded
+                        )}
+                    </DetailItem>
+                    <DetailItem label={t("location")}>
+                        {session.countryCode
+                            ? `${countryCodeToFlagEmoji(session.countryCode)} ${session.countryCode}`
+                            : session.ip
+                              ? t("unknown")
+                              : notRecorded}
+                    </DetailItem>
+                    <DetailItem label={t("resourceSessionsDetailNetwork")}>
+                        {session.asn
+                            ? `AS${session.asn}`
+                            : session.ip
+                              ? t("unknown")
+                              : notRecorded}
+                    </DetailItem>
+                    <DetailItem label={t("resourceSessionsDetailSessionId")}>
+                        <span className="font-mono">{session.sessionId}</span>
+                    </DetailItem>
+                    <DetailItem label={t("resourceSessionsDetailBrowser")}>
+                        {parsedUserAgent.browser ??
+                            (session.userAgent ? t("unknown") : notRecorded)}
+                    </DetailItem>
+                    <DetailItem label={t("operatingSystem")}>
+                        {parsedUserAgent.os ??
+                            (session.userAgent ? t("unknown") : notRecorded)}
+                    </DetailItem>
+                    <DetailItem label={t("resourceSessionsDetailDevice")}>
+                        {parsedUserAgent.device
+                            ? t(DEVICE_TRANSLATION_KEYS[parsedUserAgent.device])
+                            : notRecorded}
+                    </DetailItem>
+                </div>
+                {session.userAgent && (
+                    <DetailItem label={t("resourceSessionsDetailUserAgent")}>
+                        <span className="font-mono">{session.userAgent}</span>
+                    </DetailItem>
+                )}
+            </div>
         );
     }
 
@@ -558,6 +646,8 @@ export default function ResourceSessionsTable({
                     ) : undefined
                 }
                 enableColumnVisibility
+                renderExpandedRow={renderExpandedRow}
+                getRowId={(session) => session.sessionId}
                 stickyLeftColumn="actor"
                 stickyRightColumn="revoke"
             />

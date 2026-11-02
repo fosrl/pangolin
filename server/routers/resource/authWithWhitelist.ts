@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { generateSessionToken } from "@server/auth/sessions/app";
 import { db } from "@server/db";
 import {
@@ -309,7 +310,8 @@ export async function authWithWhitelist(
             isRequestToken: true,
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
-            doNotExtend: true
+            doNotExtend: true,
+            clientInfo: getRequestClientInfo(req)
         });
 
         logAccessAudit({

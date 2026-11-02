@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { unwrapRoleMapping } from "@app/lib/idpRoleMapping";
 import {
@@ -691,7 +692,11 @@ export async function validateOidcCallback(
             }
 
             const token = generateSessionToken();
-            const sess = await createSession(token, existingUserId!);
+            const sess = await createSession(
+                token,
+                existingUserId!,
+                getRequestClientInfo(req)
+            );
             await storeIdpRefreshToken(
                 sess.sessionId,
                 existingIdp.idp.idpId,
@@ -753,7 +758,11 @@ export async function validateOidcCallback(
             }
 
             const token = generateSessionToken();
-            const sess = await createSession(token, existingUser.userId);
+            const sess = await createSession(
+                token,
+                existingUser.userId,
+                getRequestClientInfo(req)
+            );
             await storeIdpRefreshToken(
                 sess.sessionId,
                 existingIdp.idp.idpId,

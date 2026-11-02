@@ -158,6 +158,20 @@ export default async function migration() {
             db.prepare(
                 `ALTER TABLE 'resourceSessions' ADD 'requestSessionId' text;`
             ).run();
+            db.prepare(`ALTER TABLE 'resourceSessions' ADD 'ip' text;`).run();
+            db.prepare(
+                `ALTER TABLE 'resourceSessions' ADD 'userAgent' text;`
+            ).run();
+            db.prepare(
+                `ALTER TABLE 'resourceSessions' ADD 'countryCode' text;`
+            ).run();
+            db.prepare(
+                `ALTER TABLE 'resourceSessions' ADD 'asn' integer;`
+            ).run();
+            db.prepare(`ALTER TABLE 'session' ADD 'ip' text;`).run();
+            db.prepare(`ALTER TABLE 'session' ADD 'userAgent' text;`).run();
+            db.prepare(`ALTER TABLE 'session' ADD 'countryCode' text;`).run();
+            db.prepare(`ALTER TABLE 'session' ADD 'asn' integer;`).run();
 
             db.prepare(
                 `ALTER TABLE 'idpOrg' ADD 'autoProvision' integer DEFAULT false NOT NULL;`

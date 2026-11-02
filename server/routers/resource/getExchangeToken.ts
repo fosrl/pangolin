@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
@@ -110,7 +111,8 @@ export async function getExchangeToken(
             isRequestToken: true,
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
-            doNotExtend: true
+            doNotExtend: true,
+            clientInfo: getRequestClientInfo(req)
         });
 
         if (req.user) {

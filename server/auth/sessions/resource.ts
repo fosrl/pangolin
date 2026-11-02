@@ -4,6 +4,10 @@ import { resourceSessions, ResourceSession } from "@server/db";
 import { db, safeRead } from "@server/db";
 import { eq, and } from "drizzle-orm";
 import config from "@server/lib/config";
+import {
+    resolveClientInfo,
+    type SessionClientInfo
+} from "@server/auth/sessions/clientInfo";
 
 export const SESSION_COOKIE_NAME =
     config.getRawConfig().server.session_cookie_name;
@@ -26,6 +30,7 @@ export async function createResourceSession(opts: {
     expiresAt?: number | null;
     sessionLength?: number | null;
     requestSessionId?: string | null;
+    clientInfo?: SessionClientInfo;
 }): Promise<ResourceSession> {
     if (
         !opts.passwordId &&
@@ -43,6 +48,8 @@ export async function createResourceSession(opts: {
     const sessionId = encodeHexLowerCase(
         sha256(new TextEncoder().encode(opts.token))
     );
+
+    const clientInfo = await resolveClientInfo(opts.clientInfo);
 
     const session: ResourceSession = {
         sessionId: sessionId,
@@ -62,7 +69,8 @@ export async function createResourceSession(opts: {
         isRequestToken: opts.isRequestToken || false,
         userSessionId: opts.userSessionId || null,
         issuedAt: new Date().getTime(),
-        requestSessionId: opts.requestSessionId || null
+        requestSessionId: opts.requestSessionId || null,
+        ...clientInfo
     };
 
     await db.insert(resourceSessions).values(session);

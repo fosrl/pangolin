@@ -84,7 +84,7 @@ const listSchema = z.object({
     query: z.string().optional().openapi({
         type: "string",
         description:
-            "Search by user, email, shareable link title, or resource name"
+            "Search by user, email, shareable link title, resource name, or IP address"
     }),
     sort_by: z
         .enum(["issuedAt", "expiresAt"])
@@ -213,6 +213,7 @@ function searchCondition(query: string): SQL {
 
     return or(
         like(sql`LOWER(${resources.name})`, term),
+        like(sql`LOWER(${resourceSessions.ip})`, term),
         inArray(
             resourceSessions.userSessionId,
             db
@@ -356,6 +357,10 @@ export async function listResourceSessions(
                     resourceNiceId: resources.niceId,
                     issuedAt: resourceSessions.issuedAt,
                     expiresAt: resourceSessions.expiresAt,
+                    ip: resourceSessions.ip,
+                    userAgent: resourceSessions.userAgent,
+                    countryCode: resourceSessions.countryCode,
+                    asn: resourceSessions.asn,
                     userSessionId: resourceSessions.userSessionId,
                     passwordId: resourceSessions.passwordId,
                     pincodeId: resourceSessions.pincodeId,
@@ -472,7 +477,11 @@ export async function listResourceSessions(
                     email:
                         row.whitelistEmail ?? row.policyWhitelistEmail ?? null,
                     accessTokenId: row.accessTokenId ?? null,
-                    accessTokenTitle: row.accessTokenTitle ?? null
+                    accessTokenTitle: row.accessTokenTitle ?? null,
+                    ip: row.ip ?? null,
+                    userAgent: row.userAgent ?? null,
+                    countryCode: row.countryCode ?? null,
+                    asn: row.asn ?? null
                 })),
                 pagination: {
                     total: Number(count),

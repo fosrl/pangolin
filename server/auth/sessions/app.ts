@@ -18,6 +18,10 @@ import type { RandomReader } from "@oslojs/crypto/random";
 import { generateRandomString } from "@oslojs/crypto/random";
 import logger from "@server/logger";
 import { revalidateIdpSession } from "@server/auth/sessions/idpRevalidation";
+import {
+    resolveClientInfo,
+    type SessionClientInfo
+} from "@server/auth/sessions/clientInfo";
 
 export const SESSION_COOKIE_NAME =
     config.getRawConfig().server.session_cookie_name;
@@ -39,7 +43,8 @@ export function generateSessionToken(): string {
 
 export async function createSession(
     token: string,
-    userId: string
+    userId: string,
+    clientInfo?: SessionClientInfo
 ): Promise<Session> {
     const sessionId = encodeHexLowerCase(
         sha256(new TextEncoder().encode(token))
@@ -50,7 +55,8 @@ export async function createSession(
             sessionId: sessionId,
             userId,
             expiresAt: new Date(Date.now() + SESSION_COOKIE_EXPIRES).getTime(),
-            issuedAt: new Date().getTime()
+            issuedAt: new Date().getTime(),
+            ...(await resolveClientInfo(clientInfo))
         })
         .returning();
     return session;

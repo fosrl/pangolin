@@ -3,6 +3,7 @@ import {
     serializeResourceSessionCookie,
     validateResourceSessionToken
 } from "@server/auth/sessions/resource";
+import type { SessionClientInfo } from "@server/auth/sessions/clientInfo";
 import { generateSessionToken } from "@server/auth/sessions/app";
 import { revalidateIdpSession } from "@server/auth/sessions/idpRevalidation";
 import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
@@ -1302,7 +1303,13 @@ async function allowAccessToken(
         }
     }
 
-    const sess = await createAccessTokenSession(res, resource, tokenItem);
+    const sess = await createAccessTokenSession(res, resource, tokenItem, {
+        ip: auditBody.requestIp
+            ? stripPortFromHost(auditBody.requestIp, auditBody.badgerVersion)
+            : null,
+        userAgent: getClientHeader(auditBody.headers, "user-agent"),
+        countryCode: location
+    });
     logAccessTokenRequestAudit(
         { ...auditData, resourceSessionId: sess.sessionId },
         auditBody
@@ -1321,10 +1328,12 @@ async function allowAccessToken(
 async function createAccessTokenSession(
     res: Response,
     resource: Resource,
-    tokenItem: ResourceAccessToken
+    tokenItem: ResourceAccessToken,
+    clientInfo: SessionClientInfo
 ): Promise<ResourceSession> {
     const token = generateSessionToken();
     const sess = await createResourceSession({
+        clientInfo,
         resourceId: resource.resourceId,
         token,
         accessTokenId: tokenItem.accessTokenId,

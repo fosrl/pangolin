@@ -757,7 +757,12 @@ export const sessions = pgTable(
             .references(() => users.userId, { onDelete: "cascade" }),
         expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
         issuedAt: bigint("issuedAt", { mode: "number" }),
-        deviceAuthUsed: boolean("deviceAuthUsed").notNull().default(false)
+        deviceAuthUsed: boolean("deviceAuthUsed").notNull().default(false),
+        // Client details captured when the session was created
+        ip: varchar("ip"),
+        userAgent: text("userAgent"),
+        countryCode: varchar("countryCode"),
+        asn: integer("asn")
     },
     (t) => [index("idx_sessions_userid").on(t.userId)]
 );
@@ -1189,7 +1194,12 @@ export const resourceSessions = pgTable("resourceSessions", {
     issuedAt: bigint("issuedAt", { mode: "number" }),
     // Id of the short-lived request token this session was exchanged from.
     // Login audit logs reference that id, so this links them to the session.
-    requestSessionId: varchar("requestSessionId")
+    requestSessionId: varchar("requestSessionId"),
+    // Client details captured when the session was created
+    ip: varchar("ip"),
+    userAgent: text("userAgent"),
+    countryCode: varchar("countryCode"),
+    asn: integer("asn")
 });
 
 export const resourceWhitelist = pgTable("resourceWhitelist", {

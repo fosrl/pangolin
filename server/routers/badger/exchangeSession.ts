@@ -135,6 +135,20 @@ export async function exchangeSession(
 
         const token = generateSessionToken();
 
+        // The request token was created by the browser's login request, so it
+        // holds the real client details. Badger's IP is the fallback.
+        const clientInfo = requestSession.ip
+            ? {
+                  ip: requestSession.ip,
+                  userAgent: requestSession.userAgent,
+                  countryCode: requestSession.countryCode,
+                  asn: requestSession.asn
+              }
+            : {
+                  ip: clientIp,
+                  userAgent: requestSession.userAgent
+              };
+
         let expiresAt: number | null = null;
 
         if (requestSession.userSessionId) {
@@ -149,6 +163,7 @@ export async function exchangeSession(
                     resourceId: resource.resourceId,
                     isRequestToken: false,
                     requestSessionId: requestSession.sessionId,
+                    clientInfo,
                     userSessionId: requestSession.userSessionId,
                     doNotExtend: false,
                     expiresAt: res.expiresAt,
@@ -181,6 +196,7 @@ export async function exchangeSession(
                     resourceId: resource.resourceId,
                     isRequestToken: false,
                     requestSessionId: requestSession.sessionId,
+                    clientInfo,
                     accessTokenId: requestSession.accessTokenId,
                     doNotExtend: true,
                     expiresAt: res.expiresAt,
@@ -197,6 +213,7 @@ export async function exchangeSession(
                 resourceId: resource.resourceId,
                 isRequestToken: false,
                 requestSessionId: requestSession.sessionId,
+                clientInfo,
                 passwordId: requestSession.passwordId,
                 pincodeId: requestSession.pincodeId,
                 userSessionId: requestSession.userSessionId,

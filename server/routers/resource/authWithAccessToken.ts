@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { generateSessionToken } from "@server/auth/sessions/app";
 import { db, users } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
@@ -105,7 +106,8 @@ export async function authWithAccessToken(
             isRequestToken: true,
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
-            doNotExtend: true
+            doNotExtend: true,
+            clientInfo: getRequestClientInfo(req)
         });
 
         let accessAuditUser: { username: string; userId: string } | undefined;

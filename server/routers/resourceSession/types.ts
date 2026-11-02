@@ -32,6 +32,11 @@ export type ResourceSessionItem = {
     email: string | null;
     accessTokenId: string | null;
     accessTokenTitle: string | null;
+    // Client details captured when the session was created
+    ip: string | null;
+    userAgent: string | null;
+    countryCode: string | null;
+    asn: number | null;
 };
 
 export type ListResourceSessionsResponse = PaginatedResponse<{
