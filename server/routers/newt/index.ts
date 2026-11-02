@@ -10,6 +10,7 @@ export * from "./handleApplyBlueprintMessage";
 export * from "./handleNewtPingMessage";
 export * from "./handleNewtDisconnectingMessage";
 export * from "./handleConnectionLogMessage";
+export * from "./handleSshSessionLogMessage";
 export * from "./handleRequestLogMessage";
 export * from "./registerNewt";
 export * from "./offlineChecker";
