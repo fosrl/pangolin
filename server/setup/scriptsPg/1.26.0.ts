@@ -177,6 +177,15 @@ export default async function migration() {
         await db.execute(
             sql`CREATE INDEX "idx_customDnsRecords_domainId" ON "customDnsRecords" USING btree ("domainId");`
         );
+        await db.execute(
+            sql`ALTER TABLE "idpOrg" ADD COLUMN "autoProvision" boolean DEFAULT false NOT NULL;`
+        );
+        await db.execute(sql`
+            UPDATE "idpOrg"
+            SET "autoProvision" = "idp"."autoProvision"
+            FROM "idp"
+            WHERE "idp"."idpId" = "idpOrg"."idpId";
+        `);
 
         await db.execute(sql`COMMIT`);
         console.log("Migrated database");

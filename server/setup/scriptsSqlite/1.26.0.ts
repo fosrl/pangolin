@@ -158,6 +158,19 @@ export default async function migration() {
             db.prepare(
                 `ALTER TABLE 'resourceSessions' ADD 'requestSessionId' text;`
             ).run();
+
+            db.prepare(
+                `ALTER TABLE 'idpOrg' ADD 'autoProvision' integer DEFAULT false NOT NULL;`
+            ).run();
+            db.prepare(
+                `
+            UPDATE 'idpOrg'
+            SET "autoProvision" = COALESCE((
+                SELECT "autoProvision" FROM 'idp'
+                WHERE "idp"."idpId" = "idpOrg"."idpId"
+            ), false);
+                `
+            ).run();
         })();
 
         console.log("Migrated database");
