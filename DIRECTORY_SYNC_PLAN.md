@@ -150,7 +150,8 @@ The rules:
 - `syncOrgMapping`: new.
 - `syncRoleMapping`: replaces `directoryRoleMapping` (which only existed on this branch).
 - `mappingsLinked`: new boolean, default `true`. It's the UI's "one editor" state.
-- The role mappings use a single serialized config: `{ mode: "builder" | "fixed" | "jmespath", createMissingRoles, ... }`. This extends [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts) and replaces the JIT `roleMapping` format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts).
+- Both role mappings use the existing JIT format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts): a string that always evaluates as JMESPath. Fixed roles are stored as `'Role'` / `['A', 'B']`, and the builder as a JMESPath string with the `__PANGOLIN_ROLE_MAP_BUILDER_V1__` metadata prefix. The JSON format from `idpDirectorySyncRoleMapping.ts` goes away.
+- "Create missing roles" can't live inside a JMESPath string. Where it's stored is **to decide** (see [Open questions](#open-questions)).
 - The migration copies the existing `orgMapping` / `roleMapping` into `syncOrgMapping` / `syncRoleMapping`.
 - `directorySyncDeletions`: kept, scoped to sync.
 
@@ -235,48 +236,67 @@ Each step can ship on its own.
    - Data copies in the migration:
      - `apiIntegrationEnabled = directorySyncEnabled`
      - `syncOrgMapping = orgMapping`
-   - Copying `roleMapping` into `syncRoleMapping` waits for step 2.
-2. **Unified role-mapping format.**
-   - Extend [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts):
-     - Three modes: `builder | fixed | jmespath`.
-     - `createMissingRoles` as a separate option.
-     - Remove the `automatic` mode.
-   - Make JIT read the same format, still accepting the legacy JMESPath strings from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts).
-   - Do the same for `idp.defaultRoleMapping`.
-   - Migration: convert the existing `syncRoleMapping` values, then copy `roleMapping` into `syncRoleMapping` where it's still empty.
-3. **Shared mapping code.**
+   - Copying `roleMapping` into `syncRoleMapping` is deferred, along with the rest of the data migration.
+   - Note for the deferred data migration:
+     - `0032_red_devos.sql` doesn't run the two data copies above yet.
+     - Rows where the JIT and sync mappings differ after the copy need `mappingsLinked = false`, or the single editor overwrites one of them.
+2. **Unified role-mapping format.** Sync stores and evaluates its role mapping exactly like JIT: a string read as JMESPath, using the format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts) (fixed roles and the builder both compile to JMESPath). The JIT side and `idp.defaultRoleMapping` don't change.
+   - **Shared evaluation** (in `src/lib/idpRoleMapping.ts` or a server-side helper):
+     - [ ] Move `normalizeRoleMappingResult` out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into the shared lib.
+     - [ ] Add `evaluateRoleMapping(stored, claims): string[]`: `unwrapRoleMapping` → `jmespath.search` → `normalizeRoleMappingResult`.
+     - [ ] Make JIT call it. Login behavior must stay the same.
+   - **Create missing roles:** deferred (see [Open questions](#open-questions)). In this step, sync only assigns roles that already exist in the org, like JIT.
+   - **Sync engine** ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts), [types.ts](server/private/lib/idpAPI/types.ts)):
+     - [ ] Change `roleMapping` in `types.ts` from `DirectorySyncRoleMappingConfig` to the stored string.
+     - [ ] Rewrite `resolveUserRoles`. Build interim claims `{ groups: <group ids>, groupNames: <display names> }` from `IDPDirectoryUser` (step 7 replaces this with `toClaims`), evaluate them with `evaluateRoleMapping`, then look up roles by name.
+     - [ ] Remove the role-creation branch for now. Keep the dry-run handling.
+     - [ ] Drop the `parseDirectorySyncRoleMapping` call and the `fixedRoles / groupMapping / automatic` switch.
+   - **API:**
+     - [ ] [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) / [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts): `syncRoleMapping` takes the same string as `roleMapping`.
+   - **Verify:**
+     - [ ] Unit-test `evaluateRoleMapping` on `'Member'`, `['A','B']`, the builder prefix, a raw expression and null.
+     - [ ] JIT login gives the same roles as before.
+     - [ ] Sync dry run with a fixed mapping, a builder mapping and a raw expression.
+     - [ ] `tsc` + `eslint`.
+3. **Role-mapping UI for sync.** Ships with step 2: until it lands, the sync editor still writes the old JSON format.
+   - [ ] [DirectorySyncConfigWidget.tsx](src/components/DirectorySyncConfigWidget.tsx): use [RoleMappingConfigFields.tsx](src/components/RoleMappingConfigFields.tsx), the same editor as JIT.
+   - [ ] Org IdP [create/page.tsx](<src/app/[orgId]/settings/(private)/idp/create/page.tsx>) and [general/page.tsx](<src/app/[orgId]/settings/(private)/idp/[idpId]/general/page.tsx>): load `syncRoleMapping` with `detectRoleMappingConfig` and save it with `compileRoleMappingExpression`, like `roleMapping`.
+   - [ ] Sync builder default `claimPath`: `groupNames`, so rules match on names until step 7.
+   - [ ] Delete [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts) and [DirectorySyncRoleMappingFields.tsx](src/components/DirectorySyncRoleMappingFields.tsx).
+   - [ ] i18n: remove the `directorySyncRoleMapping*` keys that are no longer used from `messages/en-US.json`.
+4. **Shared mapping code.**
    - Move the org/role evaluation and the apply step out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into shared functions, such as:
      - `resolveOrgMemberships(claims, idpOrgs, method)`
      - `applyMemberships(...)`
    - "Create missing roles" lives in the shared code.
    - Login behavior stays exactly the same.
-4. **Membership ownership.**
+5. **Membership ownership.**
    - Each method only adds, re-roles or removes the `userOrgs` rows it owns:
      - `autoProvisioned` marks JIT rows.
      - `directorySynched` marks sync rows.
      - Rows with neither flag (manual) are never touched.
    - Decide role ownership (open question), then implement it.
    - Remove the `autoProvision` ⟂ `directorySyncEnabled` check from the global and org IdP create/update routes. Sync requires `apiIntegrationEnabled` instead.
-5. **Manual provisioning switch.**
+6. **Manual provisioning switch.**
    - Expose `allowManualProvisioning` in the IdP create/update APIs.
    - When it's `false`, hide the IdP on the create-user page and reject it in the create-user API.
-6. **Sync builds token-like claims.**
+7. **Sync builds token-like claims.**
    - Add `toClaims(user)` to [azure.ts](server/private/lib/directorySync/azure.ts) and [google.ts](server/private/lib/directorySync/google.ts), following the [claims tables](#sync-claims-payload).
    - Rewire [syncWorkflow.ts](server/private/lib/directorySync/syncWorkflow.ts) to run: claims → `identifierPath` → `syncOrgMapping` → `syncRoleMapping` → `applyMemberships`.
    - Stop setting `username` to the email.
    - Refuse sync when an Azure IdP's `identifierPath` is `sub`.
    - Stop selecting only IdPs with `autoProvision = false`.
-7. **JIT fetches groups.**
+8. **JIT fetches groups.**
    - Add `fetchUserGroups(externalId)` to each provider. It must share the group expansion code with sync.
    - Call it in the OIDC callback when `apiIntegrationEnabled` is on.
    - Add the result to the claims as `groups` / `groupNames`.
    - If the call fails, log a warning and continue with the token claims.
-8. **Scheduler and status.**
+9. **Scheduler and status.**
    - Add sync state back: `lastSyncStartedAt`, `lastSyncSucceededAt`, `lastError`, `consecutiveFailures`, `nextSyncAt` and the Azure delta cursor.
    - Tick every minute in the private `startSchedulers`, on a fixed sync interval.
    - Per-IdP `LockManager` lock, with exponential backoff on failures.
    - Endpoints: `POST /idp/:idpId/sync` (with dry run) and `GET /idp/:idpId/sync-status`.
-9. **UI** (global and org IdP pages).
+10. **UI** (global and org IdP pages).
    - "API integration" section: a toggle plus the provider fields.
    - "User provisioning" section: Manual, JIT (`autoProvision`) and Sync toggles.
    - Mappings:
@@ -285,7 +305,7 @@ Each step can ship on its own.
      - "Create missing roles".
      - "Configure JIT and sync separately", backed by `mappingsLinked`.
    - Sync status card and a "Sync now" button.
-10. **Docs and safeguards.**
+11. **Docs and safeguards.**
     - Document the claims payload for each provider.
     - Setup guides: Azure application permissions plus admin consent; Google domain-wide delegation scopes.
     - Deprovisioning safeguards:
@@ -297,4 +317,5 @@ Each step can ship on its own.
 
 - **Role ownership:** do we track it per role (`userOrgRoles.source`), or recompute the whole role set from the active methods?
 - **Existing Azure IdPs with `identifierPath = "sub"`:** block sync, migrate them to `oid` (which changes every username), or match by email once?
+- **Create missing roles:** where is it stored (one column per method on `idpOrg`, a global IdP default too?), and when does JIT start honoring it?
 - **Global IdPs:** do the JIT and sync defaults (`defaultOrgMapping` / `defaultRoleMapping`) also get split, or do they stay shared?
