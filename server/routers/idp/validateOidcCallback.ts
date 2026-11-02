@@ -39,7 +39,7 @@ import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
-import { unwrapRoleMapping } from "@app/lib/idpRoleMapping";
+import { evaluateRoleMapping } from "@server/lib/idp/evaluateRoleMapping";
 
 const ensureTrailingSlash = (url: string): string => {
     return url;
@@ -375,14 +375,7 @@ export async function validateOidcCallback(
                     idpOrgRes?.roleMapping || defaultRoleMapping;
                 if (roleMapping) {
                     logger.debug("Role Mapping", { roleMapping });
-                    const roleMappingJmes =
-                        unwrapRoleMapping(roleMapping).evaluationExpression;
-                    const roleMappingResult = jmespath.search(
-                        claims,
-                        roleMappingJmes
-                    );
-                    const roleNames =
-                        normalizeRoleMappingResult(roleMappingResult);
+                    const roleNames = evaluateRoleMapping(roleMapping, claims);
 
                     const supportsMultiRole = await isLicensedOrSubscribed(
                         org.orgId,
@@ -394,7 +387,7 @@ export async function validateOidcCallback(
 
                     if (!effectiveRoleNames.length) {
                         logger.error("Role mapping returned no valid roles", {
-                            roleMappingResult
+                            roleMapping
                         });
                         continue;
                     }
@@ -744,26 +737,4 @@ function hydrateOrgMapping(
         return undefined;
     }
     return orgMapping.split("{{orgId}}").join(orgId);
-}
-
-function normalizeRoleMappingResult(result: unknown): string[] {
-    if (typeof result === "string") {
-        const role = result.trim();
-        return role ? [role] : [];
-    }
-
-    if (Array.isArray(result)) {
-        return [
-            ...new Set(
-                result
-                    .filter(
-                        (value): value is string => typeof value === "string"
-                    )
-                    .map((value) => value.trim())
-                    .filter(Boolean)
-            )
-        ];
-    }
-
-    return [];
 }

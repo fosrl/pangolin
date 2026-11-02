@@ -20,17 +20,13 @@ import {
     roles,
     userOrgRoles,
     userOrgs,
-    users,
-    type Role
+    users
 } from "@server/db";
 
 import { durationToMs } from "@app/lib/durationToMs";
-import {
-    parseDirectorySyncRoleMapping,
-    type DirectorySyncRoleMappingConfig
-} from "@app/lib/idpDirectorySyncRoleMapping";
 import { generateId } from "@server/auth/sessions/app";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
+import { evaluateRoleMapping } from "@server/lib/idp/evaluateRoleMapping";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
@@ -69,7 +65,11 @@ export type UserSyncEntry = {
         | { operation: "remove" }
         | {
               operation: "unchanged";
-              reason: "noMatchingRoles" | "manualMembership" | "owner";
+              reason:
+                  | "noMatchingRoles"
+                  | "manualMembership"
+                  | "owner"
+                  | "noMatchingUserIdentifier";
           };
 };
 
@@ -150,7 +150,7 @@ async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
     // For global idps, we will rely on org policies
     // we will not store a default mapping for directory sync
     // if the admin wants to add the synched IDP to an org, they can create an org policy
-    // & set the role mapping to `automatic` (for ex)
+    // & set the role mapping to `groupNames` (for ex)
     // for global idps, if there is not an org policy for a specific org, the user is not added to that org
 
     // 1. Fetch
@@ -195,7 +195,7 @@ async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
                 -> remove user from org
 
 for each remote user:
-    roleIds = resolveRoles(user, ctx.roleMapping)   // fixed / group mapping / automatic
+    roleIds = resolveRoles(claims, ctx.roleMapping) // same JMESPath format as JIT
                                                     // [] = user doesn't qualify for this org
     if user is disabled: roleIds = []
 
@@ -271,15 +271,27 @@ for each membership with flag = true whose user is not in the remote set:
         let userIdentifier = jmespath.search(claims, identifierPath) as
             string | null;
 
+        if (!userIdentifier) {
+            syncPlan.entries.push({
+                directoryUser: user,
+                membership: {
+                    operation: "unchanged",
+                    reason: "noMatchingUserIdentifier"
+                },
+                user: { operation: "skip" }
+            });
+            continue;
+        }
+
         const roles = await resolveUserRoles(
             user,
-            syncRoleMapping!,
-            orgId,
-            dryRun
+            claims,
+            syncRoleMapping,
+            orgId
         );
 
         const pangolinUser =
-            existingPangolinUsers.get(user.externalId) ??
+            existingPangolinUsers.get(userIdentifier) ??
             existingPangolinUsers.get(user.username);
 
         // this is a new user
@@ -520,117 +532,19 @@ function getEntryUserId(
 
 async function resolveUserRoles(
     user: IDPDirectoryUser,
-    roleMapping: DirectorySyncRoleMappingConfig,
-    orgId: string,
-    dryRun: boolean
+    claims: object,
+    roleMapping: string | null,
+    orgId: string
 ): Promise<SyncedRole[]> {
     if (!user.enabled) return [];
 
-    let matchedRoles: Role[] = [];
+    const roleNames = evaluateRoleMapping(roleMapping, claims);
+    if (roleNames.length === 0) return [];
 
-    switch (roleMapping.mode) {
-        case "fixedRoles": {
-            if (roleMapping.fixedRoleNames.length > 0) {
-                matchedRoles = await db
-                    .select()
-                    .from(roles)
-                    .where(
-                        and(
-                            eq(roles.orgId, orgId),
-                            inArray(roles.name, roleMapping.fixedRoleNames)
-                        )
-                    );
-            }
-            break;
-        }
-        case "groupMapping": {
-            const roleNames: string[] = [];
-            const groupMapping = new Map(
-                roleMapping.groupRules.map((rule) => [
-                    rule.group,
-                    rule.roleNames
-                ])
-            );
-
-            for (const group of user.groups) {
-                let roles: string[] = [];
-                if (group.displayName) {
-                    roles =
-                        groupMapping.get(group.displayName) ??
-                        groupMapping.get(group.id) ??
-                        [];
-                } else {
-                    roles =
-                        groupMapping.get(group.displayName ?? group.id) ?? [];
-                }
-                roleNames.push(...roles);
-            }
-
-            if (roleNames.length > 0) {
-                matchedRoles = await db
-                    .select()
-                    .from(roles)
-                    .where(
-                        and(
-                            eq(roles.orgId, orgId),
-                            inArray(roles.name, roleNames)
-                        )
-                    );
-            }
-            break;
-        }
-        case "automatic":
-            const roleNames = user.groups
-                .map((g) => g.displayName)
-                .filter((name) => name !== undefined && name !== null);
-
-            if (roleNames.length > 0) {
-                matchedRoles = await db
-                    .select()
-                    .from(roles)
-                    .where(
-                        and(
-                            eq(roles.orgId, orgId),
-                            inArray(roles.name, roleNames)
-                        )
-                    );
-            }
-
-            if (roleMapping.createMissingRoles) {
-                const missingRoles = new Set(roleNames).difference(
-                    new Set(matchedRoles.map((r) => r.name))
-                );
-
-                if (missingRoles.size === 0) {
-                    break;
-                }
-
-                if (dryRun) {
-                    // the roles would be created when applying the plan, they don't have an id yet
-                    return [
-                        ...matchedRoles.map((role) => ({
-                            id: role.roleId,
-                            name: role.name
-                        })),
-                        ...[...missingRoles].map((name) => ({ id: -1, name }))
-                    ];
-                }
-
-                const result = await db
-                    .insert(roles)
-                    .values(
-                        [...missingRoles].map((role) => ({
-                            name: role,
-                            orgId: orgId
-                        }))
-                    )
-                    .returning();
-
-                matchedRoles.push(...result);
-            }
-
-            break;
-    }
+    const matchedRoles = await db
+        .select()
+        .from(roles)
+        .where(and(eq(roles.orgId, orgId), inArray(roles.name, roleNames)));
 
     return matchedRoles.map((role) => ({ id: role.roleId, name: role.name }));
 }
