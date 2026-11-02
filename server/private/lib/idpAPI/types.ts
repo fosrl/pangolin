@@ -11,7 +11,6 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import type { DirectorySyncRoleMappingConfig } from "@app/lib/idpDirectorySyncRoleMapping";
 import type { IdpDbResponse } from "./ensureValidIdp";
 
 // Provider-neutral shapes used by the directory sync engine (runSync.ts).
@@ -41,7 +40,8 @@ export type IDPDirectoryFetchResult = {
 };
 
 export type DirectoryFetchContext = {
-    roleMapping: DirectorySyncRoleMappingConfig;
+    /** `idpOrg.syncRoleMapping`, same format as the JIT `roleMapping`. */
+    roleMapping: string | null;
     /** `idpOidcConfig.identifierPath`, used to compute `DirectoryUser.username`. */
     identifierPath: string;
 };
