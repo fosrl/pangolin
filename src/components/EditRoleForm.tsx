@@ -21,12 +21,6 @@ import {
 import { saveBudgetRows } from "./BudgetsEditor";
 import { saveRoleClientSettings } from "./RoleClientSettingsFields";
 import SettingsSectionTitle from "./SettingsSectionTitle";
-import {
-    SettingsContainer,
-    SettingsSection,
-    SettingsSectionBody,
-    SettingsSectionFooter
-} from "./Settings";
 import { useRouter } from "next/navigation";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
@@ -153,30 +147,22 @@ export default function EditRoleForm({ role }: EditRoleFormProps) {
                     {t("close")}
                 </Button>
             </div>
-            <SettingsContainer>
-                <SettingsSection>
-                    <SettingsSectionBody>
-                        <RoleForm
-                            variant="edit"
-                            orgId={role.orgId}
-                            role={role}
-                            onSubmit={(values) =>
-                                startTransition(() => onSubmit(values))
-                            }
-                        />
-                    </SettingsSectionBody>
-                    <SettingsSectionFooter>
-                        <Button
-                            type="submit"
-                            form="create-role-form"
-                            loading={loading}
-                            disabled={loading}
-                        >
-                            {t("accessRoleUpdateSubmit")}
-                        </Button>
-                    </SettingsSectionFooter>
-                </SettingsSection>
-            </SettingsContainer>
+            <RoleForm
+                variant="edit"
+                orgId={role.orgId}
+                role={role}
+                onSubmit={(values) => startTransition(() => onSubmit(values))}
+                footer={
+                    <Button
+                        type="submit"
+                        form="create-role-form"
+                        loading={loading}
+                        disabled={loading}
+                    >
+                        {t("accessRoleUpdateSubmit")}
+                    </Button>
+                }
+            />
         </>
     );
 }

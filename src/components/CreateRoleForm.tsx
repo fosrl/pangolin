@@ -17,12 +17,6 @@ import {
 } from "./RoleForm";
 import { saveRoleClientSettings } from "./RoleClientSettingsFields";
 import SettingsSectionTitle from "./SettingsSectionTitle";
-import {
-    SettingsContainer,
-    SettingsSection,
-    SettingsSectionBody,
-    SettingsSectionFooter
-} from "./Settings";
 import { useRouter } from "next/navigation";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
@@ -145,29 +139,21 @@ export default function CreateRoleForm({ orgId }: CreateRoleFormProps) {
                     {t("cancel")}
                 </Button>
             </div>
-            <SettingsContainer>
-                <SettingsSection>
-                    <SettingsSectionBody>
-                        <RoleForm
-                            variant="create"
-                            orgId={orgId}
-                            onSubmit={(values) =>
-                                startTransition(() => onSubmit(values))
-                            }
-                        />
-                    </SettingsSectionBody>
-                    <SettingsSectionFooter>
-                        <Button
-                            type="submit"
-                            form="create-role-form"
-                            loading={loading}
-                            disabled={loading}
-                        >
-                            {t("accessRoleCreateSubmit")}
-                        </Button>
-                    </SettingsSectionFooter>
-                </SettingsSection>
-            </SettingsContainer>
+            <RoleForm
+                variant="create"
+                orgId={orgId}
+                onSubmit={(values) => startTransition(() => onSubmit(values))}
+                footer={
+                    <Button
+                        type="submit"
+                        form="create-role-form"
+                        loading={loading}
+                        disabled={loading}
+                    >
+                        {t("accessRoleCreateSubmit")}
+                    </Button>
+                }
+            />
         </>
     );
 }

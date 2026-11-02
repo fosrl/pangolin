@@ -1142,6 +1142,8 @@
     "accessRoleErrorNewRequired": "New role is required",
     "accessRoleErrorRemove": "Failed to remove role",
     "accessRoleErrorRemoveDescription": "An error occurred while removing the role.",
+    "accessRoleGeneralDescription": "Configure the name, description, and device approval requirements for this role",
+    "accessRoleSshAccessDescription": "Configure whether members of this role can SSH into resources and what privileges they have",
     "accessRoleInferenceBudget": "AI Budget",
     "accessRoleInferenceBudgetDescription": "Configure how members of this role restrict AI usage based on spending or token limits",
     "accessRoleClientSettings": "Client Settings",

@@ -34,6 +34,15 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { HorizontalTabs } from "@app/components/HorizontalTabs";
+import {
+    SettingsSection,
+    SettingsSectionBody,
+    SettingsSectionDescription,
+    SettingsSectionFooter,
+    SettingsSectionForm,
+    SettingsSectionHeader,
+    SettingsSectionTitle
+} from "@app/components/Settings";
 import { PaidFeaturesAlert } from "./PaidFeaturesAlert";
 import { CheckboxWithLabel } from "./ui/checkbox";
 import {
@@ -124,6 +133,8 @@ type RoleFormProps = {
     role?: Role;
     onSubmit: (values: RoleFormValues) => void | Promise<void>;
     formId?: string;
+    /** Rendered in the footer of every section card (e.g. the submit button). */
+    footer?: React.ReactNode;
 };
 
 type RoleTextImportField = "sshSudoCommands" | "sshUnixGroups";
@@ -135,12 +146,44 @@ type PendingTextImport = {
     rawContent: string;
 };
 
+function RoleFormSection({
+    title,
+    description,
+    footer,
+    formVariant = "compact",
+    children
+}: {
+    title: string;
+    description: string;
+    footer?: React.ReactNode;
+    formVariant?: "half" | "compact";
+    children: React.ReactNode;
+}) {
+    return (
+        <SettingsSection>
+            <SettingsSectionHeader>
+                <SettingsSectionTitle>{title}</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                    {description}
+                </SettingsSectionDescription>
+            </SettingsSectionHeader>
+            <SettingsSectionBody>
+                <SettingsSectionForm variant={formVariant}>
+                    {children}
+                </SettingsSectionForm>
+            </SettingsSectionBody>
+            {footer && <SettingsSectionFooter>{footer}</SettingsSectionFooter>}
+        </SettingsSection>
+    );
+}
+
 export function RoleForm({
     variant,
     orgId,
     role,
     onSubmit,
-    formId = "create-role-form"
+    formId = "create-role-form",
+    footer
 }: RoleFormProps) {
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
@@ -380,13 +423,13 @@ export function RoleForm({
 
     return (
         <Form {...form}>
-            <form
-                onSubmit={form.handleSubmit(handleFormSubmit)}
-                className="space-y-4"
-                id={formId}
-            >
+            <form onSubmit={form.handleSubmit(handleFormSubmit)} id={formId}>
                 {env.flags.disableEnterpriseFeatures ? (
-                    <div className="space-y-4 mt-4">
+                    <RoleFormSection
+                        title={t("general")}
+                        description={t("accessRoleGeneralDescription")}
+                        footer={footer}
+                    >
                         <FormField
                             control={form.control}
                             name="name"
@@ -421,7 +464,7 @@ export function RoleForm({
                                 </FormItem>
                             )}
                         />
-                    </div>
+                    </RoleFormSection>
                 ) : (
                     <HorizontalTabs
                         clientSide={true}
@@ -442,7 +485,11 @@ export function RoleForm({
                         ]}
                     >
                         {/* General tab */}
-                        <div className="space-y-4 mt-4">
+                        <RoleFormSection
+                            title={t("general")}
+                            description={t("accessRoleGeneralDescription")}
+                            footer={footer}
+                        >
                             <FormField
                                 control={form.control}
                                 name="name"
@@ -526,9 +573,13 @@ export function RoleForm({
                                     </FormItem>
                                 )}
                             />
-                        </div>
+                        </RoleFormSection>
 
-                        <div className="space-y-4 mt-4">
+                        <RoleFormSection
+                            title={t("sshAccess")}
+                            description={t("accessRoleSshAccessDescription")}
+                            footer={footer}
+                        >
                             <FormField
                                 control={form.control}
                                 name="allowSsh"
@@ -743,12 +794,16 @@ export function RoleForm({
                                     />
                                 </>
                             )}
-                        </div>
+                        </RoleFormSection>
 
-                        <div className="space-y-4 mt-4">
-                            <p className="text-sm text-muted-foreground">
-                                {t("accessRoleInferenceBudgetDescription")}
-                            </p>
+                        <RoleFormSection
+                            title={t("accessRoleInferenceBudget")}
+                            description={t(
+                                "accessRoleInferenceBudgetDescription"
+                            )}
+                            footer={footer}
+                            formVariant="half"
+                        >
                             <BudgetRowsFields
                                 rows={pendingBudgetRows}
                                 onChange={setPendingBudgetRows}
@@ -757,12 +812,15 @@ export function RoleForm({
                                 }
                                 attemptedSave={attemptedBudgetsSave}
                             />
-                        </div>
+                        </RoleFormSection>
 
-                        <div className="space-y-4 mt-4">
-                            <p className="text-sm text-muted-foreground">
-                                {t("accessRoleClientSettingsDescription")}
-                            </p>
+                        <RoleFormSection
+                            title={t("accessRoleClientSettings")}
+                            description={t(
+                                "accessRoleClientSettingsDescription"
+                            )}
+                            footer={footer}
+                        >
                             <RoleClientSettingsFields
                                 orgId={orgId}
                                 value={pendingClientSettings}
@@ -772,7 +830,7 @@ export function RoleForm({
                                     clientSettingsQuery.isLoading
                                 }
                             />
-                        </div>
+                        </RoleFormSection>
                     </HorizontalTabs>
                 )}
             </form>
