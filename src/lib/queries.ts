@@ -87,6 +87,7 @@ import type {
 } from "@server/routers/siteResource";
 import type { GetSiteResourceResponse } from "@server/routers/siteResource/getSiteResource";
 import type { ListTargetsResponse } from "@server/routers/target";
+import type { ListAccessTokensResponse } from "@server/routers/accessToken";
 import type { ListUsersResponse } from "@server/routers/user";
 import type { ListMyVirtualApiKeysResponse } from "@server/routers/virtualApiKey/types";
 import type ResponseT from "@server/types/Response";
@@ -279,6 +280,27 @@ export const orgQueries = {
                 >(`/org/${orgId}/users?${sp.toString()}`, { signal });
 
                 return res.data.data.users;
+            }
+        }),
+    accessTokens: ({
+        orgId,
+        limit = 1000
+    }: {
+        orgId: string;
+        limit?: number;
+    }) =>
+        queryOptions({
+            queryKey: ["ORG", orgId, "ACCESS_TOKENS", { limit }] as const,
+            queryFn: async ({ signal, meta }) => {
+                const sp = new URLSearchParams({
+                    limit: limit.toString()
+                });
+
+                const res = await meta!.api.get<
+                    AxiosResponse<ListAccessTokensResponse>
+                >(`/org/${orgId}/access-tokens?${sp.toString()}`, { signal });
+
+                return res.data.data.accessTokens;
             }
         }),
     roles: ({

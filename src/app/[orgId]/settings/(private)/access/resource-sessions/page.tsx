@@ -5,8 +5,10 @@ import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import ResourceSessionsTable from "@app/components/ResourceSessionsTable";
 import type { SelectedResource } from "@app/components/resource-selector";
+import type { SelectedShareLink } from "@app/components/share-link-selector";
 import type { SelectedUser } from "@app/components/user-selector";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
+import type { ListAccessTokensResponse } from "@server/routers/accessToken";
 import type { ListResourceSessionsResponse } from "@server/routers/resourceSession/types";
 import type { GetResourceResponse } from "@server/routers/resource/getResource";
 import type { GetOrgUserResponse } from "@server/routers/user";
@@ -106,6 +108,40 @@ export default async function ResourceSessionsPage(
         }
     }
 
+    const accessTokenIdParam = searchParams.get("accessTokenId");
+    let initialFilterShareLink: SelectedShareLink | null = null;
+    if (accessTokenIdParam) {
+        const fromSession = sessions.find(
+            (session) => session.accessTokenId === accessTokenIdParam
+        );
+        if (fromSession?.accessTokenTitle) {
+            initialFilterShareLink = {
+                accessTokenId: accessTokenIdParam,
+                title: fromSession.accessTokenTitle
+            };
+        } else {
+            try {
+                const tokensRes = await internal.get<
+                    AxiosResponse<ListAccessTokensResponse>
+                >(`/org/${orgId}/access-tokens`, header);
+                const token = tokensRes.data.data.accessTokens.find(
+                    (item) => item.accessTokenId === accessTokenIdParam
+                );
+                if (token) {
+                    initialFilterShareLink = {
+                        accessTokenId: accessTokenIdParam,
+                        title:
+                            token.title?.trim() ||
+                            token.resourceName ||
+                            accessTokenIdParam
+                    };
+                }
+            } catch {
+                // leave null so the table falls back to the id
+            }
+        }
+    }
+
     const t = await getTranslations();
 
     return (
@@ -127,6 +163,7 @@ export default async function ResourceSessionsPage(
                 }}
                 initialFilterResource={initialFilterResource}
                 initialFilterUser={initialFilterUser}
+                initialFilterShareLink={initialFilterShareLink}
             />
         </>
     );

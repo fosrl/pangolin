@@ -24,6 +24,9 @@ export type ResourceSessionItem = {
         username: string;
         name: string | null;
         email: string | null;
+        type: string;
+        idpName: string | null;
+        idpVariant: string | null;
     } | null;
     // Set for email whitelist sessions, which have no user record
     email: string | null;

@@ -16,6 +16,8 @@ import { z } from "zod";
 import {
     alias,
     db,
+    idp,
+    idpOidcConfig,
     resourceAccessToken,
     resourcePolicyWhiteList,
     resources,
@@ -118,6 +120,10 @@ const listSchema = z.object({
         type: "string",
         description:
             "Filter sessions held by this user, through SSO or a shareable link"
+    }),
+    accessTokenId: z.string().nonempty().optional().catch(undefined).openapi({
+        type: "string",
+        description: "Filter sessions created by this shareable link"
     }),
     authMethod: z
         .enum(resourceSessionAuthMethods)
@@ -279,6 +285,7 @@ export async function listResourceSessions(
             order,
             resourceId,
             userId,
+            accessTokenId,
             authMethod,
             sessionId
         } = parsedQuery.data;
@@ -300,6 +307,10 @@ export async function listResourceSessions(
 
         if (typeof userId !== "undefined") {
             conditions.push(userCondition(userId));
+        }
+
+        if (typeof accessTokenId !== "undefined") {
+            conditions.push(eq(resourceSessions.accessTokenId, accessTokenId));
         }
 
         if (typeof authMethod !== "undefined") {
@@ -333,6 +344,8 @@ export async function listResourceSessions(
         // SSO sessions resolve the user through the user session, access
         // token sessions through the token owner.
         const tokenUsers = alias(users, "tokenUsers");
+        const tokenIdp = alias(idp, "tokenIdp");
+        const tokenIdpOidcConfig = alias(idpOidcConfig, "tokenIdpOidcConfig");
 
         const [rows, [{ count }]] = await Promise.all([
             db
@@ -355,10 +368,16 @@ export async function listResourceSessions(
                     ssoUsername: users.username,
                     ssoName: users.name,
                     ssoEmail: users.email,
+                    ssoType: users.type,
+                    ssoIdpName: idp.name,
+                    ssoIdpVariant: idpOidcConfig.variant,
                     tokenUserId: tokenUsers.userId,
                     tokenUsername: tokenUsers.username,
                     tokenName: tokenUsers.name,
                     tokenEmail: tokenUsers.email,
+                    tokenType: tokenUsers.type,
+                    tokenIdpName: tokenIdp.name,
+                    tokenIdpVariant: tokenIdpOidcConfig.variant,
                     accessTokenTitle: resourceAccessToken.title,
                     whitelistEmail: resourceWhitelist.email,
                     policyWhitelistEmail: resourcePolicyWhiteList.email
@@ -373,6 +392,8 @@ export async function listResourceSessions(
                     eq(sessions.sessionId, resourceSessions.userSessionId)
                 )
                 .leftJoin(users, eq(users.userId, sessions.userId))
+                .leftJoin(idp, eq(users.idpId, idp.idpId))
+                .leftJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId))
                 .leftJoin(
                     resourceAccessToken,
                     eq(
@@ -383,6 +404,11 @@ export async function listResourceSessions(
                 .leftJoin(
                     tokenUsers,
                     eq(tokenUsers.userId, resourceAccessToken.userId)
+                )
+                .leftJoin(tokenIdp, eq(tokenUsers.idpId, tokenIdp.idpId))
+                .leftJoin(
+                    tokenIdpOidcConfig,
+                    eq(tokenIdpOidcConfig.idpId, tokenIdp.idpId)
                 )
                 .leftJoin(
                     resourceWhitelist,
@@ -427,14 +453,20 @@ export async function listResourceSessions(
                               userId: row.ssoUserId,
                               username: row.ssoUsername!,
                               name: row.ssoName,
-                              email: row.ssoEmail
+                              email: row.ssoEmail,
+                              type: row.ssoType!,
+                              idpName: row.ssoIdpName ?? null,
+                              idpVariant: row.ssoIdpVariant ?? null
                           }
                         : row.tokenUserId
                           ? {
                                 userId: row.tokenUserId,
                                 username: row.tokenUsername!,
                                 name: row.tokenName,
-                                email: row.tokenEmail
+                                email: row.tokenEmail,
+                                type: row.tokenType!,
+                                idpName: row.tokenIdpName ?? null,
+                                idpVariant: row.tokenIdpVariant ?? null
                             }
                           : null,
                     email:
