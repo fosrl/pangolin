@@ -201,7 +201,17 @@ const createAccessTokenSessionParamsSchema = z.strictObject({
 });
 
 const createAccessTokenSessionBodySchema = z.strictObject({
-    accessTokenId: z.string().min(1)
+    accessTokenId: z.string().min(1),
+    // Details of the client the remote node saw. Country and ASN are looked
+    // up from the IP here when the node does not send them.
+    clientInfo: z
+        .strictObject({
+            ip: z.string().max(255).nullable().optional(),
+            userAgent: z.string().nullable().optional(),
+            countryCode: z.string().max(16).nullable().optional(),
+            asn: z.number().int().nullable().optional()
+        })
+        .optional()
 });
 
 const getAccessTokenParamsSchema = z.strictObject({
@@ -2087,7 +2097,7 @@ hybridRouter.post(
             }
 
             const { resourceId } = parsedParams.data;
-            const { accessTokenId } = parsedBody.data;
+            const { accessTokenId, clientInfo } = parsedBody.data;
 
             const [tokenItem] = await db
                 .select()
@@ -2127,6 +2137,7 @@ hybridRouter.post(
 
             const token = generateSessionToken();
             const sess = await createResourceSession({
+                clientInfo,
                 resourceId: resource.resourceId,
                 token,
                 accessTokenId: tokenItem.accessTokenId,
@@ -2145,7 +2156,7 @@ hybridRouter.post(
             );
 
             return response(res, {
-                data: { cookie },
+                data: { cookie, sessionId: sess.sessionId },
                 success: true,
                 error: false,
                 message: "Access token session created successfully",
