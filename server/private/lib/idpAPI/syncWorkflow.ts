@@ -224,8 +224,15 @@ for each membership with flag = true whose user is not in the remote set:
     const {
         idp: { idpId },
         idpOrg: { orgId, syncRoleMapping },
-        idpOidcConfig: { identifierPath }
+        idpOidcConfig: { identifierPath: usernamePath, externalIdPath }
     } = provider.idp;
+
+    // login and sync must link users on the same key
+    if (!externalIdPath) {
+        throw new Error(
+            `IdP ${idpId} has no external ID path, directory sync needs one to match users`
+        );
+    }
 
     const existingUsers = await db
         .select()
@@ -238,16 +245,17 @@ for each membership with flag = true whose user is not in the remote set:
         .innerJoin(userOrgs, eq(userOrgs.userId, users.userId))
         .where(and(eq(users.idpId, idpId), eq(userOrgs.orgId, orgId)));
 
-    const existingPangolinUsers = new Map<
+    // match on the external ID, the username only covers users not linked yet (same as login)
+    const usersByExternalId = new Map<string, (typeof existingUsers)[number]>();
+    const unlinkedUsersByUsername = new Map<
         string,
         (typeof existingUsers)[number]
     >();
     for (const u of existingUsers) {
-        // rely on the external ID in the tenant if it exists, else use the username
         if (u.externalUserId) {
-            existingPangolinUsers.set(u.externalUserId, u);
-        } else {
-            existingPangolinUsers.set(u.username, u);
+            usersByExternalId.set(u.externalUserId, u);
+        } else if (!unlinkedUsersByUsername.has(u.username)) {
+            unlinkedUsersByUsername.set(u.username, u);
         }
     }
 
@@ -268,10 +276,16 @@ for each membership with flag = true whose user is not in the remote set:
     for (const user of result.users) {
         const claims = provider.toClaims(user);
 
-        let userIdentifier = jmespath.search(claims, identifierPath) as
-            string | null;
+        const usernameClaim = jmespath.search(claims, usernamePath);
+        const externalIdClaim = jmespath.search(claims, externalIdPath);
 
-        if (!userIdentifier) {
+        if (
+            typeof usernameClaim !== "string" ||
+            !usernameClaim ||
+            (typeof externalIdClaim !== "string" &&
+                typeof externalIdClaim !== "number") ||
+            externalIdClaim === ""
+        ) {
             syncPlan.entries.push({
                 directoryUser: user,
                 membership: {
@@ -290,9 +304,12 @@ for each membership with flag = true whose user is not in the remote set:
             orgId
         );
 
+        const username = usernameClaim.toLowerCase();
+        const externalUserId = String(externalIdClaim);
+
         const pangolinUser =
-            existingPangolinUsers.get(userIdentifier) ??
-            existingPangolinUsers.get(user.username);
+            usersByExternalId.get(externalUserId) ??
+            unlinkedUsersByUsername.get(username);
 
         // this is a new user
         if (!pangolinUser) {
@@ -315,8 +332,8 @@ for each membership with flag = true whose user is not in the remote set:
                     operation: "create",
                     data: {
                         userId: generateId(15),
-                        username: user.username,
-                        externalUserId: user.externalId,
+                        username,
+                        externalUserId,
                         email: user.email,
                         name: user.name,
                         type: UserType.OIDC,
@@ -367,10 +384,10 @@ for each membership with flag = true whose user is not in the remote set:
                     operation: "update",
                     data: {
                         userId: pangolinUser.userId,
-                        username: user.username,
                         email: user.email,
                         name: user.name,
-                        externalUserId: user.externalId
+                        username,
+                        externalUserId
                     }
                 },
                 membership: membershipOperation

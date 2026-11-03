@@ -25,7 +25,7 @@ export type IDPGroup = {
 export type IDPDirectoryUser = {
     /** Stable provider user ID (Entra object ID, Google directory ID). */
     externalId: string;
-    /** Value that login computes as `users.username` (already resolved from `identifierPath`). */
+    /** Provider default (the email). Sync computes `users.username` from `identifierPath` on the claims instead. */
     username: string;
     email: string | null;
     name: string | null;
@@ -42,7 +42,7 @@ export type IDPDirectoryFetchResult = {
 export type DirectoryFetchContext = {
     /** `idpOrg.syncRoleMapping`, same format as the JIT `roleMapping`. */
     roleMapping: string | null;
-    /** `idpOidcConfig.identifierPath`, used to compute `DirectoryUser.username`. */
+    /** `idpOidcConfig.identifierPath` (the username path), evaluated on the claims to compute `users.username`. */
     identifierPath: string;
 };
 
