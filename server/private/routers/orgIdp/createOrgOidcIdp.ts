@@ -45,11 +45,15 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
     autoProvision: z.boolean().optional(),
+    apiIntegrationEnabled: z.boolean().optional(),
+    allowManualProvisioning: z.boolean().optional(),
     directorySyncEnabled: z.boolean().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc"),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
     syncRoleMapping: z.string().nullish(),
+    syncOrgMapping: z.string().nullish(),
+    mappingsLinked: z.boolean().optional(),
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, validated against the variant's schema
     directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
@@ -131,8 +135,12 @@ export async function createOrgOidcIdp(
             variant,
             roleMapping,
             orgMapping: orgMappingBody,
+            apiIntegrationEnabled,
+            allowManualProvisioning,
             directorySyncEnabled,
             syncRoleMapping,
+            syncOrgMapping,
+            mappingsLinked,
             directorySyncDeletions,
             directorySyncConfig,
             tags
@@ -151,25 +159,28 @@ export async function createOrgOidcIdp(
             }
         }
 
-        if (autoProvision && directorySyncEnabled) {
+        // the API integration (and sync, which needs it) is only supported for google/azure idps
+        const apiIntegrationSupported =
+            variant === "google" || variant === "azure";
+        const effectiveApiIntegrationEnabled =
+            apiIntegrationSupported && !!apiIntegrationEnabled;
+        const effectiveDirectorySyncEnabled =
+            apiIntegrationSupported && !!directorySyncEnabled;
+
+        if (effectiveDirectorySyncEnabled && !effectiveApiIntegrationEnabled) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
-                    "Auto provisioning and directory sync cannot both be enabled"
+                    "Directory sync requires the API integration"
                 )
             );
         }
-
-        // directory sync is only supported for google/azure idps
-        const effectiveDirectorySyncEnabled =
-            (variant === "google" || variant === "azure") &&
-            !!directorySyncEnabled;
 
         const resolvedDirectorySyncConfig = resolveDirectorySyncConfig({
             variant,
             incoming: directorySyncConfig,
             existingEncrypted: null,
-            directorySyncEnabled: effectiveDirectorySyncEnabled
+            apiIntegrationEnabled: effectiveApiIntegrationEnabled
         });
         if (!resolvedDirectorySyncConfig.success) {
             return next(
@@ -192,8 +203,10 @@ export async function createOrgOidcIdp(
                 .values({
                     name,
                     autoProvision,
+                    apiIntegrationEnabled: effectiveApiIntegrationEnabled,
+                    allowManualProvisioning,
                     directorySyncEnabled: effectiveDirectorySyncEnabled,
-                    directorySyncConfig: resolvedDirectorySyncConfig.value,
+                    apiConfig: resolvedDirectorySyncConfig.value,
                     type: "oidc",
                     tags
                 })
@@ -224,6 +237,8 @@ export async function createOrgOidcIdp(
                 roleMapping: roleMapping || null,
                 orgMapping: orgMappingBody,
                 syncRoleMapping: syncRoleMapping || null,
+                syncOrgMapping: syncOrgMapping || null,
+                mappingsLinked: mappingsLinked ?? true,
                 directorySyncDeletions: directorySyncDeletions ?? true
             });
         });

@@ -49,10 +49,14 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().optional(),
     autoProvision: z.boolean().optional(),
+    apiIntegrationEnabled: z.boolean().optional(),
+    allowManualProvisioning: z.boolean().optional(),
     directorySyncEnabled: z.boolean().optional(),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
     syncRoleMapping: z.string().nullish(),
+    syncOrgMapping: z.string().nullish(),
+    mappingsLinked: z.boolean().optional(),
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, omitted secrets are kept from the stored config
     directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
@@ -135,8 +139,12 @@ export async function updateOrgOidcIdp(
             name,
             roleMapping,
             orgMapping,
+            apiIntegrationEnabled,
+            allowManualProvisioning,
             directorySyncEnabled,
             syncRoleMapping,
+            syncOrgMapping,
+            mappingsLinked,
             directorySyncDeletions,
             directorySyncConfig,
             tags
@@ -199,36 +207,38 @@ export async function updateOrgOidcIdp(
             .from(idpOidcConfig)
             .where(eq(idpOidcConfig.idpId, idpId));
 
-        // auto provisioning and directory sync are mutually exclusive
-        const effectiveAutoProvision =
-            autoProvision ?? existingIdp.autoProvision;
+        // the API integration (and sync, which needs it) is only supported for google/azure idps
+        const apiIntegrationSupported =
+            existingOidcConfig?.variant === "google" ||
+            existingOidcConfig?.variant === "azure";
+        // undefined keeps the stored value
+        const effectiveApiIntegrationEnabled = apiIntegrationSupported
+            ? apiIntegrationEnabled
+            : false;
+        const effectiveDirectorySyncEnabled = apiIntegrationSupported
+            ? directorySyncEnabled
+            : false;
+
         if (
-            effectiveAutoProvision &&
-            (directorySyncEnabled ?? existingIdp.directorySyncEnabled)
+            (effectiveDirectorySyncEnabled ??
+                existingIdp.directorySyncEnabled) &&
+            !(effectiveApiIntegrationEnabled ?? existingIdp.apiIntegrationEnabled)
         ) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
-                    "Auto provisioning and directory sync cannot both be enabled"
+                    "Directory sync requires the API integration"
                 )
             );
         }
-
-        // directory sync is only supported for google/azure idps
-        const directorySyncSupported =
-            existingOidcConfig?.variant === "google" ||
-            existingOidcConfig?.variant === "azure";
-        const effectiveDirectorySyncEnabled = directorySyncSupported
-            ? directorySyncEnabled
-            : false;
 
         const resolvedDirectorySyncConfig = resolveDirectorySyncConfig({
             variant: existingOidcConfig?.variant ?? "oidc",
             incoming: directorySyncConfig,
             existingEncrypted: existingIdp.apiConfig,
-            directorySyncEnabled: !!(
-                effectiveDirectorySyncEnabled ??
-                existingIdp.directorySyncEnabled
+            apiIntegrationEnabled: !!(
+                effectiveApiIntegrationEnabled ??
+                existingIdp.apiIntegrationEnabled
             )
         });
         if (!resolvedDirectorySyncConfig.success) {
@@ -244,8 +254,10 @@ export async function updateOrgOidcIdp(
             const idpData = {
                 name,
                 autoProvision,
+                apiIntegrationEnabled: effectiveApiIntegrationEnabled,
+                allowManualProvisioning,
                 directorySyncEnabled: effectiveDirectorySyncEnabled,
-                directorySyncConfig: resolvedDirectorySyncConfig.value,
+                apiConfig: resolvedDirectorySyncConfig.value,
                 tags
             };
 
@@ -287,6 +299,8 @@ export async function updateOrgOidcIdp(
                 roleMapping?: string;
                 orgMapping?: string | null;
                 syncRoleMapping?: string | null;
+                syncOrgMapping?: string | null;
+                mappingsLinked?: boolean;
                 directorySyncDeletions?: boolean;
             } = {};
             if (roleMapping !== undefined) {
@@ -297,6 +311,12 @@ export async function updateOrgOidcIdp(
             }
             if (syncRoleMapping !== undefined) {
                 idpOrgPolicyPatch.syncRoleMapping = syncRoleMapping;
+            }
+            if (syncOrgMapping !== undefined) {
+                idpOrgPolicyPatch.syncOrgMapping = syncOrgMapping;
+            }
+            if (mappingsLinked !== undefined) {
+                idpOrgPolicyPatch.mappingsLinked = mappingsLinked;
             }
             if (directorySyncDeletions !== undefined) {
                 idpOrgPolicyPatch.directorySyncDeletions =

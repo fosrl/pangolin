@@ -265,12 +265,12 @@ Each step can ship on its own.
      - [ ] JIT login gives the same roles as before.
      - [x] Sync dry run with a fixed mapping, a builder mapping and a raw expression.
      - [x] `tsc` + `eslint`.
-3. **Role-mapping UI for sync.** Ships with step 2: until it lands, the sync editor still writes the old JSON format.
-   - [ ] [DirectorySyncConfigWidget.tsx](src/components/DirectorySyncConfigWidget.tsx): use [RoleMappingConfigFields.tsx](src/components/RoleMappingConfigFields.tsx), the same editor as JIT.
-   - [ ] Org IdP [create/page.tsx](<src/app/[orgId]/settings/(private)/idp/create/page.tsx>) and [general/page.tsx](<src/app/[orgId]/settings/(private)/idp/[idpId]/general/page.tsx>): load `syncRoleMapping` with `detectRoleMappingConfig` and save it with `compileRoleMappingExpression`, like `roleMapping`.
-   - [ ] Sync builder default `claimPath`: `groupNames`, so rules match on names until step 8.
-   - [ ] Delete [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts) and [DirectorySyncRoleMappingFields.tsx](src/components/DirectorySyncRoleMappingFields.tsx).
-   - [ ] i18n: remove the `directorySyncRoleMapping*` keys that are no longer used from `messages/en-US.json`.
+3. ✅ **Role-mapping UI for sync.** Ships with step 2.
+   - [x] [DirectorySyncConfigWidget.tsx](src/components/DirectorySyncConfigWidget.tsx): use [RoleMappingConfigFields.tsx](src/components/RoleMappingConfigFields.tsx), the same editor as JIT.
+   - [x] Org IdP [create/page.tsx](<src/app/[orgId]/settings/(private)/idp/create/page.tsx>) and [general/page.tsx](<src/app/[orgId]/settings/(private)/idp/[idpId]/general/page.tsx>): load `syncRoleMapping` with `detectRoleMappingConfig` and save it with `compileRoleMappingExpression`, like `roleMapping`.
+   - [x] Sync builder default `claimPath`: `groupNames` (`defaultSyncRoleMappingConfig` in [idpRoleMapping.ts](src/lib/idpRoleMapping.ts)), since `groups` holds provider group IDs.
+   - [x] Delete [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts) and [DirectorySyncRoleMappingFields.tsx](src/components/DirectorySyncRoleMappingFields.tsx).
+   - [x] i18n: remove the `directorySyncRoleMapping*` keys that are no longer used from `messages/en-US.json`.
 4. ✅ **Username path and external ID path.** Login and sync link accounts on the provider's immutable ID instead of the username.
    - `idpOidcConfig.identifierPath` keeps its name in the DB and API and becomes the username path only; new nullable `externalIdPath` (pg + sqlite schemas; the migration is generated locally).
    - API ([createOidcIdp.ts](server/routers/idp/createOidcIdp.ts), [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts), [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts), [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts)): accept `externalIdPath`. Create defaults it by variant ([oidcPaths.ts](server/lib/idp/oidcPaths.ts)).
@@ -289,8 +289,8 @@ Each step can ship on its own.
      - `directorySynched` marks sync rows.
      - Rows with neither flag (manual) are never touched.
    - Decide role ownership (open question), then implement it.
-   - Remove the `autoProvision` ⟂ `directorySyncEnabled` check from the global and org IdP create/update routes. Sync requires `apiIntegrationEnabled` instead.
-7. **Manual provisioning switch.**
+   - ✅ Remove the `autoProvision` ⟂ `directorySyncEnabled` check from the org IdP create/update routes; sync requires `apiIntegrationEnabled` instead (done with the step 11 UI). Until the ownership rules land, JIT and sync both on can flip a user's roles.
+7. **Manual provisioning switch.** The org IdP create/update APIs already accept `allowManualProvisioning` (done with the step 11 UI).
    - Expose `allowManualProvisioning` in the IdP create/update APIs.
    - When it's `false`, hide the IdP on the create-user page and reject it in the create-user API.
 8. **Sync builds token-like claims.**
@@ -310,13 +310,14 @@ Each step can ship on its own.
    - Per-IdP `LockManager` lock, with exponential backoff on failures.
    - Endpoints: `POST /idp/:idpId/sync` (with dry run) and `GET /idp/:idpId/sync-status`.
 11. **UI** (global and org IdP pages).
-   - "API integration" section: a toggle plus the provider fields.
-   - "User provisioning" section: Manual, JIT (`autoProvision`) and Sync toggles.
-   - Mappings:
-     - Org mapping.
+   - ✅ "API integration" section (org IdPs, google/azure): a toggle plus the provider fields ([ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)). Turning it off turns sync off.
+   - ✅ "User provisioning" section (org IdPs): Manual, JIT (`autoProvision`) and Sync toggles, not mutually exclusive. Sync is disabled until the API integration is on.
+   - Global IdP pages: no API integration (credentials only live on org IdPs); the Manual toggle needs `allowManualProvisioning` in the global routes first.
+   - Mappings ([IdpUserProvisioningFields.tsx](src/components/IdpUserProvisioningFields.tsx), [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx)):
+     - ✅ Org mapping and role mapping tabs, shown when JIT or sync is on.
+     - ✅ "Configure JIT and sync separately", backed by `mappingsLinked` (on by default: one editor, saved to both the JIT and sync columns). Unlinking starts the sync mappings from the shared ones and shows one editor per enabled method. The org IdP APIs accept `syncOrgMapping` and `mappingsLinked`.
      - Role mapping, with the builder as the default.
      - "Create missing roles".
-     - "Configure JIT and sync separately", backed by `mappingsLinked`.
    - "External ID path" input next to the username path, with the per-variant default.
    - Sync status card and a "Sync now" button.
 12. **Docs and safeguards.**

@@ -1,14 +1,12 @@
 "use client";
 
-import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
+import ApiIntegrationConfigWidget from "@app/components/ApiIntegrationConfigWidget";
 import CopyToClipboard from "@app/components/CopyToClipboard";
-import DirectorySyncConfigWidget from "@app/components/DirectorySyncConfigWidget";
-import GoogleDirectorySyncConfigFields, {
+import {
     buildGoogleDirectorySyncConfig,
     googleDirectorySyncFormFields,
     refineGoogleDirectorySyncFields
 } from "@app/components/GoogleDirectorySyncConfigFields";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
 import IdpTypeBadge from "@app/components/IdpTypeBadge";
 import {
@@ -17,7 +15,7 @@ import {
     InfoSections,
     InfoSectionTitle
 } from "@app/components/InfoSection";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import IdpUserProvisioningFields from "@app/components/IdpUserProvisioningFields";
 import {
     SettingsContainer,
     SettingsSection,
@@ -44,20 +42,13 @@ import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import {
     compileRoleMappingExpression,
-    createMappingBuilderRule,
+    defaultRoleMappingConfig,
+    defaultSyncRoleMappingConfig,
     detectRoleMappingConfig,
     ensureMappingBuilderRuleIds,
-    MappingBuilderRule,
-    RoleMappingMode
+    RoleMappingConfig
 } from "@app/lib/idpRoleMapping";
-import {
-    createDefaultDirectorySyncRoleMappingConfig,
-    DirectorySyncRoleMappingConfig,
-    parseDirectorySyncRoleMapping,
-    serializeDirectorySyncRoleMapping
-} from "@app/lib/idpDirectorySyncRoleMapping";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { ListRolesResponse } from "@server/routers/role";
 import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
@@ -74,19 +65,12 @@ export default function GeneralPage() {
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [roles, setRoles] = useState<{ roleId: number; name: string }[]>([]);
-    const [roleMappingMode, setRoleMappingMode] =
-        useState<RoleMappingMode>("fixedRoles");
-    const [fixedRoleNames, setFixedRoleNames] = useState<string[]>([]);
-    const [mappingBuilderClaimPath, setMappingBuilderClaimPath] =
-        useState("groups");
-    const [mappingBuilderRules, setMappingBuilderRules] = useState<
-        MappingBuilderRule[]
-    >([createMappingBuilderRule()]);
-    const [rawRoleExpression, setRawRoleExpression] = useState("");
-    const [syncRoleMapping, setSyncRoleMapping] =
-        useState<DirectorySyncRoleMappingConfig>(
-            createDefaultDirectorySyncRoleMappingConfig
-        );
+    const [roleMapping, setRoleMapping] = useState<RoleMappingConfig>(
+        defaultRoleMappingConfig
+    );
+    const [syncRoleMapping, setSyncRoleMapping] = useState<RoleMappingConfig>(
+        defaultSyncRoleMappingConfig
+    );
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
     const [configuredServiceAccountEmail, setConfiguredServiceAccountEmail] =
         useState<string | undefined>();
@@ -118,10 +102,14 @@ export default function GeneralPage() {
         emailPath: z.string().nullable().optional(),
         namePath: z.string().nullable().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
+        apiIntegrationEnabled: z.boolean().default(false),
+        allowManualProvisioning: z.boolean().default(true),
         autoProvision: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
         directorySyncDeletions: z.boolean().default(true),
-        orgMapping: z.string().optional()
+        orgMapping: z.string().optional(),
+        syncOrgMapping: z.string().optional(),
+        mappingsLinked: z.boolean().default(true)
     });
 
     // Google form schema (simplified)
@@ -134,10 +122,14 @@ export default function GeneralPage() {
                 .min(1, { message: t("idpClientSecretRequired") }),
             roleMapping: z.string().nullable().optional(),
             roleId: z.number().nullable().optional(),
+            apiIntegrationEnabled: z.boolean().default(false),
+            allowManualProvisioning: z.boolean().default(true),
             autoProvision: z.boolean().default(false),
             directorySyncEnabled: z.boolean().default(false),
             directorySyncDeletions: z.boolean().default(true),
             orgMapping: z.string().optional(),
+            syncOrgMapping: z.string().optional(),
+            mappingsLinked: z.boolean().default(true),
             ...googleDirectorySyncFormFields
         })
         .superRefine((data, ctx) =>
@@ -158,10 +150,14 @@ export default function GeneralPage() {
         tenantId: z.string().min(1, { message: t("idpTenantIdRequired") }),
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
+        apiIntegrationEnabled: z.boolean().default(false),
+        allowManualProvisioning: z.boolean().default(true),
         autoProvision: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
         directorySyncDeletions: z.boolean().default(true),
-        orgMapping: z.string().optional()
+        orgMapping: z.string().optional(),
+        syncOrgMapping: z.string().optional(),
+        mappingsLinked: z.boolean().default(true)
     });
 
     type OidcFormValues = z.infer<typeof OidcFormSchema>;
@@ -194,6 +190,8 @@ export default function GeneralPage() {
             emailPath: "email",
             namePath: "name",
             scopes: "openid profile email",
+            apiIntegrationEnabled: false,
+            allowManualProvisioning: true,
             autoProvision: true,
             directorySyncEnabled: false,
             directorySyncDeletions: true,
@@ -201,6 +199,8 @@ export default function GeneralPage() {
             roleId: null,
             tenantId: "",
             orgMapping: "",
+            syncOrgMapping: "",
+            mappingsLinked: true,
             googleServiceAccountKey: "",
             googleAdminEmail: "",
             googleCustomerId: ""
@@ -251,13 +251,18 @@ export default function GeneralPage() {
                         name: data.idp.name,
                         clientId: data.idpOidcConfig.clientId,
                         clientSecret: data.idpOidcConfig.clientSecret,
+                        apiIntegrationEnabled: data.idp.apiIntegrationEnabled,
+                        allowManualProvisioning:
+                            data.idp.allowManualProvisioning,
                         autoProvision: data.idp.autoProvision,
                         directorySyncEnabled: data.idp.directorySyncEnabled,
                         directorySyncDeletions:
                             data.idpOrg?.directorySyncDeletions ?? true,
                         roleMapping: roleMapping || null,
                         roleId: null,
-                        orgMapping: data.idpOrg?.orgMapping ?? ""
+                        orgMapping: data.idpOrg?.orgMapping ?? "",
+                        syncOrgMapping: data.idpOrg?.syncOrgMapping ?? "",
+                        mappingsLinked: data.idpOrg?.mappingsLinked ?? true
                     };
 
                     // Add variant-specific fields
@@ -286,25 +291,29 @@ export default function GeneralPage() {
 
                     form.reset(formData);
 
-                    setRoleMappingMode(detectedRoleMappingConfig.mode);
-                    setFixedRoleNames(detectedRoleMappingConfig.fixedRoleNames);
-                    setMappingBuilderClaimPath(
-                        detectedRoleMappingConfig.mappingBuilder.claimPath
-                    );
-                    setMappingBuilderRules(
-                        ensureMappingBuilderRuleIds(
-                            detectedRoleMappingConfig.mappingBuilder.rules
-                        )
-                    );
-                    setRawRoleExpression(
-                        detectedRoleMappingConfig.rawExpression
-                    );
+                    setRoleMapping({
+                        ...detectedRoleMappingConfig,
+                        mappingBuilder: {
+                            ...detectedRoleMappingConfig.mappingBuilder,
+                            rules: ensureMappingBuilderRuleIds(
+                                detectedRoleMappingConfig.mappingBuilder.rules
+                            )
+                        }
+                    });
 
-                    setSyncRoleMapping(
-                        parseDirectorySyncRoleMapping(
-                            data.idpOrg.syncRoleMapping
-                        )
+                    const detectedSyncRoleMapping = detectRoleMappingConfig(
+                        data.idpOrg.syncRoleMapping,
+                        defaultSyncRoleMappingConfig()
                     );
+                    setSyncRoleMapping({
+                        ...detectedSyncRoleMapping,
+                        mappingBuilder: {
+                            ...detectedSyncRoleMapping.mappingBuilder,
+                            rules: ensureMappingBuilderRuleIds(
+                                detectedSyncRoleMapping.mappingBuilder.rules
+                            )
+                        }
+                    });
                 }
             } catch (e) {
                 toast({
@@ -368,15 +377,16 @@ export default function GeneralPage() {
                 return;
             }
 
-            const roleMappingExpression = compileRoleMappingExpression({
-                mode: roleMappingMode,
-                fixedRoleNames,
-                mappingBuilder: {
-                    claimPath: mappingBuilderClaimPath,
-                    rules: mappingBuilderRules
-                },
-                rawExpression: rawRoleExpression
-            });
+            const roleMappingExpression =
+                compileRoleMappingExpression(roleMapping);
+            // linked mappings: sync uses the JIT ones
+            const syncRoleMappingExpression = data.mappingsLinked
+                ? roleMappingExpression
+                : compileRoleMappingExpression(syncRoleMapping);
+            const syncOrgMappingTrimmed =
+                (data.mappingsLinked
+                    ? data.orgMapping?.trim()
+                    : data.syncOrgMapping?.trim()) ?? "";
 
             if (data.autoProvision && !roleMappingExpression) {
                 toast({
@@ -395,14 +405,21 @@ export default function GeneralPage() {
                 name: data.name,
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
+                apiIntegrationEnabled:
+                    (variant === "google" || variant === "azure") &&
+                    data.apiIntegrationEnabled,
+                allowManualProvisioning: data.allowManualProvisioning,
                 autoProvision: data.autoProvision,
                 directorySyncEnabled:
                     (variant === "google" || variant === "azure") &&
+                    data.apiIntegrationEnabled &&
                     data.directorySyncEnabled,
                 roleMapping: roleMappingExpression,
                 orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed,
-                syncRoleMapping:
-                    serializeDirectorySyncRoleMapping(syncRoleMapping),
+                syncRoleMapping: syncRoleMappingExpression || null,
+                syncOrgMapping:
+                    syncOrgMappingTrimmed === "" ? null : syncOrgMappingTrimmed,
+                mappingsLinked: data.mappingsLinked,
                 directorySyncDeletions: data.directorySyncDeletions
             };
 
@@ -600,77 +617,15 @@ export default function GeneralPage() {
                     </SettingsSectionBody>
                 </SettingsSection>
 
-                {/* Auto Provision Settings */}
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("idpAutoProvisionUsers")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            <IdpAutoProvisionUsersDescription />
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <PaidFeaturesAlert
-                            tiers={tierMatrix.autoProvisioning}
-                        />
-
-                        <Form {...form}>
-                            <form
-                                onSubmit={form.handleSubmit(onSubmit)}
-                                className="space-y-4"
-                                id="general-settings-form"
-                            >
-                                <AutoProvisionConfigWidget
-                                    autoProvision={form.watch("autoProvision")}
-                                    onAutoProvisionChange={(checked) => {
-                                        form.setValue("autoProvision", checked);
-                                        if (checked) {
-                                            form.setValue(
-                                                "directorySyncEnabled",
-                                                false
-                                            );
-                                        }
-                                    }}
-                                    orgId={orgId as string}
-                                    roleMappingMode={roleMappingMode}
-                                    onRoleMappingModeChange={(data) => {
-                                        setRoleMappingMode(data);
-                                    }}
-                                    roles={roles}
-                                    fixedRoleNames={fixedRoleNames}
-                                    onFixedRoleNamesChange={setFixedRoleNames}
-                                    mappingBuilderClaimPath={
-                                        mappingBuilderClaimPath
-                                    }
-                                    onMappingBuilderClaimPathChange={
-                                        setMappingBuilderClaimPath
-                                    }
-                                    mappingBuilderRules={mappingBuilderRules}
-                                    onMappingBuilderRulesChange={
-                                        setMappingBuilderRules
-                                    }
-                                    rawExpression={rawRoleExpression}
-                                    onRawExpressionChange={setRawRoleExpression}
-                                    orgMappingField={{
-                                        control: form.control,
-                                        name: "orgMapping"
-                                    }}
-                                />
-                            </form>
-                        </Form>
-                    </SettingsSectionBody>
-                </SettingsSection>
-
-                {/* Directory Sync Settings */}
+                {/* API Integration */}
                 {(variant === "google" || variant === "azure") && (
                     <SettingsSection>
                         <SettingsSectionHeader>
                             <SettingsSectionTitle>
-                                {t("idpDirectorySync")}
+                                {t("idpApiIntegration")}
                             </SettingsSectionTitle>
                             <SettingsSectionDescription>
-                                {t("idpDirectorySyncDescription")}
+                                {t("idpApiIntegrationDescription")}
                             </SettingsSectionDescription>
                         </SettingsSectionHeader>
                         <SettingsSectionBody>
@@ -680,50 +635,67 @@ export default function GeneralPage() {
                                     className="space-y-4"
                                     id="general-settings-form"
                                 >
-                                    <DirectorySyncConfigWidget
-                                        directorySyncEnabled={form.watch(
-                                            "directorySyncEnabled"
+                                    <ApiIntegrationConfigWidget
+                                        variant={variant}
+                                        apiIntegrationEnabled={form.watch(
+                                            "apiIntegrationEnabled"
                                         )}
-                                        onDirectorySyncEnabledChange={(
+                                        onApiIntegrationEnabledChange={(
                                             checked
                                         ) => {
                                             form.setValue(
-                                                "directorySyncEnabled",
+                                                "apiIntegrationEnabled",
                                                 checked
                                             );
-                                            if (checked) {
+                                            if (!checked) {
                                                 form.setValue(
-                                                    "autoProvision",
+                                                    "directorySyncEnabled",
                                                     false
                                                 );
                                             }
                                         }}
-                                        orgId={orgId as string}
-                                        roleMapping={syncRoleMapping}
-                                        syncDeletions={form.watch(
-                                            "directorySyncDeletions"
-                                        )}
-                                        onSyncDeletionsChange={(checked) =>
-                                            form.setValue(
-                                                "directorySyncDeletions",
-                                                checked
-                                            )
+                                        configuredServiceAccountEmail={
+                                            configuredServiceAccountEmail
                                         }
-                                        onRoleMappingChange={setSyncRoleMapping}
                                     />
-                                    {variant === "google" &&
-                                        form.watch("directorySyncEnabled") && (
-                                            <GoogleDirectorySyncConfigFields
-                                                configuredServiceAccountEmail={
-                                                    configuredServiceAccountEmail
-                                                }
-                                            />
-                                        )}
                                 </form>
                             </Form>
                         </SettingsSectionBody>
                     </SettingsSection>
                 )}
+
+                {/* User Provisioning */}
+                <SettingsSection>
+                    <SettingsSectionHeader>
+                        <SettingsSectionTitle>
+                            {t("idpUserProvisioning")}
+                        </SettingsSectionTitle>
+                        <SettingsSectionDescription>
+                            {t("idpUserProvisioningDescription")}
+                        </SettingsSectionDescription>
+                    </SettingsSectionHeader>
+                    <SettingsSectionBody>
+                        <Form {...form}>
+                            <form
+                                onSubmit={form.handleSubmit(onSubmit)}
+                                id="general-settings-form"
+                            >
+                                <IdpUserProvisioningFields
+                                    syncAvailable={
+                                        variant === "google" ||
+                                        variant === "azure"
+                                    }
+                                    orgId={orgId as string}
+                                    roles={roles}
+                                    jitRoleMapping={roleMapping}
+                                    onJitRoleMappingChange={setRoleMapping}
+                                    syncRoleMapping={syncRoleMapping}
+                                    onSyncRoleMappingChange={setSyncRoleMapping}
+                                />
+                            </form>
+                        </Form>
+                    </SettingsSectionBody>
+                </SettingsSection>
 
                 {/* Google Configuration */}
                 {variant === "google" && (

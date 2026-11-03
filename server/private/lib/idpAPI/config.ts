@@ -48,12 +48,12 @@ export function resolveDirectorySyncConfig({
     variant,
     incoming,
     existingEncrypted,
-    directorySyncEnabled
+    apiIntegrationEnabled
 }: {
     variant: DirectorySyncVariant;
     incoming: Record<string, unknown> | undefined;
     existingEncrypted: string | null;
-    directorySyncEnabled: boolean;
+    apiIntegrationEnabled: boolean;
 }): ResolveResult {
     if (!variantRequiresDirectorySyncConfig(variant)) {
         return { success: true, value: undefined };
@@ -69,10 +69,10 @@ export function resolveDirectorySyncConfig({
         : existing;
 
     if (!merged?.serviceAccountKey) {
-        if (directorySyncEnabled) {
+        if (apiIntegrationEnabled) {
             return {
                 success: false,
-                error: "A service account key is required to enable directory sync"
+                error: "A service account key is required to enable the API integration"
             };
         }
         // nothing worth storing yet

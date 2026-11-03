@@ -189,12 +189,13 @@ export function compileRoleMappingExpression(config: RoleMappingConfig): string 
 }
 
 export function detectRoleMappingConfig(
-    expression: string | null | undefined
+    expression: string | null | undefined,
+    defaults: RoleMappingConfig = defaultRoleMappingConfig()
 ): RoleMappingConfig {
     const stored = expression?.trim() || "";
 
     if (!stored) {
-        return defaultRoleMappingConfig();
+        return defaults;
     }
 
     const { evaluationExpression, builderState } = unwrapRoleMapping(stored);
@@ -218,7 +219,7 @@ export function detectRoleMappingConfig(
         return {
             mode: "fixedRoles",
             fixedRoleNames: [singleMatch[1]],
-            mappingBuilder: defaultRoleMappingConfig().mappingBuilder,
+            mappingBuilder: defaults.mappingBuilder,
             rawExpression: tail
         };
     }
@@ -235,7 +236,7 @@ export function detectRoleMappingConfig(
             return {
                 mode: "fixedRoles",
                 fixedRoleNames: roleNames,
-                mappingBuilder: defaultRoleMappingConfig().mappingBuilder,
+                mappingBuilder: defaults.mappingBuilder,
                 rawExpression: tail
             };
         }
@@ -244,7 +245,7 @@ export function detectRoleMappingConfig(
     return {
         mode: "rawExpression",
         fixedRoleNames: [],
-        mappingBuilder: defaultRoleMappingConfig().mappingBuilder,
+        mappingBuilder: defaults.mappingBuilder,
         rawExpression: tail
     };
 }
@@ -258,6 +259,15 @@ export function defaultRoleMappingConfig(): RoleMappingConfig {
             rules: [createMappingBuilderRule()]
         },
         rawExpression: ""
+    };
+}
+
+/** Directory sync builder rules match on group names, `groups` holds provider group IDs. */
+export function defaultSyncRoleMappingConfig(): RoleMappingConfig {
+    const config = defaultRoleMappingConfig();
+    return {
+        ...config,
+        mappingBuilder: { ...config.mappingBuilder, claimPath: "groupNames" }
     };
 }
 

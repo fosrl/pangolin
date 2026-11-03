@@ -31,7 +31,7 @@ export const googleDirectorySyncFormFields = {
 
 /** `superRefine` body for forms including `googleDirectorySyncFormFields`. */
 export function refineGoogleDirectorySyncFields(
-    data: GoogleDirectorySyncFormValues & { directorySyncEnabled?: boolean },
+    data: GoogleDirectorySyncFormValues & { apiIntegrationEnabled?: boolean },
     ctx: z.RefinementCtx,
     {
         keyRequired,
@@ -47,7 +47,7 @@ export function refineGoogleDirectorySyncFields(
                 message: t("idpGoogleServiceAccountKeyInvalid")
             });
         }
-    } else if (data.directorySyncEnabled && keyRequired) {
+    } else if (data.apiIntegrationEnabled && keyRequired) {
         ctx.addIssue({
             code: "custom",
             path: ["googleServiceAccountKey"],
