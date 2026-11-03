@@ -4,6 +4,7 @@ import {
     buildHostRule,
     computeRedirectPriority,
     computeRoutePriority,
+    domainsFromHostRule,
     matchesPath,
     pickResourceForHost,
     ruleValue
@@ -182,6 +183,40 @@ function runTests() {
         ),
         "HostRegexp(`^([^.]+\\.)?example\\.com$`) && Path(`/x`)",
         "path applies to the wildcard and its base"
+    );
+
+    // The cert domain is recovered from every rule buildHostRule emits
+    const certDomains = (
+        fullDomain: string,
+        wildcard?: boolean,
+        matchBaseDomain?: boolean
+    ) =>
+        domainsFromHostRule(
+            appendPathMatch(
+                buildHostRule(fullDomain, wildcard, matchBaseDomain),
+                "/x",
+                "prefix"
+            )
+        ).join(",");
+    assertEquals(
+        certDomains("app.example.com"),
+        "app.example.com",
+        "cert domain for a plain host"
+    );
+    assertEquals(
+        certDomains("*.example.com", true),
+        "*.example.com",
+        "cert domain for a wildcard"
+    );
+    assertEquals(
+        certDomains("*.test.example.com", true, true),
+        "*.test.example.com",
+        "cert domain for a wildcard with its base"
+    );
+    assertEquals(
+        domainsFromHostRule("HostRegexp(`^api-.+\\.example\\.com$`)").join(","),
+        "",
+        "foreign HostRegexp yields nothing"
     );
 
     const pick = (host: string, rows: string[]) =>
