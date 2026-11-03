@@ -18,6 +18,7 @@ import {
     ControlledDataTable,
     type ExtendedColumnDef
 } from "@app/components/ui/controlled-data-table";
+import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import {
     ArrowDown01Icon,
@@ -534,7 +535,11 @@ export default function ResourceSessionsTable({
                 if (!method) {
                     return <span>-</span>;
                 }
-                return <span>{t(AUTH_METHOD_TRANSLATION_KEYS[method])}</span>;
+                return (
+                    <Badge variant="secondary">
+                        {t(AUTH_METHOD_TRANSLATION_KEYS[method])}
+                    </Badge>
+                );
             }
         },
         {

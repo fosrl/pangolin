@@ -515,7 +515,7 @@ export function DataTable<TData, TValue>({
             return `md:sticky md:left-0 z-10 bg-card${atLeftEdge ? " shadow-none" : ""}`;
         }
         if (isStickyColumn(columnId, accessorKey, "right")) {
-            return "sticky right-0 z-10 w-auto min-w-fit bg-card shadow-none";
+            return "sticky right-0 z-10 w-auto min-w-fit bg-card";
         }
         return "";
     };

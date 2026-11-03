@@ -9,6 +9,7 @@ import {
     type ResourceSiteRow
 } from "@app/components/ResourceSitesStatusCell";
 import { SelectedSite } from "@app/components/site-selector";
+import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
@@ -344,19 +345,15 @@ export default function PublicResourcesTable({
                 ),
                 cell: ({ row }) => {
                     const resourceRow = row.original;
-                    return (
-                        <span>
-                            {resourceRow.mode == "http"
-                                ? resourceRow.ssl
-                                    ? "HTTPS"
-                                    : "HTTP"
-                                : resourceRow.mode === "inference"
-                                  ? t(
-                                        "createInternalResourceDialogModeInference"
-                                    )
-                                  : resourceRow.mode?.toUpperCase()}
-                        </span>
-                    );
+                    const label =
+                        resourceRow.mode == "http"
+                            ? resourceRow.ssl
+                                ? "HTTPS"
+                                : "HTTP"
+                            : resourceRow.mode === "inference"
+                              ? t("createInternalResourceDialogModeInference")
+                              : resourceRow.mode?.toUpperCase();
+                    return <Badge variant="secondary">{label}</Badge>;
                 }
             },
             {

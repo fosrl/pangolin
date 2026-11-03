@@ -390,7 +390,11 @@ export default function PrivateResourcesTable({
                         inference: t("editInternalResourceDialogModeInference"),
                         gateway: t("editInternalResourceDialogModeGateway")
                     };
-                    return <span>{modeLabels[resourceRow.mode]}</span>;
+                    return (
+                        <Badge variant="secondary">
+                            {modeLabels[resourceRow.mode]}
+                        </Badge>
+                    );
                 }
             },
             {

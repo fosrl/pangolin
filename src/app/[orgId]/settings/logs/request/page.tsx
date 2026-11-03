@@ -5,6 +5,7 @@ import { DateTimeValue } from "@app/components/DateTimePicker";
 import { LogDataTable } from "@app/components/LogDataTable";
 import LogRetentionWarning from "@app/components/LogRetentionWarning";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
+import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useOrgContext } from "@app/hooks/useOrgContext";
@@ -588,7 +589,7 @@ export default function GeneralPage() {
             },
             cell: ({ row }) => {
                 return row.original.method ? (
-                    row.original.method
+                    <Badge variant="secondary">{row.original.method}</Badge>
                 ) : (
                     <span className="text-xs text-muted-foreground">-</span>
                 );

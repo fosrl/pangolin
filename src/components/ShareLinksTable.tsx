@@ -114,6 +114,7 @@ export default function ShareLinksTable({
     const columns: ExtendedColumnDef<ShareLinkRow>[] = [
         {
             accessorKey: "title",
+            enableHiding: false,
             friendlyName: t("title"),
             header: ({ column }) => {
                 return (
@@ -131,7 +132,6 @@ export default function ShareLinksTable({
         },
         {
             accessorKey: "resourceName",
-            enableHiding: false,
             friendlyName: t("resource"),
             header: ({ column }) => {
                 return (
