@@ -28,7 +28,7 @@ import config from "@server/lib/config";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
-import { clearIdpSessionGrants } from "@server/auth/sessions/idpRevalidation";
+import { clearIdpSessionGrants } from "#private/auth/sessions/idpRevalidation";
 import { build } from "@server/build";
 
 const paramsSchema = z
@@ -142,6 +142,14 @@ export async function updateOrgOidcIdp(
             );
             if (!subscribed) {
                 autoProvision = false;
+            }
+
+            const sessionRevalidationSubscribed = await isSubscribed(
+                orgId,
+                tierMatrix.sessionRevalidation
+            );
+            if (!sessionRevalidationSubscribed) {
+                sessionRevalidation = false;
             }
         }
 

@@ -5,7 +5,7 @@ import {
 } from "@server/auth/sessions/resource";
 import type { SessionClientInfo } from "@server/auth/sessions/clientInfo";
 import { generateSessionToken } from "@server/auth/sessions/app";
-import { revalidateIdpSession } from "@server/auth/sessions/idpRevalidation";
+import { revalidateIdpSession } from "#dynamic/auth/sessions/idpRevalidation";
 import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
 import {
     extractVirtualApiKeyCredential,

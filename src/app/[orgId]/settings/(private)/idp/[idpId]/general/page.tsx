@@ -50,6 +50,7 @@ import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalid
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { SwitchInput } from "@app/components/SwitchInput";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import {
@@ -91,6 +92,7 @@ export default function GeneralPage() {
         `${env.app.dashboardUrl}/auth/idp/${idpId}/oidc/callback`
     );
     const t = useTranslations();
+    const { isPaidUser } = usePaidStatus();
 
     // OIDC form schema (full configuration)
     const OidcFormSchema = z.object({
@@ -544,41 +546,55 @@ export default function GeneralPage() {
                                             </FormItem>
                                         )}
                                     />
-                                    <div className="space-y-2">
-                                        <SwitchInput
-                                            id="session-revalidation-toggle"
-                                            label={t("idpSessionRevalidation")}
-                                            checked={form.watch(
-                                                "sessionRevalidation"
-                                            )}
-                                            onCheckedChange={(checked) => {
-                                                form.setValue(
-                                                    "sessionRevalidation",
-                                                    checked
-                                                );
-                                                if (
-                                                    checked &&
-                                                    variant === "oidc"
-                                                ) {
-                                                    const current =
-                                                        form.getValues(
-                                                            "scopes"
-                                                        ) ||
-                                                        "openid profile email";
-                                                    form.setValue(
-                                                        "scopes",
-                                                        scopesForSessionRevalidation(
-                                                            current,
-                                                            "oidc"
-                                                        )
-                                                    );
+                                    {!env.flags.disableEnterpriseFeatures && (
+                                        <div className="space-y-2">
+                                            <PaidFeaturesAlert
+                                                tiers={
+                                                    tierMatrix.sessionRevalidation
                                                 }
-                                            }}
-                                        />
-                                        <FormDescription>
-                                            <IdpSessionRevalidationDescription />
-                                        </FormDescription>
-                                    </div>
+                                            />
+                                            <SwitchInput
+                                                id="session-revalidation-toggle"
+                                                label={t(
+                                                    "idpSessionRevalidation"
+                                                )}
+                                                checked={form.watch(
+                                                    "sessionRevalidation"
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    form.setValue(
+                                                        "sessionRevalidation",
+                                                        checked
+                                                    );
+                                                    if (
+                                                        checked &&
+                                                        variant === "oidc"
+                                                    ) {
+                                                        const current =
+                                                            form.getValues(
+                                                                "scopes"
+                                                            ) ||
+                                                            "openid profile email";
+                                                        form.setValue(
+                                                            "scopes",
+                                                            scopesForSessionRevalidation(
+                                                                current,
+                                                                "oidc"
+                                                            )
+                                                        );
+                                                    }
+                                                }}
+                                                disabled={
+                                                    !isPaidUser(
+                                                        tierMatrix.sessionRevalidation
+                                                    )
+                                                }
+                                            />
+                                            <FormDescription>
+                                                <IdpSessionRevalidationDescription />
+                                            </FormDescription>
+                                        </div>
+                                    )}
                                 </form>
                             </Form>
                         </SettingsSectionForm>

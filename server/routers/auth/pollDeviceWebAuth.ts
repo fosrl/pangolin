@@ -13,7 +13,7 @@ import {
     generateSessionToken,
     invalidateSession
 } from "@server/auth/sessions/app";
-import { inheritIdpGrant } from "@server/auth/sessions/idpRevalidation";
+import { inheritIdpGrant } from "#dynamic/auth/sessions/idpRevalidation";
 import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { stripPortFromHost } from "@server/lib/ip";

@@ -227,42 +227,57 @@ export default function Page() {
                                                 </FormItem>
                                             )}
                                         />
-                                        <div className="space-y-2">
-                                            <SwitchInput
-                                                id="session-revalidation-toggle"
-                                                label={t(
-                                                    "idpSessionRevalidation"
-                                                )}
-                                                checked={form.watch(
-                                                    "sessionRevalidation"
-                                                )}
-                                                onCheckedChange={(checked) => {
-                                                    form.setValue(
-                                                        "sessionRevalidation",
-                                                        checked
-                                                    );
-                                                    if (checked) {
-                                                        const current =
-                                                            form.getValues(
-                                                                "scopes"
-                                                            ) ||
-                                                            "openid profile email";
-                                                        form.setValue(
-                                                            "scopes",
-                                                            scopesForSessionRevalidation(
-                                                                current,
-                                                                form.getValues(
-                                                                    "type"
-                                                                )
-                                                            )
-                                                        );
+                                        {!env.flags
+                                            .disableEnterpriseFeatures && (
+                                            <div className="space-y-2">
+                                                <PaidFeaturesAlert
+                                                    tiers={
+                                                        tierMatrix.sessionRevalidation
                                                     }
-                                                }}
-                                            />
-                                            <FormDescription>
-                                                <IdpSessionRevalidationDescription />
-                                            </FormDescription>
-                                        </div>
+                                                />
+                                                <SwitchInput
+                                                    id="session-revalidation-toggle"
+                                                    label={t(
+                                                        "idpSessionRevalidation"
+                                                    )}
+                                                    checked={form.watch(
+                                                        "sessionRevalidation"
+                                                    )}
+                                                    onCheckedChange={(
+                                                        checked
+                                                    ) => {
+                                                        form.setValue(
+                                                            "sessionRevalidation",
+                                                            checked
+                                                        );
+                                                        if (checked) {
+                                                            const current =
+                                                                form.getValues(
+                                                                    "scopes"
+                                                                ) ||
+                                                                "openid profile email";
+                                                            form.setValue(
+                                                                "scopes",
+                                                                scopesForSessionRevalidation(
+                                                                    current,
+                                                                    form.getValues(
+                                                                        "type"
+                                                                    )
+                                                                )
+                                                            );
+                                                        }
+                                                    }}
+                                                    disabled={
+                                                        !isPaidUser(
+                                                            tierMatrix.sessionRevalidation
+                                                        )
+                                                    }
+                                                />
+                                                <FormDescription>
+                                                    <IdpSessionRevalidationDescription />
+                                                </FormDescription>
+                                            </div>
+                                        )}
                                     </form>
                                 </Form>
                             </SettingsSectionForm>

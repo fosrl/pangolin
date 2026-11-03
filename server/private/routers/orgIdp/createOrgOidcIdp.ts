@@ -141,6 +141,14 @@ export async function createOrgOidcIdp(
             if (!subscribed) {
                 autoProvision = false;
             }
+
+            const sessionRevalidationSubscribed = await isSubscribed(
+                orgId,
+                tierMatrix.sessionRevalidation
+            );
+            if (!sessionRevalidationSubscribed) {
+                sessionRevalidation = false;
+            }
         }
 
         if (sessionRevalidation) {

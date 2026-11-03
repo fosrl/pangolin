@@ -7,7 +7,7 @@ import {
     generateSessionToken,
     serializeSessionCookie
 } from "@server/auth/sessions/app";
-import { storeIdpRefreshToken } from "@server/auth/sessions/idpRevalidation";
+import { storeIdpRefreshToken } from "#dynamic/auth/sessions/idpRevalidation";
 import {
     db,
     idp,

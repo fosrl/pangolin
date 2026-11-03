@@ -17,7 +17,7 @@ import config from "@server/lib/config";
 import type { RandomReader } from "@oslojs/crypto/random";
 import { generateRandomString } from "@oslojs/crypto/random";
 import logger from "@server/logger";
-import { revalidateIdpSession } from "@server/auth/sessions/idpRevalidation";
+import { revalidateIdpSession } from "#dynamic/auth/sessions/idpRevalidation";
 import {
     resolveClientInfo,
     type SessionClientInfo

@@ -92,7 +92,7 @@ import { checkExitNodeOrg, resolveExitNodes } from "#private/lib/exitNodes";
 import { maxmindLookup } from "@server/db/maxmind";
 import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
 import { generateSessionToken } from "@server/auth/sessions/app";
-import { revalidateIdpSession } from "@server/auth/sessions/idpRevalidation";
+import { revalidateIdpSession } from "#private/auth/sessions/idpRevalidation";
 import { logAccessAudit } from "#private/lib/logAccessAudit";
 import { getUserOrgRoles } from "@server/lib/userOrgRoles";
 import semver from "semver";
