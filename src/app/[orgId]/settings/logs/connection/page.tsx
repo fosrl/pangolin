@@ -1,4 +1,5 @@
 "use client";
+import { Timestamp } from "@app/components/Timestamp";
 import { Button } from "@app/components/ui/button";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { DateTimeValue } from "@app/components/DateTimePicker";
@@ -281,9 +282,11 @@ export default function ConnectionLogsPage() {
             cell: ({ row }) => {
                 return (
                     <div className="whitespace-nowrap">
-                        {new Date(
-                            row.original.startedAt * 1000
-                        ).toLocaleString()}
+                        <Timestamp
+                            value={row.original.startedAt}
+                            unit="s"
+                            display="absolute"
+                        />
                     </div>
                 );
             }
@@ -553,17 +556,23 @@ export default function ConnectionLogsPage() {
                         </div>
                         <div>
                             <strong>Started At:</strong>{" "}
-                            {row.startedAt
-                                ? new Date(
-                                      row.startedAt * 1000
-                                  ).toLocaleString()
-                                : "-"}
+                            <Timestamp
+                                value={row.startedAt}
+                                unit="s"
+                                display="absolute"
+                            />
                         </div>
                         <div>
                             <strong>Ended At:</strong>{" "}
-                            {row.endedAt
-                                ? new Date(row.endedAt * 1000).toLocaleString()
-                                : "Active"}
+                            {row.endedAt ? (
+                                <Timestamp
+                                    value={row.endedAt}
+                                    unit="s"
+                                    display="absolute"
+                                />
+                            ) : (
+                                "Active"
+                            )}
                         </div>
                         <div>
                             <strong>Duration:</strong>{" "}

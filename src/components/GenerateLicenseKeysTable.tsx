@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { useTranslations } from "next-intl";
 import { ColumnDef } from "@tanstack/react-table";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
@@ -7,7 +8,6 @@ import { Button } from "./ui/button";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import CopyToClipboard from "./CopyToClipboard";
 import { Badge } from "./ui/badge";
-import moment from "moment";
 import { DataTable } from "./ui/data-table";
 import { GeneratedLicenseKey } from "@server/routers/generatedLicense/types";
 import { useState, useEffect } from "react";
@@ -294,7 +294,7 @@ export default function GenerateLicenseKeysTable({
             },
             cell: ({ row }) => {
                 const termianteAt = row.original.expiresAt;
-                return moment(termianteAt).format("lll");
+                return <Timestamp value={termianteAt} />;
             }
         },
         {

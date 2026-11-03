@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import {
     SettingsContainer,
     SettingsSection,
@@ -40,11 +41,6 @@ import { useParams } from "next/navigation";
 import { FaApple, FaWindows, FaLinux } from "react-icons/fa";
 import { SiAndroid } from "react-icons/si";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
-
-function formatTimestamp(timestamp: number | null | undefined): string {
-    if (!timestamp) return "-";
-    return new Date(timestamp * 1000).toLocaleString();
-}
 
 function formatPlatform(platform: string | null | undefined): string {
     if (!platform) return "-";
@@ -587,10 +583,13 @@ export default function GeneralPage() {
                                                     {t("firstSeen")}
                                                 </InfoSectionTitle>
                                                 <InfoSectionContent>
-                                                    {formatTimestamp(
-                                                        client.fingerprint
-                                                            .firstSeen
-                                                    )}
+                                                    <Timestamp
+                                                        value={
+                                                            client.fingerprint
+                                                                .firstSeen
+                                                        }
+                                                        unit="s"
+                                                    />
                                                 </InfoSectionContent>
                                             </InfoSection>
                                         )}
@@ -601,10 +600,13 @@ export default function GeneralPage() {
                                                     {t("lastSeen")}
                                                 </InfoSectionTitle>
                                                 <InfoSectionContent>
-                                                    {formatTimestamp(
-                                                        client.fingerprint
-                                                            .lastSeen
-                                                    )}
+                                                    <Timestamp
+                                                        value={
+                                                            client.fingerprint
+                                                                .lastSeen
+                                                        }
+                                                        unit="s"
+                                                    />
                                                 </InfoSectionContent>
                                             </InfoSection>
                                         )}

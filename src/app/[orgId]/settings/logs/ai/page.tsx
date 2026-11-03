@@ -1,4 +1,5 @@
 "use client";
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { LogDataTable } from "@app/components/LogDataTable";
@@ -276,9 +277,11 @@ export default function AiSessionLogsPage() {
             cell: ({ row }) => {
                 return (
                     <div className="whitespace-nowrap">
-                        {new Date(
-                            row.original.createdAt * 1000
-                        ).toLocaleString()}
+                        <Timestamp
+                            value={row.original.createdAt}
+                            unit="s"
+                            display="absolute"
+                        />
                     </div>
                 );
             }

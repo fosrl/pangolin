@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnEntityFilter } from "@app/components/ColumnEntityFilter";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
@@ -46,7 +47,6 @@ import {
 } from "@server/routers/resourceSession/types";
 import { countryCodeToFlagEmoji } from "@app/lib/countryCodeToFlagEmoji";
 import { parseUserAgent } from "@app/lib/parseUserAgent";
-import moment from "moment";
 import { useTranslations } from "next-intl";
 
 type ResourceSessionsTableProps = {
@@ -73,10 +73,6 @@ const AUTH_METHOD_TRANSLATION_KEYS: Record<
     whitelist: "resourceSessionsMethodWhitelist",
     accessToken: "resourceSessionsMethodAccessToken"
 };
-
-function formatRelativeTimestamp(value: number): string {
-    return `${moment(value).format("lll")} (${moment(value).fromNow()})`;
-}
 
 const DEVICE_TRANSLATION_KEYS = {
     desktop: "resourceSessionsDetailDeviceDesktop",
@@ -551,16 +547,13 @@ export default function ResourceSessionsTable({
             friendlyName: t("resourceSessionsIssued"),
             header: () =>
                 sortableHeader("issuedAt", t("resourceSessionsIssued")),
-            cell: ({ row }) => {
-                const issuedAt = row.original.issuedAt;
-                return issuedAt ? formatRelativeTimestamp(issuedAt) : "-";
-            }
+            cell: ({ row }) => <Timestamp value={row.original.issuedAt} />
         },
         {
             id: "expiresAt",
             friendlyName: t("expires"),
             header: () => sortableHeader("expiresAt", t("expires")),
-            cell: ({ row }) => formatRelativeTimestamp(row.original.expiresAt)
+            cell: ({ row }) => <Timestamp value={row.original.expiresAt} />
         },
         {
             id: "revoke",

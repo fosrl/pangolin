@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useLocalStorage } from "@app/hooks/useLocalStorage";
 import { cn } from "@app/lib/cn";
@@ -25,7 +26,6 @@ import { gt, valid } from "semver";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { timeAgoFormatter } from "@app/lib/timeAgoFormatter";
 import {
     Tooltip,
     TooltipContent,
@@ -338,12 +338,10 @@ function ProductUpdatesListPopup({
                                     )}
                                 </small>
                             </div>
-                            <time
-                                dateTime={update.publishedAt.toLocaleString()}
+                            <Timestamp
+                                value={update.publishedAt}
                                 className="text-xs text-muted-foreground"
-                            >
-                                {timeAgoFormatter(update.publishedAt)}
-                            </time>
+                            />
                         </li>
                     ))}
                 </ol>

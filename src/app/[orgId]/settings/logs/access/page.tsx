@@ -1,4 +1,5 @@
 "use client";
+import { Timestamp } from "@app/components/Timestamp";
 import { Button } from "@app/components/ui/button";
 import { toast } from "@app/hooks/useToast";
 import { useState, useTransition, useMemo } from "react";
@@ -275,9 +276,11 @@ export default function GeneralPage() {
             cell: ({ row }) => {
                 return (
                     <div className="whitespace-nowrap">
-                        {new Date(
-                            row.original.timestamp * 1000
-                        ).toLocaleString()}
+                        <Timestamp
+                            value={row.original.timestamp}
+                            unit="s"
+                            display="absolute"
+                        />
                     </div>
                 );
             }

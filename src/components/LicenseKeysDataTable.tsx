@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { DataTable } from "@app/components/ui/data-table";
 import { Button } from "@app/components/ui/button";
@@ -8,7 +9,6 @@ import { LicenseKeyCache } from "@server/license/license";
 import { ArrowUpDown } from "lucide-react";
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import { useTranslations } from "next-intl";
-import moment from "moment";
 
 type LicenseKeysDataTableProps = {
     licenseKeys: LicenseKeyCache[];
@@ -202,7 +202,7 @@ export function LicenseKeysDataTable({
             },
             cell: ({ row }) => {
                 const termianteAt = row.original.terminateAt;
-                return moment(termianteAt).format("lll");
+                return <Timestamp value={termianteAt} />;
             }
         },
         {

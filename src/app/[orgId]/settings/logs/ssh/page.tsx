@@ -1,4 +1,5 @@
 "use client";
+import { Timestamp } from "@app/components/Timestamp";
 import { Button } from "@app/components/ui/button";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { DateTimeValue } from "@app/components/DateTimePicker";
@@ -307,9 +308,11 @@ export default function SshSessionLogsPage() {
             cell: ({ row }) => {
                 return (
                     <div className="whitespace-nowrap">
-                        {new Date(
-                            row.original.startedAt * 1000
-                        ).toLocaleString()}
+                        <Timestamp
+                            value={row.original.startedAt}
+                            unit="s"
+                            display="absolute"
+                        />
                     </div>
                 );
             }
@@ -620,13 +623,23 @@ export default function SshSessionLogsPage() {
                     <div className="space-y-2">
                         <div>
                             <strong>{t("sshStartedAt")}:</strong>{" "}
-                            {new Date(row.startedAt * 1000).toLocaleString()}
+                            <Timestamp
+                                value={row.startedAt}
+                                unit="s"
+                                display="absolute"
+                            />
                         </div>
                         <div>
                             <strong>{t("sshEndedAt")}:</strong>{" "}
-                            {row.endedAt
-                                ? new Date(row.endedAt * 1000).toLocaleString()
-                                : "Active"}
+                            {row.endedAt ? (
+                                <Timestamp
+                                    value={row.endedAt}
+                                    unit="s"
+                                    display="absolute"
+                                />
+                            ) : (
+                                "Active"
+                            )}
                         </div>
                         <div>
                             <strong>{t("duration")}:</strong>{" "}

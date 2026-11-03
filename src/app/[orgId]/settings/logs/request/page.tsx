@@ -1,4 +1,5 @@
 "use client";
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnFilter } from "@app/components/ColumnFilter";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { LogDataTable } from "@app/components/LogDataTable";
@@ -328,9 +329,11 @@ export default function GeneralPage() {
             cell: ({ row }) => {
                 return (
                     <div className="whitespace-nowrap">
-                        {new Date(
-                            row.original.timestamp * 1000
-                        ).toLocaleString()}
+                        <Timestamp
+                            value={row.original.timestamp}
+                            unit="s"
+                            display="absolute"
+                        />
                     </div>
                 );
             }

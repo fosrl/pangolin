@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +30,6 @@ import {
 } from "@app/components/ui/table";
 import { HorizontalTabs } from "@app/components/HorizontalTabs";
 import { Loader2, RefreshCw } from "lucide-react";
-import moment from "moment";
 import { useUserContext } from "@app/hooks/useUserContext";
 
 type ViewDevicesDialogProps = {
@@ -232,11 +232,9 @@ export default function ViewDevicesDialog({
                                                         "Unnamed Device"}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {moment(
-                                                        device.dateCreated
-                                                                    ).format(
-                                                                        "lll"
-                                                                    )}
+                                                    <Timestamp
+                                                        value={device.dateCreated}
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
                                                     <Button
@@ -300,11 +298,9 @@ export default function ViewDevicesDialog({
                                                                         "Unnamed Device"}
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    {moment(
-                                                                        device.dateCreated
-                                                                    ).format(
-                                                                        "lll"
-                                                                    )}
+                                                                    <Timestamp
+                                                                        value={device.dateCreated}
+                                                                    />
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Button
