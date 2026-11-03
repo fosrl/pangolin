@@ -206,22 +206,36 @@ function CollapsibleNavItem({
         >
             {navigateHref ? (
                 <div className={rowClassName}>
-                    <Link
-                        href={isDisabled ? "#" : navigateHref}
-                        className="flex items-center flex-1 min-w-0"
-                        onClick={(e) => {
-                            if (isDisabled) {
-                                e.preventDefault();
-                                return;
-                            }
-                            handleOpenChange(true);
-                            onItemClick?.();
-                        }}
-                        tabIndex={isDisabled ? -1 : undefined}
-                        aria-disabled={isDisabled}
-                    >
-                        {labelContent}
-                    </Link>
+                    {isOpen ? (
+                        <button
+                            type="button"
+                            className="flex items-center flex-1 min-w-0 text-left"
+                            disabled={isDisabled}
+                            onClick={() => {
+                                if (isDisabled) return;
+                                handleOpenChange(false);
+                            }}
+                        >
+                            {labelContent}
+                        </button>
+                    ) : (
+                        <Link
+                            href={isDisabled ? "#" : navigateHref}
+                            className="flex items-center flex-1 min-w-0"
+                            onClick={(e) => {
+                                if (isDisabled) {
+                                    e.preventDefault();
+                                    return;
+                                }
+                                handleOpenChange(true);
+                                onItemClick?.();
+                            }}
+                            tabIndex={isDisabled ? -1 : undefined}
+                            aria-disabled={isDisabled}
+                        >
+                            {labelContent}
+                        </Link>
+                    )}
                     {expandButton}
                 </div>
             ) : (

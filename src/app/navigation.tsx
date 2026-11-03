@@ -40,7 +40,8 @@ import {
     UserCheck,
     UserCog,
     Users,
-    Waypoints
+    Waypoints,
+    MonitorSmartphone
 } from "lucide-react";
 
 export type SidebarNavSection = {
@@ -165,7 +166,7 @@ export const orgNavSections = (
             },
             {
                 title: "sidebarClients",
-                icon: <MonitorUp className="size-4 flex-none" />,
+                icon: <MonitorSmartphone className="size-4 flex-none" />,
                 items: [
                     {
                         href: "/{orgId}/settings/clients/user",
@@ -176,18 +177,7 @@ export const orgNavSections = (
                         href: "/{orgId}/settings/clients/machine",
                         title: "sidebarMachineClients",
                         icon: <Server className="size-4 flex-none" />
-                    },
-                    ...(!env?.flags.disableEnterpriseFeatures
-                        ? [
-                              {
-                                  title: "sidebarApprovals",
-                                  href: "/{orgId}/settings/access/approvals",
-                                  icon: (
-                                      <UserCheck className="size-4 flex-none" />
-                                  )
-                              }
-                          ]
-                        : [])
+                    }
                 ]
             },
             {
@@ -236,6 +226,15 @@ export const orgNavSections = (
                 href: "/{orgId}/settings/access/roles",
                 icon: <Users className="size-4 flex-none" />
             },
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "sidebarApprovals",
+                          href: "/{orgId}/settings/access/approvals",
+                          icon: <UserCheck className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             // PaidFeaturesAlert
             ...(!env?.flags.disableEnterpriseFeatures &&
             (build === "saas" ||
@@ -535,15 +534,6 @@ export const commandBarNavSections = (
                 title: "commandMachineClients",
                 icon: <Server className="size-4 flex-none" />
             },
-            ...(!env?.flags.disableEnterpriseFeatures
-                ? [
-                      {
-                          title: "commandApprovals",
-                          href: "/{orgId}/settings/access/approvals",
-                          icon: <UserCog className="size-4 flex-none" />
-                      }
-                  ]
-                : []),
             {
                 title: "sidebarRedirects",
                 href: "/{orgId}/settings/redirects",
@@ -578,6 +568,15 @@ export const commandBarNavSections = (
                 href: "/{orgId}/settings/access/roles",
                 icon: <Users className="size-4 flex-none" />
             },
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "commandApprovals",
+                          href: "/{orgId}/settings/access/approvals",
+                          icon: <UserCog className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             // PaidFeaturesAlert
             ...((build === "oss" && !env?.flags.disableEnterpriseFeatures) ||
             build === "saas" ||

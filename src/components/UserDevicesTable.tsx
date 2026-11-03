@@ -16,7 +16,7 @@ import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import { formatFingerprintInfo } from "@app/lib/formatDeviceFingerprint";
+import { formatPlatform } from "@app/lib/formatDeviceFingerprint";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
 import { build } from "@server/build";
 import type { PaginationState } from "@tanstack/react-table";
@@ -32,7 +32,9 @@ import {
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { FaApple, FaWindows, FaLinux } from "react-icons/fa";
+import { SiAndroid } from "react-icons/si";
 import { useDebouncedCallback } from "use-debounce";
 import ClientDownloadBanner from "./ClientDownloadBanner";
 import { ColumnFilterButton } from "./ColumnFilterButton";
@@ -45,6 +47,40 @@ import {
 } from "@app/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import semver from "semver";
+
+function DetailItem({
+    label,
+    children
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="min-w-0">
+            <div className="font-medium">{label}</div>
+            <div className="mt-1 text-muted-foreground break-all">
+                {children}
+            </div>
+        </div>
+    );
+}
+
+function getPlatformIcon(platform: string | null | undefined) {
+    if (!platform) return null;
+    switch (platform.toLowerCase()) {
+        case "macos":
+        case "ios":
+            return <FaApple className="h-4 w-4 shrink-0" />;
+        case "windows":
+            return <FaWindows className="h-4 w-4 shrink-0" />;
+        case "linux":
+            return <FaLinux className="h-4 w-4 shrink-0" />;
+        case "android":
+            return <SiAndroid className="h-4 w-4 shrink-0" />;
+        default:
+            return null;
+    }
+}
 
 export type ClientRow = {
     id: number;
@@ -333,24 +369,13 @@ export default function UserDevicesTable({
                 header: () => <span className="px-3">{t("name")}</span>,
                 cell: ({ row }) => {
                     const r = row.original;
-                    const fingerprintInfo = r.fingerprint
-                        ? formatFingerprintInfo(r.fingerprint, t)
-                        : null;
+                    const platformIcon = getPlatformIcon(
+                        r.fingerprint?.platform
+                    );
                     return (
                         <div className="flex items-center gap-2">
+                            {platformIcon}
                             <span>{r.name}</span>
-                            {fingerprintInfo && (
-                                <InfoPopup>
-                                    <div className="space-y-1 text-sm">
-                                        <div className="font-semibold mb-2">
-                                            {t("deviceInformation")}
-                                        </div>
-                                        <div className="text-muted-foreground whitespace-pre-line">
-                                            {fingerprintInfo}
-                                        </div>
-                                    </div>
-                                </InfoPopup>
-                            )}
                             {r.archived && (
                                 <Badge variant="secondary">
                                     {t("archived")}
@@ -878,6 +903,68 @@ export default function UserDevicesTable({
         });
     }, 300);
 
+    function renderExpandedRow(client: ClientRow) {
+        const fingerprint = client.fingerprint;
+        const normalizedPlatform =
+            fingerprint?.platform?.toLowerCase() || "unknown";
+        const isMobile =
+            normalizedPlatform === "ios" || normalizedPlatform === "android";
+
+        if (!fingerprint) {
+            return (
+                <div className="space-y-4 text-xs whitespace-normal">
+                    <p className="text-muted-foreground">
+                        {t("deviceInformationNotAvailable")}
+                    </p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-4 text-xs whitespace-normal">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {fingerprint.platform && (
+                        <DetailItem label={t("platform")}>
+                            {formatPlatform(fingerprint.platform)}
+                        </DetailItem>
+                    )}
+                    {fingerprint.deviceModel && (
+                        <DetailItem label={t("deviceModel")}>
+                            {fingerprint.deviceModel}
+                        </DetailItem>
+                    )}
+                    {fingerprint.osVersion && (
+                        <DetailItem label={t("osVersion")}>
+                            {fingerprint.osVersion}
+                        </DetailItem>
+                    )}
+                    {fingerprint.arch && (
+                        <DetailItem label={t("architecture")}>
+                            {fingerprint.arch}
+                        </DetailItem>
+                    )}
+                    {!isMobile && fingerprint.hostname && (
+                        <DetailItem label={t("hostname")}>
+                            {fingerprint.hostname}
+                        </DetailItem>
+                    )}
+                    {!isMobile && fingerprint.username && (
+                        <DetailItem label={t("username")}>
+                            {fingerprint.username}
+                        </DetailItem>
+                    )}
+                    {!isMobile && fingerprint.serialNumber && (
+                        <DetailItem label={t("serialNumber")}>
+                            <span className="font-mono">
+                                {fingerprint.serialNumber}
+                            </span>
+                        </DetailItem>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <>
             {selectedClient && !selectedClient.userId && (
@@ -917,6 +1004,8 @@ export default function UserDevicesTable({
                 rowCount={rowCount}
                 stickyLeftColumn="name"
                 stickyRightColumn="actions"
+                renderExpandedRow={renderExpandedRow}
+                getRowId={(client) => String(client.id)}
                 filters={[
                     {
                         id: "status",
