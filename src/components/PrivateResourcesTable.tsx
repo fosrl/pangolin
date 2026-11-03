@@ -29,6 +29,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { useOptimisticLabels } from "@app/hooks/useOptimisticLabels";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { useRowSelection } from "@app/hooks/useRowSelection";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { cn } from "@app/lib/cn";
@@ -47,6 +48,7 @@ import {
     ArrowRight,
     ArrowUp10Icon,
     ArrowUpDown,
+    ChevronDown,
     ChevronsUpDownIcon,
     Funnel,
     MoreHorizontal
@@ -68,7 +70,7 @@ import z from "zod";
 import { ColumnFilterButton } from "./ColumnFilterButton";
 import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
 import { LabelsTableCell } from "./LabelsTableCell";
-import { ControlledDataTable } from "./ui/controlled-data-table";
+import { ControlledDataTable, selectColumn } from "./ui/controlled-data-table";
 import { SitesColumnFilterButton } from "./SitesColumnFilterButton";
 import { SiteResource } from "@server/db";
 
@@ -172,9 +174,16 @@ export default function PrivateResourcesTable({
         useState<PrivateResourceRow | null>();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportResource, setExportResource] =
-        useState<PrivateResourceRow | null>(null);
+    const [exportResources, setExportResources] = useState<
+        PrivateResourceRow[]
+    >([]);
+
+    const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+    const {
+        rowSelection,
+        setRowSelection,
+        selectedRows: selectedResources
+    } = useRowSelection(internalResources);
 
     const [isRefreshing, startRefreshTransition] = useTransition();
 
@@ -246,10 +255,30 @@ export default function PrivateResourcesTable({
         }
     };
 
+    async function runBulkAction(
+        ids: number[],
+        request: (resourceId: number) => Promise<unknown>
+    ) {
+        const results = await Promise.allSettled(ids.map(request));
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed > 0) {
+            toast({
+                variant: "destructive",
+                title: t("resourcesBulkActionFailed", {
+                    count: failed,
+                    total: ids.length
+                })
+            });
+        }
+        setRowSelection({});
+        router.refresh();
+    }
+
     const internalColumns = useMemo<
         ExtendedColumnDef<PrivateResourceRow>[]
     >(() => {
         const cols: ExtendedColumnDef<PrivateResourceRow>[] = [
+            selectColumn<PrivateResourceRow>(t("selectAll")),
             {
                 accessorKey: "name",
                 enableHiding: false,
@@ -584,8 +613,7 @@ export default function PrivateResourcesTable({
                                     </Link>
                                     <DropdownMenuItem
                                         onClick={() => {
-                                            setExportResource(resourceRow);
-                                            setIsExportModalOpen(true);
+                                            setExportResources([resourceRow]);
                                         }}
                                     >
                                         {t("exportAsBlueprint")}
@@ -692,18 +720,49 @@ export default function PrivateResourcesTable({
                 />
             )}
 
-            {exportResource && (
+            <ConfirmDeleteDialog
+                open={isBulkDeleteOpen}
+                setOpen={setIsBulkDeleteOpen}
+                dialog={
+                    <div className="space-y-2">
+                        <p>
+                            {t("resourcesDeleteSelectedQuestion", {
+                                count: selectedResources.length
+                            })}
+                        </p>
+                        <p>{t("resourceMessageRemove")}</p>
+                    </div>
+                }
+                buttonText={t("resourcesDeleteSelected")}
+                onConfirm={() =>
+                    runBulkAction(
+                        selectedResources.map((r) => r.id),
+                        (resourceId) =>
+                            api.delete(`/site-resource/${resourceId}`)
+                    )
+                }
+                string={t("resourcesDeleteSelectedConfirmString", {
+                    count: selectedResources.length
+                })}
+                title={t("resourcesDeleteSelected")}
+            />
+
+            {exportResources.length > 0 && (
                 <ExportBlueprintModal
-                    open={isExportModalOpen}
+                    open
                     setOpen={(val) => {
-                        setIsExportModalOpen(val);
                         if (!val) {
-                            setExportResource(null);
+                            setExportResources([]);
                         }
                     }}
-                    endpoint={`/site-resource/${exportResource.id}/blueprint`}
+                    endpoints={exportResources.map(
+                        (r) => `/site-resource/${r.id}/blueprint`
+                    )}
                     resourceName={
-                        exportResource.niceId || exportResource.name
+                        exportResources.length === 1
+                            ? exportResources[0].niceId ||
+                              exportResources[0].name
+                            : "client-resources"
                     }
                 />
             )}
@@ -714,6 +773,39 @@ export default function PrivateResourcesTable({
                 tableId="internal-resources"
                 searchPlaceholder={t("resourcesSearch")}
                 searchQuery={searchParams.get("query")?.toString()}
+                getRowId={(row) => String(row.id)}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
+                filterExtras={
+                    selectedResources.length > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
+                                    {t("resourcesSelectedCount", {
+                                        count: selectedResources.length
+                                    })}
+                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        setExportResources(selectedResources)
+                                    }
+                                >
+                                    {t("exportAsBlueprint")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setIsBulkDeleteOpen(true)}
+                                >
+                                    <span className="text-red-500">
+                                        {t("resourcesDeleteSelected")}
+                                    </span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )
+                }
                 onAdd={() =>
                     startNavigation(() =>
                         router.push(

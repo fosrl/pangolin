@@ -21,6 +21,10 @@ export default async function migration() {
             ALTER TABLE "resources" ADD COLUMN "responseHeaders" text;
         `);
 
+        await db.execute(sql`
+            ALTER TABLE "resources" ADD COLUMN IF NOT EXISTS "createdAt" varchar;
+        `);
+
         await db.execute(sql`COMMIT`);
         console.log("Migrated database");
     } catch (e) {
