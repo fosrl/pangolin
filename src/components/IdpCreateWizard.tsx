@@ -39,7 +39,8 @@ type CreateIdpFormValues = {
     clientSecret: string;
     authUrl: string;
     tokenUrl: string;
-    identifierPath: string;
+    usernamePath: string;
+    externalIdPath?: string;
     emailPath?: string;
     namePath?: string;
     scopes: string;
@@ -68,7 +69,8 @@ export function IdpCreateWizard({
             .min(1, { message: t("idpClientSecretRequired") }),
         authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }),
         tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }),
-        identifierPath: z.string().min(1, { message: t("idpPathRequired") }),
+        usernamePath: z.string().min(1, { message: t("idpPathRequired") }),
+        externalIdPath: z.string().optional(),
         emailPath: z.string().optional(),
         namePath: z.string().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
@@ -98,7 +100,8 @@ export function IdpCreateWizard({
             clientSecret: "",
             authUrl: "",
             tokenUrl: "",
-            identifierPath: "sub",
+            usernamePath: "sub",
+            externalIdPath: "sub",
             namePath: "name",
             emailPath: "email",
             scopes: "openid profile email",
@@ -357,7 +360,7 @@ export function IdpCreateWizard({
 
                                     <FormField
                                         control={form.control}
-                                        name="identifierPath"
+                                        name="usernamePath"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
@@ -372,6 +375,32 @@ export function IdpCreateWizard({
                                                 <FormDescription>
                                                     {t(
                                                         "idpJmespathLabelDescription"
+                                                    )}
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="externalIdPath"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    {t(
+                                                        "idpJmespathExternalIdPath"
+                                                    )}
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        {...field}
+                                                        disabled={loading}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    {t(
+                                                        "idpJmespathExternalIdPathDescription"
                                                     )}
                                                 </FormDescription>
                                                 <FormMessage />
