@@ -26,13 +26,7 @@ import type { QuerySshSessionLogResponse } from "@server/routers/auditLogs/types
 import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import axios from "axios";
-import {
-    AppWindow,
-    ArrowUpRight,
-    Laptop,
-    SquareTerminal,
-    User
-} from "lucide-react";
+import { ArrowUpRight, User } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -343,10 +337,8 @@ export default function SshSessionLogsPage() {
             },
             cell: ({ row }) => {
                 const browser = row.original.transport === "browser";
-                const Icon = browser ? AppWindow : SquareTerminal;
                 return (
-                    <span className="flex items-center gap-1 whitespace-nowrap">
-                        <Icon className="h-4 w-4" />
+                    <span className="whitespace-nowrap">
                         {browser
                             ? t("sshTransportBrowser")
                             : t("sshTransportSsh")}
@@ -539,7 +531,6 @@ export default function SshSessionLogsPage() {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <Button variant="outline" size="sm">
-                                <Laptop className="mr-1 h-3 w-3" />
                                 {row.original.clientName}
                                 <ArrowUpRight className="ml-2 h-3 w-3" />
                             </Button>
