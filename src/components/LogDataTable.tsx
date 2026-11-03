@@ -12,6 +12,7 @@ import {
 import { DataTablePagination } from "@app/components/DataTablePagination";
 import { DateRangePicker, DateTimeValue } from "@app/components/DateTimePicker";
 import { Button } from "@app/components/ui/button";
+import { DataTableEmptyState } from "@/components/ui/data-table-empty-state";
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -244,7 +245,9 @@ export function LogDataTable<TData, TValue>({
                     </Button>
                 );
             },
-            size: 40
+            size: 40,
+            minSize: 40,
+            maxSize: 40
         };
 
         return [expansionColumn, ...columns];
@@ -439,17 +442,29 @@ export function LogDataTable<TData, TValue>({
                         <TableHeader>
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <TableRow key={headerGroup.id}>
-                                    {headerGroup.headers.map((header) => (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                      header.column.columnDef
-                                                          .header,
-                                                      header.getContext()
-                                                  )}
-                                        </TableHead>
-                                    ))}
+                                    {headerGroup.headers.map((header) => {
+                                        const atLeftEdge =
+                                            header.index === 0 ||
+                                            (expandable && header.index === 1);
+                                        return (
+                                            <TableHead
+                                                key={header.id}
+                                                className={
+                                                    atLeftEdge
+                                                        ? "shadow-none"
+                                                        : undefined
+                                                }
+                                            >
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : flexRender(
+                                                          header.column
+                                                              .columnDef.header,
+                                                          header.getContext()
+                                                      )}
+                                            </TableHead>
+                                        );
+                                    })}
                                 </TableRow>
                             ))}
                         </TableHeader>
@@ -534,31 +549,26 @@ export function LogDataTable<TData, TValue>({
                                         ].filter(Boolean);
                                     })
                                     .flat()
-                            ) : (
-                                <TableRow>
+                            ) : isLoading ? (
+                                <TableRow className="data-[state=selected]:bg-transparent">
                                     <TableCell
                                         colSpan={enhancedColumns.length}
-                                        className="h-24 text-center"
+                                        className="h-auto p-0"
                                     >
-                                        No results found.
+                                        <div className="flex min-h-40 items-center justify-center px-4 py-10">
+                                            <LoaderIcon className="size-4 animate-spin text-muted-foreground" />
+                                        </div>
                                     </TableCell>
                                 </TableRow>
+                            ) : (
+                                <DataTableEmptyState
+                                    colSpan={enhancedColumns.length}
+                                    message={t("logsEmptyState")}
+                                />
                             )}
                         </TableBody>
                     </Table>
                 </TableContainer>
-
-                {isLoading && (
-                    <>
-                        <div className="backdrop-blur-[3px] z-10 absolute inset-0 top-10"></div>
-                        <div className="absolute z-20 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-border rounded-md bg-muted">
-                            <div className="flex items-center gap-2 p-6">
-                                <LoaderIcon className="size-4 animate-spin" />
-                                {t("loadingEllipsis")}
-                            </div>
-                        </div>
-                    </>
-                )}
 
                 <div className="mt-4">
                     <DataTablePagination

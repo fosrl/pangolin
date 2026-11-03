@@ -1,4 +1,5 @@
 import config from "@server/lib/config";
+import { buildHostRule } from "./rule";
 
 export type SiteResourceAliasRow = {
     siteResourceId: number;
@@ -82,7 +83,7 @@ export function buildSiteResourceAliasCertPlaceholders(params: {
             entryPoints: [config.getRawConfig().traefik.http_entrypoint],
             middlewares: [redirectHttpsMiddlewareName],
             service: siteResourceServiceName,
-            rule: `Host(\`${fullDomain}\`)`,
+            rule: buildHostRule(fullDomain),
             priority: 100
         };
 
@@ -97,7 +98,7 @@ export function buildSiteResourceAliasCertPlaceholders(params: {
             entryPoints: [config.getRawConfig().traefik.https_entrypoint],
             service: siteResourceServiceName,
             middlewares: [siteResourceRewriteMiddlewareName],
-            rule: `Host(\`${fullDomain}\`)`,
+            rule: buildHostRule(fullDomain),
             priority: 100,
             tls
         };
@@ -106,7 +107,7 @@ export function buildSiteResourceAliasCertPlaceholders(params: {
         config_output.http.routers[`${siteResourceRouterName}-assets`] = {
             entryPoints: [config.getRawConfig().traefik.https_entrypoint],
             service: siteResourceServiceName,
-            rule: `Host(\`${fullDomain}\`) && (PathPrefix(\`/_next\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
+            rule: `${buildHostRule(fullDomain)} && (PathPrefix(\`/_next\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
             priority: 101,
             tls
         };

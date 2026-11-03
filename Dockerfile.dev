@@ -1,4 +1,6 @@
-FROM node:24.18.1-alpine
+# Mirror of docker.io/library/node, kept in sync by
+# .github/workflows/mirror-node.yml
+FROM ghcr.io/fosrl/node:24.22.1-alpine
 
 WORKDIR /app
 

@@ -152,7 +152,8 @@ export async function verifyDeviceWebAuth(
             .update(deviceWebAuthCodes)
             .set({
                 verified: true,
-                userId: req.user!.userId
+                userId: req.user!.userId,
+                approvingSessionId: session.sessionId
             })
             .where(eq(deviceWebAuthCodes.codeId, deviceCode.codeId));
 

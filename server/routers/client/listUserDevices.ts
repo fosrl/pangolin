@@ -172,6 +172,7 @@ function queryUserDevicesBase() {
             idpVariant: idpOidcConfig.variant,
             niceId: clients.niceId,
             agent: olms.agent,
+            agentVersion: olms.agentVersion,
             approvalState: clients.approvalState,
             olmArchived: olms.archived,
             archived: clients.archived,

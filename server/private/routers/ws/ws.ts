@@ -792,13 +792,21 @@ const sendToClientsBatch = async (
         )
     );
 
-    for (const entry of entries) {
+    // Issue all increments at once so Redis receives them back to back on one
+    // connection (in entry order) instead of waiting a round trip per entry
+    const configVersions = await Promise.all(
+        entries.map((entry) =>
+            entry.options?.incrementConfigVersion
+                ? incrementClientConfigVersion(entry.clientId)
+                : stableConfigVersionByClient.get(entry.clientId)
+        )
+    );
+
+    for (const [index, entry] of entries.entries()) {
         const options = entry.options || {};
         const { clientId, message } = entry;
 
-        const configVersion = options.incrementConfigVersion
-            ? await incrementClientConfigVersion(clientId)
-            : stableConfigVersionByClient.get(clientId);
+        const configVersion = configVersions[index];
 
         logger.debug(
             `sendToClientsBatch: Message type ${message.type} queued for clientId ${clientId} (new configVersion: ${configVersion})`

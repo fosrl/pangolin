@@ -6,6 +6,7 @@ import {
     CardHeader,
     CardTitle
 } from "@app/components/ui/card";
+import { ExternalLink } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +32,12 @@ export default async function MaintenanceScreen() {
                     <p className="text-sm text-muted-foreground">{steps}</p>
                     <a
                         href="https://docs.pangolin.net/manage/dns-cache"
-                        className="text-sm text-primary hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline inline-flex items-center gap-1"
                     >
                         {t("learnMore")}
+                        <ExternalLink className="size-3.5 shrink-0" />
                     </a>
                 </CardContent>
             </Card>

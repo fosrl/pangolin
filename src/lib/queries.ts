@@ -31,7 +31,9 @@ import type {
     QueryActionAuditLogResponse,
     QueryAiSessionLogResponse,
     QueryConnectionAuditLogResponse,
-    QueryRequestAuditLogResponse
+    QueryRequestAuditLogResponse,
+    QuerySshSessionCommandsResponse,
+    QuerySshSessionLogResponse
 } from "@server/routers/auditLogs/types";
 import type { GetCertificateResponse } from "@server/routers/certificates/types";
 import type {
@@ -43,6 +45,7 @@ import type {
     ListDomainsResponse
 } from "@server/routers/domain";
 import type { GetDomainResponse } from "@server/routers/domain/getDomain";
+import type { ListCustomDnsRecordsResponse } from "@server/routers/customDnsRecord/types";
 import { ListHealthChecksResponse } from "@server/routers/healthChecks/types";
 import type { ListOrgLabelsResponse } from "@server/routers/labels/types";
 import type { ListLauncherAiModelsResponse } from "@server/routers/launcher/listLauncherAiModels";
@@ -84,6 +87,7 @@ import type {
 } from "@server/routers/siteResource";
 import type { GetSiteResourceResponse } from "@server/routers/siteResource/getSiteResource";
 import type { ListTargetsResponse } from "@server/routers/target";
+import type { ListAccessTokensResponse } from "@server/routers/accessToken";
 import type { ListUsersResponse } from "@server/routers/user";
 import type { ListMyVirtualApiKeysResponse } from "@server/routers/virtualApiKey/types";
 import type ResponseT from "@server/types/Response";
@@ -276,6 +280,27 @@ export const orgQueries = {
                 >(`/org/${orgId}/users?${sp.toString()}`, { signal });
 
                 return res.data.data.users;
+            }
+        }),
+    accessTokens: ({
+        orgId,
+        limit = 1000
+    }: {
+        orgId: string;
+        limit?: number;
+    }) =>
+        queryOptions({
+            queryKey: ["ORG", orgId, "ACCESS_TOKENS", { limit }] as const,
+            queryFn: async ({ signal, meta }) => {
+                const sp = new URLSearchParams({
+                    limit: limit.toString()
+                });
+
+                const res = await meta!.api.get<
+                    AxiosResponse<ListAccessTokensResponse>
+                >(`/org/${orgId}/access-tokens?${sp.toString()}`, { signal });
+
+                return res.data.data.accessTokens;
             }
         }),
     roles: ({
@@ -1134,6 +1159,34 @@ export const aiSessionLogsFiltersSchema = z.object({
 
 export type AiSessionLogFilters = z.output<typeof aiSessionLogsFiltersSchema>;
 
+export const sshSessionLogsFiltersSchema = z.object({
+    timeStart: z
+        .string()
+        .refine((val) => !isNaN(Date.parse(val)), {
+            error: "timeStart must be a valid ISO date string"
+        })
+        .optional()
+        .catch(undefined),
+    timeEnd: z
+        .string()
+        .refine((val) => !isNaN(Date.parse(val)), {
+            error: "timeEnd must be a valid ISO date string"
+        })
+        .optional()
+        .catch(undefined),
+    page: z.coerce.number().optional().catch(0).default(0),
+    pageSize: z.coerce.number().optional().catch(20).default(20),
+    siteResourceId: z.string().optional().catch(undefined),
+    resourceId: z.string().optional().catch(undefined),
+    siteId: z.string().optional().catch(undefined),
+    transport: z.string().optional().catch(undefined),
+    clientId: z.string().optional().catch(undefined),
+    userId: z.string().optional().catch(undefined),
+    username: z.string().optional().catch(undefined)
+});
+
+export type SshSessionLogFilters = z.output<typeof sshSessionLogsFiltersSchema>;
+
 export const logQueries = {
     requestAnalytics: ({
         orgId,
@@ -1280,6 +1333,56 @@ export const logQueries = {
                         limit: pageSize,
                         offset: page * pageSize
                     },
+                    signal
+                });
+                return res.data.data;
+            }
+        }),
+
+    sshSessions: ({
+        orgId,
+        filters
+    }: {
+        orgId: string;
+        filters: SshSessionLogFilters;
+    }) =>
+        queryOptions({
+            queryKey: ["SSH_SESSION_LOGS", orgId, "ALL", filters] as const,
+            queryFn: async ({ signal, meta }) => {
+                const { page, pageSize, ...rest } = filters;
+                const res = await meta!.api.get<
+                    AxiosResponse<QuerySshSessionLogResponse>
+                >(`/org/${orgId}/logs/ssh`, {
+                    params: {
+                        ...rest,
+                        limit: pageSize,
+                        offset: page * pageSize
+                    },
+                    signal
+                });
+                return res.data.data;
+            }
+        }),
+
+    sshSessionCommands: ({
+        orgId,
+        sshSessionLogId
+    }: {
+        orgId: string;
+        sshSessionLogId: number;
+    }) =>
+        queryOptions({
+            queryKey: [
+                "SSH_SESSION_LOGS",
+                orgId,
+                "COMMANDS",
+                sshSessionLogId
+            ] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<QuerySshSessionCommandsResponse>
+                >(`/org/${orgId}/logs/ssh/${sshSessionLogId}/commands`, {
+                    params: { limit: 5000 },
                     signal
                 });
                 return res.data.data;
@@ -1878,6 +1981,30 @@ export const domainQueries = {
                 return res.data.data;
             },
             refetchInterval: durationToMs(10, "seconds")
+        }),
+    listCustomDnsRecords: ({
+        orgId,
+        domainId
+    }: {
+        orgId: string;
+        domainId: string;
+    }) =>
+        queryOptions({
+            queryKey: [
+                "ORG",
+                orgId,
+                "DOMAIN",
+                domainId,
+                "CUSTOM_DNS_RECORDS"
+            ] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<ListCustomDnsRecordsResponse>
+                >(`/org/${orgId}/domain/${domainId}/custom-dns-records`, {
+                    signal
+                });
+                return res.data.data.records;
+            }
         })
 };
 

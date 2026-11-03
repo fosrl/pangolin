@@ -85,7 +85,8 @@ export async function listCatalogModels(
 
         const models = listCatalogModelsForType(
             provider.type as AiProviderType,
-            parsedQuery.data.query
+            parsedQuery.data.query,
+            provider.niceId
         );
 
         return response<ListCatalogModelsResponse>(res, {

@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { unwrapRoleMapping } from "@app/lib/idpRoleMapping";
 import {
@@ -6,7 +7,7 @@ import {
     generateSessionToken,
     serializeSessionCookie
 } from "@server/auth/sessions/app";
-import { build } from "@server/build";
+import { storeIdpRefreshToken } from "@server/auth/sessions/idpRevalidation";
 import {
     db,
     idp,
@@ -27,6 +28,7 @@ import { pushClientIdentitiesForUser } from "@server/lib/clientIdentities";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
+import { isOrgIdentityProviderMode } from "@server/lib/idp/idpExistsForOrg";
 import response from "@server/lib/response";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import logger from "@server/logger";
@@ -322,34 +324,55 @@ export async function validateOidcCallback(
                 )
             );
 
-        if (existingIdp.idp.autoProvision) {
-            let allOrgs: Org[] = [];
+        let shouldAutoProvision = false;
+        let allOrgs: Org[] = [];
+        const idpOrgByOrgId = new Map<string, typeof idpOrg.$inferSelect>();
 
-            if (build === "saas") {
-                const idpOrgs = await db
-                    .select()
-                    .from(idpOrg)
-                    .where(eq(idpOrg.idpId, existingIdp.idp.idpId))
-                    .innerJoin(orgs, eq(orgs.orgId, idpOrg.orgId));
-                allOrgs = idpOrgs.map((o) => o.orgs);
-            } else {
-                allOrgs = await db.select().from(orgs);
+        if (isOrgIdentityProviderMode()) {
+            const idpOrgs = await db
+                .select()
+                .from(idpOrg)
+                .where(eq(idpOrg.idpId, existingIdp.idp.idpId))
+                .innerJoin(orgs, eq(orgs.orgId, idpOrg.orgId));
+
+            for (const row of idpOrgs) {
+                idpOrgByOrgId.set(row.idpOrg.orgId, row.idpOrg);
             }
 
+            // Enter auto-provision sync if any linked org enables it;
+            // only those orgs are candidates for provisioning.
+            shouldAutoProvision = idpOrgs.some(
+                (row) => row.idpOrg.autoProvision
+            );
+            allOrgs = idpOrgs
+                .filter((row) => row.idpOrg.autoProvision)
+                .map((row) => row.orgs);
+        } else {
+            shouldAutoProvision = existingIdp.idp.autoProvision;
+            if (shouldAutoProvision) {
+                allOrgs = await db.select().from(orgs);
+            }
+        }
+
+        if (shouldAutoProvision) {
             const defaultRoleMapping = existingIdp.idp.defaultRoleMapping;
             const defaultOrgMapping = existingIdp.idp.defaultOrgMapping;
 
             const userOrgInfo: { orgId: string; roleIds: number[] }[] = [];
             for (const org of allOrgs) {
-                const [idpOrgRes] = await db
-                    .select()
-                    .from(idpOrg)
-                    .where(
-                        and(
-                            eq(idpOrg.idpId, existingIdp.idp.idpId),
-                            eq(idpOrg.orgId, org.orgId)
-                        )
-                    );
+                let idpOrgRes = idpOrgByOrgId.get(org.orgId);
+                if (!idpOrgRes) {
+                    const [fetched] = await db
+                        .select()
+                        .from(idpOrg)
+                        .where(
+                            and(
+                                eq(idpOrg.idpId, existingIdp.idp.idpId),
+                                eq(idpOrg.orgId, org.orgId)
+                            )
+                        );
+                    idpOrgRes = fetched;
+                }
 
                 const orgMapping = idpOrgRes?.orgMapping || defaultOrgMapping;
                 const hydratedOrgMapping = hydrateOrgMapping(
@@ -543,9 +566,16 @@ export async function validateOidcCallback(
                     (org) => org.autoProvisioned === true
                 );
 
+                // Only sync/remove among orgs that currently have auto-provision
+                // enabled. Orgs with auto-provision off keep existing memberships.
+                const autoProvisionCandidateOrgIds = new Set(
+                    allOrgs.map((org) => org.orgId)
+                );
+
                 // Delete auto-provisioned orgs that are no longer valid
                 const orgsToDelete = autoProvisionedOrgs.filter(
                     (currentOrg) =>
+                        autoProvisionCandidateOrgIds.has(currentOrg.orgId) &&
                         !userOrgInfo.some(
                             (newOrg) => newOrg.orgId === currentOrg.orgId
                         )
@@ -662,7 +692,16 @@ export async function validateOidcCallback(
             }
 
             const token = generateSessionToken();
-            const sess = await createSession(token, existingUserId!);
+            const sess = await createSession(
+                token,
+                existingUserId!,
+                getRequestClientInfo(req)
+            );
+            await storeIdpRefreshToken(
+                sess.sessionId,
+                existingIdp.idp.idpId,
+                tokens
+            );
             const isSecure = req.protocol === "https";
             const cookie = serializeSessionCookie(
                 token,
@@ -719,7 +758,16 @@ export async function validateOidcCallback(
             }
 
             const token = generateSessionToken();
-            const sess = await createSession(token, existingUser.userId);
+            const sess = await createSession(
+                token,
+                existingUser.userId,
+                getRequestClientInfo(req)
+            );
+            await storeIdpRefreshToken(
+                sess.sessionId,
+                existingIdp.idp.idpId,
+                tokens
+            );
             const isSecure = req.protocol === "https";
             const cookie = serializeSessionCookie(
                 token,

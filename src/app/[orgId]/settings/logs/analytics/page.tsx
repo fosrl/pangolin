@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Log Analytics"
+    title: "HTTP Analytics"
 };
 
 export interface AnalyticsPageProps {

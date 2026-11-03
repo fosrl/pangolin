@@ -38,6 +38,7 @@ import { useState } from "react";
 import { SwitchInput } from "@app/components/SwitchInput";
 import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useOrgContext } from "@app/hooks/useOrgContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
@@ -327,6 +328,26 @@ export default function GeneralPage() {
                                                                 {t("learnMore")}
                                                                 <ExternalLink className="size-3.5 shrink-0" />
                                                             </a>
+                                                        </FormDescription>
+                                                        <FormDescription>
+                                                            {t.rich(
+                                                                "siteAutoUpdateOrgSettingsHelp",
+                                                                {
+                                                                    orgSettingsLink:
+                                                                        (
+                                                                            chunks
+                                                                        ) => (
+                                                                            <Link
+                                                                                href={`/${site?.orgId}/settings/general`}
+                                                                                className="text-primary hover:underline"
+                                                                            >
+                                                                                {
+                                                                                    chunks
+                                                                                }
+                                                                            </Link>
+                                                                        )
+                                                                }
+                                                            )}
                                                         </FormDescription>
                                                         <FormMessage />
                                                     </FormItem>

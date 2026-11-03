@@ -37,6 +37,7 @@ import {
 import { UseFormReturn, useForm, useWatch } from "react-hook-form";
 import { useResourcePolicyContext } from "@app/providers/ResourcePolicyProvider";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { cn } from "@app/lib/cn";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { resourceQueries } from "@app/lib/queries";
 import { useQuery } from "@tanstack/react-query";
@@ -174,7 +175,10 @@ function PolicyAccessRulesSectionLayout({
                                 resourceOverlayMode={resourceOverlayMode}
                                 emptyStateAction={addRuleButton}
                             />
-                            {hasRules && addRuleButton}
+                            {/* The empty state (and its add button) is hidden on mobile, so always show the add button there */}
+                            <div className={cn(!hasRules && "sm:hidden")}>
+                                {addRuleButton}
+                            </div>
                         </>
                     )}
                 </div>

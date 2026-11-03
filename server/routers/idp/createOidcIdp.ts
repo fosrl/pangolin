@@ -10,6 +10,7 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { idp, idpOidcConfig, idpOrg, orgs } from "@server/db";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
+import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 
@@ -26,6 +27,7 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
     autoProvision: z.boolean().optional(),
+    sessionRevalidation: z.boolean().optional(),
     tags: z.string().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc")
 });
@@ -38,7 +40,6 @@ const CreateIdpResponseDataSchema = z.object({
     idpId: z.number(),
     redirectUrl: z.string()
 });
-
 
 registry.registerPath({
     method: "put",
@@ -87,7 +88,6 @@ export async function createOidcIdp(
             clientSecret,
             authUrl,
             tokenUrl,
-            scopes,
             identifierPath,
             emailPath,
             namePath,
@@ -97,15 +97,19 @@ export async function createOidcIdp(
             variant
         } = parsedBody.data;
 
-        if (
-            process.env.IDENTITY_PROVIDER_MODE === "org"
-        ) {
+        let { scopes, sessionRevalidation = false } = parsedBody.data;
+
+        if (process.env.IDENTITY_PROVIDER_MODE === "org") {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
                     "Global IdP creation is not allowed in the current identity provider mode. Set app.identity_provider_mode to 'global' in the private configuration to enable this feature."
                 )
             );
+        }
+
+        if (sessionRevalidation) {
+            scopes = scopesForSessionRevalidation(scopes, variant);
         }
 
         const key = config.getRawConfig().server.secret!;
@@ -120,6 +124,7 @@ export async function createOidcIdp(
                 .values({
                     name,
                     autoProvision,
+                    sessionRevalidation,
                     type: "oidc",
                     tags,
                     defaultOrgMapping: `'{{orgId}}'`,

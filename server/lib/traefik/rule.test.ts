@@ -1,8 +1,13 @@
 import { assertEquals } from "../../../test/assert";
 import {
+    appendPathMatch,
+    buildHostRule,
     computeRedirectPriority,
     computeRoutePriority,
-    matchesPath
+    domainsFromHostRule,
+    matchesPath,
+    pickResourceForHost,
+    ruleValue
 } from "./rule";
 
 function runTests() {
@@ -128,6 +133,148 @@ function runTests() {
     );
 
     console.log("All priority tests passed!");
+
+    console.log("Running rule quoting tests...");
+
+    // Ordinary values keep the backtick form
+    assertEquals(ruleValue("/api"), "`/api`", "plain value");
+    assertEquals(
+        buildHostRule("app.example.com"),
+        "Host(`app.example.com`)",
+        "plain host"
+    );
+    assertEquals(
+        buildHostRule("*.example.com", true),
+        "HostRegexp(`^[^.]+\\.example\\.com$`)",
+        "wildcard host"
+    );
+    assertEquals(
+        buildHostRule("*.example.com", true, false),
+        "HostRegexp(`^[^.]+\\.example\\.com$`)",
+        "wildcard host without its base"
+    );
+    assertEquals(
+        buildHostRule("*.apps.example.com", true, true),
+        "HostRegexp(`^([^.]+\\.)?apps\\.example\\.com$`)",
+        "wildcard host with its base"
+    );
+    assertEquals(
+        buildHostRule("app.example.com", false, true),
+        "Host(`app.example.com`)",
+        "matchBaseDomain is ignored without a wildcard"
+    );
+
+    const withBase = new RegExp("^([^.]+\\.)?apps\\.example\\.com$");
+    assertEquals(withBase.test("apps.example.com"), true, "matches the base");
+    assertEquals(withBase.test("a.apps.example.com"), true, "matches a label");
+    assertEquals(
+        withBase.test("a.b.apps.example.com"),
+        false,
+        "one label only"
+    );
+    assertEquals(withBase.test("xapps.example.com"), false, "no suffix match");
+
+    // The path clause has to bind to both hosts, which an || would not
+    assertEquals(
+        appendPathMatch(
+            buildHostRule("*.example.com", true, true),
+            "/x",
+            "exact"
+        ),
+        "HostRegexp(`^([^.]+\\.)?example\\.com$`) && Path(`/x`)",
+        "path applies to the wildcard and its base"
+    );
+
+    // The cert domain is recovered from every rule buildHostRule emits
+    const certDomains = (
+        fullDomain: string,
+        wildcard?: boolean,
+        matchBaseDomain?: boolean
+    ) =>
+        domainsFromHostRule(
+            appendPathMatch(
+                buildHostRule(fullDomain, wildcard, matchBaseDomain),
+                "/x",
+                "prefix"
+            )
+        ).join(",");
+    assertEquals(
+        certDomains("app.example.com"),
+        "app.example.com",
+        "cert domain for a plain host"
+    );
+    assertEquals(
+        certDomains("*.example.com", true),
+        "*.example.com",
+        "cert domain for a wildcard"
+    );
+    assertEquals(
+        certDomains("*.test.example.com", true, true),
+        "*.test.example.com",
+        "cert domain for a wildcard with its base"
+    );
+    assertEquals(
+        domainsFromHostRule("HostRegexp(`^api-.+\\.example\\.com$`)").join(","),
+        "",
+        "foreign HostRegexp yields nothing"
+    );
+
+    const pick = (host: string, rows: string[]) =>
+        pickResourceForHost(rows, host, (r) => r);
+    assertEquals(
+        pick("a.example.com", ["*.example.com", "a.example.com"]),
+        "a.example.com",
+        "exact beats wildcard"
+    );
+    assertEquals(
+        pick("apps.example.com", ["*.example.com", "*.apps.example.com"]),
+        "*.apps.example.com",
+        "base of the narrower wildcard beats the broader wildcard"
+    );
+    assertEquals(
+        pick("a.b.example.com", ["*.example.com", "*.b.example.com"]),
+        "*.b.example.com",
+        "most specific wildcard wins"
+    );
+    assertEquals(pick("a.example.com", []), undefined, "no match");
+
+    assertEquals(
+        appendPathMatch("Host(`a.com`)", "/x", "exact"),
+        "Host(`a.com`) && Path(`/x`)",
+        "plain exact path"
+    );
+    assertEquals(
+        appendPathMatch("Host(`a.com`)", "^/v[0-9]+/", "regex"),
+        "Host(`a.com`) && PathRegexp(`^/v[0-9]+/`)",
+        "plain regex path"
+    );
+
+    // A backtick must not be able to close the literal and inject matchers
+    const injectedPath = "/a`) || Host(`victim.example.com`) && PathPrefix(`/";
+    assertEquals(
+        appendPathMatch("Host(`attacker.example.com`)", injectedPath, "exact"),
+        'Host(`attacker.example.com`) && Path("/a`) || Host(`victim.example.com`) && PathPrefix(`/")',
+        "injected exact path stays one literal"
+    );
+    assertEquals(
+        appendPathMatch("Host(`a.com`)", "`) || HostRegexp(`.+", "regex"),
+        'Host(`a.com`) && PathRegexp("`) || HostRegexp(`.+")',
+        "injected regex path stays one literal"
+    );
+    assertEquals(
+        buildHostRule("x`) || Host(`victim.example.com"),
+        'Host("x`) || Host(`victim.example.com")',
+        "injected host stays one literal"
+    );
+
+    // Double-quoted form escapes quotes, backslashes and control characters
+    assertEquals(
+        ruleValue('`"\\\n'),
+        '"`\\"\\\\\\n"',
+        "escapes in quoted form"
+    );
+
+    console.log("All rule quoting tests passed!");
 }
 
 try {

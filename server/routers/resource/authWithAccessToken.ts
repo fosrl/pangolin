@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { generateSessionToken } from "@server/auth/sessions/app";
 import { db, users } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
@@ -98,14 +99,15 @@ export async function authWithAccessToken(
         }
 
         const token = generateSessionToken();
-        await createResourceSession({
+        const requestSession = await createResourceSession({
             resourceId: resource.resourceId,
             token,
             accessTokenId: tokenItem.accessTokenId,
             isRequestToken: true,
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
-            doNotExtend: true
+            doNotExtend: true,
+            clientInfo: getRequestClientInfo(req)
         });
 
         let accessAuditUser: { username: string; userId: string } | undefined;
@@ -141,9 +143,10 @@ export async function authWithAccessToken(
             metadata: accessAuditUser
                 ? {
                       accessTokenId: tokenItem.accessTokenId,
-                      accessTokenTitle: tokenItem.title
+                      accessTokenTitle: tokenItem.title,
+                      resourceSessionId: requestSession.sessionId
                   }
-                : undefined,
+                : { resourceSessionId: requestSession.sessionId },
             userAgent: req.headers["user-agent"],
             requestIp: req.ip
         });

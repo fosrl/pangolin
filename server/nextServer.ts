@@ -2,7 +2,6 @@ import next from "next";
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { parse } from "url";
 import logger from "@server/logger";
 import config from "@server/lib/config";
 import { stripDuplicateSesions } from "./middlewares/stripDuplicateSessions";
@@ -43,8 +42,7 @@ export async function createNextServer() {
     nextServer.use(stripDuplicateSesions);
 
     nextServer.all("/{*splat}", (req, res) => {
-        const parsedUrl = parse(req.url!, true);
-        return handle(req, res, parsedUrl);
+        return handle(req, res);
     });
 
     nextServer.listen(nextPort, (err?: any) => {

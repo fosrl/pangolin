@@ -53,8 +53,21 @@ if (process.env.TRACE_VERBOSE) {
     );
 }
 
+// Packages whose static assets are served from disk at runtime (e.g. via
+// express.static) rather than required, so the tracer cannot see them
+const assetPackages = ["swagger-ui-dist"];
+const files = new Set(fileList);
+for (const pkg of assetPackages) {
+    const pkgDir = path.join("node_modules", pkg);
+    for (const entry of fs.readdirSync(path.join(base, pkgDir), {
+        recursive: true
+    })) {
+        if (!entry.endsWith(".map")) files.add(path.join(pkgDir, entry));
+    }
+}
+
 let count = 0;
-for (const file of fileList) {
+for (const file of files) {
     if (!file.startsWith("node_modules/")) continue;
 
     const src = path.join(base, file);

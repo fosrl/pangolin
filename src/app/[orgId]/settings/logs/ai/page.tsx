@@ -1,4 +1,5 @@
 "use client";
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { LogDataTable } from "@app/components/LogDataTable";
@@ -27,7 +28,6 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { useStoredPageSize } from "@app/hooks/useStoredPageSize";
-import type { QueryAiSessionLogResponse } from "@server/routers/auditLogs/types";
 
 const capabilityLabels: Record<string, string> = {
     openai_chat: "OpenAI Chat Completions",
@@ -143,7 +143,7 @@ export default function AiSessionLogsPage() {
         enabled: isPaidUser(tierMatrix.aiSessionLogs) && build !== "oss"
     });
 
-    const rows = isLoading ? generateSampleAiSessionLogs() : (data?.log ?? []);
+    const rows = data?.log ?? [];
     const totalCount = data?.pagination?.total ?? 0;
     const filterAttributes = data?.filterAttributes ?? {
         providers: [],
@@ -276,9 +276,11 @@ export default function AiSessionLogsPage() {
             cell: ({ row }) => {
                 return (
                     <div className="whitespace-nowrap">
-                        {new Date(
-                            row.original.createdAt * 1000
-                        ).toLocaleString()}
+                        <Timestamp
+                            value={row.original.createdAt}
+                            unit="s"
+                            display="absolute"
+                        />
                     </div>
                 );
             }
@@ -696,81 +698,4 @@ export default function AiSessionLogsPage() {
             />
         </>
     );
-}
-
-function generateSampleAiSessionLogs(): QueryAiSessionLogResponse["log"] {
-    const capabilities = Object.keys(capabilityLabels);
-    const providers = [
-        { id: 1, name: "OpenAI Production" },
-        { id: 2, name: "Anthropic Default" },
-        { id: 3, name: "Vertex AI" }
-    ];
-    const resourcesSample = [
-        { id: 1, niceId: "resource-1", name: "Resource 1" },
-        { id: 2, niceId: "resource-2", name: "Resource 2" }
-    ];
-    const actors = ["alice@example.com", "bob@example.com", null];
-    const models = ["gpt-4o", "claude-sonnet-5", "gemini-2.5-pro"];
-    const virtualApiKeysSample = [
-        { id: "vak00001", name: "CI pipeline", lastChars: "ab12" },
-        { id: "vak00002", name: null, lastChars: "cd34" },
-        null
-    ];
-
-    const now = Math.floor(Date.now() / 1000);
-    const sevenDaysAgoMs = now - 7 * 24 * 60 * 60;
-
-    return Array.from({ length: 10 }, (_, i) => {
-        const provider =
-            providers[Math.floor(Math.random() * providers.length)];
-        const resource =
-            resourcesSample[Math.floor(Math.random() * resourcesSample.length)];
-        const actor = actors[Math.floor(Math.random() * actors.length)];
-        const virtualApiKey =
-            virtualApiKeysSample[
-                Math.floor(Math.random() * virtualApiKeysSample.length)
-            ];
-
-        return {
-            id: i,
-            sessionId: `sample-session-${i}`,
-            orgId: "sample-org",
-            providerId: provider.id,
-            providerName: provider.name,
-            providerType: "openai",
-            capability:
-                capabilities[Math.floor(Math.random() * capabilities.length)],
-            resourceId: resource.id,
-            siteResourceId: null,
-            resourceName: resource.name,
-            resourceNiceId: resource.niceId,
-            resourceType: "public",
-            userId: actor ? `user-${i}` : null,
-            userEmail: actor,
-            virtualApiKeyId: virtualApiKey?.id ?? null,
-            virtualApiKeyName: virtualApiKey?.name ?? null,
-            virtualApiKeyLastChars: virtualApiKey?.lastChars ?? null,
-            requestedModel: models[Math.floor(Math.random() * models.length)],
-            isStream: Math.random() > 0.5,
-            requestBody: null,
-            responseBody: null,
-            normalizedRequest: null,
-            normalizedResponse: null,
-            truncated: false,
-            statusCode: 200,
-            createdAt: Math.floor(
-                sevenDaysAgoMs + Math.random() * (now - sevenDaysAgoMs)
-            ),
-            usage: {
-                promptTokens: 500,
-                cacheReadTokens: 0,
-                cacheWriteTokens: 0,
-                completionTokens: 150,
-                reasoningTokens: 0,
-                totalTokens: 650,
-                costUsd: 0.0123,
-                estimated: false
-            }
-        };
-    });
 }

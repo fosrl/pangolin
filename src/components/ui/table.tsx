@@ -106,7 +106,7 @@ const TableHead = React.forwardRef<
     <th
         ref={ref}
         className={cn(
-            "h-10 text-left align-middle text-xs font-semibold whitespace-nowrap text-foreground shadow-[inset_1px_0_0_var(--border)] transition-[background-color] first:shadow-none has-[>button]:hover:bg-muted [&_button]:text-xs [&_button]:font-semibold [&_button]:text-foreground [&_button]:hover:bg-transparent [&_button]:hover:text-foreground [&>button]:h-10 [&>button]:w-full [&>button]:justify-start [&>button]:rounded-none [&:has([role=checkbox])]:pr-0",
+            "h-10 text-left align-middle text-xs font-semibold whitespace-nowrap text-foreground shadow-[inset_1px_0_0_var(--border)] transition-[background-color] first:shadow-none has-[>button]:hover:bg-muted [&_button]:text-xs [&_button]:font-semibold [&_button]:text-foreground [&_button]:hover:bg-transparent [&_button]:hover:text-foreground [&>button]:h-10 [&>button]:w-full [&>button]:justify-start [&>button]:rounded-none [&_svg]:size-3 [&:has([role=checkbox])]:pr-0",
             className,
             // Header cells (including sticky ones) always keep the header tint
             "bg-table-header"

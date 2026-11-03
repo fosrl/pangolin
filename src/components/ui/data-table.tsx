@@ -41,7 +41,7 @@ import {
     Plus,
     Search,
     RefreshCw,
-    Columns,
+    Settings,
     Filter
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
@@ -508,13 +508,14 @@ export function DataTable<TData, TValue>({
     // Get sticky column classes
     const getStickyClasses = (
         columnId: string | undefined,
-        accessorKey: string | undefined
+        accessorKey: string | undefined,
+        atLeftEdge = false
     ): string => {
         if (isStickyColumn(columnId, accessorKey, "left")) {
-            return "md:sticky md:left-0 z-10 bg-card";
+            return `md:sticky md:left-0 z-10 bg-card${atLeftEdge ? " shadow-none" : ""}`;
         }
         if (isStickyColumn(columnId, accessorKey, "right")) {
-            return "sticky right-0 z-10 w-auto min-w-fit bg-card";
+            return "sticky right-0 z-10 w-auto min-w-fit bg-card shadow-none";
         }
         return "";
     };
@@ -708,7 +709,8 @@ export function DataTable<TData, TValue>({
                                         ).accessorKey as string | undefined;
                                         const stickyClasses = getStickyClasses(
                                             columnId,
-                                            accessorKey
+                                            accessorKey,
+                                            header.index === 0
                                         );
                                         const isRightSticky = isStickyColumn(
                                             columnId,
@@ -726,11 +728,11 @@ export function DataTable<TData, TValue>({
                                         return (
                                             <TableHead
                                                 key={header.id}
-                                                className={`whitespace-nowrap ${stickyClasses}`}
+                                                className={`whitespace-nowrap ${stickyClasses}${header.index === 0 ? " shadow-none" : ""}`}
                                             >
                                                 {header.isPlaceholder ? null : isRightSticky &&
                                                   hasHideableColumns ? (
-                                                    <div className="flex flex-col items-end pr-3">
+                                                    <div className="relative flex h-10 w-full items-center justify-end pr-3">
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger
                                                                 asChild
@@ -738,9 +740,9 @@ export function DataTable<TData, TValue>({
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="h-7 w-7 p-0 mb-1"
+                                                                    className="h-7 w-7 p-0"
                                                                 >
-                                                                    <Columns className="h-4 w-4" />
+                                                                    <Settings className="!size-4" />
                                                                     <span className="sr-only">
                                                                         {t(
                                                                             "columns"
@@ -804,7 +806,7 @@ export function DataTable<TData, TValue>({
                                                                     )}
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
-                                                        <div className="h-0 opacity-0 pointer-events-none overflow-hidden">
+                                                        <div className="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0">
                                                             {flexRender(
                                                                 header.column
                                                                     .columnDef
@@ -843,7 +845,8 @@ export function DataTable<TData, TValue>({
                                             const stickyClasses =
                                                 getStickyClasses(
                                                     columnId,
-                                                    accessorKey
+                                                    accessorKey,
+                                                    cell.column.getIndex() === 0
                                                 );
                                             const isRightSticky =
                                                 isStickyColumn(

@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { Button } from "@app/components/ui/button";
@@ -29,7 +30,6 @@ import {
     ChevronsUpDownIcon,
     MoreHorizontal
 } from "lucide-react";
-import moment from "moment";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -324,9 +324,7 @@ export default function AlertingRulesTable({
             },
             cell: ({ row }) => (
                 <span>
-                    {row.original.lastTriggeredAt
-                        ? moment(row.original.lastTriggeredAt).format("lll")
-                        : "-"}
+                    <Timestamp value={row.original.lastTriggeredAt} />
                 </span>
             )
         },

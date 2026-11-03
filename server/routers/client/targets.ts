@@ -6,12 +6,12 @@ import {
     SubnetProxyTarget,
     SubnetProxyTargetV2
 } from "@server/lib/ip";
-import { canCompress } from "@server/lib/clientVersionChecks";
+import {
+    canCompress,
+    supportsTargetsV2
+} from "@server/lib/clientVersionChecks";
 import logger from "@server/logger";
 import { eq, inArray } from "drizzle-orm";
-import semver from "semver";
-
-const NEWT_V2_TARGETS_VERSION = ">=1.10.3";
 
 export async function convertTargetsIfNecessary(
     newtId: string,
@@ -27,10 +27,7 @@ export async function convertTargetsIfNecessary(
     }
 
     // check the semver
-    if (
-        newt.version &&
-        !semver.satisfies(newt.version, NEWT_V2_TARGETS_VERSION)
-    ) {
+    if (newt.version && !supportsTargetsV2(newt.version)) {
         logger.debug(
             `addTargets Newt version ${newt.version} does not support targets v2 falling back`
         );
@@ -167,10 +164,7 @@ export async function updateTargets(
     }
 
     // check the semver
-    if (
-        newt.version &&
-        !semver.satisfies(newt.version, NEWT_V2_TARGETS_VERSION)
-    ) {
+    if (newt.version && !supportsTargetsV2(newt.version)) {
         logger.debug(
             `addTargets Newt version ${newt.version} does not support targets v2 falling back`
         );

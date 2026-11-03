@@ -2,6 +2,7 @@
 
 import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
 import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import {
     SettingsContainer,
@@ -15,6 +16,7 @@ import {
 } from "@app/components/Settings";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import { OidcIdpProviderTypeSelect } from "@app/components/idp/OidcIdpProviderTypeSelect";
+import { SwitchInput } from "@app/components/SwitchInput";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { Button } from "@app/components/ui/button";
 import {
@@ -31,6 +33,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 import { applyOidcIdpProviderType } from "@app/lib/idp/oidcIdpProviderDefaults";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -90,6 +93,7 @@ export default function Page() {
             .optional(),
         tenantId: z.string().optional(),
         autoProvision: z.boolean().default(false),
+        sessionRevalidation: z.boolean().default(false),
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
         orgMapping: z.string().optional()
@@ -112,6 +116,7 @@ export default function Page() {
             scopes: "openid profile email",
             tenantId: "",
             autoProvision: false,
+            sessionRevalidation: false,
             roleMapping: null,
             roleId: null,
             orgMapping: ""
@@ -122,9 +127,9 @@ export default function Page() {
     useEffect(() => {
         async function fetchRoles() {
             const res = await api
-                .get<
-                    AxiosResponse<ListRolesResponse>
-                >(`/org/${params.orgId}/roles`)
+                .get<AxiosResponse<ListRolesResponse>>(
+                    `/org/${params.orgId}/roles`
+                )
                 .catch((e) => {
                     console.error(e);
                     toast({
@@ -179,6 +184,11 @@ export default function Page() {
                 return;
             }
 
+            let scopes = data.scopes || "openid profile email";
+            if (data.sessionRevalidation) {
+                scopes = scopesForSessionRevalidation(scopes, data.type);
+            }
+
             const payload: Record<string, unknown> = {
                 name: data.name,
                 clientId: data.clientId,
@@ -189,8 +199,9 @@ export default function Page() {
                 emailPath: data.emailPath,
                 namePath: data.namePath,
                 autoProvision: data.autoProvision,
+                sessionRevalidation: data.sessionRevalidation,
                 roleMapping: roleMappingExpression,
-                scopes: data.scopes,
+                scopes,
                 variant: data.type
             };
             const trimmedOrgMapping = data.orgMapping?.trim();
@@ -296,6 +307,42 @@ export default function Page() {
                                                 </FormItem>
                                             )}
                                         />
+                                        <div className="space-y-2">
+                                            <SwitchInput
+                                                id="session-revalidation-toggle"
+                                                label={t(
+                                                    "idpSessionRevalidation"
+                                                )}
+                                                checked={form.watch(
+                                                    "sessionRevalidation"
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    form.setValue(
+                                                        "sessionRevalidation",
+                                                        checked
+                                                    );
+                                                    if (checked) {
+                                                        const current =
+                                                            form.getValues(
+                                                                "scopes"
+                                                            ) ||
+                                                            "openid profile email";
+                                                        form.setValue(
+                                                            "scopes",
+                                                            scopesForSessionRevalidation(
+                                                                current,
+                                                                form.getValues(
+                                                                    "type"
+                                                                )
+                                                            )
+                                                        );
+                                                    }
+                                                }}
+                                            />
+                                            <FormDescription>
+                                                <IdpSessionRevalidationDescription />
+                                            </FormDescription>
+                                        </div>
                                     </form>
                                 </Form>
                             </SettingsSectionForm>
@@ -303,7 +350,11 @@ export default function Page() {
                     </SettingsSection>
 
                     {/* Auto Provision Settings */}
-                    <SettingsSection>
+                    <SettingsSection
+                        className={
+                            form.watch("autoProvision") ? undefined : "min-h-0"
+                        }
+                    >
                         <SettingsSectionHeader>
                             <SettingsSectionTitle>
                                 {t("idpAutoProvisionUsers")}

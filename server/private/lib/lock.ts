@@ -17,6 +17,9 @@ import { v4 as uuidv4 } from "uuid";
 
 const instanceId = uuidv4();
 
+// Max keys passed to a single EXISTS call in anyLockExists
+const LOCK_EXISTS_CHUNK_SIZE = 1000;
+
 type LocalLockRecord = {
     owner: string;
     expiresAt: number;
@@ -251,6 +254,39 @@ export class LockManager {
         } catch (error) {
             logger.error(`Failed to get lock info ${lockKey}:`, error);
             return { exists: false, ownedByMe: false, ttl: 0 };
+        }
+    }
+
+    /**
+     * Check whether any of the given locks currently exist, using one EXISTS
+     * call per chunk of keys instead of a round trip per key
+     * @param lockKeys - Unique identifiers for the locks
+     * @returns Promise<boolean> - true if at least one lock is held
+     */
+    async anyLockExists(lockKeys: string[]): Promise<boolean> {
+        if (!redis || !redis.status || redis.status !== "ready") {
+            for (const lockKey of lockKeys) {
+                this.clearExpiredLocalLock(lockKey);
+                if (localLocks.has(lockKey)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        try {
+            for (let i = 0; i < lockKeys.length; i += LOCK_EXISTS_CHUNK_SIZE) {
+                const redisKeys = lockKeys
+                    .slice(i, i + LOCK_EXISTS_CHUNK_SIZE)
+                    .map((lockKey) => `lock:${lockKey}`);
+                if ((await redis.exists(...redisKeys)) > 0) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (error) {
+            logger.error("Failed to check lock existence:", error);
+            return false;
         }
     }
 

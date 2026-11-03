@@ -23,6 +23,7 @@ import {
 } from "@app/components/ui/form";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
 import { SwitchInput } from "@app/components/SwitchInput";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
@@ -30,6 +31,7 @@ import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 import { applyOidcIdpProviderType } from "@app/lib/idp/oidcIdpProviderDefaults";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -68,7 +70,8 @@ export default function Page() {
             .min(1, { message: t("idpScopeRequired") })
             .optional(),
         tenantId: z.string().optional(),
-        autoProvision: z.boolean().default(false)
+        autoProvision: z.boolean().default(false),
+        sessionRevalidation: z.boolean().default(false)
     });
 
     type CreateIdpFormValues = z.infer<typeof createIdpFormSchema>;
@@ -87,7 +90,8 @@ export default function Page() {
             emailPath: "email",
             scopes: "openid profile email",
             tenantId: "",
-            autoProvision: false
+            autoProvision: false,
+            sessionRevalidation: false
         }
     });
 
@@ -114,6 +118,11 @@ export default function Page() {
                 tokenUrl = tokenUrl?.replace("{{TENANT_ID}}", data.tenantId);
             }
 
+            let scopes = data.scopes || "openid profile email";
+            if (data.sessionRevalidation) {
+                scopes = scopesForSessionRevalidation(scopes, data.type);
+            }
+
             const payload = {
                 name: data.name,
                 clientId: data.clientId,
@@ -124,7 +133,8 @@ export default function Page() {
                 emailPath: data.emailPath,
                 namePath: data.namePath,
                 autoProvision: data.autoProvision,
-                scopes: data.scopes,
+                sessionRevalidation: data.sessionRevalidation,
+                scopes,
                 variant: data.type
             };
 
@@ -217,7 +227,42 @@ export default function Page() {
                                                 </FormItem>
                                             )}
                                         />
-
+                                        <div className="space-y-2">
+                                            <SwitchInput
+                                                id="session-revalidation-toggle"
+                                                label={t(
+                                                    "idpSessionRevalidation"
+                                                )}
+                                                checked={form.watch(
+                                                    "sessionRevalidation"
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    form.setValue(
+                                                        "sessionRevalidation",
+                                                        checked
+                                                    );
+                                                    if (checked) {
+                                                        const current =
+                                                            form.getValues(
+                                                                "scopes"
+                                                            ) ||
+                                                            "openid profile email";
+                                                        form.setValue(
+                                                            "scopes",
+                                                            scopesForSessionRevalidation(
+                                                                current,
+                                                                form.getValues(
+                                                                    "type"
+                                                                )
+                                                            )
+                                                        );
+                                                    }
+                                                }}
+                                            />
+                                            <FormDescription>
+                                                <IdpSessionRevalidationDescription />
+                                            </FormDescription>
+                                        </div>
                                     </form>
                                 </Form>
                             </SettingsSectionForm>
@@ -225,17 +270,20 @@ export default function Page() {
                     </SettingsSectionBody>
                 </SettingsSection>
 
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("idpAutoProvisionUsers")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            <IdpAutoProvisionUsersDescription />
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <div className="space-y-2">
+                <fieldset
+                    disabled={templatesLocked}
+                    className="min-w-0 space-y-6 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60"
+                >
+                    <SettingsSection className="min-h-0">
+                        <SettingsSectionHeader>
+                            <SettingsSectionTitle>
+                                {t("idpAutoProvisionUsers")}
+                            </SettingsSectionTitle>
+                            <SettingsSectionDescription>
+                                <IdpAutoProvisionUsersDescription />
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <SettingsSectionBody>
                             <SwitchInput
                                 id="auto-provision-toggle"
                                 label={t("idpAutoProvisionUsers")}
@@ -243,16 +291,13 @@ export default function Page() {
                                 onCheckedChange={(checked) => {
                                     form.setValue("autoProvision", checked);
                                 }}
-                                description={t("idpAutoProvisionConfigureAfterCreate")}
+                                description={t(
+                                    "idpAutoProvisionConfigureAfterCreate"
+                                )}
                             />
-                        </div>
-                    </SettingsSectionBody>
-                </SettingsSection>
+                        </SettingsSectionBody>
+                    </SettingsSection>
 
-                <fieldset
-                    disabled={templatesLocked}
-                    className="min-w-0 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60"
-                >
                     {watchedType === "google" && (
                         <SettingsSection>
                             <SettingsSectionHeader>

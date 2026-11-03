@@ -61,35 +61,50 @@ function isPathActive(
     return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function getFirstChildHref(
+    item: SidebarNavItem,
+    hydrateHref: (val?: string) => string | undefined
+): string | undefined {
+    if (!item.items) return undefined;
+    for (const child of item.items) {
+        const href = hydrateHref(child.href);
+        if (href) return href;
+    }
+    return undefined;
+}
+
 type CollapsibleNavItemProps = {
     item: SidebarNavItem;
     level: number;
-    isActive: boolean;
     isChildActive: boolean;
     isDisabled: boolean;
-    isCollapsed: boolean;
+    firstChildHref?: string;
+    hydrateHref: (val?: string) => string | undefined;
     renderNavItem: (item: SidebarNavItem, level: number) => React.ReactNode;
     t: (key: string) => string;
     build: string;
     isUnlocked: () => boolean;
     getNotificationCount: (item: SidebarNavItem) => number | undefined;
+    onItemClick?: () => void;
 };
 
 function CollapsibleNavItem({
     item,
     level,
-    isActive,
     isChildActive,
     isDisabled,
-    isCollapsed,
+    firstChildHref,
+    hydrateHref,
     renderNavItem,
     t,
     build,
     isUnlocked,
-    getNotificationCount
+    getNotificationCount,
+    onItemClick
 }: CollapsibleNavItemProps) {
     const notificationCount = getNotificationCount(item);
     const storageKey = `pangolin-sidebar-expanded-${item.title}`;
+    const navigateHref = firstChildHref ?? hydrateHref(item.href);
 
     // Get initial state from localStorage or use isChildActive
     const getInitialState = (): boolean => {
@@ -105,14 +120,13 @@ function CollapsibleNavItem({
 
     const [isOpen, setIsOpen] = React.useState(getInitialState);
 
-    // Update open state when child active state changes (but don't override user preference)
+    // Expand when a nested child route is active
     React.useEffect(() => {
         if (isChildActive) {
             setIsOpen(true);
         }
     }, [isChildActive]);
 
-    // Save state to localStorage when it changes
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
         if (typeof window !== "undefined") {
@@ -120,65 +134,109 @@ function CollapsibleNavItem({
         }
     };
 
+    const toggleOpen = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isDisabled) return;
+        handleOpenChange(!isOpen);
+    };
+
+    // Parents are never highlighted — only the active sub page is
+    const rowClassName = cn(
+        "flex items-center w-full rounded-md transition-colors",
+        "px-3 py-1.5",
+        "text-muted-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent/50 hover:text-foreground",
+        isDisabled && "cursor-not-allowed opacity-60"
+    );
+
+    const labelContent = (
+        <>
+            {item.icon && (
+                <span className="flex-shrink-0 mr-3 w-5 h-5 flex items-center justify-center text-muted-foreground">
+                    {item.icon}
+                </span>
+            )}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-left truncate">{t(item.title)}</span>
+                {item.isBeta && (
+                    <span className="uppercase font-mono text-yellow-600 dark:text-yellow-800 font-black text-xs">
+                        {t("beta")}
+                    </span>
+                )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                {notificationCount !== undefined && notificationCount > 0 && (
+                    <Badge variant="secondary">
+                        {notificationCount > 99 ? "99+" : notificationCount}
+                    </Badge>
+                )}
+                {build === "enterprise" && item.showEE && !isUnlocked() && (
+                    <Badge variant="outlinePrimary">{t("licenseBadge")}</Badge>
+                )}
+            </div>
+        </>
+    );
+
+    const expandButton = (
+        <button
+            type="button"
+            aria-label={isOpen ? t("sidebarCollapse") : t("sidebarExpand")}
+            className={cn(
+                "flex-shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground",
+                isDisabled && "pointer-events-none"
+            )}
+            disabled={isDisabled}
+            onClick={toggleOpen}
+        >
+            <ChevronRight
+                className={cn(
+                    "h-4 w-4 transition-transform duration-300 ease-in-out",
+                    isOpen && "rotate-90"
+                )}
+            />
+        </button>
+    );
+
     return (
         <Collapsible
             key={item.title}
             open={isOpen}
-            onOpenChange={handleOpenChange}
+            onOpenChange={navigateHref ? undefined : handleOpenChange}
             className="group/collapsible"
         >
-            <CollapsibleTrigger asChild>
-                <button
-                    className={cn(
-                        "flex items-center w-full rounded-md transition-colors",
-                        "px-3 py-1.5",
-                        isActive
-                            ? "bg-sidebar-accent font-medium"
-                            : "text-muted-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent/50 hover:text-foreground",
-                        isDisabled && "cursor-not-allowed opacity-60"
-                    )}
-                    disabled={isDisabled}
-                >
-                    {item.icon && (
-                        <span className="flex-shrink-0 mr-3 w-5 h-5 flex items-center justify-center text-muted-foreground">
-                            {item.icon}
-                        </span>
-                    )}
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-left truncate">
-                            {t(item.title)}
-                        </span>
-                        {item.isBeta && (
-                            <span className="uppercase font-mono text-yellow-600 dark:text-yellow-800 font-black text-xs">
-                                {t("beta")}
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                        {notificationCount !== undefined &&
-                            notificationCount > 0 && (
-                                <Badge variant="secondary">
-                                    {notificationCount > 99
-                                        ? "99+"
-                                        : notificationCount}
-                                </Badge>
-                            )}
-                        {build === "enterprise" &&
-                            item.showEE &&
-                            !isUnlocked() && (
-                                <Badge variant="outlinePrimary">
-                                    {t("licenseBadge")}
-                                </Badge>
-                            )}
+            {navigateHref ? (
+                <div className={rowClassName}>
+                    <Link
+                        href={isDisabled ? "#" : navigateHref}
+                        className="flex items-center flex-1 min-w-0"
+                        onClick={(e) => {
+                            if (isDisabled) {
+                                e.preventDefault();
+                                return;
+                            }
+                            handleOpenChange(true);
+                            onItemClick?.();
+                        }}
+                        tabIndex={isDisabled ? -1 : undefined}
+                        aria-disabled={isDisabled}
+                    >
+                        {labelContent}
+                    </Link>
+                    {expandButton}
+                </div>
+            ) : (
+                <CollapsibleTrigger asChild>
+                    <button className={rowClassName} disabled={isDisabled}>
+                        {labelContent}
                         <ChevronRight
                             className={cn(
-                                "h-4 w-4 transition-transform duration-300 ease-in-out text-muted-foreground",
+                                "h-4 w-4 flex-shrink-0 ml-2 transition-transform duration-300 ease-in-out text-muted-foreground",
                                 "group-data-[state=open]/collapsible:rotate-90"
                             )}
                         />
-                    </div>
-                </button>
-            </CollapsibleTrigger>
+                    </button>
+                </CollapsibleTrigger>
+            )}
             <CollapsibleContent forceMount>
                 <div
                     className={cn(
@@ -217,6 +275,8 @@ type CollapsedNavItemWithPopoverProps = {
     disabled: boolean;
     t: (key: string) => string;
     onItemClick?: () => void;
+    notificationCount?: number;
+    getNotificationCount: (item: SidebarNavItem) => number | undefined;
 };
 
 const TOOLTIP_SUPPRESS_MS = 400;
@@ -233,7 +293,9 @@ function CollapsedNavItemWithPopover({
     isUnlocked,
     disabled,
     t,
-    onItemClick
+    onItemClick,
+    notificationCount,
+    getNotificationCount
 }: CollapsedNavItemWithPopoverProps) {
     const [popoverOpen, setPopoverOpen] = React.useState(false);
     const [tooltipOpen, setTooltipOpen] = React.useState(false);
@@ -266,7 +328,7 @@ function CollapsedNavItemWithPopover({
                         <TooltipTrigger asChild>
                             <button
                                 className={cn(
-                                    "flex items-center rounded-md transition-colors px-2 py-2 justify-center w-full",
+                                    "flex items-center rounded-md transition-colors px-2 py-2 justify-center w-full relative",
                                     isActive || isChildActive
                                         ? "bg-sidebar-accent font-medium"
                                         : "text-muted-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent/50 hover:text-foreground",
@@ -280,6 +342,17 @@ function CollapsedNavItemWithPopover({
                                         {item.icon}
                                     </span>
                                 )}
+                                {notificationCount !== undefined &&
+                                    notificationCount > 0 && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="absolute -top-1 -right-1 h-5 min-w-5 px-1.5 flex items-center justify-center text-xs"
+                                        >
+                                            {notificationCount > 99
+                                                ? "99+"
+                                                : notificationCount}
+                                        </Badge>
+                                    )}
                             </button>
                         </TooltipTrigger>
                     </PopoverTrigger>
@@ -308,6 +381,8 @@ function CollapsedNavItemWithPopover({
                                     childItem.showEE &&
                                     !isUnlocked();
                                 const childIsDisabled = disabled || childIsEE;
+                                const childNotificationCount =
+                                    getNotificationCount(childItem);
 
                                 if (!childHydratedHref) {
                                     return null;
@@ -348,16 +423,25 @@ function CollapsedNavItemWithPopover({
                                                 </span>
                                             )}
                                         </div>
-                                        {build === "enterprise" &&
-                                            childItem.showEE &&
-                                            !isUnlocked() && (
-                                                <Badge
-                                                    variant="outlinePrimary"
-                                                    className="flex-shrink-0 ml-2"
-                                                >
-                                                    {t("licenseBadge")}
-                                                </Badge>
-                                            )}
+                                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                                            {childNotificationCount !==
+                                                undefined &&
+                                                childNotificationCount > 0 && (
+                                                    <Badge variant="secondary">
+                                                        {childNotificationCount >
+                                                        99
+                                                            ? "99+"
+                                                            : childNotificationCount}
+                                                    </Badge>
+                                                )}
+                                            {build === "enterprise" &&
+                                                childItem.showEE &&
+                                                !isUnlocked() && (
+                                                    <Badge variant="outlinePrimary">
+                                                        {t("licenseBadge")}
+                                                    </Badge>
+                                                )}
+                                        </div>
                                     </Link>
                                 );
                             })}
@@ -392,7 +476,16 @@ export function SidebarNav({
 
     function getNotificationCount(item: SidebarNavItem): number | undefined {
         if (!notificationCounts) return undefined;
-        return notificationCounts[item.title];
+        let total = notificationCounts[item.title] ?? 0;
+        if (item.items) {
+            for (const child of item.items) {
+                const childCount = getNotificationCount(child);
+                if (childCount !== undefined) {
+                    total += childCount;
+                }
+            }
+        }
+        return total > 0 ? total : undefined;
     }
 
     function hydrateHref(val?: string): string | undefined {
@@ -423,11 +516,14 @@ export function SidebarNav({
     ): React.ReactNode => {
         const hydratedHref = hydrateHref(item.href);
         const hasNestedItems = item.items && item.items.length > 0;
+        const firstChildHref = hasNestedItems
+            ? getFirstChildHref(item, hydrateHref)
+            : undefined;
         const isActive = hydratedHref
             ? isPathActive(pathname, hydratedHref, item.exact)
             : false;
         const isChildActive = hasNestedItems
-            ? isItemOrChildActive(item)
+            ? item.items!.some((child) => isItemOrChildActive(child))
             : false;
         const isEE = build === "enterprise" && item.showEE && !isUnlocked();
         const isDisabled = disabled || isEE;
@@ -443,29 +539,38 @@ export function SidebarNav({
                     key={item.title}
                     item={item}
                     level={level}
-                    isActive={isActive}
                     isChildActive={isChildActive}
                     isDisabled={isDisabled || false}
-                    isCollapsed={isCollapsed}
+                    firstChildHref={firstChildHref}
+                    hydrateHref={hydrateHref}
                     renderNavItem={renderNavItem}
                     t={t}
                     build={build}
                     isUnlocked={isUnlocked}
                     getNotificationCount={getNotificationCount}
+                    onItemClick={onItemClick}
                 />
             );
         }
 
         const notificationCount = getNotificationCount(item);
+        // Collapsed parents with children navigate to the first sub page and
+        // are never highlighted — only the leaf destination is.
+        const linkHref = hasNestedItems
+            ? (firstChildHref ?? hydratedHref)
+            : hydratedHref;
+        const isHighlighted = hasNestedItems
+            ? false
+            : isActive || isChildActive;
 
         // Regular item without nested items
-        const itemContent = hydratedHref ? (
+        const itemContent = linkHref ? (
             <Link
-                href={isDisabled ? "#" : hydratedHref}
+                href={isDisabled ? "#" : linkHref}
                 className={cn(
                     "flex items-center rounded-md transition-colors relative",
                     isCollapsed ? "px-2 py-2 justify-center" : "px-3 py-1.5",
-                    isActive
+                    isHighlighted
                         ? "bg-sidebar-accent font-medium"
                         : "text-muted-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent/50 hover:text-foreground",
                     isDisabled && "cursor-not-allowed opacity-60"
@@ -583,14 +688,14 @@ export function SidebarNav({
         );
 
         if (isCollapsed) {
-            // If item has nested items, show both tooltip and popover
-            if (hasNestedItems) {
+            // Nested items without a navigable first child: popover for children
+            if (hasNestedItems && !linkHref) {
                 return (
                     <CollapsedNavItemWithPopover
                         key={item.title}
                         item={item}
                         tooltipText={tooltipText}
-                        isActive={isActive}
+                        isActive={false}
                         isChildActive={isChildActive}
                         isDisabled={!!isDisabled}
                         hydrateHref={hydrateHref}
@@ -600,11 +705,13 @@ export function SidebarNav({
                         disabled={disabled ?? false}
                         t={t}
                         onItemClick={onItemClick}
+                        notificationCount={notificationCount}
+                        getNotificationCount={getNotificationCount}
                     />
                 );
             }
 
-            // Regular item without nested items - show tooltip
+            // Top-level link (including parents that open the first sub page)
             return (
                 <TooltipProvider key={item.title}>
                     <Tooltip>

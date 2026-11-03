@@ -6,7 +6,7 @@ import { MtlsSchema } from "#dynamic/lib/blueprints/MtlsSchema";
 import { resourceModeSupportsMtls } from "@server/lib/mtlsModes";
 import { isValidRegionId } from "@server/db/regions";
 import { isValidHttpMethodList } from "@server/lib/validators";
-import { wildcardSubdomainSchema } from "@server/lib/schemas";
+import { routePathSchema, wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import {
     aiBudgetEnforcementSchema,
@@ -59,6 +59,7 @@ const healthCheckHostnameSchema = z
     );
 
 export const TargetHealthCheckSchema = z.object({
+    name: z.string().optional(),
     hostname: healthCheckHostnameSchema,
     port: z.int().min(1).max(65535),
     enabled: z.boolean().optional().default(true),
@@ -90,7 +91,7 @@ export const TargetSchema = z.object({
     port: z.int().min(1).max(65535),
     enabled: z.boolean().optional().default(true),
     "internal-port": z.int().min(1).max(65535).optional(),
-    path: z.string().optional(),
+    path: routePathSchema.optional(),
     "path-match": z.enum(["exact", "prefix", "regex"]).optional().nullable(),
     healthcheck: TargetHealthCheckSchema.optional(),
     rewritePath: z.string().optional(), // deprecated alias
@@ -327,6 +328,24 @@ export const AuthDaemonSchema = z
         }
     );
 
+// A full-domain must be made of hostname labels ("*" is allowed as a label;
+// where it may appear is checked by the resource schemas). Anything else
+// would end up in a Traefik Host() rule and certificate requests verbatim.
+const fullDomainSchema = z
+    .string()
+    .refine(
+        (val) =>
+            val === "" ||
+            val
+                .split(".")
+                .every(
+                    (label) =>
+                        label === "*" ||
+                        /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(label)
+                ),
+        { message: "full-domain must be a valid hostname" }
+    );
+
 // Schema for individual resource
 export const PublicResourceSchema = z
     .object({
@@ -340,7 +359,8 @@ export const PublicResourceSchema = z
         policy: z.string().optional(),
         ssl: z.boolean().optional(),
         scheme: z.enum(["http", "https"]).optional(),
-        "full-domain": z.string().optional(),
+        "full-domain": fullDomainSchema.optional(),
+        "match-base-domain": z.boolean().optional(),
         "proxy-port": z.int().min(1).max(65535).optional(),
         enabled: z.boolean().optional(),
         targets: z.array(TargetSchema.nullable()).optional().default([]),
@@ -660,6 +680,21 @@ export const PublicResourceSchema = z
     )
     .refine(
         (resource) => {
+            if (!resource["match-base-domain"]) return true;
+            const effectiveMode = resource.mode ?? resource.protocol;
+            return (
+                effectiveMode === "http" &&
+                !!resource["full-domain"]?.startsWith("*.")
+            );
+        },
+        {
+            path: ["match-base-domain"],
+            message:
+                "'match-base-domain' can only be set on 'http' resources with a wildcard 'full-domain'"
+        }
+    )
+    .refine(
+        (resource) => {
             const effectiveMode = resource.mode ?? resource.protocol;
             if (effectiveMode !== "tcp") {
                 return (
@@ -712,7 +747,7 @@ export const PrivateResourceSchema = z
         "tcp-ports": portRangeStringSchema.optional().default("*"),
         "udp-ports": portRangeStringSchema.optional().default("*"),
         "disable-icmp": z.boolean().optional().default(false),
-        "full-domain": z.string().optional(),
+        "full-domain": fullDomainSchema.optional(),
         ssl: z.boolean().optional(),
         scheme: z.enum(["http", "https"]).optional().nullable(),
         alias: z

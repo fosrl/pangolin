@@ -68,7 +68,10 @@ export default async function Page(props: {
     if (loginPageDomain) {
         const redirectUrl = searchParams.redirect as string | undefined;
 
-        let url = `https://${loginPageDomain}/auth/org`;
+        const scheme = env.app.dashboardUrl.startsWith("https")
+            ? "https"
+            : "http";
+        let url = `${scheme}://${loginPageDomain}/auth/org`;
         if (redirectUrl) {
             url += `?redirect=${redirectUrl}`;
         }

@@ -20,6 +20,7 @@ import {
     db,
     domainNamespaces,
     domains,
+    exitNodeOrgs,
     exitNodes,
     loginPage,
     redirects,
@@ -71,7 +72,8 @@ import {
 import {
     appendPathMatch,
     buildHostRule,
-    computeRoutePriority
+    computeRoutePriority,
+    ruleValue
 } from "@server/lib/traefik/rule";
 import { buildSiteResourceAliasCertPlaceholders } from "@server/lib/traefik/siteResourceAlias";
 import { ResourceWithTargets } from "@server/lib/traefik/types";
@@ -146,6 +148,7 @@ export async function getTraefikConfig(
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
             wildcard: resources.wildcard,
+            matchBaseDomain: resources.matchBaseDomain,
             mode: resources.mode,
 
             maintenanceModeEnabled: resources.maintenanceModeEnabled,
@@ -297,6 +300,7 @@ export async function getTraefikConfig(
                 domainCertResolver: row.domainCertResolver,
                 preferWildcardCert: row.preferWildcardCert,
                 wildcard: row.wildcard,
+                matchBaseDomain: row.matchBaseDomain,
 
                 maintenanceModeEnabled: row.maintenanceModeEnabled,
                 maintenanceModeType: row.maintenanceModeType,
@@ -411,6 +415,9 @@ export async function getTraefikConfig(
     // queried separately and emitted on every exit node. A redirect listens
     // either on a resource's fullDomain or on subdomain.baseDomain of a
     // domain; the domain join resolves to whichever one applies.
+    // Remote exit nodes belong to specific orgs, so only emit the redirects
+    // of those orgs - otherwise every other org's redirect hosts leak to them.
+    const isRemoteExitNode = exitNode?.type === "remoteExitNode";
     const redirectRows = await db
         .select({
             name: redirects.name,
@@ -427,6 +434,7 @@ export async function getTraefikConfig(
             resourceSubdomain: resources.subdomain,
             resourceSsl: resources.ssl,
             resourceWildcard: resources.wildcard,
+            resourceMatchBaseDomain: resources.matchBaseDomain,
             // Domain (the redirect's own, or the resource's)
             baseDomain: domains.baseDomain,
             domainCertResolver: domains.certResolver,
@@ -455,7 +463,16 @@ export async function getTraefikConfig(
                         eq(resources.enabled, true),
                         not(isNull(resources.domainId))
                     )
-                )
+                ),
+                isRemoteExitNode
+                    ? inArray(
+                          redirects.orgId,
+                          db
+                              .select({ orgId: exitNodeOrgs.orgId })
+                              .from(exitNodeOrgs)
+                              .where(eq(exitNodeOrgs.exitNodeId, exitNodeId))
+                      )
+                    : undefined
             )
         )
         .orderBy(desc(redirects.priority), redirects.redirectId); // stable ordering
@@ -486,6 +503,7 @@ export async function getTraefikConfig(
                 ? !!row.resourceSubdomain
                 : !!row.subdomain,
             wildcard: row.resourceWildcard,
+            matchBaseDomain: row.resourceMatchBaseDomain,
             ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
             attachedTo: attachedToResource ? "resource" : "domain",
             resourceId: row.resourceId,
@@ -646,7 +664,11 @@ export async function getTraefikConfig(
                 ...additionalMiddlewares
             ];
 
-            let rule: string = buildHostRule(fullDomain, resource.wildcard);
+            let rule: string = buildHostRule(
+                fullDomain,
+                resource.wildcard,
+                resource.matchBaseDomain
+            );
 
             const priority = computeRoutePriority(
                 resource.priority,
@@ -661,7 +683,8 @@ export async function getTraefikConfig(
                     hasSubdomain: !!resource.subdomain,
                     domainCertResolver: resource.domainCertResolver,
                     preferWildcardCert:
-                        resource.preferWildcardCert || resource.wildcard
+                        resource.preferWildcardCert || resource.wildcard,
+                    matchBaseDomain: resource.matchBaseDomain
                 });
             } else {
                 // find a cert that matches the full domain, if not continue
@@ -937,7 +960,8 @@ export async function getTraefikConfig(
                     hasSubdomain: redirect.hasSubdomain,
                     domainCertResolver: redirect.domainCertResolver,
                     preferWildcardCert:
-                        redirect.preferWildcardCert || redirect.wildcard
+                        redirect.preferWildcardCert || redirect.wildcard,
+                    matchBaseDomain: redirect.matchBaseDomain
                 });
             }
             const matchingCert = validCerts.find(
@@ -1189,7 +1213,7 @@ export async function getTraefikConfig(
                 const srKey = `inference-sr${sr.siteResourceId}`;
                 const routerName = `${srKey}-router`;
                 const serviceName = `${srKey}-service`;
-                const rule = `Host(\`${fullDomain}\`) && ClientIP(\`${exitNode.address}\`)`; // restrict to coming from the exit node ip range that the client is connected to
+                const rule = `${buildHostRule(fullDomain)} && ClientIP(${ruleValue(exitNode.address)})`; // restrict to coming from the exit node ip range that the client is connected to
 
                 let tls: any = {};
                 if (!pangolinCertModeEnabled) {
@@ -1250,23 +1274,30 @@ export async function getTraefikConfig(
         }
     }
 
+    const usePangolinDns =
+        privateConfig.getRawPrivateConfig().flags.use_pangolin_dns;
+
     if (generateLoginPageRouters) {
         const exitNodeLoginPages = await db
             .select({
                 loginPageId: loginPage.loginPageId,
                 fullDomain: loginPage.fullDomain,
+                subdomain: loginPage.subdomain,
                 exitNodeId: exitNodes.exitNodeId,
-                domainId: loginPage.domainId
+                domainId: loginPage.domainId,
+                domainCertResolver: domains.certResolver,
+                preferWildcardCert: domains.preferWildcardCert
             })
             .from(loginPage)
             .innerJoin(
                 exitNodes,
                 eq(exitNodes.exitNodeId, loginPage.exitNodeId)
             )
+            .leftJoin(domains, eq(domains.domainId, loginPage.domainId))
             .where(eq(exitNodes.exitNodeId, exitNodeId));
 
         let validCertsLoginPages: CertificateResult[] = [];
-        if (pangolinCertModeEnabled) {
+        if (usePangolinDns) {
             // create a list of all domains to get certs for
             const domains = new Set<string>();
             for (const lp of exitNodeLoginPages) {
@@ -1310,9 +1341,14 @@ export async function getTraefikConfig(
                     continue;
                 }
 
-                const tls = {};
-                if (!pangolinCertModeEnabled) {
-                    // TODO: we need to add the wildcard logic here too
+                let tls: Record<string, any> = {};
+                if (!usePangolinDns) {
+                    tls = buildWildcardTls({
+                        fullDomain: lp.fullDomain,
+                        hasSubdomain: !!lp.subdomain,
+                        domainCertResolver: lp.domainCertResolver,
+                        preferWildcardCert: lp.preferWildcardCert
+                    });
                 } else {
                     // find a cert that matches the full domain, if not continue
                     const matchingCert = validCertsLoginPages.find(
@@ -1345,7 +1381,7 @@ export async function getTraefikConfig(
                     ],
                     middlewares: [landingRateLimitMiddlewareName],
                     service: "landing-service",
-                    rule: `Host(\`${fullDomain}\`) && (PathRegexp(\`^/auth/resource/[^/]+$\`) || PathRegexp(\`^/auth/idp/[0-9]+/oidc/callback\`) || PathPrefix(\`/_next\`) || Path(\`/auth/org\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
+                    rule: `${buildHostRule(fullDomain)} && (PathRegexp(\`^/auth/resource/[^/]+$\`) || PathRegexp(\`^/auth/idp/[0-9]+/oidc/callback\`) || PathPrefix(\`/_next\`) || Path(\`/auth/org\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
                     priority: 203,
                     tls: tls
                 };
@@ -1367,7 +1403,7 @@ export async function getTraefikConfig(
                         redirectToRootMiddlewareName
                     ],
                     service: "landing-service",
-                    rule: `Host(\`${fullDomain}\`)`,
+                    rule: buildHostRule(fullDomain),
                     priority: 202,
                     tls: tls
                 };
@@ -1379,7 +1415,7 @@ export async function getTraefikConfig(
                     ],
                     middlewares: [redirectHttpsMiddlewareName],
                     service: "landing-service",
-                    rule: `Host(\`${fullDomain}\`)`,
+                    rule: buildHostRule(fullDomain),
                     priority: 201
                 };
             }

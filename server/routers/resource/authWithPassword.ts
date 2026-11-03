@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { verify } from "@node-rs/argon2";
 import { generateSessionToken } from "@server/auth/sessions/app";
 import { db } from "@server/db";
@@ -171,7 +172,7 @@ export async function authWithPassword(
         }
 
         const token = generateSessionToken();
-        await createResourceSession({
+        const requestSession = await createResourceSession({
             resourceId,
             token,
             passwordId: isPolicyPassword ? null : definedPassword.passwordId,
@@ -181,7 +182,8 @@ export async function authWithPassword(
             isRequestToken: true,
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
-            doNotExtend: true
+            doNotExtend: true,
+            clientInfo: getRequestClientInfo(req)
         });
 
         logAccessAudit({
@@ -189,6 +191,7 @@ export async function authWithPassword(
             resourceId: resource.resourceId,
             action: true,
             type: "password",
+            metadata: { resourceSessionId: requestSession.sessionId },
             userAgent: req.headers["user-agent"],
             requestIp: req.ip
         });

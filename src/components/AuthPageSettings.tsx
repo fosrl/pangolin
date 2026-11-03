@@ -458,7 +458,7 @@ function AuthPageSettings({
                             !isPaidUser(tierMatrix.loginPageDomain)
                         }
                     >
-                        {t("saveAuthPageDomain")}
+                        {t("saveSettings")}
                     </Button>
                 </SettingsSectionFooter>
             </SettingsSection>

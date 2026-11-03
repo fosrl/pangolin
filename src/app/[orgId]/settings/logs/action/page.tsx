@@ -1,4 +1,5 @@
 "use client";
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { DateTimeValue } from "@app/components/DateTimePicker";
 import { LogDataTable } from "@app/components/LogDataTable";
@@ -15,7 +16,6 @@ import { getSevenDaysAgo } from "@app/lib/getSevenDaysAgo";
 import { logQueries } from "@app/lib/queries";
 import { build } from "@server/build";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
-import type { QueryActionAuditLogResponse } from "@server/routers/auditLogs/types";
 import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import axios from "axios";
@@ -116,7 +116,7 @@ export default function GeneralPage() {
         enabled: isPaidUser(tierMatrix.actionLogs) && build !== "oss"
     });
 
-    const rows = isLoading ? generateSampleActionLogs() : (data?.log ?? []);
+    const rows = data?.log ?? [];
     const totalCount = data?.pagination?.total ?? 0;
     const filterAttributes = {
         actors: data?.filterAttributes?.actors ?? []
@@ -243,9 +243,11 @@ export default function GeneralPage() {
             cell: ({ row }) => {
                 return (
                     <div className="whitespace-nowrap">
-                        {new Date(
-                            row.original.timestamp * 1000
-                        ).toLocaleString()}
+                        <Timestamp
+                            value={row.original.timestamp}
+                            unit="s"
+                            display="absolute"
+                        />
                     </div>
                 );
             }
@@ -400,40 +402,4 @@ export default function GeneralPage() {
             />
         </>
     );
-}
-
-function generateSampleActionLogs(): QueryActionAuditLogResponse["log"] {
-    const actions = [
-        "createResource",
-        "deleteResource",
-        "updateResource",
-        "createSite",
-        "deleteSite",
-        "inviteUser",
-        "removeUser"
-    ];
-    const actors = [
-        "alice@example.com",
-        "bob@example.com",
-        "carol@example.com"
-    ];
-
-    const now = Math.floor(Date.now() / 1000);
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60;
-
-    return Array.from({ length: 10 }, (_, i) => {
-        const actor = actors[Math.floor(Math.random() * actors.length)];
-
-        return {
-            timestamp: Math.floor(
-                sevenDaysAgo + Math.random() * (now - sevenDaysAgo)
-            ),
-            action: actions[Math.floor(Math.random() * actions.length)],
-            orgId: "sample-org",
-            actorType: "user",
-            actor,
-            actorId: `user-${i}`,
-            metadata: null
-        };
-    });
 }

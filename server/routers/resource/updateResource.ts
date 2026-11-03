@@ -94,6 +94,12 @@ const updateHttpResourceBodySchema = z
                 "When no shared resource policy is assigned (resourcePolicyId is null), updates the resource's inline policy. When a shared policy is assigned, this value overrides the shared policy for this resource."
             ),
         domainId: z.string().optional(),
+        matchBaseDomain: z
+            .boolean()
+            .optional()
+            .describe(
+                "For HTTP resources with a wildcard subdomain: also serve the host the wildcard sits under, so *.apps.example.com also matches apps.example.com."
+            ),
         enabled: z.boolean().optional(),
         stickySession: z.boolean().optional(),
         loadBalancingStrategy: z
@@ -416,6 +422,26 @@ export async function updateResource(
     }
 }
 
+// a resource may only be assigned a shared (global) policy from its own org
+async function getAssignableResourcePolicy(
+    resourcePolicyId: number,
+    orgId: string
+) {
+    const [policy] = await db
+        .select()
+        .from(resourcePolicies)
+        .where(
+            and(
+                eq(resourcePolicies.resourcePolicyId, resourcePolicyId),
+                eq(resourcePolicies.orgId, orgId),
+                eq(resourcePolicies.scope, "global")
+            )
+        )
+        .limit(1);
+
+    return policy;
+}
+
 async function clearResourceSpecificSettings(
     resourceId: number,
     orgId: string,
@@ -513,16 +539,10 @@ async function updateHttpResource(
             );
         }
 
-        const [existingPolicy] = await db
-            .select()
-            .from(resourcePolicies)
-            .where(
-                eq(
-                    resourcePolicies.resourcePolicyId,
-                    updateData.resourcePolicyId
-                )
-            )
-            .limit(1);
+        const existingPolicy = await getAssignableResourcePolicy(
+            updateData.resourcePolicyId,
+            resource.orgId
+        );
 
         if (!existingPolicy) {
             return next(
@@ -629,6 +649,26 @@ async function updateHttpResource(
         }
     }
 
+    if (updateData.matchBaseDomain) {
+        if (resource.mode !== "http") {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Matching the base domain is only supported on HTTP resources."
+                )
+            );
+        }
+
+        if (!isLicensed) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Wildcard subdomains are not supported on your current plan. Please upgrade to access this feature."
+                )
+            );
+        }
+    }
+
     if (updateData.domainId) {
         const domainId = updateData.domainId;
 
@@ -681,6 +721,21 @@ async function updateHttpResource(
 
         logger.debug(`Full domain: ${fullDomain}`);
 
+        if (updateData.matchBaseDomain && !wildcard) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Matching the base domain requires a wildcard subdomain."
+                )
+            );
+        }
+
+        // A resource moving off a wildcard has no base host left to match
+        const matchBaseDomain =
+            wildcard &&
+            (updateData.matchBaseDomain ?? resource.matchBaseDomain);
+        updateData.matchBaseDomain = matchBaseDomain;
+
         if (fullDomain) {
             // Inference resources route through the central AI gateway
             // rather than normal target-based proxying, so they're allowed
@@ -714,7 +769,8 @@ async function updateHttpResource(
 
             const wildcardConflict = await checkWildcardDomainConflict(
                 fullDomain,
-                resource.resourceId
+                resource.resourceId,
+                matchBaseDomain
             );
             if (wildcardConflict.conflict) {
                 return next(
@@ -765,6 +821,26 @@ async function updateHttpResource(
         updateData.subdomain = finalSubdomain;
 
         await createCertificate(domainId, fullDomain, db);
+    } else if (updateData.matchBaseDomain) {
+        if (!resource.wildcard || !resource.fullDomain) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Matching the base domain requires a wildcard subdomain."
+                )
+            );
+        }
+
+        const wildcardConflict = await checkWildcardDomainConflict(
+            resource.fullDomain,
+            resource.resourceId,
+            true
+        );
+        if (wildcardConflict.conflict) {
+            return next(
+                createHttpError(HttpCode.CONFLICT, wildcardConflict.message)
+            );
+        }
     }
 
     let requestHeaders = undefined;
@@ -919,6 +995,35 @@ async function updateRawResource(
 
     const updateData = parsedBody.data;
     let updatedResource: Resource | null = null;
+
+    if (updateData.resourcePolicyId != null) {
+        const isLicensed = await isLicensedOrSubscribed(
+            resource.orgId,
+            tierMatrix.resourcePolicies
+        );
+        if (!isLicensed) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Resource policies are not supported on your current plan. Please upgrade to access this feature."
+                )
+            );
+        }
+
+        const existingPolicy = await getAssignableResourcePolicy(
+            updateData.resourcePolicyId,
+            resource.orgId
+        );
+
+        if (!existingPolicy) {
+            return next(
+                createHttpError(
+                    HttpCode.NOT_FOUND,
+                    `Resource policy with ID ${updateData.resourcePolicyId} not found`
+                )
+            );
+        }
+    }
 
     const [existingResource] = await db
         .select()

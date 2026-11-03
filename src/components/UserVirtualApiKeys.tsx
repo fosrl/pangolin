@@ -1,7 +1,7 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { useTranslations } from "next-intl";
-import moment from "moment";
 import { Button } from "@app/components/ui/button";
 import CopyTextBox from "@app/components/CopyTextBox";
 import CopyToClipboard from "@app/components/CopyToClipboard";
@@ -158,7 +158,7 @@ function ManualKeyRow({
                     />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                    {t("created")} {moment(keyRow.createdAt).format("lll")}
+                    {t("created")} <Timestamp value={keyRow.createdAt} />
                 </p>
             </div>
         </div>

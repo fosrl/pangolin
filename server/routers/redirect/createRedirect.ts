@@ -7,6 +7,7 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { subdomainSchema } from "@server/lib/schemas";
 import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq } from "drizzle-orm";
 import {
@@ -35,7 +36,7 @@ const bodySchema = z
         name: z.string().nonempty(),
         resourceId: z.number().int().positive().optional().nullable(),
         domainId: z.string().nonempty().optional().nullable(),
-        subdomain: z.string().nonempty().optional().nullable(),
+        subdomain: subdomainSchema.optional().nullable(),
         destinationHost: redirectDestinationHostSchema,
         pathMatchType: redirectPathMatchTypeSchema.optional(),
         matchPath: redirectMatchPathSchema.optional().nullable(),

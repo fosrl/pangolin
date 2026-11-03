@@ -55,6 +55,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         relay,
         olmVersion,
         olmAgent,
+        agentVersion,
         orgId,
         userToken,
         pingResults,
@@ -92,9 +93,17 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         await handleFingerprintInsertion(olm, fingerprint, postures);
     }
 
+    // Olm clients that predate agentVersion report the version of the app
+    // embedding olm (Pangolin Windows, the CLI, ...) in olmVersion, so it
+    // doubles as the agent version. Newer clients report the olm library
+    // version in olmVersion and the app version in agentVersion.
+    const reportedAgentVersion =
+        agentVersion === undefined ? olmVersion : agentVersion;
+
     if (
         (olmVersion && olm.version !== olmVersion) ||
         (olmAgent && olm.agent !== olmAgent) ||
+        (reportedAgentVersion && olm.agentVersion !== reportedAgentVersion) ||
         olm.archived
     ) {
         await db
@@ -102,6 +111,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
             .set({
                 version: olmVersion,
                 agent: olmAgent,
+                agentVersion: reportedAgentVersion,
                 archived: false
             })
             .where(eq(olms.olmId, olm.olmId));

@@ -30,14 +30,20 @@ import {
     sites,
     targets,
     dnsChallenge,
-    domains
+    domains,
+    customDnsRecords
 } from "@server/db";
 import { privateConfig as config } from "#private/lib/config";
 import * as dnsResolver from "dns";
 import logger from "@server/logger";
-import { listExitNodes } from "../exitNodes";
+import { listExitNodesAcrossRegions } from "../exitNodes/exitNodes";
+import { parseCustomDnsRecordValues } from "@server/routers/customDnsRecord/types";
+import {
+    matchCustomRecords,
+    type CustomRecordMatch,
+    type CustomZoneRecord
+} from "./customRecordMatch";
 import { rateLimitService } from "../rateLimit";
-import license from "#private/license/license";
 
 type DNSRecord = {
     id: number;
@@ -50,7 +56,18 @@ type DNSRecord = {
     enabled: boolean;
 };
 
+type CustomRecord = {
+    type: string;
+    value: string;
+    ttl: number;
+    priority: number | null;
+    weight: number | null;
+    port: number | null;
+};
+
 const DNS_CACHE_TTL_SECONDS = 300;
+// Kept short so edits to custom records propagate quickly
+const CUSTOM_RECORD_CACHE_TTL_SECONDS = 60;
 
 export class AuthoritativeDNSServer {
     private cache: LocalCache = createLocalCache(10_000, DNS_CACHE_TTL_SECONDS);
@@ -71,6 +88,7 @@ export class AuthoritativeDNSServer {
     // set refresh and read from memory here.
     private isLicensed: boolean = false;
     private licenseRefreshInterval: NodeJS.Timeout | null = null;
+    private requireLicense: boolean;
 
     // Cache for per-queryName zone resolution and SOA records
     private authoritativeDomainCache: LocalCache = createLocalCache(
@@ -82,8 +100,9 @@ export class AuthoritativeDNSServer {
         DNS_CACHE_TTL_SECONDS
     );
 
-    constructor(port: number) {
+    constructor(port: number, options: { requireLicense?: boolean } = {}) {
         this.port = port;
+        this.requireLicense = options.requireLicense ?? true;
         this.server = dgram.createSocket("udp4");
 
         this.setupServer();
@@ -162,6 +181,10 @@ export class AuthoritativeDNSServer {
         const originalQueryName = queryName;
         const queryType = question.type;
         let baseDomain: string | null;
+        // True when baseDomain is the customer zone the queried name itself
+        // lives in (not a synthetic cname-extension lookup), i.e. when
+        // user-defined custom records may apply.
+        let isCustomerZone = false;
 
         logger.info(
             `DNS Query: ${queryName} ${queryType} from ${rinfo.address}:${rinfo.port}`
@@ -282,6 +305,34 @@ export class AuthoritativeDNSServer {
                     `NXDOMAIN: Not authoritative for zone: ${queryName}`
                 );
                 this.sendResponse(packet, [], rinfo, false, 3, []); // NXDOMAIN rcode=3 - not authoritative
+                return;
+            }
+            isCustomerZone = true;
+        }
+
+        // A subdomain the user delegated elsewhere with NS records is no
+        // longer ours to answer for - refer the resolver to its nameservers
+        // for the cut and everything beneath it, ahead of any other handling.
+        if (isCustomerZone) {
+            const delegation = await this.findDelegation(queryName, baseDomain);
+            if (delegation) {
+                logger.info(
+                    `Referring ${originalQueryName} (${queryType}) to delegated zone ${delegation.cut}`
+                );
+                const [authorities, additionals] = await this.buildReferral(
+                    delegation,
+                    baseDomain
+                );
+                // Referrals are non-authoritative (AA=0) with no answers
+                this.sendResponse(
+                    packet,
+                    [],
+                    rinfo,
+                    false,
+                    0,
+                    authorities,
+                    additionals
+                );
                 return;
             }
         }
@@ -452,11 +503,43 @@ export class AuthoritativeDNSServer {
             return;
         }
 
+        // User-defined records come after everything Pangolin manages itself,
+        // so they can never shadow a resource, login page or redirect.
+        const customMatch: CustomRecordMatch<CustomRecord> = isCustomerZone
+            ? await this.getCustomRecords(queryName, baseDomain!)
+            : { records: [], nameExists: false };
+        const customRecords = customMatch.records;
+
+        if (customRecords.length > 0) {
+            let matchingRecords = customRecords.filter(
+                (record) => record.type === queryType
+            );
+            // A CNAME answers queries for every other type at its name
+            if (matchingRecords.length === 0 && queryType !== "CNAME") {
+                matchingRecords = customRecords.filter(
+                    (record) => record.type === "CNAME"
+                );
+            }
+
+            if (matchingRecords.length > 0) {
+                const answers = this.convertCustomRecordsToAnswers(
+                    matchingRecords,
+                    originalQueryName
+                );
+                logger.info(
+                    `Returning ${answers.length} custom answers for ${originalQueryName} (${queryType})`
+                );
+                this.sendResponse(packet, answers, rinfo, true, 0, []);
+                return;
+            }
+        }
+
         // Check if the domain exists (for NODATA vs NXDOMAIN)
-        const [domainExists, soaRecord] = await Promise.all([
+        const [resourceExists, soaRecord] = await Promise.all([
             this.domainExists(queryName, baseDomain!),
             this.getSOARecord(baseDomain!)
         ]);
+        const domainExists = resourceExists || customMatch.nameExists;
 
         if (!domainExists) {
             // NXDOMAIN: Name does not exist
@@ -581,17 +664,10 @@ export class AuthoritativeDNSServer {
             }
 
             // Check resources table (exact or wildcard match)
-            const wildcardPattern = this.getWildcardPattern(normalizedQuery);
-            const existsCondition = wildcardPattern
-                ? or(
-                      eq(resources.fullDomain, queryName),
-                      eq(resources.fullDomain, wildcardPattern)
-                  )!
-                : eq(resources.fullDomain, queryName);
             const [row] = await db
                 .select({ fullDomain: resources.fullDomain })
                 .from(resources)
-                .where(existsCondition)
+                .where(this.getResourceDomainCondition(queryName))
                 .limit(1);
             const exists = !!row;
             this.cache.set(cacheKey, exists, 60);
@@ -645,14 +721,6 @@ export class AuthoritativeDNSServer {
             logger.debug(`Cache miss for ${cacheKey}, querying database`);
 
             try {
-                const wildcardPattern = this.getWildcardPattern(name);
-                const domainCondition = wildcardPattern
-                    ? or(
-                          eq(resources.fullDomain, name),
-                          eq(resources.fullDomain, wildcardPattern)
-                      )!
-                    : eq(resources.fullDomain, name);
-
                 // LEFT JOINs so we always get the resource row (and its orgId) even
                 // when the resource has no targets/sites/exitNodes assigned yet.
                 const resourceRows = await db
@@ -673,7 +741,7 @@ export class AuthoritativeDNSServer {
                         exitNodes,
                         eq(sites.exitNodeId, exitNodes.exitNodeId)
                     )
-                    .where(domainCondition);
+                    .where(this.getResourceDomainCondition(name));
 
                 if (resourceRows.length === 0) {
                     // Resource doesn't exist at all — also pre-populate the domainExists
@@ -883,7 +951,7 @@ export class AuthoritativeDNSServer {
         queryType: dns.RecordType
     ): Promise<DNSRecord[] | null> {
         // TODO: EVENTUALLY WE SHOULD PICK THE CLOSEST EXIT NODE TO THE USER BASED ON LATENCY
-        const exitNodesList = await listExitNodes(orgId, true);
+        const exitNodesList = await listExitNodesAcrossRegions(orgId, true);
 
         if (!exitNodesList || exitNodesList.length === 0) {
             logger.warn(`No exit nodes found for orgId: ${orgId}`);
@@ -1117,9 +1185,9 @@ export class AuthoritativeDNSServer {
                 }
 
             case "MX":
-                // MX records need priority and exchange
+                // MX records need preference and exchange
                 return {
-                    priority: record.priority,
+                    preference: record.priority,
                     exchange: record.value
                 };
 
@@ -1146,13 +1214,271 @@ export class AuthoritativeDNSServer {
         }
     }
 
+    // User-defined records for `name`, plus whether the name exists among
+    // them (see matchCustomRecords for how wildcards apply).
+    private async getCustomRecords(
+        name: string,
+        zone: string
+    ): Promise<CustomRecordMatch<CustomRecord>> {
+        const match = matchCustomRecords(
+            await this.getCustomZoneRecords(zone),
+            name,
+            zone
+        );
+        return {
+            // Each stored value is served as its own resource record
+            records: match.records.flatMap(
+                ({ fullDomain, values, ...record }) =>
+                    values.map((value) => ({ ...record, value }))
+            ),
+            nameExists: match.nameExists
+        };
+    }
+
+    // All enabled custom records of `zone`. Only loaded when the zone is a
+    // verified NS delegation, so records can never surface under another
+    // org's zone or a domain whose ownership hasn't been proven. Loaded
+    // whole (a domain has at most 100) since wildcard matching needs to know
+    // every name that exists in the zone.
+    private async getCustomZoneRecords(
+        zone: string
+    ): Promise<CustomZoneRecord[]> {
+        const cacheKey = `customZoneRecords:${zone}`;
+
+        const cached = this.cache.get<CustomZoneRecord[]>(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        return this.withInFlightDedup<CustomZoneRecord[]>(
+            cacheKey,
+            async () => {
+                try {
+                    const rows = await db
+                        .select({
+                            fullDomain: customDnsRecords.fullDomain,
+                            type: customDnsRecords.type,
+                            values: customDnsRecords.values,
+                            ttl: customDnsRecords.ttl,
+                            priority: customDnsRecords.priority,
+                            weight: customDnsRecords.weight,
+                            port: customDnsRecords.port
+                        })
+                        .from(customDnsRecords)
+                        .innerJoin(
+                            domains,
+                            eq(domains.domainId, customDnsRecords.domainId)
+                        )
+                        .where(
+                            and(
+                                eq(customDnsRecords.enabled, true),
+                                eq(domains.baseDomain, zone),
+                                eq(domains.type, "ns"),
+                                eq(domains.verified, true)
+                            )
+                        );
+
+                    const result: CustomZoneRecord[] = rows.map((row) => ({
+                        ...row,
+                        values: parseCustomDnsRecordValues(row.values)
+                    }));
+
+                    this.cache.set(
+                        cacheKey,
+                        result,
+                        CUSTOM_RECORD_CACHE_TTL_SECONDS
+                    );
+                    return result;
+                } catch (error) {
+                    logger.error("Error querying custom DNS records:", error);
+                    return [];
+                }
+            }
+        );
+    }
+
+    // Finds the user-defined delegation (NS records on a subdomain) that
+    // `name` falls at or beneath within `zone`. When cuts are nested the
+    // topmost one wins, since everything below it belongs to the child zone.
+    // Subject to the same verified-NS-zone scoping as getCustomRecords.
+    private async findDelegation(
+        name: string,
+        zone: string
+    ): Promise<{ cut: string; nameservers: CustomRecord[] } | null> {
+        const normalized = name.replace(/\.$/, "").toLowerCase();
+        if (!normalized.endsWith(`.${zone}`)) {
+            return null; // the apex itself is never delegated
+        }
+
+        const cacheKey = `delegation:${zone}:${normalized}`;
+        const cached = this.cache.get<{
+            cut: string;
+            nameservers: CustomRecord[];
+        } | null>(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        return this.withInFlightDedup(cacheKey, async () => {
+            try {
+                // Every ancestor of the name below the zone apex, plus the
+                // name itself
+                const labels = normalized.split(".");
+                const zoneLabelCount = zone.split(".").length;
+                const candidates: string[] = [];
+                for (let i = 0; i < labels.length - zoneLabelCount; i++) {
+                    candidates.push(labels.slice(i).join("."));
+                }
+
+                const rows = await db
+                    .select({
+                        fullDomain: customDnsRecords.fullDomain,
+                        type: customDnsRecords.type,
+                        values: customDnsRecords.values,
+                        ttl: customDnsRecords.ttl,
+                        priority: customDnsRecords.priority,
+                        weight: customDnsRecords.weight,
+                        port: customDnsRecords.port
+                    })
+                    .from(customDnsRecords)
+                    .innerJoin(
+                        domains,
+                        eq(domains.domainId, customDnsRecords.domainId)
+                    )
+                    .where(
+                        and(
+                            inArray(customDnsRecords.fullDomain, candidates),
+                            eq(customDnsRecords.type, "NS"),
+                            eq(customDnsRecords.enabled, true),
+                            eq(domains.baseDomain, zone),
+                            eq(domains.type, "ns"),
+                            eq(domains.verified, true)
+                        )
+                    );
+
+                let result: {
+                    cut: string;
+                    nameservers: CustomRecord[];
+                } | null = null;
+
+                if (rows.length > 0) {
+                    const cut = rows.reduce((a, b) =>
+                        a.fullDomain.length <= b.fullDomain.length ? a : b
+                    ).fullDomain;
+                    const nameservers = rows
+                        .filter((row) => row.fullDomain === cut)
+                        .flatMap(({ fullDomain, values, ...record }) =>
+                            parseCustomDnsRecordValues(values).map((value) => ({
+                                ...record,
+                                value
+                            }))
+                        );
+                    if (nameservers.length > 0) {
+                        result = { cut, nameservers };
+                    }
+                }
+
+                this.cache.set(
+                    cacheKey,
+                    result,
+                    CUSTOM_RECORD_CACHE_TTL_SECONDS
+                );
+                return result;
+            } catch (error) {
+                logger.error("Error looking up DNS delegation:", error);
+                return null;
+            }
+        });
+    }
+
+    // Builds the authority (NS) and additional (glue) sections of a referral
+    // to a delegated subdomain. Glue is only needed - and only included -
+    // for nameservers named inside the delegated subdomain itself, which a
+    // resolver could not otherwise find the address of.
+    private async buildReferral(
+        delegation: { cut: string; nameservers: CustomRecord[] },
+        zone: string
+    ): Promise<[dns.Answer[], dns.Answer[]]> {
+        const authorities = this.convertCustomRecordsToAnswers(
+            delegation.nameservers,
+            delegation.cut
+        );
+
+        const additionals: dns.Answer[] = [];
+        for (const nameserver of delegation.nameservers) {
+            const target = nameserver.value;
+            if (
+                target !== delegation.cut &&
+                !target.endsWith(`.${delegation.cut}`)
+            ) {
+                continue;
+            }
+            const glue = (
+                await this.getCustomRecords(target, zone)
+            ).records.filter(
+                (record) => record.type === "A" || record.type === "AAAA"
+            );
+            additionals.push(
+                ...this.convertCustomRecordsToAnswers(glue, target)
+            );
+        }
+
+        return [authorities, additionals];
+    }
+
+    private convertCustomRecordsToAnswers(
+        records: CustomRecord[],
+        queryName: string
+    ): dns.Answer[] {
+        return records.map((record) => {
+            let data: any;
+            switch (record.type) {
+                case "MX":
+                    data = {
+                        preference: record.priority ?? 0,
+                        exchange: record.value
+                    };
+                    break;
+                case "SRV":
+                    data = {
+                        priority: record.priority ?? 0,
+                        weight: record.weight ?? 0,
+                        port: record.port ?? 0,
+                        target: record.value
+                    };
+                    break;
+                case "TXT": {
+                    // A single TXT character-string is at most 255 bytes;
+                    // longer values are split across several strings, which
+                    // clients concatenate. Values are printable ASCII only.
+                    const chunks: string[] = [];
+                    for (let i = 0; i < record.value.length; i += 255) {
+                        chunks.push(record.value.slice(i, i + 255));
+                    }
+                    data = chunks;
+                    break;
+                }
+                default:
+                    data = record.value;
+            }
+
+            return {
+                name: queryName,
+                type: record.type,
+                ttl: record.ttl,
+                data
+            } as dns.Answer;
+        });
+    }
+
     private sendResponse(
         originalPacket: dns.Packet,
         answers: dns.Answer[],
         rinfo: dgram.RemoteInfo,
         authoritative: boolean = true,
         rcode: number = 0,
-        authorities: dns.Answer[] = []
+        authorities: dns.Answer[] = [],
+        additionals: dns.Answer[] = []
     ): void {
         const response: dns.Packet = {
             id: originalPacket.id,
@@ -1161,7 +1487,7 @@ export class AuthoritativeDNSServer {
             questions: originalPacket.questions,
             answers: answers,
             authorities: authorities,
-            additionals: []
+            additionals: additionals
         };
 
         // Set authoritative flag if this is an authoritative response
@@ -1209,6 +1535,12 @@ export class AuthoritativeDNSServer {
 
     private async refreshLicenseStatus(): Promise<void> {
         try {
+            // Imported lazily so the standalone DNS server, which runs
+            // without a license, never loads the license module (it touches
+            // the database and starts phoning home as soon as it is imported)
+            const { default: license } = await import(
+                "#private/license/license"
+            );
             this.isLicensed = await license.hasTier([
                 "personal",
                 "tier2",
@@ -1228,10 +1560,14 @@ export class AuthoritativeDNSServer {
             );
         }, 60_000);
 
-        await this.refreshLicenseStatus();
-        this.licenseRefreshInterval = setInterval(() => {
-            this.refreshLicenseStatus();
-        }, 60_000);
+        if (this.requireLicense) {
+            await this.refreshLicenseStatus();
+            this.licenseRefreshInterval = setInterval(() => {
+                this.refreshLicenseStatus();
+            }, 60_000);
+        } else {
+            this.isLicensed = true;
+        }
 
         return new Promise((resolve, reject) => {
             this.server.bind(this.port, (err?: Error) => {
@@ -1551,6 +1887,23 @@ export class AuthoritativeDNSServer {
         const dotIndex = normalized.indexOf(".");
         if (dotIndex === -1) return null;
         return `*.${normalized.slice(dotIndex + 1)}`;
+    }
+
+    // A name resolves through its own resource, a wildcard resource one level
+    // up, or a wildcard resource directly under it that also serves its base
+    private getResourceDomainCondition(name: string) {
+        const normalized = name.replace(/\.$/, "");
+        const wildcardPattern = this.getWildcardPattern(normalized);
+        return or(
+            eq(resources.fullDomain, name),
+            wildcardPattern
+                ? eq(resources.fullDomain, wildcardPattern)
+                : undefined,
+            and(
+                eq(resources.fullDomain, `*.${normalized}`),
+                eq(resources.matchBaseDomain, true)
+            )
+        )!;
     }
 
     private createRecordFromIp(

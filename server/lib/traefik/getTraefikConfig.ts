@@ -50,7 +50,12 @@ import {
 import { applyPathRewriteMiddleware } from "./middleware";
 import { applyMtlsConfig, getMtlsCaCertificatesByResource } from "./mtls";
 import { buildRedirectConfig, RedirectRouteRow } from "./redirect";
-import { appendPathMatch, buildHostRule, computeRoutePriority } from "./rule";
+import {
+    appendPathMatch,
+    buildHostRule,
+    computeRoutePriority,
+    ruleValue
+} from "./rule";
 import { buildSiteResourceAliasCertPlaceholders } from "./siteResourceAlias";
 import { TargetWithSite } from "./types";
 import { encodePath, sanitize, validatePathRewriteConfig } from "./utils";
@@ -857,7 +862,7 @@ export async function getTraefikConfig(
                 const srKey = `inference-sr${sr.siteResourceId}`;
                 const routerName = `${srKey}-router`;
                 const serviceName = `${srKey}-service`;
-                const rule = `Host(\`${fullDomain}\`) && ClientIP(\`${exitNode.address}\`)`; // restrict to coming from the exit node ip range that the client is connected to
+                const rule = `${buildHostRule(fullDomain)} && ClientIP(${ruleValue(exitNode.address)})`; // restrict to coming from the exit node ip range that the client is connected to
 
                 // siteResource aliases don't have a per-domain cert resolver
                 // stored, so always fall back to the global defaults.

@@ -44,26 +44,29 @@ export default function SiteInfoCard({}: ClientInfoCardProps) {
     const data = useQuery(productUpdatesQueries.latestVersion(true));
     const latestPlatformVersions = data.data?.data;
 
+    // agentVersion was added after olmVersion, and older olm clients report
+    // the app version in olmVersion, so fall back to it for clients that have
+    // not re-registered yet.
+    const agentVersion = client.agentVersion ?? client.olmVersion;
+
     let updateAvailable = false;
-    if (client.agent && client.olmVersion && latestPlatformVersions) {
+    if (client.agent && agentVersion && latestPlatformVersions) {
         const agent = agentVersionMap[
             client.agent
         ] as keyof LatestVersionResponse;
 
         if (agent in latestPlatformVersions) {
-            const agentVersion = latestPlatformVersions[agent];
+            const latestAgentVersion = latestPlatformVersions[agent];
 
             updateAvailable = Boolean(
-                semver.valid(client.olmVersion) &&
-                semver.lt(client.olmVersion, agentVersion.latestVersion)
+                semver.valid(agentVersion) &&
+                semver.lt(agentVersion, latestAgentVersion.latestVersion)
             );
         }
     }
 
     const cols =
-        2 +
-        (userDisplayName ? 1 : 0) +
-        (client.agent && client.olmVersion ? 1 : 0);
+        2 + (userDisplayName ? 1 : 0) + (client.agent && agentVersion ? 1 : 0);
 
     return (
         <Alert>
@@ -73,15 +76,13 @@ export default function SiteInfoCard({}: ClientInfoCardProps) {
                         <InfoSectionTitle>{t("name")}</InfoSectionTitle>
                         <InfoSectionContent>{client.name}</InfoSectionContent>
                     </InfoSection>
-                    {client.agent && client.olmVersion ? (
+                    {client.agent && agentVersion ? (
                         <InfoSection>
                             <InfoSectionTitle>{t("agent")}</InfoSectionTitle>
                             <InfoSectionContent>
                                 <div className="flex items-center gap-2">
                                     <span>
-                                        {client.agent +
-                                            " v" +
-                                            client.olmVersion}
+                                        {client.agent + " v" + agentVersion}
                                     </span>
                                     {updateAvailable && (
                                         <InfoPopup

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { routePathSchema } from "@server/lib/schemas";
 import {
     db,
     statusHistory,
@@ -76,7 +77,7 @@ const createTargetSchema = z
         hcTlsServerName: z.string().optional().nullable(),
         hcHealthyThreshold: z.int().positive().min(1).optional().nullable(),
         hcUnhealthyThreshold: z.int().positive().min(1).optional().nullable(),
-        path: z.string().optional().nullable(),
+        path: routePathSchema.optional().nullable(),
         pathMatchType: z
             .enum(["exact", "prefix", "regex"])
             .optional()

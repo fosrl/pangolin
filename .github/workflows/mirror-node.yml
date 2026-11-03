@@ -1,0 +1,138 @@
+name: Mirror Node Base Image (Docker Hub to GHCR)
+
+# Keeps a copy of the official node images our Dockerfiles build FROM in GHCR.
+# Anonymous pulls from Docker Hub / ECR Public are rate limited per source IP,
+# and GitHub-hosted runners share IPs, so CI builds were failing with 429s.
+# Public GHCR packages pull without credentials, so PR builds (including from
+# forks) need no secrets.
+#
+# The tags to mirror are read from the Dockerfiles themselves: any reference to
+# ghcr.io/<owner>/node:<tag> is copied from docker.io/library/node:<tag>. Bumping
+# the Node version in a Dockerfile and pushing it mirrors the new tag
+# automatically. The daily run picks up upstream rebuilds (OS security patches)
+# of the same tag.
+#
+# NOTE: the first push creates the ghcr.io/<owner>/node package as private.
+# Make it public once in the org's package settings so builds can pull it
+# anonymously.
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  push:
+    paths:
+      - "Dockerfile*"
+      - ".github/workflows/mirror-node.yml"
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: "Extra node tags to mirror, space separated (e.g. 24.23.0-slim)"
+        required: false
+        default: ""
+
+concurrency:
+  group: mirror-node
+  cancel-in-progress: false
+
+env:
+  SOURCE_IMAGE: docker.io/library/node
+  DEST_IMAGE: ghcr.io/${{ github.repository_owner }}/node
+
+jobs:
+  mirror:
+    # Don't run (and push to their own GHCR) in forks
+    if: github.repository_owner == 'fosrl'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install skopeo
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y skopeo
+          skopeo --version
+
+      - name: Log in to registries
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          # runner.temp isn't available in job-level env, so export it here
+          # for this and later steps.
+          export REGISTRY_AUTH_FILE="${RUNNER_TEMP}/containers/auth.json"
+          echo "REGISTRY_AUTH_FILE=${REGISTRY_AUTH_FILE}" >> "$GITHUB_ENV"
+          mkdir -p "$(dirname "$REGISTRY_AUTH_FILE")"
+          echo "$GHCR_TOKEN" | skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin
+          # Authenticated Docker Hub pulls avoid the shared-IP anonymous limit.
+          # This only runs on trusted refs (schedule/push/dispatch), never PRs.
+          if [ -n "$DOCKER_HUB_USERNAME" ] && [ -n "$DOCKER_HUB_ACCESS_TOKEN" ]; then
+            echo "$DOCKER_HUB_ACCESS_TOKEN" | skopeo login docker.io -u "$DOCKER_HUB_USERNAME" --password-stdin
+          fi
+
+      - name: Collect tags
+        env:
+          EXTRA_TAGS: ${{ inputs.tags }}
+        run: |
+          set -euo pipefail
+          {
+            grep -hoE "${DEST_IMAGE}:[A-Za-z0-9._-]+" Dockerfile* | sed "s|^${DEST_IMAGE}:||" || true
+            for t in ${EXTRA_TAGS:-}; do echo "$t"; done
+          } | sort -u > tags.txt
+          if [ ! -s tags.txt ]; then
+            echo "::error ::No ${DEST_IMAGE}:<tag> references found in Dockerfiles"
+            exit 1
+          fi
+          echo "Tags to mirror:"
+          cat tags.txt
+
+      - name: Mirror tags
+        run: |
+          set -euo pipefail
+          errs=0
+          while read -r tag; do
+            if ! [[ "$tag" =~ ^[A-Za-z0-9._-]+$ ]]; then
+              echo "::warning ::Skipping invalid tag '${tag}'"
+              errs=$((errs+1)); continue
+            fi
+
+            src="${SOURCE_IMAGE}:${tag}"
+            dst="${DEST_IMAGE}:${tag}"
+
+            if ! skopeo inspect --raw --retry-times 3 "docker://${src}" > src.json; then
+              echo "::warning title=Inspect failed::${src}"
+              errs=$((errs+1)); continue
+            fi
+            src_digest="$(skopeo manifest-digest src.json)"
+
+            dst_digest=""
+            if skopeo inspect --raw --retry-times 3 "docker://${dst}" > dst.json 2>/dev/null; then
+              dst_digest="$(skopeo manifest-digest dst.json)"
+            fi
+
+            if [ "$src_digest" = "$dst_digest" ]; then
+              echo "Up to date: ${dst} (${src_digest})"
+              continue
+            fi
+
+            echo "==> Copy ${src} (${src_digest}) -> ${dst}"
+            # --all keeps every architecture; --preserve-digests keeps the
+            # mirror byte-identical so it can be pinned by the upstream digest.
+            if ! skopeo copy --all --preserve-digests --retry-times 3 \
+                 "docker://${src}" "docker://${dst}"; then
+              echo "::warning title=Copy failed::${src}"
+              errs=$((errs+1))
+            fi
+          done < tags.txt
+
+          if [ "$errs" -gt 0 ]; then
+            echo "::error ::${errs} tag(s) failed to mirror"
+            exit 1
+          fi

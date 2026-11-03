@@ -739,7 +739,11 @@ export function recordAiGatewayCompletion(args: {
         }
 
         model = extractResponseModel(responseText) ?? requestedModel;
-        pricing = getModelPricing(provider.type as AiProviderType, model);
+        pricing = getModelPricing(
+            provider.type as AiProviderType,
+            model,
+            provider.niceId
+        );
         cost = calculateAiCost(pricing, usage);
     } else {
         usage = emptyUsage();

@@ -253,6 +253,8 @@ export default function UsersTable({
                 }}
                 onRefresh={() => startTransition(refreshData)}
                 isRefreshing={isRefreshing}
+                stickyLeftColumn="name"
+                stickyRightColumn="actions"
             />
         </>
     );

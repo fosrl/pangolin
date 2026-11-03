@@ -93,6 +93,24 @@ export async function hasActiveSiteResourceRebuild(
 }
 
 /**
+ * Returns true if a rebuild for any of the given site resources is currently
+ * active or pending in the rebuild queue. Checks all of them in a couple of
+ * round trips instead of one per resource.
+ */
+export async function hasAnyActiveSiteResourceRebuild(
+    siteResourceIds: number[]
+): Promise<boolean> {
+    if (siteResourceIds.length === 0) return false;
+    const lockKeys = siteResourceIds.map(
+        (id) => `rebuild-client-associations:site-resource:${id}`
+    );
+    if (await lockManager.anyLockExists(lockKeys)) return true;
+    return rebuildQueue.anyQueued(
+        siteResourceIds.map((id) => ({ type: "site-resource", id }))
+    );
+}
+
+/**
  * Resolves once there is no active or queued rebuild for the given site resource.
  * Logs a warning and resolves early if the timeout is reached.
  */
@@ -130,14 +148,10 @@ export async function waitForSiteRebuildIdle(
                 eq(siteNetworks.networkId, siteResources.networkId)
             )
             .where(eq(siteNetworks.siteId, siteId));
-        let allIdle = true;
-        for (const { siteResourceId } of resourceRows) {
-            if (await hasActiveSiteResourceRebuild(siteResourceId)) {
-                allIdle = false;
-                break;
-            }
-        }
-        if (allIdle) return;
+        const busy = await hasAnyActiveSiteResourceRebuild(
+            resourceRows.map((row) => row.siteResourceId)
+        );
+        if (!busy) return;
         await new Promise<void>((r) =>
             setTimeout(r, REBUILD_IDLE_POLL_INTERVAL_MS)
         );
@@ -164,14 +178,10 @@ export async function waitForClientRebuildIdle(
             })
             .from(clientSiteResourcesAssociationsCache)
             .where(eq(clientSiteResourcesAssociationsCache.clientId, clientId));
-        let allIdle = true;
-        for (const { siteResourceId } of resourceRows) {
-            if (await hasActiveSiteResourceRebuild(siteResourceId)) {
-                allIdle = false;
-                break;
-            }
-        }
-        if (allIdle) return;
+        const busy = await hasAnyActiveSiteResourceRebuild(
+            resourceRows.map((row) => row.siteResourceId)
+        );
+        if (!busy) return;
         await new Promise<void>((r) =>
             setTimeout(r, REBUILD_IDLE_POLL_INTERVAL_MS)
         );

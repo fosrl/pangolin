@@ -118,6 +118,9 @@ const booleanSearchFilterSchema = z
 
 const RESOURCE_STATUS_HISTORY_DAYS = 30;
 
+// Modes whose targets can have health checks, so health and uptime apply
+const HEALTH_CHECK_MODES = ["http", "tcp", "udp"];
+
 export default function PublicResourcesTable({
     resources,
     orgId,
@@ -149,9 +152,12 @@ export default function PublicResourcesTable({
     const [isRefreshing, startTransition] = useTransition();
     const [isNavigatingToAddPage, startNavigation] = useTransition();
 
-    // Only http resources show an uptime bar, so don't ask for the others
+    // Only health-checked resources show an uptime bar, so don't ask for the others
     const statusHistoryResourceIds = useMemo(
-        () => resources.filter((r) => r.mode === "http").map((r) => r.id),
+        () =>
+            resources
+                .filter((r) => HEALTH_CHECK_MODES.includes(r.mode || ""))
+                .map((r) => r.id),
         [resources]
     );
 
@@ -391,7 +397,7 @@ export default function PublicResourcesTable({
                 ),
                 cell: ({ row }) => {
                     const resourceRow = row.original;
-                    if (resourceRow.mode !== "http") {
+                    if (!HEALTH_CHECK_MODES.includes(resourceRow.mode || "")) {
                         return <span>-</span>;
                     }
                     return (
@@ -422,7 +428,7 @@ export default function PublicResourcesTable({
                 header: () => <span className="p-3">{t("uptime30d")}</span>,
                 cell: ({ row }) => {
                     const resourceRow = row.original;
-                    if (resourceRow.mode !== "http") {
+                    if (!HEALTH_CHECK_MODES.includes(resourceRow.mode || "")) {
                         return <span>-</span>;
                     }
                     return (

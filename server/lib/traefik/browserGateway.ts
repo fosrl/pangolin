@@ -1,5 +1,6 @@
 import config from "@server/lib/config";
 import { applyMtlsConfig } from "./mtls";
+import { buildHostRule } from "./rule";
 import { sanitize } from "./utils";
 
 export type BrowserGatewayResourceRow = {
@@ -174,7 +175,7 @@ export function buildBrowserGatewayConfig(params: {
             ...additionalMiddlewares
         ];
 
-        const hostRule = `Host(\`${fullDomain}\`)`;
+        const hostRule = buildHostRule(fullDomain);
 
         // Build TLS config
         let tls = resolveTls({

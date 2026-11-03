@@ -27,6 +27,7 @@ import {
 } from "@server/routers/auditLogs";
 import * as misc from "#private/routers/misc";
 import * as approval from "#private/routers/approvals";
+import * as resourceSession from "#private/routers/resourceSession";
 import * as user from "#private/routers/user";
 import * as client from "#private/routers/client";
 import * as siteProvisioning from "#private/routers/siteProvisioning";
@@ -34,8 +35,10 @@ import * as eventStreamingDestination from "#private/routers/eventStreamingDesti
 import * as alertRule from "#private/routers/alertRule";
 import * as healthChecks from "#private/routers/healthChecks";
 import * as policy from "#private/routers/policy";
+import * as customDnsRecord from "#private/routers/customDnsRecord";
 import {
     verifyOrgAccess,
+    verifyDomainAccess,
     verifyUserHasAction,
     verifyUserIsServerAdmin,
     verifySiteAccess,
@@ -263,6 +266,49 @@ authenticated.get(
     domain.checkDomainNamespaceAvailability
 );
 
+authenticated.get(
+    "/org/:orgId/domain/:domainId/custom-dns-records",
+    verifyValidLicense,
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyUserHasAction(ActionsEnum.listCustomDnsRecords),
+    customDnsRecord.listCustomDnsRecords
+);
+
+authenticated.put(
+    "/org/:orgId/domain/:domainId/custom-dns-record",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.customDnsRecords),
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.createCustomDnsRecord),
+    logActionAudit(ActionsEnum.createCustomDnsRecord),
+    customDnsRecord.createCustomDnsRecord
+);
+
+authenticated.post(
+    "/org/:orgId/domain/:domainId/custom-dns-record/:customDnsRecordId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.customDnsRecords),
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyUserHasAction(ActionsEnum.updateCustomDnsRecord),
+    logActionAudit(ActionsEnum.updateCustomDnsRecord),
+    customDnsRecord.updateCustomDnsRecord
+);
+
+authenticated.delete(
+    "/org/:orgId/domain/:domainId/custom-dns-record/:customDnsRecordId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.customDnsRecords),
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyUserHasAction(ActionsEnum.deleteCustomDnsRecord),
+    logActionAudit(ActionsEnum.deleteCustomDnsRecord),
+    customDnsRecord.deleteCustomDnsRecord
+);
+
 authenticated.put(
     "/org/:orgId/remote-exit-node",
     verifyValidLicense,
@@ -395,6 +441,25 @@ authenticated.get(
     verifyUserHasAction(ActionsEnum.listApprovals),
     logActionAudit(ActionsEnum.listApprovals),
     approval.listApprovals
+);
+
+authenticated.get(
+    "/org/:orgId/resource-sessions",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.resourceSessions),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.listResourceSessions),
+    resourceSession.listResourceSessions
+);
+
+authenticated.delete(
+    "/org/:orgId/resource-session/:sessionId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.resourceSessions),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.deleteResourceSession),
+    logActionAudit(ActionsEnum.deleteResourceSession),
+    resourceSession.deleteResourceSession
 );
 
 authenticated.get(
@@ -612,6 +677,34 @@ authenticated.get(
     verifyUserHasAction(ActionsEnum.exportLogs),
     logActionAudit(ActionsEnum.exportLogs),
     exportAiSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.sshSessionLogs),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.viewLogs),
+    logs.querySshSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh/export",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.logExport),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.exportLogs),
+    logActionAudit(ActionsEnum.exportLogs),
+    logs.exportSshSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh/:sshSessionLogId/commands",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.sshSessionLogs),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.viewLogs),
+    logs.querySshSessionCommands
 );
 
 authenticated.post(

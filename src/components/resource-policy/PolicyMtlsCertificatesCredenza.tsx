@@ -1,6 +1,10 @@
 "use client";
 
 import {
+    TIMESTAMP_PLACEHOLDER,
+    TimestampInText
+} from "@app/components/Timestamp";
+import {
     Credenza,
     CredenzaBody,
     CredenzaClose,
@@ -258,14 +262,17 @@ export function MtlsCertificatesCredenza({
                                                     )}
                                                     {cert.notAfter != null && (
                                                         <p className="text-sm text-muted-foreground">
-                                                            {t(
-                                                                "mtlsExpiresOn",
-                                                                {
-                                                                    date: new Date(
-                                                                        cert.notAfter
-                                                                    ).toLocaleDateString()
+                                                            <TimestampInText
+                                                                text={t(
+                                                                    "mtlsExpiresOn",
+                                                                    {
+                                                                        date: TIMESTAMP_PLACEHOLDER
+                                                                    }
+                                                                )}
+                                                                value={
+                                                                    cert.notAfter
                                                                 }
-                                                            )}
+                                                            />
                                                         </p>
                                                     )}
                                                 </div>

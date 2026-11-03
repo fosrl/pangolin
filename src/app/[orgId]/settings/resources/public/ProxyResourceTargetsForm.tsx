@@ -41,6 +41,7 @@ import type { ResourceContextType } from "@app/contexts/resourceContext";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient } from "@app/lib/api";
+import { cn } from "@app/lib/cn";
 import { formatAxiosError } from "@app/lib/api/formatAxiosError";
 import { DockerManager, DockerState } from "@app/lib/docker";
 import { orgQueries, resourceQueries, aiProviderQueries } from "@app/lib/queries";
@@ -960,28 +961,32 @@ export const ProxyResourceTargetsForm = forwardRef<
                     </TableBody>
                 </Table>
             </TableContainer>
-            {hasTargets && (
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center justify-between w-full gap-2">
-                        {addTargetButton}
-                        {!disableAdvancedMode && (
-                            <div className="flex items-center gap-2">
-                                <Switch
-                                    id={advancedModeToggleId}
-                                    checked={isAdvancedMode}
-                                    onCheckedChange={setIsAdvancedMode}
-                                />
-                                <label
-                                    htmlFor={advancedModeToggleId}
-                                    className="text-sm"
-                                >
-                                    {t("advancedMode")}
-                                </label>
-                            </div>
-                        )}
-                    </div>
+            {/* The empty state (and its add button) is hidden on mobile, so always show the add button there */}
+            <div
+                className={cn(
+                    "flex items-center justify-between mb-4",
+                    !hasTargets && "sm:hidden"
+                )}
+            >
+                <div className="flex items-center justify-between w-full gap-2">
+                    {addTargetButton}
+                    {hasTargets && !disableAdvancedMode && (
+                        <div className="flex items-center gap-2">
+                            <Switch
+                                id={advancedModeToggleId}
+                                checked={isAdvancedMode}
+                                onCheckedChange={setIsAdvancedMode}
+                            />
+                            <label
+                                htmlFor={advancedModeToggleId}
+                                className="text-sm"
+                            >
+                                {t("advancedMode")}
+                            </label>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
             {build === "saas" &&
                 !isAiProvider &&
                 targets.length > 1 &&

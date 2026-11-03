@@ -239,7 +239,7 @@ export default function GeneralPage() {
                                     paywallMessage={paywallMessage}
                                 />
 
-                                {user.idpAutoProvision && (
+                                {user.type !== UserType.Internal ? (
                                     <FormField
                                         control={form.control}
                                         name="autoProvisioned"
@@ -266,7 +266,7 @@ export default function GeneralPage() {
                                             </FormItem>
                                         )}
                                     />
-                                )}
+                                ) : null}
                             </form>
                         </Form>
                     </SettingsSectionForm>

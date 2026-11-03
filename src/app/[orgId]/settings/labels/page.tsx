@@ -45,7 +45,7 @@ export default async function LabelsPage({ params, searchParams }: Props) {
     return (
         <>
             <SettingsSectionTitle
-                title={t("labels")}
+                title={t("manageLabels")}
                 description={t("orgLabelsDescription")}
             />
 
