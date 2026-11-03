@@ -15,13 +15,13 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@/components/ui/table";
 import { DataTableEmptyState } from "@/components/ui/data-table-empty-state";
 import { DataTablePagination } from "@app/components/DataTablePagination";
 import type { DataTableAddAction } from "@app/components/ui/data-table";
 import { Button } from "@app/components/ui/button";
-import { Card, CardContent, CardHeader } from "@app/components/ui/card";
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -192,7 +192,9 @@ export function ControlledDataTable<TData, TValue>({
                     )}
                 </Button>
             ),
-            size: 40
+            size: 40,
+            minSize: 40,
+            maxSize: 40
         };
         return [expandColumn, ...columns];
     }, [columns, expandable, expandedRows, t]);
@@ -310,13 +312,14 @@ export function ControlledDataTable<TData, TValue>({
     // Get sticky column classes
     const getStickyClasses = (
         columnId: string | undefined,
-        accessorKey: string | undefined
+        accessorKey: string | undefined,
+        atLeftEdge = false
     ): string => {
         if (isStickyColumn(columnId, accessorKey, "left")) {
-            return "md:sticky md:left-0 z-10 bg-card [mask-image:linear-gradient(to_left,transparent_0%,black_20px)]";
+            return `md:sticky md:left-0 z-10 bg-card${atLeftEdge ? " shadow-none" : ""}`;
         }
         if (isStickyColumn(columnId, accessorKey, "right")) {
-            return "sticky right-0 z-10 w-auto min-w-fit bg-card [mask-image:linear-gradient(to_right,transparent_0%,black_20px)]";
+            return "sticky right-0 z-10 w-auto min-w-fit bg-card shadow-none";
         }
         return "";
     };
@@ -362,396 +365,401 @@ export function ControlledDataTable<TData, TValue>({
         ) : null;
 
     return (
-        <div className="container mx-auto max-w-12xl">
-            <Card>
-                <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-4">
-                    <div className="flex flex-row space-y-3 w-full sm:mr-2 gap-2">
-                        {onSearch && (
-                            <div className="relative w-full sm:max-w-sm">
-                                <Input
-                                    placeholder={searchPlaceholder}
-                                    defaultValue={searchQuery}
-                                    onChange={(e) =>
-                                        onSearch(e.currentTarget.value)
-                                    }
-                                    className="w-full pl-8"
-                                    type="search"
-                                />
-                                <Search className="h-4 w-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                            </div>
-                        )}
-
-                        {filters && filters.length > 0 && (
-                            <div className="flex gap-2">
-                                {filters.map((filter) => {
-                                    const selectedValues =
-                                        activeFilters[filter.id] || [];
-                                    const hasActiveFilters =
-                                        selectedValues.length > 0;
-                                    const displayMode =
-                                        filter.displayMode || filterDisplayMode;
-                                    const displayText =
-                                        displayMode === "calculated"
-                                            ? getFilterDisplayText(filter)
-                                            : filter.label;
-
-                                    return (
-                                        <DropdownMenu key={filter.id}>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    variant={"outline"}
-                                                    size="sm"
-                                                    className="h-9"
-                                                >
-                                                    <Filter className="h-4 w-4 mr-2" />
-                                                    {displayText}
-                                                    {displayMode === "label" &&
-                                                        hasActiveFilters && (
-                                                            <span className="ml-2 bg-muted text-foreground rounded-full px-2 py-0.5 text-xs">
-                                                                {
-                                                                    selectedValues.length
-                                                                }
-                                                            </span>
-                                                        )}
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent
-                                                align="start"
-                                                className={
-                                                    dataTableFilterDropdownContentClassName
-                                                }
-                                            >
-                                                {filter.options.map(
-                                                    (option) => {
-                                                        const isChecked =
-                                                            selectedValues.includes(
-                                                                option.value
-                                                            );
-                                                        return (
-                                                            <DropdownMenuCheckboxItem
-                                                                key={option.id}
-                                                                checked={
-                                                                    isChecked
-                                                                }
-                                                                onCheckedChange={(
-                                                                    checked
-                                                                ) => {
-                                                                    handleFilterChange(
-                                                                        filter.id,
-                                                                        option.value,
-                                                                        checked
-                                                                    );
-                                                                }}
-                                                                onSelect={(e) =>
-                                                                    e.preventDefault()
-                                                                }
-                                                            >
-                                                                {option.label}
-                                                            </DropdownMenuCheckboxItem>
-                                                        );
-                                                    }
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        {filterExtras}
-                    </div>
-                    <div className="flex items-center gap-2 sm:justify-end">
-                        {onRefresh && (
-                            <div>
-                                <Button
-                                    variant="outline"
-                                    onClick={onRefresh}
-                                    disabled={
-                                        isRefreshing || refreshButtonDisabled
-                                    }
-                                >
-                                    <RefreshCw
-                                        className={`mr-0 sm:mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-                                    />
-                                    <span className="hidden sm:inline">
-                                        {t("refresh")}
-                                    </span>
-                                </Button>
-                            </div>
-                        )}
-                        {addAction && (
-                            <>
-                                <div className="sm:hidden">{addAction}</div>
-                                {!showAddActionInEmptyState && (
-                                    <div className="hidden sm:block">
-                                        {addAction}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="overflow-x-auto overflow-y-hidden">
-                        <Table>
-                            <TableHeader>
-                                {table.getHeaderGroups().map((headerGroup) => (
-                                    <TableRow key={headerGroup.id}>
-                                        {headerGroup.headers.map((header) => {
-                                            const columnId = header.column.id;
-                                            const accessorKey = (
-                                                header.column.columnDef as any
-                                            ).accessorKey as string | undefined;
-                                            const stickyClasses =
-                                                getStickyClasses(
-                                                    columnId,
-                                                    accessorKey
-                                                );
-                                            const isRightSticky =
-                                                isStickyColumn(
-                                                    columnId,
-                                                    accessorKey,
-                                                    "right"
-                                                );
-                                            const hasHideableColumns =
-                                                enableColumnVisibility &&
-                                                table
-                                                    .getAllColumns()
-                                                    .some((col) =>
-                                                        col.getCanHide()
-                                                    );
-
-                                            return (
-                                                <TableHead
-                                                    key={header.id}
-                                                    className={`whitespace-nowrap ${stickyClasses}`}
-                                                >
-                                                    {header.isPlaceholder ? null : isRightSticky &&
-                                                      hasHideableColumns ? (
-                                                        <div className="flex flex-col items-end pr-3">
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger
-                                                                    asChild
-                                                                >
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-7 w-7 p-0 mb-1"
-                                                                    >
-                                                                        <Settings className="h-4 w-4" />
-                                                                        <span className="sr-only">
-                                                                            {t(
-                                                                                "columns"
-                                                                            ) ||
-                                                                                "Columns"}
-                                                                        </span>
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent
-                                                                    align="end"
-                                                                    className="w-48"
-                                                                >
-                                                                    {table
-                                                                        .getAllColumns()
-                                                                        .filter(
-                                                                            (
-                                                                                column
-                                                                            ) =>
-                                                                                column.getCanHide()
-                                                                        )
-                                                                        .map(
-                                                                            (
-                                                                                column
-                                                                            ) => {
-                                                                                const columnDef =
-                                                                                    column.columnDef as any;
-                                                                                const friendlyName =
-                                                                                    columnDef.friendlyName;
-                                                                                const displayName =
-                                                                                    friendlyName ||
-                                                                                    (typeof columnDef.header ===
-                                                                                    "string"
-                                                                                        ? columnDef.header
-                                                                                        : column.id);
-                                                                                return (
-                                                                                    <DropdownMenuCheckboxItem
-                                                                                        key={
-                                                                                            column.id
-                                                                                        }
-                                                                                        className="capitalize"
-                                                                                        checked={column.getIsVisible()}
-                                                                                        onCheckedChange={(
-                                                                                            value
-                                                                                        ) =>
-                                                                                            column.toggleVisibility(
-                                                                                                !!value
-                                                                                            )
-                                                                                        }
-                                                                                        onSelect={(
-                                                                                            e
-                                                                                        ) =>
-                                                                                            e.preventDefault()
-                                                                                        }
-                                                                                    >
-                                                                                        {
-                                                                                            displayName
-                                                                                        }
-                                                                                    </DropdownMenuCheckboxItem>
-                                                                                );
-                                                                            }
-                                                                        )}
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                            <div className="h-0 opacity-0 pointer-events-none overflow-hidden">
-                                                                {flexRender(
-                                                                    header
-                                                                        .column
-                                                                        .columnDef
-                                                                        .header,
-                                                                    header.getContext()
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        flexRender(
-                                                            header.column
-                                                                .columnDef
-                                                                .header,
-                                                            header.getContext()
-                                                        )
-                                                    )}
-                                                </TableHead>
-                                            );
-                                        })}
-                                    </TableRow>
-                                ))}
-                            </TableHeader>
-                            <TableBody>
-                                {(table.getRowModel().rows ?? []).length > 0 ? (
-                                    table.getRowModel().rows.map((row) => (
-                                        <Fragment key={row.id}>
-                                            <TableRow
-                                                data-state={
-                                                    row.getIsSelected() &&
-                                                    "selected"
-                                                }
-                                                className={
-                                                    expandable
-                                                        ? "cursor-pointer"
-                                                        : undefined
-                                                }
-                                                onClick={
-                                                    expandable
-                                                        ? (e) => {
-                                                              if (
-                                                                  !isInteractiveTarget(
-                                                                      e
-                                                                  )
-                                                              ) {
-                                                                  toggleRowExpansion(
-                                                                      row.id
-                                                                  );
-                                                              }
-                                                          }
-                                                        : undefined
-                                                }
-                                            >
-                                                {row
-                                                    .getVisibleCells()
-                                                    .map((cell) => {
-                                                        const columnId =
-                                                            cell.column.id;
-                                                        const accessorKey = (
-                                                            cell.column
-                                                                .columnDef as any
-                                                        ).accessorKey as
-                                                            string | undefined;
-                                                        const stickyClasses =
-                                                            getStickyClasses(
-                                                                columnId,
-                                                                accessorKey
-                                                            );
-                                                        const isRightSticky =
-                                                            isStickyColumn(
-                                                                columnId,
-                                                                accessorKey,
-                                                                "right"
-                                                            );
-                                                        return (
-                                                            <TableCell
-                                                                key={cell.id}
-                                                                className={`whitespace-nowrap ${stickyClasses} ${isRightSticky ? "text-right" : ""}`}
-                                                            >
-                                                                {flexRender(
-                                                                    cell.column
-                                                                        .columnDef
-                                                                        .cell,
-                                                                    cell.getContext()
-                                                                )}
-                                                            </TableCell>
-                                                        );
-                                                    })}
-                                            </TableRow>
-                                            {expandable &&
-                                                expandedRows.has(row.id) && (
-                                                    <TableRow className="hover:bg-transparent">
-                                                        <TableCell
-                                                            colSpan={
-                                                                row.getVisibleCells()
-                                                                    .length
-                                                            }
-                                                            className="bg-muted/50 p-4"
-                                                        >
-                                                            {/* w-0 min-w-full keeps the details from widening the table's columns */}
-                                                            <div className="w-0 min-w-full">
-                                                                {renderExpandedRow?.(
-                                                                    row.original
-                                                                )}
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                        </Fragment>
-                                    ))
-                                ) : (
-                                    <DataTableEmptyState
-                                        colSpan={tableColumns.length}
-                                        action={
-                                            showAddActionInEmptyState ? (
-                                                <div className="hidden sm:block">
-                                                    {addAction}
-                                                </div>
-                                            ) : undefined
-                                        }
-                                    />
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <div className="mt-4">
-                        {rowCount > 0 && (
-                            <DataTablePagination
-                                table={table}
-                                totalCount={rowCount}
-                                onPageSizeChange={(pageSize) =>
-                                    onPaginationChange({
-                                        ...pagination,
-                                        pageSize
-                                    })
+        <div className="flex w-full min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-row flex-wrap w-full sm:mr-2 gap-2">
+                    {onSearch && (
+                        <div className="relative w-full sm:max-w-sm">
+                            <Input
+                                placeholder={searchPlaceholder}
+                                defaultValue={searchQuery}
+                                onChange={(e) =>
+                                    onSearch(e.currentTarget.value)
                                 }
-                                onPageChange={(pageIndex) => {
-                                    onPaginationChange({
-                                        ...pagination,
-                                        pageIndex
-                                    });
-                                }}
-                                isServerPagination
-                                pageSize={pagination.pageSize}
-                                pageIndex={pagination.pageIndex}
+                                className="w-full pl-8"
+                                type="search"
                             />
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
+                            <Search className="h-4 w-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                        </div>
+                    )}
+
+                    {filters && filters.length > 0 && (
+                        <div className="flex gap-2">
+                            {filters.map((filter) => {
+                                const selectedValues =
+                                    activeFilters[filter.id] || [];
+                                const hasActiveFilters =
+                                    selectedValues.length > 0;
+                                const displayMode =
+                                    filter.displayMode || filterDisplayMode;
+                                const displayText =
+                                    displayMode === "calculated"
+                                        ? getFilterDisplayText(filter)
+                                        : filter.label;
+
+                                return (
+                                    <DropdownMenu key={filter.id}>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                size="sm"
+                                                className="h-9"
+                                            >
+                                                <Filter className="h-4 w-4 mr-2" />
+                                                {displayText}
+                                                {displayMode === "label" &&
+                                                    hasActiveFilters && (
+                                                        <span className="ml-2 bg-muted text-foreground rounded-full px-2 py-0.5 text-xs">
+                                                            {
+                                                                selectedValues.length
+                                                            }
+                                                        </span>
+                                                    )}
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            align="start"
+                                            className={
+                                                dataTableFilterDropdownContentClassName
+                                            }
+                                        >
+                                            {filter.options.map((option) => {
+                                                const isChecked =
+                                                    selectedValues.includes(
+                                                        option.value
+                                                    );
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={option.id}
+                                                        checked={isChecked}
+                                                        onCheckedChange={(
+                                                            checked
+                                                        ) => {
+                                                            handleFilterChange(
+                                                                filter.id,
+                                                                option.value,
+                                                                checked
+                                                            );
+                                                        }}
+                                                        onSelect={(e) =>
+                                                            e.preventDefault()
+                                                        }
+                                                    >
+                                                        {option.label}
+                                                    </DropdownMenuCheckboxItem>
+                                                );
+                                            })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                );
+                            })}
+                        </div>
+                    )}
+                    {filterExtras}
+                </div>
+                <div className="flex items-center gap-2 sm:justify-end">
+                    {onRefresh && (
+                        <div>
+                            <Button
+                                variant="outline"
+                                onClick={onRefresh}
+                                disabled={isRefreshing || refreshButtonDisabled}
+                            >
+                                <RefreshCw
+                                    className={`mr-0 sm:mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                                />
+                                <span className="hidden sm:inline">
+                                    {t("refresh")}
+                                </span>
+                            </Button>
+                        </div>
+                    )}
+                    {addAction && (
+                        <>
+                            <div className="sm:hidden">{addAction}</div>
+                            {!showAddActionInEmptyState && (
+                                <div className="hidden sm:block">
+                                    {addAction}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+            <div className="relative flex flex-col gap-4">
+                <TableContainer>
+                    <Table>
+                        <TableHeader>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => {
+                                        const columnId = header.column.id;
+                                        const accessorKey = (
+                                            header.column.columnDef as any
+                                        ).accessorKey as string | undefined;
+                                        const atLeftEdge =
+                                            header.index === 0 ||
+                                            (expandable &&
+                                                header.index === 1 &&
+                                                headerGroup.headers[0]?.column
+                                                    .id === EXPAND_COLUMN_ID);
+                                        const stickyClasses = getStickyClasses(
+                                            columnId,
+                                            accessorKey,
+                                            atLeftEdge
+                                        );
+                                        const isRightSticky = isStickyColumn(
+                                            columnId,
+                                            accessorKey,
+                                            "right"
+                                        );
+                                        const hasHideableColumns =
+                                            enableColumnVisibility &&
+                                            table
+                                                .getAllColumns()
+                                                .some((col) =>
+                                                    col.getCanHide()
+                                                );
+
+                                        return (
+                                            <TableHead
+                                                key={header.id}
+                                                className={`whitespace-nowrap ${stickyClasses}${atLeftEdge ? " shadow-none" : ""}`}
+                                            >
+                                                {header.isPlaceholder ? null : isRightSticky &&
+                                                  hasHideableColumns ? (
+                                                    <div className="relative flex h-10 w-full items-center justify-end pr-3">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger
+                                                                asChild
+                                                            >
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 w-7 p-0"
+                                                                >
+                                                                    <Settings className="!size-4" />
+                                                                    <span className="sr-only">
+                                                                        {t(
+                                                                            "columns"
+                                                                        ) ||
+                                                                            "Columns"}
+                                                                    </span>
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent
+                                                                align="end"
+                                                                className="w-48"
+                                                            >
+                                                                {table
+                                                                    .getAllColumns()
+                                                                    .filter(
+                                                                        (
+                                                                            column
+                                                                        ) =>
+                                                                            column.getCanHide()
+                                                                    )
+                                                                    .map(
+                                                                        (
+                                                                            column
+                                                                        ) => {
+                                                                            const columnDef =
+                                                                                column.columnDef as any;
+                                                                            const friendlyName =
+                                                                                columnDef.friendlyName;
+                                                                            const displayName =
+                                                                                friendlyName ||
+                                                                                (typeof columnDef.header ===
+                                                                                "string"
+                                                                                    ? columnDef.header
+                                                                                    : column.id);
+                                                                            return (
+                                                                                <DropdownMenuCheckboxItem
+                                                                                    key={
+                                                                                        column.id
+                                                                                    }
+                                                                                    className="capitalize"
+                                                                                    checked={column.getIsVisible()}
+                                                                                    onCheckedChange={(
+                                                                                        value
+                                                                                    ) =>
+                                                                                        column.toggleVisibility(
+                                                                                            !!value
+                                                                                        )
+                                                                                    }
+                                                                                    onSelect={(
+                                                                                        e
+                                                                                    ) =>
+                                                                                        e.preventDefault()
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        displayName
+                                                                                    }
+                                                                                </DropdownMenuCheckboxItem>
+                                                                            );
+                                                                        }
+                                                                    )}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                        <div className="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0">
+                                                            {flexRender(
+                                                                header.column
+                                                                    .columnDef
+                                                                    .header,
+                                                                header.getContext()
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    flexRender(
+                                                        header.column.columnDef
+                                                            .header,
+                                                        header.getContext()
+                                                    )
+                                                )}
+                                            </TableHead>
+                                        );
+                                    })}
+                                </TableRow>
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {(table.getRowModel().rows ?? []).length > 0 ? (
+                                table.getRowModel().rows.map((row) => (
+                                    <Fragment key={row.id}>
+                                        <TableRow
+                                            data-state={
+                                                row.getIsSelected() &&
+                                                "selected"
+                                            }
+                                            className={
+                                                expandable
+                                                    ? "cursor-pointer"
+                                                    : undefined
+                                            }
+                                            onClick={
+                                                expandable
+                                                    ? (e) => {
+                                                          if (
+                                                              !isInteractiveTarget(
+                                                                  e
+                                                              )
+                                                          ) {
+                                                              toggleRowExpansion(
+                                                                  row.id
+                                                              );
+                                                          }
+                                                      }
+                                                    : undefined
+                                            }
+                                        >
+                                            {row
+                                                .getVisibleCells()
+                                                .map((cell) => {
+                                                    const columnId =
+                                                        cell.column.id;
+                                                    const accessorKey = (
+                                                        cell.column
+                                                            .columnDef as any
+                                                    ).accessorKey as
+                                                        string | undefined;
+                                                    const atLeftEdge =
+                                                        cell.column.getIndex() ===
+                                                            0 ||
+                                                        (expandable &&
+                                                            cell.column.getIndex() ===
+                                                                1 &&
+                                                            row.getVisibleCells()[0]
+                                                                ?.column.id ===
+                                                                EXPAND_COLUMN_ID);
+                                                    const stickyClasses =
+                                                        getStickyClasses(
+                                                            columnId,
+                                                            accessorKey,
+                                                            atLeftEdge
+                                                        );
+                                                    const isRightSticky =
+                                                        isStickyColumn(
+                                                            columnId,
+                                                            accessorKey,
+                                                            "right"
+                                                        );
+                                                    return (
+                                                        <TableCell
+                                                            key={cell.id}
+                                                            className={`whitespace-nowrap ${stickyClasses} ${isRightSticky ? "text-right" : ""}`}
+                                                        >
+                                                            {flexRender(
+                                                                cell.column
+                                                                    .columnDef
+                                                                    .cell,
+                                                                cell.getContext()
+                                                            )}
+                                                        </TableCell>
+                                                    );
+                                                })}
+                                        </TableRow>
+                                        {expandable &&
+                                            expandedRows.has(row.id) && (
+                                                <TableRow className="hover:bg-transparent">
+                                                    <TableCell
+                                                        colSpan={
+                                                            row.getVisibleCells()
+                                                                .length
+                                                        }
+                                                        className="bg-muted/50 p-4"
+                                                    >
+                                                        {/* w-0 min-w-full keeps the details from widening the table's columns */}
+                                                        <div className="w-0 min-w-full">
+                                                            {renderExpandedRow?.(
+                                                                row.original
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                    </Fragment>
+                                ))
+                            ) : (
+                                <DataTableEmptyState
+                                    colSpan={tableColumns.length}
+                                    action={
+                                        showAddActionInEmptyState ? (
+                                            <div className="hidden sm:block">
+                                                {addAction}
+                                            </div>
+                                        ) : undefined
+                                    }
+                                />
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+                <div>
+                    {rowCount > 0 && (
+                        <DataTablePagination
+                            table={table}
+                            totalCount={rowCount}
+                            onPageSizeChange={(pageSize) =>
+                                onPaginationChange({
+                                    ...pagination,
+                                    pageSize
+                                })
+                            }
+                            onPageChange={(pageIndex) => {
+                                onPaginationChange({
+                                    ...pagination,
+                                    pageIndex
+                                });
+                            }}
+                            isServerPagination
+                            pageSize={pagination.pageSize}
+                            pageIndex={pagination.pageIndex}
+                        />
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

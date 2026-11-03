@@ -58,7 +58,13 @@ export default async function DomainLayout(props: DomainLayoutProps) {
     return (
         <>
             <DomainHeader initialDomain={domain} orgId={orgId} />
-            <HorizontalTabs items={navItems}>{props.children}</HorizontalTabs>
+            {navItems.length > 1 ? (
+                <HorizontalTabs items={navItems}>
+                    {props.children}
+                </HorizontalTabs>
+            ) : (
+                <div className="space-y-6">{props.children}</div>
+            )}
         </>
     );
 }

@@ -19,7 +19,6 @@ import {
     type ExtendedColumnDef
 } from "@app/components/ui/controlled-data-table";
 import { Button } from "@app/components/ui/button";
-import { Badge } from "@app/components/ui/badge";
 import {
     ArrowDown01Icon,
     ArrowUp10Icon,
@@ -535,11 +534,7 @@ export default function ResourceSessionsTable({
                 if (!method) {
                     return <span>-</span>;
                 }
-                return (
-                    <Badge variant="secondary">
-                        {t(AUTH_METHOD_TRANSLATION_KEYS[method])}
-                    </Badge>
-                );
+                return <span>{t(AUTH_METHOD_TRANSLATION_KEYS[method])}</span>;
             }
         },
         {

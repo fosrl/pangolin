@@ -17,7 +17,6 @@ import {
     PopoverTrigger
 } from "@app/components/ui/popover";
 import {
-    ArrowRight,
     ArrowUpDown,
     ArrowUpRight,
     Funnel,

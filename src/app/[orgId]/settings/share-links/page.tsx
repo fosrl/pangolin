@@ -2,6 +2,7 @@ import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { AxiosResponse } from "axios";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
+import ShareLinksBanner from "@app/components/ShareLinksBanner";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { GetOrgResponse } from "@server/routers/org";
@@ -66,7 +67,7 @@ export default async function ShareLinksPage(props: ShareLinksPageProps) {
                 title={t("shareTitle")}
                 description={t("shareDescription")}
             />
-
+            <ShareLinksBanner />
             <OrgProvider org={org}>
                 <ShareLinksTable shareLinks={rows} orgId={params.orgId} />
             </OrgProvider>

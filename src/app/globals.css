@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-    --radius: 0.75rem;
+    --radius: 0.6rem;
     --background: oklch(1 0 0);
     --foreground: oklch(0.141 0.005 285.823);
     --card: oklch(1 0 0);
@@ -38,6 +38,7 @@
     --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
     --sidebar-border: oklch(0.92 0.004 286.32);
     --sidebar-ring: oklch(0.705 0.213 47.604);
+    --table-header: #fafafa;
 }
 
 .dark {
@@ -73,6 +74,7 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.646 0.222 41.116);
+    --table-header: #19191a;
 }
 
 @theme inline {
@@ -101,6 +103,7 @@
     --color-destructive-foreground: var(--destructive-foreground);
 
     --color-border: var(--border);
+    --color-table-header: var(--table-header);
     --color-input: var(--input);
     --color-ring: var(--ring);
 

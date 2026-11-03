@@ -23,7 +23,6 @@ import { LogRowLinks } from "@app/components/LogRowLinks";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { useStoredPageSize } from "@app/hooks/useStoredPageSize";
-import type { QueryRequestAuditLogResponse } from "@server/routers/auditLogs/types";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
 import { countryCodeToFlagEmoji } from "@app/lib/countryCodeToFlagEmoji";
 import { ColumnMultiFilterButton } from "@app/components/ColumnMultiFilterButton";
@@ -135,7 +134,7 @@ export default function GeneralPage() {
         })
     });
 
-    const rows = isLoading ? generateSampleRequestLogs() : (data?.log ?? []);
+    const rows = data?.log ?? [];
     const totalCount = data?.pagination?.total ?? 0;
     const filterAttributes = data?.filterAttributes ?? {
         actors: [],
@@ -799,64 +798,4 @@ export default function GeneralPage() {
             />
         </>
     );
-}
-
-function generateSampleRequestLogs(): QueryRequestAuditLogResponse["log"] {
-    const methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
-    const paths = [
-        "/api/v1/users",
-        "/dashboard",
-        "/settings",
-        "/health",
-        "/metrics"
-    ];
-    const hosts = ["app.example.com", "api.example.com", "admin.example.com"];
-    const locations = ["US", "DE", "GB", "FR", "JP", "CA", "AU"];
-    const allowedReasons = [100, 101, 102, 103, 104, 105, 106, 107, 108];
-    const deniedReasons = [201, 202, 203, 204, 205, 299];
-    const actors = [
-        "alice@example.com",
-        "bob@example.com",
-        "carol@example.com",
-        null
-    ];
-
-    const now = Math.floor(Date.now() / 1000);
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60;
-
-    return Array.from({ length: 10 }, (_, i) => {
-        const action = Math.random() > 0.3;
-        const reason = action
-            ? allowedReasons[Math.floor(Math.random() * allowedReasons.length)]
-            : deniedReasons[Math.floor(Math.random() * deniedReasons.length)];
-        const actor = actors[Math.floor(Math.random() * actors.length)];
-
-        return {
-            timestamp: Math.floor(
-                sevenDaysAgo + Math.random() * (now - sevenDaysAgo)
-            ),
-            action,
-            reason,
-            orgId: "sample-org",
-            actorType: actor ? "user" : null,
-            actor,
-            actorId: actor ? `user-${i}` : null,
-            resourceId: Math.floor(Math.random() * 5) + 1,
-            siteResourceId: null,
-            resourceNiceId: `resource-${(i % 3) + 1}`,
-            resourceName: `Resource ${(i % 3) + 1}`,
-            ip: `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-            location: locations[Math.floor(Math.random() * locations.length)],
-            userAgent: "Mozilla/5.0",
-            metadata: null,
-            headers: null,
-            query: null,
-            originalRequestURL: null,
-            scheme: "https",
-            host: hosts[Math.floor(Math.random() * hosts.length)],
-            path: paths[Math.floor(Math.random() * paths.length)],
-            method: methods[Math.floor(Math.random() * methods.length)],
-            tls: true
-        };
-    });
 }

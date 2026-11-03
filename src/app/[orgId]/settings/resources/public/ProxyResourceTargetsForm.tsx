@@ -28,7 +28,8 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@app/components/ui/table";
 import {
     Tooltip,
@@ -887,7 +888,7 @@ export const ProxyResourceTargetsForm = forwardRef<
 
     const targetsTable = (
         <>
-            <div className="overflow-x-auto">
+            <TableContainer>
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -959,7 +960,7 @@ export const ProxyResourceTargetsForm = forwardRef<
                         )}
                     </TableBody>
                 </Table>
-            </div>
+            </TableContainer>
             {/* The empty state (and its add button) is hidden on mobile, so always show the add button there */}
             <div
                 className={cn(

@@ -30,7 +30,8 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@app/components/ui/table";
 import { toast } from "@app/hooks/useToast";
 import { cn } from "@app/lib/cn";
@@ -995,94 +996,97 @@ export function PolicyAccessRulesTable({
     });
 
     return (
-        <Table>
-            <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => {
-                            const columnId = header.column.id;
+        <TableContainer>
+            <Table>
+                <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                            {headerGroup.headers.map((header) => {
+                                const columnId = header.column.id;
+                                return (
+                                    <TableHead
+                                        key={header.id}
+                                        className={getColumnClassName(columnId)}
+                                    >
+                                        {header.isPlaceholder
+                                            ? null
+                                            : flexRender(
+                                                  header.column.columnDef
+                                                      .header,
+                                                  header.getContext()
+                                              )}
+                                    </TableHead>
+                                );
+                            })}
+                        </TableRow>
+                    ))}
+                </TableHeader>
+                <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                        table.getRowModel().rows.map((row) => {
+                            const rule = row.original;
                             return (
-                                <TableHead
-                                    key={header.id}
-                                    className={getColumnClassName(columnId)}
+                                <TableRow
+                                    key={row.id}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        if (
+                                            draggedRuleId !== null &&
+                                            draggedRuleId !== rule.ruleId
+                                        ) {
+                                            setDragOverRuleId(rule.ruleId);
+                                        }
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        if (
+                                            draggedRuleId !== null &&
+                                            draggedRuleId !== rule.ruleId &&
+                                            isRuleDraggable(rule)
+                                        ) {
+                                            handleReorder(
+                                                draggedRuleId,
+                                                rule.ruleId
+                                            );
+                                        }
+                                        setDraggedRuleId(null);
+                                        setDragOverRuleId(null);
+                                    }}
+                                    className={cn(
+                                        draggedRuleId === rule.ruleId &&
+                                            "opacity-50",
+                                        dragOverRuleId === rule.ruleId &&
+                                            "border-t border-primary"
+                                    )}
                                 >
-                                    {header.isPlaceholder
-                                        ? null
-                                        : flexRender(
-                                              header.column.columnDef.header,
-                                              header.getContext()
-                                          )}
-                                </TableHead>
-                            );
-                        })}
-                    </TableRow>
-                ))}
-            </TableHeader>
-            <TableBody>
-                {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => {
-                        const rule = row.original;
-                        return (
-                            <TableRow
-                                key={row.id}
-                                onDragOver={(e) => {
-                                    e.preventDefault();
-                                    if (
-                                        draggedRuleId !== null &&
-                                        draggedRuleId !== rule.ruleId
-                                    ) {
-                                        setDragOverRuleId(rule.ruleId);
-                                    }
-                                }}
-                                onDrop={(e) => {
-                                    e.preventDefault();
-                                    if (
-                                        draggedRuleId !== null &&
-                                        draggedRuleId !== rule.ruleId &&
-                                        isRuleDraggable(rule)
-                                    ) {
-                                        handleReorder(
-                                            draggedRuleId,
-                                            rule.ruleId
+                                    {row.getVisibleCells().map((cell) => {
+                                        const columnId = cell.column.id;
+                                        return (
+                                            <TableCell
+                                                key={cell.id}
+                                                className={getColumnClassName(
+                                                    columnId
+                                                )}
+                                            >
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext()
+                                                )}
+                                            </TableCell>
                                         );
-                                    }
-                                    setDraggedRuleId(null);
-                                    setDragOverRuleId(null);
-                                }}
-                                className={cn(
-                                    draggedRuleId === rule.ruleId &&
-                                        "opacity-50",
-                                    dragOverRuleId === rule.ruleId &&
-                                        "border-t border-primary"
-                                )}
-                            >
-                                {row.getVisibleCells().map((cell) => {
-                                    const columnId = cell.column.id;
-                                    return (
-                                        <TableCell
-                                            key={cell.id}
-                                            className={getColumnClassName(
-                                                columnId
-                                            )}
-                                        >
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
-                                            )}
-                                        </TableCell>
-                                    );
-                                })}
-                            </TableRow>
-                        );
-                    })
-                ) : (
-                    <DataTableEmptyState
-                        colSpan={columns.length}
-                        message={t("rulesNoOne")}
-                        action={emptyStateAction}
-                    />
-                )}
-            </TableBody>
-        </Table>
+                                    })}
+                                </TableRow>
+                            );
+                        })
+                    ) : (
+                        <DataTableEmptyState
+                            colSpan={columns.length}
+                            message={t("rulesNoOne")}
+                            action={emptyStateAction}
+                        />
+                    )}
+                </TableBody>
+            </Table>
+        </TableContainer>
     );
 }

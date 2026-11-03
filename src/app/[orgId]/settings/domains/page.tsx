@@ -2,10 +2,9 @@ import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { AxiosResponse } from "axios";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
+import DomainsBanner from "@app/components/DomainsBanner";
 import DomainsTable, { DomainRow } from "@app/components/DomainsTable";
 import { getTranslations } from "next-intl/server";
-import { cache } from "react";
-import { GetOrgResponse } from "@server/routers/org";
 import { redirect } from "next/navigation";
 import OrgProvider from "@app/providers/OrgProvider";
 import { ListDomainsResponse } from "@server/routers/domain";
@@ -58,6 +57,7 @@ export default async function DomainsPage(props: Props) {
                     title={t("manageDomains")}
                     description={t("domainsDescription")}
                 />
+                <DomainsBanner />
                 <DomainsTable domains={domains} orgId={org.org.orgId} />
             </OrgProvider>
         </>

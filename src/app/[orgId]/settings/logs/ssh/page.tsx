@@ -151,7 +151,7 @@ export default function SshSessionLogsPage() {
         enabled: isPaidUser(tierMatrix.sshSessionLogs) && build !== "oss"
     });
 
-    const rows = isLoading ? generateSampleSshSessionLogs() : (data?.log ?? []);
+    const rows = data?.log ?? [];
     const totalCount = data?.pagination?.total ?? 0;
     const filterAttributes = data?.filterAttributes ?? {
         resources: [],
@@ -695,49 +695,4 @@ export default function SshSessionLogsPage() {
             />
         </>
     );
-}
-
-function generateSampleSshSessionLogs(): SshSessionRow[] {
-    const usernames = ["root", "ubuntu", "deploy"];
-    const now = Math.floor(Date.now() / 1000);
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60;
-
-    return Array.from({ length: 10 }, (_, i) => {
-        const startedAt = Math.floor(
-            sevenDaysAgo + Math.random() * (now - sevenDaysAgo)
-        );
-        const active = Math.random() > 0.7;
-
-        return {
-            id: i,
-            sessionId: `session-${i}`,
-            orgId: "sample-org",
-            siteId: 1,
-            siteResourceId: (i % 3) + 1,
-            resourceId: null,
-            clientId: (i % 4) + 1,
-            userId: `user-${i}`,
-            transport: "ssh",
-            sourceAddr: `100.90.128.${i + 2}:${40000 + i}`,
-            destAddr: "100.90.128.1:22",
-            username: usernames[i % usernames.length],
-            authMethod: "certificate",
-            keyFingerprint: null,
-            certKeyId: null,
-            commandCount: Math.floor(Math.random() * 50),
-            startedAt,
-            endedAt: active
-                ? null
-                : startedAt + Math.floor(Math.random() * 3600),
-            resourceType: "site",
-            resourceName: `Resource ${(i % 3) + 1}`,
-            resourceNiceId: `resource-${(i % 3) + 1}`,
-            siteName: "Sample Site",
-            siteNiceId: "sample-site",
-            clientName: `Client ${(i % 4) + 1}`,
-            clientNiceId: `client-${(i % 4) + 1}`,
-            clientType: "user",
-            userEmail: `user${i}@example.com`
-        };
-    });
 }

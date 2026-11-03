@@ -109,10 +109,7 @@ export default function ViewDevicesDialog({
             toast({
                 variant: "destructive",
                 title: t("errorArchivingDevice"),
-                description: formatAxiosError(
-                    error,
-                    t("failedToArchiveDevice")
-                )
+                description: formatAxiosError(error, t("failedToArchiveDevice"))
             });
         }
     };
@@ -136,7 +133,8 @@ export default function ViewDevicesDialog({
             console.error("Error unarchiving device:", error);
             toast({
                 variant: "destructive",
-                title: t("errorUnarchivingDevice") || "Error unarchiving device",
+                title:
+                    t("errorUnarchivingDevice") || "Error unarchiving device",
                 description: formatAxiosError(
                     error,
                     t("failedToUnarchiveDevice") || "Failed to unarchive device"
@@ -193,67 +191,74 @@ export default function ViewDevicesDialog({
                                 <div>
                                     {devices.filter((d) => !d.archived)
                                         .length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
+                                        <div className="text-center py-8 text-muted-foreground">
                                             {t("noDevices") ||
                                                 "No devices found"}
-                            </div>
-                        ) : (
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="pl-3">
-                                                {t("name") || "Name"}
-                                            </TableHead>
-                                            <TableHead>
-                                                {t("dateCreated") ||
-                                                    "Date Created"}
-                                            </TableHead>
-                                            <TableHead>
+                                        </div>
+                                    ) : (
+                                        <div className="w-full min-w-0 overflow-hidden rounded-lg border bg-card">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="pl-3">
+                                                            {t("name") ||
+                                                                "Name"}
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            {t("dateCreated") ||
+                                                                "Date Created"}
+                                                        </TableHead>
+                                                        <TableHead>
                                                             {t("actions") ||
                                                                 "Actions"}
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
+                                                        </TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
                                                     {devices
                                                         .filter(
                                                             (d) => !d.archived
                                                         )
                                                         .map((device) => (
                                                             <TableRow
-                                                                key={device.olmId}
+                                                                key={
+                                                                    device.olmId
+                                                                }
                                                             >
-                                                <TableCell className="font-medium">
-                                                    {device.name ||
+                                                                <TableCell className="font-medium">
+                                                                    {device.name ||
                                                                         t(
                                                                             "unnamedDevice"
                                                                         ) ||
-                                                        "Unnamed Device"}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Timestamp
-                                                        value={device.dateCreated}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button
-                                                        variant="outline"
-                                                        onClick={() => {
-                                                            archiveDevice(device.olmId);
-                                                        }}
-                                                    >
+                                                                        "Unnamed Device"}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Timestamp
+                                                                        value={
+                                                                            device.dateCreated
+                                                                        }
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        onClick={() => {
+                                                                            archiveDevice(
+                                                                                device.olmId
+                                                                            );
+                                                                        }}
+                                                                    >
                                                                         {t(
                                                                             "archive"
                                                                         ) ||
                                                                             "Archive"}
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     )}
                                 </div>
                                 <div>
@@ -264,12 +269,13 @@ export default function ViewDevicesDialog({
                                                 "No archived devices found"}
                                         </div>
                                     ) : (
-                                        <div className="rounded-md border">
+                                        <div className="w-full min-w-0 overflow-hidden rounded-lg border bg-card">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead className="pl-3">
-                                                        {t("name") || "Name"}
+                                                            {t("name") ||
+                                                                "Name"}
                                                         </TableHead>
                                                         <TableHead>
                                                             {t("dateCreated") ||
@@ -288,7 +294,9 @@ export default function ViewDevicesDialog({
                                                         )
                                                         .map((device) => (
                                                             <TableRow
-                                                                key={device.olmId}
+                                                                key={
+                                                                    device.olmId
+                                                                }
                                                             >
                                                                 <TableCell className="font-medium">
                                                                     {device.name ||
@@ -299,17 +307,24 @@ export default function ViewDevicesDialog({
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Timestamp
-                                                                        value={device.dateCreated}
+                                                                        value={
+                                                                            device.dateCreated
+                                                                        }
                                                                     />
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Button
                                                                         variant="outline"
                                                                         onClick={() => {
-                                                                            unarchiveDevice(device.olmId);
+                                                                            unarchiveDevice(
+                                                                                device.olmId
+                                                                            );
                                                                         }}
                                                                     >
-                                                                        {t("unarchive") || "Unarchive"}
+                                                                        {t(
+                                                                            "unarchive"
+                                                                        ) ||
+                                                                            "Unarchive"}
                                                                     </Button>
                                                                 </TableCell>
                                                             </TableRow>

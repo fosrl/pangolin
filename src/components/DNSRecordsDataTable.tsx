@@ -15,21 +15,11 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@/components/ui/table";
-import { Button } from "@app/components/ui/button";
 import { useMemo, useState } from "react";
-import { ExternalLink, Plus, RefreshCw } from "lucide-react";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle
-} from "@app/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
 import { useTranslations } from "next-intl";
-import { Badge } from "./ui/badge";
-import Link from "next/link";
 
 type TabFilter = {
     id: string;
@@ -61,15 +51,8 @@ type DNSRecordsDataTableProps<TData, TValue> = {
 export function DNSRecordsDataTable<TData, TValue>({
     columns,
     data,
-    title,
-    addButtonText,
-    onAdd,
-    onRefresh,
-    isRefreshing,
-    defaultSort,
     tabs,
-    defaultTab,
-    type
+    defaultTab
 }: DNSRecordsDataTableProps<TData, TValue>) {
     const t = useTranslations();
 
@@ -77,7 +60,6 @@ export function DNSRecordsDataTable<TData, TValue>({
         defaultTab || tabs?.[0]?.id || ""
     );
 
-    // Apply tab filter to data
     const filteredData = useMemo(() => {
         if (!tabs || activeTab === "") {
             return data;
@@ -96,94 +78,60 @@ export function DNSRecordsDataTable<TData, TValue>({
         columns,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
-
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel()
     });
 
     return (
-        <div className="container mx-auto max-w-12xl">
-            <Card>
-                <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-4">
-                    <div className="flex flex-row space-y-3 w-full sm:mr-2 gap-2 justify-between">
-                        <div className="relative w-full space-y-1">
-                            <div className="flex flex-row gap-4 items-center">
-                                <h1 className="font-semibold">
-                                    {t("dnsRecord")}
-                                </h1>
-                                <Badge variant="secondary">
-                                    {t("required")}
-                                </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                {t("domainSetupRecordsDescription")}
-                            </p>
-                        </div>
-                        <Link
-                            href="https://docs.pangolin.net/manage/domains"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hidden sm:block"
-                        >
-                            <Button variant="outline">
-                                <ExternalLink className="h-4 w-4 mr-1" />
-                                {t("howToAddRecords")}
-                            </Button>
-                        </Link>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            {table.getHeaderGroups().map((headerGroup) => (
-                                <TableRow key={headerGroup.id}>
-                                    {headerGroup.headers.map((header) => (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                      header.column.columnDef
-                                                          .header,
-                                                      header.getContext()
-                                                  )}
-                                        </TableHead>
-                                    ))}
-                                </TableRow>
+        <TableContainer>
+            <Table>
+                <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                            {headerGroup.headers.map((header) => (
+                                <TableHead key={header.id}>
+                                    {header.isPlaceholder
+                                        ? null
+                                        : flexRender(
+                                              header.column.columnDef.header,
+                                              header.getContext()
+                                          )}
+                                </TableHead>
                             ))}
-                        </TableHeader>
-                        <TableBody>
-                            {table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={
-                                            row.getIsSelected() && "selected"
-                                        }
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext()
-                                                )}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={columns.length}
-                                        className="h-24 text-center"
-                                    >
-                                        {t("noResults")}
+                        </TableRow>
+                    ))}
+                </TableHeader>
+                <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                        table.getRowModel().rows.map((row) => (
+                            <TableRow
+                                key={row.id}
+                                data-state={
+                                    row.getIsSelected() && "selected"
+                                }
+                            >
+                                {row.getVisibleCells().map((cell) => (
+                                    <TableCell key={cell.id}>
+                                        {flexRender(
+                                            cell.column.columnDef.cell,
+                                            cell.getContext()
+                                        )}
                                     </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </div>
+                                ))}
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell
+                                colSpan={columns.length}
+                                className="h-24 text-center"
+                            >
+                                {t("noResults")}
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </TableContainer>
     );
 }

@@ -28,7 +28,6 @@ import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { logQueries } from "@app/lib/queries";
 import { useQuery } from "@tanstack/react-query";
-import type { QueryAccessAuditLogResponse } from "@server/routers/auditLogs/types";
 import { countryCodeToFlagEmoji } from "@app/lib/countryCodeToFlagEmoji";
 
 export default function GeneralPage() {
@@ -134,7 +133,7 @@ export default function GeneralPage() {
         enabled: isPaidUser(tierMatrix.accessLogs) && build !== "oss"
     });
 
-    const rows = isLoading ? generateSampleAccessLogs() : (data?.log ?? []);
+    const rows = data?.log ?? [];
     const totalCount = data?.pagination?.total ?? 0;
     const filterAttributes = data?.filterAttributes ?? {
         actors: [],
@@ -611,51 +610,4 @@ export default function GeneralPage() {
             />
         </>
     );
-}
-
-function generateSampleAccessLogs(): QueryAccessAuditLogResponse["log"] {
-    const locations = ["US", "DE", "GB", "FR", "JP", "CA", "AU"];
-    const types = [
-        "password",
-        "pincode",
-        "login",
-        "whitelistedEmail",
-        "ssh",
-        "rdp",
-        "vnc"
-    ];
-    const actors = [
-        "alice@example.com",
-        "bob@example.com",
-        "carol@example.com",
-        null
-    ];
-
-    const now = Math.floor(Date.now() / 1000);
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60;
-
-    return Array.from({ length: 10 }, (_, i) => {
-        const action = Math.random() > 0.3;
-        const actor = actors[Math.floor(Math.random() * actors.length)];
-
-        return {
-            timestamp: Math.floor(
-                sevenDaysAgo + Math.random() * (now - sevenDaysAgo)
-            ),
-            action,
-            orgId: "sample-org",
-            actorType: actor ? "user" : null,
-            actor,
-            actorId: actor ? `user-${i}` : null,
-            resourceId: Math.floor(Math.random() * 5) + 1,
-            siteResourceId: null,
-            resourceNiceId: `resource-${(i % 3) + 1}`,
-            resourceName: `Resource ${(i % 3) + 1}`,
-            ip: `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-            location: locations[Math.floor(Math.random() * locations.length)],
-            userAgent: "Mozilla/5.0",
-            metadata: null,
-            type: types[Math.floor(Math.random() * types.length)]
-        };
-    });
 }

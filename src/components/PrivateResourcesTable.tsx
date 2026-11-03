@@ -702,9 +702,7 @@ export default function PrivateResourcesTable({
                         }
                     }}
                     endpoint={`/site-resource/${exportResource.id}/blueprint`}
-                    resourceName={
-                        exportResource.niceId || exportResource.name
-                    }
+                    resourceName={exportResource.niceId || exportResource.name}
                 />
             )}
 
