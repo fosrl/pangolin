@@ -263,8 +263,8 @@ Each step can ship on its own.
    - **Verify:**
      - [x] Unit-test `evaluateRoleMapping` on `'Member'`, `['A','B']`, the builder prefix, a raw expression and null.
      - [ ] JIT login gives the same roles as before.
-     - [ ] Sync dry run with a fixed mapping, a builder mapping and a raw expression.
-     - [ ] `tsc` + `eslint`.
+     - [x] Sync dry run with a fixed mapping, a builder mapping and a raw expression.
+     - [x] `tsc` + `eslint`.
 3. **Role-mapping UI for sync.** Ships with step 2: until it lands, the sync editor still writes the old JSON format.
    - [ ] [DirectorySyncConfigWidget.tsx](src/components/DirectorySyncConfigWidget.tsx): use [RoleMappingConfigFields.tsx](src/components/RoleMappingConfigFields.tsx), the same editor as JIT.
    - [ ] Org IdP [create/page.tsx](<src/app/[orgId]/settings/(private)/idp/create/page.tsx>) and [general/page.tsx](<src/app/[orgId]/settings/(private)/idp/[idpId]/general/page.tsx>): load `syncRoleMapping` with `detectRoleMappingConfig` and save it with `compileRoleMappingExpression`, like `roleMapping`.
