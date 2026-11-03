@@ -1,4 +1,4 @@
-import { internal } from "@app/lib/api";
+import { formatAxiosError, internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { AxiosResponse } from "axios";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
@@ -42,8 +42,6 @@ export default async function ResourceSessionsPage(
     const searchParams = new URLSearchParams(await props.searchParams);
     const header = await authCookieHeader();
 
-    // Fails with 403 when the org isn't licensed/subscribed; the
-    // PaidFeaturesAlert below explains why the list is empty.
     let sessions: ListResourceSessionsResponse["sessions"] = [];
     let pagination: ListResourceSessionsResponse["pagination"] = {
         total: 0,
@@ -56,7 +54,12 @@ export default async function ResourceSessionsPage(
         >(`/org/${orgId}/resource-sessions?${searchParams.toString()}`, header);
         sessions = res.data.data.sessions;
         pagination = res.data.data.pagination;
-    } catch (e) {}
+    } catch (e: any) {
+        const status = e?.response?.status;
+        throw new Error(
+            `Failed to list resource sessions${status ? ` (${status})` : ""}: ${formatAxiosError(e)}`
+        );
+    }
 
     const resourceIdParam = parsePositiveInt(searchParams.get("resourceId"));
     let initialFilterResource: SelectedResource | null = null;
