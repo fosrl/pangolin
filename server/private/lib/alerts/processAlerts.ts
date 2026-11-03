@@ -11,7 +11,7 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@server/db";
 import {
     alertRules,
@@ -30,6 +30,10 @@ import logger from "@server/logger";
 import { sendAlertWebhook } from "./sendAlertWebhook";
 import { sendAlertEmail } from "./sendAlertEmail";
 import {
+    getAlertRuleIdsForLabels,
+    getAlertSourceLabelIds
+} from "./sourceLabels";
+import {
     AlertContext,
     WebhookAlertConfig
 } from "@server/routers/alertRule/types";
@@ -38,10 +42,11 @@ import {
  * Core alert processing pipeline.
  *
  * Given an `AlertContext`, this function:
- * 1. Finds all enabled `alertRules` whose `eventType` matches and whose
- *    `siteId` / `healthCheckId` is listed in the `alertSites` /
- *    `alertHealthChecks` junction tables (or has no junction entries,
- *    meaning "match all").
+ * 1. Finds all enabled `alertRules` whose `eventType` matches and that
+ *    target the event's source, either because the rule matches all
+ *    sources of that kind, lists the source explicitly in the `alertSites` /
+ *    `alertHealthChecks` / `alertResources` junction tables, or lists a
+ *    label (in `alertLabels`) that is attached to the source.
  * 2. Applies per-rule cooldown gating.
  * 3. Dispatches emails and webhook POSTs for every attached action.
  * 4. Updates `lastTriggeredAt` and `lastSentAt` timestamps.
@@ -54,7 +59,19 @@ export async function processAlerts(context: AlertContext): Promise<void> {
     // ------------------------------------------------------------------
     // Rules with allSites / allHealthChecks / allResources set to true match
     // ANY event of that type. Rules without these flags set match only the
-    // specific IDs listed in the junction tables.
+    // specific IDs listed in the junction tables, or sources carrying one of
+    // the labels listed in `alertLabels`.
+    const sourceLabelIds = await getAlertSourceLabelIds({
+        siteId: context.siteId,
+        resourceId: context.resourceId,
+        healthCheckId: context.healthCheckId
+    });
+    const labelRuleIds = await getAlertRuleIdsForLabels(sourceLabelIds);
+    const labelMatch =
+        labelRuleIds.length > 0
+            ? inArray(alertRules.alertRuleId, labelRuleIds)
+            : undefined;
+
     const baseConditions = and(
         eq(alertRules.orgId, context.orgId),
         eq(alertRules.eventType, context.eventType),
@@ -76,7 +93,8 @@ export async function processAlerts(context: AlertContext): Promise<void> {
                     baseConditions,
                     or(
                         eq(alertRules.allSites, true),
-                        eq(alertSites.siteId, context.siteId)
+                        eq(alertSites.siteId, context.siteId),
+                        labelMatch
                     )
                 )
             );
@@ -105,7 +123,8 @@ export async function processAlerts(context: AlertContext): Promise<void> {
                         eq(
                             alertHealthChecks.healthCheckId,
                             context.healthCheckId
-                        )
+                        ),
+                        labelMatch
                     )
                 )
             );
@@ -130,7 +149,8 @@ export async function processAlerts(context: AlertContext): Promise<void> {
                     baseConditions,
                     or(
                         eq(alertRules.allResources, true),
-                        eq(alertResources.resourceId, context.resourceId)
+                        eq(alertResources.resourceId, context.resourceId),
+                        labelMatch
                     )
                 )
             );

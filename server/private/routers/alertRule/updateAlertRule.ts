@@ -20,6 +20,7 @@ import {
     alertSites,
     alertHealthChecks,
     alertResources,
+    alertLabels,
     alertEmailActions,
     alertEmailRecipients,
     alertWebhookActions
@@ -36,7 +37,8 @@ import config from "@server/lib/config";
 import {
     HC_EVENT_TYPES,
     SITE_EVENT_TYPES,
-    RESOURCE_EVENT_TYPES
+    RESOURCE_EVENT_TYPES,
+    findLabelIdsNotInOrg
 } from "./createAlertRule";
 
 const paramsSchema = z
@@ -72,6 +74,8 @@ const bodySchema = z
         allHealthChecks: z.boolean().optional(),
         resourceIds: z.array(z.number().int().positive()).optional(),
         allResources: z.boolean().optional(),
+        // Labels - if provided the full label set is replaced
+        labelIds: z.array(z.number().int().positive()).optional(),
         // Recipient arrays - if any are provided the full recipient set is replaced
         userIds: z.array(z.string().nonempty()).optional(),
         roleIds: z.array(z.number()).optional(),
@@ -92,16 +96,19 @@ const bodySchema = z
             RESOURCE_EVENT_TYPES as readonly string[]
         ).includes(val.eventType);
 
+        const hasLabels = (val.labelIds?.length ?? 0) > 0;
+
         if (
             isSiteEvent &&
             val.siteIds !== undefined &&
             val.siteIds.length === 0 &&
-            !val.allSites
+            !val.allSites &&
+            !hasLabels
         ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message:
-                    "At least one siteId is required for site event types when allSites is false",
+                    "At least one siteId or labelId is required for site event types when allSites is false",
                 path: ["siteIds"]
             });
         }
@@ -110,12 +117,13 @@ const bodySchema = z
             isHcEvent &&
             val.healthCheckIds !== undefined &&
             val.healthCheckIds.length === 0 &&
-            !val.allHealthChecks
+            !val.allHealthChecks &&
+            !hasLabels
         ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message:
-                    "At least one healthCheckId is required for health check event types when allHealthChecks is false",
+                    "At least one healthCheckId or labelId is required for health check event types when allHealthChecks is false",
                 path: ["healthCheckIds"]
             });
         }
@@ -124,12 +132,13 @@ const bodySchema = z
             isResourceEvent &&
             val.resourceIds !== undefined &&
             val.resourceIds.length === 0 &&
-            !val.allResources
+            !val.allResources &&
+            !hasLabels
         ) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message:
-                    "At least one resourceId is required for resource event types when allResources is false",
+                    "At least one resourceId or labelId is required for resource event types when allResources is false",
                 path: ["resourceIds"]
             });
         }
@@ -271,11 +280,40 @@ export async function updateAlertRule(
             allHealthChecks,
             resourceIds,
             allResources,
+            labelIds,
             userIds,
             roleIds,
             emails,
             webhookActions
         } = parsedBody.data;
+
+        // Labels are irrelevant when the rule (after this update) matches
+        // every source of its kind, so they are cleared in that case.
+        const effectiveEventType = eventType ?? existing.eventType;
+        const effectiveMatchesAll = (
+            SITE_EVENT_TYPES as readonly string[]
+        ).includes(effectiveEventType)
+            ? (allSites ?? existing.allSites)
+            : (HC_EVENT_TYPES as readonly string[]).includes(effectiveEventType)
+              ? (allHealthChecks ?? existing.allHealthChecks)
+              : (allResources ?? existing.allResources);
+
+        const uniqueLabelIds =
+            labelIds === undefined || effectiveMatchesAll
+                ? []
+                : [...new Set(labelIds)];
+
+        if (uniqueLabelIds.length > 0) {
+            const invalid = await findLabelIdsNotInOrg(orgId, uniqueLabelIds);
+            if (invalid.length > 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        `Labels not found in organization: ${invalid.join(", ")}`
+                    )
+                );
+            }
+        }
 
         // --- Update rule fields ---
         const updateData: Record<string, unknown> = {
@@ -361,6 +399,23 @@ export async function updateAlertRule(
                     resourceIds.map((resourceId) => ({
                         alertRuleId,
                         resourceId
+                    }))
+                );
+            }
+        }
+
+        // --- Full-replace label associations if labelIds was provided, or
+        //     clear them when the rule now matches all sources ---
+        if (labelIds !== undefined || effectiveMatchesAll) {
+            await db
+                .delete(alertLabels)
+                .where(eq(alertLabels.alertRuleId, alertRuleId));
+
+            if (uniqueLabelIds.length > 0) {
+                await db.insert(alertLabels).values(
+                    uniqueLabelIds.map((labelId) => ({
+                        alertRuleId,
+                        labelId
                     }))
                 );
             }
