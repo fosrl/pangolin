@@ -3,12 +3,17 @@ import logger from "@server/logger";
 import { ExitNode } from "@server/db";
 import { hasExitNodeCheckedIn } from "./exitNodeCheckIn";
 
+// axios has no request timeout by default, so a Gerbil that accepts the
+// connection but never answers would leave the caller waiting forever.
+export const EXIT_NODE_REQUEST_TIMEOUT_MS = 15_000;
+
 interface ExitNodeRequest {
     remoteType?: string;
     localPath: string;
     method?: "POST" | "DELETE" | "GET" | "PUT";
     data?: any;
     queryParams?: Record<string, string>;
+    timeoutMs?: number;
 }
 
 /**
@@ -37,6 +42,8 @@ export async function sendToExitNode(
         url += `?${params.toString()}`;
     }
 
+    const timeout = request.timeoutMs ?? EXIT_NODE_REQUEST_TIMEOUT_MS;
+
     try {
         let response;
 
@@ -45,20 +52,22 @@ export async function sendToExitNode(
                 response = await axios.post(url, request.data, {
                     headers: {
                         "Content-Type": "application/json"
-                    }
+                    },
+                    timeout
                 });
                 break;
             case "DELETE":
-                response = await axios.delete(url);
+                response = await axios.delete(url, { timeout });
                 break;
             case "GET":
-                response = await axios.get(url);
+                response = await axios.get(url, { timeout });
                 break;
             case "PUT":
                 response = await axios.put(url, request.data, {
                     headers: {
                         "Content-Type": "application/json"
-                    }
+                    },
+                    timeout
                 });
                 break;
             default:
