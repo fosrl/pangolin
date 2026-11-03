@@ -90,7 +90,7 @@ export default function GeneralPage() {
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
     const [configuredServiceAccountEmail, setConfiguredServiceAccountEmail] =
         useState<string | undefined>();
-    const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
+    const [originalUsernamePath, setOriginalUsernamePath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
     const [pendingPayload, setPendingPayload] = useState<Record<
         string,
@@ -114,7 +114,7 @@ export default function GeneralPage() {
         roleId: z.number().nullable().optional(),
         authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }),
         tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }),
-        identifierPath: z.string().min(1, { message: t("idpPathRequired") }),
+        usernamePath: z.string().min(1, { message: t("idpPathRequired") }),
         emailPath: z.string().nullable().optional(),
         namePath: z.string().nullable().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
@@ -125,26 +125,28 @@ export default function GeneralPage() {
     });
 
     // Google form schema (simplified)
-    const GoogleFormSchema = z.object({
-        name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
-        clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
-        clientSecret: z
-            .string()
-            .min(1, { message: t("idpClientSecretRequired") }),
-        roleMapping: z.string().nullable().optional(),
-        roleId: z.number().nullable().optional(),
-        autoProvision: z.boolean().default(false),
-        directorySyncEnabled: z.boolean().default(false),
-        directorySyncDeletions: z.boolean().default(true),
-        orgMapping: z.string().optional(),
-        ...googleDirectorySyncFormFields
-    }).superRefine((data, ctx) =>
-        refineGoogleDirectorySyncFields(data, ctx, {
-            // the stored key is kept when the field is left empty
-            keyRequired: !configuredServiceAccountEmail,
-            t
+    const GoogleFormSchema = z
+        .object({
+            name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
+            clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
+            clientSecret: z
+                .string()
+                .min(1, { message: t("idpClientSecretRequired") }),
+            roleMapping: z.string().nullable().optional(),
+            roleId: z.number().nullable().optional(),
+            autoProvision: z.boolean().default(false),
+            directorySyncEnabled: z.boolean().default(false),
+            directorySyncDeletions: z.boolean().default(true),
+            orgMapping: z.string().optional(),
+            ...googleDirectorySyncFormFields
         })
-    );
+        .superRefine((data, ctx) =>
+            refineGoogleDirectorySyncFields(data, ctx, {
+                // the stored key is kept when the field is left empty
+                keyRequired: !configuredServiceAccountEmail,
+                t
+            })
+        );
 
     // Azure form schema (simplified with tenant ID)
     const AzureFormSchema = z.object({
@@ -188,7 +190,7 @@ export default function GeneralPage() {
             clientSecret: "",
             authUrl: "",
             tokenUrl: "",
-            identifierPath: "sub",
+            usernamePath: "email",
             emailPath: "email",
             namePath: "name",
             scopes: "openid profile email",
@@ -221,7 +223,7 @@ export default function GeneralPage() {
                     const data = res.data.data;
                     const roleMapping = data.idpOrg.roleMapping;
                     const idpVariant = data.idpOidcConfig?.variant || "oidc";
-                    setOriginalIdentifierPath(
+                    setOriginalUsernamePath(
                         data.idpOidcConfig?.identifierPath ?? "sub"
                     );
                     setRedirectUrl(res.data.data.redirectUrl);
@@ -262,7 +264,7 @@ export default function GeneralPage() {
                     if (idpVariant === "oidc") {
                         formData.authUrl = data.idpOidcConfig.authUrl;
                         formData.tokenUrl = data.idpOidcConfig.tokenUrl;
-                        formData.identifierPath =
+                        formData.usernamePath =
                             data.idpOidcConfig.identifierPath;
                         formData.emailPath =
                             data.idpOidcConfig.emailPath || null;
@@ -273,8 +275,10 @@ export default function GeneralPage() {
                     } else if (idpVariant === "google") {
                         const syncConfig = data.idp.directorySyncConfig;
                         formData.googleServiceAccountKey = "";
-                        formData.googleAdminEmail = syncConfig?.adminEmail ?? "";
-                        formData.googleCustomerId = syncConfig?.customerId ?? "";
+                        formData.googleAdminEmail =
+                            syncConfig?.adminEmail ?? "";
+                        formData.googleCustomerId =
+                            syncConfig?.customerId ?? "";
                         setConfiguredServiceAccountEmail(
                             syncConfig?.serviceAccountEmail
                         );
@@ -409,7 +413,7 @@ export default function GeneralPage() {
                     ...payload,
                     authUrl: oidcData.authUrl,
                     tokenUrl: oidcData.tokenUrl,
-                    identifierPath: oidcData.identifierPath,
+                    identifierPath: oidcData.usernamePath,
                     emailPath: oidcData.emailPath || "",
                     namePath: oidcData.namePath || "",
                     scopes: oidcData.scopes
@@ -444,14 +448,14 @@ export default function GeneralPage() {
                 };
             }
 
-            const nextIdentifierPath =
+            const nextUsernamePath =
                 variant === "oidc"
-                    ? (data as OidcFormValues).identifierPath
+                    ? (data as OidcFormValues).usernamePath
                     : undefined;
 
             if (
-                typeof nextIdentifierPath === "string" &&
-                nextIdentifierPath !== originalIdentifierPath
+                typeof nextUsernamePath === "string" &&
+                nextUsernamePath !== originalUsernamePath
             ) {
                 setPendingPayload(payload);
                 setIdentifierConfirmOpen(true);
@@ -475,11 +479,10 @@ export default function GeneralPage() {
 
         if (res.status === 200) {
             if (typeof payload.identifierPath === "string") {
-                setOriginalIdentifierPath(payload.identifierPath);
+                setOriginalUsernamePath(payload.identifierPath);
             }
             const syncConfig = payload.directorySyncConfig as
-                | ReturnType<typeof buildGoogleDirectorySyncConfig>
-                | undefined;
+                ReturnType<typeof buildGoogleDirectorySyncConfig> | undefined;
             if (syncConfig?.serviceAccountKey) {
                 setConfiguredServiceAccountEmail(
                     syncConfig.serviceAccountKey.client_email
@@ -706,9 +709,7 @@ export default function GeneralPage() {
                                                 checked
                                             )
                                         }
-                                        onRoleMappingChange={
-                                            setSyncRoleMapping
-                                        }
+                                        onRoleMappingChange={setSyncRoleMapping}
                                     />
                                     {variant === "google" &&
                                         form.watch("directorySyncEnabled") && (
@@ -1022,7 +1023,7 @@ export default function GeneralPage() {
                                         >
                                             <FormField
                                                 control={form.control}
-                                                name="identifierPath"
+                                                name="usernamePath"
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>
