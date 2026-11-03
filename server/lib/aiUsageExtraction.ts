@@ -248,12 +248,11 @@ function extractBedrockConverse(
     const parsed = tryParseJson(text);
     const usage = parsed?.usage;
     if (usage) {
+        // With prompt caching on, Bedrock's `inputTokens` already excludes
+        // the cache read/write counters, so it is used as-is.
         const cacheReadTokens = usage.cacheReadInputTokens ?? 0;
         return {
-            promptTokens: Math.max(
-                0,
-                (usage.inputTokens ?? 0) - cacheReadTokens
-            ),
+            promptTokens: usage.inputTokens ?? 0,
             cacheReadTokens,
             cacheWriteTokens: usage.cacheWriteInputTokens ?? 0,
             completionTokens: usage.outputTokens ?? 0,
@@ -271,10 +270,9 @@ function extractBedrockConverse(
     if (fields.inputTokens === undefined) {
         return null;
     }
-    const cacheReadTokens = fields.cacheReadInputTokens ?? 0;
     return {
-        promptTokens: Math.max(0, fields.inputTokens - cacheReadTokens),
-        cacheReadTokens,
+        promptTokens: fields.inputTokens,
+        cacheReadTokens: fields.cacheReadInputTokens ?? 0,
         cacheWriteTokens: fields.cacheWriteInputTokens ?? 0,
         completionTokens: fields.outputTokens ?? 0,
         reasoningTokens: 0,
