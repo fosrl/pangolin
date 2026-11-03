@@ -22,6 +22,7 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { idp, idpOidcConfig, idpOrg, orgs } from "@server/db";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
+import { defaultExternalIdPath } from "@server/lib/idp/oidcPaths";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
@@ -39,6 +40,7 @@ const bodySchema = z.strictObject({
     authUrl: z.url(),
     tokenUrl: z.url(),
     identifierPath: z.string().nonempty(),
+    externalIdPath: z.string().nonempty().nullish(),
     emailPath: z.string().optional(),
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
@@ -122,6 +124,7 @@ export async function createOrgOidcIdp(
             tokenUrl,
             scopes,
             identifierPath,
+            externalIdPath,
             emailPath,
             namePath,
             name,
@@ -206,6 +209,10 @@ export async function createOrgOidcIdp(
                 tokenUrl,
                 scopes,
                 identifierPath,
+                externalIdPath:
+                    externalIdPath === undefined
+                        ? defaultExternalIdPath(variant)
+                        : externalIdPath,
                 emailPath,
                 namePath,
                 variant

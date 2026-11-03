@@ -1259,7 +1259,8 @@ export const idpOidcConfig = pgTable("idpOidcConfig", {
     clientSecret: varchar("clientSecret").notNull(),
     authUrl: varchar("authUrl").notNull(),
     tokenUrl: varchar("tokenUrl").notNull(),
-    identifierPath: varchar("identifierPath").notNull(),
+    identifierPath: varchar("identifierPath").notNull(), // username path: gives `users.username`
+    externalIdPath: varchar("externalIdPath"), // claim stored in `users.externalUserId`
     emailPath: varchar("emailPath"),
     namePath: varchar("namePath"),
     scopes: varchar("scopes").notNull()

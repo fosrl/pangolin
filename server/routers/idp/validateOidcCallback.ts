@@ -17,7 +17,7 @@ import {
     userOrgs,
     users
 } from "@server/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import * as arctic from "arctic";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import jmespath from "jmespath";
@@ -287,6 +287,28 @@ export async function validateOidcCallback(
 
         logger.debug("User identifier", { userIdentifier });
 
+        let externalUserId: string | null = null;
+        const externalIdPath = existingIdp.idpOidcConfig.externalIdPath;
+        if (externalIdPath) {
+            const externalIdClaim = jmespath.search(claims, externalIdPath);
+            if (
+                (typeof externalIdClaim !== "string" &&
+                    typeof externalIdClaim !== "number") ||
+                externalIdClaim === ""
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "External user ID not found in the ID token"
+                    )
+                );
+            }
+            // not lowercased: provider IDs are opaque
+            externalUserId = String(externalIdClaim);
+        }
+
+        logger.debug("External user ID", { externalUserId });
+
         let email = null;
         let name = null;
         try {
@@ -312,15 +334,11 @@ export async function validateOidcCallback(
             email = email.toLowerCase();
         }
 
-        const [existingUser] = await db
-            .select()
-            .from(users)
-            .where(
-                and(
-                    eq(users.username, userIdentifier),
-                    eq(users.idpId, existingIdp.idp.idpId)
-                )
-            );
+        const existingUser = await findIdpUser(
+            existingIdp.idp.idpId,
+            externalUserId,
+            userIdentifier
+        );
 
         if (existingIdp.idp.autoProvision) {
             let allOrgs: Org[] = [];
@@ -499,24 +517,37 @@ export async function validateOidcCallback(
             await db.transaction(async (trx) => {
                 // create user if not exists
                 if (!existingUser) {
-                    userId = generateId(15);
-
-                    await trx.insert(users).values({
-                        userId,
-                        username: userIdentifier,
-                        email: email || null,
-                        name: name || null,
-                        type: UserType.OIDC,
-                        idpId: existingIdp.idp.idpId,
-                        emailVerified: true, // OIDC users are always verified
-                        dateCreated: new Date().toISOString()
-                    });
+                    // upsert: directory sync can create the same user concurrently
+                    const [createdUser] = await trx
+                        .insert(users)
+                        .values({
+                            userId: generateId(15),
+                            username: userIdentifier,
+                            externalUserId,
+                            email: email || null,
+                            name: name || null,
+                            type: UserType.OIDC,
+                            idpId: existingIdp.idp.idpId,
+                            emailVerified: true, // OIDC users are always verified
+                            dateCreated: new Date().toISOString()
+                        })
+                        .onConflictDoUpdate({
+                            target: [users.idpId, users.externalUserId],
+                            set: {
+                                username: userIdentifier,
+                                email: email || null,
+                                name: name || null
+                            }
+                        })
+                        .returning({ userId: users.userId });
+                    userId = createdUser.userId;
                 } else {
-                    // set the name and email
+                    // set the name and email, and backfill the external ID
                     await trx
                         .update(users)
                         .set({
                             username: userIdentifier,
+                            externalUserId: externalUserId ?? undefined,
                             email: email || null,
                             name: name || null
                         })
@@ -682,6 +713,14 @@ export async function validateOidcCallback(
                 );
             }
 
+            // a manually provisioned user gets linked to its external ID on first login
+            if (externalUserId && !existingUser.externalUserId) {
+                await db
+                    .update(users)
+                    .set({ externalUserId })
+                    .where(eq(users.userId, existingUser.userId));
+            }
+
             // check for existing user orgs
             const existingUserOrgs = await db
                 .select()
@@ -737,4 +776,43 @@ function hydrateOrgMapping(
         return undefined;
     }
     return orgMapping.split("{{orgId}}").join(orgId);
+}
+
+/**
+ * Match on the external ID first. The username fallback only covers users not
+ * linked yet, so a recycled username (e.g. a reassigned UPN) can't take over an account.
+ */
+async function findIdpUser(
+    idpId: number,
+    externalUserId: string | null,
+    username: string
+) {
+    if (externalUserId) {
+        const [user] = await db
+            .select()
+            .from(users)
+            .where(
+                and(
+                    eq(users.idpId, idpId),
+                    eq(users.externalUserId, externalUserId)
+                )
+            );
+        if (user) {
+            return user;
+        }
+    }
+
+    const [user] = await db
+        .select()
+        .from(users)
+        .where(
+            and(
+                eq(users.idpId, idpId),
+                eq(users.username, username),
+                externalUserId ? isNull(users.externalUserId) : undefined
+            )
+        )
+        .orderBy(asc(users.dateCreated))
+        .limit(1);
+    return user;
 }

@@ -1574,7 +1574,8 @@ export const idpOidcConfig = sqliteTable("idpOidcConfig", {
     clientSecret: text("clientSecret").notNull(),
     authUrl: text("authUrl").notNull(),
     tokenUrl: text("tokenUrl").notNull(),
-    identifierPath: text("identifierPath").notNull(),
+    identifierPath: text("identifierPath").notNull(), // username path: gives `users.username`
+    externalIdPath: text("externalIdPath"), // claim stored in `users.externalUserId`
     emailPath: text("emailPath"),
     namePath: text("namePath"),
     scopes: text("scopes").notNull()
