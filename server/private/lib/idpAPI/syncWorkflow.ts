@@ -223,7 +223,7 @@ for each membership with flag = true whose user is not in the remote set:
 
     const {
         idp: { idpId },
-        idpOrg: { orgId, syncRoleMapping },
+        idpOrg: { orgId, syncRoleMapping, mappingsLinked, roleMapping },
         idpOidcConfig: { identifierPath: usernamePath, externalIdPath }
     } = provider.idp;
 
@@ -297,10 +297,13 @@ for each membership with flag = true whose user is not in the remote set:
             continue;
         }
 
+        const effectiveRoleMapping =
+            mappingsLinked && !syncRoleMapping ? roleMapping : syncRoleMapping;
+
         const roles = await resolveUserRoles(
             user,
             claims,
-            syncRoleMapping,
+            effectiveRoleMapping,
             orgId
         );
 
