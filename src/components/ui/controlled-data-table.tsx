@@ -38,7 +38,7 @@ import { dataTableFilterDropdownContentClassName } from "@app/lib/dataTableFilte
 import {
     ChevronDown,
     ChevronRight,
-    Columns,
+    Settings,
     Filter,
     Plus,
     RefreshCw,
@@ -537,7 +537,7 @@ export function ControlledDataTable<TData, TValue>({
                                                                         size="sm"
                                                                         className="h-7 w-7 p-0 mb-1"
                                                                     >
-                                                                        <Columns className="h-4 w-4" />
+                                                                        <Settings className="h-4 w-4" />
                                                                         <span className="sr-only">
                                                                             {t(
                                                                                 "columns"

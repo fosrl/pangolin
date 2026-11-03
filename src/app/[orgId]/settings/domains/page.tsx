@@ -55,7 +55,7 @@ export default async function DomainsPage(props: Props) {
         <>
             <OrgProvider org={org}>
                 <SettingsSectionTitle
-                    title={t("domains")}
+                    title={t("manageDomains")}
                     description={t("domainsDescription")}
                 />
                 <DomainsTable domains={domains} orgId={org.org.orgId} />

@@ -40,7 +40,7 @@ import {
     Plus,
     Search,
     RefreshCw,
-    Columns,
+    Settings,
     Filter
 } from "lucide-react";
 import {
@@ -757,7 +757,7 @@ export function DataTable<TData, TValue>({
                                                                         size="sm"
                                                                         className="h-7 w-7 p-0 mb-1"
                                                                     >
-                                                                        <Columns className="h-4 w-4" />
+                                                                        <Settings className="h-4 w-4" />
                                                                         <span className="sr-only">
                                                                             {t(
                                                                                 "columns"
@@ -864,8 +864,7 @@ export function DataTable<TData, TValue>({
                                                         cell.column
                                                             .columnDef as any
                                                     ).accessorKey as
-                                                        | string
-                                                        | undefined;
+                                                        string | undefined;
                                                     const stickyClasses =
                                                         getStickyClasses(
                                                             columnId,

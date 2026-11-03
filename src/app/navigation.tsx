@@ -2,6 +2,7 @@ import { SidebarNavItem } from "@app/components/SidebarNav";
 import { Env } from "@app/lib/types/env";
 import { build } from "@server/build";
 import {
+    AppWindow,
     BellRing,
     Bot,
     Boxes,
@@ -14,8 +15,6 @@ import {
     CreditCard,
     Fingerprint,
     Globe,
-    GlobeIcon,
-    GlobeLock,
     KeyRound,
     Laptop,
     LayoutGrid,
@@ -23,6 +22,7 @@ import {
     Logs,
     MessagesSquare,
     MonitorUp,
+    Network,
     Plug,
     ReceiptText,
     Repeat,
@@ -103,23 +103,65 @@ export const orgNavSections = (
             {
                 title: "sidebarSites",
                 href: "/{orgId}/settings/sites",
-                icon: <Plug className="size-4 flex-none" />
+                icon: <Plug className="size-4 flex-none" />,
+                ...(!env?.flags.disableEnterpriseFeatures
+                    ? {
+                          items: [
+                              {
+                                  title: "sidebarAllSites",
+                                  href: "/{orgId}/settings/sites",
+                                  icon: <Plug className="size-4 flex-none" />
+                              },
+                              {
+                                  title: "sidebarProvisioning",
+                                  href: "/{orgId}/settings/provisioning",
+                                  icon: <Boxes className="size-4 flex-none" />
+                              }
+                          ]
+                      }
+                    : {})
             },
             {
-                title: "sidebarResources",
-                icon: <Waypoints className="size-4 flex-none" />,
+                title: "sidebarPublicResources",
+                href: "/{orgId}/settings/resources/public",
+                icon: <AppWindow className="size-4 flex-none" />,
                 items: [
                     {
-                        title: "sidebarProxyResources",
+                        title: "sidebarAllResources",
                         href: "/{orgId}/settings/resources/public",
-                        icon: <Globe className="size-4 flex-none" />
+                        icon: <Waypoints className="size-4 flex-none" />
                     },
+                    ...(!env?.flags.disableEnterpriseFeatures
+                        ? [
+                              {
+                                  title: "sidebarResourceSessions",
+                                  href: "/{orgId}/settings/access/resource-sessions",
+                                  icon: <Cookie className="size-4 flex-none" />
+                              }
+                          ]
+                        : []),
                     {
-                        title: "sidebarClientResources",
-                        href: "/{orgId}/settings/resources/private",
-                        icon: <GlobeLock className="size-4 flex-none" />
-                    }
+                        title: "sidebarShareableLinks",
+                        href: "/{orgId}/settings/share-links",
+                        icon: <LinkIcon className="size-4 flex-none" />
+                    },
+                    ...(!env?.flags.disableEnterpriseFeatures
+                        ? [
+                              {
+                                  title: "sidebarPolicies",
+                                  href: "/{orgId}/settings/policies/resources/public",
+                                  icon: (
+                                      <ShieldIcon className="size-4 flex-none" />
+                                  )
+                              }
+                          ]
+                        : [])
                 ]
+            },
+            {
+                title: "sidebarPrivateResources",
+                href: "/{orgId}/settings/resources/private",
+                icon: <Network className="size-4 flex-none" />
             },
             {
                 title: "sidebarClients",
@@ -134,7 +176,18 @@ export const orgNavSections = (
                         href: "/{orgId}/settings/clients/machine",
                         title: "sidebarMachineClients",
                         icon: <Server className="size-4 flex-none" />
-                    }
+                    },
+                    ...(!env?.flags.disableEnterpriseFeatures
+                        ? [
+                              {
+                                  title: "sidebarApprovals",
+                                  href: "/{orgId}/settings/access/approvals",
+                                  icon: (
+                                      <UserCheck className="size-4 flex-none" />
+                                  )
+                              }
+                          ]
+                        : [])
                 ]
             },
             {
@@ -159,21 +212,17 @@ export const orgNavSections = (
         ]
     },
     {
-        heading: "accessControl",
+        heading: "sidebarTeam",
         items: [
             {
-                title: "sidebarTeam",
-                icon: <Users className="size-4 flex-none" />,
+                title: "sidebarUsers",
+                href: "/{orgId}/settings/access/users",
+                icon: <User className="size-4 flex-none" />,
                 items: [
                     {
-                        title: "sidebarUsers",
+                        title: "sidebarAllOrgUsers",
                         href: "/{orgId}/settings/access/users",
                         icon: <User className="size-4 flex-none" />
-                    },
-                    {
-                        title: "sidebarRoles",
-                        href: "/{orgId}/settings/access/roles",
-                        icon: <Users className="size-4 flex-none" />
                     },
                     {
                         title: "sidebarInvitations",
@@ -182,24 +231,11 @@ export const orgNavSections = (
                     }
                 ]
             },
-            ...(!env?.flags.disableEnterpriseFeatures
-                ? [
-                      {
-                          title: "sidebarPolicies",
-
-                          icon: <ShieldIcon className="size-4 flex-none" />,
-                          items: [
-                              {
-                                  title: "sidebarResourcePolicies",
-                                  href: "/{orgId}/settings/policies/resources/public",
-                                  icon: (
-                                      <GlobeIcon className="size-4 flex-none" />
-                                  )
-                              }
-                          ]
-                      }
-                  ]
-                : []),
+            {
+                title: "sidebarRoles",
+                href: "/{orgId}/settings/access/roles",
+                icon: <Users className="size-4 flex-none" />
+            },
             // PaidFeaturesAlert
             ...(!env?.flags.disableEnterpriseFeatures &&
             (build === "saas" ||
@@ -213,30 +249,7 @@ export const orgNavSections = (
                           icon: <Fingerprint className="size-4 flex-none" />
                       }
                   ]
-                : []),
-            ...(!env?.flags.disableEnterpriseFeatures
-                ? [
-                      {
-                          title: "sidebarApprovals",
-                          href: "/{orgId}/settings/access/approvals",
-                          icon: <UserCheck className="size-4 flex-none" />
-                      }
-                  ]
-                : []),
-            ...(!env?.flags.disableEnterpriseFeatures
-                ? [
-                      {
-                          title: "sidebarResourceSessions",
-                          href: "/{orgId}/settings/access/resource-sessions",
-                          icon: <Cookie className="size-4 flex-none" />
-                      }
-                  ]
-                : []),
-            {
-                title: "sidebarShareableLinks",
-                href: "/{orgId}/settings/share-links",
-                icon: <LinkIcon className="size-4 flex-none" />
-            }
+                : [])
         ]
     },
     {
@@ -251,16 +264,6 @@ export const orgNavSections = (
                 title: "sidebarVirtualApiKeys",
                 href: "/{orgId}/settings/virtual-api-keys",
                 icon: <KeyRound className="size-4 flex-none" />
-            },
-            {
-                title: "sidebarLogsAi",
-                href: "/{orgId}/settings/logs/ai",
-                icon: <MessagesSquare className="size-4 flex-none" />
-            },
-            {
-                title: "sidebarLogsAiUsage",
-                href: "/{orgId}/settings/logs/ai-usage",
-                icon: <Coins className="size-4 flex-none" />
             }
         ]
     },
@@ -268,7 +271,7 @@ export const orgNavSections = (
         heading: "sidebarOrganization",
         items: [
             {
-                title: "sidebarLogsAndAnalytics",
+                title: "sidebarAnalytics",
                 icon: <ChartLine className="size-4 flex-none" />,
                 items: [
                     {
@@ -277,11 +280,27 @@ export const orgNavSections = (
                         icon: <ChartLine className="size-4 flex-none" />
                     },
                     {
+                        title: "sidebarLogsAiUsage",
+                        href: "/{orgId}/settings/logs/ai-usage",
+                        icon: <Coins className="size-4 flex-none" />
+                    }
+                ]
+            },
+            {
+                title: "sidebarLogs",
+                icon: <Logs className="size-4 flex-none" />,
+                items: [
+                    {
                         title: "sidebarLogsRequest",
                         href: "/{orgId}/settings/logs/request",
                         icon: (
                             <SquareMousePointer className="size-4 flex-none" />
                         )
+                    },
+                    {
+                        title: "sidebarLogsAi",
+                        href: "/{orgId}/settings/logs/ai",
+                        icon: <MessagesSquare className="size-4 flex-none" />
                     },
                     ...(!env?.flags.disableEnterpriseFeatures
                         ? [
@@ -328,11 +347,6 @@ export const orgNavSections = (
                                   icon: (
                                       <BellRing className="size-4 flex-none" />
                                   )
-                              },
-                              {
-                                  title: "sidebarProvisioning",
-                                  href: "/{orgId}/settings/provisioning",
-                                  icon: <Boxes className="size-4 flex-none" />
                               }
                           ]
                         : []),
@@ -469,16 +483,48 @@ export const commandBarNavSections = (
                 href: "/{orgId}/settings/sites",
                 icon: <Plug className="size-4 flex-none" />
             },
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "commandProvisioning",
+                          href: "/{orgId}/settings/provisioning",
+                          icon: <Boxes className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             {
                 title: "commandProxyResources",
                 href: "/{orgId}/settings/resources/public",
-                icon: <Globe className="size-4 flex-none" />
+                icon: <AppWindow className="size-4 flex-none" />
             },
             {
                 title: "commandClientResources",
                 href: "/{orgId}/settings/resources/private",
-                icon: <GlobeLock className="size-4 flex-none" />
+                icon: <Network className="size-4 flex-none" />
             },
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "commandResourceSessions",
+                          href: "/{orgId}/settings/access/resource-sessions",
+                          icon: <Cookie className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
+            {
+                title: "commandShareableLinks",
+                href: "/{orgId}/settings/share-links",
+                icon: <LinkIcon className="size-4 flex-none" />
+            },
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "commandResourcePolicies",
+                          href: "/{orgId}/settings/policies/resources/public",
+                          icon: <ShieldIcon className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             {
                 href: "/{orgId}/settings/clients/user",
                 title: "commandUserDevices",
@@ -489,6 +535,15 @@ export const commandBarNavSections = (
                 title: "commandMachineClients",
                 icon: <Server className="size-4 flex-none" />
             },
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "commandApprovals",
+                          href: "/{orgId}/settings/access/approvals",
+                          icon: <UserCog className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             {
                 title: "sidebarRedirects",
                 href: "/{orgId}/settings/redirects",
@@ -506,7 +561,7 @@ export const commandBarNavSections = (
         ]
     },
     {
-        heading: "commandTeam",
+        heading: "sidebarTeam",
         items: [
             {
                 title: "commandUsers",
@@ -514,29 +569,15 @@ export const commandBarNavSections = (
                 icon: <User className="size-4 flex-none" />
             },
             {
+                title: "commandInvitations",
+                href: "/{orgId}/settings/access/invitations",
+                icon: <TicketCheck className="size-4 flex-none" />
+            },
+            {
                 title: "commandRoles",
                 href: "/{orgId}/settings/access/roles",
                 icon: <Users className="size-4 flex-none" />
             },
-            {
-                title: "commandInvitations",
-                href: "/{orgId}/settings/access/invitations",
-                icon: <TicketCheck className="size-4 flex-none" />
-            }
-        ]
-    },
-    {
-        heading: "accessControl",
-        items: [
-            ...(!env?.flags.disableEnterpriseFeatures
-                ? [
-                      {
-                          title: "commandResourcePolicies",
-                          href: "/{orgId}/settings/policies/resources/public",
-                          icon: <ShieldIcon className="size-4 flex-none" />
-                      }
-                  ]
-                : []),
             // PaidFeaturesAlert
             ...((build === "oss" && !env?.flags.disableEnterpriseFeatures) ||
             build === "saas" ||
@@ -549,30 +590,7 @@ export const commandBarNavSections = (
                           icon: <Fingerprint className="size-4 flex-none" />
                       }
                   ]
-                : []),
-            ...(!env?.flags.disableEnterpriseFeatures
-                ? [
-                      {
-                          title: "commandApprovals",
-                          href: "/{orgId}/settings/access/approvals",
-                          icon: <UserCog className="size-4 flex-none" />
-                      }
-                  ]
-                : []),
-            ...(!env?.flags.disableEnterpriseFeatures
-                ? [
-                      {
-                          title: "commandResourceSessions",
-                          href: "/{orgId}/settings/access/resource-sessions",
-                          icon: <Cookie className="size-4 flex-none" />
-                      }
-                  ]
-                : []),
-            {
-                title: "commandShareableLinks",
-                href: "/{orgId}/settings/share-links",
-                icon: <LinkIcon className="size-4 flex-none" />
-            }
+                : [])
         ]
     },
     {
@@ -591,13 +609,23 @@ export const commandBarNavSections = (
         ]
     },
     {
-        heading: "commandLogsAndAnalytics",
+        heading: "sidebarAnalytics",
         items: [
             {
                 title: "commandLogsAnalytics",
                 href: "/{orgId}/settings/logs/analytics",
                 icon: <ChartLine className="size-4 flex-none" />
             },
+            {
+                title: "commandLogsAiUsage",
+                href: "/{orgId}/settings/logs/ai-usage",
+                icon: <Coins className="size-4 flex-none" />
+            }
+        ]
+    },
+    {
+        heading: "sidebarLogs",
+        items: [
             {
                 title: "commandLogsRequest",
                 href: "/{orgId}/settings/logs/request",
@@ -607,11 +635,6 @@ export const commandBarNavSections = (
                 title: "commandLogsAi",
                 href: "/{orgId}/settings/logs/ai",
                 icon: <Bot className="size-4 flex-none" />
-            },
-            {
-                title: "commandLogsAiUsage",
-                href: "/{orgId}/settings/logs/ai-usage",
-                icon: <Coins className="size-4 flex-none" />
             },
             ...(!env?.flags.disableEnterpriseFeatures
                 ? [
@@ -653,11 +676,6 @@ export const commandBarNavSections = (
                           title: "commandAlerting",
                           href: "/{orgId}/settings/alerting",
                           icon: <BellRing className="size-4 flex-none" />
-                      },
-                      {
-                          title: "commandProvisioning",
-                          href: "/{orgId}/settings/provisioning",
-                          icon: <Boxes className="size-4 flex-none" />
                       }
                   ]
                 : []),
