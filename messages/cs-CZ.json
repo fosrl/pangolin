@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Zajišťovací klíč byl aktualizován",
     "provisioningKeysUpdatedDescription": "Vaše změny byly uloženy.",
     "provisioningKeysBannerTitle": "Klíče pro poskytování webu",
-    "provisioningKeysBannerDescription": "Vygenerujte klíč pro zřízení a použijte ho s Newt konektorem k automatickému vytvoření stránek při prvním spuštění – není potřeba nastavit samostatné přihlašovací údaje pro každou stránku.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Zjistit více",
     "pendingSitesBannerTitle": "Nevyřízené weby",
     "pendingSitesBannerDescription": "Stránky, které se připojují pomocí klíče pro zřízení, se zde objeví ke kontrole.",
