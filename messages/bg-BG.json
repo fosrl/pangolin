@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Ключът за осигуряване е актуализиран",
     "provisioningKeysUpdatedDescription": "Вашите промени бяха запазени.",
     "provisioningKeysBannerTitle": "Ключове за осигуряване на сайта",
-    "provisioningKeysBannerDescription": "Генерирайте ключ за осигуряване и го използвайте със съединителя Newt за автоматично създаване на сайтове при първоначално стартиране - не е необходимо да се създават отделни идентификационни данни за всеки сайт.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Научете повече",
     "pendingSitesBannerTitle": "Чакащи сайтове",
     "pendingSitesBannerDescription": "Сайтовете, които се свързват с ключ за осигуряване, ще се появят тук за преглед.",
