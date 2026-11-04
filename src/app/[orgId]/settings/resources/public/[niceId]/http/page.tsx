@@ -7,6 +7,7 @@ import {
     type DescribedSelectOption
 } from "@app/components/DescribedSelect";
 import { HeadersInput } from "@app/components/HeadersInput";
+import UpstreamCaSettings from "@app/components/UpstreamCaSettings";
 import {
     SettingsContainer,
     SettingsFormCell,
@@ -82,6 +83,10 @@ export default function ReverseProxyTargetsPage() {
                     updateResource={updateResource}
                 />
             )}
+
+            {resource.mode === "http" && (
+                <UpstreamCaSettings resourceId={resource.resourceId} />
+            )}
         </SettingsContainer>
     );
 }
@@ -113,6 +118,7 @@ function ProxyResourceHttpForm({
                     message: t("proxyErrorTls")
                 }
             ),
+        verifyUpstreamTls: z.boolean(),
         setHostHeader: z
             .string()
             .optional()
@@ -143,6 +149,7 @@ function ProxyResourceHttpForm({
             loadBalancingStrategy: resource.loadBalancingStrategy,
             ssl: resource.ssl,
             tlsServerName: resource.tlsServerName || "",
+            verifyUpstreamTls: resource.verifyUpstreamTls ?? false,
             setHostHeader: resource.setHostHeader || "",
             forwardIdentityHeaders: resource.forwardIdentityHeaders,
             requestHeaders: resource.requestHeaders,
@@ -184,7 +191,8 @@ function ProxyResourceHttpForm({
                     stickySession: data.stickySession,
                     loadBalancingStrategy: data.loadBalancingStrategy,
                     ssl: data.ssl,
-                    tlsServerName: data.tlsServerName || null,
+                    tlsServerName: data.tlsServerName?.trim() || null,
+                    verifyUpstreamTls: data.verifyUpstreamTls,
                     setHostHeader: data.setHostHeader || null,
                     forwardIdentityHeaders: data.forwardIdentityHeaders,
                     requestHeaders: data.requestHeaders || null,
@@ -208,7 +216,8 @@ function ProxyResourceHttpForm({
                 stickySession: data.stickySession,
                 loadBalancingStrategy: data.loadBalancingStrategy,
                 ssl: data.ssl,
-                tlsServerName: data.tlsServerName || null,
+                tlsServerName: data.tlsServerName?.trim() || null,
+                verifyUpstreamTls: data.verifyUpstreamTls,
                 setHostHeader: data.setHostHeader || null,
                 forwardIdentityHeaders: data.forwardIdentityHeaders,
                 requestHeaders: data.requestHeaders || null,
@@ -319,6 +328,26 @@ function ProxyResourceHttpForm({
                                                     )}
                                                 </FormDescription>
                                                 <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </SettingsFormCell>
+
+                                <SettingsFormCell span="half">
+                                    <FormField
+                                        control={form.control}
+                                        name="verifyUpstreamTls"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <SwitchInput
+                                                        id="verify-upstream-tls-toggle"
+                                                        label={t("verifyUpstreamTls")}
+                                                        description={t("verifyUpstreamTlsDescription")}
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
                                             </FormItem>
                                         )}
                                     />
