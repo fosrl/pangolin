@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "置备密钥已更新",
     "provisioningKeysUpdatedDescription": "您的更改已保存。",
     "provisioningKeysBannerTitle": "站点预配密钥",
-    "provisioningKeysBannerDescription": "生成预配密钥，并将其与 Newt 连接器配合使用，即可在首次启动时自动创建站点，无需为每个站点单独配置凭据。",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "了解更多",
     "pendingSitesBannerTitle": "待审批站点",
     "pendingSitesBannerDescription": "使用预配密钥连接的网站会在这里以供审核。",
