@@ -1,10 +1,14 @@
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import type { ClientRow } from "@app/components/UserDevicesTable";
 import UserDevicesTable from "@app/components/UserDevicesTable";
+import type { SelectedUser } from "@app/components/user-selector";
+import { getUserDisplayName } from "@app/lib/getUserDisplayName";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { type ListUserDevicesResponse } from "@server/routers/client";
+import type { GetOrgUserResponse } from "@server/routers/user";
 import type { Pagination } from "@server/types/Pagination";
+import type ResponseT from "@server/types/Response";
 import { AxiosResponse } from "axios";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
@@ -34,12 +38,14 @@ export default async function ClientsPage(props: ClientsPageProps) {
         pageSize: 20
     };
 
+    const header = await authCookieHeader();
+
     try {
         const userRes = await internal.get<
             AxiosResponse<ListUserDevicesResponse>
         >(
             `/org/${params.orgId}/user-devices?${searchParams.toString()}`,
-            await authCookieHeader()
+            header
         );
         const responseData = userRes.data.data;
         userClients = responseData.devices;
@@ -113,6 +119,30 @@ export default async function ClientsPage(props: ClientsPageProps) {
 
     const userClientRows: ClientRow[] = userClients.map(mapClientToRow);
 
+    const userIdParam = searchParams.get("userId");
+    let initialFilterUser: SelectedUser | null = null;
+    if (userIdParam) {
+        try {
+            const userRes = await internal.get(
+                `/org/${params.orgId}/user/${encodeURIComponent(userIdParam)}`,
+                header
+            );
+            const user = (userRes.data as ResponseT<GetOrgUserResponse>).data;
+            if (user) {
+                initialFilterUser = {
+                    id: userIdParam,
+                    text: getUserDisplayName({
+                        email: user.email,
+                        name: user.name,
+                        username: user.username
+                    })
+                };
+            }
+        } catch {
+            // leave null so the table falls back to the id
+        }
+    }
+
     return (
         <>
             <SettingsSectionTitle
@@ -128,6 +158,7 @@ export default async function ClientsPage(props: ClientsPageProps) {
                     pageIndex: pagination.page - 1,
                     pageSize: pagination.pageSize
                 }}
+                initialFilterUser={initialFilterUser}
             />
         </>
     );

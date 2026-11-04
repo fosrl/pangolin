@@ -37,8 +37,10 @@ import { FaApple, FaWindows, FaLinux } from "react-icons/fa";
 import { SiAndroid } from "react-icons/si";
 import { useDebouncedCallback } from "use-debounce";
 import ClientDownloadBanner from "./ClientDownloadBanner";
+import { ColumnEntityFilter } from "./ColumnEntityFilter";
 import { ColumnFilterButton } from "./ColumnFilterButton";
 import IdpTypeBadge from "./IdpTypeBadge";
+import { UserSelector, type SelectedUser } from "./user-selector";
 import { Badge } from "./ui/badge";
 import { ControlledDataTable } from "./ui/controlled-data-table";
 import {
@@ -124,12 +126,15 @@ type ClientTableProps = {
     orgId: string;
     pagination: PaginationState;
     rowCount: number;
+    initialFilterUser?: SelectedUser | null;
 };
 
 export default function UserDevicesTable({
     userClients,
+    orgId,
     pagination,
-    rowCount
+    rowCount,
+    initialFilterUser = null
 }: ClientTableProps) {
     const router = useRouter();
     const t = useTranslations();
@@ -138,6 +143,7 @@ export default function UserDevicesTable({
     const [selectedClient, setSelectedClient] = useState<ClientRow | null>(
         null
     );
+    const [userFilterOpen, setUserFilterOpen] = useState(false);
 
     const api = createApiClient(useEnvContext());
     const {
@@ -149,6 +155,17 @@ export default function UserDevicesTable({
     const data = useQuery(productUpdatesQueries.latestVersion(true));
 
     const latestPlatformVersions = data.data?.data;
+
+    const userIdQ = searchParams.get("userId");
+    const selectedUser: SelectedUser | null = useMemo(() => {
+        if (!userIdQ) {
+            return null;
+        }
+        if (initialFilterUser && initialFilterUser.id === userIdQ) {
+            return initialFilterUser;
+        }
+        return { id: userIdQ, text: userIdQ };
+    }, [initialFilterUser, userIdQ]);
 
     const defaultUserColumnVisibility = {
         subnet: false,
@@ -360,6 +377,45 @@ export default function UserDevicesTable({
         return userClients.some((client) => !client.userId);
     }, [userClients]);
 
+    function handleFilterChange(
+        column: string,
+        value: string | null | undefined | string[]
+    ) {
+        searchParams.delete(column);
+        searchParams.delete("page");
+
+        if (typeof value === "string") {
+            searchParams.set(column, value);
+        } else if (value) {
+            for (const val of value) {
+                searchParams.append(column, val);
+            }
+        }
+
+        filter({
+            searchParams
+        });
+    }
+
+    function selectUser(user: SelectedUser | null) {
+        searchParams.delete("page");
+        if (user?.id) {
+            searchParams.set("userId", user.id);
+        } else {
+            searchParams.delete("userId");
+        }
+        filter({ searchParams });
+        setUserFilterOpen(false);
+    }
+
+    function toggleSort(column: string) {
+        const newSearch = getNextSortOrder(column, searchParams);
+
+        filter({
+            searchParams: newSearch
+        });
+    }
+
     const columns: ExtendedColumnDef<ClientRow>[] = useMemo(() => {
         const baseColumns: ExtendedColumnDef<ClientRow>[] = [
             {
@@ -410,7 +466,25 @@ export default function UserDevicesTable({
             {
                 accessorKey: "userEmail",
                 friendlyName: t("users"),
-                header: () => <span className="px-3">{t("users")}</span>,
+                header: () => (
+                    <ColumnEntityFilter
+                        label={t("users")}
+                        open={userFilterOpen}
+                        onOpenChange={setUserFilterOpen}
+                        selectedName={selectedUser?.text}
+                        clearLabel={t("resourceSessionsFilterAnyUser")}
+                        onClear={() => {
+                            selectUser(null);
+                        }}
+                    >
+                        <UserSelector
+                            orgId={orgId}
+                            selectedUser={selectedUser}
+                            allowClear={false}
+                            onSelectUser={selectUser}
+                        />
+                    </ColumnEntityFilter>
+                ),
                 cell: ({ row }) => {
                     const r = row.original;
                     return r.userId ? (
@@ -818,7 +892,15 @@ export default function UserDevicesTable({
         });
 
         return baseColumns;
-    }, [hasRowsWithoutUserId, t, getSortDirection, toggleSort]);
+    }, [
+        hasRowsWithoutUserId,
+        t,
+        getSortDirection,
+        toggleSort,
+        orgId,
+        userFilterOpen,
+        selectedUser
+    ]);
 
     const statusFilterOptions = useMemo(() => {
         const allOptions = [
@@ -858,34 +940,6 @@ export default function UserDevicesTable({
 
         return allOptions;
     }, [t, latestPlatformVersions]);
-
-    function handleFilterChange(
-        column: string,
-        value: string | null | undefined | string[]
-    ) {
-        searchParams.delete(column);
-        searchParams.delete("page");
-
-        if (typeof value === "string") {
-            searchParams.set(column, value);
-        } else if (value) {
-            for (const val of value) {
-                searchParams.append(column, val);
-            }
-        }
-
-        filter({
-            searchParams
-        });
-    }
-
-    function toggleSort(column: string) {
-        const newSearch = getNextSortOrder(column, searchParams);
-
-        filter({
-            searchParams: newSearch
-        });
-    }
 
     const handlePaginationChange = (newPage: PaginationState) => {
         searchParams.set("page", (newPage.pageIndex + 1).toString());
