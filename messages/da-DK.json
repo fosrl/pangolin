@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Foreslå nøgle opdateret",
     "provisioningKeysUpdatedDescription": "Dine ændringer er gemt.",
     "provisioningKeysBannerTitle": "Provisioneringsnøgler til sites",
-    "provisioningKeysBannerDescription": "Generér en provisioneringsnøgle, og brug den med Newt-connectoren til automatisk oprettelse af sites ved første opstart — uden behov for separate legitimationsoplysninger til hvert site.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Læs mere",
     "pendingSitesBannerTitle": "Ventende sites",
     "pendingSitesBannerDescription": "Sites som opretter forbindelse ved brug af en provisioneringsnøgle vises her for vurdering.",
