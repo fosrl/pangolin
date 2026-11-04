@@ -867,7 +867,7 @@
     "targetNoOneDescription": "Adding more than one target above will enable load balancing.",
     "targetsSubmit": "Save Settings",
     "addTarget": "Add Target",
-    "proxyMultiSiteRoundRobinNodeHelp": "Round robin routing will not work between sites that are not connected to the same node, but failover will work.",
+    "proxyMultiSiteRoundRobinNodeHelp": "Load balancing strategy will not work between sites that are not connected to the same node, but failover will work.",
     "targetErrorInvalidIp": "Invalid IP address",
     "targetErrorInvalidIpDescription": "Please enter a valid IP address or hostname",
     "targetErrorInvalidPort": "Invalid port",
