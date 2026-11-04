@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "프로비저닝 키가 업데이트되었습니다",
     "provisioningKeysUpdatedDescription": "변경 사항이 저장되었습니다.",
     "provisioningKeysBannerTitle": "사이트 프로비저닝 키",
-    "provisioningKeysBannerDescription": "프로비저닝 키를 생성하고 Newt 커넥터와 함께 사용하여 첫 시작 시 사이트를 자동 생성 - 각 사이트에 대한 별도 자격 증명이 필요 없습니다.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "자세히 알아보기",
     "pendingSitesBannerTitle": "대기중인 사이트",
     "pendingSitesBannerDescription": "프로비저닝 키를 사용하여 연결된 사이트가 검토를 위해 여기에 표시됩니다.",
