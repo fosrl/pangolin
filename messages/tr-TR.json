@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Tedarik anahtarı güncellendi",
     "provisioningKeysUpdatedDescription": "Değişiklikleriniz kaydedildi.",
     "provisioningKeysBannerTitle": "Site Tedarik Anahtarları",
-    "provisioningKeysBannerDescription": "Bir sağlama anahtarı oluşturun ve ilk başlangıçta siteleri otomatik olarak oluşturmak için Newt bağlayıcısını kullanın - her site için ayrı kimlik bilgileri ayarlamaya gerek yok.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Daha fazla bilgi",
     "pendingSitesBannerTitle": "Bekleyen Siteler",
     "pendingSitesBannerDescription": "Bir sağlama anahtarı kullanarak bağlanan siteler, inceleme için burada görünür.",
