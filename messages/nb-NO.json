@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Foreslå nøkkel oppdatert",
     "provisioningKeysUpdatedDescription": "Dine endringer er lagret.",
     "provisioningKeysBannerTitle": "Sidens bestemmende nøkler",
-    "provisioningKeysBannerDescription": "Generer en provisjonsnøkkel og bruk den med Newt-kontakten for automatisk opprettelse av nettsteder ved første oppstart - ingen behov for å sette opp separate legitimasjoner for hvert nettsted.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Lær mer",
     "pendingSitesBannerTitle": "Ventende nettsteder",
     "pendingSitesBannerDescription": "Nettsteder som kobler seg til ved bruk av en provisjonsnøkkel vises her for vurdering.",
