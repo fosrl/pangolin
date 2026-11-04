@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Klucz zaopatrzenia zaktualizowany",
     "provisioningKeysUpdatedDescription": "Twoje zmiany zostały zapisane.",
     "provisioningKeysBannerTitle": "Klucze Zaopatrzenia witryny",
-    "provisioningKeysBannerDescription": "Wygeneruj klucz provisioning i użyj go z konektorem Newt do automatycznego tworzenia witryn przy pierwszym uruchomieniu - nie ma potrzeby konfigurowania oddzielnych poświadczeń dla każdej witryny.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Dowiedz się więcej",
     "pendingSitesBannerTitle": "Witryny oczekujące",
     "pendingSitesBannerDescription": "Witryny, które łączą się za pomocą klucza provisioning, pojawią się tutaj do przeglądu.",
