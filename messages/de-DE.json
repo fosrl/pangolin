@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Bereitstellungsschlüssel aktualisiert",
     "provisioningKeysUpdatedDescription": "Ihre Änderungen wurden gespeichert.",
     "provisioningKeysBannerTitle": "Website-Bereitstellungsschlüssel",
-    "provisioningKeysBannerDescription": "Generieren Sie einen Bereitstellungsschlüssel und verwenden Sie ihn mit dem Newt-Connector, um Standorte beim ersten Start automatisch zu erstellen - keine Notwendigkeit, separate Anmeldedaten für jede Seite einzurichten.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Mehr erfahren",
     "pendingSitesBannerTitle": "Ausstehende Standorte",
     "pendingSitesBannerDescription": "Standorte, die mit einem Bereitstellungsschlüssel verbunden sind, erscheinen hier zur Überprüfung.",
