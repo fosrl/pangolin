@@ -29,3 +29,13 @@ Before writing any router/handler/middleware code for a new entity, read
 Follow that doc's checklist (§8) step by step rather than improvising a
 structure. If the doc and the actual code in `aiProvider`/`alertRule` ever
 disagree, trust the code and flag the doc as stale.
+
+Also:
+- If the entity is a public or private resource, load the `resource-changes`
+  skill. Its integration routes need `public-resource` / `private-resource`
+  aliases, and its create/update fields have to be mirrored in the blueprint.
+- If the entity is enterprise-only (`server/private/`) or needs a `#dynamic`
+  stub, load the `enterprise-private-code` skill.
+- New tables or columns: load the `db-schema-change` skill (SQLite + Postgres
+  parity, encrypting secrets).
+- Any UI for the entity: load the `dashboard-ui` skill.
