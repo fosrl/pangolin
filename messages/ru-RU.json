@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Ключ подготовки обновлен",
     "provisioningKeysUpdatedDescription": "Ваши изменения были сохранены.",
     "provisioningKeysBannerTitle": "Ключи подготовки сайта",
-    "provisioningKeysBannerDescription": "Создайте ключ настройки и используйте его с соединителем Newt для автоматического создания сайтов при первом запуске - нет необходимости настраивать отдельные учетные данные для каждого сайта.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Узнать больше",
     "pendingSitesBannerTitle": "Ожидающие сайты",
     "pendingSitesBannerDescription": "Сайты, подключающиеся с помощью ключа настройки, отображаются здесь для проверки.",
