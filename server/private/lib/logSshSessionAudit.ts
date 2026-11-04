@@ -47,23 +47,50 @@ export interface SshSessionLogRecord {
 /**
  * Persist one batch entry for an SSH session. Newt reports long-running
  * sessions once per flush with only the commands recorded since the last
- * flush, so the session row is upserted on (siteId, sessionId): the end time
- * is filled in once known and the command count accumulates.
+ * flush, so the session row is upserted: the end time is filled in once known
+ * and the command count accumulates.
+ *
+ * This is update-then-insert rather than ON CONFLICT (...) DO UPDATE because
+ * the unique index differs by deployment: (siteId, sessionId) on a plain
+ * table, (siteId, sessionId, startedAt) where the table is partitioned by
+ * startedAt. An ON CONFLICT target has to match an index exactly, whereas a
+ * target-less DO NOTHING works against either. startedAt is fixed for the
+ * life of a session, and filtering on it lets Postgres prune partitions.
  */
 export async function logSshSession(record: SshSessionLogRecord) {
     const { commands, ...session } = record;
 
-    const [row] = await logsDb
-        .insert(sshSessionLog)
-        .values({ ...session, commandCount: commands.length })
-        .onConflictDoUpdate({
-            target: [sshSessionLog.siteId, sshSessionLog.sessionId],
-            set: {
-                endedAt: sql`coalesce(excluded."endedAt", ${sshSessionLog.endedAt})`,
-                commandCount: sql`${sshSessionLog.commandCount} + excluded."commandCount"`
-            }
-        })
-        .returning({ id: sshSessionLog.id });
+    const updateExisting = () =>
+        logsDb
+            .update(sshSessionLog)
+            .set({
+                endedAt: sql`coalesce(${session.endedAt}, ${sshSessionLog.endedAt})`,
+                commandCount: sql`${sshSessionLog.commandCount} + ${commands.length}`
+            })
+            .where(
+                and(
+                    eq(sshSessionLog.siteId, session.siteId),
+                    eq(sshSessionLog.sessionId, session.sessionId),
+                    eq(sshSessionLog.startedAt, session.startedAt)
+                )
+            )
+            .returning({ id: sshSessionLog.id });
+
+    let [row] = await updateExisting();
+
+    if (!row) {
+        [row] = await logsDb
+            .insert(sshSessionLog)
+            .values({ ...session, commandCount: commands.length })
+            .onConflictDoNothing()
+            .returning({ id: sshSessionLog.id });
+    }
+
+    if (!row) {
+        // A concurrent flush inserted the session between our update and
+        // insert; apply this batch on top of it.
+        [row] = await updateExisting();
+    }
 
     if (!row || commands.length === 0) {
         return;
