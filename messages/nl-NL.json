@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Provisie sleutel bijgewerkt",
     "provisioningKeysUpdatedDescription": "Uw wijzigingen zijn opgeslagen.",
     "provisioningKeysBannerTitle": "Bewerkingssleutels voor websites",
-    "provisioningKeysBannerDescription": "Genereer een inrichtingssleutel en gebruik deze met de Newt-connector om automatisch sites te maken bij de eerste opstart - er is geen behoefte om aparte inloggegevens voor elke site in te stellen.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Meer informatie",
     "pendingSitesBannerTitle": "Openstaande sites",
     "pendingSitesBannerDescription": "Sites die verbinding maken met een inrichtingssleutel verschijnen hier voor beoordeling.",
