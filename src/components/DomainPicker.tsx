@@ -26,7 +26,6 @@ import { createApiClient } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import {
     finalizeSubdomainSanitize,
-    isValidSubdomainStructure,
     isWildcardSubdomain,
     sanitizeInputRaw,
     validateByDomainType
@@ -569,17 +568,6 @@ export default function DomainPicker({
                             }
                         }}
                     />
-                    {showSubdomainInput &&
-                        subdomainInput &&
-                        !isValidSubdomainStructure(
-                            subdomainInput,
-                            wildcardAllowed &&
-                                isWildcardSubdomain(subdomainInput)
-                        ) && (
-                            <p className="text-sm text-red-500">
-                                {t("domainPickerInvalidSubdomainStructure")}
-                            </p>
-                        )}
                     {allowWildcard &&
                         !wildcardAllowed &&
                         showSubdomainInput &&

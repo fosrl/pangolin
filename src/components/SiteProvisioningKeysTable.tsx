@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import {
     DataTable,
     ExtendedColumnDef
@@ -22,7 +23,6 @@ import { formatAxiosError } from "@app/lib/api";
 import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import moment from "moment";
 import { useTranslations } from "next-intl";
 import { build } from "@server/build";
 import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -176,7 +176,7 @@ export default function SiteProvisioningKeysTable({
                 return (
                     <span>
                         {r.validUntil
-                            ? moment(r.validUntil).format("lll")
+                            ? <Timestamp value={r.validUntil} />
                             : t("provisioningKeysNoExpiry")}
                     </span>
                 );
@@ -193,7 +193,7 @@ export default function SiteProvisioningKeysTable({
                 return (
                     <span>
                         {r.lastUsed
-                            ? moment(r.lastUsed).format("lll")
+                            ? <Timestamp value={r.lastUsed} />
                             : t("provisioningKeysNeverUsed")}
                     </span>
                 );
@@ -205,7 +205,7 @@ export default function SiteProvisioningKeysTable({
             header: () => <span className="p-3">{t("createdAt")}</span>,
             cell: ({ row }) => {
                 const r = row.original;
-                return <span>{moment(r.createdAt).format("lll")}</span>;
+                return <span><Timestamp value={r.createdAt} /></span>;
             }
         },
         {

@@ -20,6 +20,7 @@ import {
     db,
     domainNamespaces,
     domains,
+    exitNodeOrgs,
     exitNodes,
     loginPage,
     redirects,
@@ -414,6 +415,9 @@ export async function getTraefikConfig(
     // queried separately and emitted on every exit node. A redirect listens
     // either on a resource's fullDomain or on subdomain.baseDomain of a
     // domain; the domain join resolves to whichever one applies.
+    // Remote exit nodes belong to specific orgs, so only emit the redirects
+    // of those orgs - otherwise every other org's redirect hosts leak to them.
+    const isRemoteExitNode = exitNode?.type === "remoteExitNode";
     const redirectRows = await db
         .select({
             name: redirects.name,
@@ -459,7 +463,16 @@ export async function getTraefikConfig(
                         eq(resources.enabled, true),
                         not(isNull(resources.domainId))
                     )
-                )
+                ),
+                isRemoteExitNode
+                    ? inArray(
+                          redirects.orgId,
+                          db
+                              .select({ orgId: exitNodeOrgs.orgId })
+                              .from(exitNodeOrgs)
+                              .where(eq(exitNodeOrgs.exitNodeId, exitNodeId))
+                      )
+                    : undefined
             )
         )
         .orderBy(desc(redirects.priority), redirects.redirectId); // stable ordering

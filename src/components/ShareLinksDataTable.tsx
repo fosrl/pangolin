@@ -34,7 +34,7 @@ export function ShareLinksDataTable<TData, TValue>({
             isRefreshing={isRefreshing}
             addButtonText={t("shareCreate")}
             enableColumnVisibility={true}
-            stickyLeftColumn="resourceName"
+            stickyLeftColumn="title"
             stickyRightColumn="delete"
         />
     );

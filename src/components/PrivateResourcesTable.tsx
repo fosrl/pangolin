@@ -390,7 +390,11 @@ export default function PrivateResourcesTable({
                         inference: t("editInternalResourceDialogModeInference"),
                         gateway: t("editInternalResourceDialogModeGateway")
                     };
-                    return <span>{modeLabels[resourceRow.mode]}</span>;
+                    return (
+                        <Badge variant="secondary">
+                            {modeLabels[resourceRow.mode]}
+                        </Badge>
+                    );
                 }
             },
             {
@@ -702,9 +706,7 @@ export default function PrivateResourcesTable({
                         }
                     }}
                     endpoint={`/site-resource/${exportResource.id}/blueprint`}
-                    resourceName={
-                        exportResource.niceId || exportResource.name
-                    }
+                    resourceName={exportResource.niceId || exportResource.name}
                 />
             )}
 

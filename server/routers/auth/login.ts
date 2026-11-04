@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import {
     createSession,
     generateSessionToken,
@@ -245,7 +246,11 @@ export async function login(
         }
 
         const token = generateSessionToken();
-        const sess = await createSession(token, existingUser.userId);
+        const sess = await createSession(
+            token,
+            existingUser.userId,
+            getRequestClientInfo(req)
+        );
         const isSecure = req.protocol === "https";
         const cookie = serializeSessionCookie(
             token,

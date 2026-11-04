@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
-import { clearIdpSessionGrants } from "@server/auth/sessions/idpRevalidation";
+import { clearIdpSessionGrants } from "#dynamic/auth/sessions/idpRevalidation";
 
 const paramsSchema = z
     .object({

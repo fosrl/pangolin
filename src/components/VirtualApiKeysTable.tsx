@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { VirtualApiKeysDataTable } from "@app/components/VirtualApiKeysDataTable";
 import {
@@ -16,7 +17,6 @@ import {
     PopoverTrigger
 } from "@app/components/ui/popover";
 import {
-    ArrowRight,
     ArrowUpDown,
     ArrowUpRight,
     Funnel,
@@ -29,7 +29,6 @@ import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { formatAxiosError, createApiClient } from "@app/lib/api";
 import { toast } from "@app/hooks/useToast";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import moment from "moment";
 import CreateVirtualApiKeyForm, {
     type CreatedVirtualApiKey
 } from "@app/components/CreateVirtualApiKeyForm";
@@ -374,7 +373,7 @@ export default function VirtualApiKeysTable({
                     </Button>
                 );
             },
-            cell: ({ row }) => moment(row.original.createdAt).format("lll")
+            cell: ({ row }) => <Timestamp value={row.original.createdAt} />
         },
         {
             id: "actions",

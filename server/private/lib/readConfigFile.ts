@@ -46,7 +46,13 @@ export const privateConfigSchema = z
                 fossorial_api_key: z
                     .string()
                     .optional()
-                    .transform(getEnvOrYaml("FOSSORIAL_API_KEY"))
+                    .transform(getEnvOrYaml("FOSSORIAL_API_KEY")),
+                idp_session_revalidation_minutes: z
+                    .number()
+                    .positive()
+                    .gt(0)
+                    .optional()
+                    .default(5)
             })
             .prefault({}),
         redis: z

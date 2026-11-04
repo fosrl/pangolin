@@ -326,9 +326,7 @@ export default function PendingSitesTable({
                                 <div className="flex items-center space-x-1">
                                     <span>{isCli ? "CLI" : "Newt"}</span>
                                     {originalRow.agentVersion && (
-                                        <span>
-                                            v{originalRow.agentVersion}
-                                        </span>
+                                        <span>v{originalRow.agentVersion}</span>
                                     )}
                                 </div>
                             </Badge>

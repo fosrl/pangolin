@@ -17,6 +17,7 @@ import { Tier } from "@server/types/Tiers";
 import logger from "@server/logger";
 import {
     db,
+    idp,
     idpOrg,
     loginPage,
     loginPageBranding,
@@ -36,6 +37,7 @@ import {
     orgDomains
 } from "@server/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { clearIdpSessionGrants } from "#private/auth/sessions/idpRevalidation";
 
 /**
  * Get the maximum allowed retention days for a given tier
@@ -334,6 +336,10 @@ async function disableFeature(
 
             case TierFeature.AutoProvisioning:
                 await disableAutoProvisioning(orgId);
+                break;
+
+            case TierFeature.SessionRevalidation:
+                await disableSessionRevalidation(orgId);
                 break;
 
             case TierFeature.FullRbac:
@@ -644,4 +650,21 @@ async function disableAutoProvisioning(orgId: string): Promise<void> {
         .update(idpOrg)
         .set({ autoProvision: false })
         .where(eq(idpOrg.orgId, orgId));
+}
+
+async function disableSessionRevalidation(orgId: string): Promise<void> {
+    const linkedIdps = await db
+        .select({ idpId: idpOrg.idpId })
+        .from(idpOrg)
+        .where(eq(idpOrg.orgId, orgId));
+
+    for (const { idpId } of linkedIdps) {
+        await db
+            .update(idp)
+            .set({ sessionRevalidation: false })
+            .where(eq(idp.idpId, idpId));
+        await clearIdpSessionGrants(idpId);
+    }
+
+    logger.info(`Disabled session revalidation for org ${orgId}`);
 }

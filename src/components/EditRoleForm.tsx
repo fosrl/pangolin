@@ -141,6 +141,9 @@ export default function EditRoleForm({
                     />
                 </CredenzaBody>
                 <CredenzaFooter>
+                    <span className="self-center text-xs text-muted-foreground font-mono sm:mr-auto">
+                        ID: {role.roleId}
+                    </span>
                     <CredenzaClose asChild>
                         <Button variant="outline">{t("close")}</Button>
                     </CredenzaClose>

@@ -24,11 +24,19 @@ export type ResourceSessionItem = {
         username: string;
         name: string | null;
         email: string | null;
+        type: string;
+        idpName: string | null;
+        idpVariant: string | null;
     } | null;
     // Set for email whitelist sessions, which have no user record
     email: string | null;
     accessTokenId: string | null;
     accessTokenTitle: string | null;
+    // Client details captured when the session was created
+    ip: string | null;
+    userAgent: string | null;
+    countryCode: string | null;
+    asn: number | null;
 };
 
 export type ListResourceSessionsResponse = PaginatedResponse<{

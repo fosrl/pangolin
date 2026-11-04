@@ -123,6 +123,10 @@ const listUserDevicesSchema = z.strictObject({
             description:
                 "Filter by agent type. Use 'unknown' to filter clients with no agent detected."
         }),
+    userId: z.string().nonempty().optional().catch(undefined).openapi({
+        type: "string",
+        description: "Filter by user ID"
+    }),
     status: z.preprocess(
         (val: string | undefined) => {
             if (val) {
@@ -249,8 +253,17 @@ export async function listUserDevices(
                 )
             );
         }
-        const { page, pageSize, query, sort_by, online, status, agent, order } =
-            parsedQuery.data;
+        const {
+            page,
+            pageSize,
+            query,
+            sort_by,
+            online,
+            status,
+            agent,
+            userId,
+            order
+        } = parsedQuery.data;
 
         const parsedParams = listUserDevicesParamsSchema.safeParse(req.params);
         if (!parsedParams.success) {
@@ -329,6 +342,10 @@ export async function listUserDevices(
 
         if (typeof online !== "undefined") {
             conditions.push(eq(clients.online, online));
+        }
+
+        if (typeof userId !== "undefined") {
+            conditions.push(eq(clients.userId, userId));
         }
 
         const agentValueMap = {

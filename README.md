@@ -111,6 +111,7 @@ Access private resources like SSH servers, databases, RDP, and entire network ra
 * Private HTTPS resources only accessible on the private network
 
 <img src="public/screenshots/private-resources.png" alt="Private resources" width="100%" />
+<img src="public/screenshots/user-devices.png" alt="User devices" width="100%" />
 
 ### Identity-aware AI gateway
 
@@ -123,7 +124,8 @@ Put an identity-aware proxy in front of public cloud (OpenAI, Anthropic, Gemini,
 * Audit with detailed session history and analytics
 * Integrate AI clients and coding agents (Claude Code, Codex, OpenCode, etc)
 
-<img src="public/screenshots/expanded-session-logs.png" alt="AI Session Logs" width="100%" />
+<img src="public/screenshots/ai-providers.png" alt="AI Providers" width="100%" />
+<img src="public/screenshots/ai-gateway-session-logs.png" alt="AI Session Logs" width="100%" />
 
 ### Give users and roles access to resources
 

@@ -1037,7 +1037,12 @@ export const sessions = sqliteTable(
         issuedAt: integer("issuedAt"),
         deviceAuthUsed: integer("deviceAuthUsed", { mode: "boolean" })
             .notNull()
-            .default(false)
+            .default(false),
+        // Client details captured when the session was created
+        ip: text("ip"),
+        userAgent: text("userAgent"),
+        countryCode: text("countryCode"),
+        asn: integer("asn")
     },
     (table) => [index("idx_sessions_userId").on(table.userId)]
 );
@@ -1468,7 +1473,12 @@ export const resourceSessions = sqliteTable("resourceSessions", {
     issuedAt: integer("issuedAt"),
     // Id of the short-lived request token this session was exchanged from.
     // Login audit logs reference that id, so this links them to the session.
-    requestSessionId: text("requestSessionId")
+    requestSessionId: text("requestSessionId"),
+    // Client details captured when the session was created
+    ip: text("ip"),
+    userAgent: text("userAgent"),
+    countryCode: text("countryCode"),
+    asn: integer("asn")
 });
 
 export const resourceWhitelist = sqliteTable("resourceWhitelist", {

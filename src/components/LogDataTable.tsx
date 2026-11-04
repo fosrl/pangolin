@@ -6,12 +6,13 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@/components/ui/table";
 import { DataTablePagination } from "@app/components/DataTablePagination";
 import { DateRangePicker, DateTimeValue } from "@app/components/DateTimePicker";
 import { Button } from "@app/components/ui/button";
-import { Card, CardContent, CardHeader } from "@app/components/ui/card";
+import { DataTableEmptyState } from "@/components/ui/data-table-empty-state";
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -244,7 +245,9 @@ export function LogDataTable<TData, TValue>({
                     </Button>
                 );
             },
-            size: 40
+            size: 40,
+            minSize: 40,
+            maxSize: 40
         };
 
         return [expansionColumn, ...columns];
@@ -368,11 +371,10 @@ export function LogDataTable<TData, TValue>({
     };
 
     return (
-        <div className="container mx-auto max-w-12xl">
-            <Card>
-                <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-4">
-                    <div className="flex flex-row items-start w-full sm:mr-2 gap-2">
-                        {/* <div className="relative w-full sm:max-w-sm">
+        <div className="flex w-full min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-row items-start w-full sm:mr-2 gap-2">
+                    {/* <div className="relative w-full sm:max-w-sm">
                             <Input
                                 placeholder={searchPlaceholder}
                                 value={globalFilter ?? ""}
@@ -385,73 +387,84 @@ export function LogDataTable<TData, TValue>({
                             />
                             <Search className="h-4 w-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                         </div> */}
-                        <DateRangePicker
-                            startValue={startDate}
-                            endValue={endDate}
-                            onRangeChange={handleDateRangeChange}
-                            className="flex-wrap gap-2"
-                            disabled={disabled}
-                        />
-                    </div>
-                    <div className="flex items-start gap-2 sm:justify-end">
-                        {onRefresh && (
-                            <Button
-                                variant="outline"
-                                onClick={() => !disabled && onRefresh()}
-                                disabled={isRefreshing || disabled}
-                            >
-                                <RefreshCw
-                                    className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-                                />
-                                {t("refresh")}
-                            </Button>
-                        )}
-                        {onExport && (
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            onClick={() =>
-                                                !disabled && onExport()
-                                            }
-                                            disabled={
-                                                isExporting ||
-                                                disabled ||
-                                                isExportDisabled
-                                            }
-                                        >
-                                            {isExporting ? (
-                                                <Loader className="mr-2 size-4 animate-spin" />
-                                            ) : (
-                                                <Download className="mr-2 size-4" />
-                                            )}
-                                            {t("exportCsv")}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        {t("exportCsvTooltip")}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent className="relative">
+                    <DateRangePicker
+                        startValue={startDate}
+                        endValue={endDate}
+                        onRangeChange={handleDateRangeChange}
+                        className="flex-wrap gap-2"
+                        disabled={disabled}
+                    />
+                </div>
+                <div className="flex items-start gap-2 sm:justify-end">
+                    {onRefresh && (
+                        <Button
+                            variant="outline"
+                            onClick={() => !disabled && onRefresh()}
+                            disabled={isRefreshing || disabled}
+                        >
+                            <RefreshCw
+                                className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                            />
+                            {t("refresh")}
+                        </Button>
+                    )}
+                    {onExport && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        onClick={() => !disabled && onExport()}
+                                        disabled={
+                                            isExporting ||
+                                            disabled ||
+                                            isExportDisabled
+                                        }
+                                    >
+                                        {isExporting ? (
+                                            <Loader className="mr-2 size-4 animate-spin" />
+                                        ) : (
+                                            <Download className="mr-2 size-4" />
+                                        )}
+                                        {t("exportCsv")}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {t("exportCsvTooltip")}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
+            </div>
+            <div className="relative flex flex-col gap-4">
+                <TableContainer>
                     <Table>
                         <TableHeader>
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <TableRow key={headerGroup.id}>
-                                    {headerGroup.headers.map((header) => (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                      header.column.columnDef
-                                                          .header,
-                                                      header.getContext()
-                                                  )}
-                                        </TableHead>
-                                    ))}
+                                    {headerGroup.headers.map((header) => {
+                                        const atLeftEdge =
+                                            header.index === 0 ||
+                                            (expandable && header.index === 1);
+                                        return (
+                                            <TableHead
+                                                key={header.id}
+                                                className={
+                                                    atLeftEdge
+                                                        ? "shadow-none"
+                                                        : undefined
+                                                }
+                                            >
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : flexRender(
+                                                          header.column
+                                                              .columnDef.header,
+                                                          header.getContext()
+                                                      )}
+                                            </TableHead>
+                                        );
+                                    })}
                                 </TableRow>
                             ))}
                         </TableHeader>
@@ -536,50 +549,43 @@ export function LogDataTable<TData, TValue>({
                                         ].filter(Boolean);
                                     })
                                     .flat()
-                            ) : (
-                                <TableRow>
+                            ) : isLoading ? (
+                                <TableRow className="data-[state=selected]:bg-transparent">
                                     <TableCell
                                         colSpan={enhancedColumns.length}
-                                        className="h-24 text-center"
+                                        className="h-auto p-0"
                                     >
-                                        No results found.
+                                        <div className="flex min-h-40 items-center justify-center px-4 py-10">
+                                            <LoaderIcon className="size-4 animate-spin text-muted-foreground" />
+                                        </div>
                                     </TableCell>
                                 </TableRow>
+                            ) : (
+                                <DataTableEmptyState
+                                    colSpan={enhancedColumns.length}
+                                    message={t("logsEmptyState")}
+                                />
                             )}
                         </TableBody>
                     </Table>
+                </TableContainer>
 
-                    {isLoading && (
-                        <>
-                            <div className="backdrop-blur-[3px] z-10 absolute inset-0 top-10"></div>
-                            <div className="absolute z-20 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-border rounded-md bg-muted">
-                                <div className="flex items-center gap-2 p-6">
-                                    <LoaderIcon className="size-4 animate-spin" />
-                                    {t("loadingEllipsis")}
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    <div className="mt-4">
-                        <DataTablePagination
-                            table={table}
-                            onPageSizeChange={handlePageSizeChange}
-                            onPageChange={
-                                isServerPagination
-                                    ? handlePageChange
-                                    : undefined
-                            }
-                            totalCount={totalCount}
-                            isServerPagination={isServerPagination}
-                            isLoading={isLoading}
-                            disabled={disabled}
-                            pageSize={pageSize}
-                            pageIndex={currentPage}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+                <div className="mt-4">
+                    <DataTablePagination
+                        table={table}
+                        onPageSizeChange={handlePageSizeChange}
+                        onPageChange={
+                            isServerPagination ? handlePageChange : undefined
+                        }
+                        totalCount={totalCount}
+                        isServerPagination={isServerPagination}
+                        isLoading={isLoading}
+                        disabled={disabled}
+                        pageSize={pageSize}
+                        pageIndex={currentPage}
+                    />
+                </div>
+            </div>
         </div>
     );
 }

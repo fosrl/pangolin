@@ -3,11 +3,12 @@ import {
     domains,
     orgDomains,
     domainNamespaces,
+    customDnsRecords,
     loginPage,
     resources,
     Transaction
 } from "@server/db";
-import { eq, and, like, not, or } from "drizzle-orm";
+import { eq, and, inArray, like, not, or } from "drizzle-orm";
 import { subdomainSchema, wildcardSubdomainSchema } from "@server/lib/schemas";
 import { fromError } from "zod-validation-error";
 import { build } from "@server/build";
@@ -334,6 +335,26 @@ async function checkBaseHostConflict(
             return {
                 conflict: true,
                 message: `Login page with base domain ${baseHost} already exists`
+            };
+        }
+
+        // Pangolin DNS answers address queries for the resource ahead of
+        // custom records, which would stop serving these, and a delegated
+        // name is not ours to answer at all
+        const existingRecords = await trx
+            .select({ type: customDnsRecords.type })
+            .from(customDnsRecords)
+            .where(
+                and(
+                    eq(customDnsRecords.fullDomain, baseHost),
+                    inArray(customDnsRecords.type, ["A", "AAAA", "CNAME", "NS"])
+                )
+            );
+
+        if (existingRecords.length > 0) {
+            return {
+                conflict: true,
+                message: `Custom DNS records (${[...new Set(existingRecords.map((r) => r.type))].join(", ")}) already exist for base domain ${baseHost}`
             };
         }
     }

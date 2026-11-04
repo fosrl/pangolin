@@ -63,6 +63,10 @@ export default async function GeneralSettingsPage({
             title: t("security"),
             href: `/{orgId}/settings/general/security`
         },
+        {
+            title: t("logs"),
+            href: `/{orgId}/settings/general/logs`
+        },
         // PaidFeaturesAlert
         ...(!env.flags.disableEnterpriseFeatures
             ? [

@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnDef } from "@tanstack/react-table";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { ShareLinksDataTable } from "@app/components/ShareLinksDataTable";
@@ -31,7 +32,6 @@ import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { ArrayElement } from "@server/types/ArrayElement";
 import { ListAccessTokensResponse } from "@server/routers/accessToken";
-import moment from "moment";
 import CreateShareLinkForm from "@app/components/CreateShareLinkForm";
 import { constructShareLink } from "@app/lib/shareLinks";
 import { useTranslations } from "next-intl";
@@ -114,6 +114,7 @@ export default function ShareLinksTable({
     const columns: ExtendedColumnDef<ShareLinkRow>[] = [
         {
             accessorKey: "title",
+            enableHiding: false,
             friendlyName: t("title"),
             header: ({ column }) => {
                 return (
@@ -131,7 +132,6 @@ export default function ShareLinksTable({
         },
         {
             accessorKey: "resourceName",
-            enableHiding: false,
             friendlyName: t("resource"),
             header: ({ column }) => {
                 return (
@@ -276,7 +276,7 @@ export default function ShareLinksTable({
             },
             cell: ({ row }) => {
                 const r = row.original;
-                return moment(r.createdAt).format("lll");
+                return <Timestamp value={r.createdAt} />;
             }
         },
         {
@@ -298,7 +298,7 @@ export default function ShareLinksTable({
             cell: ({ row }) => {
                 const r = row.original;
                 if (r.expiresAt) {
-                    return moment(r.expiresAt).format("lll");
+                    return <Timestamp value={r.expiresAt} />;
                 }
                 return t("never");
             }

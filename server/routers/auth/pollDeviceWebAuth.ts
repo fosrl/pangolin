@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
@@ -12,7 +13,7 @@ import {
     generateSessionToken,
     invalidateSession
 } from "@server/auth/sessions/app";
-import { inheritIdpGrant } from "@server/auth/sessions/idpRevalidation";
+import { inheritIdpGrant } from "#dynamic/auth/sessions/idpRevalidation";
 import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { stripPortFromHost } from "@server/lib/ip";
@@ -117,7 +118,11 @@ export async function pollDeviceWebAuth(
 
         // Generate session token
         const token = generateSessionToken();
-        const sess = await createSession(token, deviceCode.userId);
+        const sess = await createSession(
+            token,
+            deviceCode.userId,
+            getRequestClientInfo(req)
+        );
         if (
             deviceCode.approvingSessionId &&
             !(await inheritIdpGrant(

@@ -384,7 +384,52 @@ export default function MachineClientsTable({
             {
                 accessorKey: "client",
                 friendlyName: t("agent"),
-                header: () => <span className="px-3">{t("agent")}</span>,
+                header: () => (
+                    <ColumnFilterButton
+                        options={[
+                            {
+                                value: "macos",
+                                label: "Pangolin macOS"
+                            },
+                            {
+                                value: "ios",
+                                label: "Pangolin iOS"
+                            },
+                            {
+                                value: "ipados",
+                                label: "Pangolin iPadOS"
+                            },
+                            {
+                                value: "android",
+                                label: "Pangolin Android"
+                            },
+                            {
+                                value: "windows",
+                                label: "Pangolin Windows"
+                            },
+                            {
+                                value: "cli",
+                                label: "Pangolin CLI"
+                            },
+                            {
+                                value: "olm",
+                                label: "Olm CLI"
+                            },
+                            {
+                                value: "unknown",
+                                label: t("unknown")
+                            }
+                        ]}
+                        selectedValue={searchParams.get("agent") ?? undefined}
+                        onValueChange={(value) =>
+                            handleFilterChange("agent", value)
+                        }
+                        searchPlaceholder={t("searchPlaceholder")}
+                        emptyMessage={t("emptySearchOptions")}
+                        label={t("agent")}
+                        className="p-3"
+                    />
+                ),
                 cell: ({ row }) => {
                     const originalRow = row.original;
 

@@ -1,28 +1,25 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnEntityFilter } from "@app/components/ColumnEntityFilter";
 import { ColumnFilterButton } from "@app/components/ColumnFilterButton";
+import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
+import IdpTypeBadge from "@app/components/IdpTypeBadge";
 import {
     ResourceSelector,
     type SelectedResource
 } from "@app/components/resource-selector";
+import {
+    ShareLinkSelector,
+    type SelectedShareLink
+} from "@app/components/share-link-selector";
 import { UserSelector, type SelectedUser } from "@app/components/user-selector";
 import {
     ControlledDataTable,
     type ExtendedColumnDef
 } from "@app/components/ui/controlled-data-table";
-import { Button } from "@app/components/ui/button";
 import { Badge } from "@app/components/ui/badge";
-import {
-    Credenza,
-    CredenzaBody,
-    CredenzaClose,
-    CredenzaContent,
-    CredenzaDescription,
-    CredenzaFooter,
-    CredenzaHeader,
-    CredenzaTitle
-} from "@app/components/Credenza";
+import { Button } from "@app/components/ui/button";
 import {
     ArrowDown01Icon,
     ArrowUp10Icon,
@@ -32,7 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import type { PaginationState } from "@tanstack/react-table";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
@@ -48,7 +45,8 @@ import {
     type ResourceSessionAuthMethod,
     type ResourceSessionItem
 } from "@server/routers/resourceSession/types";
-import moment from "moment";
+import { countryCodeToFlagEmoji } from "@app/lib/countryCodeToFlagEmoji";
+import { parseUserAgent } from "@app/lib/parseUserAgent";
 import { useTranslations } from "next-intl";
 
 type ResourceSessionsTableProps = {
@@ -58,6 +56,7 @@ type ResourceSessionsTableProps = {
     pagination: PaginationState;
     initialFilterResource?: SelectedResource | null;
     initialFilterUser?: SelectedUser | null;
+    initialFilterShareLink?: SelectedShareLink | null;
 };
 
 const AUTH_METHOD_TRANSLATION_KEYS: Record<
@@ -75,7 +74,34 @@ const AUTH_METHOD_TRANSLATION_KEYS: Record<
     accessToken: "resourceSessionsMethodAccessToken"
 };
 
+const DEVICE_TRANSLATION_KEYS = {
+    desktop: "resourceSessionsDetailDeviceDesktop",
+    mobile: "resourceSessionsDetailDeviceMobile",
+    tablet: "resourceSessionsDetailDeviceTablet",
+    bot: "resourceSessionsDetailDeviceBot"
+} as const;
+
+function DetailItem({
+    label,
+    children
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="min-w-0">
+            <div className="font-medium">{label}</div>
+            <div className="mt-1 text-muted-foreground break-all">
+                {children}
+            </div>
+        </div>
+    );
+}
+
 function getResourceSessionIdentity(session: ResourceSessionItem): string {
+    if (session.accessTokenId) {
+        return session.accessTokenTitle ?? session.accessTokenId;
+    }
     if (session.user) {
         return getUserDisplayName({
             email: session.user.email,
@@ -83,7 +109,7 @@ function getResourceSessionIdentity(session: ResourceSessionItem): string {
             username: session.user.username
         });
     }
-    return session.email ?? session.accessTokenTitle ?? "";
+    return session.email ?? "";
 }
 
 export default function ResourceSessionsTable({
@@ -92,7 +118,8 @@ export default function ResourceSessionsTable({
     rowCount,
     pagination,
     initialFilterResource = null,
-    initialFilterUser = null
+    initialFilterUser = null,
+    initialFilterShareLink = null
 }: ResourceSessionsTableProps) {
     const router = useRouter();
     const t = useTranslations();
@@ -106,10 +133,10 @@ export default function ResourceSessionsTable({
 
     const [selectedSession, setSelectedSession] =
         useState<ResourceSessionItem | null>(null);
-    const [isRevoking, setIsRevoking] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isRefreshing, startTransition] = useTransition();
     const [resourceFilterOpen, setResourceFilterOpen] = useState(false);
-    const [userFilterOpen, setUserFilterOpen] = useState(false);
+    const [actorFilterOpen, setActorFilterOpen] = useState(false);
 
     const canRevoke = isPaidUser(tierMatrix.resourceSessions);
 
@@ -150,6 +177,23 @@ export default function ResourceSessionsTable({
         return { id: userIdQ, text: userIdQ };
     }, [initialFilterUser, userIdQ]);
 
+    const accessTokenIdQ = searchParams.get("accessTokenId");
+    const selectedShareLink: SelectedShareLink | null = useMemo(() => {
+        if (!accessTokenIdQ) {
+            return null;
+        }
+        if (
+            initialFilterShareLink &&
+            initialFilterShareLink.accessTokenId === accessTokenIdQ
+        ) {
+            return initialFilterShareLink;
+        }
+        return {
+            accessTokenId: accessTokenIdQ,
+            title: accessTokenIdQ
+        };
+    }, [initialFilterShareLink, accessTokenIdQ]);
+
     const sessionIdQ = searchParams.get("sessionId");
 
     function refreshData() {
@@ -189,15 +233,44 @@ export default function ResourceSessionsTable({
         filter({ searchParams });
     }
 
+    function clearActorFilters() {
+        searchParams.delete("userId");
+        searchParams.delete("accessTokenId");
+        searchParams.delete("page");
+        filter({ searchParams });
+    }
+
+    function selectActorUser(user: SelectedUser | null) {
+        searchParams.delete("accessTokenId");
+        searchParams.delete("page");
+        if (user?.id) {
+            searchParams.set("userId", user.id);
+        } else {
+            searchParams.delete("userId");
+        }
+        filter({ searchParams });
+        setActorFilterOpen(false);
+    }
+
+    function selectActorShareLink(shareLink: SelectedShareLink | null) {
+        searchParams.delete("userId");
+        searchParams.delete("page");
+        if (shareLink?.accessTokenId) {
+            searchParams.set("accessTokenId", shareLink.accessTokenId);
+        } else {
+            searchParams.delete("accessTokenId");
+        }
+        filter({ searchParams });
+        setActorFilterOpen(false);
+    }
+
     function toggleSort(column: string) {
         filter({ searchParams: getNextSortOrder(column, searchParams) });
     }
 
     async function revokeSession(sessionId: string) {
-        setIsRevoking(true);
         try {
             await api.delete(`/org/${orgId}/resource-session/${sessionId}`);
-            setSelectedSession(null);
             toast({
                 title: t("resourceSessionsRevoked"),
                 description: t("resourceSessionsRevokedDescription")
@@ -214,8 +287,7 @@ export default function ResourceSessionsTable({
                     t("resourceSessionsErrorRevokeDescription")
                 )
             });
-        } finally {
-            setIsRevoking(false);
+            throw e;
         }
     }
 
@@ -240,52 +312,156 @@ export default function ResourceSessionsTable({
         );
     }
 
+    function renderExpandedRow(session: ResourceSessionItem) {
+        const hasClientInfo = Boolean(session.ip || session.userAgent);
+        const parsedUserAgent = parseUserAgent(session.userAgent);
+        const notRecorded = (
+            <span>{t("resourceSessionsDetailNotRecorded")}</span>
+        );
+
+        return (
+            <div className="space-y-4 text-xs whitespace-normal">
+                {!hasClientInfo && (
+                    <p className="text-muted-foreground">
+                        {t("resourceSessionsDetailNotRecordedDescription")}
+                    </p>
+                )}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailItem label={t("resourceSessionsDetailIp")}>
+                        {session.ip ? (
+                            <span className="font-mono">{session.ip}</span>
+                        ) : (
+                            notRecorded
+                        )}
+                    </DetailItem>
+                    <DetailItem label={t("location")}>
+                        {session.countryCode
+                            ? `${countryCodeToFlagEmoji(session.countryCode)} ${session.countryCode}`
+                            : session.ip
+                              ? t("unknown")
+                              : notRecorded}
+                    </DetailItem>
+                    <DetailItem label={t("resourceSessionsDetailNetwork")}>
+                        {session.asn
+                            ? `AS${session.asn}`
+                            : session.ip
+                              ? t("unknown")
+                              : notRecorded}
+                    </DetailItem>
+                    <DetailItem label={t("resourceSessionsDetailSessionId")}>
+                        <span className="font-mono">{session.sessionId}</span>
+                    </DetailItem>
+                    <DetailItem label={t("resourceSessionsDetailBrowser")}>
+                        {parsedUserAgent.browser ??
+                            (session.userAgent ? t("unknown") : notRecorded)}
+                    </DetailItem>
+                    <DetailItem label={t("operatingSystem")}>
+                        {parsedUserAgent.os ??
+                            (session.userAgent ? t("unknown") : notRecorded)}
+                    </DetailItem>
+                    <DetailItem label={t("resourceSessionsDetailDevice")}>
+                        {parsedUserAgent.device
+                            ? t(DEVICE_TRANSLATION_KEYS[parsedUserAgent.device])
+                            : notRecorded}
+                    </DetailItem>
+                </div>
+                {session.userAgent && (
+                    <DetailItem label={t("resourceSessionsDetailUserAgent")}>
+                        <span className="font-mono">{session.userAgent}</span>
+                    </DetailItem>
+                )}
+            </div>
+        );
+    }
+
     const columns: ExtendedColumnDef<ResourceSessionItem>[] = [
         {
-            id: "user",
+            id: "actor",
             enableHiding: false,
-            friendlyName: t("user"),
+            friendlyName: t("actor"),
             header: () => (
                 <ColumnEntityFilter
-                    label={t("user")}
-                    open={userFilterOpen}
-                    onOpenChange={setUserFilterOpen}
-                    selectedName={selectedUser?.text}
-                    clearLabel={t("resourceSessionsFilterAnyUser")}
+                    label={t("actor")}
+                    open={actorFilterOpen}
+                    onOpenChange={setActorFilterOpen}
+                    selectedName={
+                        selectedUser?.text ?? selectedShareLink?.title
+                    }
+                    clearLabel={t("resourceSessionsFilterAnyActor")}
                     onClear={() => {
-                        handleFilterChange("userId", undefined);
-                        setUserFilterOpen(false);
+                        clearActorFilters();
+                        setActorFilterOpen(false);
                     }}
                 >
+                    <div className="border-b px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        {t("users")}
+                    </div>
                     <UserSelector
                         orgId={orgId}
                         selectedUser={selectedUser}
                         allowClear={false}
-                        onSelectUser={(user) => {
-                            handleFilterChange("userId", user?.id);
-                            setUserFilterOpen(false);
-                        }}
+                        onSelectUser={selectActorUser}
+                    />
+                    <div className="border-y px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        {t("shareLinks")}
+                    </div>
+                    <ShareLinkSelector
+                        orgId={orgId}
+                        selectedShareLink={selectedShareLink}
+                        allowClear={false}
+                        onSelectShareLink={selectActorShareLink}
                     />
                 </ColumnEntityFilter>
             ),
             cell: ({ row }) => {
                 const r = row.original;
-                const identity = getResourceSessionIdentity(r);
-                if (r.user) {
+
+                if (r.accessTokenId) {
                     return (
-                        <Link
-                            href={`/${orgId}/settings/access/users/${r.user.userId}`}
-                        >
+                        <Link href={`/${orgId}/settings/share-links`}>
                             <Button variant="outline" size="sm">
-                                {identity}
+                                {r.accessTokenTitle ||
+                                    t("resourceSessionsMethodAccessToken")}
                                 <ArrowUpRight className="ml-2 h-3 w-3" />
                             </Button>
                         </Link>
                     );
                 }
-                if (identity) {
-                    return <span>{identity}</span>;
+
+                if (r.user) {
+                    return (
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href={`/${orgId}/settings/access/users/${r.user.userId}`}
+                            >
+                                <Button variant="outline" size="sm">
+                                    {getUserDisplayName({
+                                        email: r.user.email,
+                                        name: r.user.name,
+                                        username: r.user.username
+                                    })}
+                                    <ArrowUpRight className="ml-2 h-3 w-3" />
+                                </Button>
+                            </Link>
+                            {(r.user.type ?? "internal") !== "internal" && (
+                                <IdpTypeBadge
+                                    type={r.user.type}
+                                    name={
+                                        r.user.idpName?.trim()
+                                            ? r.user.idpName
+                                            : t("idpNameInternal")
+                                    }
+                                    variant={r.user.idpVariant ?? undefined}
+                                />
+                            )}
+                        </div>
+                    );
                 }
+
+                if (r.email) {
+                    return <span>{r.email}</span>;
+                }
+
                 return (
                     <span className="text-muted-foreground">
                         {t("resourceSessionsAnonymous")}
@@ -371,16 +547,13 @@ export default function ResourceSessionsTable({
             friendlyName: t("resourceSessionsIssued"),
             header: () =>
                 sortableHeader("issuedAt", t("resourceSessionsIssued")),
-            cell: ({ row }) => {
-                const issuedAt = row.original.issuedAt;
-                return issuedAt ? moment(issuedAt).format("lll") : "-";
-            }
+            cell: ({ row }) => <Timestamp value={row.original.issuedAt} />
         },
         {
             id: "expiresAt",
             friendlyName: t("expires"),
             header: () => sortableHeader("expiresAt", t("expires")),
-            cell: ({ row }) => moment(row.original.expiresAt).format("lll")
+            cell: ({ row }) => <Timestamp value={row.original.expiresAt} />
         },
         {
             id: "revoke",
@@ -391,7 +564,10 @@ export default function ResourceSessionsTable({
                     <Button
                         variant="outline"
                         disabled={!canRevoke}
-                        onClick={() => setSelectedSession(row.original)}
+                        onClick={() => {
+                            setSelectedSession(row.original);
+                            setIsDeleteModalOpen(true);
+                        }}
                     >
                         {t("resourceSessionsRevoke")}
                     </Button>
@@ -402,53 +578,39 @@ export default function ResourceSessionsTable({
 
     return (
         <>
-            <Credenza
-                open={selectedSession !== null}
-                onOpenChange={(open) => {
-                    if (!open) setSelectedSession(null);
-                }}
-            >
-                <CredenzaContent>
-                    <CredenzaHeader>
-                        <CredenzaTitle>
-                            {t("resourceSessionsRevokeTitle")}
-                        </CredenzaTitle>
-                        <CredenzaDescription>
-                            {t("resourceSessionsRevokeQuestion", {
-                                identity:
-                                    (selectedSession &&
+            {selectedSession && (
+                <ConfirmDeleteDialog
+                    open={isDeleteModalOpen}
+                    setOpen={(val) => {
+                        setIsDeleteModalOpen(val);
+                        if (!val) {
+                            setSelectedSession(null);
+                        }
+                    }}
+                    dialog={
+                        <div className="space-y-2">
+                            <p>
+                                {t("resourceSessionsRevokeQuestion", {
+                                    identity:
                                         getResourceSessionIdentity(
                                             selectedSession
-                                        )) ||
-                                    t("resourceSessionsAnonymous"),
-                                resource: selectedSession?.resourceName ?? ""
-                            })}
-                        </CredenzaDescription>
-                    </CredenzaHeader>
-                    {selectedSession?.authMethod === "sso" && (
-                        <CredenzaBody>
-                            <p className="text-sm text-muted-foreground">
-                                {t("resourceSessionsRevokeSsoNote")}
+                                        ) || t("resourceSessionsAnonymous"),
+                                    resource: selectedSession.resourceName
+                                })}
                             </p>
-                        </CredenzaBody>
-                    )}
-                    <CredenzaFooter>
-                        <CredenzaClose asChild>
-                            <Button variant="outline">{t("cancel")}</Button>
-                        </CredenzaClose>
-                        <Button
-                            variant="destructive"
-                            loading={isRevoking}
-                            onClick={() =>
-                                selectedSession &&
-                                revokeSession(selectedSession.sessionId)
-                            }
-                        >
-                            {t("resourceSessionsRevoke")}
-                        </Button>
-                    </CredenzaFooter>
-                </CredenzaContent>
-            </Credenza>
+                            {selectedSession.authMethod === "sso" && (
+                                <p>{t("resourceSessionsRevokeSsoNote")}</p>
+                            )}
+                        </div>
+                    }
+                    buttonText={t("resourceSessionsRevoke")}
+                    onConfirm={async () =>
+                        revokeSession(selectedSession.sessionId)
+                    }
+                    string={t("resourceSessionsRevokeConfirmPhrase")}
+                    title={t("resourceSessionsRevokeTitle")}
+                />
+            )}
 
             <ControlledDataTable
                 columns={columns}
@@ -467,18 +629,19 @@ export default function ResourceSessionsTable({
                     sessionIdQ ? (
                         <Button
                             variant="outline"
-                            size="sm"
                             onClick={() =>
                                 handleFilterChange("sessionId", undefined)
                             }
                         >
                             {t("resourceSessionsFilteredToSession")}
-                            <XIcon className="ml-2 h-3 w-3" />
+                            <XIcon className="ml-2 h-4 w-4" />
                         </Button>
                     ) : undefined
                 }
                 enableColumnVisibility
-                stickyLeftColumn="user"
+                renderExpandedRow={renderExpandedRow}
+                getRowId={(session) => session.sessionId}
+                stickyLeftColumn="actor"
                 stickyRightColumn="revoke"
             />
         </>

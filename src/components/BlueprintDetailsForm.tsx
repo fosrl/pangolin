@@ -1,4 +1,5 @@
 "use client";
+import { Timestamp } from "@app/components/Timestamp";
 import {
     SettingsContainer,
     SettingsSection,
@@ -126,14 +127,12 @@ export default function BlueprintDetailsForm({
                                     {t("appliedAt")}
                                 </InfoSectionTitle>
                                 <InfoSectionContent>
-                                    <time
+                                    <Timestamp
+                                        value={blueprint.createdAt}
+                                        unit="s"
+                                        display="absolute"
                                         className="text-muted-foreground"
-                                        dateTime={blueprint.createdAt.toString()}
-                                    >
-                                        {new Date(
-                                            blueprint.createdAt * 1000
-                                        ).toLocaleString()}
-                                    </time>
+                                    />
                                 </InfoSectionContent>
                             </InfoSection>
                         </InfoSections>
