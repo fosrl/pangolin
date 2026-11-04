@@ -575,7 +575,7 @@
     "provisioningKeysUpdated": "Chiave di provisioning aggiornata",
     "provisioningKeysUpdatedDescription": "Le tue modifiche sono state salvate.",
     "provisioningKeysBannerTitle": "Chiavi di provisioning del Sito",
-    "provisioningKeysBannerDescription": "Genera una chiave di provisioning e usala con il connettore Newt per creare automaticamente i siti al primo avvio - non è necessario configurare credenziali separate per ogni sito.",
+    "provisioningKeysBannerDescription": "A single provisioning key handles site setup for you. When a site starts with the key for the first time, Pangolin creates it and issues a new ID and secret.",
     "provisioningKeysBannerButtonText": "Scopri di più",
     "pendingSitesBannerTitle": "Siti In Attesa",
     "pendingSitesBannerDescription": "I siti che si connettono utilizzando una chiave di provisioning vengono visualizzati qui per la revisione.",
