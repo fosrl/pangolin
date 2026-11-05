@@ -72,10 +72,40 @@ function testConverseWithoutCache() {
     );
 }
 
+// Gemini reports tool-result tokens (Google Search, URL context) in
+// `toolUsePromptTokenCount`, separately from `promptTokenCount`; they are
+// billed as input.
+function testGeminiToolUsePromptTokens() {
+    console.log("Running Gemini tool-use prompt tokens test...");
+    const body = JSON.stringify({
+        usageMetadata: {
+            promptTokenCount: 100,
+            cachedContentTokenCount: 20,
+            toolUsePromptTokenCount: 40,
+            candidatesTokenCount: 15,
+            thoughtsTokenCount: 5,
+            totalTokenCount: 160
+        }
+    });
+    assertEqualsObj(
+        extractUsage("gemini_generate_content", body, false, headers),
+        {
+            promptTokens: 120,
+            cacheReadTokens: 20,
+            cacheWriteTokens: 0,
+            completionTokens: 15,
+            reasoningTokens: 5,
+            estimated: false
+        },
+        "tool-use prompt tokens are added to promptTokens"
+    );
+}
+
 try {
     testConverseJsonWithCache();
     testConverseStreamWithCache();
     testConverseWithoutCache();
+    testGeminiToolUsePromptTokens();
     console.log("All aiUsageExtraction tests passed!");
 } catch (error) {
     console.error("Test failed:", error);

@@ -217,7 +217,8 @@ function extractGoogleGenerateContent(
         "promptTokenCount",
         "candidatesTokenCount",
         "cachedContentTokenCount",
-        "thoughtsTokenCount"
+        "thoughtsTokenCount",
+        "toolUsePromptTokenCount"
     ]);
 
     if (fields.promptTokenCount === undefined) {
@@ -226,9 +227,15 @@ function extractGoogleGenerateContent(
 
     const cacheReadTokens = fields.cachedContentTokenCount ?? 0;
     const reasoningTokens = fields.thoughtsTokenCount ?? 0;
+    // Tokens of tool results (Google Search, URL context) are reported in
+    // `toolUsePromptTokenCount`, separately from `promptTokenCount`, but are
+    // billed as input.
+    const toolUsePromptTokens = fields.toolUsePromptTokenCount ?? 0;
 
     return {
-        promptTokens: Math.max(0, fields.promptTokenCount - cacheReadTokens),
+        promptTokens:
+            Math.max(0, fields.promptTokenCount - cacheReadTokens) +
+            toolUsePromptTokens,
         cacheReadTokens,
         cacheWriteTokens: 0,
         completionTokens: fields.candidatesTokenCount ?? 0,
