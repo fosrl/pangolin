@@ -144,10 +144,6 @@ export default function IdpUserProvisioningFields({
                             roles={roles}
                             roleMapping={jitRoleMapping}
                             onRoleMappingChange={onJitRoleMappingChange}
-                            orgMappingField={{
-                                control: form.control,
-                                name: "orgMapping"
-                            }}
                         />
                     ) : (
                         <>
@@ -164,10 +160,6 @@ export default function IdpUserProvisioningFields({
                                         onRoleMappingChange={
                                             onJitRoleMappingChange
                                         }
-                                        orgMappingField={{
-                                            control: form.control,
-                                            name: "orgMapping"
-                                        }}
                                     />
                                 </div>
                             )}
@@ -184,10 +176,6 @@ export default function IdpUserProvisioningFields({
                                         onRoleMappingChange={
                                             onSyncRoleMappingChange
                                         }
-                                        orgMappingField={{
-                                            control: form.control,
-                                            name: "syncOrgMapping"
-                                        }}
                                     />
                                 </div>
                             )}
