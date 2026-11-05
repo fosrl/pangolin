@@ -43,6 +43,12 @@ export async function ensureValidIdp(
         );
     }
 
+    if (!idpRes.idpOrg.syncOrgMapping && !idpRes.idpOrg.mappingsLinked) {
+        throw new Error(
+            `IDP API: IdP ${idpId} has no sync org mapping for org ${idpRes.idpOrg.orgId}; set one or link the JIT and sync mappings`
+        );
+    }
+
     return idpRes;
 }
 

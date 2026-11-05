@@ -43,12 +43,11 @@ The admin can turn on any combination of these three methods.
 - Fetches every user and their transitive groups from the provider.
 - For each user, it builds a **claims payload** that mirrors the provider's ID token as closely as the API allows (see [Sync claims payload](#sync-claims-payload)). It's fine for some token claims to be missing.
 - Sync then runs the same pipeline as JIT on that payload:
-  1. `externalIdPath` gives the external ID, the key that links the directory user to a Pangolin account.
-  2. `identifierPath` (the username path) gives the username.
-  3. The org mapping decides whether the user is in the org.
-  4. The role mapping decides the roles.
+  1. `identifierPath` gives `users.username`, the key that links the directory user to a Pangolin account. It should point to the provider's immutable ID (`oid` / `sub`).
+  2. The org mapping decides whether the user is in the org.
+  3. The role mapping decides the roles.
 
-  Because the paths and the mappings are the same JMESPath that login runs, a synced user and the same person logging in end up on the same account (`users.externalUserId`) with the same `users.username`.
+  Because the path and the mappings are the same JMESPath that login runs, a synced user and the same person logging in end up on the same account (`(idpId, username)`).
 
 ### 3. Org and role mappings
 
@@ -95,7 +94,7 @@ Verified on a test tenant: the token's `oid` claim equals the Graph user `id`, s
 
 Extra field outside the token: `groupNames` (display names). This lets the mapping builder match on names while `groups` stays token-compatible.
 
-**Identifiers:** an Azure IdP using sync must have an `externalIdPath` that resolves from the payload. `oid` is the default; `sub` is refused when sync is enabled. `identifierPath` is free (e.g. `email` or `preferred_username`).
+**Identifiers:** an Azure IdP using sync must have an `identifierPath` that resolves from the payload. `oid` is the default for new Azure IdPs; `sub` is refused when sync is enabled.
 
 ### Google (Admin SDK Directory API)
 
@@ -158,8 +157,7 @@ The rules:
 
 **`idpOidcConfig`**
 
-- `identifierPath`: kept as is in the DB and API, but it only gives `users.username` now. The frontend calls it `usernamePath`.
-- `externalIdPath`: new, nullable. The claim stored in `users.externalUserId`, which login and sync match on. Defaults on create: `oid` for `azure`, `sub` for `google` and `oidc`. Sync requires it.
+- `identifierPath`: unchanged in the DB, API and UI. It gives `users.username`, which login and sync match on (unique on `(idpId, username)`). The UI defaults it to the provider's immutable ID: `oid` for `azure`, `sub` for `google` and `oidc`. No separate external ID column.
 
 **Sync state.** `idpSyncState` and `idpSyncUser` were dropped (migration 0031). We'll need run state again for the scheduler: `lastSyncStartedAt`, `lastSyncSucceededAt`, `lastError`, `consecutiveFailures`, `nextSyncAt`, plus the Azure delta cursor. Add it back as columns on `idp` or as one small table.
 
@@ -178,7 +176,7 @@ The current code lives in [server/private/lib/directorySync/](server/private/lib
 Today the workflow sets `username` straight from the email and resolves roles with its own modes. It changes to:
 
 1. Build the claims.
-2. Apply `externalIdPath` (account match) and `identifierPath` (username).
+2. Apply `identifierPath` (username, the account match).
 3. Evaluate the sync org mapping for each `idpOrg`.
 4. Evaluate the sync role mapping.
 5. Diff and apply.
@@ -246,7 +244,7 @@ Each step can ship on its own.
    - Note for the deferred data migration (runs on **production** data):
      - `0032_red_devos.sql` doesn't run the two data copies above yet.
      - Rows where the JIT and sync mappings differ after the copy need `mappingsLinked = false`, or the single editor overwrites one of them.
-     - `idpOidcConfig.externalIdPath` on existing IdPs: leave `null` (login keeps matching on the username, sync refuses to run until it's set), or backfill by variant. Backfilling is safe for login: unlinked users are still found by username, then get their `externalUserId` on first login.
+     - The new unique index on `user (idpId, username)` fails if production has duplicate usernames within one IdP; dedupe first.
 2. **Unified role-mapping format.** Sync stores and evaluates its role mapping exactly like JIT: a string read as JMESPath, using the format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts) (fixed roles and the builder both compile to JMESPath). The JIT side and `idp.defaultRoleMapping` don't change.
    - **Shared evaluation** ([evaluateRoleMapping.ts](server/lib/idp/evaluateRoleMapping.ts), server-side so `jmespath` stays out of the client bundle):
      - [x] Move `normalizeRoleMappingResult` out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into [evaluateRoleMapping.ts](server/lib/idp/evaluateRoleMapping.ts).
@@ -271,12 +269,11 @@ Each step can ship on its own.
    - [x] Sync builder default `claimPath`: `groupNames` (`defaultSyncRoleMappingConfig` in [idpRoleMapping.ts](src/lib/idpRoleMapping.ts)), since `groups` holds provider group IDs.
    - [x] Delete [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts) and [DirectorySyncRoleMappingFields.tsx](src/components/DirectorySyncRoleMappingFields.tsx).
    - [x] i18n: remove the `directorySyncRoleMapping*` keys that are no longer used from `messages/en-US.json`.
-4. ✅ **Username path and external ID path.** Login and sync link accounts on the provider's immutable ID instead of the username.
-   - `idpOidcConfig.identifierPath` keeps its name in the DB and API and becomes the username path only; new nullable `externalIdPath` (pg + sqlite schemas; the migration is generated locally).
-   - API ([createOidcIdp.ts](server/routers/idp/createOidcIdp.ts), [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts), [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts), [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts)): accept `externalIdPath`. Create defaults it by variant ([oidcPaths.ts](server/lib/idp/oidcPaths.ts)).
-   - Login ([validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts)): match on `(idpId, externalUserId)`, then fall back to the username only for users not linked yet; backfill `externalUserId` on update and on the non-JIT path; the insert is an upsert so it can't race sync. A configured path that resolves to nothing fails the login.
-   - Sync ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts)): username and external ID come from the claims through the same two paths; refuses to run without `externalIdPath`.
-   - UI: form fields renamed to `usernamePath`, sent and read as `identifierPath`. The create forms set `externalIdPath` per provider ([oidcIdpProviderDefaults.ts](src/lib/idp/oidcIdpProviderDefaults.ts)); the visible input comes with the UI step.
+4. ✅ **Immutable ID as the username.** Login and sync link accounts on `(idpId, username)`, where the username comes from `identifierPath`; pointing it at the provider's immutable ID keeps accounts stable when emails change.
+   - No `externalIdPath` / `users.externalUserId`: the external ID is stored in `users.username`. Unique index `idx_user_idpId_username` on `(idpId, username)` (pg + sqlite schemas; the migration is generated locally).
+   - Login ([validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts)): matches on `(idpId, username)`; the insert is an upsert on that index so it can't race sync.
+   - Sync ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts)): the username comes from the claims through `identifierPath`, lowercased like login; the insert is an upsert on the same index.
+   - UI: the field stays "Identifier Path". The create forms default it per provider ([oidcIdpProviderDefaults.ts](src/lib/idp/oidcIdpProviderDefaults.ts)): `oid` for Azure, `sub` for Google and OIDC.
 5. **Shared mapping code.**
    - Move the org/role evaluation and the apply step out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into shared functions, such as:
      - `resolveOrgMemberships(claims, idpOrgs, method)`
@@ -295,9 +292,9 @@ Each step can ship on its own.
    - When it's `false`, hide the IdP on the create-user page and reject it in the create-user API.
 8. **Sync builds token-like claims.**
    - Add `toClaims(user)` to [azure.ts](server/private/lib/directorySync/azure.ts) and [google.ts](server/private/lib/directorySync/google.ts), following the [claims tables](#sync-claims-payload).
-   - Rewire [syncWorkflow.ts](server/private/lib/directorySync/syncWorkflow.ts) to run: claims → `externalIdPath` / `identifierPath` → `syncOrgMapping` → `syncRoleMapping` → `applyMemberships`.
+   - Rewire [syncWorkflow.ts](server/private/lib/directorySync/syncWorkflow.ts) to run: claims → `identifierPath` → `syncOrgMapping` → `syncRoleMapping` → `applyMemberships`.
    - ✅ Stop setting `username` to the email (done in step 4).
-   - Refuse sync when an Azure IdP's `externalIdPath` is `sub`.
+   - Refuse sync when an Azure IdP's `identifierPath` is `sub`.
    - Stop selecting only IdPs with `autoProvision = false`.
 9. **JIT fetches groups.**
    - Add `fetchUserGroups(externalId)` to each provider. It must share the group expansion code with sync.
@@ -318,7 +315,6 @@ Each step can ship on its own.
      - ✅ "Configure JIT and sync separately", backed by `mappingsLinked` (on by default: one editor, saved to both the JIT and sync columns). Unlinking starts the sync mappings from the shared ones and shows one editor per enabled method. The org IdP APIs accept `syncOrgMapping` and `mappingsLinked`.
      - Role mapping, with the builder as the default.
      - "Create missing roles".
-   - "External ID path" input next to the username path, with the per-variant default.
    - Sync status card and a "Sync now" button.
 12. **Docs and safeguards.**
     - Document the claims payload for each provider.
@@ -331,6 +327,6 @@ Each step can ship on its own.
 ## Open questions
 
 - **Role ownership:** do we track it per role (`userOrgRoles.source`), or recompute the whole role set from the active methods?
-- **Existing IdPs' `externalIdPath`:** leave `null` (sync stays off until an admin sets it) or backfill by variant in the production migration? Usernames don't change either way.
+- **Existing IdPs' `identifierPath`:** IdPs created with `email` keep it (changing it remaps every user). Do we offer a migration to `oid` / `sub`, which needs the users' usernames rewritten?
 - **Create missing roles:** where is it stored (one column per method on `idpOrg`, a global IdP default too?), and when does JIT start honoring it?
 - **Global IdPs:** do the JIT and sync defaults (`defaultOrgMapping` / `defaultRoleMapping`) also get split, or do they stay shared?

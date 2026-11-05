@@ -31,20 +31,13 @@ import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
 import { and, eq, inArray, sql, type InferInsertModel } from "drizzle-orm";
+import jmespath from "jmespath";
 import { AzureDirectorySyncProvider } from "./azure";
 import { GoogleDirectorySyncProvider } from "./google";
-import type {
-    DirectoryFetchContext,
-    IDPAPIProvider,
-    IDPDirectoryUser
-} from "./types";
-import jmespath from "jmespath";
+import type { IDPAPIProvider, IDPDirectoryUser } from "./types";
 
 type InsertUser = InferInsertModel<typeof users>;
-type UpdateUser = Pick<
-    InsertUser,
-    "username" | "email" | "name" | "userId" | "externalUserId"
->;
+type UpdateUser = Pick<InsertUser, "username" | "email" | "name" | "userId">;
 
 type SyncedRole = { id: number; name: string };
 
@@ -101,22 +94,14 @@ export async function runIdpDirectorySync(dryRun: boolean = false) {
         );
 
     const fetchPromises = idpsToSync
-        .map(({ idp, idpOidcConfig, idpOrg }) => {
+        .map((data) => {
             let provider: IDPAPIProvider | null = null;
-            switch (idpOidcConfig.variant) {
+            switch (data.idpOidcConfig.variant) {
                 case "azure":
-                    provider = new AzureDirectorySyncProvider({
-                        idp,
-                        idpOidcConfig,
-                        idpOrg
-                    });
+                    provider = new AzureDirectorySyncProvider(data);
                     break;
                 case "google":
-                    provider = new GoogleDirectorySyncProvider({
-                        idp,
-                        idpOidcConfig,
-                        idpOrg
-                    });
+                    provider = new GoogleDirectorySyncProvider(data);
                     break;
                 default:
                     break;
@@ -140,11 +125,9 @@ async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
     // and each account can have different roles within the same Org
 
     // ...
-    // Later: we might need to change the `identifierPath` for azure/google idps to `sub` (for ex)
-    // which is an immutable external ID that survives username/email changes
-    // but first we need to check if that ID is the same returned by Entra/google workspace
-    // if it's not the same ID, we might kepp `idpSyncUser` otherwise, we may need to see how
-    // we can maybe get rid of that table (or just not need it anymore)
+    // users are matched on `users.username`, computed from `identifierPath` on the claims
+    // (same as login). It should point to an immutable ID (`oid` for azure, `sub` for google)
+    // so that renamed users keep their account
 
     // ...
     // For global idps, we will rely on org policies
@@ -199,7 +182,7 @@ for each remote user:
                                                     // [] = user doesn't qualify for this org
     if user is disabled: roleIds = []
 
-    pangolinUser = match by externalUserId, then username
+    pangolinUser = match by username (from identifierPath)
     if no pangolinUser:
         if roleIds empty: skip
         create user
@@ -224,15 +207,8 @@ for each membership with flag = true whose user is not in the remote set:
     const {
         idp: { idpId },
         idpOrg: { orgId, syncRoleMapping, mappingsLinked, roleMapping },
-        idpOidcConfig: { identifierPath: usernamePath, externalIdPath }
+        idpOidcConfig: { identifierPath }
     } = provider.idp;
-
-    // login and sync must link users on the same key
-    if (!externalIdPath) {
-        throw new Error(
-            `IdP ${idpId} has no external ID path, directory sync needs one to match users`
-        );
-    }
 
     const existingUsers = await db
         .select()
@@ -245,18 +221,10 @@ for each membership with flag = true whose user is not in the remote set:
         .innerJoin(userOrgs, eq(userOrgs.userId, users.userId))
         .where(and(eq(users.idpId, idpId), eq(userOrgs.orgId, orgId)));
 
-    // match on the external ID, the username only covers users not linked yet (same as login)
-    const usersByExternalId = new Map<string, (typeof existingUsers)[number]>();
-    const unlinkedUsersByUsername = new Map<
-        string,
-        (typeof existingUsers)[number]
-    >();
+    // match on the username, same as login
+    const usersByUsername = new Map<string, (typeof existingUsers)[number]>();
     for (const u of existingUsers) {
-        if (u.externalUserId) {
-            usersByExternalId.set(u.externalUserId, u);
-        } else if (!unlinkedUsersByUsername.has(u.username)) {
-            unlinkedUsersByUsername.set(u.username, u);
-        }
+        usersByUsername.set(u.username, u);
     }
 
     const existingPangolinUserOrgs = new Map<
@@ -276,16 +244,9 @@ for each membership with flag = true whose user is not in the remote set:
     for (const user of result.users) {
         const claims = provider.toClaims(user);
 
-        const usernameClaim = jmespath.search(claims, usernamePath);
-        const externalIdClaim = jmespath.search(claims, externalIdPath);
+        const usernameClaim = jmespath.search(claims, identifierPath);
 
-        if (
-            typeof usernameClaim !== "string" ||
-            !usernameClaim ||
-            (typeof externalIdClaim !== "string" &&
-                typeof externalIdClaim !== "number") ||
-            externalIdClaim === ""
-        ) {
+        if (typeof usernameClaim !== "string" || !usernameClaim) {
             syncPlan.entries.push({
                 directoryUser: user,
                 membership: {
@@ -297,8 +258,9 @@ for each membership with flag = true whose user is not in the remote set:
             continue;
         }
 
-        const effectiveRoleMapping =
-            mappingsLinked && !syncRoleMapping ? roleMapping : syncRoleMapping;
+        const effectiveRoleMapping = mappingsLinked
+            ? roleMapping
+            : syncRoleMapping;
 
         const roles = await resolveUserRoles(
             user,
@@ -307,12 +269,10 @@ for each membership with flag = true whose user is not in the remote set:
             orgId
         );
 
+        // lowercased, same as login
         const username = usernameClaim.toLowerCase();
-        const externalUserId = String(externalIdClaim);
 
-        const pangolinUser =
-            usersByExternalId.get(externalUserId) ??
-            unlinkedUsersByUsername.get(username);
+        const pangolinUser = usersByUsername.get(username);
 
         // this is a new user
         if (!pangolinUser) {
@@ -336,7 +296,6 @@ for each membership with flag = true whose user is not in the remote set:
                     data: {
                         userId: generateId(15),
                         username,
-                        externalUserId,
                         email: user.email,
                         name: user.name,
                         type: UserType.OIDC,
@@ -389,8 +348,7 @@ for each membership with flag = true whose user is not in the remote set:
                         userId: pangolinUser.userId,
                         email: user.email,
                         name: user.name,
-                        username,
-                        externalUserId
+                        username
                     }
                 },
                 membership: membershipOperation
@@ -430,8 +388,8 @@ for each membership with flag = true whose user is not in the remote set:
 
     // the upsert can return an existing row's userId instead of the generated one
     // if a user is synched in multiple orgs, the generated `userId` will be
-    // different when creating the same user, but the `externalId` will be the same
-    const userIdsByExternalId = new Map<string, string>();
+    // different when creating the same user, but the `username` will be the same
+    const userIdsByUsername = new Map<string, string>();
 
     await db.transaction(async (trx) => {
         // create new users
@@ -444,25 +402,23 @@ for each membership with flag = true whose user is not in the remote set:
                 .insert(users)
                 .values(usersToUpsert)
                 .onConflictDoUpdate({
-                    target: [users.idpId, users.externalUserId],
+                    target: [users.idpId, users.username],
                     set: {
-                        username: sql`excluded.username`,
                         email: sql`excluded.email`,
                         name: sql`excluded.name`
                     }
                 })
                 .returning({
                     userId: users.userId,
-                    externalUserId: users.externalUserId
+                    username: users.username
                 });
 
             for (const u of upsertedUsers) {
-                userIdsByExternalId.set(u.externalUserId!, u.userId);
+                userIdsByUsername.set(u.username, u.userId);
             }
         }
 
-        // update existing users by userId, this also backfills `externalUserId`
-        // for users previously matched by username
+        // update existing users by userId
         const usersToUpdate = syncPlan.entries.flatMap((e) =>
             e.user.operation === "update" ? [e.user.data] : []
         );
@@ -480,7 +436,7 @@ for each membership with flag = true whose user is not in the remote set:
         // apply memberships sequentially, `assignUserToOrg` and `removeUserFromOrg`
         // read the user's other orgs for billing
         for (const entry of syncPlan.entries) {
-            const userId = getEntryUserId(entry, userIdsByExternalId);
+            const userId = getEntryUserId(entry, userIdsByUsername);
             if (!userId) continue;
 
             switch (entry.membership.operation) {
@@ -520,7 +476,7 @@ for each membership with flag = true whose user is not in the remote set:
 
     for (const entry of syncPlan.entries) {
         if (entry.membership.operation === "unchanged") continue;
-        const userId = getEntryUserId(entry, userIdsByExternalId);
+        const userId = getEntryUserId(entry, userIdsByUsername);
         if (!userId) continue;
 
         calculateUserClientsForOrgs(userId).catch((error) => {
@@ -536,11 +492,11 @@ for each membership with flag = true whose user is not in the remote set:
 
 function getEntryUserId(
     entry: UserSyncEntry,
-    userIdsByExternalId: Map<string, string>
+    userIdsByUsername: Map<string, string>
 ) {
     switch (entry.user.operation) {
         case "create":
-            return userIdsByExternalId.get(entry.user.data.externalUserId!);
+            return userIdsByUsername.get(entry.user.data.username);
         case "update":
             return entry.user.data.userId;
         case "unchanged":

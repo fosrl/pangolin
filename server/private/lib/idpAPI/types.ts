@@ -42,7 +42,7 @@ export type IDPDirectoryFetchResult = {
 export type DirectoryFetchContext = {
     /** `idpOrg.syncRoleMapping`, same format as the JIT `roleMapping`. */
     roleMapping: string | null;
-    /** `idpOidcConfig.identifierPath` (the username path), evaluated on the claims to compute `users.username`. */
+    /** `idpOidcConfig.identifierPath`, evaluated on the claims to compute `users.username`. */
     identifierPath: string;
 };
 
