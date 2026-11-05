@@ -27,6 +27,8 @@ import { durationToMs } from "@app/lib/durationToMs";
 import { generateId } from "@server/auth/sessions/app";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import { evaluateRoleMapping } from "@server/lib/idp/evaluateRoleMapping";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
@@ -241,6 +243,11 @@ for each membership with flag = true whose user is not in the remote set:
         entries: []
     };
 
+    const supportsMultiRole = await isLicensedOrSubscribed(
+        orgId,
+        tierMatrix.fullRbac
+    );
+
     for (const user of result.users) {
         const claims = provider.toClaims(user);
 
@@ -266,7 +273,8 @@ for each membership with flag = true whose user is not in the remote set:
             user,
             claims,
             effectiveRoleMapping,
-            orgId
+            orgId,
+            supportsMultiRole
         );
 
         // lowercased, same as login
@@ -510,11 +518,16 @@ async function resolveUserRoles(
     user: IDPDirectoryUser,
     claims: object,
     roleMapping: string | null,
-    orgId: string
+    orgId: string,
+    supportsMultiRole: boolean
 ): Promise<SyncedRole[]> {
     if (!user.enabled) return [];
 
-    const roleNames = evaluateRoleMapping(roleMapping, claims);
+    // same as login: without full RBAC, only the first mapped role is kept
+    const roleNames = evaluateRoleMapping(roleMapping, claims).slice(
+        0,
+        supportsMultiRole ? undefined : 1
+    );
     if (roleNames.length === 0) return [];
 
     const matchedRoles = await db
