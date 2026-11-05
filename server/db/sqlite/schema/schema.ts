@@ -643,7 +643,6 @@ export const users = sqliteTable(
         idpId: integer("idpId").references(() => idp.idpId, {
             onDelete: "cascade"
         }),
-        externalUserId: text("externalUserId"), // user's ID in the external IdP (e.g. Azure object id)
         passwordHash: text("passwordHash"),
         twoFactorEnabled: integer("twoFactorEnabled", { mode: "boolean" })
             .notNull()
@@ -668,10 +667,8 @@ export const users = sqliteTable(
         locale: text("locale")
     },
     (t) => [
-        uniqueIndex("idx_user_idpId_externalUserId").on(
-            t.idpId,
-            t.externalUserId
-        )
+        // IdP users are matched on their username (from `identifierPath`)
+        uniqueIndex("idx_user_idpId_username").on(t.idpId, t.username)
     ]
 );
 
@@ -1574,8 +1571,7 @@ export const idpOidcConfig = sqliteTable("idpOidcConfig", {
     clientSecret: text("clientSecret").notNull(),
     authUrl: text("authUrl").notNull(),
     tokenUrl: text("tokenUrl").notNull(),
-    identifierPath: text("identifierPath").notNull(), // username path: gives `users.username`
-    externalIdPath: text("externalIdPath"), // claim stored in `users.externalUserId`
+    identifierPath: text("identifierPath").notNull(), // gives `users.username`, should be an immutable ID (oid/sub)
     emailPath: text("emailPath"),
     namePath: text("namePath"),
     scopes: text("scopes").notNull()

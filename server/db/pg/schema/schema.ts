@@ -665,7 +665,6 @@ export const users = pgTable(
         idpId: integer("idpId").references(() => idp.idpId, {
             onDelete: "cascade"
         }),
-        externalUserId: varchar("externalUserId"), // user's ID in the external IdP (e.g. Azure object id)
         passwordHash: varchar("passwordHash"),
         twoFactorEnabled: boolean("twoFactorEnabled").notNull().default(false),
         twoFactorSetupRequested: boolean("twoFactorSetupRequested").default(
@@ -682,10 +681,8 @@ export const users = pgTable(
         locale: varchar("locale")
     },
     (t) => [
-        uniqueIndex("idx_user_idpId_externalUserId").on(
-            t.idpId,
-            t.externalUserId
-        )
+        // IdP users are matched on their username (from `identifierPath`)
+        uniqueIndex("idx_user_idpId_username").on(t.idpId, t.username)
     ]
 );
 
@@ -1259,8 +1256,7 @@ export const idpOidcConfig = pgTable("idpOidcConfig", {
     clientSecret: varchar("clientSecret").notNull(),
     authUrl: varchar("authUrl").notNull(),
     tokenUrl: varchar("tokenUrl").notNull(),
-    identifierPath: varchar("identifierPath").notNull(), // username path: gives `users.username`
-    externalIdPath: varchar("externalIdPath"), // claim stored in `users.externalUserId`
+    identifierPath: varchar("identifierPath").notNull(), // gives `users.username`, should be an immutable ID (oid/sub)
     emailPath: varchar("emailPath"),
     namePath: varchar("namePath"),
     scopes: varchar("scopes").notNull()

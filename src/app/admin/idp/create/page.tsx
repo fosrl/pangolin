@@ -57,11 +57,10 @@ export default function Page() {
             .min(1, { message: t("idpClientSecretRequired") }),
         authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }).optional(),
         tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }).optional(),
-        usernamePath: z
+        identifierPath: z
             .string()
             .min(1, { message: t("idpPathRequired") })
             .optional(),
-        externalIdPath: z.string().optional(),
         emailPath: z.string().optional(),
         namePath: z.string().optional(),
         scopes: z
@@ -83,8 +82,7 @@ export default function Page() {
             clientSecret: "",
             authUrl: "",
             tokenUrl: "",
-            usernamePath: "sub",
-            externalIdPath: "sub",
+            identifierPath: "sub",
             namePath: "name",
             emailPath: "email",
             scopes: "openid profile email",
@@ -122,8 +120,7 @@ export default function Page() {
                 clientSecret: data.clientSecret,
                 authUrl: authUrl,
                 tokenUrl: tokenUrl,
-                identifierPath: data.usernamePath,
-                externalIdPath: data.externalIdPath || undefined,
+                identifierPath: data.identifierPath,
                 emailPath: data.emailPath,
                 namePath: data.namePath,
                 autoProvision: data.autoProvision,
@@ -564,7 +561,7 @@ export default function Page() {
                                         >
                                             <FormField
                                                 control={form.control}
-                                                name="usernamePath"
+                                                name="identifierPath"
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>

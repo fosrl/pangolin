@@ -52,7 +52,7 @@ export default function GeneralPage() {
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
-    const [originalUsernamePath, setOriginalUsernamePath] = useState("");
+    const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
     const [pendingPayload, setPendingPayload] = useState<Record<
         string,
@@ -70,7 +70,7 @@ export default function GeneralPage() {
             .min(1, { message: t("idpClientSecretRequired") }),
         authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }),
         tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }),
-        usernamePath: z.string().min(1, { message: t("idpPathRequired") }),
+        identifierPath: z.string().min(1, { message: t("idpPathRequired") }),
         emailPath: z.string().optional(),
         namePath: z.string().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
@@ -123,7 +123,7 @@ export default function GeneralPage() {
             clientSecret: "",
             authUrl: "",
             tokenUrl: "",
-            usernamePath: "sub",
+            identifierPath: "sub",
             emailPath: "email",
             namePath: "name",
             scopes: "openid profile email",
@@ -148,7 +148,7 @@ export default function GeneralPage() {
                             | "google"
                             | "azure") || "oidc";
                     setVariant(idpVariant);
-                    setOriginalUsernamePath(
+                    setOriginalIdentifierPath(
                         data.idpOidcConfig?.identifierPath ?? "sub"
                     );
 
@@ -172,7 +172,7 @@ export default function GeneralPage() {
                     if (idpVariant === "oidc") {
                         formData.authUrl = data.idpOidcConfig.authUrl;
                         formData.tokenUrl = data.idpOidcConfig.tokenUrl;
-                        formData.usernamePath =
+                        formData.identifierPath =
                             data.idpOidcConfig.identifierPath;
                         formData.emailPath =
                             data.idpOidcConfig.emailPath ?? undefined;
@@ -238,7 +238,7 @@ export default function GeneralPage() {
                     ...payload,
                     authUrl: oidcData.authUrl,
                     tokenUrl: oidcData.tokenUrl,
-                    identifierPath: oidcData.usernamePath,
+                    identifierPath: oidcData.identifierPath,
                     emailPath: oidcData.emailPath ?? "",
                     namePath: oidcData.namePath ?? "",
                     scopes: oidcData.scopes
@@ -268,14 +268,14 @@ export default function GeneralPage() {
                 };
             }
 
-            const nextUsernamePath =
+            const nextIdentifierPath =
                 variant === "oidc"
-                    ? (data as OidcFormValues).usernamePath
+                    ? (data as OidcFormValues).identifierPath
                     : undefined;
 
             if (
-                typeof nextUsernamePath === "string" &&
-                nextUsernamePath !== originalUsernamePath
+                typeof nextIdentifierPath === "string" &&
+                nextIdentifierPath !== originalIdentifierPath
             ) {
                 setPendingPayload(payload);
                 setIdentifierConfirmOpen(true);
@@ -299,7 +299,7 @@ export default function GeneralPage() {
 
         if (res.status === 200) {
             if (typeof payload.identifierPath === "string") {
-                setOriginalUsernamePath(payload.identifierPath);
+                setOriginalIdentifierPath(payload.identifierPath);
             }
             toast({
                 title: t("success"),
@@ -757,7 +757,7 @@ export default function GeneralPage() {
                                         >
                                             <FormField
                                                 control={form.control}
-                                                name="usernamePath"
+                                                name="identifierPath"
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>

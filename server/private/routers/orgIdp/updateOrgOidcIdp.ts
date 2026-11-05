@@ -44,7 +44,6 @@ const bodySchema = z.strictObject({
     authUrl: z.string().optional(),
     tokenUrl: z.string().optional(),
     identifierPath: z.string().optional(),
-    externalIdPath: z.string().nonempty().nullish(),
     emailPath: z.string().optional(),
     namePath: z.string().optional(),
     scopes: z.string().optional(),
@@ -133,7 +132,6 @@ export async function updateOrgOidcIdp(
             tokenUrl,
             scopes,
             identifierPath,
-            externalIdPath,
             emailPath,
             namePath,
             name,
@@ -277,7 +275,6 @@ export async function updateOrgOidcIdp(
                 tokenUrl,
                 scopes,
                 identifierPath,
-                externalIdPath,
                 emailPath,
                 namePath
             };
