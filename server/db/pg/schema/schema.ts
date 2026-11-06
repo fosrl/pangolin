@@ -1223,6 +1223,16 @@ export const idp = pgTable("idp", {
     type: varchar("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: varchar("defaultRoleMapping"),
     defaultOrgMapping: varchar("defaultOrgMapping"),
+    // Create the roles returned by `defaultRoleMapping` that don't exist in the org
+    defaultCreateMissingRoles: boolean("defaultCreateMissingRoles")
+        .notNull()
+        .default(false),
+    // Directory sync defaults, used for orgs without a sync mapping of their own
+    defaultSyncRoleMapping: varchar("defaultSyncRoleMapping"),
+    defaultSyncOrgMapping: varchar("defaultSyncOrgMapping"),
+    defaultSyncCreateMissingRoles: boolean("defaultSyncCreateMissingRoles")
+        .notNull()
+        .default(false),
     // Just in time provisioning, at login
     autoProvision: boolean("autoProvision").notNull().default(false),
     // When false, admins can't pre-provision users for this IdP
@@ -1358,9 +1368,14 @@ export const idpOrg = pgTable("idpOrg", {
     // JIT mappings
     roleMapping: varchar("roleMapping"),
     orgMapping: varchar("orgMapping"),
+    // Create the roles returned by the role mapping that don't exist in the org
+    createMissingRoles: boolean("createMissingRoles").notNull().default(false),
     // Directory sync mappings
     syncRoleMapping: varchar("syncRoleMapping"),
     syncOrgMapping: varchar("syncOrgMapping"),
+    syncCreateMissingRoles: boolean("syncCreateMissingRoles")
+        .notNull()
+        .default(false),
     // When true, the UI edits JIT and sync mappings as one
     mappingsLinked: boolean("mappingsLinked").notNull().default(true),
     directorySyncDeletions: boolean("directorySyncDeletions")

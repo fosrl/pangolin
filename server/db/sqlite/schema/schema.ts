@@ -1525,6 +1525,20 @@ export const idp = sqliteTable("idp", {
     type: text("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: text("defaultRoleMapping"),
     defaultOrgMapping: text("defaultOrgMapping"),
+    // Create the roles returned by `defaultRoleMapping` that don't exist in the org
+    defaultCreateMissingRoles: integer("defaultCreateMissingRoles", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    // Directory sync defaults, used for orgs without a sync mapping of their own
+    defaultSyncRoleMapping: text("defaultSyncRoleMapping"),
+    defaultSyncOrgMapping: text("defaultSyncOrgMapping"),
+    defaultSyncCreateMissingRoles: integer("defaultSyncCreateMissingRoles", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
     // Just in time provisioning, at login
     autoProvision: integer("autoProvision", {
         mode: "boolean"
@@ -1675,9 +1689,18 @@ export const idpOrg = sqliteTable("idpOrg", {
     // JIT (autoProvision) mappings
     roleMapping: text("roleMapping"),
     orgMapping: text("orgMapping"),
+    // Create the roles returned by the role mapping that don't exist in the org
+    createMissingRoles: integer("createMissingRoles", { mode: "boolean" })
+        .notNull()
+        .default(false),
     // Directory sync mappings
     syncRoleMapping: text("syncRoleMapping"),
     syncOrgMapping: text("syncOrgMapping"),
+    syncCreateMissingRoles: integer("syncCreateMissingRoles", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
     // When true, the UI edits JIT and sync mappings as one
     mappingsLinked: integer("mappingsLinked", { mode: "boolean" })
         .notNull()
