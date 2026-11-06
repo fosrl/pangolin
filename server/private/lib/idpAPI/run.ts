@@ -4,9 +4,16 @@
 // must be imported first, before any module that calls `z.openapi()`
 import "@server/extendZod";
 import { runIdpDirectorySync } from "./syncWorkflow";
+import license from "#dynamic/license/license";
+import config from "@server/lib/config";
 
 // pass `--dry-run` to only compute the sync plans, without applying them
 const dryRun = process.argv.includes("--dry-run");
+
+await config.initServer();
+
+license.setServerSecret(config.getRawConfig().server.secret!);
+await license.check();
 
 await runIdpDirectorySync(dryRun).then((changes) => {
     console.dir(
