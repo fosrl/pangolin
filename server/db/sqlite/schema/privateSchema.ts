@@ -291,7 +291,8 @@ export const loginPageBranding = sqliteTable("loginPageBranding", {
     resourceTitle: text("resourceTitle").notNull(),
     resourceSubtitle: text("resourceSubtitle"),
     orgTitle: text("orgTitle"),
-    orgSubtitle: text("orgSubtitle")
+    orgSubtitle: text("orgSubtitle"),
+    customCss: text("customCss")
 });
 
 export const loginPageBrandingOrg = sqliteTable("loginPageBrandingOrg", {

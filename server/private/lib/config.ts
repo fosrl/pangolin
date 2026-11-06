@@ -55,6 +55,11 @@ export class PrivateConfig {
                 ? "true"
                 : "false";
 
+        if (this.rawPrivateConfig.branding?.auth_page_custom_css) {
+            process.env.BRANDING_AUTH_PAGE_CUSTOM_CSS =
+                this.rawPrivateConfig.branding.auth_page_custom_css;
+        }
+
         if (this.rawPrivateConfig.branding?.colors) {
             process.env.BRANDING_COLORS = JSON.stringify(
                 this.rawPrivateConfig.branding?.colors

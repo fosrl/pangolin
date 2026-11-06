@@ -46,7 +46,14 @@ const bodySchema = z.strictObject({
     primaryColor: z
         .string()
         .regex(/^#([0-9a-f]{6}|[0-9a-f]{3})$/i)
+        .optional(),
+    customCss: z
+        .string()
+        .max(100_000)
         .optional()
+        .transform((val) =>
+            val === undefined ? undefined : val.trim() ? val : null
+        )
 });
 
 export type UpdateLoginPageBrandingBody = z.infer<typeof bodySchema>;
@@ -93,6 +100,10 @@ export async function upsertLoginPageBranding(
         if (build !== "saas" && !orgIdpMode) {
             const { orgTitle, orgSubtitle, ...rest } = updateData;
             updateData = rest;
+        }
+
+        if (build !== "enterprise") {
+            updateData = { ...updateData, customCss: undefined };
         }
 
         const [existingLoginPageBranding] = await db
