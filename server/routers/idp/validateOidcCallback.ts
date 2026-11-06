@@ -14,7 +14,6 @@ import {
     idpOrg,
     Org,
     orgs,
-    roles,
     userOrgRoles,
     userOrgs,
     users
@@ -25,7 +24,7 @@ import { usageService } from "@server/lib/billing/usageService";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
-import { evaluateRoleMapping } from "@server/lib/idp/evaluateRoleMapping";
+import { resolveOrgMembership } from "@server/lib/idp/resolveOrgMembership";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import response from "@server/lib/response";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
@@ -356,71 +355,43 @@ export async function validateOidcCallback(
                     );
 
                 const orgMapping = idpOrgRes?.orgMapping || defaultOrgMapping;
-                const hydratedOrgMapping = hydrateOrgMapping(
-                    orgMapping,
-                    org.orgId
-                );
-
-                if (hydratedOrgMapping) {
-                    logger.debug("Hydrated Org Mapping", {
-                        hydratedOrgMapping
-                    });
-                    const orgId = jmespath.search(claims, hydratedOrgMapping);
-                    logger.debug("Extraced Org ID", { orgId });
-                    if (orgId !== true && orgId !== org.orgId) {
-                        // user not allowed to access this org
-                        continue;
-                    }
-                }
-
-                // user could be allowed in this org, now find the role
-
                 const roleMapping =
                     idpOrgRes?.roleMapping || defaultRoleMapping;
-                if (roleMapping) {
-                    logger.debug("Role Mapping", { roleMapping });
-                    const roleNames = evaluateRoleMapping(roleMapping, claims);
 
-                    const supportsMultiRole = await isLicensedOrSubscribed(
+                // without a role mapping, the user is never provisioned in the org
+                if (!roleMapping) {
+                    continue;
+                }
+
+                const membership = await resolveOrgMembership({
+                    claims,
+                    orgId: org.orgId,
+                    orgMapping,
+                    roleMapping,
+                    supportsMultiRole: await isLicensedOrSubscribed(
                         org.orgId,
                         tierMatrix.fullRbac
-                    );
-                    const effectiveRoleNames = supportsMultiRole
-                        ? roleNames
-                        : roleNames.slice(0, 1);
+                    )
+                });
 
-                    if (!effectiveRoleNames.length) {
+                if (!membership.matched) {
+                    if (membership.reason === "noRoleNames") {
                         logger.error("Role mapping returned no valid roles", {
                             roleMapping
                         });
-                        continue;
-                    }
-
-                    const roleRes = await db
-                        .select()
-                        .from(roles)
-                        .where(
-                            and(
-                                eq(roles.orgId, org.orgId),
-                                inArray(roles.name, effectiveRoleNames)
-                            )
-                        );
-
-                    if (!roleRes.length) {
+                    } else if (membership.reason === "noMatchingRoles") {
                         logger.error("No mapped roles found in organization", {
                             orgId: org.orgId,
-                            roleNames: effectiveRoleNames
+                            roleNames: membership.roleNames
                         });
-                        continue;
                     }
-
-                    const roleIds = [...new Set(roleRes.map((r) => r.roleId))];
-
-                    userOrgInfo.push({
-                        orgId: org.orgId,
-                        roleIds
-                    });
+                    continue;
                 }
+
+                userOrgInfo.push({
+                    orgId: org.orgId,
+                    roleIds: membership.roles.map((r) => r.roleId)
+                });
             }
 
             // These are the orgs that the user should be provisioned into based on the IdP mappings and the token claims
@@ -741,14 +712,4 @@ export async function validateOidcCallback(
             createHttpError(HttpCode.INTERNAL_SERVER_ERROR, "An error occurred")
         );
     }
-}
-
-function hydrateOrgMapping(
-    orgMapping: string | null,
-    orgId: string
-): string | undefined {
-    if (!orgMapping) {
-        return undefined;
-    }
-    return orgMapping.split("{{orgId}}").join(orgId);
 }

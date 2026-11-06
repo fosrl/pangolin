@@ -17,18 +17,17 @@ import {
     idpOidcConfig,
     idpOrg,
     orgs,
-    roles,
     userOrgRoles,
     userOrgs,
     users
 } from "@server/db";
 
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { durationToMs } from "@app/lib/durationToMs";
 import { generateId } from "@server/auth/sessions/app";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
-import { evaluateRoleMapping } from "@server/lib/idp/evaluateRoleMapping";
-import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
-import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
+import { resolveOrgMembership } from "@server/lib/idp/resolveOrgMembership";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
@@ -535,17 +534,18 @@ async function resolveUserRoles(
 ): Promise<SyncedRole[]> {
     if (!user.enabled) return [];
 
-    // same as login: without full RBAC, only the first mapped role is kept
-    const roleNames = evaluateRoleMapping(roleMapping, claims).slice(
-        0,
-        supportsMultiRole ? undefined : 1
-    );
-    if (roleNames.length === 0) return [];
+    // org IdPs have a single org, so sync doesn't evaluate an org mapping
+    const membership = await resolveOrgMembership({
+        claims,
+        orgId,
+        orgMapping: null,
+        roleMapping,
+        supportsMultiRole
+    });
+    if (!membership.matched) return [];
 
-    const matchedRoles = await db
-        .select()
-        .from(roles)
-        .where(and(eq(roles.orgId, orgId), inArray(roles.name, roleNames)));
-
-    return matchedRoles.map((role) => ({ id: role.roleId, name: role.name }));
+    return membership.roles.map((role) => ({
+        id: role.roleId,
+        name: role.name
+    }));
 }

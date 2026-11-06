@@ -258,7 +258,7 @@ Each step can ship on its own.
      - [x] [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) / [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts): `syncRoleMapping` takes the same string as `roleMapping` (already `z.string()`, no change needed).
    - **Verify:**
      - [x] Unit-test `evaluateRoleMapping` on `'Member'`, `['A','B']`, the builder prefix, a raw expression and null.
-     - [ ] JIT login gives the same roles as before.
+     - [x] JIT login gives the same roles as before (group names match between JIT and sync).
      - [x] Sync dry run with a fixed mapping, a builder mapping and a raw expression.
      - [x] `tsc` + `eslint`.
 3. ✅ **Role-mapping UI for sync.** Ships with step 2.
@@ -273,11 +273,9 @@ Each step can ship on its own.
    - Sync ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts)): the username comes from the claims through `identifierPath`, lowercased like login; the insert is an upsert on the same index.
    - UI: the field stays "Identifier Path". The create forms default it per provider ([oidcIdpProviderDefaults.ts](src/lib/idp/oidcIdpProviderDefaults.ts)): `oid` for Azure, `sub` for Google and OIDC.
 5. **Shared mapping code.**
-   - Move the org/role evaluation and the apply step out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into shared functions, such as:
-     - `resolveOrgMemberships(claims, idpOrgs, method)`
-     - `applyMemberships(...)`
-   - "Create missing roles" lives in the shared code.
-   - Login behavior stays exactly the same.
+   - ✅ Evaluation: [resolveOrgMembership.ts](server/lib/idp/resolveOrgMembership.ts) runs org mapping → role mapping → role lookup for one org. JIT and sync both call it; login and sync behavior are unchanged (sync passes no org mapping, since org IdPs have a single org).
+   - Apply (`applyMemberships(...)`): moved to step 6. JIT applies one user across many orgs in a transaction, sync applies a batch plan for one org with dry run; how they merge depends on the role ownership decision.
+   - "Create missing roles" lives in `resolveOrgMembership`.
 6. **Membership ownership.**
    - Each method only adds, re-roles or removes the `userOrgs` rows it owns:
      - `autoProvisioned` marks JIT rows.
