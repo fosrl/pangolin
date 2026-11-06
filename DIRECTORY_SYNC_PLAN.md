@@ -159,7 +159,7 @@ The rules:
 
 - `identifierPath`: unchanged in the DB, API and UI. It gives `users.username`, which login and sync match on (unique on `(idpId, username)`). The UI defaults it to the provider's immutable ID: `oid` for `azure`, `sub` for `google` and `oidc`. No separate external ID column.
 
-**Sync state.** `idpSyncState` and `idpSyncUser` were dropped (migration 0031). We'll need run state again for the scheduler: `lastSyncStartedAt`, `lastSyncSucceededAt`, `lastError`, `consecutiveFailures`, `nextSyncAt`, plus the Azure delta cursor. Add it back as columns on `idp` or as one small table.
+**Sync state.** `idpSyncState` and `idpSyncUser` were dropped (migration 0031) and stay dropped: no run state is stored. Every run is a full sync, and failures are only logged.
 
 ## Sync engine
 
@@ -196,9 +196,8 @@ Today the workflow sets `username` straight from the email and resolves roles wi
 
 **Scheduler**
 
-- A tick runs every minute and syncs the IdPs that are due.
-- A `LockManager` lock per IdP, plus exponential backoff on failures.
-- Fixed sync interval: one constant in code, not configurable globally or per IdP.
+- A plain `setInterval` on a fixed sync interval (one constant in code) syncs every IdP with sync enabled, one after another.
+- A failure is logged and that IdP is retried on the next interval. No locks, backoff or stored status.
 
 ## API and UI
 
@@ -211,7 +210,7 @@ Today the workflow sets `username` straight from the email and resolves roles wi
   - Role mapping, with the builder as the default.
   - "Create missing roles".
   - "Configure JIT and sync separately" toggle.
-- Sync status card and a "Sync now" button.
+- "Sync now" button.
 
 **Create user page / API**
 i
@@ -220,7 +219,6 @@ i
 **Endpoints**
 
 - `POST /idp/:idpId/sync` ("Sync now", with a dry-run option).
-- `GET /idp/:idpId/sync-status`.
 
 **Docs**
 
@@ -301,11 +299,9 @@ Each step can ship on its own.
    - Call it in the OIDC callback when `apiIntegrationEnabled` is on.
    - Add the result to the claims as `groups` / `groupNames`.
    - If the call fails, log a warning and continue with the token claims.
-10. **Scheduler and status.**
-   - Add sync state back: `lastSyncStartedAt`, `lastSyncSucceededAt`, `lastError`, `consecutiveFailures`, `nextSyncAt` and the Azure delta cursor.
-   - Tick every minute in the private `startSchedulers`, on a fixed sync interval.
-   - Per-IdP `LockManager` lock, with exponential backoff on failures.
-   - Endpoints: `POST /idp/:idpId/sync` (with dry run) and `GET /idp/:idpId/sync-status`.
+10. **Scheduler.**
+   - A `setInterval` in the private `startSchedulers`, on a fixed sync interval, that syncs each sync-enabled IdP in turn and logs failures.
+   - Endpoint: `POST /idp/:idpId/sync` (with dry run).
 11. **UI** (global and org IdP pages).
    - ✅ "API integration" section (org IdPs, google/azure): a toggle plus the provider fields ([ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)). Turning it off turns sync off.
    - ✅ "User provisioning" section (org IdPs): Manual, JIT (`autoProvision`) and Sync toggles, not mutually exclusive. Sync is disabled until the API integration is on.
@@ -315,7 +311,7 @@ Each step can ship on its own.
      - ✅ "Configure JIT and sync separately", backed by `mappingsLinked` (on by default: one editor, saved to both the JIT and sync columns). Unlinking starts the sync mappings from the shared ones and shows one editor per enabled method. The org IdP APIs accept `syncOrgMapping` and `mappingsLinked`.
      - Role mapping, with the builder as the default.
      - "Create missing roles".
-   - Sync status card and a "Sync now" button.
+   - "Sync now" button.
 12. **Docs and safeguards.**
     - Document the claims payload for each provider.
     - Setup guides: Azure application permissions plus admin consent; Google domain-wide delegation scopes.
