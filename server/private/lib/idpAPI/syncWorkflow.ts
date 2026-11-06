@@ -27,7 +27,10 @@ import { durationToMs } from "@app/lib/durationToMs";
 import { generateId } from "@server/auth/sessions/app";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
-import { resolveOrgMembership } from "@server/lib/idp/resolveOrgMembership";
+import {
+    createRoles,
+    resolveOrgMembership
+} from "@server/lib/idp/resolveOrgMembership";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
@@ -40,7 +43,8 @@ import type { IDPAPIProvider, IDPDirectoryUser } from "./types";
 type InsertUser = InferInsertModel<typeof users>;
 type UpdateUser = Pick<InsertUser, "username" | "email" | "name" | "userId">;
 
-type SyncedRole = { id: number; name: string };
+/** `id` is `null` for a role that doesn't exist yet ("create missing roles"), it's created when the plan is applied. */
+type SyncedRole = { id: number | null; name: string };
 
 /** What happens to one user: their Pangolin profile and their membership in `orgId` are decided separately. */
 export type UserSyncEntry = {
@@ -219,7 +223,14 @@ for each membership with flag = true whose user is not in the remote set:
 
     const {
         idp: { idpId },
-        idpOrg: { orgId, syncRoleMapping, mappingsLinked, roleMapping },
+        idpOrg: {
+            orgId,
+            syncRoleMapping,
+            mappingsLinked,
+            roleMapping,
+            createMissingRoles,
+            syncCreateMissingRoles
+        },
         idpOidcConfig: { identifierPath }
     } = provider.idp;
 
@@ -280,12 +291,17 @@ for each membership with flag = true whose user is not in the remote set:
             ? roleMapping
             : syncRoleMapping;
 
+        const effectiveCreateMissingRoles = mappingsLinked
+            ? createMissingRoles
+            : syncCreateMissingRoles;
+
         const roles = await resolveUserRoles(
             user,
             claims,
             effectiveRoleMapping,
             orgId,
-            supportsMultiRole
+            supportsMultiRole,
+            effectiveCreateMissingRoles
         );
 
         // lowercased, same as login
@@ -452,6 +468,30 @@ for each membership with flag = true whose user is not in the remote set:
             )
         );
 
+        // create the mapped roles missing from the org ("create missing roles"), once for all users
+        const missingRoleNames = syncPlan.entries.flatMap((e) =>
+            e.membership.operation === "add" ||
+            e.membership.operation === "updateRoles"
+                ? e.membership.roles
+                      .filter((r) => r.id === null)
+                      .map((r) => r.name)
+                : []
+        );
+        const createdRoleIds = new Map(
+            (await createRoles(orgId, missingRoleNames, trx)).map((r) => [
+                r.name,
+                r.roleId
+            ])
+        );
+        const toRoleIds = (syncedRoles: SyncedRole[]) => [
+            ...new Set(
+                syncedRoles.flatMap((r) => {
+                    const id = r.id ?? createdRoleIds.get(r.name);
+                    return id === undefined ? [] : [id];
+                })
+            )
+        ];
+
         // apply memberships sequentially, `assignUserToOrg` and `removeUserFromOrg`
         // read the user's other orgs for billing
         for (const entry of syncPlan.entries) {
@@ -463,7 +503,7 @@ for each membership with flag = true whose user is not in the remote set:
                     await assignUserToOrg(
                         org,
                         { userId, orgId: orgId, directorySynched: true },
-                        entry.membership.roles.map((r) => r.id),
+                        toRoleIds(entry.membership.roles),
                         trx
                     );
                     break;
@@ -479,10 +519,10 @@ for each membership with flag = true whose user is not in the remote set:
                         );
                     // add new roles
                     await trx.insert(userOrgRoles).values(
-                        entry.membership.roles.map((r) => ({
+                        toRoleIds(entry.membership.roles).map((roleId) => ({
                             userId,
                             orgId: orgId,
-                            roleId: r.id
+                            roleId
                         }))
                     );
                     break;
@@ -530,7 +570,8 @@ async function resolveUserRoles(
     claims: object,
     roleMapping: string | null,
     orgId: string,
-    supportsMultiRole: boolean
+    supportsMultiRole: boolean,
+    createMissingRoles: boolean
 ): Promise<SyncedRole[]> {
     if (!user.enabled) return [];
 
@@ -540,12 +581,16 @@ async function resolveUserRoles(
         orgId,
         orgMapping: null,
         roleMapping,
-        supportsMultiRole
+        supportsMultiRole,
+        createMissingRoles
     });
     if (!membership.matched) return [];
 
-    return membership.roles.map((role) => ({
-        id: role.roleId,
-        name: role.name
-    }));
+    return [
+        ...membership.roles.map((role) => ({
+            id: role.roleId,
+            name: role.name
+        })),
+        ...membership.missingRoleNames.map((name) => ({ id: null, name }))
+    ];
 }

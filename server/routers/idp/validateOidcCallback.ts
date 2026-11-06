@@ -24,7 +24,10 @@ import { usageService } from "@server/lib/billing/usageService";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
-import { resolveOrgMembership } from "@server/lib/idp/resolveOrgMembership";
+import {
+    createRoles,
+    resolveOrgMembership
+} from "@server/lib/idp/resolveOrgMembership";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import response from "@server/lib/response";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
@@ -342,7 +345,12 @@ export async function validateOidcCallback(
             const defaultRoleMapping = existingIdp.idp.defaultRoleMapping;
             const defaultOrgMapping = existingIdp.idp.defaultOrgMapping;
 
-            const userOrgInfo: { orgId: string; roleIds: number[] }[] = [];
+            const userOrgInfo: {
+                orgId: string;
+                roleIds: number[];
+                /** created in the transaction below */
+                missingRoleNames: string[];
+            }[] = [];
             for (const org of allOrgs) {
                 const [idpOrgRes] = await db
                     .select()
@@ -357,6 +365,10 @@ export async function validateOidcCallback(
                 const orgMapping = idpOrgRes?.orgMapping || defaultOrgMapping;
                 const roleMapping =
                     idpOrgRes?.roleMapping || defaultRoleMapping;
+                // follows the role mapping: the org policy's flag, or the IdP default
+                const createMissingRoles = idpOrgRes?.roleMapping
+                    ? idpOrgRes.createMissingRoles
+                    : existingIdp.idp.defaultCreateMissingRoles;
 
                 // without a role mapping, the user is never provisioned in the org
                 if (!roleMapping) {
@@ -371,7 +383,8 @@ export async function validateOidcCallback(
                     supportsMultiRole: await isLicensedOrSubscribed(
                         org.orgId,
                         tierMatrix.fullRbac
-                    )
+                    ),
+                    createMissingRoles
                 });
 
                 if (!membership.matched) {
@@ -390,7 +403,8 @@ export async function validateOidcCallback(
 
                 userOrgInfo.push({
                     orgId: org.orgId,
-                    roleIds: membership.roles.map((r) => r.roleId)
+                    roleIds: membership.roles.map((r) => r.roleId),
+                    missingRoleNames: membership.missingRoleNames
                 });
             }
 
@@ -472,6 +486,22 @@ export async function validateOidcCallback(
             let userId = existingUser?.userId;
             // sync the user with the orgs and roles
             await db.transaction(async (trx) => {
+                // create the mapped roles missing from their org ("create missing roles")
+                for (const info of userOrgInfo) {
+                    if (info.missingRoleNames.length === 0) continue;
+                    const createdRoles = await createRoles(
+                        info.orgId,
+                        info.missingRoleNames,
+                        trx
+                    );
+                    info.roleIds = [
+                        ...new Set([
+                            ...info.roleIds,
+                            ...createdRoles.map((r) => r.roleId)
+                        ])
+                    ];
+                }
+
                 // create user if not exists
                 if (!existingUser) {
                     // upsert: directory sync can create the same user concurrently

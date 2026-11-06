@@ -1,328 +1,259 @@
 # Plan: IdP API integration (JIT enrichment + directory sync)
 
-Covers Microsoft Entra ID (`azure`) and Google Workspace (`google`). Generic OIDC IdPs have no API integration.
+This plan only covers **Microsoft Entra ID** (`azure`) and **Google Workspace** (`google`). Plain OIDC providers (`oidc`) don't get any of this.
 
-## Configuration flow
+## Words used in this plan
+
+- **IdP (identity provider):** the service users log in with, like Azure or Google.
+- **Claims:** the JSON object that describes a user after login, for example `{ "sub": "123", "email": "alice@acme.com", "groups": [...] }`. It comes from the ID token the IdP sends us.
+- **JMESPath:** a small query language for JSON. `email` returns the `email` field, `contains(groups, 'admins')` returns `true` or `false`. We use it to read values out of the claims.
+- **Provisioning:** creating a Pangolin user and adding them to an org. **Deprovisioning** is removing them.
+- **JIT (just in time):** provisioning at login. The user logs in, and we create their account on the spot. In the DB this is the `autoProvision` flag.
+- **Sync (directory sync):** a background job that reads *all* users from the IdP's API and provisions them, even if they have never logged in.
+- **API integration:** credentials that let Pangolin call the IdP's API (Microsoft Graph or the Google Admin SDK). JIT works without it, sync needs it.
+- **Mapping:** a rule that turns claims into a decision. The **org mapping** decides *if* the user joins the org. The **role mapping** decides *which roles* they get.
+- **Membership row:** one row in `userOrgs` = one user in one org. Their roles are in `userOrgRoles`.
+- **`idp` / `idpOrg` / `idpOidcConfig`:** DB tables. `idp` is the provider, `idpOrg` holds the mappings for one org, `idpOidcConfig` holds the OIDC settings (client ID, `identifierPath`, …).
+
+## How an admin sets it up
 
 An admin configures an IdP in three steps.
 
-### 1. Enable the API integration
+### 1. Turn on the API integration
 
-This turns the IdP from plain OIDC into a tighter integration that unlocks the features below, and possibly more later.
+This gives Pangolin a way to call the IdP's API. On its own, it doesn't create any users. It just makes the API available to JIT and sync.
 
-- Each provider has its own fields:
-  - **Google:** service account JSON key, admin email to impersonate (optional), customer ID (optional).
-  - **Azure:** reuses the OIDC client ID and secret. The tenant ID is parsed from `authUrl` for now.
-- The fields are stored encrypted in `idp.directorySyncConfig` ([idpDirectorySyncConfig.ts](src/lib/idpDirectorySyncConfig.ts), [config.ts](server/private/lib/directorySync/config.ts)).
-- The integration on its own doesn't provision anyone. It only makes the API available to JIT and sync.
+What the admin enters:
 
-### 2. How users are created
+- **Google:** a service account JSON key. Optionally, an admin email to impersonate and a customer ID.
+- **Azure:** nothing new. We reuse the OIDC client ID and secret. The tenant ID is read from `authUrl` for now.
 
-The admin can turn on any combination of these three methods.
+These are stored encrypted in `idp.directorySyncConfig` ([idpDirectorySyncConfig.ts](src/lib/idpDirectorySyncConfig.ts), [config.ts](server/private/lib/idpAPI/config.ts)).
 
-| Method                 | When it runs                   | Needs the API integration            |
-| ---------------------- | ------------------------------ | ------------------------------------ |
-| **Manual** (default)   | An admin pre-provisions users  | No                                   |
-| **Just in time (JIT)** | At login, in the OIDC callback | No, but it uses the API when enabled |
-| **Sync**               | Background job on an interval  | Yes                                  |
+### 2. Choose how users get created
+
+The admin can turn on any mix of these three:
+
+| Method                 | When it runs                    | Needs the API integration?             |
+| ---------------------- | ------------------------------- | -------------------------------------- |
+| **Manual** (default)   | An admin adds the user by hand  | No                                     |
+| **Just in time (JIT)** | When the user logs in           | No, but it uses the API if it's on     |
+| **Sync**               | In the background, every N min  | Yes                                    |
 
 **Manual**
 
-- When manual is off, the IdP doesn't appear on the create-user page, and the create-user API rejects that IdP.
+- If manual is off, the IdP doesn't show up on the "create user" page, and the create-user API refuses it.
 
-**Just in time** (the existing `autoProvision` field, unchanged in the DB and API)
+**JIT**
 
-- When the API integration is enabled, the callback fetches the user's groups (and any other extra data) from the provider. The groups are injected into the claims as `groups` before any mapping runs.
-  - On Google, ID tokens never carry groups, so this is the only way JIT can map groups to roles.
-  - On Azure, it also covers the groups overage case (more than 200 groups puts `_claim_names` in the token instead of `groups`) and apps that weren't configured to emit the `groups` claim.
-- If the API call fails, log a warning and continue with the token claims only. Login must not break because of the API.
-- The org and role mappings for JIT run on these claims (see [step 3](#3-org-and-role-mappings)).
+- If the API integration is on, at login we also ask the API for the user's groups and add them to the claims as `groups` (and `groupNames`). Then the mappings run.
+- Why we need this:
+  - Google's ID token never contains groups. Without the API, JIT can't map groups to roles on Google.
+  - Azure's token drops the `groups` list when a user is in more than 200 groups, and some Azure apps aren't set up to send groups at all.
+- If the API call fails, we log a warning and keep going with the token's claims. **Login must never break because of the API.**
 
-**Sync** (routine-based background sync)
+**Sync**
 
-- Fetches every user and their transitive groups from the provider.
-- For each user, it builds a **claims payload** that mirrors the provider's ID token as closely as the API allows (see [Sync claims payload](#sync-claims-payload)). It's fine for some token claims to be missing.
-- Sync then runs the same pipeline as JIT on that payload:
-  1. `identifierPath` gives `users.username`, the key that links the directory user to a Pangolin account. It should point to the provider's immutable ID (`oid` / `sub`).
-  2. The org mapping decides whether the user is in the org.
-  3. The role mapping decides the roles.
+- Fetches every user from the IdP, with all their groups (including groups inside groups).
+- For each user, builds a claims object that looks as much as possible like what that user's ID token would contain (see [What sync puts in the claims](#what-sync-puts-in-the-claims)).
+- Then runs the same steps as JIT on it:
+  1. `identifierPath` (a JMESPath, e.g. `oid`) gives the username. That's how we know which Pangolin account belongs to which IdP user.
+  2. The org mapping decides if the user is in the org.
+  3. The role mapping decides their roles.
 
-  Because the path and the mappings are the same JMESPath that login runs, a synced user and the same person logging in end up on the same account (`(idpId, username)`).
+Because sync and login use the same `identifierPath` and the same kind of mappings, a user created by sync and the same person logging in later end up on **the same account**. Accounts are matched on the pair `(idpId, username)`.
 
-### 3. Org and role mappings
+### 3. Set up the mappings
 
-Mappings are stored per method: one set for JIT, one set for sync.
+Each method has its own set of mappings: one for JIT, one for sync.
 
-- **One editor by default.** The UI shows a single mapping editor that writes to both the JIT and the sync columns, so admins don't define their mappings twice.
-- **Advanced toggle: "Configure JIT and sync separately".** It splits the editor in two. This lets an admin map orgs or roles differently per method to avoid conflicts. Most people won't need it.
+- **By default the admin sees one editor**, and it saves to both the JIT and the sync columns. Most admins want the same rules everywhere, so they only write them once.
+- **"Configure JIT and sync separately"** is an advanced toggle that shows two editors. Most people won't need it.
 
 **Org mapping**
 
-- A JMESPath expression that decides whether the user is added to the org.
-- It runs before the role mapping.
-- It must return `true`, `false`, or the orgId.
-- `{{orgId}}` is replaced with the org's ID before evaluation (`hydrateOrgMapping` already does this for JIT).
+- A JMESPath that must return `true`, `false`, or the org's ID.
+- It runs before the role mapping. If it says no, the user doesn't join the org.
+- `{{orgId}}` in the expression is replaced by the real org ID first.
 
-**Role mapping**
+**Role mapping** has three modes. The builder is the default.
 
-- Three modes, with the mapping builder as the default:
-  - **Mapping builder:** group → roles rules.
-  - **Fixed roles:** every user gets the same roles.
-  - **JMESPath expression:** the current JIT behavior.
-- **Create missing roles** is a separate option. It is no longer tied to a mode. When it's on, every role name the mapping returns that doesn't exist in the org gets created.
-- The current sync-only `automatic` mode (role name = group display name) becomes the mapping builder with a "use the group name" rule, or a JMESPath expression such as `groups`, plus "Create missing roles". It isn't kept as its own mode.
+- **Mapping builder:** rules like "group `Engineering` → role `Developer`".
+- **Fixed roles:** everyone gets the same roles.
+- **JMESPath expression:** write the query yourself.
 
-## Sync claims payload
+**Create missing roles** is a separate checkbox. When it's on and the mapping returns a role name the org doesn't have, we create that role instead of ignoring it.
 
-A documented JSON object per user that mirrors the provider's ID token. Only claims we can source from the API are included. Token metadata (`iss`, `aud`, `azp`, `iat`, `exp`, `nbf`, `at_hash`, `sid`, `uti`, `rh`, `ver`) is never included.
+> Example: the mapping returns `["Developer", "Ops"]`, but the org only has `Developer`. With the checkbox off, the user gets `Developer`. With it on, we create `Ops` and the user gets both.
+
+## What sync puts in the claims
+
+At login we get the claims from the ID token. Sync has no token, so it builds the claims itself from the API. We copy the token's field names so that **the same mapping works for both**. Some token fields can't be built from the API; that's fine, they're just missing. Technical token fields (`iss`, `aud`, `exp`, `iat`, …) are never included.
 
 ### Azure (Microsoft Graph)
 
-Verified on a test tenant: the token's `oid` claim equals the Graph user `id`, so `oid` is the external ID.
+We checked on a test tenant: the token's `oid` is the same value as the Graph user's `id`. So `oid` is the stable ID for Azure users.
 
-| Claim                | Graph source                            | Matches the token?                                                                                                                                                        |
-| -------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `oid`                | `id`                                    | ✅ Same value                                                                                                                                                              |
-| `tid`                | tenant ID                               | ✅                                                                                                                                                                         |
-| `name`               | `displayName`                           | ✅                                                                                                                                                                         |
-| `email`              | `mail`, falling back to `otherMails[0]` | ⚠️ Usually. The token claim is optional.                                                                                                                                   |
-| `preferred_username` | `userPrincipalName`                     | ⚠️ Matches for members. For guests, the token has the real email, but Graph has `user_domain#EXT#@tenant.onmicrosoft.com`.                                                 |
-| `groups`             | transitive group **object IDs**         | ✅ Same format: the token's `groups` claim also holds object IDs, not names. It's optional in the token (only present when the app emits it), but sync always includes it. |
-| `sub`                | —                                       | ❌ Can't be built: it's a pairwise ID per app                                                                                                                              |
-| `wids`               | —                                       | Not included. It's optional in the token and holds directory role template IDs, which aren't useful for mappings.                                                         |
-| `idp`                | —                                       | Not included. It's only present for guest accounts.                                                                                                                       |
+| Claim                | Where it comes from in Graph            | Same as in the token?                                                                                                  |
+| -------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `oid`                | `id`                                    | ✅ Same value                                                                                                           |
+| `tid`                | tenant ID                               | ✅                                                                                                                      |
+| `name`               | `displayName`                           | ✅                                                                                                                      |
+| `email`              | `mail`, or `otherMails[0]` if empty     | ⚠️ Usually. The token doesn't always have it.                                                                           |
+| `preferred_username` | `userPrincipalName`                     | ⚠️ Same for normal users. For guests, the token has their real email but Graph has `user_domain#EXT#@tenant.onmicrosoft.com`. |
+| `groups`             | group **IDs** (not names)               | ✅ The token also uses group IDs. The token only has it if the app is set up for it; sync always includes it.            |
+| `sub`                | —                                       | ❌ Can't be built. Azure gives each app a different `sub` for the same user, and Graph doesn't expose it.               |
+| `wids`               | —                                       | Not included. These are admin role IDs, not useful for mappings.                                                       |
+| `idp`                | —                                       | Not included. Only guests have it.                                                                                     |
 
-Extra field outside the token: `groupNames` (display names). This lets the mapping builder match on names while `groups` stays token-compatible.
+We also add `groupNames` (the groups' display names). It isn't in the token, but it lets admins write rules with readable names (`Engineering`) instead of IDs (`8f3a…`).
 
-**Identifiers:** an Azure IdP using sync must have an `identifierPath` that resolves from the payload. `oid` is the default for new Azure IdPs; `sub` is refused when sync is enabled.
+**Watch out:** because sync can't build `sub`, an Azure IdP whose `identifierPath` is `sub` can't sync anyone. New Azure IdPs default to `oid`.
 
 ### Google (Admin SDK Directory API)
 
-Verified: the token's `sub` equals the Directory user `id`, so `sub` is the external ID. `sub` is also the same across OAuth clients (unlike Entra's `sub`).
+We checked: the token's `sub` is the same value as the Directory user's `id`. Unlike Azure, Google's `sub` is the same for every app, so `sub` is the stable ID for Google users.
 
-| Claim                        | Directory source                     | Matches the token?                                                           |
-| ---------------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |
-| `sub`                        | `id`                                 | ✅ Same value                                                                 |
-| `email`                      | `primaryEmail`                       | ✅                                                                            |
-| `email_verified`             | always `true`                        | ✅                                                                            |
-| `name`                       | `name.fullName`                      | ✅                                                                            |
-| `given_name` / `family_name` | `name.givenName` / `name.familyName` | ✅                                                                            |
-| `hd`                         | the primary email's domain           | ✅ The token only has it for Workspace accounts, and every synced user is one |
-| `picture`                    | —                                    | Not included. The Directory `thumbnailPhotoUrl` is a different URL.          |
-| `groups`                     | transitive group emails              | — Not in the token. Same shape that JIT injects.                             |
+| Claim                        | Where it comes from                  | Same as in the token?                                                    |
+| ---------------------------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| `sub`                        | `id`                                 | ✅ Same value                                                             |
+| `email`                      | `primaryEmail`                       | ✅                                                                        |
+| `email_verified`             | always `true`                        | ✅                                                                        |
+| `name`                       | `name.fullName`                      | ✅                                                                        |
+| `given_name` / `family_name` | `name.givenName` / `name.familyName` | ✅                                                                        |
+| `hd`                         | the domain of the primary email      | ✅ The token only has it for Workspace accounts, and all synced users are |
+| `picture`                    | —                                    | Not included. The API's photo URL is different from the token's.        |
+| `groups`                     | group emails                         | Not in the token. Same format JIT adds at login.                         |
 
-Extra field: `groupNames`.
+Plus `groupNames`, like Azure.
 
-### Shared rules
+### Rules for both
 
-- Disabled, suspended or archived users get no orgs, whatever the mappings return.
-- JIT enrichment and sync build `groups` / `groupNames` with the **same provider function**, so a mapping can't behave differently between the two.
+- A disabled, suspended or archived user gets no orgs, whatever the mappings say.
+- JIT and sync get groups from **the same function**, so a mapping can't give different results depending on which one ran.
 
-## JIT and sync writing the same memberships
+## When JIT and sync both touch the same user
 
-This is the main design risk. Both methods can now be on at once, and both write `userOrgs` and `userOrgRoles`. Each membership row records which method created it:
+This is the trickiest part. Both can be on at the same time, and both add, update and remove membership rows. To keep them from fighting, each row remembers who created it:
 
-- `userOrgs.autoProvisioned` covers JIT.
-- `userOrgs.directorySynched` covers sync.
+- `userOrgs.autoProvisioned = true` → JIT created it.
+- `userOrgs.directorySynched = true` → sync created it.
+- Both `false` → an admin created it by hand.
 
 The rules:
 
-- Each method only removes or re-roles the rows it owns. Manually created rows (both flags `false`) are never touched.
-- If a row is owned by one method and the other method also matches the user, it adds its flag. The row is only removed when no method still claims it.
-- Roles: each method replaces only the roles it granted. We can track this per role on `userOrgRoles` (e.g. a `source` column), or simply recompute the full role set from whichever methods are on. **To decide.**
-- If the two methods use different mappings, the user's roles flip back and forth between logins and sync runs. The UI should warn about this when the mappings are split.
+1. A method only updates or removes rows it owns. **Rows an admin created by hand are never touched.**
+2. If JIT owns a row and sync also matches that user, sync adds its own flag (and the other way around). The row is only removed when **no** method still wants it.
+3. Roles: whenever a method updates a row it owns, it replaces the user's roles with exactly what its role mapping returns. We don't track which method gave which role.
+   - With one shared editor (the default), JIT and sync return the same roles, so nothing changes back and forth.
+   - If the admin splits the editors and the rules differ, the user's roles switch at every login and every sync run. The UI should warn about this.
+   - A role an admin adds by hand to a JIT- or sync-owned row gets removed on the next login or sync run. That's accepted.
 
-## Data model changes (pg and sqlite, plus migrations)
+## Database changes (pg and sqlite)
 
-**`idp`**
+**`idp` table**
 
-- `apiIntegrationEnabled`: new, default `false`. Existing rows with `directorySyncEnabled = true` get `true`.
-- `directorySyncConfig`: kept (the encrypted provider credentials).
+- `apiIntegrationEnabled`: new, default `false`.
+- `directorySyncConfig`: unchanged, holds the encrypted API credentials.
 - `allowManualProvisioning`: new, default `true`.
-- `autoProvision`: kept as is in the DB and API, and it means JIT. Only the UI may label it "Just in time".
-- `directorySyncEnabled`: now means "sync on". Requires the API integration.
-- Remove the `autoProvision` ⟂ `directorySyncEnabled` exclusivity check in the global and org IdP create/update routes.
-- `defaultOrgMapping` / `defaultRoleMapping` become separate JIT and sync variants for global IdPs.
+- `autoProvision`: unchanged. It means "JIT is on". Only the UI calls it "Just in time".
+- `directorySyncEnabled`: now means "sync is on". It requires `apiIntegrationEnabled`.
+- JIT and sync can both be on. The old "only one of the two" check is removed.
+- Global IdPs (shared by many orgs) have default mappings used when an org has none of its own: `defaultOrgMapping` / `defaultRoleMapping` for JIT, `defaultSyncOrgMapping` / `defaultSyncRoleMapping` for sync.
 
-**`idpOrg`**
+**`idpOrg` table** (mappings for one org)
 
-- `orgMapping` / `roleMapping`: kept as is, they're the JIT mappings.
-- `syncOrgMapping`: new.
-- `syncRoleMapping`: replaces `directoryRoleMapping` (which only existed on this branch).
-- `mappingsLinked`: new boolean, default `true`. It's the UI's "one editor" state.
-- Both role mappings use the existing JIT format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts): a string that always evaluates as JMESPath. Fixed roles are stored as `'Role'` / `['A', 'B']`, and the builder as a JMESPath string with the `__PANGOLIN_ROLE_MAP_BUILDER_V1__` metadata prefix. The JSON format from `idpDirectorySyncRoleMapping.ts` goes away.
-- "Create missing roles" can't live inside a JMESPath string. Where it's stored is **to decide** (see [Open questions](#open-questions)).
-- The migration copies the existing `orgMapping` / `roleMapping` into `syncOrgMapping` / `syncRoleMapping`.
-- `directorySyncDeletions`: kept, scoped to sync.
+- `orgMapping` / `roleMapping`: unchanged, used by JIT.
+- `syncOrgMapping` / `syncRoleMapping`: new, used by sync.
+- `mappingsLinked`: new, default `true`. `true` = one shared editor in the UI.
+- Role mappings are always stored as a JMESPath string, whatever the mode:
+  - Fixed roles: `'Member'` or `['A', 'B']`.
+  - Builder: a JMESPath string that starts with `__PANGOLIN_ROLE_MAP_BUILDER_V1__`, so the UI can turn it back into rules ([idpRoleMapping.ts](src/lib/idpRoleMapping.ts)).
+- "Create missing roles": `createMissingRoles` (JIT) and `syncCreateMissingRoles` (sync). Global IdPs also have `defaultCreateMissingRoles` / `defaultSyncCreateMissingRoles` on `idp`.
+- `directorySyncDeletions`: unchanged. When it's off, sync never removes anyone.
 
-**`idpOidcConfig`**
+**`idpOidcConfig` table**
 
-- `identifierPath`: unchanged in the DB, API and UI. It gives `users.username`, which login and sync match on (unique on `(idpId, username)`). The UI defaults it to the provider's immutable ID: `oid` for `azure`, `sub` for `google` and `oidc`. No separate external ID column.
+- `identifierPath`: unchanged. It's the JMESPath that gives `users.username`. The UI defaults it to the provider's stable ID: `oid` for Azure, `sub` for Google and plain OIDC.
+- There's a unique index on `users (idpId, username)`, so one IdP can't have two accounts with the same username.
 
-**Sync state.** `idpSyncState` and `idpSyncUser` were dropped (migration 0031) and stay dropped: no run state is stored. Every run is a full sync, and failures are only logged.
+**No sync history.** We don't store sync runs or their status. Every run re-reads everything, and errors only go to the logs.
 
-## Sync engine
+## How the code is organized
 
-The current code lives in [server/private/lib/directorySync/](server/private/lib/directorySync/).
+All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
 
-**Providers** ([azure.ts](server/private/lib/directorySync/azure.ts), [google.ts](server/private/lib/directorySync/google.ts))
+- **Providers** ([azure.ts](server/private/lib/idpAPI/azure.ts), [google.ts](server/private/lib/idpAPI/google.ts)): one class per IdP. Each one can:
+  - list all users with their groups (for sync),
+  - `toClaims(user)`: build the claims object from the tables above,
+  - `fetchUserGroups(id)`: get one user's groups (for JIT).
+- **Sync job** ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts)), for each org:
+  1. Build the claims for each user.
+  2. Read the username with `identifierPath`.
+  3. Run the role mapping. (Org IdPs belong to one org, so sync doesn't run an org mapping for them.)
+  4. Compare with what's in the DB and write a **plan**: create user, add to org, update roles, remove from org, or do nothing.
+  5. Apply the plan in one DB transaction. In dry-run mode, return the plan without writing anything.
+- **Shared with login:** [resolveOrgMembership.ts](server/lib/idp/resolveOrgMembership.ts) runs org mapping → role mapping → look up the roles in the org. Both login ([validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts)) and sync call it.
+- **Removing users (deprovisioning)** must be careful, because a bug here kicks real people out:
+  - Only if `directorySyncDeletions` is on.
+  - Only rows the method owns.
+  - Never after a fetch that failed or only got part of the users. Otherwise a network error would look like "everyone left the company".
+  - A **circuit breaker**: if a run would remove a lot of users at once, stop and remove nobody.
+- **Scheduler:** a plain `setInterval` that syncs every sync-enabled IdP one after another. If one fails, log it and try again next time. No locks, no retries.
 
-- They keep returning the neutral `DirectoryUser` from [types.ts](server/private/lib/directorySync/types.ts).
-- New per-provider function: `toClaims(user)`, which builds the sync claims payload.
-- New per-provider function: `fetchUserGroups(externalId)`, used by JIT enrichment.
+## Screens and endpoints
 
-**Workflow** ([syncWorkflow.ts](server/private/lib/directorySync/syncWorkflow.ts))
+**IdP settings page**
 
-Today the workflow sets `username` straight from the email and resolves roles with its own modes. It changes to:
+- "API integration": a toggle plus the provider's fields.
+- "User provisioning": three toggles, Manual, JIT and Sync.
+- Mappings: org mapping, role mapping (builder by default), "Create missing roles", and "Configure JIT and sync separately".
+- A "Sync now" button.
 
-1. Build the claims.
-2. Apply `identifierPath` (username, the account match).
-3. Evaluate the sync org mapping for each `idpOrg`.
-4. Evaluate the sync role mapping.
-5. Diff and apply.
+**Create user page and API:** hide and refuse IdPs with `allowManualProvisioning = false`.
 
-**Shared mapping code**
+**New endpoint:** `POST /idp/:idpId/sync` runs a sync right away. It has a dry-run option.
 
-- Pull the org/role evaluation out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into a function that both JIT and sync call, e.g. `resolveOrgMemberships(claims, idpOrgs, method)`.
-- Do the same for the "apply" half (upsert the user, add or remove orgs, re-sync roles), with ownership rules that depend on the method.
-
-**Deprovisioning** keeps the safeguards from the previous plan:
-
-- It's opt-in through `directorySyncDeletions`.
-- It only touches rows the method owns.
-- It never runs after a partial or failed fetch.
-- A circuit breaker aborts the run on mass removals.
-- Dry-run mode is already implemented.
-
-**Scheduler**
-
-- A plain `setInterval` on a fixed sync interval (one constant in code) syncs every IdP with sync enabled, one after another.
-- A failure is logged and that IdP is retried on the next interval. No locks, backoff or stored status.
-
-## API and UI
-
-**IdP settings**
-
-- "API integration" section: a toggle plus the provider fields.
-- "User provisioning" section: three toggles for Manual, JIT and Sync.
-- Mappings section:
-  - Org mapping.
-  - Role mapping, with the builder as the default.
-  - "Create missing roles".
-  - "Configure JIT and sync separately" toggle.
-- "Sync now" button.
-
-**Create user page / API**
-i
-- Filter out IdPs with `allowManualProvisioning = false`.
-
-**Endpoints**
-
-- `POST /idp/:idpId/sync` ("Sync now", with a dry-run option).
-
-**Docs**
-
-- The claims payload per provider (the tables above).
-- Setup: Azure application permissions plus admin consent; Google domain-wide delegation scopes.
+**Docs to write:** what's in the claims for each provider (the tables above), and setup guides: which Azure API permissions to grant (plus admin consent), and which Google scopes to allow (domain-wide delegation).
 
 ## Implementation steps
 
-Each step can ship on its own.
+### Done
 
-1. ✅ **Schema** (pg and sqlite; the migration is generated by hand).
-   - `idp`: add `allowManualProvisioning` and `apiIntegrationEnabled`.
-   - `idpOrg`:
-     - Keep `orgMapping` / `roleMapping` as the JIT mappings.
-     - Rename `directoryRoleMapping` to `syncRoleMapping`.
-     - Add `syncOrgMapping` and `mappingsLinked`.
-   - Data copies in the migration:
-     - `apiIntegrationEnabled = directorySyncEnabled`
-     - `syncOrgMapping = orgMapping`
-   - Copying `roleMapping` into `syncRoleMapping` is deferred, along with the rest of the data migration.
-   - Note for the deferred data migration (runs on **production** data):
-     - `0032_red_devos.sql` doesn't run the two data copies above yet.
-     - Rows where the JIT and sync mappings differ after the copy need `mappingsLinked = false`, or the single editor overwrites one of them.
-     - The new unique index on `user (idpId, username)` fails if production has duplicate usernames within one IdP; dedupe first.
-2. **Unified role-mapping format.** Sync stores and evaluates its role mapping exactly like JIT: a string read as JMESPath, using the format from [idpRoleMapping.ts](src/lib/idpRoleMapping.ts) (fixed roles and the builder both compile to JMESPath). The JIT side and `idp.defaultRoleMapping` don't change.
-   - **Shared evaluation** ([evaluateRoleMapping.ts](server/lib/idp/evaluateRoleMapping.ts), server-side so `jmespath` stays out of the client bundle):
-     - [x] Move `normalizeRoleMappingResult` out of [validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts) into [evaluateRoleMapping.ts](server/lib/idp/evaluateRoleMapping.ts).
-     - [x] Add `evaluateRoleMapping(stored, claims): string[]`: `unwrapRoleMapping` → `jmespath.search` → `normalizeRoleMappingResult`.
-     - [x] Make JIT call it. Login behavior must stay the same.
-   - **Create missing roles:** deferred (see [Open questions](#open-questions)). In this step, sync only assigns roles that already exist in the org, like JIT.
-   - **Sync engine** ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts), [types.ts](server/private/lib/idpAPI/types.ts)):
-     - [x] Change `roleMapping` in `types.ts` from `DirectorySyncRoleMappingConfig` to the stored string.
-     - [x] Rewrite `resolveUserRoles`. Evaluate the claims from `provider.toClaims(user)` (they already carry `groups` and `groupNames`) with `evaluateRoleMapping`, then look up roles by name.
-     - [x] Remove the role-creation branch for now. Keep the dry-run handling.
-     - [x] Drop the `parseDirectorySyncRoleMapping` call and the `fixedRoles / groupMapping / automatic` switch.
-   - **API:**
-     - [x] [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) / [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts): `syncRoleMapping` takes the same string as `roleMapping` (already `z.string()`, no change needed).
-   - **Verify:**
-     - [x] Unit-test `evaluateRoleMapping` on `'Member'`, `['A','B']`, the builder prefix, a raw expression and null.
-     - [x] JIT login gives the same roles as before (group names match between JIT and sync).
-     - [x] Sync dry run with a fixed mapping, a builder mapping and a raw expression.
-     - [x] `tsc` + `eslint`.
-3. ✅ **Role-mapping UI for sync.** Ships with step 2.
-   - [x] [DirectorySyncConfigWidget.tsx](src/components/DirectorySyncConfigWidget.tsx): use [RoleMappingConfigFields.tsx](src/components/RoleMappingConfigFields.tsx), the same editor as JIT.
-   - [x] Org IdP [create/page.tsx](<src/app/[orgId]/settings/(private)/idp/create/page.tsx>) and [general/page.tsx](<src/app/[orgId]/settings/(private)/idp/[idpId]/general/page.tsx>): load `syncRoleMapping` with `detectRoleMappingConfig` and save it with `compileRoleMappingExpression`, like `roleMapping`.
-   - [x] Sync builder default `claimPath`: `groupNames` (`defaultSyncRoleMappingConfig` in [idpRoleMapping.ts](src/lib/idpRoleMapping.ts)), since `groups` holds provider group IDs.
-   - [x] Delete [idpDirectorySyncRoleMapping.ts](src/lib/idpDirectorySyncRoleMapping.ts) and [DirectorySyncRoleMappingFields.tsx](src/components/DirectorySyncRoleMappingFields.tsx).
-   - [x] i18n: remove the `directorySyncRoleMapping*` keys that are no longer used from `messages/en-US.json`.
-4. ✅ **Immutable ID as the username.** Login and sync link accounts on `(idpId, username)`, where the username comes from `identifierPath`; pointing it at the provider's immutable ID keeps accounts stable when emails change.
-   - No `externalIdPath` / `users.externalUserId`: the external ID is stored in `users.username`. Unique index `idx_user_idpId_username` on `(idpId, username)` (pg + sqlite schemas; the migration is generated locally).
-   - Login ([validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts)): matches on `(idpId, username)`; the insert is an upsert on that index so it can't race sync.
-   - Sync ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts)): the username comes from the claims through `identifierPath`, lowercased like login; the insert is an upsert on the same index.
-   - UI: the field stays "Identifier Path". The create forms default it per provider ([oidcIdpProviderDefaults.ts](src/lib/idp/oidcIdpProviderDefaults.ts)): `oid` for Azure, `sub` for Google and OIDC.
-5. **Shared mapping code.**
-   - ✅ Evaluation: [resolveOrgMembership.ts](server/lib/idp/resolveOrgMembership.ts) runs org mapping → role mapping → role lookup for one org. JIT and sync both call it; login and sync behavior are unchanged (sync passes no org mapping, since org IdPs have a single org).
-   - Apply (`applyMemberships(...)`): moved to step 6. JIT applies one user across many orgs in a transaction, sync applies a batch plan for one org with dry run; how they merge depends on the role ownership decision.
-   - "Create missing roles" lives in `resolveOrgMembership`.
-6. **Membership ownership.**
-   - Each method only adds, re-roles or removes the `userOrgs` rows it owns:
-     - `autoProvisioned` marks JIT rows.
-     - `directorySynched` marks sync rows.
-     - Rows with neither flag (manual) are never touched.
-   - Decide role ownership (open question), then implement it.
-   - ✅ Remove the `autoProvision` ⟂ `directorySyncEnabled` check from the org IdP create/update routes; sync requires `apiIntegrationEnabled` instead (done with the step 11 UI). Until the ownership rules land, JIT and sync both on can flip a user's roles.
-7. **Manual provisioning switch.** The org IdP create/update APIs already accept `allowManualProvisioning` (done with the step 11 UI).
-   - Expose `allowManualProvisioning` in the IdP create/update APIs.
-   - When it's `false`, hide the IdP on the create-user page and reject it in the create-user API.
-8. **Sync builds token-like claims.**
-   - Add `toClaims(user)` to [azure.ts](server/private/lib/directorySync/azure.ts) and [google.ts](server/private/lib/directorySync/google.ts), following the [claims tables](#sync-claims-payload).
-   - Rewire [syncWorkflow.ts](server/private/lib/directorySync/syncWorkflow.ts) to run: claims → `identifierPath` → `syncOrgMapping` → `syncRoleMapping` → `applyMemberships`.
-   - ✅ Stop setting `username` to the email (done in step 4).
-   - Refuse sync when an Azure IdP's `identifierPath` is `sub`.
-   - Stop selecting only IdPs with `autoProvision = false`.
-9. **JIT fetches groups.**
-   - ✅ Add `fetchUserGroups(externalId)` to each provider. It returns the same `IDPGroup` shape (ids and display names) as sync:
-     - Azure: `GET /users/{id}/transitiveMemberOf`, keeping only `#microsoft.graph.group` entries.
-     - Google: `GET /groups?userKey=` for the user, then again for each group to walk up nested groups (same scopes as sync).
-   - ✅ Call it in the OIDC callback when `apiIntegrationEnabled` and `autoProvision` are on ([enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts), OSS stub in [server/lib/idp/](server/lib/idp/enrichClaimsWithIdpGroups.ts)). The user is looked up by `oid` (Azure) / `sub` (Google) from the token.
-   - ✅ Add the result to the claims as `groups` / `groupNames`. On Azure, this replaces the token's `groups` claim (same format).
-   - ✅ If the call fails, log a warning and continue with the token claims.
-10. **Scheduler.**
-   - A `setInterval` in the private `startSchedulers`, on a fixed sync interval, that syncs each sync-enabled IdP in turn and logs failures.
-   - Endpoint: `POST /idp/:idpId/sync` (with dry run).
-11. **UI** (global and org IdP pages).
-   - ✅ "API integration" section (org IdPs, google/azure): a toggle plus the provider fields ([ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)). Turning it off turns sync off.
-   - ✅ "User provisioning" section (org IdPs): Manual, JIT (`autoProvision`) and Sync toggles, not mutually exclusive. Sync is disabled until the API integration is on.
-   - Global IdP pages: no API integration (credentials only live on org IdPs); the Manual toggle needs `allowManualProvisioning` in the global routes first.
-   - Mappings ([IdpUserProvisioningFields.tsx](src/components/IdpUserProvisioningFields.tsx), [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx)):
-     - ✅ Org mapping and role mapping tabs, shown when JIT or sync is on.
-     - ✅ "Configure JIT and sync separately", backed by `mappingsLinked` (on by default: one editor, saved to both the JIT and sync columns). Unlinking starts the sync mappings from the shared ones and shows one editor per enabled method. The org IdP APIs accept `syncOrgMapping` and `mappingsLinked`.
-     - Role mapping, with the builder as the default.
-     - "Create missing roles".
-   - "Sync now" button.
-12. **Docs and safeguards.**
-    - Document the claims payload for each provider.
-    - Setup guides: Azure application permissions plus admin consent; Google domain-wide delegation scopes.
-    - Deprovisioning safeguards:
-      - Circuit breaker on mass removals.
-      - Never deprovision after a partial or failed fetch.
-      - Removals turn on by default only if approved.
+1. ✅ **Database columns.** `idp`: `allowManualProvisioning`, `apiIntegrationEnabled`. `idpOrg`: `syncRoleMapping` (renamed from `directoryRoleMapping`), `syncOrgMapping`, `mappingsLinked`. Migrations 0032–0035.
+2. ✅ **One role-mapping format.** Sync now stores and runs its role mapping exactly like JIT, through [evaluateRoleMapping.ts](server/lib/idp/evaluateRoleMapping.ts). The old sync-only JSON format is deleted.
+3. ✅ **Same role-mapping editor for sync.** Sync uses the JIT editor ([RoleMappingConfigFields.tsx](src/components/RoleMappingConfigFields.tsx)). The builder reads `groupNames` by default, since `groups` holds IDs.
+4. ✅ **Stable ID as the username.** Login and sync both find accounts by `(idpId, username)`, with the username from `identifierPath`. Both use an upsert (insert, or update if it already exists), so login and sync can't create the same user twice. New IdPs default to `oid` (Azure) / `sub` (Google, OIDC).
+5. ✅ **Shared mapping code.** [resolveOrgMembership.ts](server/lib/idp/resolveOrgMembership.ts) is used by both login and sync.
+6. ✅ **Sync builds claims.** `toClaims` exists for Azure and Google, and the sync job uses it. The job picks IdPs with `apiIntegrationEnabled` and `directorySyncEnabled` on, whatever `autoProvision` is.
+7. ✅ **JIT fetches groups at login.** Done in [enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts). If the API fails, login continues with the token's claims.
+8. ✅ **Create missing roles (server side).** Columns, logic in `resolveOrgMembership`, and role creation in `createRoles`. Login and sync both use it. Migrations 0036–0037.
+9. ✅ **Sync defaults for global IdPs.** `defaultSyncOrgMapping` / `defaultSyncRoleMapping` in the DB, the global IdP update route and the login callback.
+10. ✅ **Org IdP settings page.** API integration section ([ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)), the Manual / JIT / Sync toggles (several can be on), and the mapping tabs with "Configure JIT and sync separately". The org IdP API accepts all the new fields.
+
+### Left to do
+
+1. **Fix: sync touches rows that JIT owns.** Today [syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts) acts as if it owns every row with `autoProvisioned` or `directorySynched`.
+   - Bug: when a user disappears from the IdP, sync removes their membership even if only JIT created it. Sync should only remove rows with `directorySynched`. If JIT also owns the row, sync should just clear its own flag and leave the row.
+   - When sync updates a row only JIT owned, it should set `directorySynched = true` too.
+   - Check the login side too ([validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts)). It only removes rows with `autoProvisioned`, which looks right, but when JIT and sync share a row, login should clear its own flag instead of deleting the row.
+2. **Fix: sync removes users even when deletions are off.** `directorySyncDeletions` is saved but sync never reads it.
+   - Skip removals when it's off.
+   - Never remove after a failed or partial fetch.
+   - Add the circuit breaker.
+3. **Make sync actually run.** The interval constant and variable exist in `syncWorkflow.ts`, but nothing starts them.
+   - Start the `setInterval` in the private `startSchedulers`. Sync IdPs one after another (today it runs them all at once with `Promise.allSettled`) and log each failure.
+   - Add `POST /idp/:idpId/sync` (with dry run) and the "Sync now" button.
+4. **"Create missing roles" checkbox in the UI.** One per method in [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx), following the shared/separate toggle, plus the default on global IdPs.
+5. **Manual switch, the rest.** Org IdPs are done. Still to do:
+   - Refuse IdPs with `allowManualProvisioning = false` in [createOrgUser.ts](server/routers/user/createOrgUser.ts), and hide them on the create-user page.
+   - Add it to the global IdP API and pages.
+6. **Docs.** Claims per provider, plus the Azure and Google setup guides.
+7. **Data migration for existing installs** (runs on **production** data, so be careful):
+   - Copy `roleMapping` → `syncRoleMapping`, `orgMapping` → `syncOrgMapping`, and `directorySyncEnabled` → `apiIntegrationEnabled`.
+   - Where the JIT and sync mappings end up different, set `mappingsLinked = false`. Otherwise the shared editor would overwrite one of them.
+   - Before adding the unique index on `(idpId, username)`, find and fix IdPs that have two users with the same username, or the migration fails.
 
 ## Open questions
 
-- **Role ownership:** do we track it per role (`userOrgRoles.source`), or recompute the whole role set from the active methods?
-- **Existing IdPs' `identifierPath`:** IdPs created with `email` keep it (changing it remaps every user). Do we offer a migration to `oid` / `sub`, which needs the users' usernames rewritten?
-- **Create missing roles:** where is it stored (one column per method on `idpOrg`, a global IdP default too?), and when does JIT start honoring it?
-- **Global IdPs:** do the JIT and sync defaults (`defaultOrgMapping` / `defaultRoleMapping`) also get split, or do they stay shared?
+- **IdPs that use `email` as `identifierPath`:** they keep working, but if a user changes their email they get a new account. Switching them to `oid` / `sub` means rewriting every existing user's username. Do we offer that migration?
