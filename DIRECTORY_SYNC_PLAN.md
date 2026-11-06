@@ -295,10 +295,12 @@ Each step can ship on its own.
    - Refuse sync when an Azure IdP's `identifierPath` is `sub`.
    - Stop selecting only IdPs with `autoProvision = false`.
 9. **JIT fetches groups.**
-   - Add `fetchUserGroups(externalId)` to each provider. It must share the group expansion code with sync.
-   - Call it in the OIDC callback when `apiIntegrationEnabled` is on.
-   - Add the result to the claims as `groups` / `groupNames`.
-   - If the call fails, log a warning and continue with the token claims.
+   - ✅ Add `fetchUserGroups(externalId)` to each provider. It returns the same `IDPGroup` shape (ids and display names) as sync:
+     - Azure: `GET /users/{id}/transitiveMemberOf`, keeping only `#microsoft.graph.group` entries.
+     - Google: `GET /groups?userKey=` for the user, then again for each group to walk up nested groups (same scopes as sync).
+   - ✅ Call it in the OIDC callback when `apiIntegrationEnabled` and `autoProvision` are on ([enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts), OSS stub in [server/lib/idp/](server/lib/idp/enrichClaimsWithIdpGroups.ts)). The user is looked up by `oid` (Azure) / `sub` (Google) from the token.
+   - ✅ Add the result to the claims as `groups` / `groupNames`. On Azure, this replaces the token's `groups` claim (same format).
+   - ✅ If the call fails, log a warning and continue with the token claims.
 10. **Scheduler.**
    - A `setInterval` in the private `startSchedulers`, on a fixed sync interval, that syncs each sync-enabled IdP in turn and logs failures.
    - Endpoint: `POST /idp/:idpId/sync` (with dry run).

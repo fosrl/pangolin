@@ -100,6 +100,11 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
     // retries on rate limiting (429) and transient server errors (5xx)
     #MAX_RETRIES = 3;
 
+    externalIdFromClaims(claims: Record<string, unknown>): string | null {
+        // the token `sub` is the Directory user `id`
+        return claims.sub?.toString() ?? null;
+    }
+
     toClaims(user: IDPDirectoryUser): object {
         const splitted = user.email?.split("@") ?? [];
         const baseDomain = splitted.at(-1);
@@ -115,10 +120,60 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         };
     }
 
-    fetchUserGroups(
+    async fetchUserGroups(
         user: Pick<IDPDirectoryUser, "externalId">
     ): Promise<IDPGroup[]> {
-        throw new Error("Method not implemented.");
+        const idpRes = this.idp;
+        const idpId = idpRes.idp.idpId;
+        const token = await this.#getToken(idpRes, this.#getAPIConfig(idpRes));
+
+        // `groups?userKey=` only returns direct groups, but it also accepts a
+        //    group key, so we walk up the tree one level at a time to get the
+        //    same transitive groups as sync (`includeDerivedMembership`)
+        const groups = new Map<string, IDPGroup>();
+        let frontier = [user.externalId];
+
+        while (frontier.length > 0) {
+            const parentsPerKey = await mapWithConcurrency(
+                frontier,
+                this.#MEMBERS_FETCH_CONCURRENCY,
+                (key) => {
+                    const sp = new URLSearchParams({
+                        userKey: key,
+                        maxResults: "200",
+                        fields: "nextPageToken,groups(id,name,email)"
+                    });
+                    return this.#fetchAllPages<GoogleGroup>({
+                        url: `${this.#googleAPIBaseUrl}/groups?${sp.toString()}`,
+                        token,
+                        idpId,
+                        label: `groups of ${key}`,
+                        parse: (body) => {
+                            const res = groupBodySchema.parse(body);
+                            return {
+                                items: res.groups,
+                                nextPageToken: res.nextPageToken
+                            };
+                        }
+                    });
+                }
+            );
+
+            frontier = [];
+            for (const group of parentsPerKey.flat()) {
+                // already visited (diamond or cycle in the group tree)
+                if (groups.has(group.id)) {
+                    continue;
+                }
+                groups.set(group.id, {
+                    id: group.id,
+                    displayName: group.name ?? group.email ?? null
+                });
+                frontier.push(group.id);
+            }
+        }
+
+        return [...groups.values()];
     }
 
     async fetchAllDirectoryUsers(): Promise<IDPDirectoryFetchResult> {

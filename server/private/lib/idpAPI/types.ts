@@ -56,4 +56,7 @@ export abstract class IDPAPIProvider {
     ): Promise<IDPGroup[]>;
 
     abstract toClaims(user: IDPDirectoryUser): object;
+
+    /** Reads the provider's immutable user ID (`externalId`) from ID token claims. */
+    abstract externalIdFromClaims(claims: Record<string, unknown>): string | null;
 }

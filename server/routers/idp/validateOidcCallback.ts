@@ -1,45 +1,45 @@
-import { Request, Response, NextFunction } from "express";
-import { z } from "zod";
-import { db, Org, primaryDb } from "@server/db";
-import response from "@server/lib/response";
-import HttpCode from "@server/types/HttpCode";
-import createHttpError from "http-errors";
-import logger from "@server/logger";
-import { fromError } from "zod-validation-error";
-import {
-    idp,
-    idpOidcConfig,
-    idpOrg,
-    orgs,
-    Role,
-    roles,
-    userOrgRoles,
-    userOrgs,
-    users
-} from "@server/db";
-import { and, eq, inArray } from "drizzle-orm";
-import * as arctic from "arctic";
-import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
-import jmespath from "jmespath";
-import jsonwebtoken from "jsonwebtoken";
-import config from "@server/lib/config";
+import { enrichClaimsWithIdpGroups } from "#dynamic/lib/idp/enrichClaimsWithIdpGroups";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import {
     createSession,
     generateId,
     generateSessionToken,
     serializeSessionCookie
 } from "@server/auth/sessions/app";
-import { decrypt } from "@server/lib/crypto";
-import { UserType } from "@server/types/UserTypes";
-import { LimitId } from "@server/lib/billing";
-import { usageService } from "@server/lib/billing/usageService";
 import { build } from "@server/build";
-import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
-import { isSubscribed } from "#dynamic/lib/isSubscribed";
-import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import {
+    db,
+    idp,
+    idpOidcConfig,
+    idpOrg,
+    Org,
+    orgs,
+    roles,
+    userOrgRoles,
+    userOrgs,
+    users
+} from "@server/db";
+import { LimitId } from "@server/lib/billing";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
-import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
+import { usageService } from "@server/lib/billing/usageService";
+import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
+import config from "@server/lib/config";
+import { decrypt } from "@server/lib/crypto";
 import { evaluateRoleMapping } from "@server/lib/idp/evaluateRoleMapping";
+import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
+import response from "@server/lib/response";
+import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
+import logger from "@server/logger";
+import HttpCode from "@server/types/HttpCode";
+import { UserType } from "@server/types/UserTypes";
+import * as arctic from "arctic";
+import { and, eq, inArray } from "drizzle-orm";
+import { NextFunction, Request, Response } from "express";
+import createHttpError from "http-errors";
+import jmespath from "jmespath";
+import jsonwebtoken from "jsonwebtoken";
+import { z } from "zod";
+import { fromError } from "zod-validation-error";
 
 const ensureTrailingSlash = (url: string): string => {
     return url;
@@ -266,7 +266,11 @@ export async function validateOidcCallback(
 
         const idToken = tokens.idToken();
         logger.debug("ID token", { idToken });
-        const claims = arctic.decodeIdToken(idToken);
+        const claims = await enrichClaimsWithIdpGroups(
+            existingIdp,
+            arctic.decodeIdToken(idToken) as Record<string, unknown>
+        );
+
         logger.debug("ID token claims", { claims });
 
         let userIdentifier = jmespath.search(
@@ -748,4 +752,3 @@ function hydrateOrgMapping(
     }
     return orgMapping.split("{{orgId}}").join(orgId);
 }
-

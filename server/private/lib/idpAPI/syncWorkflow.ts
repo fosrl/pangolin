@@ -28,7 +28,7 @@ import { generateId } from "@server/auth/sessions/app";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import { evaluateRoleMapping } from "@server/lib/idp/evaluateRoleMapping";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
@@ -137,6 +137,18 @@ async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
     // if the admin wants to add the synched IDP to an org, they can create an org policy
     // & set the role mapping to `groupNames` (for ex)
     // for global idps, if there is not an org policy for a specific org, the user is not added to that org
+
+    // 0. Skip orgs that are not entitled to the IdP API integration (no data change on downgrade)
+    const isEntitled = await isLicensedOrSubscribed(
+        provider.idp.idpOrg.orgId,
+        tierMatrix.idpAPIIntegration
+    );
+    if (!isEntitled) {
+        logger.debug(
+            `Directory sync: skipping IdP ${provider.idp.idp.idpId}, org ${provider.idp.idpOrg.orgId} is not entitled to the IdP API integration`
+        );
+        return null;
+    }
 
     // 1. Fetch
     const result = await provider.fetchAllDirectoryUsers();

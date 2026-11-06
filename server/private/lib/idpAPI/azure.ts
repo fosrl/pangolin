@@ -69,6 +69,18 @@ const groupBodySchema = z.object({
     )
 });
 
+const memberOfBodySchema = z.object({
+    "@odata.nextLink": z.url().optional(),
+    value: z.array(
+        z.object({
+            // group, directoryRole, administrativeUnit...
+            "@odata.type": z.string(),
+            id: z.uuid(),
+            displayName: z.string().nullish()
+        })
+    )
+});
+
 const tokenBodySchema = z.object({
     expires_in: z.int(),
     access_token: z.string()
@@ -86,10 +98,75 @@ type GraphGroupNode = {
 };
 
 export class AzureDirectorySyncProvider extends IDPAPIProvider {
-    fetchUserGroups(
+    async fetchUserGroups(
         user: Pick<IDPDirectoryUser, "externalId">
     ): Promise<IDPGroup[]> {
-        throw new Error("Method not implemented.");
+        const idpId = this.idp.idp.idpId;
+        const token = await this.#getToken(this.idp);
+
+        // `transitiveMemberOf` already expands nested groups, it also returns
+        //    directory roles and administrative units which we filter out
+        const sp = new URLSearchParams({
+            $select: "id,displayName",
+            $top: "999"
+        });
+        let nextUrl: string | undefined =
+            `${this.#microsoftGraphBaseUrl}/users/${encodeURIComponent(user.externalId)}/transitiveMemberOf?${sp.toString()}`;
+        const groups = new Map<string, IDPGroup>();
+
+        while (nextUrl) {
+            logger.info(`Fetching URL: ${nextUrl}`);
+            const res = await fetch(nextUrl, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            const body: any = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const reason =
+                    body.error?.message ??
+                    body.error?.code ??
+                    res.statusText ??
+                    "no error details in response";
+                throw new Error(
+                    `IdP API: Entra user groups request for user ${user.externalId} of IdP ${idpId} failed (HTTP ${res.status}): ${reason}`
+                );
+            }
+
+            try {
+                const response = memberOfBodySchema.parse(body);
+                for (const entry of response.value) {
+                    if (entry["@odata.type"] !== "#microsoft.graph.group") {
+                        continue;
+                    }
+                    groups.set(entry.id, {
+                        id: entry.id,
+                        displayName: entry.displayName ?? null
+                    });
+                }
+                nextUrl = response["@odata.nextLink"];
+
+                // Sometimes, microsoft graph will send empty pages with a `@odata.nextLink` even
+                // though they are the last page, in that case, we stop the loop because this shouldn't happen
+                // DO NOT ASK ME WHY THIS IS THE CASE, IDK ¯\_(ツ)_/¯
+                if (response.value.length === 0) {
+                    nextUrl = undefined;
+                }
+            } catch (e) {
+                throw new Error(
+                    `IdP API: unexpected Entra user groups response for user ${user.externalId} of IdP ${idpId}: ${fromError(e).toString()}`,
+                    { cause: e }
+                );
+            }
+        }
+
+        return [...groups.values()];
+    }
+
+    externalIdFromClaims(claims: Record<string, unknown>): string | null {
+        // the token `oid` is the Graph user `id` (`sub` is pairwise per app)
+        return claims.oid?.toString() ?? null;
     }
 
     toClaims(user: IDPDirectoryUser): object {
