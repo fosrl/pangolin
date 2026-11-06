@@ -32,6 +32,7 @@ const bodySchema = z.strictObject({
     autoProvision: z.boolean().optional(),
     defaultRoleMapping: z.string().optional(),
     defaultOrgMapping: z.string().optional(),
+    defaultCreateMissingRoles: z.boolean().optional(),
     tags: z.string().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional()
 });
@@ -111,6 +112,7 @@ export async function updateOidcIdp(
             autoProvision,
             defaultRoleMapping,
             defaultOrgMapping,
+            defaultCreateMissingRoles,
             tags,
             variant
         } = parsedBody.data;
@@ -155,6 +157,7 @@ export async function updateOidcIdp(
                 autoProvision,
                 defaultRoleMapping,
                 defaultOrgMapping,
+                defaultCreateMissingRoles,
                 tags
             };
 

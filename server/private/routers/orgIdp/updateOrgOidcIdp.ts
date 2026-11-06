@@ -56,6 +56,8 @@ const bodySchema = z.strictObject({
     syncRoleMapping: z.string().nullish(),
     syncOrgMapping: z.string().nullish(),
     mappingsLinked: z.boolean().optional(),
+    createMissingRoles: z.boolean().optional(),
+    syncCreateMissingRoles: z.boolean().optional(),
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, omitted secrets are kept from the stored config
     directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
@@ -143,6 +145,8 @@ export async function updateOrgOidcIdp(
             syncRoleMapping,
             syncOrgMapping,
             mappingsLinked,
+            createMissingRoles,
+            syncCreateMissingRoles,
             directorySyncDeletions,
             directorySyncConfig,
             tags
@@ -298,6 +302,8 @@ export async function updateOrgOidcIdp(
                 syncRoleMapping?: string | null;
                 syncOrgMapping?: string | null;
                 mappingsLinked?: boolean;
+                createMissingRoles?: boolean;
+                syncCreateMissingRoles?: boolean;
                 directorySyncDeletions?: boolean;
             } = {};
             if (roleMapping !== undefined) {
@@ -314,6 +320,13 @@ export async function updateOrgOidcIdp(
             }
             if (mappingsLinked !== undefined) {
                 idpOrgPolicyPatch.mappingsLinked = mappingsLinked;
+            }
+            if (createMissingRoles !== undefined) {
+                idpOrgPolicyPatch.createMissingRoles = createMissingRoles;
+            }
+            if (syncCreateMissingRoles !== undefined) {
+                idpOrgPolicyPatch.syncCreateMissingRoles =
+                    syncCreateMissingRoles;
             }
             if (directorySyncDeletions !== undefined) {
                 idpOrgPolicyPatch.directorySyncDeletions =

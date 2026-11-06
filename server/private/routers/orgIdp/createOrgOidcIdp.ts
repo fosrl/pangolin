@@ -52,6 +52,8 @@ const bodySchema = z.strictObject({
     syncRoleMapping: z.string().nullish(),
     syncOrgMapping: z.string().nullish(),
     mappingsLinked: z.boolean().optional(),
+    createMissingRoles: z.boolean().optional(),
+    syncCreateMissingRoles: z.boolean().optional(),
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, validated against the variant's schema
     directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
@@ -138,6 +140,8 @@ export async function createOrgOidcIdp(
             syncRoleMapping,
             syncOrgMapping,
             mappingsLinked,
+            createMissingRoles,
+            syncCreateMissingRoles,
             directorySyncDeletions,
             directorySyncConfig,
             tags
@@ -232,6 +236,8 @@ export async function createOrgOidcIdp(
                 syncRoleMapping: syncRoleMapping || null,
                 syncOrgMapping: syncOrgMapping || null,
                 mappingsLinked: mappingsLinked ?? true,
+                createMissingRoles: createMissingRoles ?? false,
+                syncCreateMissingRoles: syncCreateMissingRoles ?? false,
                 directorySyncDeletions: directorySyncDeletions ?? true
             });
         });
