@@ -12,6 +12,7 @@ import {
     ChartLine,
     Cookie,
     Coins,
+    Combine,
     CreditCard,
     Fingerprint,
     Globe,
@@ -21,7 +22,6 @@ import {
     Link as LinkIcon,
     Logs,
     MessagesSquare,
-    MonitorUp,
     Network,
     Plug,
     ReceiptText,
@@ -349,6 +349,11 @@ export const orgNavSections = (
                               }
                           ]
                         : []),
+                    {
+                        title: "sidebarOAuthClients",
+                        href: "/{orgId}/settings/oauth-clients",
+                        icon: <Combine className="size-4 flex-none" />
+                    },
                     {
                         title: "sidebarBluePrints",
                         href: "/{orgId}/settings/blueprints",
