@@ -9,6 +9,8 @@ import {
 } from "@app/app/navigation";
 import type { SidebarNavItem } from "@app/components/SidebarNav";
 import { LayoutSidebar } from "@app/components/LayoutSidebar";
+import EnvProvider from "@app/providers/EnvProvider";
+import { pullEnv } from "@app/lib/pullEnv";
 import { LayoutHeader } from "@app/components/LayoutHeader";
 import { LayoutMobileMenu } from "@app/components/LayoutMobileMenu";
 import { cookies } from "next/headers";
@@ -43,6 +45,13 @@ export async function Layout({
     showViewAsAdmin = false,
     env
 }: LayoutProps) {
+    // Every layout that renders this shell has validated the session
+    // server-side, so the shell re-provisions the full env its clients
+    // need (version badge, product updates, maxmind gates, api client
+    // port fallback). The root layout's sanitized provider stays in
+    // place for every page outside the shell.
+    const shellEnv = pullEnv();
+
     const allCookies = await cookies();
     const sidebarStateCookie = allCookies.get("pangolin-sidebar-state")?.value;
     const hasCookiePreference = sidebarStateCookie !== undefined;
@@ -61,64 +70,66 @@ export async function Layout({
             orgs={orgs}
             navItems={commandNavItems}
         >
-            <div className="flex h-screen-safe overflow-hidden">
-                {/* Desktop Sidebar */}
-                {showSidebar && (
-                    <LayoutSidebar
-                        orgId={orgId}
-                        orgs={orgs}
-                        navItems={navItems}
-                        defaultSidebarCollapsed={initialSidebarCollapsed}
-                        hasCookiePreference={hasCookiePreference}
-                    />
-                )}
-
-                {/* Main content area */}
-                <div
-                    className={cn(
-                        "flex-1 flex flex-col h-full min-w-0 relative",
-                        !showSidebar && "w-full"
-                    )}
-                >
-                    {/* Mobile header */}
-                    {showHeader && (
-                        <LayoutMobileMenu
+            <EnvProvider env={shellEnv}>
+                <div className="flex h-screen-safe overflow-hidden">
+                    {/* Desktop Sidebar */}
+                    {showSidebar && (
+                        <LayoutSidebar
                             orgId={orgId}
                             orgs={orgs}
                             navItems={navItems}
-                            launcherNavItems={launcherNavItems}
-                            showSidebar={showSidebar}
-                            showTopBar={showTopBar}
-                            launcherMode={launcherMode}
-                            showViewAsAdmin={showViewAsAdmin}
+                            defaultSidebarCollapsed={initialSidebarCollapsed}
+                            hasCookiePreference={hasCookiePreference}
                         />
                     )}
 
-                    {/* Desktop header */}
-                    {showHeader && (
-                        <LayoutHeader
-                            showTopBar={showTopBar}
-                            launcherMode={launcherMode}
-                            orgId={orgId}
-                            orgs={orgs}
-                            showViewAsAdmin={showViewAsAdmin}
-                            launcherNavItems={launcherNavItems}
-                        />
-                    )}
+                    {/* Main content area */}
+                    <div
+                        className={cn(
+                            "flex-1 flex flex-col h-full min-w-0 relative",
+                            !showSidebar && "w-full"
+                        )}
+                    >
+                        {/* Mobile header */}
+                        {showHeader && (
+                            <LayoutMobileMenu
+                                orgId={orgId}
+                                orgs={orgs}
+                                navItems={navItems}
+                                launcherNavItems={launcherNavItems}
+                                showSidebar={showSidebar}
+                                showTopBar={showTopBar}
+                                launcherMode={launcherMode}
+                                showViewAsAdmin={showViewAsAdmin}
+                            />
+                        )}
 
-                    {/* Main content */}
-                    <main className="flex-1 overflow-y-auto p-3 md:p-6 w-full">
-                        <div
-                            className={cn(
-                                "container mx-auto max-w-12xl mb-12",
-                                showHeader && "md:pt-14" // Add top padding only on desktop to account for fixed header
-                            )}
-                        >
-                            {children}
-                        </div>
-                    </main>
+                        {/* Desktop header */}
+                        {showHeader && (
+                            <LayoutHeader
+                                showTopBar={showTopBar}
+                                launcherMode={launcherMode}
+                                orgId={orgId}
+                                orgs={orgs}
+                                showViewAsAdmin={showViewAsAdmin}
+                                launcherNavItems={launcherNavItems}
+                            />
+                        )}
+
+                        {/* Main content */}
+                        <main className="flex-1 overflow-y-auto p-3 md:p-6 w-full">
+                            <div
+                                className={cn(
+                                    "container mx-auto max-w-12xl mb-12",
+                                    showHeader && "md:pt-14" // Add top padding only on desktop to account for fixed header
+                                )}
+                            >
+                                {children}
+                            </div>
+                        </main>
+                    </div>
                 </div>
-            </div>
+            </EnvProvider>
         </CommandPaletteProvider>
     );
 }
