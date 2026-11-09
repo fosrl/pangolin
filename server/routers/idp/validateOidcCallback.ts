@@ -1,5 +1,6 @@
 import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { cleanRedirect } from "@app/lib/cleanRedirect";
 import { unwrapRoleMapping } from "@app/lib/idpRoleMapping";
 import {
     createSession,
@@ -184,8 +185,13 @@ export async function validateOidcCallback(
         const {
             codeVerifier,
             state,
-            redirectUrl: postAuthRedirectUrl
+            redirectUrl: rawPostAuthRedirectUrl
         } = stateObj.data;
+
+        const postAuthRedirectUrl = cleanRedirect(rawPostAuthRedirectUrl, {
+            fallback: "/",
+            allowAllQueryParams: true
+        });
 
         if (state !== expectedState) {
             logger.error("State mismatch", { expectedState, state });
