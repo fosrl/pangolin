@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "Ocorreu um erro ao atualizar as funções do cliente de máquina.",
     "sitesFetchFailed": "Falha ao buscar sites",
     "sitesFetchError": "Ocorreu um erro ao buscar sites.",
-    "olmErrorFetchReleases": "Ocorreu um erro ao buscar lançamentos do Olm.",
-    "olmErrorFetchLatest": "Ocorreu um erro ao buscar o lançamento mais recente do Olm.",
     "enterCidrRange": "Insira o intervalo CIDR",
     "resourceEnableProxy": "Ativar Proxy Público",
     "resourceEnableProxyDescription": "Permite proxy público para este recurso. Isso permite o acesso ao recurso de fora da rede através da nuvem em uma porta aberta. Requer configuração do Traefik.",
