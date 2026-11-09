@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "Er is een fout opgetreden bij het bijwerken van de rollen van de machineclient.",
     "sitesFetchFailed": "Het ophalen van sites is mislukt",
     "sitesFetchError": "Er is een fout opgetreden bij het ophalen van sites.",
-    "olmErrorFetchReleases": "Er is een fout opgetreden bij het ophalen van Olm releases.",
-    "olmErrorFetchLatest": "Er is een fout opgetreden bij het ophalen van de nieuwste Olm release.",
     "enterCidrRange": "Voer CIDR-bereik in",
     "resourceEnableProxy": "Openbare proxy inschakelen",
     "resourceEnableProxyDescription": "Schakel publieke proxy in voor deze resource. Dit maakt toegang tot de resource mogelijk vanuit het netwerk via de cloud met een open poort. Vereist Traefik-configuratie.",
