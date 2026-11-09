@@ -128,6 +128,14 @@ export type LatestVersionResponse = {
         latestVersion: string;
         releaseNotes: string;
     };
+    olm: {
+        latestVersion: string;
+        releaseNotes: string;
+    };
+    linux: {
+        latestVersion: string;
+        releaseNotes: string;
+    };
     "panglin-node": {
         latestVersion: string;
         releaseNotes: string;
