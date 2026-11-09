@@ -287,6 +287,18 @@ function extractBedrockConverse(
     };
 }
 
+// Pulls the base64 `bytes` payload out of each invoke-with-response-stream
+// event-stream frame and re-expresses the decoded events as SSE `data:` lines.
+// Returns null when the text has no such chunks.
+function decodeBedrockInvokeChunks(text: string): string | null {
+    const events: string[] = [];
+    for (const m of text.matchAll(/"bytes"\s*:\s*"([A-Za-z0-9+/=]+)"/g)) {
+        const json = Buffer.from(m[1], "base64").toString("utf8");
+        events.push(`data: ${json}\n\n`);
+    }
+    return events.length > 0 ? events.join("") : null;
+}
+
 function extractBedrockModelInvoke(
     text: string,
     _isStream: boolean,
@@ -307,16 +319,18 @@ function extractBedrockModelInvoke(
         };
     }
 
-    // invoke-with-response-stream has no equivalent headers; the model's
-    // own usage shape (frequently Anthropic-style on Bedrock) is embedded
-    // inside binary event-stream framing, so fall back to a couple of
-    // known field-name shapes via regex.
-    const anthropicStyle = extractAnthropicMessages(text, true);
+    // invoke-with-response-stream has no equivalent headers. Each event-stream
+    // frame carries {"bytes":"<base64>"} whose decoded JSON is the model's own
+    // event (frequently Anthropic-style on Bedrock), so decode those chunks
+    // first and fall back to a couple of known field-name shapes via regex.
+    const decoded = decodeBedrockInvokeChunks(text);
+    const body = decoded ?? text;
+    const anthropicStyle = extractAnthropicMessages(body, true);
     if (anthropicStyle) {
         return anthropicStyle;
     }
 
-    const fields = scanNumericFields(text, [
+    const fields = scanNumericFields(body, [
         "inputTokenCount",
         "outputTokenCount"
     ]);

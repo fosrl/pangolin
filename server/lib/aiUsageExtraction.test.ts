@@ -72,6 +72,86 @@ function testConverseWithoutCache() {
     );
 }
 
+// invoke-with-response-stream wraps each model event as
+// {"bytes":"<base64 of the event JSON>","p":"..."} inside event-stream frames.
+function frame(event: object): string {
+    const b64 = Buffer.from(JSON.stringify(event)).toString("base64");
+    return `\u0000\u0001{"bytes":"${b64}","p":"abc"}\u0002`;
+}
+
+function testInvokeStreamAnthropicChunks() {
+    console.log("Running Bedrock invoke stream (Anthropic chunks) test...");
+    const body = [
+        frame({
+            type: "message_start",
+            message: {
+                usage: {
+                    input_tokens: 100,
+                    cache_read_input_tokens: 800,
+                    cache_creation_input_tokens: 0,
+                    output_tokens: 1
+                }
+            }
+        }),
+        frame({ type: "message_delta", usage: { output_tokens: 20 } }),
+        frame({ type: "message_stop" })
+    ].join("");
+    assertEqualsObj(
+        extractUsage("bedrock_model_invoke", body, true, headers),
+        {
+            promptTokens: 100,
+            cacheReadTokens: 800,
+            cacheWriteTokens: 0,
+            completionTokens: 20,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "usage inside base64 chunks must be read"
+    );
+}
+
+function testInvokeStreamInvocationMetrics() {
+    console.log("Running Bedrock invoke stream (invocationMetrics) test...");
+    const body = frame({
+        "amazon-bedrock-invocationMetrics": {
+            inputTokenCount: 100,
+            outputTokenCount: 20
+        }
+    });
+    assertEqualsObj(
+        extractUsage("bedrock_model_invoke", body, true, headers),
+        {
+            promptTokens: 100,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            completionTokens: 20,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "invocationMetrics inside base64 chunks must be read"
+    );
+}
+
+function testInvokeHeadersStillWin() {
+    console.log("Running Bedrock invoke header usage test...");
+    const h = new Headers({
+        "x-amzn-bedrock-input-token-count": "7",
+        "x-amzn-bedrock-output-token-count": "3"
+    });
+    assertEqualsObj(
+        extractUsage("bedrock_model_invoke", "{}", false, h),
+        {
+            promptTokens: 7,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            completionTokens: 3,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "headers keep priority"
+    );
+}
+
 // Gemini reports tool-result tokens (Google Search, URL context) in
 // `toolUsePromptTokenCount`, separately from `promptTokenCount`; they are
 // billed as input.
@@ -105,6 +185,9 @@ try {
     testConverseJsonWithCache();
     testConverseStreamWithCache();
     testConverseWithoutCache();
+    testInvokeStreamAnthropicChunks();
+    testInvokeStreamInvocationMetrics();
+    testInvokeHeadersStillWin();
     testGeminiToolUsePromptTokens();
     console.log("All aiUsageExtraction tests passed!");
 } catch (error) {
