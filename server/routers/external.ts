@@ -696,6 +696,7 @@ authenticated.get(
 authenticated.get(
     "/org/:orgId/domain/:domainId",
     verifyOrgAccess,
+    verifyDomainAccess,
     verifyUserHasAction(ActionsEnum.getDomain),
     domain.getDomain
 );
@@ -710,6 +711,7 @@ authenticated.patch(
 authenticated.get(
     "/org/:orgId/domain/:domainId/dns-records",
     verifyOrgAccess,
+    verifyDomainAccess,
     verifyUserHasAction(ActionsEnum.getDNSRecords),
     domain.getDNSRecords
 );
