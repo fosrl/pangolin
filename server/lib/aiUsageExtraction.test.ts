@@ -101,11 +101,34 @@ function testGeminiToolUsePromptTokens() {
     );
 }
 
+// A Responses API stream that stops early (max_output_tokens) ends with
+// `response.incomplete`, which carries the same `response.usage` as
+// `response.completed`.
+function testOpenAiResponsesIncompleteStream() {
+    console.log("Running OpenAI Responses incomplete stream test...");
+    const body =
+        'data: {"type":"response.output_text.delta","delta":"Hi"}\n\n' +
+        'data: {"type":"response.incomplete","response":{"status":"incomplete","usage":{"input_tokens":50,"input_tokens_details":{"cached_tokens":10},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":5}}}}\n\n';
+    assertEqualsObj(
+        extractUsage("openai_responses", body, true, headers),
+        {
+            promptTokens: 40,
+            cacheReadTokens: 10,
+            cacheWriteTokens: 0,
+            completionTokens: 25,
+            reasoningTokens: 5,
+            estimated: false
+        },
+        "usage is read from response.incomplete"
+    );
+}
+
 try {
     testConverseJsonWithCache();
     testConverseStreamWithCache();
     testConverseWithoutCache();
     testGeminiToolUsePromptTokens();
+    testOpenAiResponsesIncompleteStream();
     console.log("All aiUsageExtraction tests passed!");
 } catch (error) {
     console.error("Test failed:", error);

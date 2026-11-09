@@ -118,10 +118,9 @@ function extractOpenAiResponses(
     if (isStream) {
         for (const frame of sseDataFrames(text)) {
             const parsed = tryParseJson(frame);
-            if (
-                parsed?.type === "response.completed" &&
-                parsed?.response?.usage
-            ) {
+            // response.completed and response.incomplete (e.g. max_output_tokens)
+            // carry the final usage in `response`.
+            if (parsed?.response?.usage) {
                 usage = parsed.response.usage;
             } else if (parsed?.usage) {
                 usage = parsed.usage;
