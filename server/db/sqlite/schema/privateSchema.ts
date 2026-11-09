@@ -594,6 +594,17 @@ export const alertResources = sqliteTable("alertResources", {
         .references(() => resources.resourceId, { onDelete: "cascade" })
 });
 
+// Rules match any source (site / resource / health check) carrying at least
+// one of these labels, in addition to the explicit junction tables above.
+export const alertLabels = sqliteTable("alertLabels", {
+    alertRuleId: integer("alertRuleId")
+        .notNull()
+        .references(() => alertRules.alertRuleId, { onDelete: "cascade" }),
+    labelId: integer("labelId")
+        .notNull()
+        .references(() => labels.labelId, { onDelete: "cascade" })
+});
+
 export const alertEmailActions = sqliteTable("alertEmailActions", {
     emailActionId: integer("emailActionId").primaryKey({ autoIncrement: true }),
     alertRuleId: integer("alertRuleId")
@@ -871,6 +882,7 @@ export type EventStreamingCursor = InferSelectModel<
     typeof eventStreamingCursors
 >;
 export type AlertResources = InferSelectModel<typeof alertResources>;
+export type AlertLabels = InferSelectModel<typeof alertLabels>;
 export type AlertHealthChecks = InferSelectModel<typeof alertHealthChecks>;
 export type AlertSites = InferSelectModel<typeof alertSites>;
 export type AlertRule = InferSelectModel<typeof alertRules>;

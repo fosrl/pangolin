@@ -597,6 +597,17 @@ export const alertResources = pgTable("alertResources", {
         .references(() => resources.resourceId, { onDelete: "cascade" })
 });
 
+// Rules match any source (site / resource / health check) carrying at least
+// one of these labels, in addition to the explicit junction tables above.
+export const alertLabels = pgTable("alertLabels", {
+    alertRuleId: integer("alertRuleId")
+        .notNull()
+        .references(() => alertRules.alertRuleId, { onDelete: "cascade" }),
+    labelId: integer("labelId")
+        .notNull()
+        .references(() => labels.labelId, { onDelete: "cascade" })
+});
+
 // Separating channels by type avoids the mixed-shape problem entirely
 export const alertEmailActions = pgTable("alertEmailActions", {
     emailActionId: serial("emailActionId").primaryKey(),
@@ -873,6 +884,7 @@ export type EventStreamingCursor = InferSelectModel<
     typeof eventStreamingCursors
 >;
 export type AlertResources = InferSelectModel<typeof alertResources>;
+export type AlertLabels = InferSelectModel<typeof alertLabels>;
 export type AlertHealthChecks = InferSelectModel<typeof alertHealthChecks>;
 export type AlertSites = InferSelectModel<typeof alertSites>;
 export type AlertRules = InferSelectModel<typeof alertRules>;

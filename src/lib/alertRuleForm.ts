@@ -60,6 +60,8 @@ export type AlertRuleFormValues = {
     healthCheckIds: number[];
     allResources: boolean;
     resourceIds: number[];
+    /** Match any source of the selected kind carrying one of these labels */
+    labelIds: number[];
     trigger: AlertTrigger;
     actions: AlertRuleFormAction[];
 };
@@ -89,6 +91,7 @@ export type AlertRuleApiPayload = {
     healthCheckIds: number[];
     allResources: boolean;
     resourceIds: number[];
+    labelIds: number[];
     userIds: string[];
     roleIds: number[];
     emails: string[];
@@ -110,9 +113,13 @@ export type AlertRuleApiResponse = {
     lastTriggeredAt: number | null;
     createdAt: number;
     updatedAt: number;
+    allSites: boolean;
+    allHealthChecks: boolean;
+    allResources: boolean;
     siteIds: number[];
     healthCheckIds: number[];
     resourceIds: number[];
+    labelIds: number[];
     recipients: {
         recipientId: number;
         userId: string | null;
@@ -157,6 +164,7 @@ export function buildFormSchema(t: (k: string) => string) {
             healthCheckIds: z.array(z.number()).default([]),
             allResources: z.boolean().default(true),
             resourceIds: z.array(z.number()).default([]),
+            labelIds: z.array(z.number()).default([]),
             trigger: z.enum([
                 "site_online",
                 "site_offline",
@@ -206,10 +214,12 @@ export function buildFormSchema(t: (k: string) => string) {
                     path: ["actions"]
                 });
             }
+            const hasLabels = val.labelIds.length > 0;
             if (
                 val.sourceType === "site" &&
                 !val.allSites &&
-                val.siteIds.length === 0
+                val.siteIds.length === 0 &&
+                !hasLabels
             ) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
@@ -220,7 +230,8 @@ export function buildFormSchema(t: (k: string) => string) {
             if (
                 val.sourceType === "health_check" &&
                 !val.allHealthChecks &&
-                val.healthCheckIds.length === 0
+                val.healthCheckIds.length === 0 &&
+                !hasLabels
             ) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
@@ -231,7 +242,8 @@ export function buildFormSchema(t: (k: string) => string) {
             if (
                 val.sourceType === "resource" &&
                 !val.allResources &&
-                val.resourceIds.length === 0
+                val.resourceIds.length === 0 &&
+                !hasLabels
             ) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
@@ -330,48 +342,41 @@ export function defaultFormValues(): AlertRuleFormValues {
         healthCheckIds: [],
         allResources: true,
         resourceIds: [],
+        labelIds: [],
         trigger: "site_toggle",
         actions: []
     };
 }
 
 // ---------------------------------------------------------------------------
-// List/API row semantics: empty ID arrays mean "all" for that source kind
+// List/API row semantics
 // ---------------------------------------------------------------------------
 
-export function alertRuleAllSitesSelected(
-    eventType: string,
-    siteIds: number[]
-): boolean {
-    const siteEvent =
-        eventType === "site_online" ||
-        eventType === "site_offline" ||
-        eventType === "site_toggle";
-    return siteEvent && siteIds.length === 0;
+type AlertRuleScope = {
+    eventType: string;
+    allSites: boolean;
+    allHealthChecks: boolean;
+    allResources: boolean;
+};
+
+export function alertRuleSourceType(
+    eventType: string
+): AlertRuleFormValues["sourceType"] {
+    if (eventType.startsWith("site_")) return "site";
+    if (eventType.startsWith("resource_")) return "resource";
+    return "health_check";
 }
 
-export function alertRuleAllResourcesSelected(
-    eventType: string,
-    resourceIds: number[] | undefined
-): boolean {
-    return (
-        eventType.startsWith("resource_") && (resourceIds?.length ?? 0) === 0
-    );
-}
-
-export function alertRuleAllHealthChecksSelected(
-    eventType: string,
-    healthCheckIds: number[]
-): boolean {
-    if (
-        eventType === "site_online" ||
-        eventType === "site_offline" ||
-        eventType === "site_toggle" ||
-        eventType.startsWith("resource_")
-    ) {
-        return false;
+/** True when the rule matches every source of its event's kind. */
+export function alertRuleMatchesAllSources(rule: AlertRuleScope): boolean {
+    switch (alertRuleSourceType(rule.eventType)) {
+        case "site":
+            return rule.allSites;
+        case "resource":
+            return rule.allResources;
+        default:
+            return rule.allHealthChecks;
     }
-    return healthCheckIds.length === 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -382,11 +387,7 @@ export function apiResponseToFormValues(
     rule: AlertRuleApiResponse
 ): AlertRuleFormValues {
     const trigger = rule.eventType;
-    const sourceType = rule.eventType.startsWith("site_")
-        ? "site"
-        : rule.eventType.startsWith("resource_")
-          ? "resource"
-          : "health_check";
+    const sourceType = alertRuleSourceType(rule.eventType);
 
     // Collect notify recipients into a single notify action (if any)
     const userTags = rule.recipients
@@ -427,15 +428,12 @@ export function apiResponseToFormValues(
         });
     }
 
-    const allSites = alertRuleAllSitesSelected(rule.eventType, rule.siteIds);
-    const allHealthChecks = alertRuleAllHealthChecksSelected(
-        rule.eventType,
-        rule.healthCheckIds
-    );
-    const allResources = alertRuleAllResourcesSelected(
-        rule.eventType,
-        rule.resourceIds
-    );
+    // Only the flag for the rule's own source kind is meaningful; the others
+    // default to true so switching source type in the editor starts at "all".
+    const matchesAll = alertRuleMatchesAllSources(rule);
+    const allSites = sourceType === "site" ? matchesAll : true;
+    const allHealthChecks = sourceType === "health_check" ? matchesAll : true;
+    const allResources = sourceType === "resource" ? matchesAll : true;
 
     return {
         name: rule.name,
@@ -448,6 +446,7 @@ export function apiResponseToFormValues(
         healthCheckIds: rule.healthCheckIds,
         allResources,
         resourceIds: rule.resourceIds ?? [],
+        labelIds: matchesAll ? [] : (rule.labelIds ?? []),
         trigger: trigger as AlertTrigger,
         actions
     };
@@ -513,6 +512,9 @@ export function formValuesToApiPayload(
         healthCheckIds: values.allHealthChecks ? [] : values.healthCheckIds,
         allResources: values.allResources,
         resourceIds: values.allResources ? [] : values.resourceIds,
+        labelIds: alertRuleMatchesAllSources({ ...values, eventType })
+            ? []
+            : values.labelIds,
         userIds: uniqueUserIds,
         roleIds: uniqueRoleIds,
         emails: uniqueEmails,
