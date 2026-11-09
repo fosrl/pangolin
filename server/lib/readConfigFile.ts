@@ -220,7 +220,7 @@ export const configSchema = z
                             .positive()
                             .optional()
                             .default(5000),
-                        jit_mode: z.boolean().default(true)
+                        jit_mode: z.boolean().default(false)
                     })
                     .prefault({})
             })
