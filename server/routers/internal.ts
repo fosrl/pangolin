@@ -44,7 +44,7 @@ internalRouter.get(
 
 internalRouter.get("/idp", idp.listIdps);
 
-internalRouter.get("/idp/:idpId", idp.getIdp);
+internalRouter.get("/idp/:idpId", idp.getIdpWithoutSecrets);
 
 internalRouter.post(
     "/org/:orgId/ssh/sign-key",
