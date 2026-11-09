@@ -55,7 +55,13 @@ export function attachPoolErrorHandlers(pool: Pool, label: string): void {
         // jit=off"` startup parameter: connections in SaaS mode go through
         // a pooler (e.g. PgBouncer) that rejects arbitrary startup packet
         // options with a protocol_violation (08P01) error.
-        if (config.getRawConfig().postgres?.pool.jit_mode == false) {
+        //
+        // JIT is disabled by default; set `postgres.pool.jit_mode: true` to
+        // keep it enabled.
+        // Checked against `true` so installs configured only through
+        // POSTGRES_CONNECTION_STRING (no `postgres` block in the config
+        // file) still get JIT disabled.
+        if (config.getRawConfig().postgres?.pool.jit_mode !== true) {
             client.query("SET jit = off").catch((err: Error) => {
                 console.warn(
                     `Failed to set jit=off on ${label} client: ${err.message}`

@@ -104,3 +104,48 @@ export async function getIdp(
         );
     }
 }
+
+// Internal-API variant used by the login and OIDC callback pages. Those only
+// need the IdP's name, type and variant, so the encrypted client credentials
+// are left out rather than decrypted. The internal API has no caller auth.
+export async function getIdpWithoutSecrets(
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<any> {
+    try {
+        const parsedParams = paramsSchema.safeParse(req.params);
+        if (!parsedParams.success) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedParams.error).toString()
+                )
+            );
+        }
+
+        const idpRes = await query(parsedParams.data.idpId);
+
+        if (!idpRes) {
+            return next(createHttpError(HttpCode.NOT_FOUND, "Idp not found"));
+        }
+
+        if (idpRes.idpOidcConfig) {
+            idpRes.idpOidcConfig.clientId = "";
+            idpRes.idpOidcConfig.clientSecret = "";
+        }
+
+        return response<GetIdpResponse>(res, {
+            data: idpRes,
+            success: true,
+            error: false,
+            message: "Idp retrieved successfully",
+            status: HttpCode.OK
+        });
+    } catch (error) {
+        logger.error(error);
+        return next(
+            createHttpError(HttpCode.INTERNAL_SERVER_ERROR, "An error occurred")
+        );
+    }
+}

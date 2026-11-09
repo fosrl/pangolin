@@ -737,28 +737,26 @@ async function updateHttpResource(
         updateData.matchBaseDomain = matchBaseDomain;
 
         if (fullDomain) {
-            // Inference resources route through the central AI gateway
-            // rather than normal target-based proxying, so they're allowed
-            // to share a full-domain with a non-inference resource (and
-            // vice versa) - only conflicts within the same routing category
-            // are rejected. mode isn't updatable here, so `resource.mode`
-            // reflects the resource's actual (unchanging) routing category.
+            // The full domain must be unique across every org. Inference
+            // resources may share a full domain with each other, but any
+            // other resource conflicts with every existing resource on that
+            // domain. mode isn't updatable here, so `resource.mode` reflects
+            // the resource's actual (unchanging) routing category.
             const [existingDomain] = await db
                 .select()
                 .from(resources)
                 .where(
                     and(
                         eq(resources.fullDomain, fullDomain),
+                        ne(resources.resourceId, resource.resourceId),
                         resource.mode === "inference"
                             ? ne(resources.mode, "inference")
-                            : eq(resources.mode, "inference")
+                            : undefined
                     )
-                );
+                )
+                .limit(1);
 
-            if (
-                existingDomain &&
-                existingDomain.resourceId !== resource.resourceId
-            ) {
+            if (existingDomain) {
                 return next(
                     createHttpError(
                         HttpCode.CONFLICT,

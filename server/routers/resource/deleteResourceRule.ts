@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
 import { resourceRules, resourcePolicyRules, resources } from "@server/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -106,7 +106,15 @@ export async function deleteResourceRule(
         if (isInlinePolicy) {
             const [deletedRule] = await db
                 .delete(resourcePolicyRules)
-                .where(eq(resourcePolicyRules.ruleId, ruleId))
+                .where(
+                    and(
+                        eq(resourcePolicyRules.ruleId, ruleId),
+                        eq(
+                            resourcePolicyRules.resourcePolicyId,
+                            resource.defaultResourcePolicyId!
+                        )
+                    )
+                )
                 .returning();
 
             if (!deletedRule) {
@@ -130,7 +138,12 @@ export async function deleteResourceRule(
         // Delete the rule and return the deleted record
         const [deletedRule] = await db
             .delete(resourceRules)
-            .where(eq(resourceRules.ruleId, ruleId))
+            .where(
+                and(
+                    eq(resourceRules.ruleId, ruleId),
+                    eq(resourceRules.resourceId, resourceId)
+                )
+            )
             .returning();
 
         if (!deletedRule) {

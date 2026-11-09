@@ -504,11 +504,9 @@ async function createHttpResource(
         );
     }
 
-    // make sure the full domain is unique. Inference resources are routed
-    // through the central AI gateway rather than normal target-based
-    // proxying, so they're allowed to share a full-domain with a
-    // non-inference resource (and vice versa) - only conflicts within the
-    // same routing category are rejected.
+    // make sure the full domain is unique across every org. Inference
+    // resources may share a full domain with each other, but any other
+    // resource conflicts with every existing resource on that domain.
     const existingResource = await db
         .select()
         .from(resources)
@@ -517,7 +515,7 @@ async function createHttpResource(
                 eq(resources.fullDomain, fullDomain),
                 effectiveMode === "inference"
                     ? ne(resources.mode, "inference")
-                    : eq(resources.mode, "inference")
+                    : undefined
             )
         );
 

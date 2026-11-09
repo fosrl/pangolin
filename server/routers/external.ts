@@ -696,6 +696,7 @@ authenticated.get(
 authenticated.get(
     "/org/:orgId/domain/:domainId",
     verifyOrgAccess,
+    verifyDomainAccess,
     verifyUserHasAction(ActionsEnum.getDomain),
     domain.getDomain
 );
@@ -710,6 +711,7 @@ authenticated.patch(
 authenticated.get(
     "/org/:orgId/domain/:domainId/dns-records",
     verifyOrgAccess,
+    verifyDomainAccess,
     verifyUserHasAction(ActionsEnum.getDNSRecords),
     domain.getDNSRecords
 );
@@ -2099,6 +2101,18 @@ authRouter.post("/logout", auth.logout);
 authRouter.post("/delete-my-account", auth.deleteMyAccount);
 authRouter.post(
     "/lookup-user",
+    // The limiter below is keyed on the identifier, so on its own one caller
+    // could try any number of different identifiers. Cap each IP as well.
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 200,
+        keyGenerator: (req) => `lookupUserIp:${ipKeyGenerator(req.ip || "")}`,
+        handler: (req, res, next) => {
+            const message = `Too many user lookups from this IP. Please try again later.`;
+            return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
+        },
+        store: createStore()
+    }),
     rateLimit({
         windowMs: 15 * 60 * 1000,
         max: 15,
