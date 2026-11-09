@@ -848,19 +848,26 @@ export async function updatePublicResources(
                             ip: targetData.hostname,
                             method:
                                 resourceData.mode == "http" // the other types of ssh, rdp, and vnc use the browser gateway targets and not this one so this is okay
-                                    ? targetData.method
+                                    ? (targetData.method ?? null)
                                     : null,
                             port: targetData.port,
                             enabled: targetData.enabled,
-                            path: targetData.path,
-                            pathMatchType: targetData["path-match"],
+                            // Targets are matched to existing rows by
+                            // position, so every optional field must be
+                            // written explicitly (null when omitted).
+                            // Drizzle skips `undefined` keys in .set(),
+                            // which would otherwise make a target inherit
+                            // the previous target's value at this index.
+                            path: targetData.path ?? null,
+                            pathMatchType: targetData["path-match"] ?? null,
                             rewritePath:
                                 targetData.rewritePath ||
                                 targetData["rewrite-path"] ||
                                 (targetData["rewrite-match"] === "stripPrefix"
                                     ? "/"
-                                    : undefined),
-                            rewritePathType: targetData["rewrite-match"],
+                                    : null),
+                            rewritePathType:
+                                targetData["rewrite-match"] ?? null,
                             priority: targetData.priority,
                             mode: resourceData.mode as Target["mode"]
                         })
@@ -916,28 +923,33 @@ export async function updatePublicResources(
                     const [newHealthcheck] = await trx
                         .update(targetHealthCheck)
                         .set({
+                            // Same as the target above: write every field so
+                            // omitted values reset to the column defaults
+                            // instead of inheriting from the positional match.
                             name: healthCheckName,
                             hcEnabled: healthcheckData?.enabled || false,
-                            hcPath: healthcheckData?.path,
-                            hcScheme: healthcheckData?.scheme,
-                            hcMode: healthcheckData?.mode,
-                            hcHostname: healthcheckData?.hostname,
-                            hcPort: healthcheckData?.port,
-                            hcInterval: healthcheckData?.interval,
+                            hcPath: healthcheckData?.path ?? null,
+                            hcScheme: healthcheckData?.scheme ?? null,
+                            hcMode: healthcheckData?.mode ?? "http",
+                            hcHostname: healthcheckData?.hostname ?? null,
+                            hcPort: healthcheckData?.port ?? null,
+                            hcInterval: healthcheckData?.interval ?? 30,
                             hcUnhealthyInterval:
-                                healthcheckData?.unhealthyInterval ||
-                                healthcheckData?.["unhealthy-interval"],
-                            hcTimeout: healthcheckData?.timeout,
+                                healthcheckData?.unhealthyInterval ??
+                                healthcheckData?.["unhealthy-interval"] ??
+                                30,
+                            hcTimeout: healthcheckData?.timeout ?? 5,
                             hcHeaders: hcHeaders,
                             hcFollowRedirects:
-                                healthcheckData?.followRedirects ||
-                                healthcheckData?.["follow-redirects"],
-                            hcMethod: healthcheckData?.method,
-                            hcStatus: healthcheckData?.status,
+                                healthcheckData?.followRedirects ??
+                                healthcheckData?.["follow-redirects"] ??
+                                true,
+                            hcMethod: healthcheckData?.method ?? "GET",
+                            hcStatus: healthcheckData?.status ?? null,
                             hcHealthyThreshold:
-                                healthcheckData?.["healthy-threshold"],
+                                healthcheckData?.["healthy-threshold"] ?? 1,
                             hcUnhealthyThreshold:
-                                healthcheckData?.["unhealthy-threshold"]
+                                healthcheckData?.["unhealthy-threshold"] ?? 1
                         })
                         .where(
                             eq(
