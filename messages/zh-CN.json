@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "更新机器客户端的角色时发生错误。",
     "sitesFetchFailed": "获取站点失败",
     "sitesFetchError": "获取站点时出错。",
-    "olmErrorFetchReleases": "获取 Olm 发布版本时出错。",
-    "olmErrorFetchLatest": "获取最新 Olm 发布版本时出错。",
     "enterCidrRange": "输入 CIDR 范围",
     "resourceEnableProxy": "启用公共代理",
     "resourceEnableProxyDescription": "启用到此资源的公共代理。这允许外部网络通过开放端口访问资源。需要 Traefik 配置。",
