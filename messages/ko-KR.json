@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "머신 클라이언트의 역할을 업데이트하는 동안 오류가 발생했습니다.",
     "sitesFetchFailed": "사이트 가져오기 실패",
     "sitesFetchError": "사이트 가져오는 중 오류가 발생했습니다.",
-    "olmErrorFetchReleases": "Olm 릴리즈 가져오는 중 오류가 발생했습니다.",
-    "olmErrorFetchLatest": "최신 Olm 릴리즈 가져오는 중 오류가 발생했습니다.",
     "enterCidrRange": "CIDR 범위 입력",
     "resourceEnableProxy": "공개 프록시 사용",
     "resourceEnableProxyDescription": "이 리소스에 대한 공개 프록시를 활성화하십시오. 이를 통해 네트워크 외부로부터 클라우드를 통해 열린 포트에서 리소스에 액세스할 수 있습니다. Traefik 구성이 필요합니다.",
