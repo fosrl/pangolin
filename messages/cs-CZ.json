@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "Při aktualizaci rolí klienta stroje došlo k chybě.",
     "sitesFetchFailed": "Nepodařilo se načíst stránky",
     "sitesFetchError": "Došlo k chybě při načítání stránek.",
-    "olmErrorFetchReleases": "Při načítání vydání Olm došlo k chybě.",
-    "olmErrorFetchLatest": "Došlo k chybě při načítání nejnovější verze Olm.",
     "enterCidrRange": "Zadejte rozsah CIDR",
     "resourceEnableProxy": "Povolit veřejné proxy",
     "resourceEnableProxyDescription": "Povolit veřejné proxying pro tento zdroj. To umožňuje přístup ke zdrojům mimo síť prostřednictvím cloudu na otevřeném portu. Vyžaduje nastavení Traefik.",
