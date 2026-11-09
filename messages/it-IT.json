@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "Si è verificato un errore durante l'aggiornamento dei ruoli del client macchina.",
     "sitesFetchFailed": "Impossibile recuperare i siti",
     "sitesFetchError": "Si è verificato un errore durante il recupero dei siti.",
-    "olmErrorFetchReleases": "Si è verificato un errore durante il recupero delle versioni di Olm.",
-    "olmErrorFetchLatest": "Si è verificato un errore durante il recupero dell'ultima versione di Olm.",
     "enterCidrRange": "Inserisci l'intervallo CIDR",
     "resourceEnableProxy": "Abilita Proxy Pubblico",
     "resourceEnableProxyDescription": "Abilita il proxy pubblico a questa risorsa. Consente l'accesso alla risorsa dall'esterno della rete tramite il cloud su una porta aperta. Richiede la configurazione di Traefik.",
