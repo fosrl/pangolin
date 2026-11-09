@@ -2280,16 +2280,12 @@ export async function getDomain(
         .from(resources)
         .where(
             and(
+                // The full domain must be unique across every org, not just
+                // this one. Inference resources may share a full domain with
+                // each other, but any other resource conflicts with every
+                // existing resource on that domain.
                 eq(resources.fullDomain, fullDomain),
-                eq(resources.orgId, orgId),
-                // Inference resources route through the central AI gateway
-                // rather than normal target-based proxying, so they're
-                // allowed to share a full-domain with a non-inference
-                // resource (and vice versa) - only conflicts within the
-                // same routing category are rejected.
-                isInference
-                    ? ne(resources.mode, "inference")
-                    : eq(resources.mode, "inference"),
+                isInference ? ne(resources.mode, "inference") : undefined,
                 resourceId
                     ? ne(resources.resourceId, resourceId)
                     : isNotNull(resources.resourceId)
