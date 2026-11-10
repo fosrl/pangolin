@@ -1956,6 +1956,9 @@ export async function handleMessagingForUpdatedSiteResource(
     const sslChanged =
         existingSiteResource &&
         existingSiteResource.ssl !== updatedSiteResource.ssl;
+    const schemeChanged =
+        existingSiteResource &&
+        existingSiteResource.scheme !== updatedSiteResource.scheme;
     const portRangesChanged =
         existingSiteResource &&
         (existingSiteResource.tcpPortRangeString !==
@@ -1976,7 +1979,7 @@ export async function handleMessagingForUpdatedSiteResource(
         existingSiteResource.enabled !== updatedSiteResource.enabled;
 
     logger.debug(
-        `handleMessagingForUpdatedSiteResource: change flags destinationChanged=${Boolean(destinationChanged)} destinationPortChanged=${Boolean(destinationPortChanged)} aliasChanged=${Boolean(aliasChanged)} fullDomainChanged=${Boolean(fullDomainChanged)} sslChanged=${Boolean(sslChanged)} portRangesChanged=${Boolean(portRangesChanged)} enabledChanged=${Boolean(enabledChanged)}`
+        `handleMessagingForUpdatedSiteResource: change flags destinationChanged=${Boolean(destinationChanged)} destinationPortChanged=${Boolean(destinationPortChanged)} aliasChanged=${Boolean(aliasChanged)} fullDomainChanged=${Boolean(fullDomainChanged)} sslChanged=${Boolean(sslChanged)} schemeChanged=${Boolean(schemeChanged)} portRangesChanged=${Boolean(portRangesChanged)} enabledChanged=${Boolean(enabledChanged)}`
     );
 
     // if the existingSiteResource is undefined (new resource) we don't need to do anything here, the rebuild above handled it all
@@ -1986,6 +1989,7 @@ export async function handleMessagingForUpdatedSiteResource(
         aliasChanged ||
         fullDomainChanged ||
         sslChanged ||
+        schemeChanged ||
         portRangesChanged ||
         destinationPortChanged ||
         enabledChanged
@@ -1993,6 +1997,7 @@ export async function handleMessagingForUpdatedSiteResource(
         const shouldUpdateTargets =
             destinationChanged ||
             sslChanged ||
+            schemeChanged ||
             portRangesChanged ||
             fullDomainChanged ||
             destinationPortChanged ||
