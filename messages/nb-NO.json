@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "En feil oppstod under oppdatering av maskinklientens roller.",
     "sitesFetchFailed": "Klarte ikke å hente områder",
     "sitesFetchError": "En feil oppstod under henting av områder.",
-    "olmErrorFetchReleases": "En feil oppstod under henting av Olm-utgivelser.",
-    "olmErrorFetchLatest": "En feil oppstod under henting av den nyeste Olm-utgivelsen.",
     "enterCidrRange": "Skriv inn CIDR-område",
     "resourceEnableProxy": "Aktiver offentlig proxy",
     "resourceEnableProxyDescription": "Aktiver offentlig proxying til denne ressursen. Dette gir tilgang til ressursen fra utsiden av nettverket gjennom skyen på en åpen port. Krever Traefik-konfigurasjon.",

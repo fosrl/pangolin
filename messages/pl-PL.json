@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "Wystąpił błąd podczas aktualizacji ról klienta maszyny.",
     "sitesFetchFailed": "Nie udało się pobrać witryn",
     "sitesFetchError": "Wystąpił błąd podczas pobierania witryn.",
-    "olmErrorFetchReleases": "Wystąpił błąd podczas pobierania wydań Olm.",
-    "olmErrorFetchLatest": "Wystąpił błąd podczas pobierania najnowszego wydania Olm.",
     "enterCidrRange": "Wprowadź zakres CIDR",
     "resourceEnableProxy": "Włącz publiczny proxy",
     "resourceEnableProxyDescription": "Włącz publiczne proxy dla tego zasobu. To umożliwia dostęp do zasobu spoza sieci przez chmurę na otwartym porcie. Wymaga konfiguracji Traefik.",

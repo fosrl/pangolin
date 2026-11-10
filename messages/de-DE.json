@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "Beim Aktualisieren der Rollen des Maschinen-Clients ist ein Fehler aufgetreten.",
     "sitesFetchFailed": "Fehler beim Abrufen von Standorten",
     "sitesFetchError": "Beim Abrufen von Standorten ist ein Fehler aufgetreten.",
-    "olmErrorFetchReleases": "Beim Abrufen von Olm-Veröffentlichungen ist ein Fehler aufgetreten.",
-    "olmErrorFetchLatest": "Beim Abrufen der neuesten Olm-Veröffentlichung ist ein Fehler aufgetreten.",
     "enterCidrRange": "Geben Sie den CIDR-Bereich ein",
     "resourceEnableProxy": "Öffentlichen Proxy aktivieren",
     "resourceEnableProxyDescription": "Ermöglichen Sie öffentliches Proxieren zu dieser Ressource. Dies ermöglicht den Zugriff auf die Ressource von außerhalb des Netzwerks durch die Cloud über einen offenen Port. Erfordert Traefik-Config.",

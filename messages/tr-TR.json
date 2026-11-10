@@ -2883,8 +2883,6 @@
     "machineClientRolesUpdateError": "Makine istemcisinin rolleri güncellenirken bir hata oluştu.",
     "sitesFetchFailed": "Siteler alınamadı",
     "sitesFetchError": "Siteler alınırken bir hata oluştu.",
-    "olmErrorFetchReleases": "Olm yayınları alınırken bir hata oluştu.",
-    "olmErrorFetchLatest": "En son Olm yayını alınırken bir hata oluştu.",
     "enterCidrRange": "CIDR aralığını girin",
     "resourceEnableProxy": "Genel Proxy'i Etkinleştir",
     "resourceEnableProxyDescription": "Bu kaynağa genel proxy erişimini etkinleştirin. Bu sayede ağ dışından açık bir port üzerinden kaynağa bulut aracılığıyla erişim sağlanır. Traefik yapılandırması gereklidir.",
