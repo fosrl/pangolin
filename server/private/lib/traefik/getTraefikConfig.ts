@@ -1039,7 +1039,11 @@ export async function getTraefikConfig(
                     // defaults.
                     return buildWildcardTls({
                         fullDomain,
-                        hasSubdomain: true
+                        hasSubdomain: true,
+                        // Traefik can't derive a cert from a HostRegexp rule
+                        preferWildcardCert: fullDomain.startsWith("*.")
+                            ? true
+                            : undefined
                     });
                 }
                 // pangolin-dns: only add route if we already have a valid cert
