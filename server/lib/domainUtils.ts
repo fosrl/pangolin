@@ -6,6 +6,7 @@ import {
     customDnsRecords,
     loginPage,
     resources,
+    siteResources,
     Transaction
 } from "@server/db";
 import { eq, and, inArray, like, not, or } from "drizzle-orm";
@@ -216,7 +217,6 @@ export async function checkWildcardDomainConflict(
     const isWildcard = fullDomain.startsWith("*.");
 
     if (isWildcard) {
-        // e.g. fullDomain = "*.example.com"  →  suffix = ".example.com"
         const suffix = fullDomain.slice(1); // ".example.com"
 
         // Find any existing non-wildcard resource whose fullDomain ends with this suffix
@@ -372,4 +372,87 @@ async function checkBaseHostConflict(
     }
 
     return checkWildcardDomainConflict(baseHost, excludeResourceId, false, trx);
+}
+
+// HTTP site resources are resolved by the client's own DNS, so like the exact
+// check in create/updateSiteResource they only clash with inference site
+// resources, which are served publicly on their host.
+export async function checkSiteResourceWildcardDomainConflict(
+    fullDomain: string,
+    mode: string,
+    excludeSiteResourceId?: number,
+    trx: Transaction | typeof db = db
+): Promise<{ conflict: false } | { conflict: true; message: string }> {
+    const isExcluded = (siteResourceId: number) =>
+        excludeSiteResourceId !== undefined &&
+        siteResourceId === excludeSiteResourceId;
+
+    if (fullDomain.startsWith("*.")) {
+        if (mode === "inference") {
+            return { conflict: false };
+        }
+
+        const suffix = fullDomain.slice(1);
+        const conflicting = await trx
+            .select({
+                siteResourceId: siteResources.siteResourceId,
+                fullDomain: siteResources.fullDomain
+            })
+            .from(siteResources)
+            .where(
+                and(
+                    eq(siteResources.mode, "inference"),
+                    like(siteResources.fullDomain, `%${suffix}`)
+                )
+            );
+
+        const matches = conflicting.filter(
+            (r) =>
+                !isExcluded(r.siteResourceId) &&
+                r.fullDomain!.endsWith(suffix)
+        );
+
+        if (matches.length > 0) {
+            return {
+                conflict: true,
+                message: `Wildcard domain ${fullDomain} conflicts with existing resource(s): ${matches.map((r) => r.fullDomain).join(", ")}`
+            };
+        }
+    } else if (mode === "inference") {
+        // "a.b.example.com" -> "*.b.example.com", "*.example.com", "*.com"
+        const labels = fullDomain.split(".");
+        const wildcardPatterns = labels
+            .slice(1)
+            .map((_, i) => `*.${labels.slice(i + 1).join(".")}`);
+
+        if (wildcardPatterns.length === 0) {
+            return { conflict: false };
+        }
+
+        const conflicting = await trx
+            .select({
+                siteResourceId: siteResources.siteResourceId,
+                fullDomain: siteResources.fullDomain
+            })
+            .from(siteResources)
+            .where(
+                and(
+                    not(eq(siteResources.mode, "inference")),
+                    inArray(siteResources.fullDomain, wildcardPatterns)
+                )
+            );
+
+        const matches = conflicting.filter(
+            (r) => !isExcluded(r.siteResourceId)
+        );
+
+        if (matches.length > 0) {
+            return {
+                conflict: true,
+                message: `Domain ${fullDomain} conflicts with existing wildcard resource(s): ${matches.map((r) => r.fullDomain).join(", ")}`
+            };
+        }
+    }
+
+    return { conflict: false };
 }
