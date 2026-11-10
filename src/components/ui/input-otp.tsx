@@ -5,6 +5,48 @@ import { OTPInput, OTPInputContext } from "input-otp";
 import { MinusIcon } from "lucide-react";
 import { cn } from "@app/lib/cn";
 
+// input-otp dispatches synthetic `input` events on its hidden input 0/10/50ms
+// after every focus or value change, including right after it loses focus.
+// When the user clicks a password manager's inline menu (e.g. Bitwarden's
+// "Fill verification code"), focus moves into the menu's iframe, and those
+// stray events make the manager think the field was typed into, so it drops
+// the click and never fills. Swallow untrusted `input` events on an unfocused
+// OTP input; real fills focus the field first, so they still get through.
+function blockBlurredSyntheticOtpInput(e: Event) {
+    const target = e.target;
+    if (
+        !e.isTrusted &&
+        target instanceof HTMLInputElement &&
+        target.hasAttribute("data-input-otp") &&
+        document.activeElement !== target
+    ) {
+        e.stopImmediatePropagation();
+    }
+}
+
+let otpInputGuardCount = 0;
+
+function useBlurredSyntheticOtpInputGuard() {
+    React.useEffect(() => {
+        if (otpInputGuardCount++ === 0) {
+            window.addEventListener(
+                "input",
+                blockBlurredSyntheticOtpInput,
+                true
+            );
+        }
+        return () => {
+            if (--otpInputGuardCount === 0) {
+                window.removeEventListener(
+                    "input",
+                    blockBlurredSyntheticOtpInput,
+                    true
+                );
+            }
+        };
+    }, []);
+}
+
 function InputOTP({
     className,
     containerClassName,
@@ -14,6 +56,8 @@ function InputOTP({
     containerClassName?: string;
     obscured?: boolean;
 }) {
+    useBlurredSyntheticOtpInputGuard();
+
     return (
         <OTPInput
             data-slot="input-otp"
