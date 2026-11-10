@@ -220,12 +220,36 @@ if (build === "saas") {
         generateLicense.generateNewLicense
     );
 
-    authenticated.put(
-        "/org/:orgId/license/enterprise",
+    // Paid license keys: change quantities (billed immediately) or cancel
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/preview",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        generateLicense.previewLicenseUpdate
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey",
         verifyOrgAccess,
         verifyUserHasAction(ActionsEnum.billing),
         logActionAudit(ActionsEnum.billing),
-        generateLicense.generateNewEnterpriseLicense
+        generateLicense.updateLicense
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/cancel",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        logActionAudit(ActionsEnum.billing),
+        generateLicense.cancelLicense
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/portal-session",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        logActionAudit(ActionsEnum.billing),
+        generateLicense.createLicensePortalSession
     );
 
     authenticated.post(

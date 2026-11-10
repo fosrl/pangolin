@@ -1,5 +1,4 @@
 import GenerateLicenseKeysTable from "@app/components/GenerateLicenseKeysTable";
-import LicenseBillingBanner from "@app/components/LicenseBillingBanner";
 import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { ListGeneratedLicenseKeysResponse } from "@server/routers/generatedLicense/types";
@@ -27,16 +26,5 @@ export default async function Page({ params }: Props) {
         licenseKeys = data.data.data;
     } catch {}
 
-    const hasNonPersonalLicenseKey = licenseKeys.some(
-        (key) => key.tier !== "personal"
-    );
-
-    return (
-        <>
-            {hasNonPersonalLicenseKey && (
-                <LicenseBillingBanner orgId={orgId} />
-            )}
-            <GenerateLicenseKeysTable licenseKeys={licenseKeys} orgId={orgId} />
-        </>
-    );
+    return <GenerateLicenseKeysTable licenseKeys={licenseKeys} orgId={orgId} />;
 }

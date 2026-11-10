@@ -21,9 +21,39 @@ type TimestampProps = {
      * "relative" shows "5 minutes ago" and puts the local and UTC time in the
      * tooltip. "absolute" shows the local time and puts the relative and UTC
      * time in the tooltip; use it where the exact time matters, like logs.
+     * "duration" shows how long until a future time ("2 years", for a column
+     * like "Valid Until"); past times fall back to "relative".
      */
-    display?: "relative" | "absolute";
+    display?: "relative" | "absolute" | "duration";
 };
+
+// Same unit thresholds next-intl's relativeTime uses (in seconds)
+const DURATION_UNITS = [
+    { unit: "second", seconds: 1, below: 60 },
+    { unit: "minute", seconds: 60, below: 60 * 60 },
+    { unit: "hour", seconds: 60 * 60, below: 60 * 60 * 24 },
+    { unit: "day", seconds: 60 * 60 * 24, below: 60 * 60 * 24 * 7 },
+    {
+        unit: "week",
+        seconds: 60 * 60 * 24 * 7,
+        below: (60 * 60 * 24 * 365) / 12
+    },
+    {
+        unit: "month",
+        seconds: (60 * 60 * 24 * 365) / 12,
+        below: 60 * 60 * 24 * 365
+    },
+    { unit: "year", seconds: 60 * 60 * 24 * 365, below: Infinity }
+] as const;
+
+/** The unit and rounded amount for a span of time, e.g. { 2, "year" }. */
+function durationParts(ms: number) {
+    const seconds = Math.abs(ms) / 1000;
+    const { unit, seconds: size } = DURATION_UNITS.find(
+        (u) => seconds < u.below
+    )!;
+    return { value: Math.round(seconds / size), unit };
+}
 
 function toDate(value: TimestampValue, unit: "ms" | "s"): Date | null {
     if (value === null || value === undefined || value === "") {
@@ -88,6 +118,17 @@ export function Timestamp({
         timeZone: "UTC"
     });
     const isAbsolute = display === "absolute";
+    const showDuration =
+        display === "duration" && date.getTime() > now.getTime();
+    let inline = isAbsolute ? local : relative;
+    if (showDuration) {
+        const { value, unit } = durationParts(date.getTime() - now.getTime());
+        inline = format.number(value, {
+            style: "unit",
+            unit,
+            unitDisplay: "long"
+        });
+    }
 
     return (
         <Tooltip>
@@ -101,12 +142,12 @@ export function Timestamp({
                         className
                     )}
                 >
-                    {isAbsolute ? local : relative}
+                    {inline}
                 </time>
             </TooltipTrigger>
             <TooltipContent side="top">
                 <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 py-0.5">
-                    {isAbsolute ? (
+                    {isAbsolute || showDuration ? (
                         <>
                             <span className="opacity-70">
                                 {t("timestampRelative")}
@@ -115,7 +156,8 @@ export function Timestamp({
                                 {relative}
                             </span>
                         </>
-                    ) : (
+                    ) : null}
+                    {isAbsolute ? null : (
                         <>
                             <span className="opacity-70">
                                 {t("timestampLocal")}
@@ -140,17 +182,23 @@ const TIMESTAMP_PLACEHOLDER = "\u0000timestamp\u0000";
  */
 export function TimestampInText({
     text,
+    textClassName,
     ...props
-}: TimestampProps & { text: string }) {
+}: TimestampProps & {
+    text: string;
+    /** Styles the words around the timestamp, not the timestamp itself */
+    textClassName?: string;
+}) {
     const [before, ...rest] = text.split(TIMESTAMP_PLACEHOLDER);
+    const after = rest.join("");
     if (rest.length === 0) {
-        return <>{text}</>;
+        return <span className={textClassName}>{text}</span>;
     }
     return (
         <>
-            {before}
+            {before && <span className={textClassName}>{before}</span>}
             <Timestamp {...props} />
-            {rest.join("")}
+            {after && <span className={textClassName}>{after}</span>}
         </>
     );
 }

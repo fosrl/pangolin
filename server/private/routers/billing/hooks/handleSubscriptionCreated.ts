@@ -25,17 +25,22 @@ import logger from "@server/logger";
 import stripe from "#private/lib/stripe";
 import { handleSubscriptionLifesycle } from "../subscriptionLifecycle";
 import { getSubType } from "./getSubType";
-import privateConfig from "#private/lib/config";
-import { getLicensePriceSet, LicenseId } from "@server/lib/billing/licenses";
-import { sendEmail } from "@server/emails";
-import EnterpriseEditionKeyGenerated from "@server/emails/templates/EnterpriseEditionKeyGenerated";
-import config from "@server/lib/config";
 import { getFeatureIdByPriceId } from "@server/lib/billing/features";
 import { handleTierChange } from "../featureLifecycle";
+import { isSelfHostedLicense } from "./handleSelfHostedLicense";
 
 export async function handleSubscriptionCreated(
     subscription: Stripe.Subscription
 ): Promise<void> {
+    if (isSelfHostedLicense(subscription.metadata)) {
+        // Website license purchases have no org; the license is created from
+        // checkout.session.completed (handleSelfHostedCheckoutCompleted).
+        logger.debug(
+            `Subscription ${subscription.id} is a self-hosted license purchase; handled at checkout completion.`
+        );
+        return;
+    }
+
     try {
         // Fetch the subscription from Stripe with expanded price.tiers
         const fullSubscription = await stripe!.subscriptions.retrieve(
@@ -188,136 +193,11 @@ export async function handleSubscriptionCreated(
                     )
                 );
         } else if (type === "license") {
+            // Old in-app license subscriptions are no longer sold; existing
+            // ones are kept up to date by handleSubscriptionUpdated/Deleted.
             logger.debug(
-                `License subscription created for org ${customer.orgId}, no lifecycle handling needed.`
+                `Legacy license subscription ${subscription.id} created for org ${customer.orgId}; nothing to do.`
             );
-
-            // Retrieve the client_reference_id from the checkout session
-            let licenseId: string | null = null;
-
-            try {
-                const sessions = await stripe!.checkout.sessions.list({
-                    subscription: subscription.id,
-                    limit: 1
-                });
-                if (sessions.data.length > 0) {
-                    licenseId = sessions.data[0].client_reference_id || null;
-                }
-
-                if (!licenseId) {
-                    logger.error(
-                        `No client_reference_id found for subscription ${subscription.id}`
-                    );
-                    return;
-                }
-
-                logger.debug(
-                    `Retrieved licenseId ${licenseId} from checkout session for subscription ${subscription.id}`
-                );
-
-                // Determine users and sites based on license type
-                const priceSet = getLicensePriceSet();
-                const subscriptionPriceId =
-                    fullSubscription.items.data[0]?.price.id;
-
-                let numUsers: number;
-                let numSites: number;
-                let numMachines: number;
-                let tier = "enterprise";
-
-                if (subscriptionPriceId === priceSet[LicenseId.TIER1]) {
-                    numUsers = 25;
-                    numSites = 25;
-                    numMachines = 25;
-                    tier = "tier1";
-                } else if (subscriptionPriceId === priceSet[LicenseId.TIER2]) {
-                    numUsers = 50;
-                    numSites = 100;
-                    numMachines = 50;
-                    tier = "tier2";
-                } else {
-                    logger.error(
-                        `Unknown price ID ${subscriptionPriceId} for subscription ${subscription.id}`
-                    );
-                    return;
-                }
-
-                logger.debug(
-                    `License type determined: ${numUsers} users, ${numSites} sites, ${numMachines} machines for subscription ${subscription.id}`
-                );
-
-                // Grace period of 5 days added on top of the current billing
-                // period end (usually ~1 year out) before the license expires
-                const currentPeriodEnd =
-                    fullSubscription.items.data[0]?.current_period_end;
-                const expiresAt =
-                    (currentPeriodEnd ?? subscription.created) +
-                    5 * 24 * 60 * 60;
-
-                const response = await fetch(
-                    `${privateConfig.getRawPrivateConfig().server.fossorial_api}/api/v1/license-internal/enterprise/paid-for`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "api-key":
-                                privateConfig.getRawPrivateConfig().server
-                                    .fossorial_api_key!,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            licenseId: parseInt(licenseId),
-                            paidFor: true,
-                            users: numUsers,
-                            sites: numSites,
-                            machines: numMachines,
-                            tier: tier,
-                            expiresAt: expiresAt
-                        })
-                    }
-                );
-
-                const data = await response.json();
-
-                logger.debug(`Fossorial API response: ${JSON.stringify(data)}`);
-
-                if (!response.ok || !data.success) {
-                    logger.error(
-                        `Fossorial API returned ${response.status} when setting paid-for for orgId ${customer.orgId} and subscription ID ${subscription.id}: ${JSON.stringify(data)}`
-                    );
-                    return;
-                }
-
-                if (customer.email) {
-                    logger.debug(
-                        `Sending license key email to ${customer.email} for subscription ${subscription.id}`
-                    );
-                    await sendEmail(
-                        EnterpriseEditionKeyGenerated({
-                            keyValue: data.data.licenseKey,
-                            personalUseOnly: false,
-                            users: numUsers,
-                            sites: numSites,
-                            machines: numMachines,
-                            modifySubscriptionLink: `${config.getRawConfig().app.dashboard_url}/${customer.orgId}/settings/billing`
-                        }),
-                        {
-                            to: customer.email,
-                            from: config.getNoReplyEmail(),
-                            subject:
-                                "Your Enterprise Edition license key is ready"
-                        }
-                    );
-                } else {
-                    logger.error(
-                        `No email found for customer ${customer.customerId} to send license key.`
-                    );
-                }
-
-                return data;
-            } catch (error) {
-                console.error("Error creating new license:", error);
-                throw error;
-            }
         }
     } catch (error) {
         logger.error(

@@ -10,15 +10,12 @@ import { formatAxiosError } from "@app/lib/api";
 import { AxiosResponse } from "axios";
 import {
     SettingsContainer,
-    SettingsFormCell,
-    SettingsFormGrid,
     SettingsSection,
     SettingsSectionHeader,
     SettingsSectionTitle,
     SettingsSectionDescription,
     SettingsSectionBody,
-    SettingsSectionFooter,
-    SettingsSectionForm
+    SettingsSectionFooter
 } from "@app/components/Settings";
 import {
     InfoSection,
@@ -37,7 +34,7 @@ import {
     CredenzaTitle
 } from "@app/components/Credenza";
 import { cn } from "@app/lib/cn";
-import { CreditCard, ExternalLink, Check, AlertTriangle } from "lucide-react";
+import { ExternalLink, Check, AlertTriangle } from "lucide-react";
 import { Badge } from "@app/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@app/components/ui/alert";
 import {
@@ -228,9 +225,6 @@ export default function BillingPage() {
     const [tierSubscription, setTierSubscription] = useState<
         GetOrgSubscriptionResponse["subscriptions"][0] | null
     >(null);
-    const [licenseSubscription, setLicenseSubscription] = useState<
-        GetOrgSubscriptionResponse["subscriptions"][0] | null
-    >(null);
     const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
     // Usage and limits data
@@ -298,12 +292,6 @@ export default function BillingPage() {
                         expiresAt != null && expiresAt * 1000 > Date.now()
                     );
                 }
-
-                // Find license subscription
-                const licenseSub = subscriptions.find(
-                    ({ subscription }) => subscription?.type === "license"
-                );
-                setLicenseSubscription(licenseSub || null);
             } catch (error) {
                 toast({
                     title: t("billingFailedToLoadSubscription"),
@@ -1536,47 +1524,6 @@ export default function BillingPage() {
                     </div>
                 </SettingsSectionBody>
             </SettingsSection>
-
-            {/* Paid License Keys Section */}
-            {licenseSubscription && (
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("billingPaidLicenseKeys") || "Paid License Keys"}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            {t("billingManageLicenseSubscription") ||
-                                "Manage your subscription for paid self-hosted license keys"}
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <SettingsSectionForm variant="half">
-                            <SettingsFormGrid>
-                                <SettingsFormCell span="full">
-                                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border rounded-lg p-4">
-                                        <Button
-                                            variant="outline"
-                                            onClick={handleModifySubscription}
-                                            disabled={isLoading}
-                                            loading={isLoading}
-                                        >
-                                            <CreditCard className="mr-2 h-4 w-4" />
-                                            {t("billingModifyCurrentPlan") ||
-                                                "Modify Current Plan"}
-                                        </Button>
-                                        <p className="text-sm text-muted-foreground mt-2">
-                                            {t(
-                                                "billingManageLicenseSubscriptionDescription"
-                                            ) ||
-                                                "Manage your subscription for paid self-hosted license keys and download invoices."}
-                                        </p>
-                                    </div>
-                                </SettingsFormCell>
-                            </SettingsFormGrid>
-                        </SettingsSectionForm>
-                    </SettingsSectionBody>
-                </SettingsSection>
-            )}
 
             {/* Tier Change Confirmation Dialog */}
             <Credenza
