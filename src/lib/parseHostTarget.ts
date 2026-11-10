@@ -1,6 +1,10 @@
+// URL schemes are case-insensitive, and mobile keyboards often capitalize the
+// first letter, so "Https://host:8443" must be read as https too.
+export const HOST_TARGET_SCHEME = /^(https?|h2c):\/\//i;
+
 export function parseHostTarget(input: string) {
     try {
-        const normalized = input.match(/^(https?|h2c):\/\//)
+        const normalized = HOST_TARGET_SCHEME.test(input)
             ? input
             : `http://${input}`;
         const url = new URL(normalized);
