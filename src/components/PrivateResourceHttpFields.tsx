@@ -199,6 +199,7 @@ export function PrivateResourceHttpFields({
                                         ? `http-domain-${siteResourceId}`
                                         : "http-domain-create"
                                 }
+                                allowWildcard
                                 orgId={orgId}
                                 cols={2}
                                 hideFreeDomain
