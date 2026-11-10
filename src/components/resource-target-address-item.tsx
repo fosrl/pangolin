@@ -1,6 +1,6 @@
 import { cn } from "@app/lib/cn";
 import type { DockerState } from "@app/lib/docker";
-import { parseHostTarget } from "@app/lib/parseHostTarget";
+import { HOST_TARGET_SCHEME, parseHostTarget } from "@app/lib/parseHostTarget";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import type { ListSitesResponse } from "@server/routers/site";
 import { type ListTargetsResponse } from "@server/routers/target";
@@ -186,7 +186,7 @@ export function ResourceTargetAddressItem({
                     className="flex-1 min-w-30 border-none placeholder-gray-400 rounded-xs"
                     onBlur={(e) => {
                         const input = e.target.value.trim();
-                        const hasProtocol = /^(https?|h2c):\/\//.test(input);
+                        const hasProtocol = HOST_TARGET_SCHEME.test(input);
                         const hasPort = /:\d+(?:\/|$)/.test(input);
 
                         if (hasProtocol || hasPort) {
