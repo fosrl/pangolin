@@ -1379,7 +1379,9 @@ export const idpOrg = pgTable("idpOrg", {
     mappingsLinked: boolean("mappingsLinked").notNull().default(true),
     directorySyncDeletions: boolean("directorySyncDeletions")
         .notNull()
-        .default(true)
+        .default(true),
+    // Last directory sync applied to this org (ms since epoch), dry runs excluded
+    lastSyncedAt: bigint("lastSyncedAt", { mode: "number" })
 });
 
 export const clients = pgTable(

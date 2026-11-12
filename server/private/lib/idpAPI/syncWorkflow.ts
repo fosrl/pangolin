@@ -617,6 +617,11 @@ for each membership with flag = true whose user is not in the remote set:
                     break;
             }
         }
+
+        await trx
+            .update(idpOrg)
+            .set({ lastSyncedAt: Date.now() })
+            .where(and(eq(idpOrg.idpId, idpId), eq(idpOrg.orgId, orgId)));
     });
 
     for (const entry of syncPlan.entries) {

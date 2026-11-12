@@ -1706,7 +1706,9 @@ export const idpOrg = sqliteTable("idpOrg", {
         mode: "boolean"
     })
         .notNull()
-        .default(true)
+        .default(true),
+    // Last directory sync applied to this org (ms since epoch), dry runs excluded
+    lastSyncedAt: integer("lastSyncedAt")
 });
 
 // Blueprint runs

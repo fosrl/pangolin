@@ -8,6 +8,7 @@ import {
     refineGoogleDirectorySyncFields
 } from "@app/components/GoogleDirectorySyncConfigFields";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
+import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
 import IdpTypeBadge from "@app/components/IdpTypeBadge";
 import {
     InfoSection,
@@ -56,6 +57,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { RefreshCwIcon } from "lucide-react";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -76,6 +78,10 @@ export default function GeneralPage() {
         useState<string | undefined>();
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
+    // saved value: "Sync now" runs what's in the DB, not the unsaved form
+    const [savedSyncEnabled, setSavedSyncEnabled] = useState(false);
+    const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+    const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
     const [pendingPayload, setPendingPayload] = useState<Record<
         string,
         unknown
@@ -227,6 +233,11 @@ export default function GeneralPage() {
                         data.idpOidcConfig?.identifierPath ?? "sub"
                     );
                     setRedirectUrl(res.data.data.redirectUrl);
+                    setLastSyncedAt(data.idpOrg?.lastSyncedAt ?? null);
+                    setSavedSyncEnabled(
+                        data.idp.apiIntegrationEnabled &&
+                            data.idp.directorySyncEnabled
+                    );
 
                     // Set the variant
                     setVariant(idpVariant as "oidc" | "google" | "azure");
@@ -498,6 +509,7 @@ export default function GeneralPage() {
             if (typeof payload.identifierPath === "string") {
                 setOriginalIdentifierPath(payload.identifierPath);
             }
+            setSavedSyncEnabled(Boolean(payload.directorySyncEnabled));
             const syncConfig = payload.directorySyncConfig as
                 ReturnType<typeof buildGoogleDirectorySyncConfig> | undefined;
             if (syncConfig?.serviceAccountKey) {
@@ -540,6 +552,14 @@ export default function GeneralPage() {
 
     return (
         <>
+            <IdpSyncNowDialog
+                open={syncDialogOpen}
+                setOpen={setSyncDialogOpen}
+                orgId={orgId as string}
+                idpId={idpId as string}
+                lastSyncedAt={lastSyncedAt}
+                onSynced={setLastSyncedAt}
+            />
             <IdpIdentifierChangeDialog
                 open={identifierConfirmOpen}
                 setOpen={(open) => {
@@ -694,6 +714,31 @@ export default function GeneralPage() {
                                 />
                             </form>
                         </Form>
+                        {savedSyncEnabled && (
+                            <div className="flex flex-col gap-2 items-start border-t pt-6 mt-6">
+                                <Button
+                                    type="button"
+                                    variant="outlinePrimary"
+                                    onClick={() => setSyncDialogOpen(true)}
+                                    className="gap-2"
+                                >
+                                    <RefreshCwIcon className="size-4 flex-noen" />
+                                    {t("idpSyncNow")}
+                                </Button>
+                                <p className="text-sm text-muted-foreground">
+                                    {t("idpSyncNowDescription")}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    {lastSyncedAt
+                                        ? t("idpLastSyncedAt", {
+                                              date: new Date(
+                                                  lastSyncedAt
+                                              ).toLocaleString()
+                                          })
+                                        : t("idpNeverSynced")}
+                                </p>
+                            </div>
+                        )}
                     </SettingsSectionBody>
                 </SettingsSection>
 
