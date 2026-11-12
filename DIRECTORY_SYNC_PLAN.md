@@ -34,11 +34,11 @@ These are stored encrypted in `idp.directorySyncConfig` ([idpDirectorySyncConfig
 
 The admin can turn on any mix of these three:
 
-| Method                 | When it runs                    | Needs the API integration?             |
-| ---------------------- | ------------------------------- | -------------------------------------- |
-| **Manual** (default)   | An admin adds the user by hand  | No                                     |
-| **Just in time (JIT)** | When the user logs in           | No, but it uses the API if it's on     |
-| **Sync**               | In the background, every N min  | Yes                                    |
+| Method                 | When it runs                   | Needs the API integration?         |
+| ---------------------- | ------------------------------ | ---------------------------------- |
+| **Manual** (default)   | An admin adds the user by hand | No                                 |
+| **Just in time (JIT)** | When the user logs in          | No, but it uses the API if it's on |
+| **Sync**               | In the background, every N min | Yes                                |
 
 **Manual**
 
@@ -94,17 +94,17 @@ At login we get the claims from the ID token. Sync has no token, so it builds th
 
 We checked on a test tenant: the token's `oid` is the same value as the Graph user's `id`. So `oid` is the stable ID for Azure users.
 
-| Claim                | Where it comes from in Graph            | Same as in the token?                                                                                                  |
-| -------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `oid`                | `id`                                    | ✅ Same value                                                                                                           |
-| `tid`                | tenant ID                               | ✅                                                                                                                      |
-| `name`               | `displayName`                           | ✅                                                                                                                      |
-| `email`              | `mail`, or `otherMails[0]` if empty     | ⚠️ Usually. The token doesn't always have it.                                                                           |
-| `preferred_username` | `userPrincipalName`                     | ⚠️ Same for normal users. For guests, the token has their real email but Graph has `user_domain#EXT#@tenant.onmicrosoft.com`. |
-| `groups`             | group **IDs** (not names)               | ✅ The token also uses group IDs. The token only has it if the app is set up for it; sync always includes it.            |
-| `sub`                | —                                       | ❌ Can't be built. Azure gives each app a different `sub` for the same user, and Graph doesn't expose it.               |
-| `wids`               | —                                       | Not included. These are admin role IDs, not useful for mappings.                                                       |
-| `idp`                | —                                       | Not included. Only guests have it.                                                                                     |
+| Claim                | Where it comes from in Graph        | Same as in the token?                                                                                                        |
+| -------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `oid`                | `id`                                | ✅ Same value                                                                                                                 |
+| `tid`                | tenant ID                           | ✅                                                                                                                            |
+| `name`               | `displayName`                       | ✅                                                                                                                            |
+| `email`              | `mail`, or `otherMails[0]` if empty | ⚠️ Usually. The token doesn't always have it.                                                                                 |
+| `preferred_username` | `userPrincipalName`                 | ⚠️ Same for normal users. For guests, the token has their real email but Graph has `user_domain#EXT#@tenant.onmicrosoft.com`. |
+| `groups`             | group **IDs** (not names)           | ✅ The token also uses group IDs. The token only has it if the app is set up for it; sync always includes it.                 |
+| `sub`                | —                                   | ❌ Can't be built. Azure gives each app a different `sub` for the same user, and Graph doesn't expose it.                     |
+| `wids`               | —                                   | Not included. These are admin role IDs, not useful for mappings.                                                             |
+| `idp`                | —                                   | Not included. Only guests have it.                                                                                           |
 
 We also add `groupNames` (the groups' display names). It isn't in the token, but it lets admins write rules with readable names (`Engineering`) instead of IDs (`8f3a…`).
 
@@ -122,7 +122,7 @@ We checked: the token's `sub` is the same value as the Directory user's `id`. Un
 | `name`                       | `name.fullName`                      | ✅                                                                        |
 | `given_name` / `family_name` | `name.givenName` / `name.familyName` | ✅                                                                        |
 | `hd`                         | the domain of the primary email      | ✅ The token only has it for Workspace accounts, and all synced users are |
-| `picture`                    | —                                    | Not included. The API's photo URL is different from the token's.        |
+| `picture`                    | —                                    | Not included. The API's photo URL is different from the token's.         |
 | `groups`                     | group emails                         | Not in the token. Same format JIT adds at login.                         |
 
 Plus `groupNames`, like Azure.
@@ -246,15 +246,15 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
 ### Left to do
 
 1. **Migration for `idpOrg.lastSyncedAt` (new nullable column) and the `autoManaged` flag.** The code and schema are done (`userOrgs.autoProvisioned` → `autoManaged`, `directorySynched` dropped). The migration still has to rename the column, set `autoManaged = true` where `directorySynched = true`, then drop `directorySynched`.
-2. **Gate directory sync by tier.** Only SaaS orgs on a tier in `tierMatrix.idpAPIIntegration` (tier1, tier3, enterprise) and enterprise builds with a valid license. OSS never. On a downgrade the settings stay and sync simply skips the org (no data change).
+2. **"Create missing roles" checkbox in the UI.** One per method in [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx), following the shared/separate toggle.
+   - Org IdPs: `createMissingRoles` / `syncCreateMissingRoles` on the settings and create pages.
+   - Server admin: `defaultCreateMissingRoles` / `defaultSyncCreateMissingRoles` in the default mappings, and `createMissingRoles` / `syncCreateMissingRoles` in the org policy dialog ([policies/page.tsx](src/app/admin/idp/[idpId]/policies/page.tsx)). The policy API already accepts `createMissingRoles` but the dialog never sends it.
+3. **Gate directory sync by tier.** Only SaaS orgs on a tier in `tierMatrix.idpAPIIntegration` (tier1, tier3, enterprise) and enterprise builds with a valid license. OSS never. On a downgrade the settings stay and sync simply skips the org (no data change).
    - Already gated: the sync job and the JIT group fetch ([enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts)) skip non-entitled orgs with `isLicensedOrSubscribed`, and `POST /org/:orgId/idp/:idpId/sync` has `verifyValidLicense` + `verifyValidSubscription`.
    - Missing in the API: [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) and [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts) accept `apiIntegrationEnabled`, `directorySyncEnabled` and `directorySyncConfig` without a tier check. Refuse turning them on when the org isn't entitled.
    - Missing in the UI: a `PaidFeaturesAlert` and disabled toggles for the API integration and Sync, like JIT does with `tierMatrix.autoProvisioning` ([IdpUserProvisioningFields.tsx](src/components/IdpUserProvisioningFields.tsx), [ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)). Hide "Sync now" when not entitled.
    - Global IdPs (items 4 and 5): same checks on the server admin routes and pages.
    - To check: on enterprise builds `isLicensedOrSubscribed` only checks that the license is valid, not its tier, and `verifyValidSubscription` lets every non-SaaS build through. Confirm that every valid enterprise license should get sync.
-3. **"Create missing roles" checkbox in the UI.** One per method in [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx), following the shared/separate toggle.
-   - Org IdPs: `createMissingRoles` / `syncCreateMissingRoles` on the settings and create pages.
-   - Server admin: `defaultCreateMissingRoles` / `defaultSyncCreateMissingRoles` in the default mappings, and `createMissingRoles` / `syncCreateMissingRoles` in the org policy dialog ([policies/page.tsx](src/app/admin/idp/[idpId]/policies/page.tsx)). The policy API already accepts `createMissingRoles` but the dialog never sends it.
 4. **Sync mappings for global IdPs (server admin).** Make `defaultSyncOrgMapping` / `defaultSyncRoleMapping` work end to end, the same way the JIT defaults do.
    - API: [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts) accepts `defaultSyncOrgMapping`, `defaultSyncRoleMapping`, `defaultSyncCreateMissingRoles`. The org policy routes ([createIdpOrgPolicy.ts](server/routers/idp/createIdpOrgPolicy.ts), [updateIdpOrgPolicy.ts](server/routers/idp/updateIdpOrgPolicy.ts)) accept `syncOrgMapping`, `syncRoleMapping`, `syncCreateMissingRoles`, `mappingsLinked`.
    - Sync job ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts)): for global IdPs, fall back to the IdP defaults when the org has no sync mapping, like login does (`idpOrg.syncRoleMapping || idp.defaultSyncRoleMapping`, `createMissingRoles` follows whichever mapping is used). Run the org mapping too: today it's skipped because org IdPs have a single org.
