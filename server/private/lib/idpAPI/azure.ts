@@ -230,20 +230,21 @@ export class AzureDirectorySyncProvider extends IDPAPIProvider {
                 }
             }
 
+            // kept without an email rather than dropped: a dropped user would look
+            // like they left the directory and lose their memberships
             if (!email) {
-                logger.warn(
-                    `Directory sync: skipping Entra user ${user.userPrincipalName} (id: ${user.id}) for IdP ${idpRes.idp.idpId}: no email found in \`mail\`, \`otherMails\` or \`userPrincipalName\``
+                logger.debug(
+                    `Directory sync: Entra user ${user.userPrincipalName} (id: ${user.id}) for IdP ${idpRes.idp.idpId} has no email in \`mail\`, \`otherMails\` or \`userPrincipalName\``
                 );
-            } else {
-                directoryUsers[user.id] = {
-                    email,
-                    externalId: user.id,
-                    enabled: user.accountEnabled ?? true,
-                    name: user.displayName ?? null,
-                    username: email,
-                    groups: []
-                };
             }
+            directoryUsers[user.id] = {
+                email: email ?? null,
+                externalId: user.id,
+                enabled: user.accountEnabled ?? true,
+                name: user.displayName ?? null,
+                username: email ?? user.userPrincipalName ?? user.id,
+                groups: []
+            };
         }
 
         // 3. build the group tree, merging the repeated entries of large groups

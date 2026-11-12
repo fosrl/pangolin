@@ -67,7 +67,9 @@ export type UserSyncEntry = {
                   | "noMatchingRoles"
                   | "manualMembership"
                   | "owner"
-                  | "noMatchingUserIdentifier";
+                  | "noMatchingUserIdentifier"
+                  /** `directorySyncDeletions` is off. */
+                  | "deletionsDisabled";
           };
 };
 
@@ -229,7 +231,8 @@ for each membership with flag = true whose user is not in the remote set:
             mappingsLinked,
             roleMapping,
             createMissingRoles,
-            syncCreateMissingRoles
+            syncCreateMissingRoles,
+            directorySyncDeletions
         },
         idpOidcConfig: { identifierPath }
     } = provider.idp;
@@ -361,7 +364,9 @@ for each membership with flag = true whose user is not in the remote set:
                         reason: "owner"
                     };
                 } else if (roles.length === 0) {
-                    membershipOperation = { operation: "remove" };
+                    membershipOperation = directorySyncDeletions
+                        ? { operation: "remove" }
+                        : { operation: "unchanged", reason: "deletionsDisabled" };
                 } else {
                     membershipOperation = { operation: "updateRoles", roles };
                 }
@@ -394,15 +399,30 @@ for each membership with flag = true whose user is not in the remote set:
             e.user.operation === "update" ? [e.user.data.userId] : []
         )
     );
-    for (const { user, userOrgs: membership } of existingUserOrgs) {
-        if (directoryUserIds.has(user.userId)) continue;
-        if (membership.isOwner || !membership.autoManaged) continue;
+    // a directory user we couldn't identify may be one of these members,
+    // so we can't tell who is really gone
+    const unidentifiedUserCount = syncPlan.entries.filter(
+        (e) =>
+            e.membership.operation === "unchanged" &&
+            e.membership.reason === "noMatchingUserIdentifier"
+    ).length;
+    if (unidentifiedUserCount > 0) {
+        logger.warn(
+            `Directory sync: IdP ${idpId}, org ${orgId}: ${unidentifiedUserCount} directory user(s) have no identifier at \`${identifierPath}\`, members missing from the directory are not removed this run`
+        );
+    } else {
+        for (const { user, userOrgs: membership } of existingUserOrgs) {
+            if (directoryUserIds.has(user.userId)) continue;
+            if (membership.isOwner || !membership.autoManaged) continue;
 
-        syncPlan.entries.push({
-            directoryUser: null,
-            user: { operation: "unchanged", userId: user.userId },
-            membership: { operation: "remove" }
-        });
+            syncPlan.entries.push({
+                directoryUser: null,
+                user: { operation: "unchanged", userId: user.userId },
+                membership: directorySyncDeletions
+                    ? { operation: "remove" }
+                    : { operation: "unchanged", reason: "deletionsDisabled" }
+            });
+        }
     }
 
     const [org] = await db.select().from(orgs).where(eq(orgs.orgId, orgId));
