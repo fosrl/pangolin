@@ -11,6 +11,7 @@ import {
     CredenzaTitle
 } from "@app/components/Credenza";
 import IdpLastSyncedAt from "@app/components/IdpLastSyncedAt";
+import UserRoleBadges from "@app/components/UserRoleBadges";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
@@ -27,31 +28,9 @@ import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-
-// `SyncOrgIdpResponse` lives in the private server code, which the frontend can't import
-type SyncEntry = {
-    username: string | null;
-    email: string | null;
-    name: string | null;
-    user: "create" | "update" | "unchanged" | "skip";
-    membership: "add" | "updateRoles" | "remove" | "unchanged";
-    reason?: string;
-    roles?: string[];
-};
-
-type SyncResponse = {
-    dryRun: boolean;
-    counts: {
-        usersCreated: number;
-        usersUpdated: number;
-        membershipsAdded: number;
-        membershipsUpdated: number;
-        membershipsRemoved: number;
-        unchanged: number;
-    };
-    entries?: SyncEntry[];
-};
+import { orgQueries, type IdpSyncEntry, type IdpSyncResponse } from "@app/lib/queries";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 type IdpSyncNowDialogProps = {
     open: boolean;
@@ -76,44 +55,28 @@ export default function IdpSyncNowDialog({
     const { env } = useEnvContext();
     const api = createApiClient({ env });
 
-    const [preview, setPreview] = useState<SyncResponse | null>(null);
-    const [previewError, setPreviewError] = useState<string | null>(null);
-    const [loadingPreview, setLoadingPreview] = useState(false);
+    const queryClient = useQueryClient();
     const [applying, setApplying] = useState(false);
 
-    useEffect(() => {
-        if (!open) {
-            return;
+    const previewQuery = orgQueries.idpSyncPreview({ orgId, idpId });
+    const {
+        data: preview,
+        error: previewError,
+        isFetching: loadingPreview
+    } = useQuery({ ...previewQuery, enabled: open });
+
+    // the next opening reads the directory again
+    function onOpenChange(nextOpen: boolean) {
+        if (!nextOpen) {
+            queryClient.removeQueries({ queryKey: previewQuery.queryKey });
         }
-
-        let cancelled = false;
-        setPreview(null);
-        setPreviewError(null);
-        setLoadingPreview(true);
-
-        api.post<AxiosResponse<SyncResponse>>(
-            `/org/${orgId}/idp/${idpId}/sync`,
-            { dryRun: true }
-        )
-            .then((res) => {
-                if (!cancelled) setPreview(res.data.data);
-            })
-            .catch((e) => {
-                if (!cancelled) setPreviewError(formatAxiosError(e));
-            })
-            .finally(() => {
-                if (!cancelled) setLoadingPreview(false);
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [open, orgId, idpId]);
+        setOpen(nextOpen);
+    }
 
     async function apply() {
         setApplying(true);
         try {
-            const res = await api.post<AxiosResponse<SyncResponse>>(
+            const res = await api.post<AxiosResponse<IdpSyncResponse>>(
                 `/org/${orgId}/idp/${idpId}/sync`,
                 {}
             );
@@ -127,7 +90,7 @@ export default function IdpSyncNowDialog({
                 })
             });
             onSynced(Date.now());
-            setOpen(false);
+            onOpenChange(false);
         } catch (e) {
             toast({
                 title: t("error"),
@@ -143,7 +106,7 @@ export default function IdpSyncNowDialog({
         preview?.entries?.filter((e) => e.membership !== "unchanged") ?? [];
 
     return (
-        <Credenza open={open} onOpenChange={setOpen}>
+        <Credenza open={open} onOpenChange={onOpenChange}>
             <CredenzaContent className="max-w-3xl sm:w-full">
                 <CredenzaHeader>
                     <CredenzaTitle>{t("idpSyncPreviewTitle")}</CredenzaTitle>
@@ -162,7 +125,9 @@ export default function IdpSyncNowDialog({
 
                     {previewError && (
                         <Alert variant="destructive">
-                            <AlertDescription>{previewError}</AlertDescription>
+                            <AlertDescription>
+                                {formatAxiosError(previewError)}
+                            </AlertDescription>
                         </Alert>
                     )}
 
@@ -191,6 +156,9 @@ export default function IdpSyncNowDialog({
                                                 </TableHead>
                                                 <TableHead className="px-3">
                                                     {t("idpSyncPreviewChange")}
+                                                </TableHead>
+                                                <TableHead className="px-3">
+                                                    {t("idpSyncPreviousRoles")}
                                                 </TableHead>
                                                 <TableHead className="px-3">
                                                     {t("idpSyncNewRoles")}
@@ -222,9 +190,16 @@ export default function IdpSyncNowDialog({
                                                         />
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        {entry.roles?.join(
-                                                            ", "
-                                                        ) ?? "-"}
+                                                        <RoleBadges
+                                                            roles={
+                                                                entry.previousRoles
+                                                            }
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">
+                                                        <RoleBadges
+                                                            roles={entry.roles}
+                                                        />
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -252,7 +227,15 @@ export default function IdpSyncNowDialog({
     );
 }
 
-function ChangeBadge({ entry }: { entry: SyncEntry }) {
+function RoleBadges({ roles }: { roles: string[] | undefined }) {
+    return roles && roles.length > 0 ? (
+        <UserRoleBadges roleLabels={roles} />
+    ) : (
+        <>-</>
+    );
+}
+
+function ChangeBadge({ entry }: { entry: IdpSyncEntry }) {
     const t = useTranslations();
 
     switch (entry.membership) {

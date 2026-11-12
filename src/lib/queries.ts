@@ -143,6 +143,31 @@ export type LatestVersionResponse = {
     };
 };
 
+// `SyncOrgIdpResponse` lives in the private server code, which the frontend can't import
+export type IdpSyncEntry = {
+    username: string | null;
+    email: string | null;
+    name: string | null;
+    user: "create" | "update" | "unchanged" | "skip";
+    membership: "add" | "updateRoles" | "remove" | "unchanged";
+    reason?: string;
+    roles?: string[];
+    previousRoles?: string[];
+};
+
+export type IdpSyncResponse = {
+    dryRun: boolean;
+    counts: {
+        usersCreated: number;
+        usersUpdated: number;
+        membershipsAdded: number;
+        membershipsUpdated: number;
+        membershipsRemoved: number;
+        unchanged: number;
+    };
+    entries?: IdpSyncEntry[];
+};
+
 export const productUpdatesQueries = {
     list: (enabled: boolean, version?: string) =>
         queryOptions({
@@ -401,6 +426,26 @@ export const orgQueries = {
                 );
                 return res.data.data.idps;
             }
+        }),
+
+    /** Dry run of the directory sync. Reads the directory, so it's never cached. */
+    idpSyncPreview: ({ orgId, idpId }: { orgId: string; idpId: string }) =>
+        queryOptions({
+            queryKey: ["ORG", orgId, "IDP_SYNC_PREVIEW", idpId] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.post<
+                    AxiosResponse<IdpSyncResponse>
+                >(
+                    `/org/${orgId}/idp/${idpId}/sync`,
+                    { dryRun: true },
+                    { signal }
+                );
+                return res.data.data;
+            },
+            staleTime: 0,
+            gcTime: 0,
+            retry: false,
+            refetchOnWindowFocus: false
         }),
 
     proxyResources: ({

@@ -5,9 +5,8 @@ import {
     TooltipContent,
     TooltipTrigger
 } from "@app/components/ui/tooltip";
+import { durationToMs } from "@app/lib/durationToMs";
 import { useFormatter, useNow, useTranslations } from "next-intl";
-
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 /** "Last synced: 5 minutes ago", or the full date when it's more than a day old. */
 export default function IdpLastSyncedAt({
@@ -19,7 +18,7 @@ export default function IdpLastSyncedAt({
     const t = useTranslations();
     const format = useFormatter();
     // re-render every minute so "x minutes ago" stays current
-    const now = useNow({ updateInterval: 60_000 });
+    let now = useNow({ updateInterval: durationToMs(1, "minutes") });
 
     if (!lastSyncedAt) {
         return (
@@ -34,7 +33,16 @@ export default function IdpLastSyncedAt({
         dateStyle: "medium",
         timeStyle: "short"
     });
-    const isRelative = now.getTime() - lastSyncedAt < ONE_DAY_MS;
+
+    // this is to prevent showing dates `in the future`,
+    // if a sync was just run, this will say `now` instead of `in 15 seconds`
+    // because now is not up to date
+    if (now < date) {
+        now = new Date();
+    }
+
+    const isRelative =
+        Math.abs(now.getTime() - lastSyncedAt) < durationToMs(24, "hours");
 
     return (
         <p className="text-sm text-muted-foreground">

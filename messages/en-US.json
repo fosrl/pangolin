@@ -1200,6 +1200,7 @@
     "idpDirectorySyncDeletions": "Sync User Deletions",
     "idpDirectorySyncDeletionsDescription": "When enabled, users who are deleted from the directory or no longer match the role mapping are removed from this organization.",
     "idpSyncNow": "Preview Directory Sync",
+    "idpSyncPreviousRoles": "Previous Roles",
     "idpSyncNewRoles": "New Roles",
     "idpSyncNowDescription": "See what a sync would change in this organization. Nothing is applied until you confirm. Save your changes first.",
     "idpSyncPreviewTitle": "Directory Sync Preview",

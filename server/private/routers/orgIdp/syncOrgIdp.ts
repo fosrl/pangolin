@@ -13,7 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, idp, idpOrg, users } from "@server/db";
+import { db, idp, idpOrg, roles, userOrgRoles, users } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -44,7 +44,10 @@ type SyncEntrySummary = {
     user: UserSyncEntry["user"]["operation"];
     membership: UserSyncEntry["membership"]["operation"];
     reason?: string;
+    /** Roles after the sync, for "add" and "updateRoles". */
     roles?: string[];
+    /** Current roles, for "updateRoles" and "remove". */
+    previousRoles?: string[];
 };
 
 export type SyncOrgIdpResponse = {
@@ -208,7 +211,7 @@ export async function syncOrgIdp(
             data: {
                 dryRun,
                 counts,
-                entries: dryRun ? await summarizeEntries(entries) : undefined
+                entries: dryRun ? await summarizeEntries(entries, orgId) : undefined
             },
             success: true,
             error: false,
@@ -226,14 +229,22 @@ export async function syncOrgIdp(
 }
 
 async function summarizeEntries(
-    entries: UserSyncEntry[]
+    entries: UserSyncEntry[],
+    orgId: string
 ): Promise<SyncEntrySummary[]> {
+    const entryUserId = (e: UserSyncEntry) =>
+        e.user.operation === "unchanged"
+            ? e.user.userId
+            : e.user.operation === "update"
+              ? e.user.data.userId
+              : undefined;
+
     // members gone from the directory only carry their userId
-    const userIds = entries.flatMap((e) =>
+    const unchangedUserIds = entries.flatMap((e) =>
         e.user.operation === "unchanged" ? [e.user.userId] : []
     );
     const knownUsers = new Map(
-        userIds.length === 0
+        unchangedUserIds.length === 0
             ? []
             : (
                   await db
@@ -244,18 +255,56 @@ async function summarizeEntries(
                           name: users.name
                       })
                       .from(users)
-                      .where(inArray(users.userId, userIds))
+                      .where(inArray(users.userId, unchangedUserIds))
               ).map((u) => [u.userId, u])
     );
 
-    return entries.map((entry) =>
-        summarizeEntry(
-            entry,
-            entry.user.operation === "unchanged"
-                ? knownUsers.get(entry.user.userId)
-                : undefined
-        )
-    );
+    // current roles, to show the old roles next to the new ones (display only)
+    const memberUserIds = entries.flatMap((e) => {
+        const userId = entryUserId(e);
+        return userId &&
+            (e.membership.operation === "updateRoles" ||
+                e.membership.operation === "remove")
+            ? [userId]
+            : [];
+    });
+    const currentRoles = new Map<string, string[]>();
+    if (memberUserIds.length > 0) {
+        const rows = await db
+            .select({ userId: userOrgRoles.userId, name: roles.name })
+            .from(userOrgRoles)
+            .innerJoin(roles, eq(roles.roleId, userOrgRoles.roleId))
+            .where(
+                and(
+                    eq(userOrgRoles.orgId, orgId),
+                    inArray(userOrgRoles.userId, memberUserIds)
+                )
+            );
+        for (const row of rows) {
+            currentRoles.set(row.userId, [
+                ...(currentRoles.get(row.userId) ?? []),
+                row.name
+            ]);
+        }
+    }
+
+    return entries.map((entry) => {
+        const userId = entryUserId(entry);
+        return {
+            ...summarizeEntry(
+                entry,
+                entry.user.operation === "unchanged"
+                    ? knownUsers.get(entry.user.userId)
+                    : undefined
+            ),
+            previousRoles:
+                userId &&
+                (entry.membership.operation === "updateRoles" ||
+                    entry.membership.operation === "remove")
+                    ? (currentRoles.get(userId) ?? [])
+                    : undefined
+        };
+    });
 }
 
 function summarizeEntry(
