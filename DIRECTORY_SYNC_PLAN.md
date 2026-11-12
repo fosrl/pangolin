@@ -265,9 +265,8 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
 4. **Global IdP provisioning settings.** The admin pages only have the JIT toggle.
    - API integration section, Sync toggle and `directorySyncDeletions`, like the org IdP page. The global IdP API needs `apiIntegrationEnabled`, `directorySyncEnabled`, `directorySyncConfig`.
    - The Manual switch (`allowManualProvisioning`), see below.
-5. **Manual switch, the rest.** Org IdPs are done. Still to do:
-   - Refuse IdPs with `allowManualProvisioning = false` in [createOrgUser.ts](server/routers/user/createOrgUser.ts), and hide them on the create-user page.
-   - Add it to the global IdP API and pages.
+5. **Manual switch, global IdPs.** Org IdPs are done: [createOrgUser.ts](server/routers/user/createOrgUser.ts) refuses IdPs with `allowManualProvisioning = false`, and the create-user page hides them (the org IdP list returns the flag). Still to do:
+   - Add it to the global IdP API and pages, and return it from the global IdP list ([listIdps.ts](server/routers/idp/listIdps.ts)) so the create-user page hides them too.
 6. **Docs.** Claims per provider, plus the Azure and Google setup guides.
 7. **Data migration for existing installs** (runs on **production** data, so be careful):
    - Copy `roleMapping` → `syncRoleMapping`, `orgMapping` → `syncOrgMapping`, and `directorySyncEnabled` → `apiIntegrationEnabled`.
