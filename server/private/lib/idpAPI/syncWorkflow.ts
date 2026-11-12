@@ -354,10 +354,7 @@ for each membership with flag = true whose user is not in the remote set:
                         ? // skip users which don't belong to the org
                           { operation: "unchanged", reason: "noMatchingRoles" }
                         : { operation: "add", roles };
-            } else if (
-                membership.userOrgs.autoProvisioned ||
-                membership.userOrgs.directorySynched
-            ) {
+            } else if (membership.userOrgs.autoManaged) {
                 if (membership.userOrgs.isOwner) {
                     membershipOperation = {
                         operation: "unchanged",
@@ -399,11 +396,7 @@ for each membership with flag = true whose user is not in the remote set:
     );
     for (const { user, userOrgs: membership } of existingUserOrgs) {
         if (directoryUserIds.has(user.userId)) continue;
-        if (
-            membership.isOwner ||
-            (!membership.autoProvisioned && !membership.directorySynched)
-        )
-            continue;
+        if (membership.isOwner || !membership.autoManaged) continue;
 
         syncPlan.entries.push({
             directoryUser: null,
@@ -502,7 +495,7 @@ for each membership with flag = true whose user is not in the remote set:
                 case "add":
                     await assignUserToOrg(
                         org,
-                        { userId, orgId: orgId, directorySynched: true },
+                        { userId, orgId: orgId, autoManaged: true },
                         toRoleIds(entry.membership.roles),
                         trx
                     );
