@@ -1,6 +1,6 @@
 # Mirror of docker.io/library/node, kept in sync by
 # .github/workflows/mirror-node.yml
-FROM ghcr.io/fosrl/node:24.22.1-alpine
+FROM ghcr.io/fosrl/node:24.22.3-alpine
 
 WORKDIR /app
 
