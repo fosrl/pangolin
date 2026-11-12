@@ -416,7 +416,14 @@ export const orgQueries = {
             queryFn: async ({ signal, meta }) => {
                 const res = await meta!.api.get<
                     AxiosResponse<{
-                        idps: { idpId: number; name: string }[];
+                        idps: {
+                            idpId: number;
+                            name: string;
+                            type: string;
+                            variant: string | null;
+                            /** Only returned by the org IdP list. */
+                            allowManualProvisioning?: boolean;
+                        }[];
                     }>
                 >(
                     build === "saas" || useOrgOnlyIdp

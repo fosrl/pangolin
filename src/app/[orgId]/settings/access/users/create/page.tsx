@@ -35,15 +35,15 @@ import { toast } from "@app/hooks/useToast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InviteUserResponse } from "@server/routers/user";
 import { AxiosResponse } from "axios";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { orgQueries } from "@app/lib/queries";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import { ListRolesResponse } from "@server/routers/role";
 import { formatAxiosError } from "@app/lib/api";
 import { createApiClient } from "@app/lib/api";
 import { Checkbox } from "@app/components/ui/checkbox";
-import { ListIdpsResponse } from "@server/routers/idp";
 import { useTranslations } from "next-intl";
 import { build } from "@server/build";
 import IdpTypeIcon from "@app/components/IdpTypeIcon";
@@ -61,13 +61,6 @@ import {
 } from "@app/components/Settings";
 
 type UserType = "internal" | "oidc";
-
-interface IdpOption {
-    idpId: number;
-    name: string;
-    type: string;
-    variant: string | null;
-}
 
 interface UserOption {
     id: string;
@@ -102,11 +95,8 @@ export default function Page() {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
     const [expiresInDays, setExpiresInDays] = useState(1);
-    const [roles, setRoles] = useState<{ roleId: number; name: string }[]>([]);
-    const [idps, setIdps] = useState<IdpOption[]>([]);
     const [sendEmail, setSendEmail] = useState(env.email.emailEnabled);
     const [userOptions, setUserOptions] = useState<UserOption[]>([]);
-    const [dataLoaded, setDataLoaded] = useState(false);
     const [activeInviteRoleTagIndex, setActiveInviteRoleTagIndex] = useState<
         number | null
     >(null);
@@ -176,6 +166,62 @@ export default function Page() {
         { hours: 168, name: t("day", { count: 7 }) }
     ];
 
+    const idpsAvailable = !(
+        build === "saas" && !hasSaasSubscription(tierMatrix.orgOidc)
+    );
+
+    const {
+        data: roles = [],
+        isLoading: rolesLoading,
+        error: rolesError
+    } = useQuery(orgQueries.roles({ orgId: orgId as string }));
+
+    const {
+        data: allIdps = [],
+        isLoading: idpsLoading,
+        error: idpsError
+    } = useQuery({
+        ...orgQueries.identityProviders({
+            orgId: orgId as string,
+            useOrgOnlyIdp: env.app.identityProviderMode === "org"
+        }),
+        enabled: idpsAvailable
+    });
+
+    // IdPs that only provision users through JIT or sync can't be picked
+    const idps = useMemo(
+        () => allIdps.filter((idp) => idp.allowManualProvisioning !== false),
+        [allIdps]
+    );
+
+    const dataLoaded = !rolesLoading && !idpsLoading;
+
+    useEffect(() => {
+        if (!rolesError) return;
+        console.error(rolesError);
+        toast({
+            variant: "destructive",
+            title: t("accessRoleErrorFetch"),
+            description: formatAxiosError(
+                rolesError,
+                t("accessRoleErrorFetchDescription")
+            )
+        });
+    }, [rolesError]);
+
+    useEffect(() => {
+        if (!idpsError) return;
+        console.error(idpsError);
+        toast({
+            variant: "destructive",
+            title: t("idpErrorFetch"),
+            description: formatAxiosError(
+                idpsError,
+                t("idpErrorFetchDescription")
+            )
+        });
+    }, [idpsError]);
+
     const allRoleOptions = roles.map((role) => ({
         id: role.roleId.toString(),
         text: role.name
@@ -216,69 +262,6 @@ export default function Page() {
 
     const prevSelectedOptionRef = useRef(selectedOption);
 
-    useEffect(() => {
-        if (!selectedOption) {
-            return;
-        }
-
-        async function fetchRoles() {
-            const res = await api
-                .get<AxiosResponse<ListRolesResponse>>(`/org/${orgId}/roles`)
-                .catch((e) => {
-                    console.error(e);
-                    toast({
-                        variant: "destructive",
-                        title: t("accessRoleErrorFetch"),
-                        description: formatAxiosError(
-                            e,
-                            t("accessRoleErrorFetchDescription")
-                        )
-                    });
-                });
-
-            if (res?.status === 200) {
-                setRoles(res.data.data.roles);
-            }
-        }
-
-        async function fetchIdps() {
-            if (build === "saas" && !hasSaasSubscription(tierMatrix.orgOidc)) {
-                return;
-            }
-
-            const useOrgIdps =
-                build === "saas" || env.app.identityProviderMode === "org";
-
-            const res = await api
-                .get<AxiosResponse<ListIdpsResponse>>(
-                    useOrgIdps ? `/org/${orgId}/idp` : "/idp"
-                )
-                .catch((e) => {
-                    console.error(e);
-                    toast({
-                        variant: "destructive",
-                        title: t("idpErrorFetch"),
-                        description: formatAxiosError(
-                            e,
-                            t("idpErrorFetchDescription")
-                        )
-                    });
-                });
-
-            if (res?.status === 200) {
-                setIdps(res.data.data.idps);
-            }
-        }
-
-        async function fetchInitialData() {
-            setDataLoaded(false);
-            await fetchRoles();
-            await fetchIdps();
-            setDataLoaded(true);
-        }
-
-        fetchInitialData();
-    }, []);
 
     // Build user options when IDPs are loaded
     useEffect(() => {
