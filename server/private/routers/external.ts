@@ -127,6 +127,18 @@ authenticated.post(
     orgIdp.updateOrgOidcIdp
 );
 
+authenticated.post(
+    "/org/:orgId/idp/:idpId/sync",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.idpAPIIntegration),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyOrgAccess,
+    verifyIdpAccess,
+    verifyUserHasAction(ActionsEnum.updateIdp),
+    logActionAudit(ActionsEnum.updateIdp),
+    orgIdp.syncOrgIdp
+);
+
 authenticated.delete(
     "/org/:orgId/idp/:idpId",
     verifyValidLicense,
