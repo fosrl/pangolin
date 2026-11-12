@@ -59,7 +59,7 @@ export default function GeneralPage() {
 
     const generalFormSchema = z.object({
         username: z.string(),
-        autoProvisioned: z.boolean(),
+        autoManaged: z.boolean(),
         roles: z
             .array(
                 z.object({
@@ -75,7 +75,7 @@ export default function GeneralPage() {
         resolver: zodResolver(generalFormSchema),
         defaultValues: {
             username: user.username!,
-            autoProvisioned: user.autoProvisioned || false,
+            autoManaged: user.autoManaged || false,
             roles: (user.roles ?? []).map((r) => ({
                 id: r.roleId.toString(),
                 text: r.name,
@@ -95,8 +95,8 @@ export default function GeneralPage() {
                 isAdmin: r.isAdmin === true
             }))
         );
-        form.setValue("autoProvisioned", user.autoProvisioned || false);
-    }, [user.userId, user.autoProvisioned, currentRoleIds.join(",")]);
+        form.setValue("autoManaged", user.autoManaged || false);
+    }, [user.userId, user.autoManaged, currentRoleIds.join(",")]);
 
     const paywallMessage =
         build === "saas"
@@ -122,7 +122,7 @@ export default function GeneralPage() {
             await Promise.all([
                 updateRoleRequest,
                 api.post(`/org/${orgId}/user/${user.userId}`, {
-                    autoProvisioned: values.autoProvisioned
+                    autoManaged: values.autoManaged
                 })
             ]);
 
@@ -133,7 +133,7 @@ export default function GeneralPage() {
                     name: r.text,
                     isAdmin: r.isAdmin === true
                 })),
-                autoProvisioned: values.autoProvisioned
+                autoManaged: values.autoManaged
             });
 
             toast({
@@ -242,7 +242,7 @@ export default function GeneralPage() {
                                 {user.idpAutoProvision && (
                                     <FormField
                                         control={form.control}
-                                        name="autoProvisioned"
+                                        name="autoManaged"
                                         render={({ field }) => (
                                             <FormItem className="flex flex-row items-start space-x-2 space-y-0">
                                                 <FormControl>
@@ -255,11 +255,11 @@ export default function GeneralPage() {
                                                 </FormControl>
                                                 <div className="space-y-1 leading-none">
                                                     <FormLabel>
-                                                        {t("autoProvisioned")}
+                                                        {t("autoManaged")}
                                                     </FormLabel>
                                                     <p className="text-sm text-muted-foreground">
                                                         {t(
-                                                            "autoProvisionedDescription"
+                                                            "autoManagedDescription"
                                                         )}
                                                     </p>
                                                 </div>

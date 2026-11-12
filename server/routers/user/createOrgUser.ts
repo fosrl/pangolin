@@ -310,7 +310,7 @@ export async function createOrgUser(
                         {
                             orgId,
                             userId: existingUser.userId,
-                            autoProvisioned: false
+                            autoManaged: false
                         },
                         uniqueRoleIds,
                         trx
@@ -337,7 +337,7 @@ export async function createOrgUser(
                         {
                             orgId,
                             userId: newUser.userId,
-                            autoProvisioned: false
+                            autoManaged: false
                         },
                         uniqueRoleIds,
                         trx

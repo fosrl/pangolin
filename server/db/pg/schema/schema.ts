@@ -744,8 +744,7 @@ export const userOrgs = pgTable(
             })
             .notNull(),
         isOwner: boolean("isOwner").notNull().default(false),
-        autoProvisioned: boolean("autoProvisioned").default(false),
-        directorySynched: boolean("directorySynched").default(false),
+        autoManaged: boolean("autoManaged").default(false),
         pamUsername: varchar("pamUsername") // cleaned username for ssh and such
     },
     (t) => [

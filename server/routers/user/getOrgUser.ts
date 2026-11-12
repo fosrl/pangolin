@@ -22,7 +22,7 @@ export async function queryUser(orgId: string, userId: string) {
             type: users.type,
             isOwner: userOrgs.isOwner,
             twoFactorEnabled: users.twoFactorEnabled,
-            autoProvisioned: userOrgs.autoProvisioned,
+            autoManaged: userOrgs.autoManaged,
             idpId: users.idpId,
             idpName: idp.name,
             idpType: idp.type,

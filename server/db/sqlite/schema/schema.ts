@@ -1023,10 +1023,7 @@ export const userOrgs = sqliteTable(
         isOwner: integer("isOwner", { mode: "boolean" })
             .notNull()
             .default(false),
-        autoProvisioned: integer("autoProvisioned", {
-            mode: "boolean"
-        }).default(false),
-        directorySynched: integer("directorySynched", {
+        autoManaged: integer("autoManaged", {
             mode: "boolean"
         }).default(false),
         pamUsername: text("pamUsername") // cleaned username for ssh and such

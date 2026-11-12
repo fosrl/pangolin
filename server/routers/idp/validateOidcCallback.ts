@@ -422,22 +422,22 @@ export async function validateOidcCallback(
                         .where(
                             and(
                                 eq(userOrgs.userId, existingUser.userId),
-                                eq(userOrgs.autoProvisioned, false)
+                                eq(userOrgs.autoManaged, false)
                             )
                         );
 
                     if (!existingUserOrgs.length) {
                         // delete all auto-provisioned user orgs
-                        const autoProvisionedUserOrgs = await db
+                        const autoManagedUserOrgs = await db
                             .select()
                             .from(userOrgs)
                             .where(
                                 and(
                                     eq(userOrgs.userId, existingUser.userId),
-                                    eq(userOrgs.autoProvisioned, true)
+                                    eq(userOrgs.autoManaged, true)
                                 )
                             );
-                        const orgIdsToRemove = autoProvisionedUserOrgs.map(
+                        const orgIdsToRemove = autoManagedUserOrgs.map(
                             (uo) => uo.orgId
                         );
                         if (orgIdsToRemove.length > 0) {
@@ -547,12 +547,12 @@ export async function validateOidcCallback(
                     .where(eq(userOrgs.userId, userId!));
 
                 // Filter to only auto-provisioned orgs for CRUD operations
-                const autoProvisionedOrgs = currentUserOrgs.filter(
-                    (org) => org.autoProvisioned === true
+                const autoManagedOrgs = currentUserOrgs.filter(
+                    (org) => org.autoManaged === true
                 );
 
                 // Delete auto-provisioned orgs that are no longer valid
-                const orgsToDelete = autoProvisionedOrgs.filter(
+                const orgsToDelete = autoManagedOrgs.filter(
                     (currentOrg) =>
                         !userOrgInfo.some(
                             (newOrg) => newOrg.orgId === currentOrg.orgId
@@ -571,7 +571,7 @@ export async function validateOidcCallback(
                 }
 
                 // Sync roles 1:1 with IdP policy for existing auto-provisioned orgs
-                for (const currentOrg of autoProvisionedOrgs) {
+                for (const currentOrg of autoManagedOrgs) {
                     const newRole = userOrgInfo.find(
                         (newOrg) => newOrg.orgId === currentOrg.orgId
                     );
@@ -619,7 +619,7 @@ export async function validateOidcCallback(
                                 {
                                     orgId: org.orgId,
                                     userId: userId!,
-                                    autoProvisioned: true
+                                    autoManaged: true
                                 },
                                 org.roleIds,
                                 trx
