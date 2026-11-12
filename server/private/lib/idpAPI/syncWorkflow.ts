@@ -81,47 +81,117 @@ export type IdpOrgSyncPlan = {
     entries: UserSyncEntry[];
 };
 
-// Track if the offline checker interval is running
 let directorySyncInterval: NodeJS.Timeout | null = null;
+// the interval doesn't wait for the previous run, a slow directory could make runs pile up
+let directorySyncRunning = false;
 const DIRECTORY_SYNC_RUN_INTERVAL = durationToMs(5, "minutes");
 
-export async function runIdpDirectorySync(dryRun: boolean = false) {
-    // to sync idps, we need
+export function startIdpDirectorySyncScheduler() {
+    if (directorySyncInterval) {
+        return;
+    }
+
+    directorySyncInterval = setInterval(async () => {
+        if (directorySyncRunning) {
+            logger.debug(
+                "Directory sync: previous run still in progress, skipping"
+            );
+            return;
+        }
+
+        directorySyncRunning = true;
+        try {
+            await runIdpDirectorySync();
+        } catch (error) {
+            logger.error("Directory sync: run failed", { error });
+        } finally {
+            directorySyncRunning = false;
+        }
+    }, DIRECTORY_SYNC_RUN_INTERVAL);
+}
+
+export type IdpOrgSyncResult = {
+    idpId: number;
+    orgId: string;
+} & (
+    | { status: "synced"; plan: IdpOrgSyncPlan }
+    /** The org isn't entitled to the IdP API integration. */
+    | { status: "skipped" }
+    | { status: "failed"; error: string }
+);
+
+/**
+ * Syncs every (IdP, org) pair with sync on, one after another. A failure is
+ * logged and the next pair still runs.
+ *
+ * - `idpId` / `orgId`: only sync that IdP / org ("Sync now").
+ * - `dryRun`: compute the plans without writing anything. A dry run also covers
+ *   IdPs whose sync is off (the API integration must be on), to preview it.
+ */
+export async function runIdpDirectorySync({
+    dryRun = false,
+    idpId,
+    orgId
+}: {
+    dryRun?: boolean;
+    idpId?: number;
+    orgId?: string;
+} = {}): Promise<IdpOrgSyncResult[]> {
     const idpsToSync = await db
         .select()
         .from(idp)
         .innerJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId))
-        .innerJoin(idpOrg, and(eq(idpOrg.idpId, idp.idpId)))
+        .innerJoin(idpOrg, eq(idpOrg.idpId, idp.idpId))
         .where(
             and(
                 inArray(idpOidcConfig.variant, ["azure", "google"]),
                 eq(idp.apiIntegrationEnabled, true),
-                eq(idp.directorySyncEnabled, true)
+                dryRun ? undefined : eq(idp.directorySyncEnabled, true),
+                idpId === undefined ? undefined : eq(idp.idpId, idpId),
+                orgId === undefined ? undefined : eq(idpOrg.orgId, orgId)
             )
         );
 
-    const fetchPromises = idpsToSync
-        .map((data) => {
-            let provider: IDPAPIProvider | null = null;
-            switch (data.idpOidcConfig.variant) {
-                case "azure":
-                    provider = new AzureDirectorySyncProvider(data);
-                    break;
-                case "google":
-                    provider = new GoogleDirectorySyncProvider(data);
-                    break;
-                default:
-                    break;
-            }
-            if (!provider) {
-                return null;
-            }
+    const results: IdpOrgSyncResult[] = [];
+    for (const data of idpsToSync) {
+        const target = {
+            idpId: data.idp.idpId,
+            orgId: data.idpOrg.orgId
+        };
 
-            return syncIdp(provider, dryRun);
-        })
-        .filter((p) => p != null);
+        let provider: IDPAPIProvider;
+        switch (data.idpOidcConfig.variant) {
+            case "azure":
+                provider = new AzureDirectorySyncProvider(data);
+                break;
+            case "google":
+                provider = new GoogleDirectorySyncProvider(data);
+                break;
+            default:
+                continue;
+        }
 
-    return await Promise.allSettled(fetchPromises);
+        try {
+            const plan = await syncIdp(provider, dryRun);
+            results.push(
+                plan
+                    ? { ...target, status: "synced", plan }
+                    : { ...target, status: "skipped" }
+            );
+        } catch (error) {
+            logger.error(
+                `Directory sync: failed for IdP ${target.idpId}, org ${target.orgId}`,
+                { error }
+            );
+            results.push({
+                ...target,
+                status: "failed",
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    return results;
 }
 
 async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
@@ -366,7 +436,10 @@ for each membership with flag = true whose user is not in the remote set:
                 } else if (roles.length === 0) {
                     membershipOperation = directorySyncDeletions
                         ? { operation: "remove" }
-                        : { operation: "unchanged", reason: "deletionsDisabled" };
+                        : {
+                              operation: "unchanged",
+                              reason: "deletionsDisabled"
+                          };
                 } else {
                     membershipOperation = { operation: "updateRoles", roles };
                 }
