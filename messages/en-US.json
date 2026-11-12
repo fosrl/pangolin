@@ -3709,6 +3709,7 @@
     "logs": "Logs",
     "logsSettingsDescription": "Monitor logs collected from this organization",
     "logsEmptyState": "No logs found. Try adjusting your filters or date range.",
+    "logsSelectTimeRange": "Choose a time range, or click Refresh to load the last 7 days.",
     "searchLogs": "Search logs...",
     "action": "Action",
     "actor": "Actor",

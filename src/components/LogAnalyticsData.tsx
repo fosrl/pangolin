@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LoaderIcon, RefreshCw, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { DateRangePicker, type DateTimeValue } from "./DateTimePicker";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader } from "./ui/card";
@@ -66,6 +67,10 @@ export function LogAnalyticsData(props: AnalyticsContentProps) {
     const isEmptySearchParams =
         !filters.resourceId && !filters.timeStart && !filters.timeEnd;
 
+    const [loadRequested, setLoadRequested] = useState(false);
+    const isAwaitingTimeRange =
+        !filters.timeStart && !filters.timeEnd && !loadRequested;
+
     const router = useRouter();
 
     const dateRange = {
@@ -84,12 +89,15 @@ export function LogAnalyticsData(props: AnalyticsContentProps) {
         isFetching: isFetchingAnalytics,
         refetch: refreshAnalytics,
         isLoading: isLoadingAnalytics // only `true` when there is no data yet
-    } = useQuery(
-        logQueries.requestAnalytics({
+    } = useQuery({
+        ...logQueries.requestAnalytics({
             orgId: props.orgId,
             filters
-        })
-    );
+        }),
+        enabled: !isAwaitingTimeRange
+    });
+
+    const isChartOverlayVisible = isLoadingAnalytics || isAwaitingTimeRange;
 
     const percentBlocked =
         stats && stats.totalRequests > 0
@@ -233,7 +241,11 @@ export function LogAnalyticsData(props: AnalyticsContentProps) {
                     <div className="flex items-start gap-2 sm:justify-end">
                         <Button
                             variant="outline"
-                            onClick={() => refreshAnalytics()}
+                            onClick={() =>
+                                isAwaitingTimeRange
+                                    ? setLoadRequested(true)
+                                    : refreshAnalytics()
+                            }
                             disabled={isFetchingAnalytics}
                             className="relative sm:top-6 lg:static gap-2"
                         >
@@ -277,11 +289,17 @@ export function LogAnalyticsData(props: AnalyticsContentProps) {
             </Card>
 
             <Card className="w-full h-full flex flex-col gap-8 relative">
-                {isLoadingAnalytics && (
+                {isChartOverlayVisible && (
                     <div className="absolute z-20 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-border rounded-md bg-muted">
                         <div className="flex items-center gap-2 p-6">
-                            <LoaderIcon className="size-4 animate-spin" />
-                            {t("loadingAnalytics")}
+                            {isAwaitingTimeRange ? (
+                                t("logsSelectTimeRange")
+                            ) : (
+                                <>
+                                    <LoaderIcon className="size-4 animate-spin" />
+                                    {t("loadingAnalytics")}
+                                </>
+                            )}
                         </div>
                     </div>
                 )}
@@ -290,12 +308,12 @@ export function LogAnalyticsData(props: AnalyticsContentProps) {
                     <h3 className="font-semibold">{t("requestsByDay")}</h3>
                 </CardHeader>
                 <CardContent className="relative">
-                    {isLoadingAnalytics && (
+                    {isChartOverlayVisible && (
                         <div className="backdrop-blur-[2px] z-10 absolute inset-0"></div>
                     )}
                     <RequestChart
                         className={cn(
-                            isLoadingAnalytics &&
+                            isChartOverlayVisible &&
                                 "opacity-50 pointer-events-none"
                         )}
                         data={
