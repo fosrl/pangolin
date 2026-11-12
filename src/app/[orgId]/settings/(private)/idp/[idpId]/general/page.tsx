@@ -46,6 +46,7 @@ import {
     compileRoleMappingExpression,
     defaultRoleMappingConfig,
     defaultSyncRoleMappingConfig,
+    effectiveCreateMissingRoles,
     detectRoleMappingConfig,
     ensureMappingBuilderRuleIds,
     RoleMappingConfig
@@ -116,7 +117,9 @@ export default function GeneralPage() {
         directorySyncDeletions: z.boolean().default(true),
         orgMapping: z.string().optional(),
         syncOrgMapping: z.string().optional(),
-        mappingsLinked: z.boolean().default(true)
+        mappingsLinked: z.boolean().default(true),
+        createMissingRoles: z.boolean().default(false),
+        syncCreateMissingRoles: z.boolean().default(false)
     });
 
     // Google form schema (simplified)
@@ -137,6 +140,8 @@ export default function GeneralPage() {
             orgMapping: z.string().optional(),
             syncOrgMapping: z.string().optional(),
             mappingsLinked: z.boolean().default(true),
+            createMissingRoles: z.boolean().default(false),
+            syncCreateMissingRoles: z.boolean().default(false),
             ...googleDirectorySyncFormFields
         })
         .superRefine((data, ctx) =>
@@ -164,7 +169,9 @@ export default function GeneralPage() {
         directorySyncDeletions: z.boolean().default(true),
         orgMapping: z.string().optional(),
         syncOrgMapping: z.string().optional(),
-        mappingsLinked: z.boolean().default(true)
+        mappingsLinked: z.boolean().default(true),
+        createMissingRoles: z.boolean().default(false),
+        syncCreateMissingRoles: z.boolean().default(false)
     });
 
     type OidcFormValues = z.infer<typeof OidcFormSchema>;
@@ -208,6 +215,8 @@ export default function GeneralPage() {
             orgMapping: "",
             syncOrgMapping: "",
             mappingsLinked: true,
+            createMissingRoles: false,
+            syncCreateMissingRoles: false,
             googleServiceAccountKey: "",
             googleAdminEmail: "",
             googleCustomerId: ""
@@ -274,7 +283,11 @@ export default function GeneralPage() {
                         roleId: null,
                         orgMapping: data.idpOrg?.orgMapping ?? "",
                         syncOrgMapping: data.idpOrg?.syncOrgMapping ?? "",
-                        mappingsLinked: data.idpOrg?.mappingsLinked ?? true
+                        mappingsLinked: data.idpOrg?.mappingsLinked ?? true,
+                        createMissingRoles:
+                            data.idpOrg?.createMissingRoles ?? false,
+                        syncCreateMissingRoles:
+                            data.idpOrg?.syncCreateMissingRoles ?? false
                     };
 
                     // Add variant-specific fields
@@ -432,6 +445,20 @@ export default function GeneralPage() {
                 syncOrgMapping:
                     syncOrgMappingTrimmed === "" ? null : syncOrgMappingTrimmed,
                 mappingsLinked: data.mappingsLinked,
+                createMissingRoles: effectiveCreateMissingRoles(
+                    roleMapping,
+                    data.createMissingRoles
+                ),
+                // linked mappings: sync uses the JIT flag
+                syncCreateMissingRoles: data.mappingsLinked
+                    ? effectiveCreateMissingRoles(
+                          roleMapping,
+                          data.createMissingRoles
+                      )
+                    : effectiveCreateMissingRoles(
+                          syncRoleMapping,
+                          data.syncCreateMissingRoles
+                      ),
                 directorySyncDeletions: data.directorySyncDeletions
             };
 

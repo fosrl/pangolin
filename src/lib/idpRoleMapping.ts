@@ -274,3 +274,15 @@ export function defaultSyncRoleMappingConfig(): RoleMappingConfig {
 function dedupeNonEmpty(values: string[]): string[] {
     return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
+
+/**
+ * "Create missing roles" only applies to a raw expression, the only mode that can
+ * return role names that aren't in the org. Saved as `false` otherwise, so a
+ * hidden checkbox doesn't stay on after switching modes.
+ */
+export function effectiveCreateMissingRoles(
+    config: RoleMappingConfig,
+    checked: boolean | undefined
+): boolean {
+    return config.mode === "rawExpression" && checked === true;
+}

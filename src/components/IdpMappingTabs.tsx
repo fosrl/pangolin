@@ -29,6 +29,9 @@ type IdpMappingTabsProps = {
     orgMappingField?: { control: unknown; name: string };
     orgId: string;
     fieldIdPrefix: string;
+    /** "Create missing roles" checkbox, only shown for a raw expression. */
+    createMissingRoles?: boolean;
+    onCreateMissingRolesChange?: (checked: boolean) => void;
 };
 
 /** Role mapping (and optionally org mapping) editors, used for JIT, sync, or both when the mappings are linked. */
@@ -38,7 +41,9 @@ export default function IdpMappingTabs({
     roles,
     orgMappingField,
     orgId,
-    fieldIdPrefix
+    fieldIdPrefix,
+    createMissingRoles,
+    onCreateMissingRolesChange
 }: IdpMappingTabsProps) {
     const t = useTranslations();
 
@@ -80,6 +85,8 @@ export default function IdpMappingTabs({
                         rawExpression
                     }))
                 }
+                createMissingRoles={createMissingRoles}
+                onCreateMissingRolesChange={onCreateMissingRolesChange}
             />
         </div>
     );

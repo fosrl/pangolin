@@ -3258,6 +3258,8 @@
     "roleMappingMatchValuePlaceholder": "Match value (for example: admin)",
     "roleMappingAssignRolesPlaceholderFreeform": "Type role names (exact per org)",
     "roleMappingBuilderFreeformRowHint": "Role names must match a role in each target organization.",
+    "roleMappingCreateMissingRoles": "Create missing roles",
+    "roleMappingCreateMissingRolesDescription": "Create the roles returned by the mapping that don't exist in the organization yet, with the default permissions.",
     "roleMappingRemoveRule": "Remove",
     "idpGoogleConfiguration": "Google Configuration",
     "idpGoogleConfigurationDescription": "Configure the Google OAuth2 credentials",

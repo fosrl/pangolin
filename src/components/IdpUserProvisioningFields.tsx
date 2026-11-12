@@ -21,6 +21,8 @@ export type IdpUserProvisioningFormValues = {
     mappingsLinked: boolean;
     orgMapping?: string;
     syncOrgMapping?: string;
+    createMissingRoles: boolean;
+    syncCreateMissingRoles: boolean;
 };
 
 type IdpUserProvisioningFieldsProps = {
@@ -57,6 +59,9 @@ export default function IdpUserProvisioningFields({
     const directorySyncEnabled =
         syncAvailable && form.watch("directorySyncEnabled");
     const mappingsLinked = !syncAvailable || form.watch("mappingsLinked");
+    const createMissingRoles = form.watch("createMissingRoles") ?? false;
+    const syncCreateMissingRoles =
+        form.watch("syncCreateMissingRoles") ?? false;
 
     const showJitMappings = autoProvision;
     const showSyncMappings = directorySyncEnabled;
@@ -131,6 +136,10 @@ export default function IdpUserProvisioningFields({
                                         "syncOrgMapping",
                                         form.getValues("orgMapping") ?? ""
                                     );
+                                    form.setValue(
+                                        "syncCreateMissingRoles",
+                                        form.getValues("createMissingRoles")
+                                    );
                                 }
                                 form.setValue("mappingsLinked", !separate);
                             }}
@@ -144,6 +153,10 @@ export default function IdpUserProvisioningFields({
                             roles={roles}
                             roleMapping={jitRoleMapping}
                             onRoleMappingChange={onJitRoleMappingChange}
+                            createMissingRoles={createMissingRoles}
+                            onCreateMissingRolesChange={(checked) =>
+                                form.setValue("createMissingRoles", checked)
+                            }
                         />
                     ) : (
                         <>
@@ -160,6 +173,13 @@ export default function IdpUserProvisioningFields({
                                         onRoleMappingChange={
                                             onJitRoleMappingChange
                                         }
+                                        createMissingRoles={createMissingRoles}
+                                        onCreateMissingRolesChange={(checked) =>
+                                            form.setValue(
+                                                "createMissingRoles",
+                                                checked
+                                            )
+                                        }
                                     />
                                 </div>
                             )}
@@ -175,6 +195,15 @@ export default function IdpUserProvisioningFields({
                                         roleMapping={syncRoleMapping}
                                         onRoleMappingChange={
                                             onSyncRoleMappingChange
+                                        }
+                                        createMissingRoles={
+                                            syncCreateMissingRoles
+                                        }
+                                        onCreateMissingRolesChange={(checked) =>
+                                            form.setValue(
+                                                "syncCreateMissingRoles",
+                                                checked
+                                            )
                                         }
                                     />
                                 </div>

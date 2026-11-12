@@ -51,6 +51,7 @@ import {
     compileRoleMappingExpression,
     defaultRoleMappingConfig,
     defaultSyncRoleMappingConfig,
+    effectiveCreateMissingRoles,
     RoleMappingConfig
 } from "@app/lib/idpRoleMapping";
 
@@ -99,6 +100,8 @@ export default function Page() {
         orgMapping: z.string().optional(),
         syncOrgMapping: z.string().optional(),
         mappingsLinked: z.boolean().default(true),
+        createMissingRoles: z.boolean().default(false),
+        syncCreateMissingRoles: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
         directorySyncDeletions: z.boolean().default(true),
         ...googleDirectorySyncFormFields
@@ -135,6 +138,8 @@ export default function Page() {
             orgMapping: "",
             syncOrgMapping: "",
             mappingsLinked: true,
+            createMissingRoles: false,
+            syncCreateMissingRoles: false,
             directorySyncEnabled: false,
             directorySyncDeletions: true,
             googleServiceAccountKey: "",
@@ -225,6 +230,20 @@ export default function Page() {
                 syncRoleMapping: syncRoleMappingExpression || null,
                 syncOrgMapping: syncOrgMapping || null,
                 mappingsLinked: data.mappingsLinked,
+                createMissingRoles: effectiveCreateMissingRoles(
+                    roleMapping,
+                    data.createMissingRoles
+                ),
+                // linked mappings: sync uses the JIT flag
+                syncCreateMissingRoles: data.mappingsLinked
+                    ? effectiveCreateMissingRoles(
+                          roleMapping,
+                          data.createMissingRoles
+                      )
+                    : effectiveCreateMissingRoles(
+                          syncRoleMapping,
+                          data.syncCreateMissingRoles
+                      ),
                 directorySyncDeletions: data.directorySyncDeletions,
                 roleMapping: roleMappingExpression,
                 scopes: data.scopes,
