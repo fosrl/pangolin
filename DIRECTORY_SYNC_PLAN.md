@@ -220,7 +220,7 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
 
 **Create user page and API:** hide and refuse IdPs with `allowManualProvisioning = false`.
 
-**New endpoint:** `POST /org/:orgId/idp/:idpId/sync` runs a sync right away. It has a dry-run option. Global IdPs get theirs with items 4 and 5 of "Left to do".
+**New endpoint:** `POST /org/:orgId/idp/:idpId/sync` runs a sync right away. It has a dry-run option. Global IdPs get theirs with items 3 and 4 of "Left to do".
 
 **Docs to write:** what's in the claims for each provider (the tables above), and setup guides: which Azure API permissions to grant (plus admin consent), and which Google scopes to allow (domain-wide delegation).
 
@@ -242,35 +242,34 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
     - With `directorySyncDeletions` off, nothing is removed (`deletionsDisabled`).
     - A failed fetch throws before anything is written. If some directory users have no identifier at `identifierPath`, members missing from the directory aren't removed that run. Azure users without an email are kept instead of dropped.
 12. ✅ **Sync runs.** `startIdpDirectorySyncScheduler` (every 5 minutes, started in the private `startSchedulers`) syncs each (IdP, org) one after another, logs failures and skips a tick while the previous run is still going. `POST /org/:orgId/idp/:idpId/sync` with `{ dryRun }` ([syncOrgIdp.ts](server/private/routers/orgIdp/syncOrgIdp.ts)), on the UI and integration APIs; a dry run returns every entry and also works while sync is off. "Sync now" on the org IdP page opens a dialog ([IdpSyncNowDialog.tsx](src/components/IdpSyncNowDialog.tsx)) that shows the dry-run plan, then applies the sync on confirm.
+13. ✅ **"Create missing roles" in the UI, org IdPs.** A checkbox in the role mapping editor ([RoleMappingConfigFields.tsx](src/components/RoleMappingConfigFields.tsx)), shown only for a raw expression.
+    - Org IdPs (settings and create pages): one per method, following the shared/separate toggle; saved as `false` when the mode isn't raw (`effectiveCreateMissingRoles` in [idpRoleMapping.ts](src/lib/idpRoleMapping.ts)).
+    - Server: login and sync honor the flag whatever the mapping mode; only the UI limits where the checkbox is shown.
 
 ### Left to do
 
 1. **Migration for `idpOrg.lastSyncedAt` (new nullable column) and the `autoManaged` flag.** The code and schema are done (`userOrgs.autoProvisioned` → `autoManaged`, `directorySynched` dropped). The migration still has to rename the column, set `autoManaged = true` where `directorySynched = true`, then drop `directorySynched`.
-2. **"Create missing roles" checkbox in the UI.** One per method in [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx), following the shared/separate toggle. **Only in "Raw expression" mode**: it's the only mode that can return arbitrary role names from the claims. Fixed roles and the builder pick from the org's existing roles, so they never have a missing role to create.
-   - Hide the checkbox in the other modes, and save the flag as `false` when the mode isn't raw, so switching modes doesn't leave a hidden `true` behind.
-   - **Exception, global IdP default mappings:** they have no org, so the editor gets `roles={[]}` and [RoleMappingConfigFields.tsx](src/components/RoleMappingConfigFields.tsx) switches fixed roles **and** the builder to free text (`restrictToOrgRoles = roles.length > 0`). There, typed names can be missing in an org, so the checkbox makes sense for every mode. Same fallback whenever the org's role list is empty (not loaded yet, or the fetch failed).
-   - Org IdPs: `createMissingRoles` / `syncCreateMissingRoles` on the settings and create pages.
-   - Server admin: `defaultCreateMissingRoles` / `defaultSyncCreateMissingRoles` in the default mappings, and `createMissingRoles` / `syncCreateMissingRoles` in the org policy dialog ([policies/page.tsx](src/app/admin/idp/[idpId]/policies/page.tsx)). The policy API already accepts `createMissingRoles` but the dialog never sends it.
-3. **Gate directory sync by tier.** Only SaaS orgs on a tier in `tierMatrix.idpAPIIntegration` (tier1, tier3, enterprise) and enterprise builds with a valid license. OSS never. On a downgrade the settings stay and sync simply skips the org (no data change).
+2. **Gate directory sync by tier.** Only SaaS orgs on a tier in `tierMatrix.idpAPIIntegration` (tier1, tier3, enterprise) and enterprise builds with a valid license. OSS never. On a downgrade the settings stay and sync simply skips the org (no data change).
    - Already gated: the sync job and the JIT group fetch ([enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts)) skip non-entitled orgs with `isLicensedOrSubscribed`, and `POST /org/:orgId/idp/:idpId/sync` has `verifyValidLicense` + `verifyValidSubscription`.
    - Missing in the API: [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) and [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts) accept `apiIntegrationEnabled`, `directorySyncEnabled` and `directorySyncConfig` without a tier check. Refuse turning them on when the org isn't entitled.
    - Missing in the UI: a `PaidFeaturesAlert` and disabled toggles for the API integration and Sync, like JIT does with `tierMatrix.autoProvisioning` ([IdpUserProvisioningFields.tsx](src/components/IdpUserProvisioningFields.tsx), [ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)). Hide "Sync now" when not entitled.
-   - Global IdPs (items 4 and 5): same checks on the server admin routes and pages.
+   - Global IdPs (items 3 and 4): same checks on the server admin routes and pages.
    - To check: on enterprise builds `isLicensedOrSubscribed` only checks that the license is valid, not its tier, and `verifyValidSubscription` lets every non-SaaS build through. Confirm that every valid enterprise license should get sync.
-4. **Sync mappings for global IdPs (server admin).** Make `defaultSyncOrgMapping` / `defaultSyncRoleMapping` work end to end, the same way the JIT defaults do.
+3. **Sync mappings for global IdPs (server admin).** Make `defaultSyncOrgMapping` / `defaultSyncRoleMapping` work end to end, the same way the JIT defaults do.
    - API: [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts) accepts `defaultSyncOrgMapping`, `defaultSyncRoleMapping`, `defaultSyncCreateMissingRoles`. The org policy routes ([createIdpOrgPolicy.ts](server/routers/idp/createIdpOrgPolicy.ts), [updateIdpOrgPolicy.ts](server/routers/idp/updateIdpOrgPolicy.ts)) accept `syncOrgMapping`, `syncRoleMapping`, `syncCreateMissingRoles`, `mappingsLinked`.
    - Sync job ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts)): for global IdPs, fall back to the IdP defaults when the org has no sync mapping, like login does (`idpOrg.syncRoleMapping || idp.defaultSyncRoleMapping`, `createMissingRoles` follows whichever mapping is used). Run the org mapping too: today it's skipped because org IdPs have a single org.
    - Sync job, which orgs: today it only loops over `idpOrg` rows, so orgs without a policy are never synced, even with defaults set. Match login: every org outside SaaS, only `idpOrg` orgs in SaaS.
    - UI: the default mappings section and the org policy dialog get the same shared/separate editor as org IdPs ([IdpUserProvisioningFields.tsx](src/components/IdpUserProvisioningFields.tsx) / [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx)), shown only for google/azure IdPs.
-   - Depends on the global IdP pages getting the API integration and sync toggles (see item 5), otherwise sync can never be turned on for a global IdP.
-5. **Global IdP provisioning settings.** The admin pages only have the JIT toggle.
+   - "Create missing roles" checkboxes: `defaultCreateMissingRoles` / `defaultSyncCreateMissingRoles` in the default mappings, shown in **every mode** (role names are free text there, so a typed name can be missing in an org), and `createMissingRoles` / `syncCreateMissingRoles` in the org policy dialog (raw expression only). The policy API already accepts `createMissingRoles` but the dialog never sends it.
+   - Depends on the global IdP pages getting the API integration and sync toggles (see item 4), otherwise sync can never be turned on for a global IdP.
+4. **Global IdP provisioning settings.** The admin pages only have the JIT toggle.
    - API integration section, Sync toggle and `directorySyncDeletions`, like the org IdP page. The global IdP API needs `apiIntegrationEnabled`, `directorySyncEnabled`, `directorySyncConfig`.
    - The Manual switch (`allowManualProvisioning`), see below.
-6. **Manual switch, the rest.** Org IdPs are done. Still to do:
+5. **Manual switch, the rest.** Org IdPs are done. Still to do:
    - Refuse IdPs with `allowManualProvisioning = false` in [createOrgUser.ts](server/routers/user/createOrgUser.ts), and hide them on the create-user page.
    - Add it to the global IdP API and pages.
-7. **Docs.** Claims per provider, plus the Azure and Google setup guides.
-8. **Data migration for existing installs** (runs on **production** data, so be careful):
+6. **Docs.** Claims per provider, plus the Azure and Google setup guides.
+7. **Data migration for existing installs** (runs on **production** data, so be careful):
    - Copy `roleMapping` → `syncRoleMapping`, `orgMapping` → `syncOrgMapping`, and `directorySyncEnabled` → `apiIntegrationEnabled`.
    - Where the JIT and sync mappings end up different, set `mappingsLinked = false`. Otherwise the shared editor would overwrite one of them.
    - Before adding the unique index on `(idpId, username)`, find and fix IdPs that have two users with the same username, or the migration fails.
