@@ -77,7 +77,7 @@ jobs:
                   fi
 
             - name: Log in to Docker Hub
-              uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+              uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
               with:
                   registry: docker.io
                   username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -149,7 +149,7 @@ jobs:
                   fi
 
             - name: Log in to Docker Hub
-              uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+              uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
               with:
                   registry: docker.io
                   username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -204,7 +204,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
             - name: Log in to Docker Hub
-              uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+              uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
               with:
                   registry: docker.io
                   username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -407,7 +407,7 @@ jobs:
               shell: bash
 
             - name: Login to GitHub Container Registry (for cosign)
-              uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+              uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
               with:
                 registry: ghcr.io
                 username: ${{ github.actor }}
@@ -415,7 +415,7 @@ jobs:
 
             - name: Install cosign
               # cosign is used to sign container images using keyless (OIDC) signing
-              uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+              uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
               with:
                 cosign-release: v3.0.6
 
