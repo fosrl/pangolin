@@ -206,7 +206,6 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
   - Only if `directorySyncDeletions` is on.
   - Only auto-managed rows (`autoManaged = true`).
   - Never after a fetch that failed or only got part of the users. Otherwise a network error would look like "everyone left the company".
-  - A **circuit breaker**: if a run would remove a lot of users at once, stop and remove nobody.
 - **Scheduler:** a plain `setInterval` that syncs every sync-enabled IdP one after another. If one fails, log it and try again next time. No locks, no retries.
 
 ## Screens and endpoints
@@ -238,34 +237,33 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
 8. ✅ **Create missing roles (server side).** Columns, logic in `resolveOrgMembership`, and role creation in `createRoles`. Login and sync both use it. Migrations 0036–0037.
 9. ✅ **Sync defaults for global IdPs, DB only.** `defaultSyncOrgMapping`, `defaultSyncRoleMapping` and `defaultSyncCreateMissingRoles` columns on `idp`. Nothing reads or writes them yet (see "Left to do").
 10. ✅ **Org IdP settings page.** API integration section ([ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)), the Manual / JIT / Sync toggles (several can be on), and the mapping tabs with "Configure JIT and sync separately". The org IdP API accepts all the new fields.
+11. ✅ **Safe removals.** In [syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts):
+    - With `directorySyncDeletions` off, nothing is removed (`deletionsDisabled`).
+    - A failed fetch throws before anything is written. If some directory users have no identifier at `identifierPath`, members missing from the directory aren't removed that run. Azure users without an email are kept instead of dropped.
 
 ### Left to do
 
 1. **Migration for the `autoManaged` flag.** The code and schema are done (`userOrgs.autoProvisioned` → `autoManaged`, `directorySynched` dropped). The migration still has to rename the column, set `autoManaged = true` where `directorySynched = true`, then drop `directorySynched`.
-2. **Fix: sync removes users even when deletions are off.** `directorySyncDeletions` is saved but sync never reads it.
-   - Skip removals when it's off.
-   - Never remove after a failed or partial fetch.
-   - Add the circuit breaker.
-3. **Make sync actually run.** The interval constant and variable exist in `syncWorkflow.ts`, but nothing starts them.
+2. **Make sync actually run.** The interval constant and variable exist in `syncWorkflow.ts`, but nothing starts them.
    - Start the `setInterval` in the private `startSchedulers`. Sync IdPs one after another (today it runs them all at once with `Promise.allSettled`) and log each failure.
    - Add `POST /idp/:idpId/sync` (with dry run) and the "Sync now" button.
-4. **"Create missing roles" checkbox in the UI.** One per method in [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx), following the shared/separate toggle.
+3. **"Create missing roles" checkbox in the UI.** One per method in [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx), following the shared/separate toggle.
    - Org IdPs: `createMissingRoles` / `syncCreateMissingRoles` on the settings and create pages.
    - Server admin: `defaultCreateMissingRoles` / `defaultSyncCreateMissingRoles` in the default mappings, and `createMissingRoles` / `syncCreateMissingRoles` in the org policy dialog ([policies/page.tsx](src/app/admin/idp/[idpId]/policies/page.tsx)). The policy API already accepts `createMissingRoles` but the dialog never sends it.
-5. **Sync mappings for global IdPs (server admin).** Make `defaultSyncOrgMapping` / `defaultSyncRoleMapping` work end to end, the same way the JIT defaults do.
+4. **Sync mappings for global IdPs (server admin).** Make `defaultSyncOrgMapping` / `defaultSyncRoleMapping` work end to end, the same way the JIT defaults do.
    - API: [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts) accepts `defaultSyncOrgMapping`, `defaultSyncRoleMapping`, `defaultSyncCreateMissingRoles`. The org policy routes ([createIdpOrgPolicy.ts](server/routers/idp/createIdpOrgPolicy.ts), [updateIdpOrgPolicy.ts](server/routers/idp/updateIdpOrgPolicy.ts)) accept `syncOrgMapping`, `syncRoleMapping`, `syncCreateMissingRoles`, `mappingsLinked`.
    - Sync job ([syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts)): for global IdPs, fall back to the IdP defaults when the org has no sync mapping, like login does (`idpOrg.syncRoleMapping || idp.defaultSyncRoleMapping`, `createMissingRoles` follows whichever mapping is used). Run the org mapping too: today it's skipped because org IdPs have a single org.
    - Sync job, which orgs: today it only loops over `idpOrg` rows, so orgs without a policy are never synced, even with defaults set. Match login: every org outside SaaS, only `idpOrg` orgs in SaaS.
    - UI: the default mappings section and the org policy dialog get the same shared/separate editor as org IdPs ([IdpUserProvisioningFields.tsx](src/components/IdpUserProvisioningFields.tsx) / [IdpMappingTabs.tsx](src/components/IdpMappingTabs.tsx)), shown only for google/azure IdPs.
-   - Depends on the global IdP pages getting the API integration and sync toggles (see the next item), otherwise sync can never be turned on for a global IdP.
-6. **Global IdP provisioning settings.** The admin pages only have the JIT toggle.
+   - Depends on the global IdP pages getting the API integration and sync toggles (see item 5), otherwise sync can never be turned on for a global IdP.
+5. **Global IdP provisioning settings.** The admin pages only have the JIT toggle.
    - API integration section, Sync toggle and `directorySyncDeletions`, like the org IdP page. The global IdP API needs `apiIntegrationEnabled`, `directorySyncEnabled`, `directorySyncConfig`.
    - The Manual switch (`allowManualProvisioning`), see below.
-7. **Manual switch, the rest.** Org IdPs are done. Still to do:
+6. **Manual switch, the rest.** Org IdPs are done. Still to do:
    - Refuse IdPs with `allowManualProvisioning = false` in [createOrgUser.ts](server/routers/user/createOrgUser.ts), and hide them on the create-user page.
    - Add it to the global IdP API and pages.
-8. **Docs.** Claims per provider, plus the Azure and Google setup guides.
-9. **Data migration for existing installs** (runs on **production** data, so be careful):
+7. **Docs.** Claims per provider, plus the Azure and Google setup guides.
+8. **Data migration for existing installs** (runs on **production** data, so be careful):
    - Copy `roleMapping` → `syncRoleMapping`, `orgMapping` → `syncOrgMapping`, and `directorySyncEnabled` → `apiIntegrationEnabled`.
    - Where the JIT and sync mappings end up different, set `mappingsLinked = false`. Otherwise the shared editor would overwrite one of them.
    - Before adding the unique index on `(idpId, username)`, find and fix IdPs that have two users with the same username, or the migration fails.
@@ -273,3 +271,7 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
 ## Open questions
 
 - **IdPs that use `email` as `identifierPath`:** they keep working, but if a user changes their email they get a new account. Switching them to `oid` / `sub` means rewriting every existing user's username. Do we offer that migration?
+- **Circuit breaker for removals?** If one run would remove a lot of users at once (a misconfigured or half-broken directory API can look like "everyone left the company"), stop and remove nobody. To decide:
+  - The threshold, for example more than 5 removals and more than 20% of the org's auto-managed members.
+  - Whether only removals stop, or the whole run (adds and role updates too).
+  - How an admin gets past it when the mass removal is real (a "Sync now" with a force option, or turning the breaker off per IdP).
