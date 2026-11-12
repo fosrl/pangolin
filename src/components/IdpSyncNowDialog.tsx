@@ -10,6 +10,7 @@ import {
     CredenzaHeader,
     CredenzaTitle
 } from "@app/components/Credenza";
+import IdpLastSyncedAt from "@app/components/IdpLastSyncedAt";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
@@ -151,13 +152,7 @@ export default function IdpSyncNowDialog({
                     </CredenzaDescription>
                 </CredenzaHeader>
                 <CredenzaBody className="min-w-0 space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                        {lastSyncedAt
-                            ? t("idpLastSyncedAt", {
-                                  date: new Date(lastSyncedAt).toLocaleString()
-                              })
-                            : t("idpNeverSynced")}
-                    </p>
+                    <IdpLastSyncedAt lastSyncedAt={lastSyncedAt} />
 
                     {loadingPreview && (
                         <p className="text-sm text-muted-foreground">

@@ -8,6 +8,7 @@ import {
     refineGoogleDirectorySyncFields
 } from "@app/components/GoogleDirectorySyncConfigFields";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
+import IdpLastSyncedAt from "@app/components/IdpLastSyncedAt";
 import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
 import IdpTypeBadge from "@app/components/IdpTypeBadge";
 import {
@@ -728,15 +729,9 @@ export default function GeneralPage() {
                                 <p className="text-sm text-muted-foreground">
                                     {t("idpSyncNowDescription")}
                                 </p>
-                                <p className="text-sm text-muted-foreground">
-                                    {lastSyncedAt
-                                        ? t("idpLastSyncedAt", {
-                                              date: new Date(
-                                                  lastSyncedAt
-                                              ).toLocaleString()
-                                          })
-                                        : t("idpNeverSynced")}
-                                </p>
+                                <IdpLastSyncedAt
+                                    lastSyncedAt={lastSyncedAt}
+                                />
                             </div>
                         )}
                     </SettingsSectionBody>

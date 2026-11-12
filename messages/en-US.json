@@ -1203,7 +1203,7 @@
     "idpSyncNowDescription": "See what a sync would change in this organization. Nothing is applied until you confirm. Save your changes first.",
     "idpSyncPreviewTitle": "Directory Sync Preview",
     "idpSyncPreviewDescription": "This is a preview, nothing has changed yet. Apply to run the directory sync now instead of waiting for the next scheduled run. The directory is read again when you apply, so the result can differ slightly if it changed in between.",
-    "idpLastSyncedAt": "Last synced: {date}",
+    "idpLastSyncedAt": "Last synced: <time>{date}</time>",
     "idpNeverSynced": "Last synced: never",
     "idpSyncPreviewLoading": "Reading the directory...",
     "idpSyncPreviewSummary": "{added} to add, {updated} with role changes, {removed} to remove, {unchanged} unchanged.",
