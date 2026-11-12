@@ -17,14 +17,7 @@ import { LabelBadge } from "./label-badge";
 import { LabelOverflowBadge } from "./label-overflow-badge";
 import { LabelsFilterSelector } from "./LabelsFilterSelector";
 import { LABEL_COLORS } from "./labels-selector";
-
-function areSelectionsEqual(a: string[], b: string[]) {
-    if (a.length !== b.length) {
-        return false;
-    }
-    const setB = new Set(b);
-    return a.every((value) => setB.has(value));
-}
+import { areArraysEqual } from "@app/lib/areArraysEqual";
 
 type LabelColumnFilterButtonProps = {
     selectedValues: string[];
@@ -108,7 +101,7 @@ export function LabelColumnFilterButton({
         }
 
         setOpen(false);
-        if (!areSelectionsEqual(draftValues, selectedValues)) {
+        if (!areArraysEqual(draftValues, selectedValues)) {
             onSelectedValuesChange(draftValues);
         }
     }

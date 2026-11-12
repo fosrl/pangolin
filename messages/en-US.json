@@ -1214,6 +1214,7 @@
     "idpSyncChangeCreate": "New user",
     "idpSyncChangeAdd": "Add",
     "idpSyncChangeRoles": "Update roles",
+    "idpSyncRolesUnchanged": "Roles unchanged",
     "idpSyncChangeRemove": "Remove",
     "idpSyncApply": "Apply Changes",
     "idpSyncNowSuccess": "Sync completed: {added} added, {updated} updated, {removed} removed.",

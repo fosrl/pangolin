@@ -28,9 +28,14 @@ import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
-import { orgQueries, type IdpSyncEntry, type IdpSyncResponse } from "@app/lib/queries";
+import {
+    orgQueries,
+    type IdpSyncEntry,
+    type IdpSyncResponse
+} from "@app/lib/queries";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { areArraysEqual } from "@app/lib/areArraysEqual";
 
 type IdpSyncNowDialogProps = {
     open: boolean;
@@ -247,8 +252,17 @@ function ChangeBadge({ entry }: { entry: IdpSyncEntry }) {
                         : t("idpSyncChangeAdd")}
                 </Badge>
             );
-        case "updateRoles":
+        case "updateRoles": {
+            if (areArraysEqual(entry.previousRoles ?? [], entry.roles ?? [])) {
+                return (
+                    <Badge variant="outline">
+                        {t("idpSyncRolesUnchanged")}
+                    </Badge>
+                );
+            }
+
             return <Badge variant="yellow">{t("idpSyncChangeRoles")}</Badge>;
+        }
         case "remove":
             return <Badge variant="red">{t("idpSyncChangeRemove")}</Badge>;
         default:
