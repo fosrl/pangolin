@@ -134,20 +134,23 @@ Plus `groupNames`, like Azure.
 
 ## When JIT and sync both touch the same user
 
-This is the trickiest part. Both can be on at the same time, and both add, update and remove membership rows. To keep them from fighting, each row remembers who created it:
+Both can be on at the same time, and both add, update and remove membership rows. A row has a single flag saying whether it's auto-managed:
 
-- `userOrgs.autoProvisioned = true` → JIT created it.
-- `userOrgs.directorySynched = true` → sync created it.
-- Both `false` → an admin created it by hand.
+- `userOrgs.autoManaged = true` → auto-managed. JIT and sync both own it.
+- `userOrgs.autoManaged = false` → an admin manages it by hand.
+
+We don't track which method created a row. `directorySynched` goes away.
 
 The rules:
 
-1. A method only updates or removes rows it owns. **Rows an admin created by hand are never touched.**
-2. If JIT owns a row and sync also matches that user, sync adds its own flag (and the other way around). The row is only removed when **no** method still wants it.
-3. Roles: whenever a method updates a row it owns, it replaces the user's roles with exactly what its role mapping returns. We don't track which method gave which role.
+1. **Rows with `autoManaged = false` are never touched** by JIT or sync, not even to update roles.
+2. Any auto-managed row can be updated or removed by either method. JIT and sync are allowed to overwrite each other: the last one to run wins.
+   - JIT removes an auto-managed row when the login's mapping no longer matches that org; sync removes it when the user is gone from the directory or no longer mapped (if `directorySyncDeletions` is on).
+   - When either method creates a row, it sets `autoManaged = true`.
+3. Roles: whenever a method updates an auto-managed row, it replaces the user's roles with exactly what its role mapping returns.
    - With one shared editor (the default), JIT and sync return the same roles, so nothing changes back and forth.
    - If the admin splits the editors and the rules differ, the user's roles switch at every login and every sync run. The UI should warn about this.
-   - A role an admin adds by hand to a JIT- or sync-owned row gets removed on the next login or sync run. That's accepted.
+   - A role an admin adds by hand to an auto-managed row gets removed on the next login or sync run. That's accepted. To keep manual roles, the admin turns `autoManaged` off for that user.
 
 ## Database changes (pg and sqlite)
 
@@ -171,6 +174,11 @@ The rules:
   - Builder: a JMESPath string that starts with `__PANGOLIN_ROLE_MAP_BUILDER_V1__`, so the UI can turn it back into rules ([idpRoleMapping.ts](src/lib/idpRoleMapping.ts)).
 - "Create missing roles": `createMissingRoles` (JIT) and `syncCreateMissingRoles` (sync). Global IdPs also have `defaultCreateMissingRoles` / `defaultSyncCreateMissingRoles` on `idp`.
 - `directorySyncDeletions`: unchanged. When it's off, sync never removes anyone.
+
+**`userOrgs` table**
+
+- `autoProvisioned` renamed to `autoManaged`: managed by JIT or sync.
+- `directorySynched`: dropped. Existing rows with `directorySynched = true` get `autoManaged = true` first.
 
 **`idpOidcConfig` table**
 
@@ -196,7 +204,7 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
 - **Shared with login:** [resolveOrgMembership.ts](server/lib/idp/resolveOrgMembership.ts) runs org mapping → role mapping → look up the roles in the org. Both login ([validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts)) and sync call it.
 - **Removing users (deprovisioning)** must be careful, because a bug here kicks real people out:
   - Only if `directorySyncDeletions` is on.
-  - Only rows the method owns.
+  - Only auto-managed rows (`autoManaged = true`).
   - Never after a fetch that failed or only got part of the users. Otherwise a network error would look like "everyone left the company".
   - A **circuit breaker**: if a run would remove a lot of users at once, stop and remove nobody.
 - **Scheduler:** a plain `setInterval` that syncs every sync-enabled IdP one after another. If one fails, log it and try again next time. No locks, no retries.
@@ -233,10 +241,7 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
 
 ### Left to do
 
-1. **Fix: sync touches rows that JIT owns.** Today [syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts) acts as if it owns every row with `autoProvisioned` or `directorySynched`.
-   - Bug: when a user disappears from the IdP, sync removes their membership even if only JIT created it. Sync should only remove rows with `directorySynched`. If JIT also owns the row, sync should just clear its own flag and leave the row.
-   - When sync updates a row only JIT owned, it should set `directorySynched = true` too.
-   - Check the login side too ([validateOidcCallback.ts](server/routers/idp/validateOidcCallback.ts)). It only removes rows with `autoProvisioned`, which looks right, but when JIT and sync share a row, login should clear its own flag instead of deleting the row.
+1. **Migration for the `autoManaged` flag.** The code and schema are done (`userOrgs.autoProvisioned` → `autoManaged`, `directorySynched` dropped). The migration still has to rename the column, set `autoManaged = true` where `directorySynched = true`, then drop `directorySynched`.
 2. **Fix: sync removes users even when deletions are off.** `directorySyncDeletions` is saved but sync never reads it.
    - Skip removals when it's off.
    - Never remove after a failed or partial fetch.
