@@ -1,5 +1,6 @@
 "use client";
 
+import { aiProviderTypeLabel } from "@app/components/AiProviderTypeSelect";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { Button } from "@app/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import type { AiProviderType } from "@app/lib/aiProviderDefaults";
 import type { PaginationState } from "@tanstack/react-table";
 import { ArrowRight, MoreHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -94,19 +96,7 @@ export default function AiProvidersTable({
     }, 300);
 
     function typeLabel(type: string) {
-        const key = `aiProviderType${type.charAt(0).toUpperCase()}${type.slice(1)}`;
-        const map: Record<string, string> = {
-            openai: "aiProviderTypeOpenai",
-            anthropic: "aiProviderTypeAnthropic",
-            googleGemini: "aiProviderTypeGoogleGemini",
-            vertexAi: "aiProviderTypeVertexAi",
-            bedrock: "aiProviderTypeBedrock",
-            microsoftFoundry: "aiProviderTypeMicrosoftFoundry",
-            openRouter: "aiProviderTypeOpenRouter",
-            vercelAiGateway: "aiProviderTypeVercelAiGateway",
-            custom: "aiProviderTypeCustom"
-        };
-        return t(map[type] ?? key);
+        return aiProviderTypeLabel(type as AiProviderType, t);
     }
 
     function routingLabel(mode: string) {
