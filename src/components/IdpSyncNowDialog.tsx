@@ -186,11 +186,15 @@ export default function IdpSyncNowDialog({
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t("user")}</TableHead>
-                                                <TableHead>
+                                                <TableHead className="px-3">
+                                                    {t("user")}
+                                                </TableHead>
+                                                <TableHead className="px-3">
                                                     {t("idpSyncPreviewChange")}
                                                 </TableHead>
-                                                <TableHead>{t("roles")}</TableHead>
+                                                <TableHead className="px-3">
+                                                    {t("idpSyncNewRoles")}
+                                                </TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
