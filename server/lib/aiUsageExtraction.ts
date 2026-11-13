@@ -308,10 +308,14 @@ function extractBedrockModelInvoke(
     const headerInput = headers.get("x-amzn-bedrock-input-token-count");
     const headerOutput = headers.get("x-amzn-bedrock-output-token-count");
     if (headerInput !== null || headerOutput !== null) {
+        // The headers have no prompt-cache counters. Claude bodies report
+        // cache reads/writes in their Anthropic-style `usage`, separately
+        // from the (uncached) input count the header carries.
+        const cache = extractAnthropicMessages(text, false);
         return {
             promptTokens: Number(headerInput ?? 0),
-            cacheReadTokens: 0,
-            cacheWriteTokens: 0,
+            cacheReadTokens: cache?.cacheReadTokens ?? 0,
+            cacheWriteTokens: cache?.cacheWriteTokens ?? 0,
             completionTokens: Number(headerOutput ?? 0),
             reasoningTokens: 0,
             estimated: false
