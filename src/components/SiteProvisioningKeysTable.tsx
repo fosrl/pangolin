@@ -1,10 +1,7 @@
 "use client";
 
 import { Timestamp } from "@app/components/Timestamp";
-import {
-    DataTable,
-    ExtendedColumnDef
-} from "@app/components/ui/data-table";
+import { DataTable, ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -63,8 +60,9 @@ export default function SiteProvisioningKeysTable({
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
-    const [editingKey, setEditingKey] =
-        useState<SiteProvisioningKeyRow | null>(null);
+    const [editingKey, setEditingKey] = useState<SiteProvisioningKeyRow | null>(
+        null
+    );
 
     useEffect(() => {
         setRows(keys);
@@ -94,7 +92,9 @@ export default function SiteProvisioningKeysTable({
             router.refresh();
             setIsDeleteModalOpen(false);
             setSelected(null);
-            setRows((prev) => prev.filter((row) => row.id !== siteProvisioningKeyId));
+            setRows((prev) =>
+                prev.filter((row) => row.id !== siteProvisioningKeyId)
+            );
         } catch (e) {
             console.error(t("provisioningKeysErrorDelete"), e);
             toast({
@@ -175,9 +175,14 @@ export default function SiteProvisioningKeysTable({
                 const r = row.original;
                 return (
                     <span>
-                        {r.validUntil
-                            ? <Timestamp value={r.validUntil} />
-                            : t("provisioningKeysNoExpiry")}
+                        {r.validUntil ? (
+                            <Timestamp
+                                value={r.validUntil}
+                                display="duration"
+                            />
+                        ) : (
+                            t("provisioningKeysNoExpiry")
+                        )}
                     </span>
                 );
             }
@@ -192,9 +197,11 @@ export default function SiteProvisioningKeysTable({
                 const r = row.original;
                 return (
                     <span>
-                        {r.lastUsed
-                            ? <Timestamp value={r.lastUsed} />
-                            : t("provisioningKeysNeverUsed")}
+                        {r.lastUsed ? (
+                            <Timestamp value={r.lastUsed} />
+                        ) : (
+                            t("provisioningKeysNeverUsed")
+                        )}
                     </span>
                 );
             }
@@ -205,7 +212,11 @@ export default function SiteProvisioningKeysTable({
             header: () => <span className="p-3">{t("createdAt")}</span>,
             cell: ({ row }) => {
                 const r = row.original;
-                return <span><Timestamp value={r.createdAt} /></span>;
+                return (
+                    <span>
+                        <Timestamp value={r.createdAt} />
+                    </span>
+                );
             }
         },
         {

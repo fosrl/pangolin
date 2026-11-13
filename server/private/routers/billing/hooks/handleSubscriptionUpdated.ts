@@ -30,13 +30,25 @@ import {
 import stripe from "#private/lib/stripe";
 import { handleSubscriptionLifesycle } from "../subscriptionLifecycle";
 import { getSubType, SubscriptionType } from "./getSubType";
-import privateConfig from "#private/lib/config";
+import {
+    extendLicense,
+    invalidateLicense,
+    legacyLicenseId
+} from "#private/lib/billing/licenseApi";
 import { handleTierChange } from "../featureLifecycle";
+import {
+    handleSelfHostedSubscriptionUpdated,
+    isSelfHostedLicense
+} from "./handleSelfHostedLicense";
 
 export async function handleSubscriptionUpdated(
     subscription: Stripe.Subscription,
     previousAttributes: Partial<Stripe.Subscription> | undefined
 ): Promise<void> {
+    if (isSelfHostedLicense(subscription.metadata)) {
+        return handleSelfHostedSubscriptionUpdated(subscription);
+    }
+
     try {
         // Fetch the subscription from Stripe with expanded price.tiers
         const fullSubscription = await stripe!.subscriptions.retrieve(
@@ -318,113 +330,12 @@ export async function handleSubscriptionUpdated(
                     );
                 }
             } else if (type === "license") {
-                if (
-                    effectiveStatus === "canceled" ||
-                    effectiveStatus == "unpaid" ||
-                    effectiveStatus == "incomplete_expired"
-                ) {
-                    try {
-                        const invalidateResponse = await fetch(
-                            `${privateConfig.getRawPrivateConfig().server.fossorial_api}/api/v1/license-internal/enterprise/invalidate`,
-                            {
-                                method: "POST",
-                                headers: {
-                                    "api-key":
-                                        privateConfig.getRawPrivateConfig()
-                                            .server.fossorial_api_key!,
-                                    "Content-Type": "application/json"
-                                },
-                                body: JSON.stringify({
-                                    orgId: customer.orgId,
-                                    licenseKeyId: parseInt(
-                                        subscription.metadata.licenseKeyId
-                                    )
-                                })
-                            }
-                        );
-
-                        if (!invalidateResponse.ok) {
-                            logger.error(
-                                `Fossorial API returned ${invalidateResponse.status} when invalidating license for orgId ${customer.orgId} and subscription ID ${subscription.id}: ${await invalidateResponse.text()}`
-                            );
-                        }
-                    } catch (error) {
-                        logger.error(
-                            `Error notifying Fossorial API of license subscription deletion for orgId ${customer.orgId} and subscription ID ${subscription.id}:`,
-                            error
-                        );
-                    }
-                } else if (effectiveStatus === "active" && previousAttributes) {
-                    // Detect a successful renewal: the billing period rolled
-                    // forward (the invoice was paid and the new period began
-                    // right where the previous one ended).
-                    const currentItem = fullSubscription.items.data[0];
-                    const prevItems = previousAttributes.items?.data;
-                    const prevItem = Array.isArray(prevItems)
-                        ? prevItems.find(
-                              (pi: any) => pi.id === currentItem?.id
-                          )
-                        : undefined;
-
-                    const renewed =
-                        currentItem &&
-                        prevItem?.current_period_end &&
-                        currentItem.current_period_start ===
-                            prevItem.current_period_end &&
-                        currentItem.current_period_start >
-                            prevItem.current_period_start;
-
-                    if (renewed) {
-                        const licenseKeyId =
-                            subscription.metadata.licenseKeyId;
-
-                        if (!licenseKeyId) {
-                            logger.error(
-                                `No licenseKeyId in metadata for subscription ${subscription.id}, cannot extend license.`
-                            );
-                        } else {
-                            // Grace period of 5 days added on top of the new
-                            // billing period end (usually ~1 year out)
-                            const expiresAt =
-                                currentItem.current_period_end +
-                                5 * 24 * 60 * 60;
-
-                            try {
-                                const extendResponse = await fetch(
-                                    `${privateConfig.getRawPrivateConfig().server.fossorial_api}/api/v1/license-internal/enterprise/extend`,
-                                    {
-                                        method: "POST",
-                                        headers: {
-                                            "api-key":
-                                                privateConfig.getRawPrivateConfig()
-                                                    .server.fossorial_api_key!,
-                                            "Content-Type": "application/json"
-                                        },
-                                        body: JSON.stringify({
-                                            licenseId: parseInt(licenseKeyId),
-                                            expiresAt: expiresAt
-                                        })
-                                    }
-                                );
-
-                                if (!extendResponse.ok) {
-                                    logger.error(
-                                        `Fossorial API returned ${extendResponse.status} when extending license ${licenseKeyId} for subscription ${subscription.id}: ${await extendResponse.text()}`
-                                    );
-                                } else {
-                                    logger.info(
-                                        `Extended license ${licenseKeyId} for subscription ${subscription.id} to expire at ${expiresAt}.`
-                                    );
-                                }
-                            } catch (error) {
-                                logger.error(
-                                    `Error notifying Fossorial API of license renewal for subscription ${subscription.id}:`,
-                                    error
-                                );
-                            }
-                        }
-                    }
-                }
+                await handleLegacyLicenseUpdated(
+                    subscription,
+                    fullSubscription,
+                    effectiveStatus,
+                    previousAttributes
+                );
             }
         }
     } catch (error) {
@@ -434,6 +345,75 @@ export async function handleSubscriptionUpdated(
         );
     }
     return;
+}
+
+/**
+ * Old in-app license subscriptions (one fixed-price item, key ID in
+ * metadata.licenseKeyId): revoke when the subscription stops being paid for,
+ * extend when the billing period rolls forward.
+ */
+async function handleLegacyLicenseUpdated(
+    subscription: Stripe.Subscription,
+    fullSubscription: Stripe.Subscription,
+    effectiveStatus: string,
+    previousAttributes: Partial<Stripe.Subscription> | undefined
+): Promise<void> {
+    const licenseId = legacyLicenseId(subscription.metadata);
+
+    if (
+        effectiveStatus === "canceled" ||
+        effectiveStatus === "unpaid" ||
+        effectiveStatus === "incomplete_expired"
+    ) {
+        const result = await invalidateLicense({
+            subscriptionId: subscription.id,
+            licenseId
+        });
+        if (!result.ok) {
+            logger.error(
+                `Fossorial API returned ${result.status} invalidating the license for subscription ${subscription.id}: ${result.body}`
+            );
+        }
+        return;
+    }
+
+    if (effectiveStatus !== "active" || !previousAttributes) {
+        return;
+    }
+
+    // Detect a successful renewal: the billing period rolled forward (the
+    // invoice was paid and the new period began where the previous one ended).
+    const currentItem = fullSubscription.items.data[0];
+    const prevItems = previousAttributes.items?.data;
+    const prevItem = Array.isArray(prevItems)
+        ? prevItems.find((pi: any) => pi.id === currentItem?.id)
+        : undefined;
+
+    const renewed =
+        currentItem &&
+        prevItem?.current_period_end &&
+        currentItem.current_period_start === prevItem.current_period_end &&
+        currentItem.current_period_start > prevItem.current_period_start;
+    if (!renewed) {
+        return;
+    }
+
+    // Grace period of 5 days on top of the new period end (~1 year out)
+    const expiresAt = currentItem.current_period_end + 5 * 24 * 60 * 60;
+    const result = await extendLicense({
+        subscriptionId: subscription.id,
+        licenseId,
+        expiresAt
+    });
+    if (!result.ok) {
+        logger.error(
+            `Fossorial API returned ${result.status} extending the license for subscription ${subscription.id}: ${result.body}`
+        );
+        return;
+    }
+    logger.info(
+        `Extended license for subscription ${subscription.id} to expire at ${expiresAt}.`
+    );
 }
 
 /**

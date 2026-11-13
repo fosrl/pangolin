@@ -21,7 +21,10 @@ type EnterpriseEditionKeyGeneratedProps = {
     users: number;
     sites: number;
     machines: number;
+    // Set when the license is linked to an org in Pangolin Cloud
     modifySubscriptionLink?: string;
+    // Set when it isn't linked yet: sign up with the buyer's email to manage it
+    signUpLink?: string;
 };
 
 export const EnterpriseEditionKeyGenerated = ({
@@ -30,7 +33,8 @@ export const EnterpriseEditionKeyGenerated = ({
     users,
     sites,
     machines,
-    modifySubscriptionLink
+    modifySubscriptionLink,
+    signUpLink
 }: EnterpriseEditionKeyGeneratedProps) => {
     const previewText = personalUseOnly
         ? "Your Enterprise Edition key for personal use is ready"
@@ -78,14 +82,38 @@ export const EnterpriseEditionKeyGenerated = ({
                                         }
                                     ]}
                                 />
-                                {modifySubscriptionLink && (
+                                {modifySubscriptionLink ? (
                                     <EmailSection>
+                                        <EmailText>
+                                            Manage billing or change the number
+                                            of users, sites and machine clients
+                                            on this license from your Pangolin
+                                            Cloud account.
+                                        </EmailText>
                                         <ButtonLink
                                             href={modifySubscriptionLink}
                                         >
-                                            Modify subscription
+                                            Manage license
                                         </ButtonLink>
                                     </EmailSection>
+                                ) : (
+                                    signUpLink && (
+                                        <EmailSection>
+                                            <EmailText>
+                                                To manage billing or change the
+                                                number of users, sites and
+                                                machine clients on this license,
+                                                sign up for a free Pangolin
+                                                Cloud account with this email
+                                                address. The license is linked
+                                                to your account when you create
+                                                your organization.
+                                            </EmailText>
+                                            <ButtonLink href={signUpLink}>
+                                                Sign up for Pangolin Cloud
+                                            </ButtonLink>
+                                        </EmailSection>
+                                    )
                                 )}
                             </>
                         )}
