@@ -645,6 +645,8 @@ export async function sendLicenseKeyEmail(
     to: string,
     license: {
         licenseKey: string;
+        tier: string;
+        support: SupportTier;
         users: number;
         sites: number;
         machines: number;
@@ -659,6 +661,8 @@ export async function sendLicenseKeyEmail(
             users: license.users,
             sites: license.sites,
             machines: license.machines,
+            support: license.support,
+            highAvailability: tierHasHighAvailability(license.tier),
             modifySubscriptionLink: orgId
                 ? `${dashboardUrl}/${orgId}/settings/license`
                 : undefined,

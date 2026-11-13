@@ -21,11 +21,20 @@ type EnterpriseEditionKeyGeneratedProps = {
     users: number;
     sites: number;
     machines: number;
+    // Support level and add-ons on the license
+    support?: "community" | "email" | "priority";
+    highAvailability?: boolean;
     // Set when the license is linked to an org in Pangolin Cloud
     modifySubscriptionLink?: string;
     // Set when it isn't linked yet: sign up with the buyer's email to manage it
     signUpLink?: string;
 };
+
+const SUPPORT_LABELS = {
+    community: "Community",
+    email: "Email support",
+    priority: "Priority support"
+} as const;
 
 export const EnterpriseEditionKeyGenerated = ({
     keyValue,
@@ -33,6 +42,8 @@ export const EnterpriseEditionKeyGenerated = ({
     users,
     sites,
     machines,
+    support = "community",
+    highAvailability = false,
     modifySubscriptionLink,
     signUpLink
 }: EnterpriseEditionKeyGeneratedProps) => {
@@ -79,6 +90,16 @@ export const EnterpriseEditionKeyGenerated = ({
                                         {
                                             label: "Licensed machine clients",
                                             value: machines
+                                        },
+                                        {
+                                            label: "Support",
+                                            value: SUPPORT_LABELS[support]
+                                        },
+                                        {
+                                            label: "Add-ons",
+                                            value: highAvailability
+                                                ? "High availability"
+                                                : "None"
                                         }
                                     ]}
                                 />
@@ -86,8 +107,8 @@ export const EnterpriseEditionKeyGenerated = ({
                                     <EmailSection>
                                         <EmailText>
                                             Manage billing or change the number
-                                            of users, sites and machine clients
-                                            on this license from your Pangolin
+                                            of users, sites and machine clients,
+                                            or the support level and add-ons, on this license from your Pangolin
                                             Cloud account.
                                         </EmailText>
                                         <ButtonLink

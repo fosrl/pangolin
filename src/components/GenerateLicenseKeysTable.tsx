@@ -313,12 +313,11 @@ export default function GenerateLicenseKeysTable({
                 switch (tier) {
                     case "enterprise":
                         return t("licenseTierEnterprise");
-                    case "tier1":
-                        return t("licenseTierTier1");
-                    case "tier2":
-                        return t("licenseTierTier2");
-                    default:
+                    case "personal":
+                    case undefined:
                         return t("licenseTierPersonal");
+                    default:
+                        return t("licenseTierBusiness");
                 }
             }
         },
