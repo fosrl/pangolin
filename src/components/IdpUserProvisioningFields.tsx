@@ -1,23 +1,17 @@
 "use client";
 
-import DirectorySyncConfigWidget from "@app/components/DirectorySyncConfigWidget";
 import IdpMappingTabs from "@app/components/IdpMappingTabs";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import IdpProvisioningMethodFields, {
+    type IdpProvisioningMethodFormValues
+} from "@app/components/IdpProvisioningMethodFields";
 import { RoleMappingRoleOption } from "@app/components/RoleMappingConfigFields";
 import { SwitchInput } from "@app/components/SwitchInput";
-import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { RoleMappingConfig } from "@app/lib/idpRoleMapping";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { useTranslations } from "next-intl";
 import type { Dispatch, SetStateAction } from "react";
 import { useFormContext } from "react-hook-form";
 
-export type IdpUserProvisioningFormValues = {
-    allowManualProvisioning: boolean;
-    autoProvision: boolean;
-    apiIntegrationEnabled: boolean;
-    directorySyncEnabled: boolean;
-    directorySyncDeletions: boolean;
+export type IdpUserProvisioningFormValues = IdpProvisioningMethodFormValues & {
     mappingsLinked: boolean;
     orgMapping?: string;
     syncOrgMapping?: string;
@@ -51,11 +45,9 @@ export default function IdpUserProvisioningFields({
     onSyncRoleMappingChange
 }: IdpUserProvisioningFieldsProps) {
     const t = useTranslations();
-    const { isPaidUser } = usePaidStatus();
     const form = useFormContext<IdpUserProvisioningFormValues>();
 
     const autoProvision = form.watch("autoProvision");
-    const apiIntegrationEnabled = form.watch("apiIntegrationEnabled");
     const directorySyncEnabled =
         syncAvailable && form.watch("directorySyncEnabled");
     const mappingsLinked = !syncAvailable || form.watch("mappingsLinked");
@@ -68,48 +60,7 @@ export default function IdpUserProvisioningFields({
 
     return (
         <div className="space-y-6">
-            <SwitchInput
-                id="manual-provisioning-toggle"
-                label={t("idpProvisioningManual")}
-                description={t("idpProvisioningManualDescription")}
-                checked={form.watch("allowManualProvisioning")}
-                onCheckedChange={(checked) =>
-                    form.setValue("allowManualProvisioning", checked)
-                }
-            />
-
-            <div className="space-y-4">
-                <PaidFeaturesAlert tiers={tierMatrix.autoProvisioning} />
-                <SwitchInput
-                    id="auto-provision-toggle"
-                    label={t("idpProvisioningJit")}
-                    description={t("idpProvisioningJitDescription")}
-                    checked={autoProvision}
-                    onCheckedChange={(checked) =>
-                        form.setValue("autoProvision", checked)
-                    }
-                    disabled={!isPaidUser(tierMatrix.autoProvisioning)}
-                />
-            </div>
-
-            {syncAvailable && (
-                <DirectorySyncConfigWidget
-                    directorySyncEnabled={directorySyncEnabled}
-                    onDirectorySyncEnabledChange={(checked) =>
-                        form.setValue("directorySyncEnabled", checked)
-                    }
-                    directorySyncDescription={
-                        apiIntegrationEnabled
-                            ? t("idpDirectorySyncDescription")
-                            : t("idpDirectorySyncRequiresApiIntegration")
-                    }
-                    disabled={!apiIntegrationEnabled}
-                    syncDeletions={form.watch("directorySyncDeletions")}
-                    onSyncDeletionsChange={(checked) =>
-                        form.setValue("directorySyncDeletions", checked)
-                    }
-                />
-            )}
+            <IdpProvisioningMethodFields syncAvailable={syncAvailable} />
 
             {(showJitMappings || showSyncMappings) && (
                 <div className="space-y-4 border-t pt-6">

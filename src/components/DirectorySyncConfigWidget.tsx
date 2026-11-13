@@ -39,7 +39,7 @@ export default function DirectorySyncConfigWidget({
             />
 
             {directorySyncEnabled && (
-                <div className="p-1">
+                <div className="ml-6 border-l pl-4">
                     <SwitchInput
                         id={syncDeletionsSwitchId}
                         label={t("idpDirectorySyncDeletions")}

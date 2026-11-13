@@ -34,7 +34,7 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
             href: `/admin/idp/${params.idpId}/general`
         },
         {
-            title: t("autoProvisionSettings"),
+            title: t("idpMappingsAndPolicies"),
             href: `/admin/idp/${params.idpId}/policies`
         }
     ];

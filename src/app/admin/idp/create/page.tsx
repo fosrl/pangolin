@@ -22,8 +22,13 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
-import { SwitchInput } from "@app/components/SwitchInput";
+import ApiIntegrationConfigWidget from "@app/components/ApiIntegrationConfigWidget";
+import {
+    buildGoogleIDPAPIConfig,
+    googleDirectorySyncFormFields,
+    refineGoogleDirectorySyncFields
+} from "@app/components/GoogleIDPAPIConfigFields";
+import IdpProvisioningMethodFields from "@app/components/IdpProvisioningMethodFields";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
@@ -68,7 +73,19 @@ export default function Page() {
             .min(1, { message: t("idpScopeRequired") })
             .optional(),
         tenantId: z.string().optional(),
-        autoProvision: z.boolean().default(false)
+        allowManualProvisioning: z.boolean().default(true),
+        autoProvision: z.boolean().default(false),
+        apiIntegrationEnabled: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
+        ...googleDirectorySyncFormFields
+    }).superRefine((data, ctx) => {
+        if (data.type === "google") {
+            refineGoogleDirectorySyncFields(data, ctx, {
+                keyRequired: true,
+                t
+            });
+        }
     });
 
     type CreateIdpFormValues = z.infer<typeof createIdpFormSchema>;
@@ -87,11 +104,20 @@ export default function Page() {
             emailPath: "email",
             scopes: "openid profile email",
             tenantId: "",
-            autoProvision: false
+            allowManualProvisioning: true,
+            autoProvision: false,
+            apiIntegrationEnabled: false,
+            directorySyncEnabled: false,
+            directorySyncDeletions: true,
+            googleServiceAccountKey: "",
+            googleAdminEmail: "",
+            googleCustomerId: ""
         }
     });
 
     const watchedType = form.watch("type");
+    const apiIntegrationAvailable =
+        watchedType === "google" || watchedType === "azure";
     const templatesLocked =
         !templatesPaid && (watchedType === "google" || watchedType === "azure");
 
@@ -114,7 +140,9 @@ export default function Page() {
                 tokenUrl = tokenUrl?.replace("{{TENANT_ID}}", data.tenantId);
             }
 
-            const payload = {
+            const apiIntegrationSupported =
+                data.type === "google" || data.type === "azure";
+            const payload: Record<string, unknown> = {
                 name: data.name,
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
@@ -123,10 +151,21 @@ export default function Page() {
                 identifierPath: data.identifierPath,
                 emailPath: data.emailPath,
                 namePath: data.namePath,
+                allowManualProvisioning: data.allowManualProvisioning,
                 autoProvision: data.autoProvision,
+                apiIntegrationEnabled:
+                    apiIntegrationSupported && data.apiIntegrationEnabled,
+                directorySyncEnabled:
+                    apiIntegrationSupported &&
+                    data.apiIntegrationEnabled &&
+                    data.directorySyncEnabled,
+                directorySyncDeletions: data.directorySyncDeletions,
                 scopes: data.scopes,
                 variant: data.type
             };
+            if (data.type === "google") {
+                payload.apiConfig = buildGoogleIDPAPIConfig(data);
+            }
 
             const res = await api.put("/idp/oidc", payload);
 
@@ -225,29 +264,85 @@ export default function Page() {
                     </SettingsSectionBody>
                 </SettingsSection>
 
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("idpAutoProvisionUsers")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            <IdpAutoProvisionUsersDescription />
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <div className="space-y-2">
-                            <SwitchInput
-                                id="auto-provision-toggle"
-                                label={t("idpAutoProvisionUsers")}
-                                defaultChecked={form.getValues("autoProvision")}
-                                onCheckedChange={(checked) => {
-                                    form.setValue("autoProvision", checked);
-                                }}
-                                description={t("idpAutoProvisionConfigureAfterCreate")}
-                            />
-                        </div>
-                    </SettingsSectionBody>
-                </SettingsSection>
+                <fieldset
+                    disabled={templatesLocked}
+                    className="min-w-0 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60 space-y-6"
+                >
+                    {apiIntegrationAvailable && (
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("idpApiIntegration")}
+                                </SettingsSectionTitle>
+                                <SettingsSectionDescription>
+                                    {t("idpApiIntegrationDescription")}
+                                </SettingsSectionDescription>
+                            </SettingsSectionHeader>
+                            <SettingsSectionBody>
+                                <Form {...form}>
+                                    <form
+                                        className="space-y-4"
+                                        id="create-idp-form"
+                                        onSubmit={form.handleSubmit(onSubmit)}
+                                    >
+                                        <ApiIntegrationConfigWidget
+                                            variant={watchedType}
+                                            apiIntegrationEnabled={
+                                                form.watch(
+                                                    "apiIntegrationEnabled"
+                                                ) ?? false
+                                            }
+                                            onApiIntegrationEnabledChange={(
+                                                checked
+                                            ) => {
+                                                form.setValue(
+                                                    "apiIntegrationEnabled",
+                                                    checked
+                                                );
+                                                if (!checked) {
+                                                    form.setValue(
+                                                        "directorySyncEnabled",
+                                                        false
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    </form>
+                                </Form>
+                            </SettingsSectionBody>
+                        </SettingsSection>
+                    )}
+
+                    <SettingsSection>
+                        <SettingsSectionHeader>
+                            <SettingsSectionTitle>
+                                {t("idpUserProvisioning")}
+                            </SettingsSectionTitle>
+                            <SettingsSectionDescription>
+                                {t("idpUserProvisioningDescription")}
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <SettingsSectionBody>
+                            <Form {...form}>
+                                <form
+                                    className="space-y-4"
+                                    id="create-idp-form"
+                                    onSubmit={form.handleSubmit(onSubmit)}
+                                >
+                                    <IdpProvisioningMethodFields
+                                        syncAvailable={apiIntegrationAvailable}
+                                        jitPaywalled={false}
+                                    />
+                                    <FormDescription>
+                                        {t(
+                                            "idpAutoProvisionConfigureAfterCreate"
+                                        )}
+                                    </FormDescription>
+                                </form>
+                            </Form>
+                        </SettingsSectionBody>
+                    </SettingsSection>
+                </fieldset>
 
                 <fieldset
                     disabled={templatesLocked}
