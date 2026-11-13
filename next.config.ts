@@ -39,6 +39,11 @@ const nextConfig: NextConfig = {
                 source: "/:orgId/settings/access/users/:userId/access-controls",
                 destination: "/:orgId/settings/access/users/:userId/general",
                 permanent: false
+            },
+            {
+                source: "/oauth/logout",
+                destination: "/api/v1/oauth/logout",
+                permanent: false
             }
         ];
     }

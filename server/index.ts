@@ -19,7 +19,8 @@ import {
     Redirect,
     User,
     UserOrg,
-    VirtualApiKey
+    VirtualApiKey,
+    OauthClient
 } from "@server/db";
 import config from "@server/lib/config";
 import { setHostMeta } from "@server/lib/hostMeta";
@@ -31,6 +32,9 @@ import { startCertificateManager } from "#dynamic/certificates";
 import license from "#dynamic/license/license";
 import { fetchServerIp } from "@server/lib/serverIpService";
 import { initAiModelCatalog } from "@server/lib/aiModelCatalog";
+import type { OAuthClientWithSecret } from "./lib/oauth/clientAuth";
+import type { OAuthValidatedToken } from "./lib/oauth/tokens";
+import type { OAuthSessionTokenIds } from "./middlewares/verifyOAuthUserTokenAccess";
 
 async function startServers() {
     await setHostMeta();
@@ -98,6 +102,9 @@ declare global {
             aiBudget?: AiBudget;
             virtualApiKey?: VirtualApiKey;
             redirect?: Redirect;
+            oauthClient?: OAuthClientWithSecret | OauthClient;
+            oauthBearerToken?: OAuthValidatedToken;
+            oauthIdToken?: OAuthSessionTokenIds;
             orgPolicyAllowed?: boolean;
         }
     }

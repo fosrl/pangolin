@@ -19,9 +19,9 @@ http:
         - redirect-to-https
         - badger
 
-    # Next.js router (handles everything except API and WebSocket paths)
+    # Next.js router (handles everything except API and well-known paths)
     next-router:
-      rule: "Host(`{{.DashboardDomain}}`) && !PathPrefix(`/api/v1`)"
+      rule: "Host(`{{.DashboardDomain}}`) && !PathPrefix(`/api/v1`) && !PathPrefix(`/.well-known`)"
       service: next-service
       entryPoints:
         - websecure
@@ -30,9 +30,9 @@ http:
       tls:
         certResolver: letsencrypt
 
-    # API router (handles /api/v1 paths)
+    # API router (handles /api/v1 and /.well-known paths)
     api-router:
-      rule: "Host(`{{.DashboardDomain}}`) && PathPrefix(`/api/v1`)"
+      rule: "Host(`{{.DashboardDomain}}`) && (PathPrefix(`/api/v1`) || PathPrefix(`/.well-known`))"
       service: api-service
       entryPoints:
         - websecure
