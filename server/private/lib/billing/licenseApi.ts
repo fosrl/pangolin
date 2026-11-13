@@ -17,6 +17,7 @@
  */
 
 import privateConfig from "#private/lib/config";
+import type { SupportTier } from "#private/lib/billing/selfHostedLicense";
 
 export type LicenseApiResult<T> =
     { ok: true; data: T } | { ok: false; status: number; body: string };
@@ -27,7 +28,9 @@ export type PaidLicense = {
     licenseKey: string;
     email: string | null;
     orgId: string | null;
+    // tier2 includes the high availability add-on, tier1 doesn't
     tier: string;
+    support: SupportTier;
     users: number;
     sites: number;
     machines: number;
@@ -43,6 +46,7 @@ export type OrgLicense = {
     isValid: boolean;
     createdAt: string;
     tier: string;
+    support: SupportTier;
     type: string;
     users: number;
     sites: number;
@@ -99,7 +103,8 @@ export function licensePaidFor(body: {
 /**
  * Renewals (expiresAt) and plan changes (quantities). licenseId is only for
  * old in-app subscriptions, which carry it in metadata.licenseKeyId.
- * onlyIncrease: a quantity is only changed if it goes up (mid-period syncs,
+ * onlyIncrease: a quantity, the tier or the support level is only changed if it
+ * goes up (mid-period syncs,
  * where a lower subscription quantity is a reduction that applies at
  * renewal).
  */
@@ -110,6 +115,10 @@ export function extendLicense(body: {
     users?: number;
     sites?: number;
     machines?: number;
+    // tier2 = high availability add-on, tier1 = without it
+    tier?: "tier1" | "tier2";
+    support?: SupportTier;
+    // Only raise the counts, tier and support level (never lower them)
     onlyIncrease?: boolean;
 }) {
     return licenseApi<{ license: PaidLicense }>("POST", "extend", body);

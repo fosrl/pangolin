@@ -21,32 +21,41 @@ import { fromError } from "zod-validation-error";
 import stripe from "#private/lib/stripe";
 import { extendLicense } from "#private/lib/billing/licenseApi";
 import {
-    buildQuantityItems,
+    buildStateItems,
     getLicenseCounts,
-    quantityMetadata
+    LicenseState,
+    licenseTierFor,
+    stateMetadata
 } from "#private/lib/billing/selfHostedLicense";
+import { SELF_HOSTED_LIMITS } from "@server/lib/billing/selfHostedLicenseLimits";
 import { UpdateLicenseResponse } from "@server/routers/generatedLicense/types";
 import {
     isEditable,
-    LicenseCounts,
+    licensedState,
     licenseKeyParamsSchema,
     licenseQuantitiesSchema,
-    planQuantityChange,
+    planChange,
     resolveLicenseSubscription,
-    sameCounts,
-    toGeneratedLicenseKey
+    sameState,
+    toGeneratedLicenseKey,
+    supportNeedsMoreUsers
 } from "./licenseSubscription";
 
 /**
- * Changes a license's users, sites and machine clients (see
- * planQuantityChange). Two subscription updates:
- * 1. without proration: reductions, and raises back up to what is already
- *    paid for this period;
- * 2. with the prorated difference invoiced and charged right away: raises
- *    beyond that. If the charge fails Stripe rejects this update, and step 1
- *    is undone so nothing changes.
- * The key then gets the larger of its old and new counts; reductions reach
- * it when the renewal invoice is paid (handleSelfHostedInvoicePaid).
+ * Changes a license's users, sites, machine clients, high availability and
+ * support (see planChange). Raises apply now and are charged for the rest of
+ * the period; reductions apply at renewal. The subscription is stepped
+ * through up to three states:
+ * 1. what is already paid for this period (without proration), when the
+ *    subscription is below it because of a reduction waiting for renewal;
+ * 2. what the key allows from now on, the higher of old and new, with the
+ *    prorated difference invoiced and charged right away. If the charge
+ *    fails Stripe rejects this update and step 1 is undone, so nothing
+ *    changes;
+ * 3. the requested state, without proration, so the renewal bills it.
+ * High availability and support are a percentage of the base price, so they
+ * are repriced in each step. The key then gets the allowed state; reductions
+ * reach it when the renewal invoice is paid (handleSelfHostedInvoicePaid).
  */
 export async function updateLicense(
     req: Request,
@@ -74,11 +83,22 @@ export async function updateLicense(
         }
 
         const { orgId, licenseKey } = parsedParams.data;
-        const counts = {
+        const target: LicenseState = {
             users: parsedBody.data.users,
             sites: parsedBody.data.sites,
-            machines: parsedBody.data.machineClients
+            machines: parsedBody.data.machineClients,
+            highAvailability: parsedBody.data.highAvailability,
+            support: parsedBody.data.support
         };
+
+        if (supportNeedsMoreUsers(target)) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    `Email and priority support need more than ${SELF_HOSTED_LIMITS.supportAboveUsers} users`
+                )
+            );
+        }
 
         const resolved = await resolveLicenseSubscription(orgId, licenseKey);
         if ("error" in resolved) {
@@ -96,27 +116,23 @@ export async function updateLicense(
         }
 
         const current = getLicenseCounts(subscription)!;
-        if (sameCounts(current, counts)) {
+        if (sameState(current, target)) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Nothing to change")
             );
         }
 
-        const licensed: LicenseCounts = {
-            users: license.users,
-            sites: license.sites,
-            machines: license.machines
-        };
-        const plan = planQuantityChange(licensed, counts);
+        const licensed = licensedState(license);
+        const plan = planChange(licensed, target);
 
-        const setCounts = (
+        const setState = (
             sub: Stripe.Subscription,
-            to: LicenseCounts,
+            to: LicenseState,
             charge: boolean
         ) =>
             stripe!.subscriptions.update(sub.id, {
-                items: buildQuantityItems(sub, to),
-                metadata: quantityMetadata(sub, to),
+                items: buildStateItems(sub, to),
+                metadata: stateMetadata(sub, to),
                 ...(charge
                     ? {
                           proration_behavior: "always_invoice",
@@ -126,16 +142,19 @@ export async function updateLicense(
             });
 
         let updated = subscription;
-        if (!sameCounts(current, plan.unpaid)) {
-            updated = await setCounts(subscription, plan.unpaid, false);
-        }
-
-        if (plan.raises) {
+        if (!plan.raises) {
+            updated = await setState(subscription, target, false);
+        } else {
+            // Charge from what was paid for, not from where a pending
+            // reduction left the subscription
+            if (!sameState(current, licensed)) {
+                updated = await setState(updated, licensed, false);
+            }
             try {
-                updated = await setCounts(updated, counts, true);
+                updated = await setState(updated, plan.allowed, true);
             } catch (error) {
                 if (updated !== subscription) {
-                    await setCounts(updated, current, false).catch((e) =>
+                    await setState(updated, current, false).catch((e) =>
                         logger.error(
                             `Failed to undo the unprorated change to subscription ${subscription.id} after its charge failed:`,
                             e
@@ -152,15 +171,29 @@ export async function updateLicense(
                 }
                 throw error;
             }
+            if (plan.reduces) {
+                try {
+                    updated = await setState(updated, target, false);
+                } catch (error) {
+                    // The charge went through, so the key still gets what
+                    // was paid for; only the renewal state is wrong
+                    logger.error(
+                        `Subscription ${subscription.id} was charged for its raise but its reductions could not be scheduled for renewal:`,
+                        error
+                    );
+                }
+            }
         }
 
-        // The webhooks only ever raise the key's counts mid-period; set them
+        // The webhooks only ever raise the key's values mid-period; set them
         // here so the dashboard shows the new limits right away.
         const result = await extendLicense({
             subscriptionId: subscription.id,
             users: plan.allowed.users,
             sites: plan.allowed.sites,
-            machines: plan.allowed.machines
+            machines: plan.allowed.machines,
+            tier: licenseTierFor(plan.allowed.highAvailability),
+            support: plan.allowed.support
         });
         if (!result.ok) {
             logger.error(
@@ -169,12 +202,19 @@ export async function updateLicense(
         }
 
         logger.info(
-            `License for subscription ${subscription.id} in org ${orgId} changed to ${counts.users} users, ${counts.sites} sites, ${counts.machines} machine clients${plan.reduces ? " (reductions apply at renewal)" : ""}.`
+            `License for subscription ${subscription.id} in org ${orgId} changed to ${target.users} users, ${target.sites} sites, ${target.machines} machine clients, high availability ${target.highAvailability ? "on" : "off"}, ${target.support} support${plan.reduces ? " (reductions apply at renewal)" : ""}.`
         );
 
         return sendResponse<UpdateLicenseResponse>(res, {
             data: toGeneratedLicenseKey(
-                { ...license, ...plan.allowed },
+                {
+                    ...license,
+                    users: plan.allowed.users,
+                    sites: plan.allowed.sites,
+                    machines: plan.allowed.machines,
+                    tier: licenseTierFor(plan.allowed.highAvailability),
+                    support: plan.allowed.support
+                },
                 updated
             ),
             success: true,

@@ -1,3 +1,5 @@
+export type LicenseSupport = "community" | "email" | "priority";
+
 export type GeneratedLicenseKey = {
     instanceName: string | null;
     licenseKey: string;
@@ -9,6 +11,10 @@ export type GeneratedLicenseKey = {
     users: number;
     sites: number;
     machines: number;
+    // Add-ons and support the key has now (changes that lower them wait for
+    // renewal)
+    highAvailability: boolean;
+    support: LicenseSupport;
     // The Stripe subscription that pays for the key; null for free keys.
     subscription: LicenseKeySubscription | null;
 };
@@ -25,26 +31,31 @@ export type LicenseKeySubscription = {
     editable: boolean;
     // Machine clients that come free with the license
     includedMachineClients: number;
-    // Quantities the subscription renews with, when lower than what the key
+    // What the subscription renews with, when it differs from what the key
     // allows now (a reduction that takes effect at renewal); null otherwise
     renewsWith: LicenseQuantities | null;
 };
 
+// What a license can be changed to
 export type LicenseQuantities = {
     users: number;
     sites: number;
     machineClients: number;
+    highAvailability: boolean;
+    support: LicenseSupport;
 };
 
 export type PreviewLicenseUpdateResponse = {
     // Charged now for the rest of the current period (cents). Reductions are
     // never credited: they take effect at renewal.
     amountDue: number;
-    // ISO renewal date when any quantity goes down (it applies then); null
-    // when nothing goes down
+    // ISO renewal date when anything goes down (it applies then); null when
+    // nothing goes down
     reductionsApplyAt: string | null;
-    // What the license costs per year after the change (cents)
-    newAnnualTotal: number;
+    // What the license costs per billing period after the change (cents)
+    newTotal: number;
+    // Billing period of the license; fixed when it was bought
+    interval: "year" | "month";
     currency: string;
 };
 

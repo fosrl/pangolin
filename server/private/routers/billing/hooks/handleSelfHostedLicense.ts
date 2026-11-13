@@ -41,7 +41,7 @@ import {
     getLicenseCounts,
     isSelfHostedLicense,
     sendLicenseKeyEmail,
-    SELF_HOSTED_LICENSE_TIER
+    licenseTierFor
 } from "#private/lib/billing/selfHostedLicense";
 
 export { isSelfHostedLicense };
@@ -137,7 +137,7 @@ export async function handleSelfHostedCheckoutCompleted(
             customerId,
             email,
             orgId,
-            tier: SELF_HOSTED_LICENSE_TIER,
+            tier: licenseTierFor(counts.highAvailability),
             users: counts.users,
             sites: counts.sites,
             machines: counts.machines,
@@ -145,6 +145,7 @@ export async function handleSelfHostedCheckoutCompleted(
             metadata: {
                 checkoutSessionId: session.id,
                 support: counts.support,
+                highAvailability: String(counts.highAvailability),
                 company,
                 firstName,
                 lastName
@@ -233,6 +234,8 @@ export async function handleSelfHostedInvoicePaid(
             users: counts.users,
             sites: counts.sites,
             machines: counts.machines,
+            tier: licenseTierFor(counts.highAvailability),
+            support: counts.support,
             onlyIncrease: invoice.billing_reason !== "subscription_cycle"
         });
 
@@ -291,6 +294,8 @@ export async function handleSelfHostedSubscriptionUpdated(
             users: counts.users,
             sites: counts.sites,
             machines: counts.machines,
+            tier: licenseTierFor(counts.highAvailability),
+            support: counts.support,
             onlyIncrease: true
         });
 

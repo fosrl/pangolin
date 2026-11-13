@@ -18,17 +18,23 @@ import logger from "@server/logger";
 import { response as sendResponse } from "@server/lib/response";
 import { fromError } from "zod-validation-error";
 import stripe from "#private/lib/stripe";
-import { buildQuantityItems } from "#private/lib/billing/selfHostedLicense";
+import {
+    billingInterval,
+    buildChargeEquivalentItems,
+    LicenseState,
+    periodTotalCents
+} from "#private/lib/billing/selfHostedLicense";
+import { SELF_HOSTED_LIMITS } from "@server/lib/billing/selfHostedLicenseLimits";
 import { PreviewLicenseUpdateResponse } from "@server/routers/generatedLicense/types";
 import {
-    annualTotalCents,
-    chargeEquivalentCounts,
     isEditable,
+    licensedState,
     licenseKeyParamsSchema,
     licenseQuantitiesSchema,
     periodEnd,
-    planQuantityChange,
-    resolveLicenseSubscription
+    planChange,
+    resolveLicenseSubscription,
+    supportNeedsMoreUsers
 } from "./licenseSubscription";
 
 /**
@@ -62,11 +68,22 @@ export async function previewLicenseUpdate(
         }
 
         const { orgId, licenseKey } = parsedParams.data;
-        const counts = {
+        const target: LicenseState = {
             users: parsedBody.data.users,
             sites: parsedBody.data.sites,
-            machines: parsedBody.data.machineClients
+            machines: parsedBody.data.machineClients,
+            highAvailability: parsedBody.data.highAvailability,
+            support: parsedBody.data.support
         };
+
+        if (supportNeedsMoreUsers(target)) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    `Email and priority support need more than ${SELF_HOSTED_LIMITS.supportAboveUsers} users`
+                )
+            );
+        }
 
         const resolved = await resolveLicenseSubscription(orgId, licenseKey);
         if ("error" in resolved) {
@@ -83,12 +100,8 @@ export async function previewLicenseUpdate(
             );
         }
 
-        const licensed = {
-            users: license.users,
-            sites: license.sites,
-            machines: license.machines
-        };
-        const plan = planQuantityChange(licensed, counts);
+        const licensed = licensedState(license);
+        const plan = planChange(licensed, target);
 
         let amountDue = 0;
         if (plan.raises) {
@@ -96,9 +109,10 @@ export async function previewLicenseUpdate(
                 customer: subscription.customer as string,
                 subscription: subscription.id,
                 subscription_details: {
-                    items: buildQuantityItems(
+                    items: buildChargeEquivalentItems(
                         subscription,
-                        chargeEquivalentCounts(subscription, licensed, counts)
+                        licensed,
+                        plan.allowed
                     ),
                     proration_behavior: "always_invoice"
                 }
@@ -112,7 +126,8 @@ export async function previewLicenseUpdate(
                 reductionsApplyAt: plan.reduces
                     ? new Date(periodEnd(subscription) * 1000).toISOString()
                     : null,
-                newAnnualTotal: annualTotalCents(subscription, counts),
+                newTotal: periodTotalCents(subscription, target),
+                interval: billingInterval(subscription),
                 currency: subscription.currency
             },
             success: true,

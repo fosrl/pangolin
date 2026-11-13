@@ -13,8 +13,11 @@ import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import CopyToClipboard from "./CopyToClipboard";
 import { Badge } from "./ui/badge";
 import { DataTable } from "./ui/data-table";
-import { GeneratedLicenseKey } from "@server/routers/generatedLicense/types";
-import { useState, useEffect } from "react";
+import {
+    GeneratedLicenseKey,
+    LicenseSupport
+} from "@server/routers/generatedLicense/types";
+import { useState, useEffect, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
@@ -181,20 +184,41 @@ export default function GenerateLicenseKeysTable({
         }
     };
 
-    // A count, plus what it drops to at renewal when a reduction is pending
-    const countCell = (count: number, atRenewal: number | undefined) => {
-        const shown = count === -1 ? "∞" : count;
-        if (atRenewal === undefined || atRenewal === count) {
+    // A value, plus what it changes to at renewal when a change is pending
+    const pendingCell = (
+        shown: ReactNode,
+        atRenewal: string | number | undefined
+    ) => {
+        if (atRenewal === undefined) {
             return shown;
         }
         return (
             <span className="flex flex-col">
                 <span>{shown}</span>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {t("licenseRenewsWithCount", { count: atRenewal })}
+                    {t("licenseRenewsWithValue", { value: atRenewal })}
                 </span>
             </span>
         );
+    };
+
+    const countCell = (count: number, atRenewal: number | undefined) =>
+        pendingCell(
+            count === -1 ? "∞" : count,
+            atRenewal === undefined || atRenewal === count
+                ? undefined
+                : atRenewal
+        );
+
+    const supportLabel = (support: LicenseSupport) => {
+        switch (support) {
+            case "email":
+                return t("licenseSupportEmail");
+            case "priority":
+                return t("licenseSupportPriority");
+            default:
+                return t("licenseSupportCommunity");
+        }
     };
 
     const columns: ExtendedColumnDef<GeneratedLicenseKey>[] = [
@@ -363,6 +387,38 @@ export default function GenerateLicenseKeysTable({
                     row.original.machines,
                     row.original.subscription?.renewsWith?.machineClients
                 )
+        },
+        {
+            id: "addons",
+            friendlyName: t("licenseAddons"),
+            header: () => <span className="p-3">{t("licenseAddons")}</span>,
+            cell: ({ row }) => {
+                const { highAvailability, subscription } = row.original;
+                const atRenewal = subscription?.renewsWith?.highAvailability;
+                return pendingCell(
+                    highAvailability ? t("licenseHighAvailability") : "-",
+                    atRenewal === undefined || atRenewal === highAvailability
+                        ? undefined
+                        : atRenewal
+                          ? t("licenseHighAvailability")
+                          : t("licenseAddonsNone")
+                );
+            }
+        },
+        {
+            id: "support",
+            friendlyName: t("licenseSupport"),
+            header: () => <span className="p-3">{t("licenseSupport")}</span>,
+            cell: ({ row }) => {
+                const { support, subscription } = row.original;
+                const atRenewal = subscription?.renewsWith?.support;
+                return pendingCell(
+                    supportLabel(support),
+                    atRenewal === undefined || atRenewal === support
+                        ? undefined
+                        : supportLabel(atRenewal)
+                );
+            }
         },
         {
             accessorKey: "terminateAt",

@@ -20,16 +20,16 @@ import { listOrgLicenses, OrgLicense } from "#private/lib/billing/licenseApi";
 import {
     getLicenseCounts,
     isSelfHostedLicense,
+    LicenseState,
     SELF_HOSTED_LIMITS,
-    SELF_HOSTED_PRODUCTS
+    SUPPORT_TIERS,
+    tierHasHighAvailability
 } from "#private/lib/billing/selfHostedLicense";
 import {
     GeneratedLicenseKey,
     LicenseKeySubscription,
     LicenseQuantities
 } from "@server/routers/generatedLicense/types";
-
-export type LicenseCounts = { users: number; sites: number; machines: number };
 
 export const licenseQuantitiesSchema = z.strictObject({
     users: z
@@ -46,7 +46,9 @@ export const licenseQuantitiesSchema = z.strictObject({
         .number()
         .int()
         .min(SELF_HOSTED_LIMITS.machineClients.min)
-        .max(SELF_HOSTED_LIMITS.machineClients.max)
+        .max(SELF_HOSTED_LIMITS.machineClients.max),
+    highAvailability: z.boolean(),
+    support: z.enum(SUPPORT_TIERS)
 });
 
 export const licenseKeyParamsSchema = z.strictObject({
@@ -84,95 +86,87 @@ export function isEditable(subscription: Stripe.Subscription): boolean {
     );
 }
 
-export function sameCounts(a: LicenseCounts, b: LicenseCounts): boolean {
+/** Email and priority support need more than 25 users. */
+export function supportNeedsMoreUsers(target: LicenseState): boolean {
     return (
-        a.users === b.users && a.sites === b.sites && a.machines === b.machines
+        target.support !== "community" &&
+        target.users <= SELF_HOSTED_LIMITS.supportAboveUsers
     );
 }
 
+export function sameState(a: LicenseState, b: LicenseState): boolean {
+    return (
+        a.users === b.users &&
+        a.sites === b.sites &&
+        a.machines === b.machines &&
+        a.highAvailability === b.highAvailability &&
+        a.support === b.support
+    );
+}
+
+const SUPPORT_RANK = Object.fromEntries(
+    SUPPORT_TIERS.map((tier, rank) => [tier, rank])
+) as Record<(typeof SUPPORT_TIERS)[number], number>;
+
 /**
- * How a quantity change applies. The key's counts are what has been paid for
- * this period, so:
- * - reductions take effect at renewal: the subscription is lowered now
- *   without proration (no credit) and the key keeps its counts until the
- *   renewal invoice is paid;
- * - increases take effect now, charging only for what goes beyond the paid
- *   counts (so undoing a pending reduction costs nothing).
+ * What a change from the license as paid for (licensed) to a target does.
+ * Raises (more users, sites or machine clients, high availability turned on,
+ * a higher support level) apply now and are charged for the rest of the
+ * period. Reductions apply at renewal.
  */
-export function planQuantityChange(
-    licensed: LicenseCounts,
-    target: LicenseCounts
-) {
+export function planChange(licensed: LicenseState, target: LicenseState) {
+    const higherSupport =
+        SUPPORT_RANK[target.support] > SUPPORT_RANK[licensed.support];
     return {
-        // Subscription counts that need no payment: the target, capped at
-        // what is already paid for. Applied with proration_behavior "none".
-        unpaid: {
-            users: Math.min(target.users, licensed.users),
-            sites: Math.min(target.sites, licensed.sites),
-            machines: Math.min(target.machines, licensed.machines)
-        },
-        // What the key allows from now until renewal
+        // What the key allows from now until renewal: the higher of each
         allowed: {
             users: Math.max(target.users, licensed.users),
             sites: Math.max(target.sites, licensed.sites),
-            machines: Math.max(target.machines, licensed.machines)
-        },
+            machines: Math.max(target.machines, licensed.machines),
+            highAvailability:
+                target.highAvailability || licensed.highAvailability,
+            support: higherSupport ? target.support : licensed.support
+        } satisfies LicenseState,
         raises:
             target.users > licensed.users ||
             target.sites > licensed.sites ||
-            target.machines > licensed.machines,
+            target.machines > licensed.machines ||
+            (target.highAvailability && !licensed.highAvailability) ||
+            higherSupport,
         reduces:
             target.users < licensed.users ||
             target.sites < licensed.sites ||
-            target.machines < licensed.machines
+            target.machines < licensed.machines ||
+            (!target.highAvailability && licensed.highAvailability) ||
+            SUPPORT_RANK[target.support] < SUPPORT_RANK[licensed.support]
     };
 }
 
-/**
- * Subscription counts whose prorated charge (from the subscription's current
- * counts) equals the charge for raising the key from `licensed` to `target`.
- * Proration is linear in quantity, so each raised line moves by the paid-for
- * difference, even when the subscription is currently below the key (a
- * pending reduction). Machine clients are only billed beyond the included
- * ones, so their difference is taken on the billed part.
- */
-export function chargeEquivalentCounts(
-    subscription: Stripe.Subscription,
-    licensed: LicenseCounts,
-    target: LicenseCounts
-): LicenseCounts {
-    const current = getLicenseCounts(subscription)!;
-    const included = includedMachineClients(subscription);
-    const billed = (machines: number) => Math.max(0, machines - included);
-
-    const raise = (key: "users" | "sites") =>
-        target[key] > licensed[key]
-            ? current[key] + target[key] - licensed[key]
-            : current[key];
-
-    const billedRaise = billed(target.machines) - billed(licensed.machines);
+/** What the key as stored in the license API holds. */
+export function licensedState(license: OrgLicense): LicenseState {
     return {
-        users: raise("users"),
-        sites: raise("sites"),
-        machines:
-            billedRaise > 0
-                ? included + billed(current.machines) + billedRaise
-                : current.machines
+        users: license.users,
+        sites: license.sites,
+        machines: license.machines,
+        highAvailability: tierHasHighAvailability(license.tier),
+        support: license.support ?? "community"
     };
 }
 
 export function describeSubscription(
     subscription: Stripe.Subscription,
-    licensed: LicenseCounts
+    licensed: LicenseState
 ): LicenseKeySubscription {
     const endsAt = subscription.cancel_at ?? periodEnd(subscription);
     const counts = getLicenseCounts(subscription);
     const renewsWith: LicenseQuantities | null =
-        counts && !sameCounts(counts, licensed)
+        counts && !sameState(counts, licensed)
             ? {
                   users: counts.users,
                   sites: counts.sites,
-                  machineClients: counts.machines
+                  machineClients: counts.machines,
+                  highAvailability: counts.highAvailability,
+                  support: counts.support
               }
             : null;
     return {
@@ -194,10 +188,12 @@ export function toGeneratedLicenseKey(
     subscription: Stripe.Subscription | null
 ): GeneratedLicenseKey {
     const { stripeSubscriptionId, ...rest } = license;
+    const licensed = licensedState(license);
     return {
         ...rest,
+        highAvailability: licensed.highAvailability,
         subscription: subscription
-            ? describeSubscription(subscription, license)
+            ? describeSubscription(subscription, licensed)
             : null
     };
 }
@@ -241,44 +237,4 @@ export async function resolveLicenseSubscription(
         license.stripeSubscriptionId
     );
     return { license, subscription };
-}
-
-/** Yearly price of the license at the given counts, at its existing prices. */
-export function annualTotalCents(
-    subscription: Stripe.Subscription,
-    counts: { users: number; sites: number; machines: number }
-): number {
-    const extraMachines = Math.max(
-        0,
-        counts.machines - includedMachineClients(subscription)
-    );
-    let total = 0;
-    let hasMachineItem = false;
-    for (const item of subscription.items.data) {
-        const product =
-            typeof item.price.product === "string"
-                ? item.price.product
-                : item.price.product.id;
-        const unit = item.price.unit_amount ?? 0;
-        switch (product) {
-            case SELF_HOSTED_PRODUCTS.users:
-            case SELF_HOSTED_PRODUCTS.supportEmail:
-            case SELF_HOSTED_PRODUCTS.supportPriority:
-                total += unit * counts.users;
-                break;
-            case SELF_HOSTED_PRODUCTS.sites:
-                total += unit * counts.sites;
-                break;
-            case SELF_HOSTED_PRODUCTS.machineClients:
-                hasMachineItem = true;
-                total += unit * extraMachines;
-                break;
-            default:
-                total += unit * (item.quantity ?? 1);
-        }
-    }
-    if (!hasMachineItem) {
-        total += SELF_HOSTED_LIMITS.perMachineClientUsd * 100 * extraMachines;
-    }
-    return total;
 }
