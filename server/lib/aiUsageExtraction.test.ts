@@ -152,6 +152,55 @@ function testInvokeHeadersStillWin() {
     );
 }
 
+// Non-streaming InvokeModel with Claude: the token-count headers carry the
+// uncached input/output counts, while the Anthropic-style body carries the
+// prompt-cache reads/writes, which the headers have no counterpart for.
+function testInvokeHeadersWithClaudeCacheUsage() {
+    console.log("Running Bedrock invoke Claude cache usage test...");
+    const h = new Headers({
+        "x-amzn-bedrock-input-token-count": "12",
+        "x-amzn-bedrock-output-token-count": "40"
+    });
+    const body = JSON.stringify({
+        type: "message",
+        usage: {
+            input_tokens: 12,
+            cache_read_input_tokens: 9000,
+            cache_creation_input_tokens: 300,
+            output_tokens: 40
+        }
+    });
+    assertEqualsObj(
+        extractUsage("bedrock_model_invoke", body, false, h),
+        {
+            promptTokens: 12,
+            cacheReadTokens: 9000,
+            cacheWriteTokens: 300,
+            completionTokens: 40,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "cache counts come from the Claude body"
+    );
+
+    const titanBody = JSON.stringify({
+        inputTextTokenCount: 12,
+        results: [{ tokenCount: 40, outputText: "Hi" }]
+    });
+    assertEqualsObj(
+        extractUsage("bedrock_model_invoke", titanBody, false, h),
+        {
+            promptTokens: 12,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            completionTokens: 40,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "non-Claude bodies keep header-only usage"
+    );
+}
+
 // Gemini reports tool-result tokens (Google Search, URL context) in
 // `toolUsePromptTokenCount`, separately from `promptTokenCount`; they are
 // billed as input.
@@ -210,6 +259,7 @@ try {
     testInvokeStreamAnthropicChunks();
     testInvokeStreamInvocationMetrics();
     testInvokeHeadersStillWin();
+    testInvokeHeadersWithClaudeCacheUsage();
     testGeminiToolUsePromptTokens();
     testOpenAiResponsesIncompleteStream();
     console.log("All aiUsageExtraction tests passed!");
