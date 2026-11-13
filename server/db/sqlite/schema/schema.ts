@@ -204,6 +204,11 @@ export const resources = sqliteTable(
             .notNull()
             .default("wrr"), // traefik http loadBalancer.strategy
         tlsServerName: text("tlsServerName"),
+        verifyUpstreamTls: integer("verifyUpstreamTls", {
+            mode: "boolean"
+        })
+            .notNull()
+            .default(false),
         setHostHeader: text("setHostHeader"),
         enableProxy: integer("enableProxy", { mode: "boolean" }).default(true),
         skipToIdpId: integer("skipToIdpId").references(() => idp.idpId, {
@@ -261,6 +266,13 @@ export const resources = sqliteTable(
     },
     (table) => [index("idx_resources_orgId").on(table.orgId)]
 );
+
+export const resourceUpstreamCa = sqliteTable("resourceUpstreamCa", {
+    resourceId: integer("resourceId")
+        .primaryKey()
+        .references(() => resources.resourceId, { onDelete: "cascade" }),
+    certificatePem: text("certificatePem").notNull()
+});
 
 export const redirects = sqliteTable("redirects", {
     redirectId: integer("redirectId").primaryKey({ autoIncrement: true }),
@@ -2198,6 +2210,7 @@ export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
 export type Resource = InferSelectModel<typeof resources>;
+export type ResourceUpstreamCa = InferSelectModel<typeof resourceUpstreamCa>;
 export type ExitNode = InferSelectModel<typeof exitNodes>;
 export type Target = InferSelectModel<typeof targets>;
 export type Session = InferSelectModel<typeof sessions>;

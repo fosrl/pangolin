@@ -430,6 +430,8 @@ export async function updatePublicResources(
                                 true,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
+                            verifyUpstreamTls:
+                                resourceData["verify-upstream-tls"] ?? false,
                             loadBalancingStrategy:
                                 resourceData["load-balancing-strategy"] ??
                                 "wrr",
@@ -658,6 +660,8 @@ export async function updatePublicResources(
                                 true,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
+                            verifyUpstreamTls:
+                                resourceData["verify-upstream-tls"] ?? false,
                             loadBalancingStrategy:
                                 resourceData["load-balancing-strategy"] ??
                                 "wrr",
@@ -1316,6 +1320,8 @@ export async function updatePublicResources(
                     forwardIdentityHeaders:
                         resourceData["forward-identity-headers"] ?? true,
                     tlsServerName: resourceData["tls-server-name"] || null,
+                    verifyUpstreamTls:
+                        resourceData["verify-upstream-tls"] ?? false,
                     loadBalancingStrategy:
                         resourceData["load-balancing-strategy"] ?? "wrr",
                     ssl: resourceSsl,

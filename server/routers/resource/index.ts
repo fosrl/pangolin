@@ -1,4 +1,5 @@
 export * from "./getResource";
+export * from "./upstreamCa";
 export * from "./createResource";
 export * from "./deleteResource";
 export * from "./updateResource";
