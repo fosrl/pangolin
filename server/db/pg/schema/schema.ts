@@ -1247,6 +1247,10 @@ export const idp = pgTable("idp", {
     directorySyncEnabled: boolean("directorySyncEnabled")
         .notNull()
         .default(false),
+    // Global IdPs: remove auto-managed members missing from the directory
+    directorySyncDeletions: boolean("directorySyncDeletions")
+        .notNull()
+        .default(true),
     // Provider-defined JSON, encrypted (e.g. Google service account key + admin email).
     // Null = the provider reuses the OIDC client credentials (Azure).
     apiConfig: text("apiConfig")
