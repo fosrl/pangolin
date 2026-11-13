@@ -70,62 +70,91 @@ function createTestEnvironment(): string {
 function testBudgetsUseRecordedUsageWindows() {
     console.log("Running AI budget window tests...");
     const workdir = createTestEnvironment();
-    runTsx(workdir, path.join(repoRoot, "server", "db", "migrate.ts"));
+    try {
+        runTsx(workdir, path.join(repoRoot, "server", "db", "migrate.ts"));
 
-    const output = runTsx(
-        workdir,
-        path.join(repoRoot, "server", "lib", "aiBudgetEnforcement.childTest.ts")
-    );
-    const match = output.match(/OBSERVATIONS (.*)/);
-    if (!match) {
-        throw new Error("child did not print observations: " + output);
+        const output = runTsx(
+            workdir,
+            path.join(
+                repoRoot,
+                "server",
+                "lib",
+                "aiBudgetEnforcement.childTest.ts"
+            )
+        );
+        const match = output.match(/OBSERVATIONS (.*)/);
+        if (!match) {
+            throw new Error("child did not print observations: " + output);
+        }
+        const o = JSON.parse(match[1]);
+
+        // Rolling windows over usage stored by recordUsage. These all summed to 0
+        // while the lower bound was in ms and createdAt was in seconds.
+        assertEquals(
+            o.providerHourlyUsd,
+            3,
+            "hourly budget must count last hour"
+        );
+        assertEquals(o.providerDailyUsd, 7, "daily budget must count last 24h");
+        assertEquals(
+            o.providerWeeklyUsd,
+            17,
+            "weekly budget must count last 7d"
+        );
+        assertEquals(
+            o.providerLifetimeUsd,
+            17,
+            "lifetime budget must count all"
+        );
+        assertEquals(
+            o.providerDailyTokens,
+            750,
+            "token budgets must use tokens"
+        );
+
+        // Model budgets match the requested model in JS, and a request with no
+        // known price must add 0 rather than poisoning the sum.
+        assertEquals(o.wildcardHourlyUsd, 2, "wildcard model hourly usd");
+        assertEquals(o.wildcardDailyUsd, 6, "wildcard model daily usd");
+        assertEquals(o.wildcardDailyTokens, 650, "wildcard model daily tokens");
+        assertEquals(o.exactModelDailyUsd, 1, "exact model daily usd");
+
+        assertEquals(
+            o.boundaryDailyUsd,
+            1,
+            "the window must include its cutoff and exclude the second before it"
+        );
+
+        // checkBudgets end to end.
+        assertEquals(o.overHardBlocked, true, "over a hard budget must block");
+        assertEquals(
+            o.overHardBlockingBudgetMatches,
+            true,
+            "the blocking budget must be the breached one"
+        );
+        assertEquals(
+            o.overHardBlockedAgain,
+            true,
+            "must keep blocking while over"
+        );
+        assertEquals(
+            o.overHardBreachRows,
+            1,
+            "a sustained breach must write one event (breach events are in ms)"
+        );
+        assertEquals(o.underHardBlocked, false, "under budget must not block");
+        assertEquals(o.overSoftBlocked, false, "soft budgets must never block");
+        assertEquals(o.overSoftBreachRows, 1, "soft breaches must be recorded");
+        assertEquals(
+            o.expiredBlocked,
+            false,
+            "usage older than the window must not count"
+        );
+
+        console.log("AI budget window tests passed");
+    } finally {
+        fs.rmSync(workdir, { recursive: true, force: true });
     }
-    const o = JSON.parse(match[1]);
-
-    // Rolling windows over usage stored by recordUsage. These all summed to 0
-    // while the lower bound was in ms and createdAt was in seconds.
-    assertEquals(o.providerHourlyUsd, 3, "hourly budget must count last hour");
-    assertEquals(o.providerDailyUsd, 7, "daily budget must count last 24h");
-    assertEquals(o.providerWeeklyUsd, 17, "weekly budget must count last 7d");
-    assertEquals(o.providerLifetimeUsd, 17, "lifetime budget must count all");
-    assertEquals(o.providerDailyTokens, 750, "token budgets must use tokens");
-
-    // Model budgets match the requested model in JS, and a request with no
-    // known price must add 0 rather than poisoning the sum.
-    assertEquals(o.wildcardHourlyUsd, 2, "wildcard model hourly usd");
-    assertEquals(o.wildcardDailyUsd, 6, "wildcard model daily usd");
-    assertEquals(o.wildcardDailyTokens, 650, "wildcard model daily tokens");
-    assertEquals(o.exactModelDailyUsd, 1, "exact model daily usd");
-
-    assertEquals(
-        o.boundaryDailyUsd,
-        1,
-        "the window must include its cutoff and exclude the second before it"
-    );
-
-    // checkBudgets end to end.
-    assertEquals(o.overHardBlocked, true, "over a hard budget must block");
-    assertEquals(
-        o.overHardBlockingBudgetMatches,
-        true,
-        "the blocking budget must be the breached one"
-    );
-    assertEquals(o.overHardBlockedAgain, true, "must keep blocking while over");
-    assertEquals(
-        o.overHardBreachRows,
-        1,
-        "a sustained breach must write one event (breach events are in ms)"
-    );
-    assertEquals(o.underHardBlocked, false, "under budget must not block");
-    assertEquals(o.overSoftBlocked, false, "soft budgets must never block");
-    assertEquals(o.overSoftBreachRows, 1, "soft breaches must be recorded");
-    assertEquals(
-        o.expiredBlocked,
-        false,
-        "usage older than the window must not count"
-    );
-
-    console.log("AI budget window tests passed");
 }
 
 function main() {
