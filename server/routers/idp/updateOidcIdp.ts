@@ -12,6 +12,7 @@ import { idp, idpOidcConfig } from "@server/db";
 import { eq } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
+import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
 
 const paramsSchema = z
     .object({
@@ -30,6 +31,12 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().optional(),
     autoProvision: z.boolean().optional(),
+    apiIntegrationEnabled: z.boolean().optional(),
+    allowManualProvisioning: z.boolean().optional(),
+    directorySyncEnabled: z.boolean().optional(),
+    directorySyncDeletions: z.boolean().optional(),
+    // provider-specific, omitted secrets are kept from the stored config
+    apiConfig: z.record(z.string(), z.unknown()).optional(),
     defaultRoleMapping: z.string().optional(),
     defaultOrgMapping: z.string().optional(),
     defaultCreateMissingRoles: z.boolean().optional(),
@@ -43,7 +50,6 @@ export type UpdateIdpResponse = {
 const UpdateIdpResponseDataSchema = z.object({
     idpId: z.number()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -110,6 +116,11 @@ export async function updateOidcIdp(
             namePath,
             name,
             autoProvision,
+            apiIntegrationEnabled,
+            allowManualProvisioning,
+            directorySyncEnabled,
+            directorySyncDeletions,
+            apiConfig,
             defaultRoleMapping,
             defaultOrgMapping,
             defaultCreateMissingRoles,
@@ -151,10 +162,57 @@ export async function updateOidcIdp(
             : undefined;
         const encryptedClientId = clientId ? encrypt(clientId, key) : undefined;
 
+        const [existingOidcConfig] = await db
+            .select({ variant: idpOidcConfig.variant })
+            .from(idpOidcConfig)
+            .where(eq(idpOidcConfig.idpId, idpId));
+        const effectiveVariant =
+            variant ?? existingOidcConfig?.variant ?? "oidc";
+
+        // the API integration (and sync, which needs it) is only supported for google/azure idps
+        const apiIntegrationSupported =
+            effectiveVariant === "google" || effectiveVariant === "azure";
+        // omitted flags keep their stored value
+        const effectiveApiIntegrationEnabled =
+            apiIntegrationSupported &&
+            (apiIntegrationEnabled ?? existingIdp.apiIntegrationEnabled);
+        const effectiveDirectorySyncEnabled =
+            apiIntegrationSupported &&
+            (directorySyncEnabled ?? existingIdp.directorySyncEnabled);
+
+        if (effectiveDirectorySyncEnabled && !effectiveApiIntegrationEnabled) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Directory sync requires the API integration"
+                )
+            );
+        }
+
+        const resolvedApiConfig = resolveIDPAPIConfig({
+            variant: effectiveVariant,
+            incomingApiConfig: apiConfig,
+            existingEncryptedApiConfig: existingIdp.apiConfig,
+            apiIntegrationEnabled: effectiveApiIntegrationEnabled
+        });
+        if (!resolvedApiConfig.success) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    resolvedApiConfig.error
+                )
+            );
+        }
+
         await db.transaction(async (trx) => {
             const idpData = {
                 name,
                 autoProvision,
+                apiIntegrationEnabled: effectiveApiIntegrationEnabled,
+                allowManualProvisioning,
+                directorySyncEnabled: effectiveDirectorySyncEnabled,
+                directorySyncDeletions,
+                apiConfig: resolvedApiConfig.value,
                 defaultRoleMapping,
                 defaultOrgMapping,
                 defaultCreateMissingRoles,

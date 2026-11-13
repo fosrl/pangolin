@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-// Provider-specific credentials for directory sync, stored encrypted in
-// `idp.directorySyncConfig`. Variants missing from `directorySyncConfigSchemas`
+// Provider-specific credentials for the IdP API integration, stored encrypted in
+// `idp.apiConfig`. Variants missing from `idpAPIConfigSchemas`
 // reuse the OIDC client credentials.
 
-export type DirectorySyncVariant = "oidc" | "google" | "azure";
+export type IDPAPIVariant = "oidc" | "google" | "azure";
 
 export const googleServiceAccountKeySchema = z.object({
     type: z.literal("service_account"),
@@ -13,7 +13,7 @@ export const googleServiceAccountKeySchema = z.object({
     token_uri: z.url()
 });
 
-export const googleDirectorySyncConfigSchema = z.strictObject({
+export const googleIDPAPIConfigSchema = z.strictObject({
     serviceAccountKey: googleServiceAccountKeySchema,
     /** Admin to impersonate with domain-wide delegation, omitted when the service account has an admin role. */
     adminEmail: z.email().optional(),
@@ -21,33 +21,33 @@ export const googleDirectorySyncConfigSchema = z.strictObject({
     customerId: z.string().nonempty().optional()
 });
 
-export type GoogleDirectorySyncConfig = z.output<
-    typeof googleDirectorySyncConfigSchema
+export type GoogleIDPAPIConfig = z.output<
+    typeof googleIDPAPIConfigSchema
 >;
 
-export const directorySyncConfigSchemas = {
-    google: googleDirectorySyncConfigSchema
-} satisfies Partial<Record<DirectorySyncVariant, z.ZodType>>;
+export const idpAPIConfigSchemas = {
+    google: googleIDPAPIConfigSchema
+} satisfies Partial<Record<IDPAPIVariant, z.ZodType>>;
 
-export function variantRequiresDirectorySyncConfig(
-    variant: DirectorySyncVariant
-): variant is keyof typeof directorySyncConfigSchemas {
-    return variant in directorySyncConfigSchemas;
+export function variantRequiresIDPAPIConfig(
+    variant: IDPAPIVariant
+): variant is keyof typeof idpAPIConfigSchemas {
+    return variant in idpAPIConfigSchemas;
 }
 
 /** Non-secret view of the stored config, safe to send to the browser. */
-export type RedactedDirectorySyncConfig = {
+export type RedactedIDPAPIConfig = {
     serviceAccountEmail?: string;
     adminEmail?: string;
     customerId?: string;
 };
 
-export function redactDirectorySyncConfig(
-    variant: DirectorySyncVariant,
+export function redactIDPAPIConfig(
+    variant: IDPAPIVariant,
     config: unknown
-): RedactedDirectorySyncConfig | null {
+): RedactedIDPAPIConfig | null {
     if (variant === "google") {
-        const parsed = googleDirectorySyncConfigSchema.safeParse(config);
+        const parsed = googleIDPAPIConfigSchema.safeParse(config);
         if (!parsed.success) return null;
         return {
             serviceAccountEmail: parsed.data.serviceAccountKey.client_email,

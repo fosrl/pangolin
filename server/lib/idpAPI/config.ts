@@ -1,10 +1,10 @@
-import type { DirectorySyncVariant } from "@app/lib/idpDirectorySyncConfig";
+import type { IDPAPIVariant } from "@app/lib/idpApiConfig";
 
 /**
  * The IdP API integration is not part of the open-source build: there is never
  * a stored config to read, and nothing is stored.
  */
-export function decryptDirectorySyncConfig(
+export function decryptIDPAPIConfig(
     _encrypted: string | null
 ): Record<string, unknown> | null {
     return null;
@@ -15,7 +15,7 @@ type ResolveResult =
     | { success: false; error: string };
 
 export function resolveIDPAPIConfig(_params: {
-    variant: DirectorySyncVariant;
+    variant: IDPAPIVariant;
     incomingApiConfig: Record<string, unknown> | undefined;
     existingEncryptedApiConfig: string | null;
     apiIntegrationEnabled: boolean;

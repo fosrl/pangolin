@@ -16,12 +16,12 @@ import config from "@server/lib/config";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import {
-    directorySyncConfigSchemas,
-    variantRequiresDirectorySyncConfig,
-    type DirectorySyncVariant
-} from "@app/lib/idpDirectorySyncConfig";
+    idpAPIConfigSchemas,
+    variantRequiresIDPAPIConfig,
+    type IDPAPIVariant
+} from "@app/lib/idpApiConfig";
 
-export function decryptDirectorySyncConfig(
+export function decryptIDPAPIConfig(
     encrypted: string | null
 ): Record<string, unknown> | null {
     if (!encrypted) return null;
@@ -37,34 +37,36 @@ export function decryptDirectorySyncConfig(
 
 type ResolveResult =
     // `value` undefined = leave the stored column untouched
-    { success: true; value: string | undefined } | { success: false; error: string };
+    | { success: true; value: string | undefined }
+    | { success: false; error: string };
 
 /**
  * Validates the directory sync config sent for `variant` and returns the encrypted
- * value to store. Secrets omitted from `incoming` (e.g. the Google service account
+ * value to store. Secrets omitted from `incomingApiConfig` (e.g. the Google service account
  * key on update) are kept from the stored config.
  */
-export function resolveDirectorySyncConfig({
+export function resolveIDPAPIConfig({
     variant,
-    incoming,
-    existingEncrypted,
+    incomingApiConfig,
+    existingEncryptedApiConfig,
     apiIntegrationEnabled
 }: {
-    variant: DirectorySyncVariant;
-    incoming: Record<string, unknown> | undefined;
-    existingEncrypted: string | null;
+    variant: IDPAPIVariant;
+    incomingApiConfig: Record<string, unknown> | undefined;
+    existingEncryptedApiConfig: string | null;
     apiIntegrationEnabled: boolean;
 }): ResolveResult {
-    if (!variantRequiresDirectorySyncConfig(variant)) {
+    if (!variantRequiresIDPAPIConfig(variant)) {
         return { success: true, value: undefined };
     }
 
-    const existing = decryptDirectorySyncConfig(existingEncrypted);
-    const merged = incoming
+    const existing = decryptIDPAPIConfig(existingEncryptedApiConfig);
+    const merged = incomingApiConfig
         ? {
-              ...incoming,
+              ...incomingApiConfig,
               serviceAccountKey:
-                  incoming.serviceAccountKey ?? existing?.serviceAccountKey
+                  incomingApiConfig.serviceAccountKey ??
+                  existing?.serviceAccountKey
           }
         : existing;
 
@@ -79,11 +81,11 @@ export function resolveDirectorySyncConfig({
         return { success: true, value: undefined };
     }
 
-    if (!incoming) {
+    if (!incomingApiConfig) {
         return { success: true, value: undefined };
     }
 
-    const parsed = directorySyncConfigSchemas[variant].safeParse(merged);
+    const parsed = idpAPIConfigSchemas[variant].safeParse(merged);
     if (!parsed.success) {
         return { success: false, error: fromError(parsed.error).toString() };
     }

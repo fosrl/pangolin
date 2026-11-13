@@ -421,7 +421,6 @@ export const orgQueries = {
                             name: string;
                             type: string;
                             variant: string | null;
-                            /** Only returned by the org IdP list. */
                             allowManualProvisioning?: boolean;
                         }[];
                     }>

@@ -11,6 +11,11 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
+import {
+    redactIDPAPIConfig,
+    type RedactedIDPAPIConfig
+} from "@app/lib/idpApiConfig";
+import { decryptIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
 
 const paramsSchema = z
     .object({
@@ -28,7 +33,13 @@ async function query(idpId: number) {
     return res;
 }
 
-export type GetIdpResponse = NonNullable<Awaited<ReturnType<typeof query>>>;
+type QueryResult = NonNullable<Awaited<ReturnType<typeof query>>>;
+
+export type GetIdpResponse = Omit<QueryResult, "idp"> & {
+    idp: Omit<QueryResult["idp"], "apiConfig"> & {
+        apiConfig: RedactedIDPAPIConfig | null;
+    };
+};
 
 registry.registerPath({
     method: "get",
@@ -90,11 +101,22 @@ export async function getIdp(
             idpRes.idpOidcConfig!.clientId = decrypt(clientId, key);
         }
 
-        // directory sync credentials are only managed through org IdPs
-        idpRes.idp.apiConfig = null;
+        // never send the stored secrets (e.g. service account private key) back
+        const redactedApiConfig = idpRes.idpOidcConfig
+            ? redactIDPAPIConfig(
+                  idpRes.idpOidcConfig.variant,
+                  decryptIDPAPIConfig(idpRes.idp.apiConfig)
+              )
+            : null;
 
         return response<GetIdpResponse>(res, {
-            data: idpRes,
+            data: {
+                ...idpRes,
+                idp: {
+                    ...idpRes.idp,
+                    apiConfig: redactedApiConfig
+                }
+            },
             success: true,
             error: false,
             message: "Idp retrieved successfully",
