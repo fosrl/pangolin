@@ -395,6 +395,9 @@ export default function CreatePrivateResourcePage() {
                                                 render={() => (
                                                     <FormItem>
                                                         <DomainPicker
+                                                            allowWildcard={
+                                                                mode === "http"
+                                                            }
                                                             orgId={orgId}
                                                             cols={2}
                                                             hideFreeDomain
