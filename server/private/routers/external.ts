@@ -259,6 +259,27 @@ if (build === "saas") {
         generateLicense.clearInstanceName
     );
 
+    // Support request about a self-hosted license; the email includes the
+    // license's details
+    authenticated.post(
+        "/org/:orgId/license-support-request",
+        verifyOrgAccess,
+        rateLimit({
+            windowMs: 15 * 60 * 1000,
+            max: 3,
+            keyGenerator: (req) =>
+                `sendLicenseSupportRequest:${req.user?.userId || ipKeyGenerator(req.ip || "")}`,
+            handler: (req, res, next) => {
+                const message = `You can only send 3 support requests every 15 minutes. Please try again later.`;
+                return next(
+                    createHttpError(HttpCode.TOO_MANY_REQUESTS, message)
+                );
+            },
+            store: createStore()
+        }),
+        generateLicense.sendLicenseSupportEmail
+    );
+
     authenticated.post(
         "/send-support-request",
         rateLimit({

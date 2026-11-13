@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { ColumnDef } from "@tanstack/react-table";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { Button } from "./ui/button";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, MessageCircle, MoreHorizontal } from "lucide-react";
 import CopyToClipboard from "./CopyToClipboard";
 import { Badge } from "./ui/badge";
 import { DataTable } from "./ui/data-table";
@@ -25,6 +25,13 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import NewLicenseKeyCredenza from "./NewLicenseKeyCredenza";
 import GeneratePersonalLicenseForm from "./GeneratePersonalLicenseForm";
 import EditLicenseKeyCredenza from "./EditLicenseKeyCredenza";
+import LicenseSupportCredenza from "./LicenseSupportCredenza";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from "@app/components/ui/tooltip";
 import {
     Credenza,
     CredenzaBody,
@@ -79,6 +86,7 @@ export default function GenerateLicenseKeysTable({
         useState<GeneratedLicenseKey | null>(null);
     const [isCanceling, setIsCanceling] = useState(false);
     const [isOpeningPortal, setIsOpeningPortal] = useState(false);
+    const [showSupport, setShowSupport] = useState(false);
 
     useEffect(() => {
         if (searchParams.get(GENERATE_QUERY) !== null) {
@@ -220,6 +228,11 @@ export default function GenerateLicenseKeysTable({
                 return t("licenseSupportCommunity");
         }
     };
+
+    // Only licenses with email or priority support can message support
+    const canMessageSupport = licenseKeys.some(
+        (key) => key.support !== "community"
+    );
 
     const columns: ExtendedColumnDef<GeneratedLicenseKey>[] = [
         {
@@ -574,6 +587,38 @@ export default function GenerateLicenseKeysTable({
                     setShowNewKey(true);
                 }}
                 stickyRightColumn="actions"
+                extraActions={
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span>
+                                    <Button
+                                        variant="outline"
+                                        disabled={!canMessageSupport}
+                                        onClick={() => setShowSupport(true)}
+                                    >
+                                        <MessageCircle className="mr-0 sm:mr-2 h-4 w-4" />
+                                        <span className="hidden sm:inline">
+                                            {t("messageSupport")}
+                                        </span>
+                                    </Button>
+                                </span>
+                            </TooltipTrigger>
+                            {!canMessageSupport && (
+                                <TooltipContent>
+                                    <p>{t("licenseSupportRequiresPlan")}</p>
+                                </TooltipContent>
+                            )}
+                        </Tooltip>
+                    </TooltipProvider>
+                }
+            />
+
+            <LicenseSupportCredenza
+                open={showSupport}
+                setOpen={setShowSupport}
+                orgId={orgId}
+                licenseKeys={licenseKeys}
             />
 
             <NewLicenseKeyCredenza

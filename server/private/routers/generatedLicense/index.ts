@@ -18,3 +18,4 @@ export * from "./previewLicenseUpdate";
 export * from "./updateLicense";
 export * from "./cancelLicense";
 export * from "./createLicensePortalSession";
+export * from "./sendLicenseSupportEmail";

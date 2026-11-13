@@ -108,7 +108,8 @@ export const EnterpriseEditionKeyGenerated = ({
                                         <EmailText>
                                             Manage billing or change the number
                                             of users, sites and machine clients,
-                                            or the support level and add-ons, on this license from your Pangolin
+                                            or the support level and add-ons, on
+                                            this license from your Pangolin
                                             Cloud account.
                                         </EmailText>
                                         <ButtonLink
@@ -147,9 +148,39 @@ export const EnterpriseEditionKeyGenerated = ({
                             />
                         </EmailSection>
 
+                        {!personalUseOnly && support !== "community" && (
+                            <div className="mx-6 my-4 rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
+                                <div className="mb-1 font-semibold text-gray-900 text-base">
+                                    Need help with Pangolin?
+                                </div>
+                                <p className="mt-0 mb-2 text-base text-gray-700 leading-relaxed">
+                                    Your license includes{" "}
+                                    {SUPPORT_LABELS[support].toLowerCase()}. To
+                                    make a software support request for your
+                                    self-hosted instance, submit it from the{" "}
+                                    <strong>Licenses</strong> page on Pangolin
+                                    Cloud. We will already have your license
+                                    details, so you don&apos;t need to include
+                                    them in your request.
+                                </p>
+                                {(modifySubscriptionLink || signUpLink) && (
+                                    <a
+                                        href={
+                                            modifySubscriptionLink ?? signUpLink
+                                        }
+                                        className="text-primary font-medium"
+                                    >
+                                        {modifySubscriptionLink
+                                            ? "Open the Licenses page"
+                                            : "Sign up for Pangolin Cloud"}
+                                    </a>
+                                )}
+                            </div>
+                        )}
+
                         <EmailText>
-                            For any questions or concerns regarding your license
-                            or billing, please reach out to support at{" "}
+                            For license or billing questions, please reach out
+                            to support at{" "}
                             <a
                                 href="mailto:support@pangolin.net"
                                 className="text-primary font-medium"

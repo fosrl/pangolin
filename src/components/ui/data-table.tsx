@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/table";
 import { DataTableEmptyState } from "@/components/ui/data-table-empty-state";
 import { Button } from "@app/components/ui/button";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Input } from "@app/components/ui/input";
 import { DataTablePagination } from "@app/components/DataTablePagination";
 import { dataTableFilterDropdownContentClassName } from "@app/lib/dataTableFilterPopover";
@@ -185,6 +185,8 @@ type DataTableProps<TData, TValue> = {
     /** Prefer over `onAdd` when non-empty. */
     addActions?: DataTableAddAction[];
     addButtonDisabled?: boolean;
+    /** Extra buttons shown in the header between refresh and the add button. */
+    extraActions?: ReactNode;
     onRefresh?: () => void;
     isRefreshing?: boolean;
     refreshButtonDisabled?: boolean;
@@ -222,6 +224,7 @@ export function DataTable<TData, TValue>({
     onAdd,
     addActions,
     addButtonDisabled = false,
+    extraActions,
     onRefresh,
     isRefreshing,
     refreshButtonDisabled = false,
@@ -684,6 +687,7 @@ export function DataTable<TData, TValue>({
                             </Button>
                         </div>
                     )}
+                    {extraActions}
                     {addAction && (
                         <>
                             <div className="sm:hidden">{addAction}</div>
