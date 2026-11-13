@@ -11,7 +11,7 @@ import {
 } from "@app/components/ui/form";
 import { Input } from "@app/components/ui/input";
 import { Textarea } from "@app/components/ui/textarea";
-import { parseGoogleServiceAccountKey } from "@app/lib/idpDirectorySyncConfig";
+import { parseGoogleServiceAccountKey } from "@app/lib/idpApiConfig";
 import { useTranslations } from "next-intl";
 import { useRef } from "react";
 import { useFormContext } from "react-hook-form";
@@ -65,8 +65,8 @@ export function refineGoogleDirectorySyncFields(
     }
 }
 
-/** API `directorySyncConfig` payload, an omitted key keeps the stored one on update. */
-export function buildGoogleDirectorySyncConfig(
+/** API `apiConfig` payload, an omitted key keeps the stored one on update. */
+export function buildGoogleIDPAPIConfig(
     data: GoogleDirectorySyncFormValues
 ) {
     const rawKey = data.googleServiceAccountKey?.trim();
@@ -79,15 +79,15 @@ export function buildGoogleDirectorySyncConfig(
     };
 }
 
-type GoogleDirectorySyncConfigFieldsProps = {
+type GoogleIDPAPIConfigFieldsProps = {
     /** Service account of the stored key, the key field becomes optional when set. */
     configuredServiceAccountEmail?: string;
 };
 
 // Must be rendered inside the `<Form>` of a form with `GoogleDirectorySyncFormValues` fields.
-export default function GoogleDirectorySyncConfigFields({
+export default function GoogleIDPAPIConfigFields({
     configuredServiceAccountEmail
-}: GoogleDirectorySyncConfigFieldsProps) {
+}: GoogleIDPAPIConfigFieldsProps) {
     const t = useTranslations();
     const form = useFormContext<GoogleDirectorySyncFormValues>();
     const fileInputRef = useRef<HTMLInputElement>(null);

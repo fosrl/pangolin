@@ -28,7 +28,7 @@ What the admin enters:
 - **Google:** a service account JSON key. Optionally, an admin email to impersonate and a customer ID.
 - **Azure:** nothing new. We reuse the OIDC client ID and secret. The tenant ID is read from `authUrl` for now.
 
-These are stored encrypted in `idp.directorySyncConfig` ([idpDirectorySyncConfig.ts](src/lib/idpDirectorySyncConfig.ts), [config.ts](server/private/lib/idpAPI/config.ts)).
+These are stored encrypted in `idp.apiConfig` ([idpApiConfig.ts](src/lib/idpApiConfig.ts), [config.ts](server/private/lib/idpAPI/config.ts)).
 
 ### 2. Choose how users get created
 
@@ -157,7 +157,7 @@ The rules:
 **`idp` table**
 
 - `apiIntegrationEnabled`: new, default `false`.
-- `directorySyncConfig`: unchanged, holds the encrypted API credentials.
+- `apiConfig`: holds the encrypted API credentials.
 - `allowManualProvisioning`: new, default `true`.
 - `autoProvision`: unchanged. It means "JIT is on". Only the UI calls it "Just in time".
 - `directorySyncEnabled`: now means "sync is on". It requires `apiIntegrationEnabled`.
@@ -272,7 +272,7 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
      8. Org policy dialog: the same editor, with "Create missing roles" (raw expression only).
 4. **Gate directory sync by tier.** Only SaaS orgs on a tier in `tierMatrix.idpAPIIntegration` (tier1, tier3, enterprise) and enterprise builds with a valid license. OSS never. On a downgrade the settings stay and sync simply skips the org (no data change).
    - Already gated: the sync job and the JIT group fetch ([enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts)) skip non-entitled orgs with `isLicensedOrSubscribed`, and `POST /org/:orgId/idp/:idpId/sync` has `verifyValidLicense` + `verifyValidSubscription`.
-   - Missing in the API: [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) and [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts) accept `apiIntegrationEnabled`, `directorySyncEnabled` and `directorySyncConfig` without a tier check. Refuse turning them on when the org isn't entitled.
+   - Missing in the API: [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts) and [updateOrgOidcIdp.ts](server/private/routers/orgIdp/updateOrgOidcIdp.ts) accept `apiIntegrationEnabled`, `directorySyncEnabled` and `apiConfig` without a tier check. Refuse turning them on when the org isn't entitled.
    - Missing in the UI: a `PaidFeaturesAlert` and disabled toggles for the API integration and Sync, like JIT does with `tierMatrix.autoProvisioning` ([IdpUserProvisioningFields.tsx](src/components/IdpUserProvisioningFields.tsx), [ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)). Hide "Sync now" when not entitled.
    - Global IdPs (items 2 and 3): same checks on the server admin routes and pages.
    - To check: on enterprise builds `isLicensedOrSubscribed` only checks that the license is valid, not its tier, and `verifyValidSubscription` lets every non-SaaS build through. Confirm that every valid enterprise license should get sync.

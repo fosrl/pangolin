@@ -28,7 +28,7 @@ import config from "@server/lib/config";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
-import { resolveDirectorySyncConfig } from "@server/private/lib/idpAPI/config";
+import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
 
 const paramsSchema = z
     .object({
@@ -60,7 +60,7 @@ const bodySchema = z.strictObject({
     syncCreateMissingRoles: z.boolean().optional(),
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, omitted secrets are kept from the stored config
-    directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
+    apiConfig: z.record(z.string(), z.unknown()).optional(),
     tags: z.string().optional()
 });
 
@@ -148,7 +148,7 @@ export async function updateOrgOidcIdp(
             createMissingRoles,
             syncCreateMissingRoles,
             directorySyncDeletions,
-            directorySyncConfig,
+            apiConfig,
             tags
         } = parsedBody.data;
 
@@ -213,19 +213,15 @@ export async function updateOrgOidcIdp(
         const apiIntegrationSupported =
             existingOidcConfig?.variant === "google" ||
             existingOidcConfig?.variant === "azure";
-        // undefined keeps the stored value
-        const effectiveApiIntegrationEnabled = apiIntegrationSupported
-            ? apiIntegrationEnabled
-            : false;
-        const effectiveDirectorySyncEnabled = apiIntegrationSupported
-            ? directorySyncEnabled
-            : false;
+        // omitted flags keep their stored value
+        const effectiveApiIntegrationEnabled =
+            apiIntegrationSupported &&
+            (apiIntegrationEnabled ?? existingIdp.apiIntegrationEnabled);
+        const effectiveDirectorySyncEnabled =
+            apiIntegrationSupported &&
+            (directorySyncEnabled ?? existingIdp.directorySyncEnabled);
 
-        if (
-            (effectiveDirectorySyncEnabled ??
-                existingIdp.directorySyncEnabled) &&
-            !(effectiveApiIntegrationEnabled ?? existingIdp.apiIntegrationEnabled)
-        ) {
+        if (effectiveDirectorySyncEnabled && !effectiveApiIntegrationEnabled) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
@@ -234,20 +230,17 @@ export async function updateOrgOidcIdp(
             );
         }
 
-        const resolvedDirectorySyncConfig = resolveDirectorySyncConfig({
+        const resolvedApiConfig = resolveIDPAPIConfig({
             variant: existingOidcConfig?.variant ?? "oidc",
-            incoming: directorySyncConfig,
-            existingEncrypted: existingIdp.apiConfig,
-            apiIntegrationEnabled: !!(
-                effectiveApiIntegrationEnabled ??
-                existingIdp.apiIntegrationEnabled
-            )
+            incomingApiConfig: apiConfig,
+            existingEncryptedApiConfig: existingIdp.apiConfig,
+            apiIntegrationEnabled: effectiveApiIntegrationEnabled
         });
-        if (!resolvedDirectorySyncConfig.success) {
+        if (!resolvedApiConfig.success) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
-                    resolvedDirectorySyncConfig.error
+                    resolvedApiConfig.error
                 )
             );
         }
@@ -259,7 +252,7 @@ export async function updateOrgOidcIdp(
                 apiIntegrationEnabled: effectiveApiIntegrationEnabled,
                 allowManualProvisioning,
                 directorySyncEnabled: effectiveDirectorySyncEnabled,
-                apiConfig: resolvedDirectorySyncConfig.value,
+                apiConfig: resolvedApiConfig.value,
                 tags
             };
 

@@ -2,10 +2,10 @@
 
 import ApiIntegrationConfigWidget from "@app/components/ApiIntegrationConfigWidget";
 import {
-    buildGoogleDirectorySyncConfig,
+    buildGoogleIDPAPIConfig,
     googleDirectorySyncFormFields,
     refineGoogleDirectorySyncFields
-} from "@app/components/GoogleDirectorySyncConfigFields";
+} from "@app/components/GoogleIDPAPIConfigFields";
 import IdpUserProvisioningFields from "@app/components/IdpUserProvisioningFields";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import {
@@ -250,8 +250,8 @@ export default function Page() {
                 variant: data.type
             };
             if (data.type === "google") {
-                payload.directorySyncConfig =
-                    buildGoogleDirectorySyncConfig(data);
+                payload.apiConfig =
+                    buildGoogleIDPAPIConfig(data);
             }
             const trimmedOrgMapping = data.orgMapping?.trim();
             if (trimmedOrgMapping) {

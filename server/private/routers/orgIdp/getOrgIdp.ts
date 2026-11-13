@@ -26,8 +26,8 @@ import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { GetOrgIdpResponse } from "@server/routers/orgIdp/types";
-import { redactDirectorySyncConfig } from "@app/lib/idpDirectorySyncConfig";
-import { decryptDirectorySyncConfig } from "@server/private/lib/idpAPI/config";
+import { redactIDPAPIConfig } from "@app/lib/idpApiConfig";
+import { decryptIDPAPIConfig } from "@server/private/lib/idpAPI/config";
 
 const paramsSchema = z
     .object({
@@ -116,17 +116,20 @@ export async function getOrgIdp(
         );
 
         // never send the stored secrets (e.g. service account private key) back
-        const directorySyncConfig = idpRes.idpOidcConfig
-            ? redactDirectorySyncConfig(
+        const redactedApiConfig = idpRes.idpOidcConfig
+            ? redactIDPAPIConfig(
                   idpRes.idpOidcConfig.variant,
-                  decryptDirectorySyncConfig(idpRes.idp.apiConfig)
+                  decryptIDPAPIConfig(idpRes.idp.apiConfig)
               )
             : null;
 
         return response<GetOrgIdpResponse>(res, {
             data: {
                 ...idpRes,
-                idp: { ...idpRes.idp, directorySyncConfig },
+                idp: {
+                    ...idpRes.idp,
+                    apiConfig: redactedApiConfig
+                },
                 redirectUrl
             },
             success: true,

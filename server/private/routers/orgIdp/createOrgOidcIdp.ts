@@ -28,7 +28,7 @@ import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
-import { resolveDirectorySyncConfig } from "@server/private/lib/idpAPI/config";
+import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
 
 const paramsSchema = z.strictObject({ orgId: z.string().nonempty() });
 
@@ -56,7 +56,7 @@ const bodySchema = z.strictObject({
     syncCreateMissingRoles: z.boolean().optional(),
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, validated against the variant's schema
-    directorySyncConfig: z.record(z.string(), z.unknown()).optional(),
+    apiConfig: z.record(z.string(), z.unknown()).optional(),
     tags: z.string().optional()
 });
 
@@ -143,7 +143,7 @@ export async function createOrgOidcIdp(
             createMissingRoles,
             syncCreateMissingRoles,
             directorySyncDeletions,
-            directorySyncConfig,
+            apiConfig,
             tags
         } = parsedBody.data;
 
@@ -177,17 +177,17 @@ export async function createOrgOidcIdp(
             );
         }
 
-        const resolvedDirectorySyncConfig = resolveDirectorySyncConfig({
+        const resolvedApiConfig = resolveIDPAPIConfig({
             variant,
-            incoming: directorySyncConfig,
-            existingEncrypted: null,
+            incomingApiConfig: apiConfig,
+            existingEncryptedApiConfig: null,
             apiIntegrationEnabled: effectiveApiIntegrationEnabled
         });
-        if (!resolvedDirectorySyncConfig.success) {
+        if (!resolvedApiConfig.success) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
-                    resolvedDirectorySyncConfig.error
+                    resolvedApiConfig.error
                 )
             );
         }
@@ -207,7 +207,7 @@ export async function createOrgOidcIdp(
                     apiIntegrationEnabled: effectiveApiIntegrationEnabled,
                     allowManualProvisioning,
                     directorySyncEnabled: effectiveDirectorySyncEnabled,
-                    apiConfig: resolvedDirectorySyncConfig.value,
+                    apiConfig: resolvedApiConfig.value,
                     type: "oidc",
                     tags
                 })

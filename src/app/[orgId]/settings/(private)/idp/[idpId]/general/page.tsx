@@ -3,10 +3,10 @@
 import ApiIntegrationConfigWidget from "@app/components/ApiIntegrationConfigWidget";
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import {
-    buildGoogleDirectorySyncConfig,
+    buildGoogleIDPAPIConfig,
     googleDirectorySyncFormFields,
     refineGoogleDirectorySyncFields
-} from "@app/components/GoogleDirectorySyncConfigFields";
+} from "@app/components/GoogleIDPAPIConfigFields";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
 import IdpLastSyncedAt from "@app/components/IdpLastSyncedAt";
 import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
@@ -303,14 +303,14 @@ export default function GeneralPage() {
                     } else if (idpVariant === "azure") {
                         formData.tenantId = tenantId;
                     } else if (idpVariant === "google") {
-                        const syncConfig = data.idp.directorySyncConfig;
+                        const apiConfig = data.idp.apiConfig;
                         formData.googleServiceAccountKey = "";
                         formData.googleAdminEmail =
-                            syncConfig?.adminEmail ?? "";
+                            apiConfig?.adminEmail ?? "";
                         formData.googleCustomerId =
-                            syncConfig?.customerId ?? "";
+                            apiConfig?.customerId ?? "";
                         setConfiguredServiceAccountEmail(
-                            syncConfig?.serviceAccountEmail
+                            apiConfig?.serviceAccountEmail
                         );
                     }
 
@@ -498,7 +498,7 @@ export default function GeneralPage() {
                     emailPath: "email",
                     namePath: "name",
                     scopes: "openid profile email",
-                    directorySyncConfig: buildGoogleDirectorySyncConfig(
+                    apiConfig: buildGoogleIDPAPIConfig(
                         data as GoogleFormValues
                     )
                 };
@@ -538,11 +538,11 @@ export default function GeneralPage() {
                 setOriginalIdentifierPath(payload.identifierPath);
             }
             setSavedSyncEnabled(Boolean(payload.directorySyncEnabled));
-            const syncConfig = payload.directorySyncConfig as
-                ReturnType<typeof buildGoogleDirectorySyncConfig> | undefined;
-            if (syncConfig?.serviceAccountKey) {
+            const apiConfig = payload.apiConfig as
+                ReturnType<typeof buildGoogleIDPAPIConfig> | undefined;
+            if (apiConfig?.serviceAccountKey) {
                 setConfiguredServiceAccountEmail(
-                    syncConfig.serviceAccountKey.client_email
+                    apiConfig.serviceAccountKey.client_email
                 );
                 form.setValue("googleServiceAccountKey", "");
             }

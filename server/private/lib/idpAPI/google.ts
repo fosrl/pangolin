@@ -23,12 +23,12 @@ import { ensureValidIdp, type IdpDbResponse } from "./ensureValidIdp";
 import { createSign } from "node:crypto";
 import cache from "@server/lib/cache";
 import logger from "@server/logger";
-import { decryptDirectorySyncConfig } from "./config";
+import { decryptIDPAPIConfig } from "./config";
 import z from "zod";
 import {
-    googleDirectorySyncConfigSchema,
-    type GoogleDirectorySyncConfig
-} from "@app/lib/idpDirectorySyncConfig";
+    googleIDPAPIConfigSchema,
+    type GoogleIDPAPIConfig
+} from "@app/lib/idpApiConfig";
 import { fromError } from "zod-validation-error";
 
 const SCOPES = [
@@ -182,11 +182,11 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         const idpRes = this.idp;
 
         const idpId = idpRes.idp.idpId;
-        const syncConfig = this.#getAPIConfig(idpRes);
-        const customer = syncConfig.customerId ?? "my_customer";
+        const apiConfig = this.#getAPIConfig(idpRes);
+        const customer = apiConfig.customerId ?? "my_customer";
 
         // 1. get access token (and cache)
-        const token = await this.#getToken(idpRes, syncConfig);
+        const token = await this.#getToken(idpRes, apiConfig);
 
         // 2. get users & groups
         const usersSearchParams = new URLSearchParams({
@@ -286,10 +286,10 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         };
     }
 
-    #getAPIConfig(idpRes: IdpDbResponse): GoogleDirectorySyncConfig {
+    #getAPIConfig(idpRes: IdpDbResponse): GoogleIDPAPIConfig {
         try {
-            return googleDirectorySyncConfigSchema.parse(
-                decryptDirectorySyncConfig(idpRes.idp.apiConfig)
+            return googleIDPAPIConfigSchema.parse(
+                decryptIDPAPIConfig(idpRes.idp.apiConfig)
             );
         } catch (e) {
             throw new Error(
@@ -301,7 +301,7 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
 
     async #getToken(
         idpRes: IdpDbResponse,
-        syncConfig: GoogleDirectorySyncConfig
+        apiConfig: GoogleIDPAPIConfig
     ): Promise<string> {
         const cacheKey = `${this.#TOKEN_CACHE_KEY_PREFIX}:${idpRes.idp.idpId}`;
         const cached = await cache.get<string>(cacheKey);
@@ -312,14 +312,14 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         }
 
         logger.info("Fetching fresh access token");
-        const key = syncConfig.serviceAccountKey;
+        const key = apiConfig.serviceAccountKey;
 
         const now = Math.floor(Date.now() / 1000);
         const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
         const claims = b64url(
             JSON.stringify({
                 iss: key.client_email,
-                sub: syncConfig.adminEmail, // only with domain-wide delegation
+                sub: apiConfig.adminEmail, // only with domain-wide delegation
                 scope: SCOPES,
                 aud: key.token_uri,
                 iat: now,

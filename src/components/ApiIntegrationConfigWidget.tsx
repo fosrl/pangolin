@@ -1,6 +1,6 @@
 "use client";
 
-import GoogleDirectorySyncConfigFields from "@app/components/GoogleDirectorySyncConfigFields";
+import GoogleIDPAPIConfigFields from "@app/components/GoogleIDPAPIConfigFields";
 import { SwitchInput } from "@app/components/SwitchInput";
 import { useTranslations } from "next-intl";
 
@@ -36,7 +36,7 @@ export default function ApiIntegrationConfigWidget({
             />
 
             {apiIntegrationEnabled && variant === "google" && (
-                <GoogleDirectorySyncConfigFields
+                <GoogleIDPAPIConfigFields
                     configuredServiceAccountEmail={
                         configuredServiceAccountEmail
                     }
