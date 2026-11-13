@@ -104,9 +104,16 @@ export const TargetSchema = z.object({
 });
 export type TargetData = z.infer<typeof TargetSchema>;
 
+// A 6-digit PIN. Strings keep leading zeros ("012345"); numbers are still
+// accepted for configs written as `pincode: 123456`. Normalized to a string,
+// which is what the PIN API (`^\d{6}$`) and hashing expect.
+const PincodeSchema = z.union([
+    z.string().regex(/^\d{6}$/),
+    z.number().int().min(100000).max(999999).transform(String)
+]);
+
 export const AuthSchema = z.object({
-    // pincode has to have 6 digits
-    pincode: z.number().min(100000).max(999999).optional(),
+    pincode: PincodeSchema.optional(),
     password: z.string().min(1).optional(),
     "basic-auth": z
         .object({
@@ -908,11 +915,7 @@ export const ResourcePolicySchema = z
             }),
         "sso-users": z.array(z.string()).optional().default([]),
         password: z.string().min(4).max(100).optional().nullable(),
-        pincode: z
-            .string()
-            .regex(/^\d{6}$/)
-            .optional()
-            .nullable(),
+        pincode: PincodeSchema.optional().nullable(),
         "basic-auth": z
             .object({
                 user: z.string().min(4).max(100),
