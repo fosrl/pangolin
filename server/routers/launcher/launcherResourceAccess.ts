@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { db } from "@server/db";
+import { alias, db } from "@server/db";
 import {
     exitNodes,
     labels,
     launcherViews,
     resourceLabels,
+    resourcePolicies,
     resources,
     rolePolicies,
     roleResources,
@@ -32,6 +33,7 @@ import {
     isNull,
     like,
     ne,
+    not,
     or,
     sql,
     type SQL
@@ -136,6 +138,50 @@ function launcherAccessibleIdsCacheKey(
     return `launcherAccessibleIds:${orgId}:${userId}:${rolesKey}`;
 }
 
+// Non-SSO resources are reachable by every member, so they need no assignment.
+async function fetchOrgNonSsoPublicResourceIds(
+    orgId: string
+): Promise<number[]> {
+    const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
+    const defaultPolicy = alias(resourcePolicies, "defaultPolicy");
+
+    const effectiveSso = sql<boolean>`
+        COALESCE(
+            CASE
+                WHEN ${sharedPolicy.resourcePolicyId} IS NOT NULL THEN ${sharedPolicy.sso}
+                ELSE ${defaultPolicy.sso}
+            END,
+            false
+        )
+    `;
+
+    const rows = await db
+        .select({ resourceId: resources.resourceId })
+        .from(resources)
+        .leftJoin(
+            sharedPolicy,
+            eq(sharedPolicy.resourcePolicyId, resources.resourcePolicyId)
+        )
+        .leftJoin(
+            defaultPolicy,
+            eq(
+                defaultPolicy.resourcePolicyId,
+                resources.defaultResourcePolicyId
+            )
+        )
+        .where(
+            and(
+                eq(resources.orgId, orgId),
+                eq(resources.status, "approved"),
+                eq(resources.enabled, true),
+                eq(resources.blockAccess, false),
+                not(effectiveSso)
+            )
+        );
+
+    return rows.map((row) => row.resourceId);
+}
+
 async function resolveAccessibleIdsUncached(
     orgId: string,
     userId: string,
@@ -147,7 +193,8 @@ async function resolveAccessibleIdsUncached(
         directPolicyResourceResults,
         rolePolicyResourceResults,
         directSiteResourceResults,
-        roleSiteResourceResults
+        roleSiteResourceResults,
+        orgNonSsoPublicResources
     ] = await Promise.all([
         db
             .select({ resourceId: userResources.resourceId })
@@ -249,7 +296,8 @@ async function resolveAccessibleIdsUncached(
                           eq(siteResources.status, "approved")
                       )
                   )
-            : Promise.resolve([])
+            : Promise.resolve([]),
+        fetchOrgNonSsoPublicResourceIds(orgId)
     ]);
 
     return {
@@ -258,7 +306,8 @@ async function resolveAccessibleIdsUncached(
                 ...directResources.map((r) => r.resourceId),
                 ...roleResourceResults.map((r) => r.resourceId),
                 ...directPolicyResourceResults.map((r) => r.resourceId),
-                ...rolePolicyResourceResults.map((r) => r.resourceId)
+                ...rolePolicyResourceResults.map((r) => r.resourceId),
+                ...orgNonSsoPublicResources
             ])
         ),
         siteResourceIds: Array.from(
