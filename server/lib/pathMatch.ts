@@ -71,7 +71,80 @@ function decodeAndResolvePath(p: string): string[] {
     return resolved;
 }
 
-export function isPathAllowed(pattern: string, path: string): boolean {
+function decodeURIComponentSafe(s: string): string {
+    try {
+        return decodeURIComponent(s);
+    } catch {
+        return s;
+    }
+}
+
+// Matches a rule's `?key=value&...` component against the request's actual
+// query params. Every pair in the pattern must have a matching key in the
+// request, with its value matched via the same `*`/`?` glob rules a path
+// segment uses, e.g. `autoLaunch=0` or `userId=*`. A rule with a query
+// component never matches a request that carries no query params at all.
+function isQueryAllowed(
+    queryPattern: string,
+    query: Record<string, string> | undefined
+): boolean {
+    if (!query) {
+        return false;
+    }
+
+    return queryPattern.split("&").every((pair) => {
+        const eqIndex = pair.indexOf("=");
+        if (eqIndex <= 0) {
+            return false;
+        }
+
+        const key = decodeURIComponentSafe(pair.slice(0, eqIndex));
+        const valuePattern = pair.slice(eqIndex + 1);
+
+        if (!(key in query)) {
+            return false;
+        }
+
+        return matchSegmentGlob(valuePattern, query[key]);
+    });
+}
+
+// `?` already means "match exactly one character" as a glob wildcard
+// within a path segment (see matchSegmentGlob), e.g. "file?*" matching
+// "fileX". So a bare `?` in the pattern is only treated as the start of a
+// query component when what follows actually looks like `key=value` pairs;
+// otherwise the whole pattern is matched as a path exactly as before, `?`
+// wildcard and all.
+function looksLikeQueryPairs(s: string): boolean {
+    if (!s) {
+        return false;
+    }
+    return s.split("&").every((pair) => pair.indexOf("=") > 0);
+}
+
+export function isPathAllowed(
+    pattern: string,
+    path: string,
+    query?: Record<string, string>
+): boolean {
+    const queryIndex = pattern.indexOf("?");
+
+    if (queryIndex !== -1) {
+        const queryPattern = pattern.slice(queryIndex + 1);
+
+        if (looksLikeQueryPairs(queryPattern)) {
+            const pathPattern = pattern.slice(0, queryIndex);
+            return (
+                isPathSegmentsAllowed(pathPattern, path) &&
+                isQueryAllowed(queryPattern, query)
+            );
+        }
+    }
+
+    return isPathSegmentsAllowed(pattern, path);
+}
+
+function isPathSegmentsAllowed(pattern: string, path: string): boolean {
     const patternParts = decodeAndResolvePath(pattern);
     const pathParts = decodeAndResolvePath(path);
 
