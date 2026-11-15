@@ -1,6 +1,105 @@
 import { Response } from "express";
 import { stripInjectedUsageFrame } from "@server/lib/aiUsageExtraction";
 
+const RELAYED_AI_GATEWAY_HEADER_NAMES = new Set([
+    "retry-after",
+    "x-request-id",
+    "request-id"
+]);
+
+function shouldRelayAiGatewayHeader(name: string): boolean {
+    const lower = name.toLowerCase();
+    return (
+        RELAYED_AI_GATEWAY_HEADER_NAMES.has(lower) ||
+        lower.includes("ratelimit")
+    );
+}
+
+// Candidate header names used as a fallback when the upstream headers object
+// only exposes a `.get()` accessor (no enumeration), so we can still relay the
+// documented allowlist instead of silently dropping everything.
+const RELAYED_AI_GATEWAY_HEADER_CANDIDATES = [
+    "retry-after",
+    "retry-after-ms",
+    "x-request-id",
+    "request-id",
+    "x-ratelimit-limit",
+    "x-ratelimit-remaining",
+    "x-ratelimit-reset",
+    "x-ratelimit-limit-requests",
+    "x-ratelimit-limit-tokens",
+    "x-ratelimit-remaining-requests",
+    "x-ratelimit-remaining-tokens",
+    "x-ratelimit-reset-requests",
+    "x-ratelimit-reset-tokens",
+    "anthropic-ratelimit-requests-limit",
+    "anthropic-ratelimit-requests-remaining",
+    "anthropic-ratelimit-requests-reset",
+    "anthropic-ratelimit-tokens-limit",
+    "anthropic-ratelimit-tokens-remaining",
+    "anthropic-ratelimit-tokens-reset",
+    "ratelimit-limit",
+    "ratelimit-remaining",
+    "ratelimit-reset",
+    "x-ratelimit-bucket"
+];
+
+function getRelayedUpstreamHeaders(
+    headers: globalThis.Headers | any
+): Array<[string, string]> {
+    const result: Array<[string, string]> = [];
+    const seen = new Set<string>();
+
+    const push = (key: unknown, value: unknown) => {
+        if (value == null) return;
+        const name = String(key);
+        if (!shouldRelayAiGatewayHeader(name)) return;
+        const lower = name.toLowerCase();
+        if (seen.has(lower)) return;
+        seen.add(lower);
+        result.push([lower, String(value)]);
+    };
+
+    if (headers) {
+        if (typeof headers.forEach === "function") {
+            headers.forEach((value: unknown, key: unknown) => {
+                push(key, value);
+            });
+            return result;
+        }
+        if (typeof headers.entries === "function") {
+            for (const entry of headers.entries()) {
+                if (Array.isArray(entry) && entry.length >= 2) {
+                    push(entry[0], entry[1]);
+                }
+            }
+            return result;
+        }
+        if (typeof headers[Symbol.iterator] === "function") {
+            for (const entry of headers) {
+                if (Array.isArray(entry) && entry.length >= 2) {
+                    push(entry[0], entry[1]);
+                }
+            }
+            return result;
+        }
+        if (typeof headers.get === "function") {
+            for (const name of RELAYED_AI_GATEWAY_HEADER_CANDIDATES) {
+                push(name, headers.get(name));
+            }
+        }
+        if (typeof headers === "object") {
+            for (const key of Object.keys(headers)) {
+                const value = headers[key];
+                if (typeof value === "function") continue;
+                push(key, value);
+            }
+        }
+    }
+
+    return result;
+}
+
 /**
  * Reads an upstream AI provider response, writes it through to the client
  * (streaming or buffered), and returns the full response text once done, so
@@ -39,6 +138,17 @@ export async function streamAiGatewayResponse(args: {
     const contentType = upstreamRes.headers.get("content-type") || "";
     res.status(upstreamRes.status);
     res.setHeader("Content-Type", contentType || "application/json");
+
+    // Relay a small allowlist of upstream headers that clients need in order
+    // to honour provider backoff hints (Retry-After) and correlate requests
+    // (x-request-id / request-id / *ratelimit*). Everything else (content-
+    // length, content-encoding, set-cookie, transfer-encoding, ...) is left
+    // unforwarded because fetch has already decoded the body.
+    for (const [headerName, headerValue] of getRelayedUpstreamHeaders(
+        upstreamRes.headers
+    )) {
+        res.setHeader(headerName, headerValue);
+    }
 
     if (isStream && upstreamRes.body) {
         res.flushHeaders();
