@@ -48,6 +48,9 @@ type AutoProvisionConfigWidgetProps = {
     showFreeformRoleNamesHint?: boolean;
     autoProvisionSwitchId?: string;
     orgId?: string;
+    createMissingRoles?: boolean;
+    onCreateMissingRolesChange?: (checked: boolean) => void;
+    createMissingRolesInAnyMode?: boolean;
 };
 
 export default function AutoProvisionConfigWidget({
@@ -69,7 +72,10 @@ export default function AutoProvisionConfigWidget({
     roleMappingFieldIdPrefix = "org-idp-auto-provision",
     showFreeformRoleNamesHint = false,
     autoProvisionSwitchId = "auto-provision-toggle",
-    orgId
+    orgId,
+    createMissingRoles,
+    onCreateMissingRolesChange,
+    createMissingRolesInAnyMode
 }: AutoProvisionConfigWidgetProps) {
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
@@ -124,6 +130,13 @@ export default function AutoProvisionConfigWidget({
                             }
                             rawExpression={rawExpression}
                             onRawExpressionChange={onRawExpressionChange}
+                            createMissingRoles={createMissingRoles}
+                            onCreateMissingRolesChange={
+                                onCreateMissingRolesChange
+                            }
+                            createMissingRolesInAnyMode={
+                                createMissingRolesInAnyMode
+                            }
                         />
                     </div>
                     <div className="space-y-4 mt-4 p-1">

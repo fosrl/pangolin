@@ -45,10 +45,12 @@ export type RoleMappingConfigFieldsProps = {
     /**
      * "Create missing roles" checkbox, hidden when the handler is omitted. Only
      * shown for a raw expression, the only mode that can return roles that
-     * aren't in the org.
+     * aren't in the org, unless `createMissingRolesInAnyMode` is set.
      */
     createMissingRoles?: boolean;
     onCreateMissingRolesChange?: (checked: boolean) => void;
+    /** Show the checkbox in every mode (global defaults have no org role list, so any mode can name a missing role). */
+    createMissingRolesInAnyMode?: boolean;
 };
 
 export default function RoleMappingConfigFields({
@@ -67,7 +69,8 @@ export default function RoleMappingConfigFields({
     showFreeformRoleNamesHint = false,
     orgId,
     createMissingRoles = false,
-    onCreateMissingRolesChange
+    onCreateMissingRolesChange,
+    createMissingRolesInAnyMode = false
 }: RoleMappingConfigFieldsProps) {
     const t = useTranslations();
     const { env } = useEnvContext();
@@ -377,7 +380,8 @@ export default function RoleMappingConfigFields({
             )}
 
             {onCreateMissingRolesChange &&
-                roleMappingMode === "rawExpression" && (
+                (createMissingRolesInAnyMode ||
+                    roleMappingMode === "rawExpression") && (
                     <div className="space-y-1">
                         <CheckboxWithLabel
                             id={`${fieldIdPrefix}-create-missing-roles`}

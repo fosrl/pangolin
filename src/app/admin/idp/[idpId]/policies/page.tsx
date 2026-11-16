@@ -121,6 +121,8 @@ export default function PoliciesPage() {
         useState<MappingBuilderRule[]>([createMappingBuilderRule()]);
     const [defaultRawRoleExpression, setDefaultRawRoleExpression] =
         useState("");
+    const [defaultCreateMissingRoles, setDefaultCreateMissingRoles] =
+        useState(false);
 
     const [policyRoleMappingMode, setPolicyRoleMappingMode] =
         useState<RoleMappingMode>("fixedRoles");
@@ -133,6 +135,8 @@ export default function PoliciesPage() {
         MappingBuilderRule[]
     >([createMappingBuilderRule()]);
     const [policyRawRoleExpression, setPolicyRawRoleExpression] = useState("");
+    const [policyCreateMissingRoles, setPolicyCreateMissingRoles] =
+        useState(false);
     const [policyOrgRoles, setPolicyOrgRoles] = useState<
         { roleId: number; name: string }[]
     >([]);
@@ -183,6 +187,9 @@ export default function PoliciesPage() {
                     setDefaultMappingBuilderRules,
                     setDefaultRawRoleExpression,
                     data.idp.defaultRoleMapping
+                );
+                setDefaultCreateMissingRoles(
+                    data.idp.defaultCreateMissingRoles ?? false
                 );
             }
         } catch (e) {
@@ -282,10 +289,11 @@ export default function PoliciesPage() {
         setPolicyMappingBuilderClaimPath(d.mappingBuilder.claimPath);
         setPolicyMappingBuilderRules(d.mappingBuilder.rules);
         setPolicyRawRoleExpression(d.rawExpression);
+        setPolicyCreateMissingRoles(false);
     }
 
-    const onAddPolicy = async (data: PolicyFormValues) => {
-        const roleMappingExpression = compileRoleMappingExpression({
+    function policyRoleMappingConfig() {
+        return {
             mode: policyRoleMappingMode,
             fixedRoleNames: policyFixedRoleNames,
             mappingBuilder: {
@@ -293,13 +301,20 @@ export default function PoliciesPage() {
                 rules: policyMappingBuilderRules
             },
             rawExpression: policyRawRoleExpression
-        });
+        };
+    }
+
+    const onAddPolicy = async (data: PolicyFormValues) => {
+        const roleMappingExpression = compileRoleMappingExpression(
+            policyRoleMappingConfig()
+        );
 
         setAddPolicyLoading(true);
         try {
             const res = await api.put(`/idp/${idpId}/org/${data.orgId}`, {
                 roleMapping: roleMappingExpression,
-                orgMapping: data.orgMapping
+                orgMapping: data.orgMapping,
+                createMissingRoles: policyCreateMissingRoles
             });
             if (res.status === 201) {
                 const newPolicy = {
@@ -308,7 +323,8 @@ export default function PoliciesPage() {
                         organizations.find((org) => org.orgId === data.orgId)
                             ?.name || "",
                     roleMapping: roleMappingExpression,
-                    orgMapping: data.orgMapping
+                    orgMapping: data.orgMapping,
+                    createMissingRoles: policyCreateMissingRoles
                 };
                 setPolicies([...policies, newPolicy]);
                 toast({
@@ -333,15 +349,9 @@ export default function PoliciesPage() {
     const onEditPolicy = async (data: PolicyFormValues) => {
         if (!editingPolicy) return;
 
-        const roleMappingExpression = compileRoleMappingExpression({
-            mode: policyRoleMappingMode,
-            fixedRoleNames: policyFixedRoleNames,
-            mappingBuilder: {
-                claimPath: policyMappingBuilderClaimPath,
-                rules: policyMappingBuilderRules
-            },
-            rawExpression: policyRawRoleExpression
-        });
+        const roleMappingExpression = compileRoleMappingExpression(
+            policyRoleMappingConfig()
+        );
 
         setEditPolicyLoading(true);
         try {
@@ -349,7 +359,8 @@ export default function PoliciesPage() {
                 `/idp/${idpId}/org/${editingPolicy.orgId}`,
                 {
                     roleMapping: roleMappingExpression,
-                    orgMapping: data.orgMapping
+                    orgMapping: data.orgMapping,
+                    createMissingRoles: policyCreateMissingRoles
                 }
             );
             if (res.status === 200) {
@@ -359,7 +370,8 @@ export default function PoliciesPage() {
                             ? {
                                   ...policy,
                                   roleMapping: roleMappingExpression,
-                                  orgMapping: data.orgMapping
+                                  orgMapping: data.orgMapping,
+                                  createMissingRoles: policyCreateMissingRoles
                               }
                             : policy
                     )
@@ -423,7 +435,8 @@ export default function PoliciesPage() {
         try {
             const res = await api.post(`/idp/${idpId}/oidc`, {
                 defaultRoleMapping: defaultRoleMappingExpression,
-                defaultOrgMapping: data.defaultOrgMapping
+                defaultOrgMapping: data.defaultOrgMapping,
+                defaultCreateMissingRoles
             });
             if (res.status === 200) {
                 toast({
@@ -475,6 +488,9 @@ export default function PoliciesPage() {
                             setPolicyMappingBuilderRules,
                             setPolicyRawRoleExpression,
                             policy.roleMapping
+                        );
+                        setPolicyCreateMissingRoles(
+                            policy.createMissingRoles ?? false
                         );
                         setShowAddDialog(true);
                     }}
@@ -534,6 +550,13 @@ export default function PoliciesPage() {
                                     onRawExpressionChange={
                                         setDefaultRawRoleExpression
                                     }
+                                    createMissingRoles={
+                                        defaultCreateMissingRoles
+                                    }
+                                    onCreateMissingRolesChange={
+                                        setDefaultCreateMissingRoles
+                                    }
+                                    createMissingRolesInAnyMode
                                 />
                             </form>
                         </Form>
@@ -710,6 +733,13 @@ export default function PoliciesPage() {
                                     onRawExpressionChange={
                                         setPolicyRawRoleExpression
                                     }
+                                    createMissingRoles={
+                                        policyCreateMissingRoles
+                                    }
+                                    onCreateMissingRolesChange={
+                                        setPolicyCreateMissingRoles
+                                    }
+                                    createMissingRolesInAnyMode
                                 />
                             </form>
                         </Form>
