@@ -12,10 +12,12 @@ import {
 import { Input } from "@app/components/ui/input";
 import { Textarea } from "@app/components/ui/textarea";
 import { parseGoogleServiceAccountKey } from "@app/lib/idpApiConfig";
+import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef } from "react";
 import { useFormContext } from "react-hook-form";
-import { z, type email } from "zod";
+import { z } from "zod";
+import { Alert, AlertDescription } from "./ui/alert";
 
 export type GoogleDirectorySyncFormValues = {
     googleServiceAccountKey?: string;
@@ -66,9 +68,7 @@ export function refineGoogleDirectorySyncFields(
 }
 
 /** API `apiConfig` payload, an omitted key keeps the stored one on update. */
-export function buildGoogleIDPAPIConfig(
-    data: GoogleDirectorySyncFormValues
-) {
+export function buildGoogleIDPAPIConfig(data: GoogleDirectorySyncFormValues) {
     const rawKey = data.googleServiceAccountKey?.trim();
     return {
         serviceAccountKey: rawKey
@@ -130,19 +130,22 @@ export default function GoogleIDPAPIConfigFields({
                         </div>
 
                         {configuredServiceAccountEmail && (
-                            <small className="text-muted-foreground">
-                                {t.rich(
-                                    "idpGoogleServiceAccountKeyConfigured",
-                                    {
-                                        email: configuredServiceAccountEmail,
-                                        em: (children) => (
-                                            <em className="text-primary">
-                                                {children}
-                                            </em>
-                                        )
-                                    }
-                                )}
-                            </small>
+                            <Alert>
+                                <InfoIcon className="h-4 w-4" />
+                                <AlertDescription>
+                                    {t.rich(
+                                        "idpGoogleServiceAccountKeyConfigured",
+                                        {
+                                            email: configuredServiceAccountEmail,
+                                            em: (children) => (
+                                                <strong className="text-primary font-medium">
+                                                    {children}
+                                                </strong>
+                                            )
+                                        }
+                                    )}
+                                </AlertDescription>
+                            </Alert>
                         )}
 
                         <FormControl>
