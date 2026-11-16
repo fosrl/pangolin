@@ -19,7 +19,11 @@ const paramsSchema = z.strictObject({
 const bodySchema = z.strictObject({
     roleMapping: z.string().optional(),
     orgMapping: z.string().optional(),
-    createMissingRoles: z.boolean().optional()
+    createMissingRoles: z.boolean().optional(),
+    syncRoleMapping: z.string().nullish(),
+    syncOrgMapping: z.string().nullish(),
+    syncCreateMissingRoles: z.boolean().optional(),
+    mappingsLinked: z.boolean().optional()
 });
 
 export type UpdateIdpOrgPolicyResponse = {};
@@ -80,8 +84,15 @@ export async function updateIdpOrgPolicy(
         }
 
         const { idpId, orgId } = parsedParams.data;
-        const { roleMapping, orgMapping, createMissingRoles } =
-            parsedBody.data;
+        const {
+            roleMapping,
+            orgMapping,
+            createMissingRoles,
+            syncRoleMapping,
+            syncOrgMapping,
+            syncCreateMissingRoles,
+            mappingsLinked
+        } = parsedBody.data;
 
         if (process.env.IDENTITY_PROVIDER_MODE === "org") {
             return next(
@@ -126,7 +137,11 @@ export async function updateIdpOrgPolicy(
             .set({
                 roleMapping,
                 orgMapping,
-                createMissingRoles
+                createMissingRoles,
+                syncRoleMapping,
+                syncOrgMapping,
+                syncCreateMissingRoles,
+                mappingsLinked
             })
             .where(and(eq(idpOrg.idpId, idpId), eq(idpOrg.orgId, orgId)));
 

@@ -169,7 +169,9 @@ export async function createOidcIdp(
                     type: "oidc",
                     tags,
                     defaultOrgMapping: `'{{orgId}}'`,
-                    defaultRoleMapping: `'Member'`
+                    defaultRoleMapping: `'Member'`,
+                    defaultSyncOrgMapping: `'{{orgId}}'`,
+                    defaultSyncRoleMapping: `'Member'`
                 })
                 .returning();
 

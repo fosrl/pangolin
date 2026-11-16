@@ -1232,6 +1232,10 @@ export const idp = pgTable("idp", {
     defaultSyncCreateMissingRoles: boolean("defaultSyncCreateMissingRoles")
         .notNull()
         .default(false),
+    // true = the UI edits one set of default mappings, saved to both JIT and sync
+    defaultMappingsLinked: boolean("defaultMappingsLinked")
+        .notNull()
+        .default(true),
     // Just in time provisioning, at login
     autoProvision: boolean("autoProvision").notNull().default(false),
     // When false, admins can't pre-provision users for this IdP

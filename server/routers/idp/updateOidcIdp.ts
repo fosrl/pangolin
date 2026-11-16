@@ -40,6 +40,10 @@ const bodySchema = z.strictObject({
     defaultRoleMapping: z.string().optional(),
     defaultOrgMapping: z.string().optional(),
     defaultCreateMissingRoles: z.boolean().optional(),
+    defaultSyncRoleMapping: z.string().nullish(),
+    defaultSyncOrgMapping: z.string().nullish(),
+    defaultSyncCreateMissingRoles: z.boolean().optional(),
+    defaultMappingsLinked: z.boolean().optional(),
     tags: z.string().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional()
 });
@@ -124,6 +128,10 @@ export async function updateOidcIdp(
             defaultRoleMapping,
             defaultOrgMapping,
             defaultCreateMissingRoles,
+            defaultSyncRoleMapping,
+            defaultSyncOrgMapping,
+            defaultSyncCreateMissingRoles,
+            defaultMappingsLinked,
             tags,
             variant
         } = parsedBody.data;
@@ -216,6 +224,10 @@ export async function updateOidcIdp(
                 defaultRoleMapping,
                 defaultOrgMapping,
                 defaultCreateMissingRoles,
+                defaultSyncRoleMapping,
+                defaultSyncOrgMapping,
+                defaultSyncCreateMissingRoles,
+                defaultMappingsLinked,
                 tags
             };
 

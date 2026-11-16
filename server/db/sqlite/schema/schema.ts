@@ -1536,6 +1536,12 @@ export const idp = sqliteTable("idp", {
     })
         .notNull()
         .default(false),
+    // true = the UI edits one set of default mappings, saved to both JIT and sync
+    defaultMappingsLinked: integer("defaultMappingsLinked", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(true),
     // Just in time provisioning, at login
     autoProvision: integer("autoProvision", {
         mode: "boolean"
