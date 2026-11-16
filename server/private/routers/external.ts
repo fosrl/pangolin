@@ -16,6 +16,7 @@ import * as billing from "#private/routers/billing";
 import * as remoteExitNode from "#private/routers/remoteExitNode";
 import * as loginPage from "#private/routers/loginPage";
 import * as orgIdp from "#private/routers/orgIdp";
+import * as globalIdp from "#private/routers/idp";
 import * as domain from "#private/routers/domain";
 import * as auth from "#private/routers/auth";
 import * as license from "#private/routers/license";
@@ -137,6 +138,14 @@ authenticated.post(
     verifyUserHasAction(ActionsEnum.updateIdp),
     logActionAudit(ActionsEnum.updateIdp),
     orgIdp.syncOrgIdp
+);
+
+// global IdP (server admin), the handler refuses org identity provider mode
+authenticated.post(
+    "/idp/:idpId/sync",
+    verifyValidLicense,
+    verifyUserIsServerAdmin,
+    globalIdp.syncIdp
 );
 
 authenticated.delete(

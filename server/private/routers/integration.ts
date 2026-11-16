@@ -12,6 +12,7 @@
  */
 
 import * as orgIdp from "#private/routers/orgIdp";
+import * as globalIdp from "#private/routers/idp";
 import * as org from "#private/routers/org";
 import * as logs from "#private/routers/auditLogs";
 import * as alertEvents from "#private/routers/alertEvents";
@@ -208,6 +209,14 @@ authenticated.post(
     verifyApiKeyHasAction(ActionsEnum.updateIdp),
     logActionAudit(ActionsEnum.updateIdp),
     orgIdp.syncOrgIdp
+);
+
+authenticated.post(
+    "/idp/:idpId/sync",
+    verifyValidLicense,
+    verifyApiKeyIsRoot,
+    verifyApiKeyHasAction(ActionsEnum.updateIdp),
+    globalIdp.syncIdp
 );
 
 authenticated.delete(

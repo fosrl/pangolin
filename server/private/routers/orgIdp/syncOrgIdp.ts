@@ -13,18 +13,21 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, idp, idpOrg, roles, userOrgRoles, users } from "@server/db";
+import { db, idp, idpOrg } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import { runIdpDirectorySync } from "#private/lib/idpAPI/syncWorkflow";
 import {
-    runIdpDirectorySync,
-    type UserSyncEntry
-} from "#private/lib/idpAPI/syncWorkflow";
+    countSyncEntries,
+    summarizeEntries,
+    type SyncCounts,
+    type SyncEntrySummary
+} from "#private/lib/idpAPI/syncSummary";
 
 const paramsSchema = z
     .object({
@@ -37,29 +40,9 @@ const bodySchema = z.strictObject({
     dryRun: z.boolean().optional().default(false)
 });
 
-type SyncEntrySummary = {
-    username: string | null;
-    email: string | null;
-    name: string | null;
-    user: UserSyncEntry["user"]["operation"];
-    membership: UserSyncEntry["membership"]["operation"];
-    reason?: string;
-    /** Roles after the sync, for "add" and "updateRoles". */
-    roles?: string[];
-    /** Current roles, for "updateRoles" and "remove". */
-    previousRoles?: string[];
-};
-
 export type SyncOrgIdpResponse = {
     dryRun: boolean;
-    counts: {
-        usersCreated: number;
-        usersUpdated: number;
-        membershipsAdded: number;
-        membershipsUpdated: number;
-        membershipsRemoved: number;
-        unchanged: number;
-    };
+    counts: SyncCounts;
     /** Only for a dry run. */
     entries?: SyncEntrySummary[];
 };
@@ -185,32 +168,7 @@ export async function syncOrgIdp(
         }
 
         const { entries } = result.plan;
-        const counts: SyncOrgIdpResponse["counts"] = {
-            usersCreated: 0,
-            usersUpdated: 0,
-            membershipsAdded: 0,
-            membershipsUpdated: 0,
-            membershipsRemoved: 0,
-            unchanged: 0
-        };
-        for (const entry of entries) {
-            if (entry.user.operation === "create") counts.usersCreated++;
-            if (entry.user.operation === "update") counts.usersUpdated++;
-            switch (entry.membership.operation) {
-                case "add":
-                    counts.membershipsAdded++;
-                    break;
-                case "updateRoles":
-                    counts.membershipsUpdated++;
-                    break;
-                case "remove":
-                    counts.membershipsRemoved++;
-                    break;
-                case "unchanged":
-                    counts.unchanged++;
-                    break;
-            }
-        }
+        const counts = countSyncEntries(entries);
 
         return response<SyncOrgIdpResponse>(res, {
             data: {
@@ -231,112 +189,4 @@ export async function syncOrgIdp(
             createHttpError(HttpCode.INTERNAL_SERVER_ERROR, "An error occurred")
         );
     }
-}
-
-async function summarizeEntries(
-    entries: UserSyncEntry[],
-    orgId: string
-): Promise<SyncEntrySummary[]> {
-    const entryUserId = (e: UserSyncEntry) =>
-        e.user.operation === "unchanged"
-            ? e.user.userId
-            : e.user.operation === "update"
-              ? e.user.data.userId
-              : undefined;
-
-    // members gone from the directory only carry their userId
-    const unchangedUserIds = entries.flatMap((e) =>
-        e.user.operation === "unchanged" ? [e.user.userId] : []
-    );
-    const knownUsers = new Map(
-        unchangedUserIds.length === 0
-            ? []
-            : (
-                  await db
-                      .select({
-                          userId: users.userId,
-                          username: users.username,
-                          email: users.email,
-                          name: users.name
-                      })
-                      .from(users)
-                      .where(inArray(users.userId, unchangedUserIds))
-              ).map((u) => [u.userId, u])
-    );
-
-    // current roles, to show the old roles next to the new ones (display only)
-    const memberUserIds = entries.flatMap((e) => {
-        const userId = entryUserId(e);
-        return userId &&
-            (e.membership.operation === "updateRoles" ||
-                e.membership.operation === "remove")
-            ? [userId]
-            : [];
-    });
-    const currentRoles = new Map<string, string[]>();
-    if (memberUserIds.length > 0) {
-        const rows = await db
-            .select({ userId: userOrgRoles.userId, name: roles.name })
-            .from(userOrgRoles)
-            .innerJoin(roles, eq(roles.roleId, userOrgRoles.roleId))
-            .where(
-                and(
-                    eq(userOrgRoles.orgId, orgId),
-                    inArray(userOrgRoles.userId, memberUserIds)
-                )
-            );
-        for (const row of rows) {
-            currentRoles.set(row.userId, [
-                ...(currentRoles.get(row.userId) ?? []),
-                row.name
-            ]);
-        }
-    }
-
-    return entries.map((entry) => {
-        const userId = entryUserId(entry);
-        return {
-            ...summarizeEntry(
-                entry,
-                entry.user.operation === "unchanged"
-                    ? knownUsers.get(entry.user.userId)
-                    : undefined
-            ),
-            previousRoles:
-                userId &&
-                (entry.membership.operation === "updateRoles" ||
-                    entry.membership.operation === "remove")
-                    ? (currentRoles.get(userId) ?? [])
-                    : undefined
-        };
-    });
-}
-
-function summarizeEntry(
-    entry: UserSyncEntry,
-    knownUser:
-        | { username: string; email: string | null; name: string | null }
-        | undefined
-): SyncEntrySummary {
-    const userData =
-        entry.user.operation === "create" || entry.user.operation === "update"
-            ? entry.user.data
-            : (knownUser ?? null);
-
-    return {
-        username: userData?.username ?? null,
-        email: userData?.email ?? entry.directoryUser?.email ?? null,
-        name: userData?.name ?? entry.directoryUser?.name ?? null,
-        user: entry.user.operation,
-        membership: entry.membership.operation,
-        reason:
-            entry.membership.operation === "unchanged"
-                ? entry.membership.reason
-                : undefined,
-        roles:
-            entry.membership.operation === "add" ||
-            entry.membership.operation === "updateRoles"
-                ? entry.membership.roles.map((r) => r.name)
-                : undefined
-    };
 }
