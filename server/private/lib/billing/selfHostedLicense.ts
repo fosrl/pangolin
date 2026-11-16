@@ -53,9 +53,6 @@ export function tierHasHighAvailability(tier: string): boolean {
     return tier === "tier2";
 }
 
-// Matches the in-app license flow: keys stay valid 5 days past the paid period.
-const EXPIRY_GRACE_SECONDS = 5 * 24 * 60 * 60;
-
 export const SUPPORT_TIERS = ["community", "email", "priority"] as const;
 
 export type SupportTier = (typeof SUPPORT_TIERS)[number];
@@ -155,12 +152,15 @@ export function getLicenseCounts(
     };
 }
 
-/** When the key should expire: the paid period's end plus grace. */
+/**
+ * When the key should expire: the end of the paid period, the same moment the
+ * subscription ends. There is no grace period, so the dashboard's "Valid
+ * until" date, the subscription's end date and the expiry emails all agree.
+ */
 export function getExpiresAt(subscription: Stripe.Subscription): number {
-    const periodEnd = Math.max(
+    return Math.max(
         ...subscription.items.data.map((item) => item.current_period_end)
     );
-    return periodEnd + EXPIRY_GRACE_SECONDS;
 }
 
 export type BillingInterval = "year" | "month";
