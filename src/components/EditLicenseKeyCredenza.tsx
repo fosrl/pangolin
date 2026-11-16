@@ -138,17 +138,11 @@ export default function EditLicenseKeyCredenza({
           })
         : null;
 
-    // Email and priority support need more than 25 users
+    // Email and priority support need more than 25 users. The stored choice
+    // is left alone when users drops below that (typing a new number passes
+    // through low values); it is only shown and submitted as community.
     const users = Number(form.watch("users"));
     const paidSupportAvailable = users > SELF_HOSTED_LIMITS.supportAboveUsers;
-    useEffect(() => {
-        if (
-            !paidSupportAvailable &&
-            form.getValues("support") !== "community"
-        ) {
-            form.setValue("support", "community");
-        }
-    }, [paidSupportAvailable]);
 
     useEffect(() => {
         if (open && renewal) {
@@ -164,7 +158,11 @@ export default function EditLicenseKeyCredenza({
 
     const path = `/org/${orgId}/license/${encodeURIComponent(licenseKey.licenseKey)}`;
 
-    async function onReview(values: LicenseQuantities) {
+    async function onReview(formValues: LicenseQuantities) {
+        const values: LicenseQuantities = {
+            ...formValues,
+            support: paidSupportAvailable ? formValues.support : "community"
+        };
         const overMax = (Object.keys(LIMITS) as (keyof typeof LIMITS)[]).some(
             (name) => values[name] > LIMITS[name].max
         );
@@ -437,7 +435,11 @@ export default function EditLicenseKeyCredenza({
                                                 )}
                                                 <FormControl>
                                                     <RadioGroup
-                                                        value={field.value}
+                                                        value={
+                                                            paidSupportAvailable
+                                                                ? field.value
+                                                                : "community"
+                                                        }
                                                         onValueChange={
                                                             field.onChange
                                                         }
