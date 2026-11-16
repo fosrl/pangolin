@@ -867,7 +867,7 @@
     "targetNoOneDescription": "Das Hinzufügen von mehr als einem Ziel aktiviert den Lastausgleich.",
     "targetsSubmit": "Einstellungen speichern",
     "addTarget": "Ziel hinzufügen",
-    "proxyMultiSiteRoundRobinNodeHelp": "Load balancing strategy will not work between sites that are not connected to the same node, but failover will work.",
+    "proxyMultiSiteRoundRobinNodeHelp": "Round-Robin-Routing funktioniert nicht zwischen Standorten, die nicht mit demselben Knoten verbunden sind, aber Failover funktioniert.",
     "targetErrorInvalidIp": "Ungültige IP-Adresse",
     "targetErrorInvalidIpDescription": "Bitte geben Sie eine gültige IP-Adresse oder einen Hostnamen ein",
     "targetErrorInvalidPort": "Ungültiger Port",
