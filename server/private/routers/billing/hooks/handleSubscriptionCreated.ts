@@ -28,6 +28,10 @@ import { getSubType } from "./getSubType";
 import { getFeatureIdByPriceId } from "@server/lib/billing/features";
 import { handleTierChange } from "../featureLifecycle";
 import { isSelfHostedLicense } from "./handleSelfHostedLicense";
+import {
+    legacyLicenseId,
+    linkLicenseEmail
+} from "#private/lib/billing/licenseApi";
 
 export async function handleSubscriptionCreated(
     subscription: Stripe.Subscription
@@ -195,9 +199,38 @@ export async function handleSubscriptionCreated(
         } else if (type === "license") {
             // Old in-app license subscriptions are no longer sold; existing
             // ones are kept up to date by handleSubscriptionUpdated/Deleted.
-            logger.debug(
-                `Legacy license subscription ${subscription.id} created for org ${customer.orgId}; nothing to do.`
-            );
+            // Save the buyer's email on the key so the license server can
+            // send activation and expiry emails. Owner account first, then
+            // the Stripe customer's email.
+            const [owner] = await db
+                .select({ email: users.email })
+                .from(userOrgs)
+                .innerJoin(users, eq(userOrgs.userId, users.userId))
+                .where(
+                    and(
+                        eq(userOrgs.orgId, customer.orgId),
+                        eq(userOrgs.isOwner, true)
+                    )
+                )
+                .limit(1);
+            const email = (owner?.email ?? customer.email)?.toLowerCase();
+
+            if (email) {
+                const result = await linkLicenseEmail({
+                    subscriptionId: subscription.id,
+                    licenseId: legacyLicenseId(subscription.metadata),
+                    email
+                });
+                if (!result.ok && result.status !== 404) {
+                    logger.error(
+                        `Fossorial API returned ${result.status} saving the email on the license for subscription ${subscription.id}: ${result.body}`
+                    );
+                }
+            } else {
+                logger.warn(
+                    `No email found to save on the license for subscription ${subscription.id} (org ${customer.orgId}).`
+                );
+            }
         }
     } catch (error) {
         logger.error(

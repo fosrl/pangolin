@@ -36,6 +36,7 @@ import {
     legacyLicenseId
 } from "#private/lib/billing/licenseApi";
 import { handleTierChange } from "../featureLifecycle";
+import { isSetToCancel } from "#private/routers/generatedLicense/licenseSubscription";
 import {
     handleSelfHostedSubscriptionUpdated,
     isSelfHostedLicense
@@ -379,6 +380,24 @@ async function handleLegacyLicenseUpdated(
 
     if (effectiveStatus !== "active" || !previousAttributes) {
         return;
+    }
+
+    // Cancel or resume: the license server sends the expiry reminders only
+    // for keys whose subscription will not renew.
+    if (
+        "cancel_at_period_end" in previousAttributes ||
+        "cancel_at" in previousAttributes
+    ) {
+        const result = await extendLicense({
+            subscriptionId: subscription.id,
+            licenseId,
+            cancelAtPeriodEnd: isSetToCancel(subscription)
+        });
+        if (!result.ok) {
+            logger.error(
+                `Fossorial API returned ${result.status} updating the cancellation of the license for subscription ${subscription.id}: ${result.body}`
+            );
+        }
     }
 
     // Detect a successful renewal: the billing period rolled forward (the

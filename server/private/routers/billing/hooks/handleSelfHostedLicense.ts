@@ -35,6 +35,7 @@ import {
     licensePaidFor,
     linkLicenseEmail
 } from "#private/lib/billing/licenseApi";
+import { isSetToCancel } from "#private/routers/generatedLicense/licenseSubscription";
 import {
     findLicenseOrgForEmail,
     getExpiresAt,
@@ -266,8 +267,9 @@ export async function handleSelfHostedInvoicePaid(
  * the key, and a key revoked for non-payment comes back when that invoice is
  * paid.
  *
- * Cancel-at-period-end needs nothing here: the key stays valid until its
- * expiry and customer.subscription.deleted revokes it when the period ends.
+ * Cancel-at-period-end only flags the key (cancelAtPeriodEnd): it stays valid
+ * until its expiry and customer.subscription.deleted revokes it when the
+ * period ends.
  */
 export async function handleSelfHostedSubscriptionUpdated(
     eventSubscription: Stripe.Subscription
@@ -296,7 +298,10 @@ export async function handleSelfHostedSubscriptionUpdated(
             machines: counts.machines,
             tier: licenseTierFor(counts.highAvailability),
             support: counts.support,
-            onlyIncrease: true
+            onlyIncrease: true,
+            // The key stays valid until its expiry; remember that it will not
+            // renew so the license server can send the expiry reminders.
+            cancelAtPeriodEnd: isSetToCancel(subscription)
         });
 
         if (!result.ok) {

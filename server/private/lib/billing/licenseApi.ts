@@ -120,6 +120,9 @@ export function extendLicense(body: {
     support?: SupportTier;
     // Only raise the counts, tier and support level (never lower them)
     onlyIncrease?: boolean;
+    // Whether the subscription is set to end instead of renewing; the
+    // expiry reminders are sent for keys where it is true
+    cancelAtPeriodEnd?: boolean;
 }) {
     return licenseApi<{ license: PaidLicense }>("POST", "extend", body);
 }
@@ -139,7 +142,13 @@ export function invalidateLicense(body: {
 export function linkLicenseEmail(
     body:
         | { email: string; orgId: string }
-        | { subscriptionId: string; email: string; orgId?: string }
+        | {
+              subscriptionId: string;
+              // old in-app licenses: metadata.licenseKeyId
+              licenseId?: number;
+              email: string;
+              orgId?: string;
+          }
 ) {
     return licenseApi<{ license: PaidLicense; changed: boolean } | null>(
         "POST",
