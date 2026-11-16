@@ -286,3 +286,53 @@ export function effectiveCreateMissingRoles(
 ): boolean {
     return config.mode === "rawExpression" && checked === true;
 }
+
+const COMPARATOR_BEFORE_REGEX = /(==|!=|<=|>=|<|>)\s*$/;
+
+/**
+ * Best-effort list of the role names a raw expression can return: single-quoted
+ * literals that aren't function arguments (`contains(groups, 'x')`), inside a
+ * filter (`[?name == 'x']`) or compared against (`a == 'x'`).
+ * Only used for display.
+ */
+export function extractReturnedRoleNames(expression: string): string[] {
+    const names: string[] = [];
+    // "(" for calls, "?" for filters, "[" for arrays/indexes (literals inside arrays are returned)
+    const stack: string[] = [];
+
+    for (let i = 0; i < expression.length; i++) {
+        const char = expression[i];
+        if (char === "(") {
+            stack.push("(");
+        } else if (char === ")") {
+            stack.pop();
+        } else if (char === "[") {
+            stack.push(expression[i + 1] === "?" ? "?" : "[");
+        } else if (char === "]") {
+            stack.pop();
+        } else if (char === "'") {
+            let value = "";
+            let j = i + 1;
+            while (j < expression.length && expression[j] !== "'") {
+                if (expression[j] === "\\" && j + 1 < expression.length) {
+                    value += expression[j + 1];
+                    j += 2;
+                    continue;
+                }
+                value += expression[j];
+                j++;
+            }
+
+            const nested = stack.some((s) => s === "(" || s === "?");
+            const compared = COMPARATOR_BEFORE_REGEX.test(
+                expression.slice(0, i)
+            );
+            if (!nested && !compared) {
+                names.push(value);
+            }
+            i = j;
+        }
+    }
+
+    return dedupeNonEmpty(names);
+}

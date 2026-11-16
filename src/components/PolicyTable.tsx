@@ -9,7 +9,11 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
-import { InfoPopup } from "@app/components/ui/info-popup";
+import {
+    JitSyncRows,
+    OrgMappingSummary,
+    RoleMappingSummary
+} from "@app/components/IdpMappingSummary";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -74,18 +78,25 @@ export default function PolicyTable({
                 );
             },
             cell: ({ row }) => {
-                const mapping = row.original.roleMapping;
-                return mapping ? (
-                    <InfoPopup
-                        text={
-                            mapping.length > 50
-                                ? `${mapping.substring(0, 50)}...`
-                                : mapping
+                const policy = row.original;
+                return (
+                    <JitSyncRows
+                        linked={policy.mappingsLinked !== false}
+                        jit={
+                            <RoleMappingSummary
+                                roleMapping={policy.roleMapping}
+                                createMissingRoles={policy.createMissingRoles}
+                            />
                         }
-                        info={mapping}
+                        sync={
+                            <RoleMappingSummary
+                                roleMapping={policy.syncRoleMapping}
+                                createMissingRoles={
+                                    policy.syncCreateMissingRoles
+                                }
+                            />
+                        }
                     />
-                ) : (
-                    "-"
                 );
             }
         },
@@ -106,18 +117,17 @@ export default function PolicyTable({
                 );
             },
             cell: ({ row }) => {
-                const mapping = row.original.orgMapping;
-                return mapping ? (
-                    <InfoPopup
-                        text={
-                            mapping.length > 50
-                                ? `${mapping.substring(0, 50)}...`
-                                : mapping
+                const policy = row.original;
+                return (
+                    <JitSyncRows
+                        linked={policy.mappingsLinked !== false}
+                        jit={<OrgMappingSummary orgMapping={policy.orgMapping} />}
+                        sync={
+                            <OrgMappingSummary
+                                orgMapping={policy.syncOrgMapping}
+                            />
                         }
-                        info={mapping}
                     />
-                ) : (
-                    "-"
                 );
             }
         },
