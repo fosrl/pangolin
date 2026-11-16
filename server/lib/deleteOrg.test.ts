@@ -124,46 +124,50 @@ function applyMigrations(workdir: string) {
 function testOrgCleanupCoversEverySite() {
     console.log("Running deleteOrgById per-site cleanup test...");
     const workdir = createTestEnvironment();
-    applyMigrations(workdir);
+    try {
+        applyMigrations(workdir);
 
-    const { exitCode, observations, output } = runChild(workdir);
-    if (exitCode !== 0) {
-        throw new Error("deleteOrgById child run failed: " + output);
+        const { exitCode, observations, output } = runChild(workdir);
+        if (exitCode !== 0) {
+            throw new Error("deleteOrgById child run failed: " + output);
+        }
+
+        // The exact bug from the issue: with a single-row sites fetch, only one
+        // of the four sites gets its side effects. All wireguard peers must be
+        // removed from the exit node...
+        assertEquals(
+            JSON.stringify(observations.peerRemovals),
+            JSON.stringify(["wgKey1", "wgKey2"]),
+            "deleteOrgById must remove every wireguard site's peer from its exit node"
+        );
+        // ...and every newt connector must be collected for the terminate message.
+        assertEquals(
+            JSON.stringify(observations.terminatedNewtIds),
+            JSON.stringify(["newtId3", "newtId4"]),
+            "deleteOrgById must collect every newt id so all connectors get the terminate message"
+        );
+        // DB rows must still cascade to nothing left.
+        assertEquals(observations.sitesLeft, 0, "all site rows must be gone");
+        assertEquals(observations.newtsLeft, 0, "all newt rows must be gone");
+        assertEquals(
+            observations.sessionsLeft,
+            0,
+            "all newt session rows must be gone"
+        );
+
+        // The gap the issue calls out separately: cleanupSiteAssociations must
+        // run for newt sites (deleteSite.ts already does this), so the stale
+        // association cache rows for these sites must be cleared.
+        assertEquals(
+            observations.associationRowsLeft,
+            0,
+            "newt site cleanup must clear clientSitesAssociationsCache rows"
+        );
+
+        console.log("deleteOrgById per-site cleanup test passed");
+    } finally {
+        fs.rmSync(workdir, { recursive: true, force: true });
     }
-
-    // The exact bug from the issue: with a single-row sites fetch, only one
-    // of the four sites gets its side effects. All wireguard peers must be
-    // removed from the exit node...
-    assertEquals(
-        JSON.stringify(observations.peerRemovals),
-        JSON.stringify(["wgKey1", "wgKey2"]),
-        "deleteOrgById must remove every wireguard site's peer from its exit node"
-    );
-    // ...and every newt connector must be collected for the terminate message.
-    assertEquals(
-        JSON.stringify(observations.terminatedNewtIds),
-        JSON.stringify(["newtId3", "newtId4"]),
-        "deleteOrgById must collect every newt id so all connectors get the terminate message"
-    );
-    // DB rows must still cascade to nothing left.
-    assertEquals(observations.sitesLeft, 0, "all site rows must be gone");
-    assertEquals(observations.newtsLeft, 0, "all newt rows must be gone");
-    assertEquals(
-        observations.sessionsLeft,
-        0,
-        "all newt session rows must be gone"
-    );
-
-    // The gap the issue calls out separately: cleanupSiteAssociations must
-    // run for newt sites (deleteSite.ts already does this), so the stale
-    // association cache rows for these sites must be cleared.
-    assertEquals(
-        observations.associationRowsLeft,
-        0,
-        "newt site cleanup must clear clientSitesAssociationsCache rows"
-    );
-
-    console.log("deleteOrgById per-site cleanup test passed");
 }
 
 function main() {

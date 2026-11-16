@@ -28,7 +28,7 @@ import {
 import { AiProviderModelsLists } from "@app/components/AiProviderModelsLists";
 import {
     AiProviderTypeSelect,
-    aiProviderTypeLabelMap
+    aiProviderTypeLabel
 } from "@app/components/AiProviderTypeSelect";
 import { HeadersInput } from "@app/components/HeadersInput";
 import { StrategySelect } from "@app/components/StrategySelect";
@@ -48,6 +48,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import {
+    aiProviderTypeValues,
     createAiProviderCreateFormSchema,
     defaultAuthTypeForProvider,
     defaultCapabilitiesForProvider,
@@ -88,7 +89,7 @@ export default function CreateAiProviderPage() {
     const form = useForm<AiProviderFormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            name: t(aiProviderTypeLabelMap.openai),
+            name: aiProviderTypeLabel("openai", t),
             type: "openai",
             upstreamUrl: emptyUpstreamForType("openai"),
             apiKey: "",
@@ -375,10 +376,9 @@ export default function CreateAiProviderPage() {
                                                                     "custom"
                                                                 ) {
                                                                     const previousLabel =
-                                                                        t(
-                                                                            aiProviderTypeLabelMap[
-                                                                                previousType
-                                                                            ]
+                                                                        aiProviderTypeLabel(
+                                                                            previousType,
+                                                                            t
                                                                         );
                                                                     if (
                                                                         !currentName.trim() ||
@@ -387,10 +387,9 @@ export default function CreateAiProviderPage() {
                                                                     ) {
                                                                         form.setValue(
                                                                             "name",
-                                                                            t(
-                                                                                aiProviderTypeLabelMap[
-                                                                                    value
-                                                                                ]
+                                                                            aiProviderTypeLabel(
+                                                                                value,
+                                                                                t
                                                                             )
                                                                         );
                                                                     }
@@ -402,18 +401,16 @@ export default function CreateAiProviderPage() {
                                                                         [];
                                                                 } else {
                                                                     const isDefaultName =
-                                                                        Object.entries(
-                                                                            aiProviderTypeLabelMap
-                                                                        ).some(
-                                                                            ([
-                                                                                type,
-                                                                                key
-                                                                            ]) =>
+                                                                        aiProviderTypeValues.some(
+                                                                            (
+                                                                                type
+                                                                            ) =>
                                                                                 type !==
                                                                                     "custom" &&
                                                                                 currentName ===
-                                                                                    t(
-                                                                                        key
+                                                                                    aiProviderTypeLabel(
+                                                                                        type,
+                                                                                        t
                                                                                     )
                                                                         );
                                                                     if (

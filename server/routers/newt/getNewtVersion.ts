@@ -124,6 +124,15 @@ export async function getNewtVersion(
             );
         }
 
+        const isCli = agent === "cli";
+        const agentName = isCli ? "cli" : "newt";
+        // The newt row stores the embedded newt version in `version` and the
+        // agent's own version in `agentVersion` (equal to `version` for a
+        // standalone newt).
+        const currentVersion = isCli
+            ? (existingNewt.agentVersion ?? null)
+            : (existingNewt.version ?? null);
+
         let doUpdate = false;
 
         if (site.autoUpdateOverrideOrg) {
@@ -136,7 +145,7 @@ export async function getNewtVersion(
             // return no content http code
             return response(res, {
                 data: {
-                    latestVersion: existingNewt.version ?? "",
+                    latestVersion: currentVersion ?? "",
                     currentIsLatest: true,
                     downloadUrl: "",
                     sha256: ""
@@ -152,63 +161,68 @@ export async function getNewtVersion(
         // Versions and asset digests come from the Fossorial API, which
         // tracks GitHub releases and holds each one back for a day before
         // offering it to self-updating agents.
+        //
+        // Each agent is compared against its own release line: a standalone
+        // newt against newt releases, and the Pangolin CLI (which embeds newt
+        // for `pangolin up site`) against CLI releases. Comparing the CLI's
+        // embedded newt version against newt releases would make CLI sites
+        // re-download the same CLI release in a loop whenever newt ships
+        // ahead of the CLI, and miss CLI-only releases entirely.
         const versions = await getLatestVersions();
-        const releaseInfoNewt = versions?.newt?.autoUpdate;
-        const releaseInfoAgent =
-            agent == "cli" ? versions?.cli?.autoUpdate : releaseInfoNewt;
+        const releaseInfo = isCli
+            ? versions?.cli?.autoUpdate
+            : versions?.newt?.autoUpdate;
 
-        if (!releaseInfoNewt || !releaseInfoAgent) {
+        if (!releaseInfo) {
             logger.warn(
-                `Unable to determine the latest ${agent} version for auto-update`
+                `Unable to determine the latest ${agentName} version for auto-update`
             );
             return next(
                 createHttpError(
                     HttpCode.SERVICE_UNAVAILABLE,
-                    "Unable to determine latest Newt version"
+                    `Unable to determine latest ${agentName} version`
                 )
             );
         }
 
-        const latestVersion = releaseInfoNewt.version;
+        const latestVersion = releaseInfo.version;
 
         // Binary names follow the release asset convention:
         // newt_<platform>[.exe] and pangolin-cli_<platform>[.exe]
-        const binaryPrefix = agent == "cli" ? "pangolin-cli" : "newt";
+        const binaryPrefix = isCli ? "pangolin-cli" : "newt";
         const binaryName = platform.includes("windows")
             ? `${binaryPrefix}_${platform}.exe`
             : `${binaryPrefix}_${platform}`;
 
-        const downloadUrl = `https://github.com/fosrl/${agent == "cli" ? "cli" : "newt"}/releases/download/${encodeURIComponent(releaseInfoAgent.version)}/${encodeURIComponent(binaryName)}`;
+        const downloadUrl = `https://github.com/fosrl/${isCli ? "cli" : "newt"}/releases/download/${encodeURIComponent(latestVersion)}/${encodeURIComponent(binaryName)}`;
 
         // SHA256 of this binary, from the release asset metadata of the
         // repo the binary is actually downloaded from.
-        const sha256 = releaseInfoAgent.assetDigests[binaryName] ?? "";
+        const sha256 = releaseInfo.assetDigests[binaryName] ?? "";
         if (!sha256) {
             logger.warn(
-                `No sha256 digest found for ${binaryName} in ${agent} release ${releaseInfoAgent.version}`
+                `No sha256 digest found for ${binaryName} in ${agentName} release ${latestVersion}`
             );
         }
 
-        // Determine whether the newt that's asking is already up to date.
-        // We store the current version on the newt row when it registers.
-        const currentVersion = existingNewt.version ?? null;
+        // Determine whether the agent that's asking is already up to date,
+        // using the version it reported when it registered.
         let currentIsLatest = false;
-        if (currentVersion) {
-            try {
-                const latest = semver.coerce(latestVersion);
-                const current = semver.coerce(currentVersion);
-                if (latest && current) {
-                    currentIsLatest = !semver.lt(current, latest);
-                }
-            } catch {
-                // If we can't compare, assume not latest
-            }
+        const latest = semver.coerce(latestVersion);
+        const current = currentVersion ? semver.coerce(currentVersion) : null;
+        if (latest && current) {
+            currentIsLatest = !semver.lt(current, latest);
+        } else if (isCli) {
+            // Unknown or non-semver CLI version (e.g. a "dev" build, or a row
+            // that hasn't registered with an agentVersion yet). Don't replace
+            // it, since that could restart the site in a loop.
+            currentIsLatest = true;
         }
 
         return response<GetNewtVersionResponse>(res, {
             data: {
-                latestVersion, // this will always be the newt version
-                currentIsLatest, // this will always be based on the newt version
+                latestVersion,
+                currentIsLatest,
                 downloadUrl,
                 sha256
             },

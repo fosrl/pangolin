@@ -220,12 +220,36 @@ if (build === "saas") {
         generateLicense.generateNewLicense
     );
 
-    authenticated.put(
-        "/org/:orgId/license/enterprise",
+    // Paid license keys: change quantities (billed immediately) or cancel
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/preview",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        generateLicense.previewLicenseUpdate
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey",
         verifyOrgAccess,
         verifyUserHasAction(ActionsEnum.billing),
         logActionAudit(ActionsEnum.billing),
-        generateLicense.generateNewEnterpriseLicense
+        generateLicense.updateLicense
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/cancel",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        logActionAudit(ActionsEnum.billing),
+        generateLicense.cancelLicense
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/portal-session",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        logActionAudit(ActionsEnum.billing),
+        generateLicense.createLicensePortalSession
     );
 
     authenticated.post(
@@ -233,6 +257,27 @@ if (build === "saas") {
         verifyOrgAccess,
         verifyUserHasAction(ActionsEnum.billing),
         generateLicense.clearInstanceName
+    );
+
+    // Support request about a self-hosted license; the email includes the
+    // license's details
+    authenticated.post(
+        "/org/:orgId/license-support-request",
+        verifyOrgAccess,
+        rateLimit({
+            windowMs: 15 * 60 * 1000,
+            max: 3,
+            keyGenerator: (req) =>
+                `sendLicenseSupportRequest:${req.user?.userId || ipKeyGenerator(req.ip || "")}`,
+            handler: (req, res, next) => {
+                const message = `You can only send 3 support requests every 15 minutes. Please try again later.`;
+                return next(
+                    createHttpError(HttpCode.TOO_MANY_REQUESTS, message)
+                );
+            },
+            store: createStore()
+        }),
+        generateLicense.sendLicenseSupportEmail
     );
 
     authenticated.post(
