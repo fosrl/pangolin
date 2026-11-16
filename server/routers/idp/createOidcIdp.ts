@@ -14,8 +14,6 @@ import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
 
-const paramsSchema = z.strictObject({});
-
 const bodySchema = z.strictObject({
     name: z.string().nonempty(),
     clientId: z.string().nonempty(),
@@ -142,10 +140,7 @@ export async function createOidcIdp(
         });
         if (!resolvedApiConfig.success) {
             return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    resolvedApiConfig.error
-                )
+                createHttpError(HttpCode.BAD_REQUEST, resolvedApiConfig.error)
             );
         }
 
