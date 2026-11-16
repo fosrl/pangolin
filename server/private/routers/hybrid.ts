@@ -2114,6 +2114,21 @@ hybridRouter.post(
                 );
             }
 
+            if (
+                !req.remoteExitNode?.exitNodeId ||
+                (await checkExitNodeOrg(
+                    req.remoteExitNode.exitNodeId,
+                    tokenItem.orgId
+                ))
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Exit node not allowed for this organization"
+                    )
+                );
+            }
+
             if (!tokenItem.persistSession) {
                 return next(
                     createHttpError(
@@ -2204,6 +2219,21 @@ hybridRouter.get(
                     createHttpError(
                         HttpCode.NOT_FOUND,
                         "Access token not found"
+                    )
+                );
+            }
+
+            if (
+                !req.remoteExitNode?.exitNodeId ||
+                (await checkExitNodeOrg(
+                    req.remoteExitNode.exitNodeId,
+                    tokenItem.orgId
+                ))
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Exit node not allowed for this organization"
                     )
                 );
             }
