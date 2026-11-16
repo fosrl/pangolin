@@ -1,5 +1,5 @@
 import { CommandModule } from "yargs";
-import { db, idpOidcConfig, licenseKey, certificates, eventStreamingDestinations, alertWebhookActions, aiProviders, virtualApiKeys } from "@server/db";
+import { db, idpOidcConfig, licenseKey, certificates, eventStreamingDestinations, alertWebhookActions, aiProviders, virtualApiKeys, oauthSigningKeys, oauthClients } from "@server/db";
 import { encrypt, decrypt } from "@server/lib/crypto";
 import { configFilePath1, configFilePath2 } from "@server/lib/consts";
 import { eq } from "drizzle-orm";
@@ -134,6 +134,8 @@ export const rotateServerSecret: CommandModule<
             const webhookActions = await db.select().from(alertWebhookActions);
             const providers = await db.select().from(aiProviders);
             const virtualKeys = await db.select().from(virtualApiKeys);
+            const signingKeys = await db.select().from(oauthSigningKeys);
+            const oauthClientRows = await db.select().from(oauthClients);
 
             console.log(`Found ${idpConfigs.length} OIDC IdP configuration(s)`);
             console.log(`Found ${licenseKeys.length} license key(s)`);
@@ -142,6 +144,8 @@ export const rotateServerSecret: CommandModule<
             console.log(`Found ${webhookActions.length} alert webhook action(s)`);
             console.log(`Found ${providers.length} AI provider(s)`);
             console.log(`Found ${virtualKeys.length} virtual API key(s)`);
+            console.log(`Found ${signingKeys.length} OAuth signing key(s)`);
+            console.log(`Found ${oauthClientRows.length} OAuth client(s)`);
 
             // Prepare all decrypted and re-encrypted values
             console.log("\nDecrypting and re-encrypting values...");
@@ -186,6 +190,16 @@ export const rotateServerSecret: CommandModule<
                 encryptedToken: string;
             };
 
+            type SigningKeyUpdate = {
+                keyId: string;
+                encryptedPrivateKeyPem: string;
+            };
+
+            type OauthClientUpdate = {
+                clientId: string;
+                encryptedClientSecret: string;
+            };
+
             const idpUpdates: IdpUpdate[] = [];
             const licenseKeyUpdates: LicenseKeyUpdate[] = [];
             const certUpdates: CertUpdate[] = [];
@@ -193,6 +207,8 @@ export const rotateServerSecret: CommandModule<
             const webhookActionUpdates: WebhookActionUpdate[] = [];
             const aiProviderUpdates: AiProviderUpdate[] = [];
             const virtualApiKeyUpdates: VirtualApiKeyUpdate[] = [];
+            const signingKeyUpdates: SigningKeyUpdate[] = [];
+            const oauthClientUpdates: OauthClientUpdate[] = [];
 
             // Process idpOidcConfig entries
             for (const idpConfig of idpConfigs) {
@@ -377,6 +393,43 @@ export const rotateServerSecret: CommandModule<
                 }
             }
 
+            // Process oauthSigningKeys entries
+            for (const key of signingKeys) {
+                try {
+                    const decryptedPrivateKeyPem = decrypt(key.privateKeyPem, oldSecret);
+                    const encryptedPrivateKeyPem = encrypt(decryptedPrivateKeyPem, newSecret);
+
+                    signingKeyUpdates.push({
+                        keyId: key.keyId,
+                        encryptedPrivateKeyPem
+                    });
+                } catch (error) {
+                    console.error(
+                        `Error processing OAuth signing key ${key.keyId}:`,
+                        error
+                    );
+                    throw error;
+                }
+            }
+
+            // Process oauthClients entries
+            for (const client of oauthClientRows) {
+                if (!client.clientSecret) continue;
+
+                try {
+                    const decryptedClientSecret = decrypt(client.clientSecret, oldSecret);
+                    const encryptedClientSecret = encrypt(decryptedClientSecret, newSecret);
+
+                    oauthClientUpdates.push({
+                        clientId: client.clientId,
+                        encryptedClientSecret
+                    });
+                } catch (error) {
+                    console.error(`Error processing OAuth client ${client.clientId}:`, error);
+                    throw error;
+                }
+            }
+
             // Perform all database updates in a single transaction
             console.log("\nUpdating database in transaction...");
             await db.transaction(async (trx) => {
@@ -473,6 +526,22 @@ export const rotateServerSecret: CommandModule<
                             )
                         );
                 }
+
+                // Update oauthSigningKeys entries
+                for (const update of signingKeyUpdates) {
+                    await trx
+                        .update(oauthSigningKeys)
+                        .set({ privateKeyPem: update.encryptedPrivateKeyPem })
+                        .where(eq(oauthSigningKeys.keyId, update.keyId));
+                }
+
+                // Update oauthClients entries
+                for (const update of oauthClientUpdates) {
+                    await trx
+                        .update(oauthClients)
+                        .set({ clientSecret: update.encryptedClientSecret })
+                        .where(eq(oauthClients.clientId, update.clientId));
+                }
             });
 
             console.log(`Rotated ${idpUpdates.length} OIDC IdP configuration(s)`);
@@ -482,6 +551,8 @@ export const rotateServerSecret: CommandModule<
             console.log(`Rotated ${webhookActionUpdates.length} alert webhook action(s)`);
             console.log(`Rotated ${aiProviderUpdates.length} AI provider(s)`);
             console.log(`Rotated ${virtualApiKeyUpdates.length} virtual API key(s)`);
+            console.log(`Rotated ${signingKeyUpdates.length} OAuth signing key(s)`);
+            console.log(`Rotated ${oauthClientUpdates.length} OAuth client secret(s)`);
 
             // Update config file with new secret
             console.log("\nUpdating config file...");
@@ -502,6 +573,8 @@ export const rotateServerSecret: CommandModule<
             console.log(`  - Event streaming destinations: ${streamingDestinationUpdates.length}`);
             console.log(`  - Alert webhook actions: ${webhookActionUpdates.length}`);
             console.log(`  - AI providers: ${aiProviderUpdates.length}`);
+            console.log(`  - OAuth signing keys: ${signingKeyUpdates.length}`);
+            console.log(`  - OAuth client secrets: ${oauthClientUpdates.length}`);
             console.log(
                 `\n  IMPORTANT: Restart the server for the new secret to take effect.`
             );

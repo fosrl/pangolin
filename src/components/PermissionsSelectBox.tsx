@@ -249,6 +249,14 @@ function getActionsCategories(root: boolean) {
             [t("actionGetVirtualApiKey")]: "getVirtualApiKey",
             [t("actionListVirtualApiKeys")]: "listVirtualApiKeys",
             [t("actionUpdateVirtualApiKey")]: "updateVirtualApiKey"
+        },
+
+        [t("permissionsCategoryOAuthClient")]: {
+            [t("actionCreateOAuthClient")]: "createOAuthClient",
+            [t("actionListOAuthClients")]: "listOAuthClients",
+            [t("actionGetOAuthClient")]: "getOAuthClient",
+            [t("actionUpdateOAuthClient")]: "updateOAuthClient",
+            [t("actionDeleteOAuthClient")]: "deleteOAuthClient"
         }
     };
 
