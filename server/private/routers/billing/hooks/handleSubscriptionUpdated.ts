@@ -417,8 +417,8 @@ async function handleLegacyLicenseUpdated(
         return;
     }
 
-    // Grace period of 5 days on top of the new period end (~1 year out)
-    const expiresAt = currentItem.current_period_end + 5 * 24 * 60 * 60;
+    // Expires with the new billing period, like the self-hosted licenses
+    const expiresAt = currentItem.current_period_end;
     const result = await extendLicense({
         subscriptionId: subscription.id,
         licenseId,
