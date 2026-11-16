@@ -12,7 +12,7 @@
     "license": "SEE LICENSE IN LICENSE AND README.md",
     "scripts": {
         "dev": "NODE_ENV=development ENVIRONMENT=dev tsx watch server/index.ts",
-        "dev:check": "npx tsc --noEmit && npm run format:check",
+        "dev:check": "npx tsc --noEmit && npm run format:check && npm run translations:check",
         "dev:setup": "cp config/config.example.yml config/config.yml && npm run set:oss && npm run set:sqlite && npm run db:generate && npm run db:push",
         "db:generate": "drizzle-kit generate --config=./drizzle.config.ts",
         "db:push": "npx tsx server/db/migrate.ts",
@@ -30,6 +30,8 @@
         "build:cli": "node esbuild.mjs -e cli/index.ts -o dist/cli.mjs",
         "format:check": "prettier --check .",
         "format": "prettier --write .",
+        "translations:check": "node scripts/check-translations.mjs --check",
+        "translations:prune": "node scripts/check-translations.mjs --write",
         "test": "node scripts/run-tests.mjs"
     },
     "dependencies": {
