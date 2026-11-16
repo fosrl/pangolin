@@ -45,7 +45,6 @@ export async function Layout({
 }: LayoutProps) {
     const allCookies = await cookies();
     const sidebarStateCookie = allCookies.get("pangolin-sidebar-state")?.value;
-    const hasCookiePreference = sidebarStateCookie !== undefined;
 
     const initialSidebarCollapsed =
         sidebarStateCookie === "collapsed" ||
@@ -69,7 +68,6 @@ export async function Layout({
                         orgs={orgs}
                         navItems={navItems}
                         defaultSidebarCollapsed={initialSidebarCollapsed}
-                        hasCookiePreference={hasCookiePreference}
                     />
                 )}
 
