@@ -18,7 +18,7 @@ import type {
     IDPDirectoryUser,
     IDPGroup
 } from "./types";
-import { ensureValidIdp, type IdpDbResponse } from "./ensureValidIdp";
+import type { IDPAPIProviderIdp } from "./types";
 
 import { createSign } from "node:crypto";
 import cache from "@server/lib/cache";
@@ -286,7 +286,7 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         };
     }
 
-    #getAPIConfig(idpRes: IdpDbResponse): GoogleIDPAPIConfig {
+    #getAPIConfig(idpRes: IDPAPIProviderIdp): GoogleIDPAPIConfig {
         try {
             return googleIDPAPIConfigSchema.parse(
                 decryptIDPAPIConfig(idpRes.idp.apiConfig)
@@ -300,7 +300,7 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
     }
 
     async #getToken(
-        idpRes: IdpDbResponse,
+        idpRes: IDPAPIProviderIdp,
         apiConfig: GoogleIDPAPIConfig
     ): Promise<string> {
         const cacheKey = `${this.#TOKEN_CACHE_KEY_PREFIX}:${idpRes.idp.idpId}`;

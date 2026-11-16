@@ -163,10 +163,15 @@ export async function syncOrgIdp(
 
         if (result.status === "skipped") {
             return next(
-                createHttpError(
-                    HttpCode.FORBIDDEN,
-                    "This organization's plan doesn't include the IdP API integration"
-                )
+                result.reason === "notEntitled"
+                    ? createHttpError(
+                          HttpCode.FORBIDDEN,
+                          "This organization's plan doesn't include the IdP API integration"
+                      )
+                    : createHttpError(
+                          HttpCode.BAD_REQUEST,
+                          "No sync role mapping is configured for this organization"
+                      )
             );
         }
 

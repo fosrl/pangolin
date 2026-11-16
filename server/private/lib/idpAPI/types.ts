@@ -46,8 +46,11 @@ export type DirectoryFetchContext = {
     identifierPath: string;
 };
 
+/** Providers only need the IdP and its OIDC config, global IdPs may have no `idpOrg` row. */
+export type IDPAPIProviderIdp = Pick<IdpDbResponse, "idp" | "idpOidcConfig">;
+
 export abstract class IDPAPIProvider {
-    constructor(public readonly idp: IdpDbResponse) {}
+    constructor(public readonly idp: IDPAPIProviderIdp) {}
 
     abstract fetchAllDirectoryUsers(): Promise<IDPDirectoryFetchResult>;
 

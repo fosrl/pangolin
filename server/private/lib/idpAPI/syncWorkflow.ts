@@ -31,6 +31,7 @@ import {
     createRoles,
     resolveOrgMembership
 } from "@server/lib/idp/resolveOrgMembership";
+import { isOrgIdentityProviderMode } from "@server/lib/idp/idpExistsForOrg";
 import { assignUserToOrg, removeUserFromOrg } from "@server/lib/userOrg";
 import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
@@ -38,7 +39,11 @@ import { and, eq, inArray, sql, type InferInsertModel } from "drizzle-orm";
 import jmespath from "jmespath";
 import { AzureDirectorySyncProvider } from "./azure";
 import { GoogleDirectorySyncProvider } from "./google";
-import type { IDPAPIProvider, IDPDirectoryUser } from "./types";
+import type {
+    IDPAPIProvider,
+    IDPDirectoryFetchResult,
+    IDPDirectoryUser
+} from "./types";
 
 type InsertUser = InferInsertModel<typeof users>;
 type UpdateUser = Pick<InsertUser, "username" | "email" | "name" | "userId">;
@@ -115,10 +120,31 @@ export type IdpOrgSyncResult = {
     orgId: string;
 } & (
     | { status: "synced"; plan: IdpOrgSyncPlan }
-    /** The org isn't entitled to the IdP API integration. */
-    | { status: "skipped" }
+    | {
+          status: "skipped";
+          reason:
+              /** The org isn't entitled to the IdP API integration. */
+              | "notEntitled"
+              /** No sync role mapping for the org (nor an IdP default): nobody is provisioned, nobody is removed. */
+              | "noRoleMapping";
+      }
     | { status: "failed"; error: string }
 );
+
+/** The mappings sync runs for one org. */
+type SyncTarget = {
+    orgId: string;
+    /** `null` for org IdPs: they belong to one org, so no org mapping runs. */
+    orgMapping: string | null;
+    roleMapping: string | null;
+    createMissingRoles: boolean;
+    directorySyncDeletions: boolean;
+};
+
+type IdpToSync = {
+    idp: typeof idp.$inferSelect;
+    idpOidcConfig: typeof idpOidcConfig.$inferSelect;
+};
 
 /**
  * Syncs every (IdP, org) pair with sync on, one after another. A failure is
@@ -141,24 +167,17 @@ export async function runIdpDirectorySync({
         .select()
         .from(idp)
         .innerJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId))
-        .innerJoin(idpOrg, eq(idpOrg.idpId, idp.idpId))
         .where(
             and(
                 inArray(idpOidcConfig.variant, ["azure", "google"]),
                 eq(idp.apiIntegrationEnabled, true),
                 dryRun ? undefined : eq(idp.directorySyncEnabled, true),
-                idpId === undefined ? undefined : eq(idp.idpId, idpId),
-                orgId === undefined ? undefined : eq(idpOrg.orgId, orgId)
+                idpId === undefined ? undefined : eq(idp.idpId, idpId)
             )
         );
 
     const results: IdpOrgSyncResult[] = [];
     for (const data of idpsToSync) {
-        const target = {
-            idpId: data.idp.idpId,
-            orgId: data.idpOrg.orgId
-        };
-
         let provider: IDPAPIProvider;
         switch (data.idpOidcConfig.variant) {
             case "azure":
@@ -171,32 +190,175 @@ export async function runIdpDirectorySync({
                 continue;
         }
 
-        try {
-            const plan = await syncIdp(provider, dryRun);
-            results.push(
-                plan
-                    ? { ...target, status: "synced", plan }
-                    : { ...target, status: "skipped" }
-            );
-        } catch (error) {
-            logger.error(
-                `Directory sync: failed for IdP ${target.idpId}, org ${target.orgId}`,
-                { error }
-            );
-            results.push({
-                ...target,
-                status: "failed",
-                error: error instanceof Error ? error.message : String(error)
-            });
+        // fetched once per IdP, on the first org that needs it, and reused for the others
+        let directory: Promise<IDPDirectoryFetchResult> | null = null;
+
+        for (const target of await getSyncTargets(data, orgId)) {
+            const base = { idpId: data.idp.idpId, orgId: target.orgId };
+            try {
+                if (!target.roleMapping) {
+                    results.push({
+                        ...base,
+                        status: "skipped",
+                        reason: "noRoleMapping"
+                    });
+                    continue;
+                }
+
+                // no data change on downgrade, the org is just skipped
+                const isEntitled = await isLicensedOrSubscribed(
+                    target.orgId,
+                    tierMatrix.idpAPIIntegration
+                );
+                if (!isEntitled) {
+                    logger.debug(
+                        `Directory sync: skipping IdP ${base.idpId}, org ${base.orgId} is not entitled to the IdP API integration`
+                    );
+                    results.push({
+                        ...base,
+                        status: "skipped",
+                        reason: "notEntitled"
+                    });
+                    continue;
+                }
+
+                // a failed fetch rejects for every org of this IdP, nothing is written
+                directory ??= provider.fetchAllDirectoryUsers();
+                const plan = await syncIdpOrg(
+                    provider,
+                    await directory,
+                    target,
+                    dryRun
+                );
+                results.push({ ...base, status: "synced", plan });
+            } catch (error) {
+                logger.error(
+                    `Directory sync: failed for IdP ${base.idpId}, org ${base.orgId}`,
+                    { error }
+                );
+                results.push({
+                    ...base,
+                    status: "failed",
+                    error:
+                        error instanceof Error ? error.message : String(error)
+                });
+            }
         }
     }
 
     return results;
 }
 
-async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
+/** While linked, sync uses the JIT mappings. */
+function effectiveSyncMappings(idp: {
+    linked: boolean;
+    roleMapping: string | null;
+    orgMapping: string | null;
+    createMissingRoles: boolean;
+    syncRoleMapping: string | null;
+    syncOrgMapping: string | null;
+    syncCreateMissingRoles: boolean;
+}) {
+    return idp.linked
+        ? {
+              roleMapping: idp.roleMapping,
+              orgMapping: idp.orgMapping,
+              createMissingRoles: idp.createMissingRoles
+          }
+        : {
+              roleMapping: idp.syncRoleMapping,
+              orgMapping: idp.syncOrgMapping,
+              createMissingRoles: idp.syncCreateMissingRoles
+          };
+}
+
+/**
+ * The orgs to sync an IdP into, with their mappings.
+ * - Org IdP mode: the IdP's `idpOrg` rows, without an org mapping.
+ * - Global IdPs: same as login, every org, with the org policy's mappings or
+ *   else the IdP defaults, field by field.
+ */
+async function getSyncTargets(
+    data: IdpToSync,
+    orgId: string | undefined
+): Promise<SyncTarget[]> {
+    const idpId = data.idp.idpId;
+
+    if (isOrgIdentityProviderMode()) {
+        const policies = await db
+            .select()
+            .from(idpOrg)
+            .where(
+                and(
+                    eq(idpOrg.idpId, idpId),
+                    orgId === undefined ? undefined : eq(idpOrg.orgId, orgId)
+                )
+            );
+        return policies.map((policy) => {
+            const mappings = effectiveSyncMappings({
+                ...policy,
+                linked: policy.mappingsLinked
+            });
+            return {
+                orgId: policy.orgId,
+                orgMapping: null,
+                roleMapping: mappings.roleMapping,
+                createMissingRoles: mappings.createMissingRoles,
+                directorySyncDeletions: policy.directorySyncDeletions
+            };
+        });
+    }
+
+    const defaults = effectiveSyncMappings({
+        linked: data.idp.defaultMappingsLinked,
+        roleMapping: data.idp.defaultRoleMapping,
+        orgMapping: data.idp.defaultOrgMapping,
+        createMissingRoles: data.idp.defaultCreateMissingRoles,
+        syncRoleMapping: data.idp.defaultSyncRoleMapping,
+        syncOrgMapping: data.idp.defaultSyncOrgMapping,
+        syncCreateMissingRoles: data.idp.defaultSyncCreateMissingRoles
+    });
+
+    // `leftJoin` => every org is a candidate, not only the ones with a policy: an org without one
+    // (`policy` is null) gets the IdP defaults, and its org mapping (JMESPath) is
+    // evaluated on each user's claims in `resolveOrgMembership` to decide if they join
+    const rows = await db
+        .select({ orgId: orgs.orgId, policy: idpOrg })
+        .from(orgs)
+        .leftJoin(
+            idpOrg,
+            and(eq(idpOrg.orgId, orgs.orgId), eq(idpOrg.idpId, idpId))
+        )
+        .where(orgId === undefined ? undefined : eq(orgs.orgId, orgId));
+
+    return rows.map(({ orgId, policy }) => {
+        const own = policy
+            ? effectiveSyncMappings({
+                  ...policy,
+                  linked: policy.mappingsLinked
+              })
+            : null;
+        return {
+            orgId,
+            orgMapping: own?.orgMapping || defaults.orgMapping,
+            roleMapping: own?.roleMapping || defaults.roleMapping,
+            // follows the role mapping: the policy's flag, or the IdP default (same as login)
+            createMissingRoles: own?.roleMapping
+                ? own.createMissingRoles
+                : defaults.createMissingRoles,
+            directorySyncDeletions: data.idp.directorySyncDeletions
+        };
+    });
+}
+
+async function syncIdpOrg(
+    provider: IDPAPIProvider,
+    directory: IDPDirectoryFetchResult,
+    target: SyncTarget,
+    dryRun: boolean
+) {
     // Note
-    // username is unique only within IDPs or within internal ?
+    // username is unique only within IDPs
     // we can have two users with the same username, one in an IDP and another `internal`
     // Which means: a user can have two accounts w/ the same username (email in azure for ex)
     // and each account can have different roles within the same Org
@@ -207,26 +369,7 @@ async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
     // so that renamed users keep their account
 
     // ...
-    // For global idps, we will rely on org policies
-    // we will not store a default mapping for directory sync
-    // if the admin wants to add the synched IDP to an org, they can create an org policy
-    // & set the role mapping to `groupNames` (for ex)
-    // for global idps, if there is not an org policy for a specific org, the user is not added to that org
-
-    // 0. Skip orgs that are not entitled to the IdP API integration (no data change on downgrade)
-    const isEntitled = await isLicensedOrSubscribed(
-        provider.idp.idpOrg.orgId,
-        tierMatrix.idpAPIIntegration
-    );
-    if (!isEntitled) {
-        logger.debug(
-            `Directory sync: skipping IdP ${provider.idp.idp.idpId}, org ${provider.idp.idpOrg.orgId} is not entitled to the IdP API integration`
-        );
-        return null;
-    }
-
-    // 1. Fetch
-    const result = await provider.fetchAllDirectoryUsers();
+    // global idps: the org policy's sync mappings, or else the IdP defaults (see `getSyncTargets`)
 
     /**
      * user =>
@@ -265,47 +408,19 @@ async function syncIdp(provider: IDPAPIProvider, dryRun: boolean) {
             
             - if user exists in pangolin & IDP but not in remote users:
                 -> remove user from org
-
-for each remote user:
-    roleIds = resolveRoles(claims, ctx.roleMapping) // same JMESPath format as JIT
-                                                    // [] = user doesn't qualify for this org
-    if user is disabled: roleIds = []
-
-    pangolinUser = match by username (from identifierPath)
-    if no pangolinUser:
-        if roleIds empty: skip
-        create user
-    else:
-        update profile (name, email, username)       // user-level, always safe
-
-    membership = userOrg for (pangolinUser, orgId)
-    if no membership:
-        if roleIds non-empty: add to org with roleIds, flag = true
-    else if membership.flag is true:
-        if roleIds non-empty: set roles to roleIds
-        else:                 remove from org
-    else (manual membership):
-        skip                                         // admin-owned, don't touch
-
-for each membership with flag = true whose user is not in the remote set:
-    remove from org                                  // user row stays (may be in other orgs)
-
-     
                 */
 
     const {
         idp: { idpId },
-        idpOrg: {
-            orgId,
-            syncRoleMapping,
-            mappingsLinked,
-            roleMapping,
-            createMissingRoles,
-            syncCreateMissingRoles,
-            directorySyncDeletions
-        },
         idpOidcConfig: { identifierPath }
     } = provider.idp;
+    const {
+        orgId,
+        orgMapping,
+        roleMapping,
+        createMissingRoles,
+        directorySyncDeletions
+    } = target;
 
     const existingUsers = await db
         .select()
@@ -343,7 +458,7 @@ for each membership with flag = true whose user is not in the remote set:
         tierMatrix.fullRbac
     );
 
-    for (const user of result.users) {
+    for (const user of directory.users) {
         const claims = provider.toClaims(user);
 
         const usernameClaim = jmespath.search(claims, identifierPath);
@@ -360,22 +475,13 @@ for each membership with flag = true whose user is not in the remote set:
             continue;
         }
 
-        const effectiveRoleMapping = mappingsLinked
-            ? roleMapping
-            : syncRoleMapping;
-
-        const effectiveCreateMissingRoles = mappingsLinked
-            ? createMissingRoles
-            : syncCreateMissingRoles;
-
-        const roles = await resolveUserRoles(
-            user,
-            claims,
-            effectiveRoleMapping,
+        const roles = await resolveUserRoles(user, claims, {
             orgId,
+            orgMapping,
+            roleMapping,
             supportsMultiRole,
-            effectiveCreateMissingRoles
-        );
+            createMissingRoles
+        });
 
         // lowercased, same as login
         const username = usernameClaim.toLowerCase();
@@ -659,22 +765,11 @@ function getEntryUserId(
 async function resolveUserRoles(
     user: IDPDirectoryUser,
     claims: object,
-    roleMapping: string | null,
-    orgId: string,
-    supportsMultiRole: boolean,
-    createMissingRoles: boolean
+    mapping: Omit<Parameters<typeof resolveOrgMembership>[0], "claims">
 ): Promise<SyncedRole[]> {
     if (!user.enabled) return [];
 
-    // org IdPs have a single org, so sync doesn't evaluate an org mapping
-    const membership = await resolveOrgMembership({
-        claims,
-        orgId,
-        orgMapping: null,
-        roleMapping,
-        supportsMultiRole,
-        createMissingRoles
-    });
+    const membership = await resolveOrgMembership({ claims, ...mapping });
     if (!membership.matched) return [];
 
     return [

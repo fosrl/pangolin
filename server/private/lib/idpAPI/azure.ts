@@ -17,7 +17,7 @@ import { decrypt } from "@server/lib/crypto";
 import logger from "@server/logger";
 import z from "zod";
 import { fromError } from "zod-validation-error";
-import { ensureValidIdp, type IdpDbResponse } from "./ensureValidIdp";
+import type { IDPAPIProviderIdp } from "./types";
 import { IDPAPIProvider } from "./types";
 import type {
     DirectoryFetchContext,
@@ -349,7 +349,7 @@ export class AzureDirectorySyncProvider extends IDPAPIProvider {
         };
     }
 
-    async #getToken(idpRes: IdpDbResponse): Promise<string> {
+    async #getToken(idpRes: IDPAPIProviderIdp): Promise<string> {
         const cacheKey = `${this.#TOKEN_CACHE_KEY_PREFIX}:${idpRes.idp.idpId}`;
         const cached = await cache.get<string>(cacheKey);
 
