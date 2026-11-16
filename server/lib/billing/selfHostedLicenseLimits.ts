@@ -9,7 +9,7 @@ export const SELF_HOSTED_LIMITS = {
     users: { min: 25, max: 250 },
     sites: { min: 25, max: 500 },
     machineClients: { min: 25, max: 500 },
-    perMachineClientUsd: 6,
+    perMachineClientUsd: 7,
     // Email and priority support need more users than this
     supportAboveUsers: 25
 } as const;

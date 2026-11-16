@@ -86,8 +86,8 @@ const HIGH_AVAILABILITY_ENDING = 9;
 const SUPPORT_ENDING = 5;
 const SUPPORT_PERCENT: Record<SupportTier, number> = {
     community: 0,
-    email: 15,
-    priority: 25
+    email: 20,
+    priority: 30
 };
 
 export function isSelfHostedLicense(
