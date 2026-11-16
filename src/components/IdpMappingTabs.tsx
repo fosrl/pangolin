@@ -26,12 +26,15 @@ type IdpMappingTabsProps = {
      * Form field holding the org mapping expression. Omit it for org IdPs: the org
      * is fixed, so only the role mapping is shown.
      */
-    orgMappingField?: { control: unknown; name: string };
-    orgId: string;
+    orgMappingField?: { control: unknown; name: string; labelKey?: string };
+    /** Org whose roles are offered. Omit for global defaults (free-form role names). */
+    orgId?: string;
     fieldIdPrefix: string;
-    /** "Create missing roles" checkbox, only shown for a raw expression. */
+    showFreeformRoleNamesHint?: boolean;
+    /** "Create missing roles" checkbox, only shown for a raw expression unless `createMissingRolesInAnyMode`. */
     createMissingRoles?: boolean;
     onCreateMissingRolesChange?: (checked: boolean) => void;
+    createMissingRolesInAnyMode?: boolean;
 };
 
 /** Role mapping (and optionally org mapping) editors, used for JIT, sync, or both when the mappings are linked. */
@@ -42,8 +45,10 @@ export default function IdpMappingTabs({
     orgMappingField,
     orgId,
     fieldIdPrefix,
+    showFreeformRoleNamesHint,
     createMissingRoles,
-    onCreateMissingRolesChange
+    onCreateMissingRolesChange,
+    createMissingRolesInAnyMode
 }: IdpMappingTabsProps) {
     const t = useTranslations();
 
@@ -51,6 +56,7 @@ export default function IdpMappingTabs({
         <div className="space-y-4 mt-4 p-1">
             <RoleMappingConfigFields
                 fieldIdPrefix={fieldIdPrefix}
+                showFreeformRoleNamesHint={showFreeformRoleNamesHint}
                 orgId={orgId}
                 roles={roles}
                 roleMappingMode={roleMapping.mode}
@@ -87,6 +93,7 @@ export default function IdpMappingTabs({
                 }
                 createMissingRoles={createMissingRoles}
                 onCreateMissingRolesChange={onCreateMissingRolesChange}
+                createMissingRolesInAnyMode={createMissingRolesInAnyMode}
             />
         </div>
     );
@@ -114,7 +121,12 @@ export default function IdpMappingTabs({
                     name={orgMappingField.name}
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>{t("orgMappingPathOptional")}</FormLabel>
+                            <FormLabel>
+                                {t(
+                                    orgMappingField.labelKey ??
+                                        "orgMappingPathOptional"
+                                )}
+                            </FormLabel>
                             <FormControl>
                                 <Input
                                     {...field}

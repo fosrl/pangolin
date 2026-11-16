@@ -10,6 +10,8 @@ import { RoleMappingConfig } from "@app/lib/idpRoleMapping";
 import { useTranslations } from "next-intl";
 import type { Dispatch, SetStateAction } from "react";
 import { useFormContext } from "react-hook-form";
+import { Alert, AlertDescription } from "@app/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 
 export type IdpUserProvisioningFormValues = IdpProvisioningMethodFormValues & {
     mappingsLinked: boolean;
@@ -111,6 +113,12 @@ export default function IdpUserProvisioningFields({
                         />
                     ) : (
                         <>
+                            <Alert variant="warning">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
+                                    {t("idpMappingsSeparateWarning")}
+                                </AlertDescription>
+                            </Alert>
                             {showJitMappings && (
                                 <div className="space-y-2">
                                     <h4 className="text-sm font-medium">

@@ -18,6 +18,10 @@ export interface PolicyRow {
     roleMapping?: string;
     orgMapping?: string;
     createMissingRoles?: boolean;
+    syncRoleMapping?: string | null;
+    syncOrgMapping?: string | null;
+    syncCreateMissingRoles?: boolean;
+    mappingsLinked?: boolean;
 }
 
 interface Props {
