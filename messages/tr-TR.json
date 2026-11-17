@@ -1398,6 +1398,7 @@
     "actionDeleteIdpOrg": "Kimlik Sağlayıcı Organizasyon Politikasını Sil",
     "actionListIdpOrgs": "Kimlik Sağlayıcı Organizasyonları Listele",
     "actionUpdateIdpOrg": "Kimlik Sağlayıcı Organizasyonu Güncelle",
+    "actionCreateUserSession": "Create User Session",
     "actionCreateClient": "Müşteri Oluştur",
     "actionDeleteClient": "Müşteri Sil",
     "actionArchiveClient": "İstemci Arşivle",
