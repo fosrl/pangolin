@@ -12,6 +12,7 @@
  */
 
 import {
+    clientOrgRoles,
     db,
     roleClientSettings,
     RoleClientSettings,
@@ -58,6 +59,13 @@ function toClientSettings(row: RoleClientSettings): ClientSettings {
     return settings;
 }
 
+function isClientSettingsLicensed(orgId: string): Promise<boolean> {
+    return isLicensedOrSubscribed(
+        orgId,
+        tierMatrix[TierFeature.ClientSettings]
+    );
+}
+
 // Resolves the settings a user gets in the org. Settings are never merged
 // across roles: a user with several enabled roles gets exactly one of them,
 // the one with the lowest roleId, so the result is deterministic.
@@ -65,11 +73,7 @@ export async function getClientSettingsForUser(
     orgId: string,
     userId: string
 ): Promise<ClientSettings | undefined> {
-    const licensed = await isLicensedOrSubscribed(
-        orgId,
-        tierMatrix[TierFeature.ClientSettings]
-    );
-    if (!licensed) {
+    if (!(await isClientSettingsLicensed(orgId))) {
         return undefined;
     }
 
@@ -88,6 +92,43 @@ export async function getClientSettingsForUser(
             )
         )
         .orderBy(asc(userOrgRoles.roleId))
+        .limit(1);
+
+    return row ? toClientSettings(row.settings) : undefined;
+}
+
+// Resolves the settings a client gets. A user device gets its user's settings;
+// a machine client gets the settings of the roles assigned to it directly
+// (clientOrgRoles), picked the same way as for users: the enabled role with
+// the lowest roleId.
+export async function getClientSettingsForClient(client: {
+    clientId: number;
+    orgId: string;
+    userId: string | null;
+}): Promise<ClientSettings | undefined> {
+    if (client.userId) {
+        return getClientSettingsForUser(client.orgId, client.userId);
+    }
+
+    if (!(await isClientSettingsLicensed(client.orgId))) {
+        return undefined;
+    }
+
+    const [row] = await db
+        .select({ settings: roleClientSettings })
+        .from(clientOrgRoles)
+        .innerJoin(
+            roleClientSettings,
+            eq(clientOrgRoles.roleId, roleClientSettings.roleId)
+        )
+        .where(
+            and(
+                eq(clientOrgRoles.orgId, client.orgId),
+                eq(clientOrgRoles.clientId, client.clientId),
+                eq(roleClientSettings.enabled, true)
+            )
+        )
+        .orderBy(asc(clientOrgRoles.roleId))
         .limit(1);
 
     return row ? toClientSettings(row.settings) : undefined;

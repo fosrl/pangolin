@@ -1205,7 +1205,7 @@
     "accessRoleInferenceBudget": "AI Budget",
     "accessRoleInferenceBudgetDescription": "Configure how members of this role restrict AI usage based on spending or token limits",
     "accessRoleClientSettings": "Client Settings",
-    "accessRoleClientSettingsDescription": "Manage tunnel settings for the Pangolin clients of users in this role. Clients fetch these settings each time they connect. A user with several roles that manage settings gets the settings of the oldest of those roles; settings are not combined across roles.",
+    "accessRoleClientSettingsDescription": "Manage tunnel settings for the Pangolin clients of users in this role and for machine clients assigned to it. Clients fetch these settings each time they connect. A user or machine client with several roles that manage settings gets the settings of the oldest of those roles; settings are not combined across roles.",
     "clientSettingsEnabled": "Manage settings from the server",
     "clientSettingsEnabledDescription": "When off, this role does not change any client settings and clients keep their own.",
     "clientSettingsUnmanaged": "Set by client",
