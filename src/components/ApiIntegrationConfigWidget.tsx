@@ -6,9 +6,10 @@ import { SwitchInput } from "@app/components/SwitchInput";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { useTranslations } from "next-intl";
+import type { APIIntegrationVariant } from "@app/lib/idpApiConfig";
 
 type ApiIntegrationConfigWidgetProps = {
-    variant: "google" | "azure";
+    variant: APIIntegrationVariant;
     apiIntegrationEnabled: boolean;
     onApiIntegrationEnabledChange: (checked: boolean) => void;
     /** Service account of the stored Google key, the key field becomes optional when set. */

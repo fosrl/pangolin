@@ -52,6 +52,7 @@ import { RefreshCwIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -290,10 +291,10 @@ export default function GeneralPage() {
                 allowManualProvisioning: data.allowManualProvisioning,
                 autoProvision: data.autoProvision,
                 apiIntegrationEnabled:
-                    (variant === "google" || variant === "azure") &&
+                    supportsApiIntegration(variant) &&
                     data.apiIntegrationEnabled,
                 directorySyncEnabled:
-                    (variant === "google" || variant === "azure") &&
+                    supportsApiIntegration(variant) &&
                     data.apiIntegrationEnabled &&
                     data.directorySyncEnabled,
                 directorySyncDeletions: data.directorySyncDeletions,
@@ -488,7 +489,7 @@ export default function GeneralPage() {
                     </SettingsSectionBody>
                 </SettingsSection>
 
-                {(variant === "google" || variant === "azure") && (
+                {supportsApiIntegration(variant) && (
                     <SettingsSection>
                         <SettingsSectionHeader>
                             <SettingsSectionTitle>
@@ -551,10 +552,9 @@ export default function GeneralPage() {
                                 id="general-settings-form"
                             >
                                 <IdpProvisioningMethodFields
-                                    syncAvailable={
-                                        variant === "google" ||
-                                        variant === "azure"
-                                    }
+                                    syncAvailable={supportsApiIntegration(
+                                        variant
+                                    )}
                                     jitPaywalled={false}
                                 />
                                 {(form.watch("autoProvision") ||

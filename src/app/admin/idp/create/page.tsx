@@ -43,6 +43,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 export default function Page() {
     const { env } = useEnvContext();
@@ -53,40 +54,44 @@ export default function Page() {
     const { isPaidUser } = usePaidStatus();
     const templatesPaid = isPaidUser(tierMatrix.orgOidc);
 
-    const createIdpFormSchema = z.object({
-        name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
-        type: z.enum(["oidc", "google", "azure"]),
-        clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
-        clientSecret: z
-            .string()
-            .min(1, { message: t("idpClientSecretRequired") }),
-        authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }).optional(),
-        tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }).optional(),
-        identifierPath: z
-            .string()
-            .min(1, { message: t("idpPathRequired") })
-            .optional(),
-        emailPath: z.string().optional(),
-        namePath: z.string().optional(),
-        scopes: z
-            .string()
-            .min(1, { message: t("idpScopeRequired") })
-            .optional(),
-        tenantId: z.string().optional(),
-        allowManualProvisioning: z.boolean().default(true),
-        autoProvision: z.boolean().default(false),
-        apiIntegrationEnabled: z.boolean().default(false),
-        directorySyncEnabled: z.boolean().default(false),
-        directorySyncDeletions: z.boolean().default(true),
-        ...googleDirectorySyncFormFields
-    }).superRefine((data, ctx) => {
-        if (data.type === "google") {
-            refineGoogleDirectorySyncFields(data, ctx, {
-                keyRequired: true,
-                t
-            });
-        }
-    });
+    const createIdpFormSchema = z
+        .object({
+            name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
+            type: z.enum(["oidc", "google", "azure"]),
+            clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
+            clientSecret: z
+                .string()
+                .min(1, { message: t("idpClientSecretRequired") }),
+            authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }).optional(),
+            tokenUrl: z
+                .url({ message: t("idpErrorTokenUrlInvalid") })
+                .optional(),
+            identifierPath: z
+                .string()
+                .min(1, { message: t("idpPathRequired") })
+                .optional(),
+            emailPath: z.string().optional(),
+            namePath: z.string().optional(),
+            scopes: z
+                .string()
+                .min(1, { message: t("idpScopeRequired") })
+                .optional(),
+            tenantId: z.string().optional(),
+            allowManualProvisioning: z.boolean().default(true),
+            autoProvision: z.boolean().default(false),
+            apiIntegrationEnabled: z.boolean().default(false),
+            directorySyncEnabled: z.boolean().default(false),
+            directorySyncDeletions: z.boolean().default(true),
+            ...googleDirectorySyncFormFields
+        })
+        .superRefine((data, ctx) => {
+            if (data.type === "google") {
+                refineGoogleDirectorySyncFields(data, ctx, {
+                    keyRequired: true,
+                    t
+                });
+            }
+        });
 
     type CreateIdpFormValues = z.infer<typeof createIdpFormSchema>;
 
@@ -116,8 +121,7 @@ export default function Page() {
     });
 
     const watchedType = form.watch("type");
-    const apiIntegrationAvailable =
-        watchedType === "google" || watchedType === "azure";
+    const apiIntegrationAvailable = supportsApiIntegration(watchedType);
     const templatesLocked =
         !templatesPaid && (watchedType === "google" || watchedType === "azure");
 
@@ -140,8 +144,7 @@ export default function Page() {
                 tokenUrl = tokenUrl?.replace("{{TENANT_ID}}", data.tenantId);
             }
 
-            const apiIntegrationSupported =
-                data.type === "google" || data.type === "azure";
+            const apiIntegrationSupported = supportsApiIntegration(data.type);
             const payload: Record<string, unknown> = {
                 name: data.name,
                 clientId: data.clientId,
@@ -256,7 +259,6 @@ export default function Page() {
                                                 </FormItem>
                                             )}
                                         />
-
                                     </form>
                                 </Form>
                             </SettingsSectionForm>

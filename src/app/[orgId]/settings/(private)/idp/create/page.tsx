@@ -54,6 +54,10 @@ import {
     effectiveCreateMissingRoles,
     RoleMappingConfig
 } from "@app/lib/idpRoleMapping";
+import {
+    supportsApiIntegration,
+    type APIIntegrationVariant
+} from "@app/lib/idpApiConfig";
 
 export default function Page() {
     const { env } = useEnvContext();
@@ -72,47 +76,51 @@ export default function Page() {
 
     const params = useParams();
 
-    const createIdpFormSchema = z.object({
-        name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
-        type: z.enum(["oidc", "google", "azure"]),
-        clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
-        clientSecret: z
-            .string()
-            .min(1, { message: t("idpClientSecretRequired") }),
-        authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }).optional(),
-        tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }).optional(),
-        identifierPath: z
-            .string()
-            .min(1, { message: t("idpPathRequired") })
-            .optional(),
-        emailPath: z.string().optional(),
-        namePath: z.string().optional(),
-        scopes: z
-            .string()
-            .min(1, { message: t("idpScopeRequired") })
-            .optional(),
-        tenantId: z.string().optional(),
-        apiIntegrationEnabled: z.boolean().default(false),
-        allowManualProvisioning: z.boolean().default(true),
-        autoProvision: z.boolean().default(false),
-        roleMapping: z.string().nullable().optional(),
-        roleId: z.number().nullable().optional(),
-        orgMapping: z.string().optional(),
-        syncOrgMapping: z.string().optional(),
-        mappingsLinked: z.boolean().default(true),
-        createMissingRoles: z.boolean().default(false),
-        syncCreateMissingRoles: z.boolean().default(false),
-        directorySyncEnabled: z.boolean().default(false),
-        directorySyncDeletions: z.boolean().default(true),
-        ...googleDirectorySyncFormFields
-    }).superRefine((data, ctx) => {
-        if (data.type === "google") {
-            refineGoogleDirectorySyncFields(data, ctx, {
-                keyRequired: true,
-                t
-            });
-        }
-    });
+    const createIdpFormSchema = z
+        .object({
+            name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
+            type: z.enum(["oidc", "google", "azure"]),
+            clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
+            clientSecret: z
+                .string()
+                .min(1, { message: t("idpClientSecretRequired") }),
+            authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }).optional(),
+            tokenUrl: z
+                .url({ message: t("idpErrorTokenUrlInvalid") })
+                .optional(),
+            identifierPath: z
+                .string()
+                .min(1, { message: t("idpPathRequired") })
+                .optional(),
+            emailPath: z.string().optional(),
+            namePath: z.string().optional(),
+            scopes: z
+                .string()
+                .min(1, { message: t("idpScopeRequired") })
+                .optional(),
+            tenantId: z.string().optional(),
+            apiIntegrationEnabled: z.boolean().default(false),
+            allowManualProvisioning: z.boolean().default(true),
+            autoProvision: z.boolean().default(false),
+            roleMapping: z.string().nullable().optional(),
+            roleId: z.number().nullable().optional(),
+            orgMapping: z.string().optional(),
+            syncOrgMapping: z.string().optional(),
+            mappingsLinked: z.boolean().default(true),
+            createMissingRoles: z.boolean().default(false),
+            syncCreateMissingRoles: z.boolean().default(false),
+            directorySyncEnabled: z.boolean().default(false),
+            directorySyncDeletions: z.boolean().default(true),
+            ...googleDirectorySyncFormFields
+        })
+        .superRefine((data, ctx) => {
+            if (data.type === "google") {
+                refineGoogleDirectorySyncFields(data, ctx, {
+                    keyRequired: true,
+                    t
+                });
+            }
+        });
 
     type CreateIdpFormValues = z.infer<typeof createIdpFormSchema>;
 
@@ -219,12 +227,12 @@ export default function Page() {
                 emailPath: data.emailPath,
                 namePath: data.namePath,
                 apiIntegrationEnabled:
-                    (data.type === "google" || data.type === "azure") &&
+                    supportsApiIntegration(data.type) &&
                     data.apiIntegrationEnabled,
                 allowManualProvisioning: data.allowManualProvisioning,
                 autoProvision: data.autoProvision,
                 directorySyncEnabled:
-                    (data.type === "google" || data.type === "azure") &&
+                    supportsApiIntegration(data.type) &&
                     data.apiIntegrationEnabled &&
                     data.directorySyncEnabled,
                 syncRoleMapping: syncRoleMappingExpression || null,
@@ -250,8 +258,7 @@ export default function Page() {
                 variant: data.type
             };
             if (data.type === "google") {
-                payload.apiConfig =
-                    buildGoogleIDPAPIConfig(data);
+                payload.apiConfig = buildGoogleIDPAPIConfig(data);
             }
             const trimmedOrgMapping = data.orgMapping?.trim();
             if (trimmedOrgMapping) {
@@ -363,8 +370,7 @@ export default function Page() {
                     </SettingsSection>
 
                     {/* API Integration */}
-                    {(form.watch("type") === "google" ||
-                        form.watch("type") === "azure") && (
+                    {supportsApiIntegration(form.watch("type")) && (
                         <SettingsSection>
                             <SettingsSectionHeader>
                                 <SettingsSectionTitle>
@@ -383,9 +389,9 @@ export default function Page() {
                                     >
                                         <ApiIntegrationConfigWidget
                                             variant={
-                                                form.watch("type") as
-                                                    | "google"
-                                                    | "azure"
+                                                form.watch(
+                                                    "type"
+                                                ) as APIIntegrationVariant
                                             }
                                             apiIntegrationEnabled={
                                                 form.watch(
@@ -430,10 +436,9 @@ export default function Page() {
                                     onSubmit={form.handleSubmit(onSubmit)}
                                 >
                                     <IdpUserProvisioningFields
-                                        syncAvailable={
-                                            form.watch("type") === "google" ||
-                                            form.watch("type") === "azure"
-                                        }
+                                        syncAvailable={supportsApiIntegration(
+                                            form.watch("type")
+                                        )}
                                         orgId={params.orgId as string}
                                         roles={roles}
                                         jitRoleMapping={roleMapping}

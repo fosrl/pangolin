@@ -62,6 +62,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { RefreshCwIcon } from "lucide-react";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -435,12 +436,12 @@ export default function GeneralPage() {
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
                 apiIntegrationEnabled:
-                    (variant === "google" || variant === "azure") &&
+                    supportsApiIntegration(variant) &&
                     data.apiIntegrationEnabled,
                 allowManualProvisioning: data.allowManualProvisioning,
                 autoProvision: data.autoProvision,
                 directorySyncEnabled:
-                    (variant === "google" || variant === "azure") &&
+                    supportsApiIntegration(variant) &&
                     data.apiIntegrationEnabled &&
                     data.directorySyncEnabled,
                 roleMapping: roleMappingExpression,
@@ -668,7 +669,7 @@ export default function GeneralPage() {
                 </SettingsSection>
 
                 {/* API Integration */}
-                {(variant === "google" || variant === "azure") && (
+                {supportsApiIntegration(variant) && (
                     <SettingsSection>
                         <SettingsSectionHeader>
                             <SettingsSectionTitle>
@@ -731,10 +732,9 @@ export default function GeneralPage() {
                                 id="general-settings-form"
                             >
                                 <IdpUserProvisioningFields
-                                    syncAvailable={
-                                        variant === "google" ||
-                                        variant === "azure"
-                                    }
+                                    syncAvailable={supportsApiIntegration(
+                                        variant
+                                    )}
                                     orgId={orgId as string}
                                     roles={roles}
                                     jitRoleMapping={roleMapping}

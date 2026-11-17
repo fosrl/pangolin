@@ -68,6 +68,7 @@ import {
 } from "@app/lib/idpRoleMapping";
 import { globalIdpQueries, orgQueries } from "@app/lib/queries";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 function loadRoleMapping(
     stored: string | null | undefined,
@@ -113,7 +114,7 @@ function compileMappings(m: {
 function isSyncEnabled(data: GetIdpResponse) {
     const variant = data.idpOidcConfig?.variant;
     return (
-        (variant === "google" || variant === "azure") &&
+        supportsApiIntegration(variant) &&
         data.idp.apiIntegrationEnabled &&
         data.idp.directorySyncEnabled
     );
@@ -203,7 +204,9 @@ export default function PoliciesPage() {
             )
         );
         setPolicyCreateMissingRoles(policy?.createMissingRoles ?? false);
-        setPolicySyncCreateMissingRoles(policy?.syncCreateMissingRoles ?? false);
+        setPolicySyncCreateMissingRoles(
+            policy?.syncCreateMissingRoles ?? false
+        );
         setPolicyMappingsLinked(policy?.mappingsLinked ?? true);
     }
 
@@ -279,7 +282,9 @@ export default function PoliciesPage() {
     if (loadError) {
         return (
             <Alert variant="destructive">
-                <AlertDescription>{formatAxiosError(loadError)}</AlertDescription>
+                <AlertDescription>
+                    {formatAxiosError(loadError)}
+                </AlertDescription>
             </Alert>
         );
     }
@@ -622,9 +627,7 @@ function DefaultMappingsSection({
             <SettingsSectionBody>
                 <Form {...defaultMappingsForm}>
                     <form
-                        onSubmit={defaultMappingsForm.handleSubmit(
-                            onSubmit
-                        )}
+                        onSubmit={defaultMappingsForm.handleSubmit(onSubmit)}
                         id="policy-default-mappings-form"
                         className="space-y-6"
                     >
@@ -651,26 +654,21 @@ function DefaultMappingsSection({
                             }}
                             jit={{
                                 roleMapping: defaultRoleMapping,
-                                onRoleMappingChange:
-                                    setDefaultRoleMapping,
+                                onRoleMappingChange: setDefaultRoleMapping,
                                 orgMappingField: {
-                                    control:
-                                        defaultMappingsForm.control,
+                                    control: defaultMappingsForm.control,
                                     name: "defaultOrgMapping",
                                     labelKey: "defaultMappingsOrg"
                                 },
-                                createMissingRoles:
-                                    defaultCreateMissingRoles,
+                                createMissingRoles: defaultCreateMissingRoles,
                                 onCreateMissingRolesChange:
                                     setDefaultCreateMissingRoles
                             }}
                             sync={{
                                 roleMapping: defaultSyncRoleMapping,
-                                onRoleMappingChange:
-                                    setDefaultSyncRoleMapping,
+                                onRoleMappingChange: setDefaultSyncRoleMapping,
                                 orgMappingField: {
-                                    control:
-                                        defaultMappingsForm.control,
+                                    control: defaultMappingsForm.control,
                                     name: "defaultSyncOrgMapping",
                                     labelKey: "defaultMappingsOrg"
                                 },
