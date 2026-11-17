@@ -48,6 +48,8 @@ import HttpCode from "@server/types/HttpCode";
 import { Router } from "express";
 import { ActionsEnum } from "@server/auth/actions";
 import { logActionAudit } from "#dynamic/middlewares";
+import { build } from "@server/build";
+import config from "@server/lib/config";
 
 export const unauthenticated = Router();
 
@@ -1393,6 +1395,20 @@ authenticated.post(
     logActionAudit(ActionsEnum.updateIdp),
     idp.updateOidcIdp
 );
+
+// Bridge an already-authenticated external IdP session into Pangolin by minting
+// a user session token for a pre-provisioned user. This is a highly privileged,
+// impersonation-capable route, so it is root-key gated (not org-scoped), off by
+// default behind flags.enable_idp_create_session, and self-hosted only.
+if (build !== "saas" && config.getRawConfig().flags?.enable_idp_create_session) {
+    authenticated.post(
+        "/idp/:idpId/oidc/create-session",
+        verifyApiKeyIsRoot,
+        verifyApiKeyHasAction(ActionsEnum.createIdpSession),
+        logActionAudit(ActionsEnum.createIdpSession),
+        idp.createIdpSession
+    );
+}
 
 authenticated.get(
     "/idp", // no guards on this because anyone can list idps for login purposes
