@@ -1398,6 +1398,7 @@
     "actionDeleteIdpOrg": "Slet IdP-organisationspolitik",
     "actionListIdpOrgs": "Vis IdP-organisationer",
     "actionUpdateIdpOrg": "Opdater IdP-organisation",
+    "actionCreateUserSession": "Create User Session",
     "actionCreateClient": "Opret Klient",
     "actionDeleteClient": "Slet klient",
     "actionArchiveClient": "Arkiver klient",
