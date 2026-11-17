@@ -255,13 +255,12 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
     - The sync job skips orgs that aren't entitled. The JIT group fetch ([enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts)) checks the org's plan for an org IdP and the license for a global IdP. `POST /org/:orgId/idp/:idpId/sync` has `verifyValidLicense` + `verifyValidSubscription`.
     - UI: [ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx) shows the `PaidFeaturesAlert`, and it and the Sync toggle can't be turned on without the plan (only off). "Sync now" is hidden without the plan.
 
+18. ✅ **One list of API-capable providers.** `API_INTEGRATION_VARIANTS` and `supportsApiIntegration(variant)` in [idpApiConfig.ts](src/lib/idpApiConfig.ts), used by the server routes, the sync job and the UI pages. The provider classes are looked up in `idpAPIProviderClasses` / `getIDPAPIProvider` ([providers.ts](server/private/lib/idpAPI/providers.ts)), used by the sync job and the JIT group fetch. Adding a provider means adding it to the list and to the map (TypeScript fails until both are done).
+    - Not changed on purpose: the paid Google/Azure *templates* checks (`templatesPaid`, `OidcIdpProviderTypeSelect`), which are about the provider templates and not the API integration, and the provider-specific sections (`variant === "google"`).
+
 ### Left to do
 
-1. **One place that says which providers support the API integration.** Today "google or azure" is written out by hand in many places, for example `existing.variant !== "google" && existing.variant !== "azure"` in [syncIdp.ts](server/private/routers/idp/syncIdp.ts). Adding a provider (Okta, …) means finding every one of them.
-   - Add a single list of API-capable variants, plus a helper like `supportsApiIntegration(variant)`, shared by the server and the UI.
-   - Server: [syncIdp.ts](server/private/routers/idp/syncIdp.ts), [syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts) (the variant filter and the `switch` that builds the provider), [createOidcIdp.ts](server/routers/idp/createOidcIdp.ts), [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts), [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts).
-   - UI: the org and admin IdP create and settings pages, the admin policies page, [ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx), [idpApiConfig.ts](src/lib/idpApiConfig.ts).
-   - The provider classes could be looked up from one map (variant → provider), like `providerMap` in [enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts), instead of a `switch` in each caller.
+Nothing before merging.
 
 ### After merging 
 
