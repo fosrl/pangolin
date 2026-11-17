@@ -1398,6 +1398,7 @@
     "actionDeleteIdpOrg": "Eliminar Política de Organização IDP",
     "actionListIdpOrgs": "Listar Organizações IDP",
     "actionUpdateIdpOrg": "Atualizar Organização IDP",
+    "actionCreateUserSession": "Create User Session",
     "actionCreateClient": "Criar Cliente",
     "actionDeleteClient": "Excluir Cliente",
     "actionArchiveClient": "Arquivar Cliente",
