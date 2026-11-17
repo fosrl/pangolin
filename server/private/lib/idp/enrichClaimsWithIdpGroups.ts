@@ -11,14 +11,37 @@
  * This file is not licensed under the AGPLv3.
  */
 
+import license from "#private/license/license";
 import { AzureDirectorySyncProvider } from "#private/lib/idpAPI/azure";
-import { ensureValidIdp } from "#private/lib/idpAPI/ensureValidIdp";
 import { GoogleDirectorySyncProvider } from "#private/lib/idpAPI/google";
 import type { IDPAPIProvider } from "#private/lib/idpAPI/types";
 import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
-import type { Idp, IdpOidcConfig } from "@server/db";
+import { db, idpOrg, type Idp, type IdpOidcConfig } from "@server/db";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { isOrgIdentityProviderMode } from "@server/lib/idp/idpExistsForOrg";
 import logger from "@server/logger";
+import { eq } from "drizzle-orm";
+
+/**
+ * An org IdP follows its org's plan. A global IdP isn't tied to one org (and may
+ * have no `idpOrg` row yet), so it only needs a license, like its settings.
+ */
+async function isEntitledToIdpAPI(idpId: number): Promise<boolean> {
+    if (!isOrgIdentityProviderMode()) {
+        return license.isUnlocked();
+    }
+
+    const [policy] = await db
+        .select({ orgId: idpOrg.orgId })
+        .from(idpOrg)
+        .where(eq(idpOrg.idpId, idpId))
+        .limit(1);
+    if (!policy) {
+        return false;
+    }
+
+    return isLicensedOrSubscribed(policy.orgId, tierMatrix.idpAPIIntegration);
+}
 
 /**
  * Adds the user's groups fetched from the IdP API to the ID token claims, as
@@ -54,17 +77,11 @@ export async function enrichClaimsWithIdpGroups(
     }
 
     try {
-        const idpRes = await ensureValidIdp(idp.idpId, variant);
-
-        const isEntitled = await isLicensedOrSubscribed(
-            idpRes.idpOrg.orgId,
-            tierMatrix.idpAPIIntegration
-        );
-        if (!isEntitled) {
+        if (!(await isEntitledToIdpAPI(idp.idpId))) {
             return claims;
         }
 
-        const provider = new providerType(idpRes);
+        const provider = new providerType({ idp, idpOidcConfig });
 
         const externalId = provider.externalIdFromClaims(claims);
         if (!externalId) {

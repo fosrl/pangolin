@@ -11,7 +11,7 @@
  * This file is not licensed under the AGPLv3.
  */
 
-import type { IdpDbResponse } from "./ensureValidIdp";
+import type { Idp, IdpOidcConfig } from "@server/db";
 
 // Provider-neutral shapes used by the directory sync engine (runSync.ts).
 // Each provider (Azure, Google, ...) turns its API into these.
@@ -47,7 +47,7 @@ export type DirectoryFetchContext = {
 };
 
 /** Providers only need the IdP and its OIDC config, global IdPs may have no `idpOrg` row. */
-export type IDPAPIProviderIdp = Pick<IdpDbResponse, "idp" | "idpOidcConfig">;
+export type IDPAPIProviderIdp = { idp: Idp; idpOidcConfig: IdpOidcConfig };
 
 export abstract class IDPAPIProvider {
     constructor(public readonly idp: IDPAPIProviderIdp) {}
@@ -61,5 +61,7 @@ export abstract class IDPAPIProvider {
     abstract toClaims(user: IDPDirectoryUser): object;
 
     /** Reads the provider's immutable user ID (`externalId`) from ID token claims. */
-    abstract externalIdFromClaims(claims: Record<string, unknown>): string | null;
+    abstract externalIdFromClaims(
+        claims: Record<string, unknown>
+    ): string | null;
 }
