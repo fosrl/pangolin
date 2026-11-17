@@ -6,6 +6,22 @@ import { z } from "zod";
 
 export type IDPAPIVariant = "oidc" | "google" | "azure";
 
+/**
+ * The variants with an IdP API integration (JIT group fetch and directory sync).
+ * Adding a provider here also needs its class in `idpAPIProviderClasses` (server).
+ */
+export const API_INTEGRATION_VARIANTS = ["google", "azure"] as const;
+
+export type APIIntegrationVariant = (typeof API_INTEGRATION_VARIANTS)[number];
+
+export function supportsApiIntegration(
+    variant: string | null | undefined
+): variant is APIIntegrationVariant {
+    return (API_INTEGRATION_VARIANTS as readonly string[]).includes(
+        variant ?? ""
+    );
+}
+
 export const googleServiceAccountKeySchema = z.object({
     type: z.literal("service_account"),
     client_email: z.email(),
@@ -21,9 +37,7 @@ export const googleIDPAPIConfigSchema = z.strictObject({
     customerId: z.string().nonempty().optional()
 });
 
-export type GoogleIDPAPIConfig = z.output<
-    typeof googleIDPAPIConfigSchema
->;
+export type GoogleIDPAPIConfig = z.output<typeof googleIDPAPIConfigSchema>;
 
 export const idpAPIConfigSchemas = {
     google: googleIDPAPIConfigSchema

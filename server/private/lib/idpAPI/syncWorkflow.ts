@@ -37,8 +37,8 @@ import logger from "@server/logger";
 import { UserType } from "@server/types/UserTypes";
 import { and, eq, inArray, sql, type InferInsertModel } from "drizzle-orm";
 import jmespath from "jmespath";
-import { AzureDirectorySyncProvider } from "./azure";
-import { GoogleDirectorySyncProvider } from "./google";
+import { getIDPAPIProvider } from "./providers";
+import { API_INTEGRATION_VARIANTS } from "@app/lib/idpApiConfig";
 import type {
     IDPAPIProvider,
     IDPDirectoryFetchResult,
@@ -169,7 +169,7 @@ export async function runIdpDirectorySync({
         .innerJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId))
         .where(
             and(
-                inArray(idpOidcConfig.variant, ["azure", "google"]),
+                inArray(idpOidcConfig.variant, [...API_INTEGRATION_VARIANTS]),
                 eq(idp.apiIntegrationEnabled, true),
                 dryRun ? undefined : eq(idp.directorySyncEnabled, true),
                 idpId === undefined ? undefined : eq(idp.idpId, idpId)
@@ -178,16 +178,9 @@ export async function runIdpDirectorySync({
 
     const results: IdpOrgSyncResult[] = [];
     for (const data of idpsToSync) {
-        let provider: IDPAPIProvider;
-        switch (data.idpOidcConfig.variant) {
-            case "azure":
-                provider = new AzureDirectorySyncProvider(data);
-                break;
-            case "google":
-                provider = new GoogleDirectorySyncProvider(data);
-                break;
-            default:
-                continue;
+        const provider = getIDPAPIProvider(data);
+        if (!provider) {
+            continue;
         }
 
         // fetched once per IdP, on the first org that needs it, and reused for the others

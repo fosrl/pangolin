@@ -30,6 +30,7 @@ import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
 import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 const paramsSchema = z.strictObject({ orgId: z.string().nonempty() });
 
@@ -162,8 +163,7 @@ export async function createOrgOidcIdp(
         }
 
         // the API integration (and sync, which needs it) is only supported for google/azure idps
-        const apiIntegrationSupported =
-            variant === "google" || variant === "azure";
+        const apiIntegrationSupported = supportsApiIntegration(variant);
         const effectiveApiIntegrationEnabled =
             apiIntegrationSupported && !!apiIntegrationEnabled;
         const effectiveDirectorySyncEnabled =

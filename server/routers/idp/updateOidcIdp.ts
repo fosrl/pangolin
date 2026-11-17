@@ -14,6 +14,7 @@ import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
 import license from "#dynamic/license/license";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 const paramsSchema = z
     .object({
@@ -180,7 +181,7 @@ export async function updateOidcIdp(
 
         // the API integration (and sync, which needs it) is only supported for google/azure idps
         const apiIntegrationSupported =
-            effectiveVariant === "google" || effectiveVariant === "azure";
+            supportsApiIntegration(effectiveVariant);
         // omitted flags keep their stored value
         const effectiveApiIntegrationEnabled =
             apiIntegrationSupported &&

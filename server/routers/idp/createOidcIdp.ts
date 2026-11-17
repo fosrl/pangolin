@@ -14,6 +14,7 @@ import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
 import license from "#dynamic/license/license";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 const bodySchema = z.strictObject({
     name: z.string().nonempty(),
@@ -117,8 +118,7 @@ export async function createOidcIdp(
         }
 
         // the API integration (and sync, which needs it) is only supported for google/azure idps
-        const apiIntegrationSupported =
-            variant === "google" || variant === "azure";
+        const apiIntegrationSupported = supportsApiIntegration(variant);
         const effectiveApiIntegrationEnabled =
             apiIntegrationSupported && !!apiIntegrationEnabled;
         const effectiveDirectorySyncEnabled =

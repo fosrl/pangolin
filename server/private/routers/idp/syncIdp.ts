@@ -30,6 +30,7 @@ import {
     type SyncCounts,
     type SyncEntrySummary
 } from "#private/lib/idpAPI/syncSummary";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 const paramsSchema = z
     .object({
@@ -143,7 +144,7 @@ export async function syncIdp(
             );
         }
 
-        if (existing.variant !== "google" && existing.variant !== "azure") {
+        if (!supportsApiIntegration(existing.variant)) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,

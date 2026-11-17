@@ -12,9 +12,7 @@
  */
 
 import license from "#private/license/license";
-import { AzureDirectorySyncProvider } from "#private/lib/idpAPI/azure";
-import { GoogleDirectorySyncProvider } from "#private/lib/idpAPI/google";
-import type { IDPAPIProvider } from "#private/lib/idpAPI/types";
+import { getIDPAPIProvider } from "#private/lib/idpAPI/providers";
 import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { db, idpOrg, type Idp, type IdpOidcConfig } from "@server/db";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -63,16 +61,8 @@ export async function enrichClaimsWithIdpGroups(
         return claims;
     }
 
-    const providerMap = {
-        azure: AzureDirectorySyncProvider,
-        google: GoogleDirectorySyncProvider
-    } satisfies Record<string, typeof IDPAPIProvider>;
-
-    const variant = idpOidcConfig.variant;
-
-    const providerType = providerMap[variant as keyof typeof providerMap];
-
-    if (!providerType) {
+    const provider = getIDPAPIProvider({ idp, idpOidcConfig });
+    if (!provider) {
         return claims;
     }
 
@@ -80,8 +70,6 @@ export async function enrichClaimsWithIdpGroups(
         if (!(await isEntitledToIdpAPI(idp.idpId))) {
             return claims;
         }
-
-        const provider = new providerType({ idp, idpOidcConfig });
 
         const externalId = provider.externalIdFromClaims(claims);
         if (!externalId) {

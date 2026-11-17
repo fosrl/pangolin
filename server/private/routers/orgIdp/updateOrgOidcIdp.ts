@@ -30,6 +30,7 @@ import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
 import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 const paramsSchema = z
     .object({
@@ -211,9 +212,9 @@ export async function updateOrgOidcIdp(
             .where(eq(idpOidcConfig.idpId, idpId));
 
         // the API integration (and sync, which needs it) is only supported for google/azure idps
-        const apiIntegrationSupported =
-            existingOidcConfig?.variant === "google" ||
-            existingOidcConfig?.variant === "azure";
+        const apiIntegrationSupported = supportsApiIntegration(
+            existingOidcConfig?.variant
+        );
         // omitted flags keep their stored value
         const effectiveApiIntegrationEnabled =
             apiIntegrationSupported &&
