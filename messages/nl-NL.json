@@ -1398,6 +1398,7 @@
     "actionDeleteIdpOrg": "Verwijder IDP Org Beleid",
     "actionListIdpOrgs": "Toon IDP Orgs",
     "actionUpdateIdpOrg": "IDP-org bijwerken",
+    "actionCreateUserSession": "Create User Session",
     "actionCreateClient": "Client aanmaken",
     "actionDeleteClient": "Verwijder klant",
     "actionArchiveClient": "Archiveer client",
