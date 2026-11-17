@@ -1398,6 +1398,7 @@
     "actionDeleteIdpOrg": "Изтриване на политика за IdP организация",
     "actionListIdpOrgs": "Изброяване на IdP организации",
     "actionUpdateIdpOrg": "Актуализиране на IdP организация",
+    "actionCreateUserSession": "Create User Session",
     "actionCreateClient": "Създаване на клиент",
     "actionDeleteClient": "Изтриване на клиент",
     "actionArchiveClient": "Архивиране на клиента",
