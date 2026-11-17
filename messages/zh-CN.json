@@ -1398,6 +1398,7 @@
     "actionDeleteIdpOrg": "删除 IDP组织策略",
     "actionListIdpOrgs": "列出 IDP组织",
     "actionUpdateIdpOrg": "更新 IDP组织",
+    "actionCreateUserSession": "Create User Session",
     "actionCreateClient": "创建客户端",
     "actionDeleteClient": "删除客户端",
     "actionArchiveClient": "归档客户端",
