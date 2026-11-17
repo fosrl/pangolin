@@ -72,6 +72,11 @@ export const orgs = pgTable("orgs", {
     settingsLogRetentionDaysSsh: integer("settingsLogRetentionDaysSsh") // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
         .notNull()
         .default(0),
+    settingsLogRetentionDaysDnsBlock: integer(
+        "settingsLogRetentionDaysDnsBlock"
+    ) // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
+        .notNull()
+        .default(0),
     sshCaPrivateKey: text("sshCaPrivateKey"), // Encrypted SSH CA private key (PEM format)
     sshCaPublicKey: text("sshCaPublicKey"), // SSH CA public key (OpenSSH format)
     isBillingOrg: boolean("isBillingOrg"),
@@ -864,6 +869,21 @@ export const roles = pgTable(
     },
     (t) => [index("idx_roles_orgid").on(t.orgId)]
 );
+
+// Which DNS blocking categories a role turns on for its members. Ads and malware
+// blocking is a community feature; the other categories and custom lists (see
+// privateSchema.ts) need a license.
+export const roleDnsBlocking = pgTable("roleDnsBlocking", {
+    roleId: integer("roleId")
+        .primaryKey()
+        .references(() => roles.roleId, { onDelete: "cascade" }),
+    orgId: varchar("orgId", { length: 255 })
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // Off means this role blocks nothing, even if selections are saved below
+    enabled: boolean("enabled").notNull().default(false),
+    categories: text("categories").notNull().default("[]") // JSON array of category ids
+});
 
 export const userOrgRoles = pgTable(
     "userOrgRoles",
@@ -2239,3 +2259,4 @@ export type ResourceMtlsCertificate = InferSelectModel<
 export type ResourcePolicyMtlsCertificate = InferSelectModel<
     typeof resourcePolicyMtlsCertificates
 >;
+export type RoleDnsBlocking = InferSelectModel<typeof roleDnsBlocking>;

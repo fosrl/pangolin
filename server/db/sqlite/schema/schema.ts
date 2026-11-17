@@ -71,6 +71,11 @@ export const orgs = sqliteTable("orgs", {
     settingsLogRetentionDaysSsh: integer("settingsLogRetentionDaysSsh") // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
         .notNull()
         .default(0),
+    settingsLogRetentionDaysDnsBlock: integer(
+        "settingsLogRetentionDaysDnsBlock"
+    ) // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
+        .notNull()
+        .default(0),
     sshCaPrivateKey: text("sshCaPrivateKey"), // Encrypted SSH CA private key (PEM format)
     sshCaPublicKey: text("sshCaPublicKey"), // SSH CA public key (OpenSSH format)
     isBillingOrg: integer("isBillingOrg", { mode: "boolean" }),
@@ -1160,6 +1165,21 @@ export const roles = sqliteTable(
     },
     (table) => [index("idx_roles_orgId").on(table.orgId)]
 );
+
+// Which DNS blocking categories a role turns on for its members. Ads and malware
+// blocking is a community feature; the other categories and custom lists (see
+// privateSchema.ts) need a license.
+export const roleDnsBlocking = sqliteTable("roleDnsBlocking", {
+    roleId: integer("roleId")
+        .primaryKey()
+        .references(() => roles.roleId, { onDelete: "cascade" }),
+    orgId: text("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // Off means this role blocks nothing, even if selections are saved below
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+    categories: text("categories").notNull().default("[]") // JSON array of category ids
+});
 
 export const userOrgRoles = sqliteTable(
     "userOrgRoles",
@@ -2301,3 +2321,4 @@ export type ResourceMtlsCertificate = InferSelectModel<
 export type ResourcePolicyMtlsCertificate = InferSelectModel<
     typeof resourcePolicyMtlsCertificates
 >;
+export type RoleDnsBlocking = InferSelectModel<typeof roleDnsBlocking>;

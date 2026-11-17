@@ -7,6 +7,7 @@ import * as domain from "./domain";
 import * as target from "./target";
 import * as user from "./user";
 import * as role from "./role";
+import * as dnsBlocking from "./dnsBlocking";
 import * as client from "./client";
 import * as accessToken from "./accessToken";
 import * as apiKeys from "./apiKeys";
@@ -826,6 +827,28 @@ authenticated.get(
     verifyApiKeyOrgAccess,
     verifyApiKeyHasAction(ActionsEnum.listRoles),
     role.listRoles
+);
+
+authenticated.get(
+    "/org/:orgId/dns-block-categories",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.getRoleDnsBlocking),
+    dnsBlocking.listDnsBlockCategories
+);
+
+authenticated.get(
+    "/role/:roleId/dns-blocking",
+    verifyApiKeyRoleAccess,
+    verifyApiKeyHasAction(ActionsEnum.getRoleDnsBlocking),
+    dnsBlocking.getRoleDnsBlocking
+);
+
+authenticated.post(
+    "/role/:roleId/dns-blocking",
+    verifyApiKeyRoleAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateRoleDnsBlocking),
+    logActionAudit(ActionsEnum.updateRoleDnsBlocking),
+    dnsBlocking.updateRoleDnsBlocking
 );
 
 authenticated.delete(

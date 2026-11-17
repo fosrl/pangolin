@@ -26,6 +26,7 @@ import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
 } from "@server/lib/rebuildClientAssociations";
+import { pushBlocklistForClient } from "@server/lib/dnsBlocklist";
 
 const removeClientRoleParamsSchema = z.strictObject({
     clientId: z.coerce.number().int().positive(),
@@ -131,6 +132,9 @@ export async function removeClientRole(
                 `Failed to rebuild client associations for client ${clientId} after removing role: ${e}`
             );
         });
+
+        // The client's device picks up the new blocklist right away.
+        void pushBlocklistForClient(clientId);
 
         return response(res, {
             data: { clientId, orgId: role.orgId, roleId },

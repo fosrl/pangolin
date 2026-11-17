@@ -58,7 +58,8 @@ export default async function RoleLayout({
                       href: `${base}/client-settings`
                   }
               ]
-            : [])
+            : []),
+        { title: t("accessRoleDnsBlocking"), href: `${base}/dns-blocking` }
     ];
 
     return (

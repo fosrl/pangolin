@@ -6,6 +6,7 @@ import {
     cleanUpOldLogs as cleanUpOldConnectionLogs,
     cleanUpOldSshSessionLogs
 } from "#dynamic/routers/newt";
+import { cleanUpOldDnsBlockLogs } from "#dynamic/lib/dnsBlocklist/logs";
 import { cleanUpOldLogs as cleanUpOldAiSessionLogs } from "@server/routers/aiGateway/logAiSession";
 import { gt, or } from "drizzle-orm";
 import { cleanUpOldFingerprintSnapshots } from "@server/routers/olm/fingerprintingUtils";
@@ -32,7 +33,9 @@ export function initLogCleanupInterval() {
                     settingsLogRetentionDaysAISessions:
                         orgs.settingsLogRetentionDaysAISessions,
                     settingsLogRetentionDaysSsh:
-                        orgs.settingsLogRetentionDaysSsh
+                        orgs.settingsLogRetentionDaysSsh,
+                    settingsLogRetentionDaysDnsBlock:
+                        orgs.settingsLogRetentionDaysDnsBlock
                 })
                 .from(orgs)
                 .where(
@@ -42,7 +45,8 @@ export function initLogCleanupInterval() {
                         gt(orgs.settingsLogRetentionDaysRequest, 0),
                         gt(orgs.settingsLogRetentionDaysConnection, 0),
                         gt(orgs.settingsLogRetentionDaysAISessions, 0),
-                        gt(orgs.settingsLogRetentionDaysSsh, 0)
+                        gt(orgs.settingsLogRetentionDaysSsh, 0),
+                        gt(orgs.settingsLogRetentionDaysDnsBlock, 0)
                     )
                 );
 
@@ -55,7 +59,8 @@ export function initLogCleanupInterval() {
                     settingsLogRetentionDaysRequest,
                     settingsLogRetentionDaysConnection,
                     settingsLogRetentionDaysAISessions,
-                    settingsLogRetentionDaysSsh
+                    settingsLogRetentionDaysSsh,
+                    settingsLogRetentionDaysDnsBlock
                 } = org;
 
                 if (settingsLogRetentionDaysAction > 0) {
@@ -97,6 +102,13 @@ export function initLogCleanupInterval() {
                     await cleanUpOldSshSessionLogs(
                         orgId,
                         settingsLogRetentionDaysSsh
+                    );
+                }
+
+                if (settingsLogRetentionDaysDnsBlock > 0) {
+                    await cleanUpOldDnsBlockLogs(
+                        orgId,
+                        settingsLogRetentionDaysDnsBlock
                     );
                 }
             }

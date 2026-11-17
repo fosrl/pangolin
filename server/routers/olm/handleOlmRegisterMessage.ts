@@ -30,6 +30,7 @@ import {
 import { getUniqueSubnetForExitNode } from "@server/lib/exitNodes";
 import { addPeer, deletePeer } from "../gerbil/peers";
 import { formatEndpoint } from "@server/lib/ip";
+import { sendDnsBlocklistToOlm } from "@server/lib/dnsBlocklist";
 
 const HOLEPUNCH_STALE_CHAIN_THRESHOLD = 18;
 const HOLEPUNCH_STALE_CHAIN_TTL_SECONDS = 1800;
@@ -500,6 +501,14 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
             .where(eq(exitNodes.exitNodeId, exitNodeId))
             .limit(1);
     }
+
+    // Send the DNS blocklist for this user's roles. It is a separate message and
+    // is not awaited, so it never delays the connect message; olm holds on to it
+    // until its DNS proxy is up.
+    // olm was loaded when the websocket connected, before the version update
+    // above, so after a client upgrade its version is stale. Use the version the
+    // client just reported for the support check.
+    void sendDnsBlocklistToOlm(olmVersion ? { ...olm, version: olmVersion } : olm);
 
     // NOTE: its important that the client here is the old client and the public key is the new key
     await waitForClientRebuildIdle(olm.clientId);

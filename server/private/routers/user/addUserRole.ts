@@ -13,8 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import stoi from "@server/lib/stoi";
-import { clients, db, primaryDb, Client } from "@server/db";
+import { clients, db, Client } from "@server/db";
 import { userOrgRoles, userOrgs, roles } from "@server/db";
 import { eq, and } from "drizzle-orm";
 import response from "@server/lib/response";
@@ -30,6 +29,7 @@ import {
     isOrgRebuildRateLimited
 } from "@server/lib/rebuildClientAssociations";
 import { AddUserRoleResponse } from "@server/routers/user/types";
+import { pushBlocklistForUser } from "@server/lib/dnsBlocklist";
 
 const addUserRoleParamsSchema = z.strictObject({
     userId: z.string(),
@@ -170,7 +170,10 @@ export async function addUserRole(
             });
         }
 
-        return response<AddUserRoleResponse>(res, {
+        // The user's devices pick up the new blocklist right away.
+        pushBlocklistForUser(role.orgId, userId);
+
+        return response(res, {
             data: newUserRole ?? { userId, orgId: role.orgId, roleId },
             success: true,
             error: false,

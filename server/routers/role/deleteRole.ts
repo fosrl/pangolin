@@ -14,6 +14,10 @@ import {
     createApiSuccessResponses,
     NullDataSchema
 } from "@server/lib/openapi/createApiResponseSchema";
+import {
+    pushBlocklistForRoles,
+    pushBlocklistForClient
+} from "@server/lib/dnsBlocklist";
 
 const deleteRoleSchema = z.strictObject({
     roleId: z.coerce.number().int().positive()
@@ -168,6 +172,13 @@ export async function deleteRole(
                     `Failed to rebuild client associations for client ${machineClient.clientId} after deleting role ${roleId}: ${e}`
                 );
             });
+        }
+
+        // Users who had the deleted role now hold the replacement role, and
+        // machine clients lost it, so their devices need new blocklists.
+        pushBlocklistForRoles(role[0].orgId, [newRoleId]);
+        for (const machineClient of machineClientsToRebuild) {
+            pushBlocklistForClient(machineClient.clientId);
         }
 
         return response(res, {

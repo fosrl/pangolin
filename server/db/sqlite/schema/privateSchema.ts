@@ -674,6 +674,67 @@ export const roleClientSettings = sqliteTable("roleClientSettings", {
     preferLocalRoutes: integer("preferLocalRoutes", { mode: "boolean" })
 });
 
+// DNS blocking. Custom lists are a newline separated set of domains an org
+// defines itself; roles pick lists plus built-in categories.
+export const dnsBlockLists = sqliteTable(
+    "dnsBlockLists",
+    {
+        dnsBlockListId: integer("dnsBlockListId").primaryKey({
+            autoIncrement: true
+        }),
+        orgId: text("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        name: text("name").notNull(),
+        description: text("description"),
+        domains: text("domains").notNull().default(""), // newline separated
+        domainCount: integer("domainCount").notNull().default(0),
+        updatedAt: integer("updatedAt").notNull() // epoch seconds
+    },
+    (table) => [index("idx_dnsBlockLists_orgId").on(table.orgId)]
+);
+
+export const roleDnsBlockLists = sqliteTable(
+    "roleDnsBlockLists",
+    {
+        roleId: integer("roleId")
+            .notNull()
+            .references(() => roles.roleId, { onDelete: "cascade" }),
+        dnsBlockListId: integer("dnsBlockListId")
+            .notNull()
+            .references(() => dnsBlockLists.dnsBlockListId, {
+                onDelete: "cascade"
+            })
+    },
+    (table) => [
+        primaryKey({ columns: [table.roleId, table.dnsBlockListId] }),
+        index("idx_roleDnsBlockLists_list").on(table.dnsBlockListId)
+    ]
+);
+
+// Blocked DNS queries reported by olm, aggregated per client, domain and
+// reporting batch. clientId and userId are not foreign keys because this table
+// can live in a separate logs database.
+export const dnsBlockLog = sqliteTable(
+    "dnsBlockLog",
+    {
+        id: integer("id").primaryKey({ autoIncrement: true }),
+        orgId: text("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        clientId: integer("clientId"),
+        userId: text("userId"),
+        domain: text("domain").notNull(),
+        count: integer("count").notNull(),
+        timestamp: integer("timestamp").notNull() // epoch seconds, when the domain was first blocked in the batch
+    },
+    (table) => [
+        index("idx_dnsBlockLog_timestamp").on(table.timestamp),
+        index("idx_dnsBlockLog_org_timestamp").on(table.orgId, table.timestamp),
+        index("idx_dnsBlockLog_org_domain").on(table.orgId, table.domain)
+    ]
+);
+
 export const trialNotifications = sqliteTable("trialNotifications", {
     notificationId: integer("notificationId").primaryKey({
         autoIncrement: true
@@ -928,3 +989,5 @@ export type ResourceSessionReauth = InferSelectModel<
     typeof resourceSessionReauth
 >;
 export type RoleClientSettings = InferSelectModel<typeof roleClientSettings>;
+export type DnsBlockList = InferSelectModel<typeof dnsBlockLists>;
+export type DnsBlockLog = InferSelectModel<typeof dnsBlockLog>;

@@ -13,6 +13,11 @@ import {
     saveRoleClientSettings
 } from "@app/components/RoleClientSettingsFields";
 import {
+    defaultRoleDnsBlocking,
+    RoleDnsBlockingFields,
+    saveRoleDnsBlocking
+} from "@app/components/RoleDnsBlockingFields";
+import {
     RoleApprovalFields,
     roleApprovalsSchema,
     RoleClientSettingsDescription,
@@ -39,6 +44,7 @@ import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { UpdateRoleBody, UpdateRoleResponse } from "@server/routers/role";
 import type { ListAiBudgetsByScopeResponse } from "@server/routers/aiBudget/types";
 import type { RoleClientSettingsValues } from "@server/routers/role/types";
+import type { RoleDnsBlockingValues } from "@server/routers/dnsBlocking/types";
 import type { ListAllSiteResourcesByOrgResponse } from "@server/routers/siteResource";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AxiosResponse } from "axios";
@@ -403,6 +409,75 @@ export function RoleClientSettingsSettings({
                     value={settings}
                     onChange={setSettings}
                     disabled={disabled || settingsQuery.isLoading}
+                />
+            </SettingsFormCell>
+        </RoleFormSection>
+    );
+}
+
+export function RoleDnsBlockingSettings({
+    initialValues
+}: {
+    initialValues?: RoleDnsBlockingValues;
+}) {
+    const t = useTranslations();
+    const api = useRoleApi();
+    const queryClient = useQueryClient();
+    const { role } = useRoleContext();
+    const [loading, startTransition] = useTransition();
+
+    const queryKey = ["ROLE", role.roleId, "DNS_BLOCKING"] as const;
+
+    const dnsBlockingQuery = useQuery({
+        queryKey,
+        queryFn: async ({ signal }) => {
+            const res = await api.get<AxiosResponse<RoleDnsBlockingValues>>(
+                `/role/${role.roleId}/dns-blocking`,
+                { signal }
+            );
+            return res.data.data;
+        },
+        initialData: initialValues
+    });
+
+    const [values, setValues] = useState<RoleDnsBlockingValues>(
+        initialValues ?? defaultRoleDnsBlocking
+    );
+
+    useEffect(() => {
+        if (dnsBlockingQuery.data) setValues(dnsBlockingQuery.data);
+    }, [dnsBlockingQuery.data]);
+
+    function onSave() {
+        startTransition(async () => {
+            try {
+                await saveRoleDnsBlocking(api, role.roleId, values);
+                await queryClient.invalidateQueries({ queryKey });
+                toastUpdated(t);
+            } catch (e) {
+                toastUpdateError(t, e);
+            }
+        });
+    }
+
+    return (
+        <RoleFormSection
+            title={t("accessRoleDnsBlocking")}
+            description={t("accessRoleDnsBlockingDescription")}
+            footer={
+                <SaveButton
+                    loading={loading}
+                    disabled={dnsBlockingQuery.isLoading}
+                    onClick={onSave}
+                />
+            }
+        >
+            <SettingsFormCell span="full">
+                <RoleDnsBlockingFields
+                    orgId={role.orgId}
+                    value={values}
+                    onChange={setValues}
+                    disabled={dnsBlockingQuery.isLoading}
                 />
             </SettingsFormCell>
         </RoleFormSection>

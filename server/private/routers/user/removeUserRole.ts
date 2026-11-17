@@ -13,8 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import stoi from "@server/lib/stoi";
-import { db, primaryDb, Client } from "@server/db";
+import { db, Client } from "@server/db";
 import { userOrgRoles, userOrgs, roles, clients } from "@server/db";
 import { eq, and } from "drizzle-orm";
 import response from "@server/lib/response";
@@ -26,6 +25,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { UserOrgRoleSchema } from "@server/routers/user/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
+import { pushBlocklistForUser } from "@server/lib/dnsBlocklist";
 
 const removeUserRoleParamsSchema = z.strictObject({
     userId: z.string(),
@@ -166,7 +166,10 @@ export async function removeUserRole(
             });
         }
 
-        return response<RemoveUserRoleResponse>(res, {
+        // The user's devices pick up the new blocklist right away.
+        pushBlocklistForUser(role.orgId, userId);
+
+        return response(res, {
             data: { userId, orgId: role.orgId, roleId },
             success: true,
             error: false,

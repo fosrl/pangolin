@@ -30,6 +30,7 @@ config/config.saas.yml
 config/config.oss.yml
 config/config.enterprise.yml
 config/privateConfig.yml
+config/blocklists
 config/postgres
 config/postgres*
 config/openapi.yaml
