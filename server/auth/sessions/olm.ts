@@ -25,9 +25,15 @@ export async function createOlmSession(
 export async function validateOlmSessionToken(
     token: string
 ): Promise<SessionValidationResult> {
-    const sessionId = encodeHexLowerCase(
-        sha256(new TextEncoder().encode(token))
+    return validateOlmSession(
+        encodeHexLowerCase(sha256(new TextEncoder().encode(token)))
     );
+}
+
+// For callers that only have the hash of the token, like the WebSocket gateway
+export async function validateOlmSession(
+    sessionId: string
+): Promise<SessionValidationResult> {
     const result = await db
         .select({ olm: olms, session: olmSessions })
         .from(olmSessions)

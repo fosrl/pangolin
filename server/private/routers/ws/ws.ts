@@ -13,6 +13,9 @@
 
 import { Router, Request, Response } from "express";
 import zlib from "zlib";
+import { encodeHexLowerCase } from "@oslojs/encoding";
+import { sha256 } from "@oslojs/crypto/sha2";
+import { LRUCache } from "lru-cache";
 import { Server as HttpServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import { Socket } from "net";
@@ -24,15 +27,16 @@ import {
     RemoteExitNode,
     remoteExitNodes
 } from "@server/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@server/db";
 import { recordSitePing } from "@server/routers/newt/pingAccumulator";
-import { validateNewtSessionToken } from "@server/auth/sessions/newt";
-import { validateOlmSessionToken } from "@server/auth/sessions/olm";
+import { validateNewtSession } from "@server/auth/sessions/newt";
+import { validateOlmSession } from "@server/auth/sessions/olm";
 import logger from "@server/logger";
-import redisManager from "#private/lib/redis";
+import redisManager, { regionalRedisManager } from "#private/lib/redis";
+import privateConfig from "#private/lib/config";
 import { v4 as uuidv4 } from "uuid";
-import { validateRemoteExitNodeSessionToken } from "#private/auth/sessions/remoteExitNode";
+import { validateRemoteExitNodeSession } from "#private/auth/sessions/remoteExitNode";
 import { rateLimitService } from "#private/lib/rateLimit";
 import { messageHandlers } from "@server/routers/ws/messageHandlers";
 import { messageHandlers as privateMessageHandlers } from "#private/routers/ws/messageHandlers";
@@ -46,7 +50,9 @@ import {
     RedisMessage,
     SendMessageOptions
 } from "@server/routers/ws";
-import { validateSessionToken } from "@server/auth/sessions/app";
+import { validateSessionById } from "@server/auth/sessions/app";
+import { BridgeHandlers, WsGatewayBridge } from "#private/wsGateway/bridge";
+import { AuthRequest, AuthResult } from "#private/wsGateway/protocol";
 
 // Merge public and private message handlers
 Object.assign(messageHandlers, privateMessageHandlers);
@@ -55,7 +61,7 @@ const MAX_PENDING_MESSAGES = 50; // Maximum messages to queue during connection 
 
 // Helper function to process a single message
 const processMessage = async (
-    ws: AuthenticatedWebSocket,
+    client: Newt | Olm | RemoteExitNode | undefined,
     data: Buffer,
     isBinary: boolean,
     clientId: string,
@@ -110,12 +116,10 @@ const processMessage = async (
 
         const response = await handler({
             message,
-            senderWs: ws,
-            client: ws.client,
-            clientType: ws.clientType!,
+            client,
+            clientType,
             sendToClient,
-            broadcastToAllExcept,
-            connectedClients
+            broadcastToAllExcept
         });
 
         if (response) {
@@ -169,7 +173,7 @@ const processPendingMessages = async (
     for (const pending of ws.pendingMessages) {
         jobs.push(
             processMessage(
-                ws,
+                ws.client,
                 pending.data,
                 pending.isBinary,
                 clientId,
@@ -200,6 +204,19 @@ const clientConfigVersions: Map<string, number> = new Map();
 
 // Recovery tracking
 let isRedisRecoveryInProgress = false;
+
+// Connects this server to the standalone WebSocket gateways, when they're in
+// use. Sockets can still connect here directly as well, so devices can be moved
+// over to the gateways gradually.
+let gatewayBridge: WsGatewayBridge | null = null;
+
+// Devices on a gateway have no socket here to keep their row on, so frames look
+// it up instead. Held briefly so that a newly connected device's row and any
+// changes to it are picked up about as promptly as they were on connect.
+const gatewayClients = new LRUCache<string, Newt | Olm | RemoteExitNode>({
+    max: 200_000,
+    ttl: 60 * 1000
+});
 
 interface RedisDirectBatchEntry {
     targetClientId: string;
@@ -232,6 +249,7 @@ const publishDirectBatch = async (
 ): Promise<void> => {
     const redisMessage: RedisMessage = {
         type: "direct-batch",
+        id: uuidv4(),
         messages: entries.map((entry) => ({
             targetClientId: entry.targetClientId,
             message: entry.message
@@ -320,21 +338,35 @@ const initializeRedisSubscription = async (): Promise<void> => {
                     redisMessage.type === "direct-batch" &&
                     redisMessage.messages
                 ) {
-                    await sendRedisDirectBatchToLocalClients(
-                        redisMessage.messages
-                    );
+                    const undelivered =
+                        await sendRedisDirectBatchToLocalClients(
+                            redisMessage.messages
+                        );
+                    await forwardToGateways(redisMessage.id, undelivered);
                 } else if (redisMessage.type === "broadcast") {
                     // Broadcast to all clients on this node except excluded
                     await broadcastToAllExceptLocal(
                         redisMessage.message,
                         redisMessage.excludeClientId
                     );
+                    if (await claimGatewayForward(redisMessage.id)) {
+                        await broadcastToGateways(
+                            redisMessage.message,
+                            redisMessage.excludeClientId,
+                            redisMessage.options
+                        );
+                    }
                 } else if (
                     redisMessage.type === "disconnect" &&
                     redisMessage.targetClientId
                 ) {
                     // Close the client's connections if any are on this node
                     disconnectClientLocal(redisMessage.targetClientId);
+                    if (await claimGatewayForward(redisMessage.id)) {
+                        await gatewayBridge?.disconnect(
+                            redisMessage.targetClientId
+                        );
+                    }
                 }
             } catch (error) {
                 logger.error("Error processing Redis message:", error);
@@ -428,7 +460,35 @@ const addClient = async (
     existingClients.push(ws);
     connectedClients.set(mapKey, existingClients);
 
-    // Get or initialize config version
+    const configVersion = await initClientConfigVersion(clientId);
+
+    // Set config version on websocket
+    ws.configVersion = configVersion;
+
+    // Add to Redis tracking if enabled
+    if (redisManager.isRedisEnabled()) {
+        try {
+            await redisManager.sadd(getConnectionsKey(clientId), NODE_ID);
+            await redisManager.hset(
+                getNodeConnectionsKey(NODE_ID, clientId),
+                connectionId,
+                Date.now().toString()
+            );
+        } catch (error) {
+            logger.error(
+                "Failed to add client to Redis tracking (connection still functional locally):",
+                error
+            );
+        }
+    }
+
+    logger.info(
+        `Client added to tracking - ${clientType.toUpperCase()} ID: ${clientId}, Connection ID: ${connectionId}, Total connections: ${existingClients.length}, Config version: ${configVersion}`
+    );
+};
+
+// Get or initialize the config version of a connecting client
+const initClientConfigVersion = async (clientId: string): Promise<number> => {
     let configVersion = 0;
 
     // Check Redis first if enabled
@@ -469,29 +529,7 @@ const addClient = async (
         configVersion = clientConfigVersions.get(clientId) || 0;
     }
 
-    // Set config version on websocket
-    ws.configVersion = configVersion;
-
-    // Add to Redis tracking if enabled
-    if (redisManager.isRedisEnabled()) {
-        try {
-            await redisManager.sadd(getConnectionsKey(clientId), NODE_ID);
-            await redisManager.hset(
-                getNodeConnectionsKey(NODE_ID, clientId),
-                connectionId,
-                Date.now().toString()
-            );
-        } catch (error) {
-            logger.error(
-                "Failed to add client to Redis tracking (connection still functional locally):",
-                error
-            );
-        }
-    }
-
-    logger.info(
-        `Client added to tracking - ${clientType.toUpperCase()} ID: ${clientId}, Connection ID: ${connectionId}, Total connections: ${existingClients.length}, Config version: ${configVersion}`
-    );
+    return configVersion;
 };
 
 const removeClient = async (
@@ -647,9 +685,10 @@ const sendToClientLocal = async (
     return true;
 };
 
+// Returns the entries that had no socket on this node
 const sendRedisDirectBatchToLocalClients = async (
     entries: { targetClientId: string; message: WSMessage }[]
-): Promise<void> => {
+): Promise<{ targetClientId: string; message: WSMessage }[]> => {
     const jobs = entries.map((entry) =>
         sendToClientLocal(
             entry.targetClientId,
@@ -658,7 +697,90 @@ const sendRedisDirectBatchToLocalClients = async (
             entry.message.configVersion
         )
     );
-    await Promise.all(jobs);
+    const sent = await Promise.all(jobs);
+    return entries.filter((_, index) => !sent[index]);
+};
+
+const encodeForGateway = (
+    message: WSMessage,
+    options: SendMessageOptions = {}
+): { data: string | Buffer; isBinary: boolean } => {
+    const messageString = JSON.stringify(message);
+    return options.compress
+        ? {
+              data: zlib.gzipSync(Buffer.from(messageString, "utf8")),
+              isBinary: true
+          }
+        : { data: messageString, isBinary: false };
+};
+
+// Hands messages to the gateways in this region, and returns whether each one's
+// client has a socket on them
+const deliverToGateways = async (
+    entries: {
+        clientId: string;
+        message: WSMessage;
+        options?: SendMessageOptions;
+    }[]
+): Promise<boolean[]> => {
+    if (!gatewayBridge || !regionalRedisManager.isRedisEnabled()) {
+        return entries.map(() => false);
+    }
+
+    try {
+        return await gatewayBridge.deliver(
+            entries.map(({ clientId, message, options }) => ({
+                clientId,
+                ...encodeForGateway(message, options)
+            }))
+        );
+    } catch (error) {
+        logger.error("Failed to hand messages to the gateways:", error);
+        return entries.map(() => false);
+    }
+};
+
+// Every Pangolin in a region gets the pub/sub copy of a cross-region message
+// but they share the gateways, so only the one that claims it passes it on
+const claimGatewayForward = async (id?: string): Promise<boolean> => {
+    if (!gatewayBridge || !regionalRedisManager.isRedisEnabled()) {
+        return false;
+    }
+    try {
+        return !id || (await gatewayBridge.claimForward(id));
+    } catch (error) {
+        logger.error("Failed to claim a message for the gateways:", error);
+        return false;
+    }
+};
+
+const forwardToGateways = async (
+    id: string | undefined,
+    entries: { targetClientId: string; message: WSMessage }[]
+): Promise<void> => {
+    if (entries.length === 0 || !(await claimGatewayForward(id))) {
+        return;
+    }
+    await deliverToGateways(
+        entries.map(({ targetClientId, message }) => ({
+            clientId: targetClientId,
+            message
+        }))
+    );
+};
+
+// The gateways only pass bytes along, so unlike a local broadcast this can't
+// give each client its own config version
+const broadcastToGateways = async (
+    message: WSMessage,
+    excludeClientId?: string,
+    options?: SendMessageOptions
+): Promise<void> => {
+    if (!gatewayBridge || !regionalRedisManager.isRedisEnabled()) {
+        return;
+    }
+    const { data, isBinary } = encodeForGateway(message, options);
+    await gatewayBridge.broadcast(excludeClientId, data, isBinary);
 };
 
 const broadcastToAllExceptLocal = async (
@@ -739,6 +861,15 @@ const sendToClient = async (
         configVersion
     );
 
+    if (!localSent) {
+        const [gatewaySent] = await deliverToGateways([
+            { clientId, message: { ...message, configVersion }, options }
+        ]);
+        if (gatewaySent) {
+            return true;
+        }
+    }
+
     // Only send via Redis if the client is not connected locally and Redis is enabled
     if (!localSent && redisManager.isRedisEnabled()) {
         try {
@@ -770,7 +901,11 @@ const sendToClientsBatch = async (
         return;
     }
 
-    const remoteEntries: { targetClientId: string; message: WSMessage }[] = [];
+    const undeliveredEntries: {
+        clientId: string;
+        message: WSMessage;
+        options?: SendMessageOptions;
+    }[] = [];
     const clientsWithIncrement = new Set(
         entries
             .filter((entry) => !!entry.options?.incrementConfigVersion)
@@ -819,22 +954,31 @@ const sendToClientsBatch = async (
             configVersion
         );
 
-        if (!localSent && redisManager.isRedisEnabled()) {
-            remoteEntries.push({
-                targetClientId: clientId,
-                message: {
-                    ...message,
-                    configVersion
-                }
+        if (!localSent) {
+            undeliveredEntries.push({
+                clientId,
+                message: { ...message, configVersion },
+                options
             });
-        } else if (!localSent && !redisManager.isRedisEnabled()) {
-            logger.debug(
-                `Could not deliver batch message to ${clientId} - not connected locally and Redis unavailable`
-            );
         }
     }
 
-    if (!redisManager.isRedisEnabled() || remoteEntries.length === 0) {
+    const gatewaySent = await deliverToGateways(undeliveredEntries);
+    const remoteEntries = undeliveredEntries
+        .filter((_, index) => !gatewaySent[index])
+        .map(({ clientId, message }) => ({
+            targetClientId: clientId,
+            message
+        }));
+
+    if (remoteEntries.length === 0) {
+        return;
+    }
+
+    if (!redisManager.isRedisEnabled()) {
+        logger.debug(
+            `Could not deliver ${remoteEntries.length} batch messages - not connected locally and Redis unavailable`
+        );
         return;
     }
 
@@ -843,6 +987,7 @@ const sendToClientsBatch = async (
         try {
             const redisMessage: RedisMessage = {
                 type: "direct-batch",
+                id: uuidv4(),
                 messages,
                 fromNodeId: NODE_ID
             };
@@ -868,12 +1013,24 @@ const broadcastToAllExcept = async (
     // Broadcast locally
     await broadcastToAllExceptLocal(message, excludeClientId, options);
 
+    // Claimed here so the other Pangolins in this region don't send it to the
+    // gateways a second time when they get the pub/sub copy
+    const id = uuidv4();
+    if (await claimGatewayForward(id)) {
+        try {
+            await broadcastToGateways(message, excludeClientId, options);
+        } catch (error) {
+            logger.error("Failed to broadcast to the gateways:", error);
+        }
+    }
+
     // If Redis is enabled, also broadcast via Redis pub/sub to other nodes
     // Note: For broadcasts, we include the options so remote nodes can handle versioning
     if (redisManager.isRedisEnabled()) {
         try {
             const redisMessage: RedisMessage = {
                 type: "broadcast",
+                id,
                 excludeClientId,
                 message,
                 fromNodeId: NODE_ID,
@@ -900,7 +1057,9 @@ const broadcastToAllExcept = async (
 
 // Check if a client has active connections across all nodes
 const hasActiveConnections = async (clientId: string): Promise<boolean> => {
-    if (!redisManager.isRedisEnabled()) {
+    // Gateways report every open newt socket as a ping, so for those the
+    // last ping time already answers this
+    if (!redisManager.isRedisEnabled() || gatewayBridge) {
         const mapKey = getClientMapKey(clientId);
         const clients = connectedClients.get(mapKey);
         return !!(clients && clients.length > 0);
@@ -926,6 +1085,78 @@ const getActiveNodes = async (
     return await redisManager.smembers(getConnectionsKey(clientId));
 };
 
+// Sessions are stored under the hash of their token
+const tokenToSessionId = (token: string): string =>
+    encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
+
+const verifySession = async (
+    sessionId: string,
+    clientType: ClientType,
+    userSessionId: string
+): Promise<TokenPayload | null> => {
+    if (clientType === "newt") {
+        const { session, newt } = await validateNewtSession(sessionId);
+        if (!session || !newt) {
+            return null;
+        }
+        const existingNewt = await db
+            .select()
+            .from(newts)
+            .where(eq(newts.newtId, newt.newtId));
+        if (!existingNewt || !existingNewt[0]) {
+            return null;
+        }
+        return { client: existingNewt[0], session, clientType };
+    } else if (clientType === "olm") {
+        const { session, olm } = await validateOlmSession(sessionId);
+        if (!session || !olm) {
+            return null;
+        }
+        const existingOlm = await db
+            .select()
+            .from(olms)
+            .where(eq(olms.olmId, olm.olmId));
+        if (!existingOlm || !existingOlm[0]) {
+            return null;
+        }
+
+        if (olm.userId) {
+            // this is a user device and we need to check the user token
+            const { session: userSession, user } =
+                await validateSessionById(userSessionId);
+            if (!userSession || !user) {
+                return null;
+            }
+            if (user.userId !== olm.userId) {
+                return null;
+            }
+        }
+
+        return { client: existingOlm[0], session, clientType };
+    } else if (clientType === "remoteExitNode") {
+        const { session, remoteExitNode } =
+            await validateRemoteExitNodeSession(sessionId);
+        if (!session || !remoteExitNode) {
+            return null;
+        }
+        const existingRemoteExitNode = await db
+            .select()
+            .from(remoteExitNodes)
+            .where(
+                eq(
+                    remoteExitNodes.remoteExitNodeId,
+                    remoteExitNode.remoteExitNodeId
+                )
+            );
+        if (!existingRemoteExitNode || !existingRemoteExitNode[0]) {
+            return null;
+        }
+        return { client: existingRemoteExitNode[0], session, clientType };
+    }
+
+    return null;
+};
+
 // Token verification middleware
 const verifyToken = async (
     token: string,
@@ -933,71 +1164,29 @@ const verifyToken = async (
     userToken: string
 ): Promise<TokenPayload | null> => {
     try {
-        if (clientType === "newt") {
-            const { session, newt } = await validateNewtSessionToken(token);
-            if (!session || !newt) {
-                return null;
-            }
-            const existingNewt = await db
-                .select()
-                .from(newts)
-                .where(eq(newts.newtId, newt.newtId));
-            if (!existingNewt || !existingNewt[0]) {
-                return null;
-            }
-            return { client: existingNewt[0], session, clientType };
-        } else if (clientType === "olm") {
-            const { session, olm } = await validateOlmSessionToken(token);
-            if (!session || !olm) {
-                return null;
-            }
-            const existingOlm = await db
-                .select()
-                .from(olms)
-                .where(eq(olms.olmId, olm.olmId));
-            if (!existingOlm || !existingOlm[0]) {
-                return null;
-            }
-
-            if (olm.userId) {
-                // this is a user device and we need to check the user token
-                const { session: userSession, user } =
-                    await validateSessionToken(userToken);
-                if (!userSession || !user) {
-                    return null;
-                }
-                if (user.userId !== olm.userId) {
-                    return null;
-                }
-            }
-
-            return { client: existingOlm[0], session, clientType };
-        } else if (clientType === "remoteExitNode") {
-            const { session, remoteExitNode } =
-                await validateRemoteExitNodeSessionToken(token);
-            if (!session || !remoteExitNode) {
-                return null;
-            }
-            const existingRemoteExitNode = await db
-                .select()
-                .from(remoteExitNodes)
-                .where(
-                    eq(
-                        remoteExitNodes.remoteExitNodeId,
-                        remoteExitNode.remoteExitNodeId
-                    )
-                );
-            if (!existingRemoteExitNode || !existingRemoteExitNode[0]) {
-                return null;
-            }
-            return { client: existingRemoteExitNode[0], session, clientType };
-        }
-
-        return null;
+        return await verifySession(
+            tokenToSessionId(token),
+            clientType,
+            tokenToSessionId(userToken)
+        );
     } catch (error) {
         logger.error("Token verification failed:", error);
         return null;
     }
+};
+
+const getClientId = (
+    client: Newt | Olm | RemoteExitNode,
+    clientType: ClientType
+): string => {
+    if (clientType === "newt") {
+        return (client as Newt).newtId;
+    } else if (clientType === "olm") {
+        return (client as Olm).olmId;
+    } else if (clientType === "remoteExitNode") {
+        return (client as RemoteExitNode).remoteExitNodeId;
+    }
+    throw new Error(`Unknown client type: ${clientType}`);
 };
 
 const setupConnection = async (
@@ -1017,16 +1206,7 @@ const setupConnection = async (
     ws.pendingMessages = [];
 
     // Get client ID first
-    let clientId: string;
-    if (clientType === "newt") {
-        clientId = (client as Newt).newtId;
-    } else if (clientType === "olm") {
-        clientId = (client as Olm).olmId;
-    } else if (clientType === "remoteExitNode") {
-        clientId = (client as RemoteExitNode).remoteExitNodeId;
-    } else {
-        throw new Error(`Unknown client type: ${clientType}`);
-    }
+    const clientId = getClientId(client, clientType);
 
     // Set up message handler FIRST to prevent race condition
     ws.on("message", async (data, isBinary) => {
@@ -1049,7 +1229,7 @@ const setupConnection = async (
         }
 
         await processMessage(
-            ws,
+            ws.client,
             data as Buffer,
             isBinary,
             clientId,
@@ -1276,6 +1456,106 @@ const cleanupStaleConnections = async (): Promise<void> => {
     }
 };
 
+const gatewayClientKey = (clientType: ClientType, clientId: string) =>
+    `${clientType}:${clientId}`;
+
+const loadGatewayClients = async (
+    clientType: ClientType,
+    clientIds: string[]
+): Promise<void> => {
+    if (clientType === "newt") {
+        const rows = await db
+            .select()
+            .from(newts)
+            .where(inArray(newts.newtId, clientIds));
+        rows.forEach((row) =>
+            gatewayClients.set(gatewayClientKey(clientType, row.newtId), row)
+        );
+    } else if (clientType === "olm") {
+        const rows = await db
+            .select()
+            .from(olms)
+            .where(inArray(olms.olmId, clientIds));
+        rows.forEach((row) =>
+            gatewayClients.set(gatewayClientKey(clientType, row.olmId), row)
+        );
+    } else if (clientType === "remoteExitNode") {
+        const rows = await db
+            .select()
+            .from(remoteExitNodes)
+            .where(inArray(remoteExitNodes.remoteExitNodeId, clientIds));
+        rows.forEach((row) =>
+            gatewayClients.set(
+                gatewayClientKey(clientType, row.remoteExitNodeId),
+                row
+            )
+        );
+    }
+};
+
+const authenticateGatewayClient = async (
+    request: AuthRequest
+): Promise<AuthResult> => {
+    const { clientType, sessionId, userSessionId } = request;
+
+    const payload = await verifySession(sessionId, clientType, userSessionId);
+    if (!payload) {
+        return { ok: false };
+    }
+
+    const clientId = getClientId(payload.client, clientType);
+    gatewayClients.set(gatewayClientKey(clientType, clientId), payload.client);
+    await initClientConfigVersion(clientId);
+
+    return {
+        ok: true,
+        clientId,
+        siteId:
+            clientType === "newt" ? (payload.client as Newt).siteId : undefined
+    };
+};
+
+const gatewayHandlers: BridgeHandlers = {
+    authenticate: authenticateGatewayClient,
+
+    prepareFrames: async (frames) => {
+        const missing = new Map<ClientType, Set<string>>();
+        for (const { clientType, clientId } of frames) {
+            if (!gatewayClients.has(gatewayClientKey(clientType, clientId))) {
+                const ids = missing.get(clientType) ?? new Set();
+                ids.add(clientId);
+                missing.set(clientType, ids);
+            }
+        }
+        await Promise.all(
+            Array.from(missing, ([clientType, ids]) =>
+                loadGatewayClients(clientType, Array.from(ids))
+            )
+        );
+    },
+
+    handleFrame: async ({ clientId, clientType, data, isBinary }) => {
+        const key = gatewayClientKey(clientType, clientId);
+        if (!gatewayClients.has(key)) {
+            await loadGatewayClients(clientType, [clientId]);
+        }
+        const client = gatewayClients.get(key);
+        if (!client) {
+            logger.debug(
+                `Ignoring gateway frame from unknown ${clientType} ${clientId}`
+            );
+            return;
+        }
+        await processMessage(client, data, isBinary, clientId, clientType);
+    },
+
+    handleSiteLiveness: (siteIds) => {
+        for (const siteId of siteIds) {
+            recordSitePing(siteId);
+        }
+    }
+};
+
 // Initialize Redis subscription when the module is loaded
 if (redisManager.isRedisEnabled()) {
     initializeRedisSubscription().catch((error) => {
@@ -1299,9 +1579,46 @@ if (redisManager.isRedisEnabled()) {
     logger.debug("WebSocket handler initialized in local mode");
 }
 
+if (privateConfig.getRawPrivateConfig().flags.enable_ws_gateway) {
+    const redis = regionalRedisManager.getClient();
+    if (!redis) {
+        throw new Error(
+            "flags.enable_ws_gateway needs flags.enable_redis and redis.regional_redis"
+        );
+    }
+
+    gatewayBridge = new WsGatewayBridge({
+        redis,
+        nodeId: NODE_ID,
+        handlers: gatewayHandlers,
+        logger
+    });
+    gatewayBridge.start();
+    logger.info("WebSocket gateway bridge started");
+}
+
+// Stops taking frames from the gateways, and finishes the ones already started
+const stopGatewayBridge = async (): Promise<void> => {
+    await gatewayBridge?.stop();
+};
+
 // Disconnect a specific client on every node and force them to reconnect
 const disconnectClient = async (clientId: string): Promise<boolean> => {
     const localDisconnected = disconnectClientLocal(clientId);
+
+    // Claimed here so the other Pangolins in this region don't disconnect the
+    // client a second time, possibly after it has reconnected
+    const id = uuidv4();
+    if (await claimGatewayForward(id)) {
+        try {
+            await gatewayBridge!.disconnect(clientId);
+        } catch (error) {
+            logger.error(
+                `Failed to disconnect client ID ${clientId} from the gateways:`,
+                error
+            );
+        }
+    }
 
     if (!redisManager.isRedisEnabled()) {
         return localDisconnected;
@@ -1315,6 +1632,7 @@ const disconnectClient = async (clientId: string): Promise<boolean> => {
 
         const redisMessage: RedisMessage = {
             type: "disconnect",
+            id,
             targetClientId: clientId,
             fromNodeId: NODE_ID
         };
@@ -1401,5 +1719,6 @@ export {
     disconnectClient,
     NODE_ID,
     cleanup,
+    stopGatewayBridge,
     getClientConfigVersion
 };

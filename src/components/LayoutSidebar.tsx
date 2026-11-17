@@ -23,7 +23,7 @@ import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import SidebarLicenseButton from "./SidebarLicenseButton";
 import { SidebarSupportButton } from "./SidebarSupportButton";
 
@@ -40,20 +40,17 @@ interface LayoutSidebarProps {
     orgs?: ListUserOrgsResponse["orgs"];
     navItems: SidebarNavSection[];
     defaultSidebarCollapsed: boolean;
-    hasCookiePreference: boolean;
 }
 
 export function LayoutSidebar({
     orgId,
     orgs = [],
     navItems,
-    defaultSidebarCollapsed,
-    hasCookiePreference
+    defaultSidebarCollapsed
 }: LayoutSidebarProps) {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
         defaultSidebarCollapsed
     );
-    const [hasManualToggle, setHasManualToggle] = useState(hasCookiePreference);
     const pathname = usePathname();
     const isAdminPage = pathname?.startsWith("/admin");
     const { user } = useUserContext();
@@ -88,27 +85,6 @@ export function LayoutSidebar({
             document.cookie = `pangolin-sidebar-state=${collapsed ? "collapsed" : "expanded"}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax${isSecure ? "; secure" : ""}`;
         }
     };
-
-    // Auto-collapse sidebar at 1650px or less, but only if no cookie preference exists
-    useEffect(() => {
-        if (hasManualToggle) {
-            return; // Don't auto-collapse if user has manually toggled
-        }
-
-        const handleResize = () => {
-            // print inner width
-            if (typeof window !== "undefined") {
-                const shouldCollapse = window.innerWidth <= 1650;
-                setIsSidebarCollapsed(shouldCollapse);
-            }
-        };
-
-        // Set initial state based on window width
-        handleResize();
-
-        window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
-    }, [hasManualToggle]);
 
     function loadFooterLinks(): { text: string; href?: string }[] | undefined {
         if (!isUnlocked()) {
@@ -171,7 +147,6 @@ export function LayoutSidebar({
                                     type="button"
                                     onClick={() => {
                                         setIsSidebarCollapsed(false);
-                                        setHasManualToggle(true);
                                         setSidebarStateCookie(false);
                                     }}
                                     className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent/50 transition-colors"
@@ -311,7 +286,6 @@ export function LayoutSidebar({
                             onClick={() => {
                                 const newCollapsedState = !isSidebarCollapsed;
                                 setIsSidebarCollapsed(newCollapsedState);
-                                setHasManualToggle(true);
                                 setSidebarStateCookie(newCollapsedState);
                             }}
                             className="cursor-pointer absolute -right-2.5 top-1/2 transform -translate-y-1/2 w-2 h-8 rounded-full flex items-center justify-center transition-all duration-200 ease-in-out hover:scale-110 group z-1"
