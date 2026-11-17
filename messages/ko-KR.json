@@ -1398,6 +1398,7 @@
     "actionDeleteIdpOrg": "IDP 조직 정책 삭제",
     "actionListIdpOrgs": "IDP 조직 목록",
     "actionUpdateIdpOrg": "IDP 조직 업데이트",
+    "actionCreateUserSession": "Create User Session",
     "actionCreateClient": "클라이언트 생성",
     "actionDeleteClient": "클라이언트 삭제",
     "actionArchiveClient": "클라이언트 보관",
