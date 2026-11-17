@@ -37,8 +37,8 @@
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "9.1.0",
         "@aws-sdk/client-s3": "3.1160.0",
-        "@devolutions/iron-remote-desktop": "https://static.pangolin.net/packages/devolutions-iron-remote-desktop-0.0.1.tgz",
-        "@devolutions/iron-remote-desktop-rdp": "https://static.pangolin.net/packages/devolutions-iron-remote-desktop-rdp-0.0.2.tgz",
+        "@devolutions/iron-remote-desktop": "https://static.pangolin.net/packages/devolutions-iron-remote-desktop-0.0.2.tgz",
+        "@devolutions/iron-remote-desktop-rdp": "https://static.pangolin.net/packages/devolutions-iron-remote-desktop-rdp-0.0.3.tgz",
         "@headlessui/react": "2.2.10",
         "@hookform/resolvers": "6.0.2",
         "@monaco-editor/react": "4.7.0",
