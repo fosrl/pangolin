@@ -40,6 +40,8 @@ export enum ActionsEnum {
     getRole = "getRole",
     listRoles = "listRoles",
     updateRole = "updateRole",
+    getRoleClientSettings = "getRoleClientSettings",
+    updateRoleClientSettings = "updateRoleClientSettings",
     inviteUser = "inviteUser",
     listInvitations = "listInvitations",
     removeInvitation = "removeInvitation",

@@ -9,9 +9,13 @@ export type ListAlertRulesResponse = {
         lastTriggeredAt: number | null;
         createdAt: number;
         updatedAt: number;
+        allSites: boolean;
+        allHealthChecks: boolean;
+        allResources: boolean;
         siteIds: number[];
         healthCheckIds: number[];
         resourceIds: number[];
+        labelIds: number[];
     }[];
     pagination: {
         total: number;
@@ -44,9 +48,13 @@ export type GetAlertRuleResponse = {
     lastTriggeredAt: number | null;
     createdAt: number;
     updatedAt: number;
+    allSites: boolean;
+    allHealthChecks: boolean;
+    allResources: boolean;
     siteIds: number[];
     healthCheckIds: number[];
     resourceIds: number[];
+    labelIds: number[];
     recipients: {
         recipientId: number;
         userId: string | null;

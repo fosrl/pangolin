@@ -19,9 +19,8 @@ import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import {
-    alertRuleAllHealthChecksSelected,
-    alertRuleAllResourcesSelected,
-    alertRuleAllSitesSelected
+    alertRuleMatchesAllSources,
+    alertRuleSourceType
 } from "@app/lib/alertRuleForm";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import {
@@ -55,9 +54,13 @@ export type AlertRuleRow = {
     lastTriggeredAt: number | null;
     createdAt: number;
     updatedAt: number;
+    allSites: boolean;
+    allHealthChecks: boolean;
+    allResources: boolean;
     siteIds: number[];
     healthCheckIds: number[];
     resourceIds: number[];
+    labelIds: number[];
 };
 
 type AlertingRulesTableProps = {
@@ -74,30 +77,38 @@ function sourceSummary(
     rule: AlertRuleRow,
     t: (k: string, o?: Record<string, number | string>) => string
 ) {
-    if (alertRuleAllSitesSelected(rule.eventType, rule.siteIds)) {
-        return t("alertingSummaryAllSites");
+    const kind = alertRuleSourceType(rule.eventType);
+    const { allKey, countKey, ids } =
+        kind === "site"
+            ? {
+                  allKey: "alertingSummaryAllSites",
+                  countKey: "alertingSummarySites",
+                  ids: rule.siteIds
+              }
+            : kind === "resource"
+              ? {
+                    allKey: "alertingSummaryAllResources",
+                    countKey: "alertingSummaryResources",
+                    ids: rule.resourceIds
+                }
+              : {
+                    allKey: "alertingSummaryAllHealthChecks",
+                    countKey: "alertingSummaryHealthChecks",
+                    ids: rule.healthCheckIds
+                };
+
+    if (alertRuleMatchesAllSources(rule)) {
+        return t(allKey);
     }
-    if (
-        rule.eventType === "site_online" ||
-        rule.eventType === "site_offline" ||
-        rule.eventType === "site_toggle"
-    ) {
-        return t("alertingSummarySites", { count: rule.siteIds.length });
+
+    const parts: string[] = [];
+    if (ids.length > 0 || rule.labelIds.length === 0) {
+        parts.push(t(countKey, { count: ids.length }));
     }
-    if (alertRuleAllResourcesSelected(rule.eventType, rule.resourceIds)) {
-        return t("alertingSummaryAllResources");
+    if (rule.labelIds.length > 0) {
+        parts.push(t("alertingSummaryLabels", { count: rule.labelIds.length }));
     }
-    if (rule.eventType.startsWith("resource_")) {
-        return t("alertingSummaryResources", {
-            count: rule.resourceIds.length
-        });
-    }
-    if (alertRuleAllHealthChecksSelected(rule.eventType, rule.healthCheckIds)) {
-        return t("alertingSummaryAllHealthChecks");
-    }
-    return t("alertingSummaryHealthChecks", {
-        count: rule.healthCheckIds.length
-    });
+    return parts.join(", ");
 }
 
 function triggerLabel(rule: AlertRuleRow, t: (k: string) => string) {
@@ -429,9 +440,7 @@ export default function AlertingRulesTable({
                 onAdd={
                     !env.flags.disableEnterpriseFeatures
                         ? () => {
-                              router.push(
-                                  `/${orgId}/settings/alerting/create`
-                              );
+                              router.push(`/${orgId}/settings/alerting/create`);
                           }
                         : undefined
                 }
