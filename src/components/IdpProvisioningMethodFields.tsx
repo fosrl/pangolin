@@ -34,6 +34,11 @@ export default function IdpProvisioningMethodFields({
     const form = useFormContext<IdpProvisioningMethodFormValues>();
 
     const apiIntegrationEnabled = form.watch("apiIntegrationEnabled");
+    const directorySyncEnabled = form.watch("directorySyncEnabled");
+    // the paid-plan alert is shown by the API integration section, which sync requires.
+    // Without the plan sync can't be turned on, but it can still be turned off after a downgrade
+    const syncPaywalled =
+        !isPaidUser(tierMatrix.idpAPIIntegration) && !directorySyncEnabled;
 
     return (
         <div className="space-y-6">
@@ -67,7 +72,7 @@ export default function IdpProvisioningMethodFields({
 
             {syncAvailable && (
                 <DirectorySyncConfigWidget
-                    directorySyncEnabled={form.watch("directorySyncEnabled")}
+                    directorySyncEnabled={directorySyncEnabled}
                     onDirectorySyncEnabledChange={(checked) =>
                         form.setValue("directorySyncEnabled", checked)
                     }
@@ -76,7 +81,7 @@ export default function IdpProvisioningMethodFields({
                             ? t("idpDirectorySyncDescription")
                             : t("idpDirectorySyncRequiresApiIntegration")
                     }
-                    disabled={!apiIntegrationEnabled}
+                    disabled={!apiIntegrationEnabled || syncPaywalled}
                     syncDeletions={form.watch("directorySyncDeletions")}
                     onSyncDeletionsChange={(checked) =>
                         form.setValue("directorySyncDeletions", checked)

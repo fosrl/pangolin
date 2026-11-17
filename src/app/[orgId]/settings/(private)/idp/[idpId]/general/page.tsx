@@ -55,6 +55,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ListRolesResponse } from "@server/routers/role";
 import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -94,6 +96,10 @@ export default function GeneralPage() {
         `${env.app.dashboardUrl}/auth/idp/${idpId}/oidc/callback`
     );
     const t = useTranslations();
+    const { isPaidUser } = usePaidStatus();
+    // the server refuses the sync too, so don't offer it without the plan
+    const canSyncNow =
+        savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
 
     // OIDC form schema (full configuration)
     const OidcFormSchema = z.object({
@@ -305,10 +311,8 @@ export default function GeneralPage() {
                     } else if (idpVariant === "google") {
                         const apiConfig = data.idp.apiConfig;
                         formData.googleServiceAccountKey = "";
-                        formData.googleAdminEmail =
-                            apiConfig?.adminEmail ?? "";
-                        formData.googleCustomerId =
-                            apiConfig?.customerId ?? "";
+                        formData.googleAdminEmail = apiConfig?.adminEmail ?? "";
+                        formData.googleCustomerId = apiConfig?.customerId ?? "";
                         setConfiguredServiceAccountEmail(
                             apiConfig?.serviceAccountEmail
                         );
@@ -498,9 +502,7 @@ export default function GeneralPage() {
                     emailPath: "email",
                     namePath: "name",
                     scopes: "openid profile email",
-                    apiConfig: buildGoogleIDPAPIConfig(
-                        data as GoogleFormValues
-                    )
+                    apiConfig: buildGoogleIDPAPIConfig(data as GoogleFormValues)
                 };
             }
 
@@ -742,7 +744,7 @@ export default function GeneralPage() {
                                 />
                             </form>
                         </Form>
-                        {savedSyncEnabled && (
+                        {canSyncNow && (
                             <div className="flex flex-col gap-2 items-start border-t pt-6 mt-6">
                                 <Button
                                     type="button"
@@ -756,9 +758,7 @@ export default function GeneralPage() {
                                 <p className="text-sm text-muted-foreground">
                                     {t("idpSyncNowDescription")}
                                 </p>
-                                <IdpLastSyncedAt
-                                    lastSyncedAt={lastSyncedAt}
-                                />
+                                <IdpLastSyncedAt lastSyncedAt={lastSyncedAt} />
                             </div>
                         )}
                     </SettingsSectionBody>

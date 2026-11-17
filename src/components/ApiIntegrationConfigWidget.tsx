@@ -1,7 +1,10 @@
 "use client";
 
 import GoogleIDPAPIConfigFields from "@app/components/GoogleIDPAPIConfigFields";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { SwitchInput } from "@app/components/SwitchInput";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { useTranslations } from "next-intl";
 
 type ApiIntegrationConfigWidgetProps = {
@@ -24,15 +27,20 @@ export default function ApiIntegrationConfigWidget({
     switchId = "api-integration-toggle"
 }: ApiIntegrationConfigWidgetProps) {
     const t = useTranslations();
+    const { isPaidUser } = usePaidStatus();
+    // without the plan it can't be turned on, but it can still be turned off after a downgrade
+    const paywalled =
+        !isPaidUser(tierMatrix.idpAPIIntegration) && !apiIntegrationEnabled;
 
     return (
         <div className="space-y-4">
+            <PaidFeaturesAlert tiers={tierMatrix.idpAPIIntegration} />
             <SwitchInput
                 id={switchId}
                 label={t("idpApiIntegrationEnable")}
                 checked={apiIntegrationEnabled}
                 onCheckedChange={onApiIntegrationEnabledChange}
-                disabled={disabled}
+                disabled={disabled || paywalled}
             />
 
             {apiIntegrationEnabled && variant === "google" && (

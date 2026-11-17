@@ -50,6 +50,8 @@ import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog
 import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
 import { RefreshCwIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -73,6 +75,10 @@ export default function GeneralPage() {
 
     const redirectUrl = `${env.app.dashboardUrl}/auth/idp/${idpId}/oidc/callback`;
     const t = useTranslations();
+    const { isPaidUser } = usePaidStatus();
+    // the server refuses the sync too, so don't offer it without the plan
+    const canSyncNow =
+        savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
 
     const OidcFormSchema = z.object({
         name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
@@ -133,9 +139,7 @@ export default function GeneralPage() {
     type GoogleFormValues = z.infer<typeof GoogleFormSchema>;
     type AzureFormValues = z.infer<typeof AzureFormSchema>;
     type GeneralFormValues =
-        | OidcFormValues
-        | GoogleFormValues
-        | AzureFormValues;
+        OidcFormValues | GoogleFormValues | AzureFormValues;
 
     const getFormSchema = () => {
         switch (variant) {
@@ -184,9 +188,7 @@ export default function GeneralPage() {
                     const data = res.data.data;
                     const idpVariant =
                         (data.idpOidcConfig?.variant as
-                            | "oidc"
-                            | "google"
-                            | "azure") || "oidc";
+                            "oidc" | "google" | "azure") || "oidc";
                     setVariant(idpVariant);
                     setSavedSyncEnabled(
                         data.idp.apiIntegrationEnabled &&
@@ -233,10 +235,8 @@ export default function GeneralPage() {
                     } else if (idpVariant === "google") {
                         const apiConfig = data.idp.apiConfig;
                         formData.googleServiceAccountKey = "";
-                        formData.googleAdminEmail =
-                            apiConfig?.adminEmail ?? "";
-                        formData.googleCustomerId =
-                            apiConfig?.customerId ?? "";
+                        formData.googleAdminEmail = apiConfig?.adminEmail ?? "";
+                        formData.googleCustomerId = apiConfig?.customerId ?? "";
                         setConfiguredServiceAccountEmail(
                             apiConfig?.serviceAccountEmail
                         );
@@ -333,9 +333,7 @@ export default function GeneralPage() {
                     emailPath: "email",
                     namePath: "name",
                     scopes: "openid profile email",
-                    apiConfig: buildGoogleIDPAPIConfig(
-                        data as GoogleFormValues
-                    )
+                    apiConfig: buildGoogleIDPAPIConfig(data as GoogleFormValues)
                 };
             }
 
@@ -374,8 +372,7 @@ export default function GeneralPage() {
             }
             setSavedSyncEnabled(Boolean(payload.directorySyncEnabled));
             const apiConfig = payload.apiConfig as
-                | ReturnType<typeof buildGoogleIDPAPIConfig>
-                | undefined;
+                ReturnType<typeof buildGoogleIDPAPIConfig> | undefined;
             if (apiConfig?.serviceAccountKey) {
                 setConfiguredServiceAccountEmail(
                     apiConfig.serviceAccountKey.client_email
@@ -580,7 +577,7 @@ export default function GeneralPage() {
                                 )}
                             </form>
                         </Form>
-                        {savedSyncEnabled && (
+                        {canSyncNow && (
                             <div className="flex flex-col gap-2 items-start border-t pt-6 mt-6">
                                 <Button
                                     type="button"
