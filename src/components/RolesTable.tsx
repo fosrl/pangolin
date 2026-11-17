@@ -1,5 +1,6 @@
 "use client";
 
+import CreateRoleCredenza from "@app/components/CreateRoleCredenza";
 import DeleteRoleForm from "@app/components/DeleteRoleForm";
 import { Button } from "@app/components/ui/button";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
@@ -10,6 +11,7 @@ import { Role } from "@server/db";
 import type { PaginationState } from "@tanstack/react-table";
 import {
     ArrowDown01Icon,
+    ArrowRight,
     ArrowUp10Icon,
     ChevronsUpDownIcon,
     MoreHorizontal
@@ -41,6 +43,7 @@ export default function UsersTable({
     rowCount
 }: RolesTableProps) {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const router = useRouter();
     const { orgId } = useParams();
     const [isRefreshing, startTransition] = useTransition();
@@ -157,6 +160,7 @@ export default function UsersTable({
                                 href={`/${orgId}/settings/access/roles/${roleRow.roleId}`}
                             >
                                 {t("edit")}
+                                <ArrowRight className="ml-2 w-4 h-4" />
                             </Link>
                         </Button>
                     </div>
@@ -191,6 +195,11 @@ export default function UsersTable({
 
     return (
         <>
+            <CreateRoleCredenza
+                orgId={orgId as string}
+                open={isCreateModalOpen}
+                setOpen={setIsCreateModalOpen}
+            />
             {roleToRemove && (
                 <DeleteRoleForm
                     open={isDeleteModalOpen}
@@ -217,9 +226,7 @@ export default function UsersTable({
                 addButtonText={t("accessRolesAdd")}
                 rowCount={rowCount}
                 pagination={pagination}
-                onAdd={() => {
-                    router.push(`/${orgId}/settings/access/roles/create`);
-                }}
+                onAdd={() => setIsCreateModalOpen(true)}
                 onRefresh={() => startTransition(refreshData)}
                 isRefreshing={isRefreshing}
                 stickyLeftColumn="name"
