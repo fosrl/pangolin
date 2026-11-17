@@ -71,6 +71,11 @@ import type { GetResourceResponse } from "@server/routers/resource/getResource";
 import type { GetResourceAuthInfoResponse } from "@server/routers/resource/getResourceAuthInfo";
 import type { ListResourcePoliciesResponse } from "@server/routers/resource/types";
 import type { ListRolesResponse } from "@server/routers/role";
+import type {
+    GetIdpResponse,
+    ListIdpOrgPoliciesResponse
+} from "@server/routers/idp";
+import type { ListOrgsResponse } from "@server/routers/org";
 import type { ListSitesResponse } from "@server/routers/site";
 import type {
     ListAllSiteResourcesByOrgResponse,
@@ -166,6 +171,75 @@ export type IdpSyncResponse = {
         unchanged: number;
     };
     entries?: IdpSyncEntry[];
+};
+
+/** `POST /idp/:idpId/sync` (global IdP), one result per org the IdP maps users into. */
+export type IdpGlobalSyncResponse = {
+    dryRun: boolean;
+    counts: IdpSyncResponse["counts"];
+    orgs: ({ orgId: string; orgName: string } & (
+        | {
+              status: "synced";
+              counts: IdpSyncResponse["counts"];
+              /** Dry run only, membership changes only. */
+              entries?: IdpSyncEntry[];
+          }
+        | { status: "skipped"; reason: "notEntitled" }
+        | { status: "failed"; error: string }
+    ))[];
+};
+
+export const globalIdpQueries = {
+    idp: ({ idpId }: { idpId: string }) =>
+        queryOptions({
+            queryKey: ["IDP", idpId] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<AxiosResponse<GetIdpResponse>>(
+                    `/idp/${idpId}`,
+                    { signal }
+                );
+                return res.data.data;
+            }
+        }),
+
+    /** Org policies of a global IdP. */
+    policies: ({ idpId }: { idpId: string }) =>
+        queryOptions({
+            queryKey: ["IDP", idpId, "POLICIES"] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<ListIdpOrgPoliciesResponse>
+                >(`/idp/${idpId}/org`, { signal });
+                return res.data.data.policies;
+            }
+        }),
+
+    /** Every org on the server (server admin). */
+    orgs: () =>
+        queryOptions({
+            queryKey: ["ORGS"] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<ListOrgsResponse>
+                >("/orgs", { signal });
+                return res.data.data.orgs;
+            }
+        }),
+
+    syncPreview: ({ idpId }: { idpId: string }) =>
+        queryOptions({
+            queryKey: ["IDP", idpId, "SYNC_PREVIEW"] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.post<
+                    AxiosResponse<IdpGlobalSyncResponse>
+                >(`/idp/${idpId}/sync`, { dryRun: true }, { signal });
+                return res.data.data;
+            },
+            staleTime: 0,
+            gcTime: 0,
+            retry: false,
+            refetchOnWindowFocus: false
+        })
 };
 
 export const productUpdatesQueries = {

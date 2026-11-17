@@ -52,7 +52,10 @@ export default function IdpUserProvisioningFields({
     const autoProvision = form.watch("autoProvision");
     const directorySyncEnabled =
         syncAvailable && form.watch("directorySyncEnabled");
-    const mappingsLinked = !syncAvailable || form.watch("mappingsLinked");
+    // the switch and the separate editors only show once sync is on; while it's off
+    // the stored value is kept, so separate sync mappings aren't lost
+    const mappingsLinked =
+        !directorySyncEnabled || form.watch("mappingsLinked");
     const createMissingRoles = form.watch("createMissingRoles") ?? false;
     const syncCreateMissingRoles =
         form.watch("syncCreateMissingRoles") ?? false;
@@ -75,7 +78,7 @@ export default function IdpUserProvisioningFields({
                         </p>
                     </div>
 
-                    {syncAvailable && (
+                    {directorySyncEnabled && (
                         <SwitchInput
                             id="mappings-separate-toggle"
                             label={t("idpMappingsSeparate")}

@@ -19,7 +19,7 @@ export type IdpMappingSet = {
 };
 
 type IdpLinkedMappingsFieldsProps = {
-    /** Sync mappings only exist for providers with an API integration (google/azure). */
+    /** Directory sync is on (google/azure only). When false, only the JIT editor is shown, without the switch. */
     syncAvailable: boolean;
     linked: boolean;
     /** Called with the new value; the caller copies the JIT mappings to sync when unlinking. */

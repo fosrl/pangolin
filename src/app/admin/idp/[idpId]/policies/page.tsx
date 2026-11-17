@@ -28,12 +28,9 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
-import { InfoIcon, ExternalLink, CheckIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@app/components/ui/alert";
+import { CheckIcon } from "lucide-react";
 import PolicyTable, { PolicyRow } from "@app/components/PolicyTable";
-import { AxiosResponse } from "axios";
-import { ListOrgsResponse } from "@server/routers/org";
-import { ListRolesResponse } from "@server/routers/role";
 import {
     Popover,
     PopoverContent,
@@ -49,7 +46,6 @@ import {
     CommandList
 } from "@app/components/ui/command";
 import { CaretSortIcon } from "@radix-ui/react-icons";
-import Link from "next/link";
 import { GetIdpResponse } from "@server/routers/idp";
 import {
     SettingsContainer,
@@ -58,8 +54,7 @@ import {
     SettingsSectionTitle,
     SettingsSectionDescription,
     SettingsSectionBody,
-    SettingsSectionFooter,
-    SettingsSectionForm
+    SettingsSectionFooter
 } from "@app/components/Settings";
 import { useTranslations } from "next-intl";
 import IdpLinkedMappingsFields from "@app/components/IdpLinkedMappingsFields";
@@ -71,11 +66,8 @@ import {
     ensureMappingBuilderRuleIds,
     RoleMappingConfig
 } from "@app/lib/idpRoleMapping";
-
-type Organization = {
-    orgId: string;
-    name: string;
-};
+import { globalIdpQueries, orgQueries } from "@app/lib/queries";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 function loadRoleMapping(
     stored: string | null | undefined,
@@ -117,34 +109,30 @@ function compileMappings(m: {
     };
 }
 
+/** Separate sync mappings are only offered once directory sync is on (google/azure). */
+function isSyncEnabled(data: GetIdpResponse) {
+    const variant = data.idpOidcConfig?.variant;
+    return (
+        (variant === "google" || variant === "azure") &&
+        data.idp.apiIntegrationEnabled &&
+        data.idp.directorySyncEnabled
+    );
+}
+
 export default function PoliciesPage() {
     const { env } = useEnvContext();
     const api = createApiClient({ env });
-    const { idpId } = useParams();
+    const idpId = useParams().idpId as string;
     const t = useTranslations();
+    const queryClient = useQueryClient();
 
-    const [pageLoading, setPageLoading] = useState(true);
-    const [addPolicyLoading, setAddPolicyLoading] = useState(false);
-    const [editPolicyLoading, setEditPolicyLoading] = useState(false);
-    const [deletePolicyLoading, setDeletePolicyLoading] = useState(false);
-    const [updateDefaultMappingsLoading, setUpdateDefaultMappingsLoading] =
-        useState(false);
-    const [policies, setPolicies] = useState<PolicyRow[]>([]);
-    const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const idpQuery = useQuery(globalIdpQueries.idp({ idpId }));
+    const policiesQuery = useQuery(globalIdpQueries.policies({ idpId }));
+    const policies: PolicyRow[] = policiesQuery.data ?? [];
+
+    const [savingPolicy, setSavingPolicy] = useState(false);
     const [showAddDialog, setShowAddDialog] = useState(false);
     const [editingPolicy, setEditingPolicy] = useState<PolicyRow | null>(null);
-    // sync mappings only exist for providers with an API integration
-    const [syncAvailable, setSyncAvailable] = useState(false);
-
-    const [defaultRoleMapping, setDefaultRoleMapping] =
-        useState<RoleMappingConfig>(defaultRoleMappingConfig);
-    const [defaultSyncRoleMapping, setDefaultSyncRoleMapping] =
-        useState<RoleMappingConfig>(defaultSyncRoleMappingConfig);
-    const [defaultCreateMissingRoles, setDefaultCreateMissingRoles] =
-        useState(false);
-    const [defaultSyncCreateMissingRoles, setDefaultSyncCreateMissingRoles] =
-        useState(false);
-    const [defaultMappingsLinked, setDefaultMappingsLinked] = useState(true);
 
     const [policyRoleMapping, setPolicyRoleMapping] =
         useState<RoleMappingConfig>(defaultRoleMappingConfig);
@@ -155,9 +143,6 @@ export default function PoliciesPage() {
     const [policySyncCreateMissingRoles, setPolicySyncCreateMissingRoles] =
         useState(false);
     const [policyMappingsLinked, setPolicyMappingsLinked] = useState(true);
-    const [policyOrgRoles, setPolicyOrgRoles] = useState<
-        { roleId: number; name: string }[]
-    >([]);
 
     const policyFormSchema = z.object({
         orgId: z.string().min(1, { message: t("orgRequired") }),
@@ -165,13 +150,7 @@ export default function PoliciesPage() {
         syncOrgMapping: z.string().optional()
     });
 
-    const defaultMappingsSchema = z.object({
-        defaultOrgMapping: z.string().optional(),
-        defaultSyncOrgMapping: z.string().optional()
-    });
-
     type PolicyFormValues = z.infer<typeof policyFormSchema>;
-    type DefaultMappingsValues = z.infer<typeof defaultMappingsSchema>;
 
     const form = useForm({
         resolver: zodResolver(policyFormSchema),
@@ -183,137 +162,34 @@ export default function PoliciesPage() {
     });
 
     const policyFormOrgId = form.watch("orgId");
+    const dialogOrgId = editingPolicy?.orgId || policyFormOrgId;
 
-    const defaultMappingsForm = useForm({
-        resolver: zodResolver(defaultMappingsSchema),
-        defaultValues: {
-            defaultOrgMapping: "",
-            defaultSyncOrgMapping: ""
-        }
+    // orgs without a policy yet, only needed to add one
+    const { data: allOrgs } = useQuery({
+        ...globalIdpQueries.orgs(),
+        enabled: showAddDialog && !editingPolicy
+    });
+    const availableOrgs = (allOrgs ?? []).filter(
+        (org) => !policies.some((p) => p.orgId === org.orgId)
+    );
+
+    const { data: policyOrgRoles, error: policyOrgRolesError } = useQuery({
+        ...orgQueries.roles({ orgId: dialogOrgId }),
+        enabled: showAddDialog && !!dialogOrgId
     });
 
-    const loadIdp = async () => {
-        try {
-            const res = await api.get<AxiosResponse<GetIdpResponse>>(
-                `/idp/${idpId}`
-            );
-            if (res.status === 200) {
-                const data = res.data.data;
-                const variant = data.idpOidcConfig?.variant;
-                setSyncAvailable(variant === "google" || variant === "azure");
-                defaultMappingsForm.reset({
-                    defaultOrgMapping: data.idp.defaultOrgMapping || "",
-                    defaultSyncOrgMapping: data.idp.defaultSyncOrgMapping || ""
-                });
-                setDefaultRoleMapping(
-                    loadRoleMapping(
-                        data.idp.defaultRoleMapping,
-                        defaultRoleMappingConfig()
-                    )
-                );
-                setDefaultSyncRoleMapping(
-                    loadRoleMapping(
-                        data.idp.defaultSyncRoleMapping,
-                        defaultSyncRoleMappingConfig()
-                    )
-                );
-                setDefaultCreateMissingRoles(
-                    data.idp.defaultCreateMissingRoles ?? false
-                );
-                setDefaultSyncCreateMissingRoles(
-                    data.idp.defaultSyncCreateMissingRoles ?? false
-                );
-                setDefaultMappingsLinked(data.idp.defaultMappingsLinked ?? true);
-            }
-        } catch (e) {
-            toast({
-                title: t("error"),
-                description: formatAxiosError(e),
-                variant: "destructive"
-            });
-        }
-    };
-
-    const loadPolicies = async () => {
-        try {
-            const res = await api.get(`/idp/${idpId}/org`);
-            if (res.status === 200) {
-                setPolicies(res.data.data.policies);
-            }
-        } catch (e) {
-            toast({
-                title: t("error"),
-                description: formatAxiosError(e),
-                variant: "destructive"
-            });
-        }
-    };
-
-    const loadOrganizations = async () => {
-        try {
-            const res = await api.get<AxiosResponse<ListOrgsResponse>>("/orgs");
-            if (res.status === 200) {
-                const existingOrgIds = policies.map((p) => p.orgId);
-                const availableOrgs = res.data.data.orgs.filter(
-                    (org) => !existingOrgIds.includes(org.orgId)
-                );
-                setOrganizations(availableOrgs);
-            }
-        } catch (e) {
-            toast({
-                title: t("error"),
-                description: formatAxiosError(e),
-                variant: "destructive"
-            });
-        }
-    };
-
+    // useQuery has no onError in v5, the toast is a side effect of the error
     useEffect(() => {
-        async function load() {
-            setPageLoading(true);
-            await loadPolicies();
-            await loadIdp();
-            setPageLoading(false);
-        }
-        load();
-    }, [idpId]);
-
-    useEffect(() => {
-        if (!showAddDialog) {
-            return;
-        }
-
-        const orgId = editingPolicy?.orgId || policyFormOrgId;
-        if (!orgId) {
-            setPolicyOrgRoles([]);
-            return;
-        }
-
-        let cancelled = false;
-        (async () => {
-            const res = await api
-                .get<AxiosResponse<ListRolesResponse>>(`/org/${orgId}/roles`)
-                .catch((e) => {
-                    console.error(e);
-                    toast({
-                        variant: "destructive",
-                        title: t("accessRoleErrorFetch"),
-                        description: formatAxiosError(
-                            e,
-                            t("accessRoleErrorFetchDescription")
-                        )
-                    });
-                    return null;
-                });
-            if (!cancelled && res?.status === 200) {
-                setPolicyOrgRoles(res.data.data.roles);
-            }
-        })();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [showAddDialog, editingPolicy?.orgId, policyFormOrgId, api, t]);
+        if (!policyOrgRolesError) return;
+        toast({
+            variant: "destructive",
+            title: t("accessRoleErrorFetch"),
+            description: formatAxiosError(
+                policyOrgRolesError,
+                t("accessRoleErrorFetchDescription")
+            )
+        });
+    }, [policyOrgRolesError, t]);
 
     /** Fills the dialog from a policy, or resets it when `policy` is null. */
     function loadPolicyDialogMappings(policy: PolicyRow | null) {
@@ -331,8 +207,15 @@ export default function PoliciesPage() {
         setPolicyMappingsLinked(policy?.mappingsLinked ?? true);
     }
 
-    function compilePolicyMappings(data: PolicyFormValues) {
-        return compileMappings({
+    function closePolicyDialog() {
+        setShowAddDialog(false);
+        setEditingPolicy(null);
+        form.reset();
+        loadPolicyDialogMappings(null);
+    }
+
+    const onSavePolicy = async (data: PolicyFormValues) => {
+        const mappings = compileMappings({
             roleMapping: policyRoleMapping,
             syncRoleMapping: policySyncRoleMapping,
             orgMapping: data.orgMapping,
@@ -341,73 +224,27 @@ export default function PoliciesPage() {
             syncCreateMissingRoles: policySyncCreateMissingRoles,
             linked: policyMappingsLinked
         });
-    }
 
-    const onAddPolicy = async (data: PolicyFormValues) => {
-        const mappings = compilePolicyMappings(data);
-
-        setAddPolicyLoading(true);
+        setSavingPolicy(true);
         try {
-            const res = await api.put(
-                `/idp/${idpId}/org/${data.orgId}`,
-                mappings
-            );
-            if (res.status === 201) {
-                const newPolicy = {
-                    orgId: data.orgId,
-                    name:
-                        organizations.find((org) => org.orgId === data.orgId)
-                            ?.name || "",
-                    ...mappings
-                };
-                setPolicies([...policies, newPolicy]);
-                toast({
-                    title: t("success"),
-                    description: t("orgPolicyAddedDescription")
-                });
-                setShowAddDialog(false);
-                form.reset();
-                loadPolicyDialogMappings(null);
-            }
-        } catch (e) {
-            toast({
-                title: t("error"),
-                description: formatAxiosError(e),
-                variant: "destructive"
-            });
-        } finally {
-            setAddPolicyLoading(false);
-        }
-    };
-
-    const onEditPolicy = async (data: PolicyFormValues) => {
-        if (!editingPolicy) return;
-
-        const mappings = compilePolicyMappings(data);
-
-        setEditPolicyLoading(true);
-        try {
-            const res = await api.post(
-                `/idp/${idpId}/org/${editingPolicy.orgId}`,
-                mappings
-            );
-            if (res.status === 200) {
-                setPolicies(
-                    policies.map((policy) =>
-                        policy.orgId === editingPolicy.orgId
-                            ? { ...policy, ...mappings }
-                            : policy
-                    )
+            if (editingPolicy) {
+                await api.post(
+                    `/idp/${idpId}/org/${editingPolicy.orgId}`,
+                    mappings
                 );
-                toast({
-                    title: t("success"),
-                    description: t("orgPolicyUpdatedDescription")
-                });
-                setShowAddDialog(false);
-                setEditingPolicy(null);
-                form.reset();
-                loadPolicyDialogMappings(null);
+            } else {
+                await api.put(`/idp/${idpId}/org/${data.orgId}`, mappings);
             }
+            await queryClient.invalidateQueries({
+                queryKey: globalIdpQueries.policies({ idpId }).queryKey
+            });
+            toast({
+                title: t("success"),
+                description: editingPolicy
+                    ? t("orgPolicyUpdatedDescription")
+                    : t("orgPolicyAddedDescription")
+            });
+            closePolicyDialog();
         } catch (e) {
             toast({
                 title: t("error"),
@@ -415,76 +252,43 @@ export default function PoliciesPage() {
                 variant: "destructive"
             });
         } finally {
-            setEditPolicyLoading(false);
+            setSavingPolicy(false);
         }
     };
 
     const onDeletePolicy = async (orgId: string) => {
-        setDeletePolicyLoading(true);
         try {
-            const res = await api.delete(`/idp/${idpId}/org/${orgId}`);
-            if (res.status === 200) {
-                setPolicies(
-                    policies.filter((policy) => policy.orgId !== orgId)
-                );
-                toast({
-                    title: t("success"),
-                    description: t("orgPolicyDeletedDescription")
-                });
-            }
+            await api.delete(`/idp/${idpId}/org/${orgId}`);
+            await queryClient.invalidateQueries({
+                queryKey: globalIdpQueries.policies({ idpId }).queryKey
+            });
+            toast({
+                title: t("success"),
+                description: t("orgPolicyDeletedDescription")
+            });
         } catch (e) {
             toast({
                 title: t("error"),
                 description: formatAxiosError(e),
                 variant: "destructive"
             });
-        } finally {
-            setDeletePolicyLoading(false);
         }
     };
 
-    const onUpdateDefaultMappings = async (data: DefaultMappingsValues) => {
-        const mappings = compileMappings({
-            roleMapping: defaultRoleMapping,
-            syncRoleMapping: defaultSyncRoleMapping,
-            orgMapping: data.defaultOrgMapping,
-            syncOrgMapping: data.defaultSyncOrgMapping,
-            createMissingRoles: defaultCreateMissingRoles,
-            syncCreateMissingRoles: defaultSyncCreateMissingRoles,
-            linked: defaultMappingsLinked
-        });
+    const loadError = idpQuery.error ?? policiesQuery.error;
+    if (loadError) {
+        return (
+            <Alert variant="destructive">
+                <AlertDescription>{formatAxiosError(loadError)}</AlertDescription>
+            </Alert>
+        );
+    }
 
-        setUpdateDefaultMappingsLoading(true);
-        try {
-            const res = await api.post(`/idp/${idpId}/oidc`, {
-                defaultRoleMapping: mappings.roleMapping,
-                defaultOrgMapping: mappings.orgMapping,
-                defaultCreateMissingRoles: mappings.createMissingRoles,
-                defaultSyncRoleMapping: mappings.syncRoleMapping,
-                defaultSyncOrgMapping: mappings.syncOrgMapping,
-                defaultSyncCreateMissingRoles: mappings.syncCreateMissingRoles,
-                defaultMappingsLinked: mappings.mappingsLinked
-            });
-            if (res.status === 200) {
-                toast({
-                    title: t("success"),
-                    description: t("defaultMappingsUpdatedDescription")
-                });
-            }
-        } catch (e) {
-            toast({
-                title: t("error"),
-                description: formatAxiosError(e),
-                variant: "destructive"
-            });
-        } finally {
-            setUpdateDefaultMappingsLoading(false);
-        }
-    };
-
-    if (pageLoading) {
+    if (!idpQuery.data || !policiesQuery.data) {
         return null;
     }
+
+    const syncEnabled = isSyncEnabled(idpQuery.data);
 
     return (
         <>
@@ -493,7 +297,6 @@ export default function PoliciesPage() {
                     policies={policies}
                     onDelete={onDeletePolicy}
                     onAdd={() => {
-                        loadOrganizations();
                         form.reset({
                             orgId: "",
                             orgMapping: "",
@@ -515,102 +318,20 @@ export default function PoliciesPage() {
                     }}
                 />
 
-                <SettingsSection>
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("defaultMappingsOptional")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            {t("defaultMappingsOptionalDescription")}
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <Form {...defaultMappingsForm}>
-                            <form
-                                onSubmit={defaultMappingsForm.handleSubmit(
-                                    onUpdateDefaultMappings
-                                )}
-                                id="policy-default-mappings-form"
-                                className="space-y-6"
-                            >
-                                <IdpLinkedMappingsFields
-                                    syncAvailable={syncAvailable}
-                                    linked={defaultMappingsLinked}
-                                    onLinkedChange={(linked) => {
-                                        if (!linked) {
-                                            // start the sync mappings from the shared ones
-                                            setDefaultSyncRoleMapping(
-                                                defaultRoleMapping
-                                            );
-                                            setDefaultSyncCreateMissingRoles(
-                                                defaultCreateMissingRoles
-                                            );
-                                            defaultMappingsForm.setValue(
-                                                "defaultSyncOrgMapping",
-                                                defaultMappingsForm.getValues(
-                                                    "defaultOrgMapping"
-                                                ) ?? ""
-                                            );
-                                        }
-                                        setDefaultMappingsLinked(linked);
-                                    }}
-                                    jit={{
-                                        roleMapping: defaultRoleMapping,
-                                        onRoleMappingChange:
-                                            setDefaultRoleMapping,
-                                        orgMappingField: {
-                                            control:
-                                                defaultMappingsForm.control,
-                                            name: "defaultOrgMapping",
-                                            labelKey: "defaultMappingsOrg"
-                                        },
-                                        createMissingRoles:
-                                            defaultCreateMissingRoles,
-                                        onCreateMissingRolesChange:
-                                            setDefaultCreateMissingRoles
-                                    }}
-                                    sync={{
-                                        roleMapping: defaultSyncRoleMapping,
-                                        onRoleMappingChange:
-                                            setDefaultSyncRoleMapping,
-                                        orgMappingField: {
-                                            control:
-                                                defaultMappingsForm.control,
-                                            name: "defaultSyncOrgMapping",
-                                            labelKey: "defaultMappingsOrg"
-                                        },
-                                        createMissingRoles:
-                                            defaultSyncCreateMissingRoles,
-                                        onCreateMissingRolesChange:
-                                            setDefaultSyncCreateMissingRoles
-                                    }}
-                                    roles={[]}
-                                    fieldIdPrefix="admin-idp-default-role"
-                                    showFreeformRoleNamesHint
-                                />
-                            </form>
-                        </Form>
-                        <SettingsSectionFooter>
-                            <Button
-                                type="submit"
-                                form="policy-default-mappings-form"
-                                loading={updateDefaultMappingsLoading}
-                            >
-                                {t("defaultMappingsSubmit")}
-                            </Button>
-                        </SettingsSectionFooter>
-                    </SettingsSectionBody>
-                </SettingsSection>
+                <DefaultMappingsSection
+                    idpId={idpId}
+                    idp={idpQuery.data.idp}
+                    syncEnabled={syncEnabled}
+                />
             </SettingsContainer>
 
             <Credenza
                 open={showAddDialog}
                 onOpenChange={(val) => {
-                    setShowAddDialog(val);
-                    if (!val) {
-                        setEditingPolicy(null);
-                        form.reset();
-                        loadPolicyDialogMappings(null);
+                    if (val) {
+                        setShowAddDialog(true);
+                    } else {
+                        closePolicyDialog();
                     }
                 }}
             >
@@ -628,9 +349,7 @@ export default function PoliciesPage() {
                     <CredenzaBody className="min-w-0 overflow-x-auto">
                         <Form {...form}>
                             <form
-                                onSubmit={form.handleSubmit(
-                                    editingPolicy ? onEditPolicy : onAddPolicy
-                                )}
+                                onSubmit={form.handleSubmit(onSavePolicy)}
                                 className="space-y-4"
                                 id="policy-form"
                             >
@@ -656,7 +375,7 @@ export default function PoliciesPage() {
                                                                 )}
                                                             >
                                                                 {field.value
-                                                                    ? organizations.find(
+                                                                    ? availableOrgs.find(
                                                                           (
                                                                               org
                                                                           ) =>
@@ -684,7 +403,7 @@ export default function PoliciesPage() {
                                                                     )}
                                                                 </CommandEmpty>
                                                                 <CommandGroup>
-                                                                    {organizations.map(
+                                                                    {availableOrgs.map(
                                                                         (
                                                                             org
                                                                         ) => (
@@ -727,7 +446,7 @@ export default function PoliciesPage() {
                                 />
 
                                 <IdpLinkedMappingsFields
-                                    syncAvailable={syncAvailable}
+                                    syncAvailable={syncEnabled}
                                     linked={policyMappingsLinked}
                                     onLinkedChange={(linked) => {
                                         if (!linked) {
@@ -772,7 +491,7 @@ export default function PoliciesPage() {
                                         onCreateMissingRolesChange:
                                             setPolicySyncCreateMissingRoles
                                     }}
-                                    roles={policyOrgRoles}
+                                    roles={policyOrgRoles ?? []}
                                     orgId={
                                         editingPolicy?.orgId || policyFormOrgId
                                     }
@@ -788,16 +507,8 @@ export default function PoliciesPage() {
                         <Button
                             type="submit"
                             form="policy-form"
-                            loading={
-                                editingPolicy
-                                    ? editPolicyLoading
-                                    : addPolicyLoading
-                            }
-                            disabled={
-                                editingPolicy
-                                    ? editPolicyLoading
-                                    : addPolicyLoading
-                            }
+                            loading={savingPolicy}
+                            disabled={savingPolicy}
                         >
                             {editingPolicy
                                 ? t("orgPolicyUpdate")
@@ -807,5 +518,183 @@ export default function PoliciesPage() {
                 </CredenzaContent>
             </Credenza>
         </>
+    );
+}
+
+/** The IdP's default mappings, used for orgs without a policy. State starts from the loaded IdP. */
+function DefaultMappingsSection({
+    idpId,
+    idp,
+    syncEnabled
+}: {
+    idpId: string;
+    idp: GetIdpResponse["idp"];
+    syncEnabled: boolean;
+}) {
+    const { env } = useEnvContext();
+    const api = createApiClient({ env });
+    const t = useTranslations();
+    const queryClient = useQueryClient();
+
+    const [saving, setSaving] = useState(false);
+    const [defaultRoleMapping, setDefaultRoleMapping] = useState(() =>
+        loadRoleMapping(idp.defaultRoleMapping, defaultRoleMappingConfig())
+    );
+    const [defaultSyncRoleMapping, setDefaultSyncRoleMapping] = useState(() =>
+        loadRoleMapping(
+            idp.defaultSyncRoleMapping,
+            defaultSyncRoleMappingConfig()
+        )
+    );
+    const [defaultCreateMissingRoles, setDefaultCreateMissingRoles] = useState(
+        idp.defaultCreateMissingRoles
+    );
+    const [defaultSyncCreateMissingRoles, setDefaultSyncCreateMissingRoles] =
+        useState(idp.defaultSyncCreateMissingRoles);
+    const [defaultMappingsLinked, setDefaultMappingsLinked] = useState(
+        idp.defaultMappingsLinked
+    );
+
+    const defaultMappingsSchema = z.object({
+        defaultOrgMapping: z.string().optional(),
+        defaultSyncOrgMapping: z.string().optional()
+    });
+    type DefaultMappingsValues = z.infer<typeof defaultMappingsSchema>;
+
+    const defaultMappingsForm = useForm({
+        resolver: zodResolver(defaultMappingsSchema),
+        defaultValues: {
+            defaultOrgMapping: idp.defaultOrgMapping || "",
+            defaultSyncOrgMapping: idp.defaultSyncOrgMapping || ""
+        }
+    });
+
+    const onSubmit = async (data: DefaultMappingsValues) => {
+        const mappings = compileMappings({
+            roleMapping: defaultRoleMapping,
+            syncRoleMapping: defaultSyncRoleMapping,
+            orgMapping: data.defaultOrgMapping,
+            syncOrgMapping: data.defaultSyncOrgMapping,
+            createMissingRoles: defaultCreateMissingRoles,
+            syncCreateMissingRoles: defaultSyncCreateMissingRoles,
+            linked: defaultMappingsLinked
+        });
+
+        setSaving(true);
+        try {
+            await api.post(`/idp/${idpId}/oidc`, {
+                defaultRoleMapping: mappings.roleMapping,
+                defaultOrgMapping: mappings.orgMapping,
+                defaultCreateMissingRoles: mappings.createMissingRoles,
+                defaultSyncRoleMapping: mappings.syncRoleMapping,
+                defaultSyncOrgMapping: mappings.syncOrgMapping,
+                defaultSyncCreateMissingRoles: mappings.syncCreateMissingRoles,
+                defaultMappingsLinked: mappings.mappingsLinked
+            });
+            await queryClient.invalidateQueries({
+                queryKey: globalIdpQueries.idp({ idpId }).queryKey
+            });
+            toast({
+                title: t("success"),
+                description: t("defaultMappingsUpdatedDescription")
+            });
+        } catch (e) {
+            toast({
+                title: t("error"),
+                description: formatAxiosError(e),
+                variant: "destructive"
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <SettingsSection>
+            <SettingsSectionHeader>
+                <SettingsSectionTitle>
+                    {t("defaultMappingsOptional")}
+                </SettingsSectionTitle>
+                <SettingsSectionDescription>
+                    {t("defaultMappingsOptionalDescription")}
+                </SettingsSectionDescription>
+            </SettingsSectionHeader>
+            <SettingsSectionBody>
+                <Form {...defaultMappingsForm}>
+                    <form
+                        onSubmit={defaultMappingsForm.handleSubmit(
+                            onSubmit
+                        )}
+                        id="policy-default-mappings-form"
+                        className="space-y-6"
+                    >
+                        <IdpLinkedMappingsFields
+                            syncAvailable={syncEnabled}
+                            linked={defaultMappingsLinked}
+                            onLinkedChange={(linked) => {
+                                if (!linked) {
+                                    // start the sync mappings from the shared ones
+                                    setDefaultSyncRoleMapping(
+                                        defaultRoleMapping
+                                    );
+                                    setDefaultSyncCreateMissingRoles(
+                                        defaultCreateMissingRoles
+                                    );
+                                    defaultMappingsForm.setValue(
+                                        "defaultSyncOrgMapping",
+                                        defaultMappingsForm.getValues(
+                                            "defaultOrgMapping"
+                                        ) ?? ""
+                                    );
+                                }
+                                setDefaultMappingsLinked(linked);
+                            }}
+                            jit={{
+                                roleMapping: defaultRoleMapping,
+                                onRoleMappingChange:
+                                    setDefaultRoleMapping,
+                                orgMappingField: {
+                                    control:
+                                        defaultMappingsForm.control,
+                                    name: "defaultOrgMapping",
+                                    labelKey: "defaultMappingsOrg"
+                                },
+                                createMissingRoles:
+                                    defaultCreateMissingRoles,
+                                onCreateMissingRolesChange:
+                                    setDefaultCreateMissingRoles
+                            }}
+                            sync={{
+                                roleMapping: defaultSyncRoleMapping,
+                                onRoleMappingChange:
+                                    setDefaultSyncRoleMapping,
+                                orgMappingField: {
+                                    control:
+                                        defaultMappingsForm.control,
+                                    name: "defaultSyncOrgMapping",
+                                    labelKey: "defaultMappingsOrg"
+                                },
+                                createMissingRoles:
+                                    defaultSyncCreateMissingRoles,
+                                onCreateMissingRolesChange:
+                                    setDefaultSyncCreateMissingRoles
+                            }}
+                            roles={[]}
+                            fieldIdPrefix="admin-idp-default-role"
+                            showFreeformRoleNamesHint
+                        />
+                    </form>
+                </Form>
+                <SettingsSectionFooter>
+                    <Button
+                        type="submit"
+                        form="policy-default-mappings-form"
+                        loading={saving}
+                    >
+                        {t("defaultMappingsSubmit")}
+                    </Button>
+                </SettingsSectionFooter>
+            </SettingsSectionBody>
+        </SettingsSection>
     );
 }

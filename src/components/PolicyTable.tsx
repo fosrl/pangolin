@@ -19,8 +19,8 @@ import { useTranslations } from "next-intl";
 
 export interface PolicyRow {
     orgId: string;
-    roleMapping?: string;
-    orgMapping?: string;
+    roleMapping?: string | null;
+    orgMapping?: string | null;
     createMissingRoles?: boolean;
     syncRoleMapping?: string | null;
     syncOrgMapping?: string | null;

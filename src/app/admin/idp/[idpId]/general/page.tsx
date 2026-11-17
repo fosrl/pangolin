@@ -47,6 +47,8 @@ import {
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import IdpTypeBadge from "@app/components/IdpTypeBadge";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
+import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
+import { RefreshCwIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export default function GeneralPage() {
@@ -59,6 +61,9 @@ export default function GeneralPage() {
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
+    // saved value: "Sync now" runs what's in the DB, not the unsaved form
+    const [savedSyncEnabled, setSavedSyncEnabled] = useState(false);
+    const [syncDialogOpen, setSyncDialogOpen] = useState(false);
     const [configuredServiceAccountEmail, setConfiguredServiceAccountEmail] =
         useState<string | undefined>();
     const [pendingPayload, setPendingPayload] = useState<Record<
@@ -183,6 +188,10 @@ export default function GeneralPage() {
                             | "google"
                             | "azure") || "oidc";
                     setVariant(idpVariant);
+                    setSavedSyncEnabled(
+                        data.idp.apiIntegrationEnabled &&
+                            data.idp.directorySyncEnabled
+                    );
                     setOriginalIdentifierPath(
                         data.idpOidcConfig?.identifierPath ?? "sub"
                     );
@@ -363,6 +372,7 @@ export default function GeneralPage() {
             if (typeof payload.identifierPath === "string") {
                 setOriginalIdentifierPath(payload.identifierPath);
             }
+            setSavedSyncEnabled(Boolean(payload.directorySyncEnabled));
             const apiConfig = payload.apiConfig as
                 | ReturnType<typeof buildGoogleIDPAPIConfig>
                 | undefined;
@@ -415,6 +425,11 @@ export default function GeneralPage() {
                     }
                 }}
                 onConfirm={confirmIdentifierChange}
+            />
+            <IdpSyncNowDialog
+                open={syncDialogOpen}
+                setOpen={setSyncDialogOpen}
+                idpId={idpId as string}
             />
             <SettingsContainer>
                 <SettingsSection>
@@ -565,6 +580,22 @@ export default function GeneralPage() {
                                 )}
                             </form>
                         </Form>
+                        {savedSyncEnabled && (
+                            <div className="flex flex-col gap-2 items-start border-t pt-6 mt-6">
+                                <Button
+                                    type="button"
+                                    variant="outlinePrimary"
+                                    onClick={() => setSyncDialogOpen(true)}
+                                    className="gap-2"
+                                >
+                                    <RefreshCwIcon className="size-4 flex-none" />
+                                    {t("idpSyncNow")}
+                                </Button>
+                                <p className="text-sm text-muted-foreground">
+                                    {t("idpSyncGlobalNowDescription")}
+                                </p>
+                            </div>
+                        )}
                     </SettingsSectionBody>
                 </SettingsSection>
 

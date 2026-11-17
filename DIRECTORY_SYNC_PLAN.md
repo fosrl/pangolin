@@ -276,6 +276,11 @@ All sync code is in [server/private/lib/idpAPI/](server/private/lib/idpAPI/).
    - Missing in the UI: a `PaidFeaturesAlert` and disabled toggles for the API integration and Sync, like JIT does with `tierMatrix.autoProvisioning` ([IdpUserProvisioningFields.tsx](src/components/IdpUserProvisioningFields.tsx), [ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx)). Hide "Sync now" when not entitled.
    - Global IdPs (items 2 and 3): same checks on the server admin routes and pages.
    - To check: on enterprise builds `isLicensedOrSubscribed` only checks that the license is valid, not its tier, and `verifyValidSubscription` lets every non-SaaS build through. Confirm that every valid enterprise license should get sync.
+5. **One place that says which providers support the API integration.** Today "google or azure" is written out by hand in many places, for example `existing.variant !== "google" && existing.variant !== "azure"` in [syncIdp.ts](server/private/routers/idp/syncIdp.ts). Adding a provider (Okta, …) means finding every one of them.
+   - Add a single list of API-capable variants, plus a helper like `supportsApiIntegration(variant)`, shared by the server and the UI.
+   - Server: [syncIdp.ts](server/private/routers/idp/syncIdp.ts), [syncWorkflow.ts](server/private/lib/idpAPI/syncWorkflow.ts) (the variant filter and the `switch` that builds the provider), [createOidcIdp.ts](server/routers/idp/createOidcIdp.ts), [updateOidcIdp.ts](server/routers/idp/updateOidcIdp.ts), [createOrgOidcIdp.ts](server/private/routers/orgIdp/createOrgOidcIdp.ts).
+   - UI: the org and admin IdP create and settings pages, the admin policies page, [ApiIntegrationConfigWidget.tsx](src/components/ApiIntegrationConfigWidget.tsx), [idpApiConfig.ts](src/lib/idpApiConfig.ts).
+   - The provider classes could be looked up from one map (variant → provider), like `providerMap` in [enrichClaimsWithIdpGroups.ts](server/private/lib/idp/enrichClaimsWithIdpGroups.ts), instead of a `switch` in each caller.
 
 ### After merging 
 

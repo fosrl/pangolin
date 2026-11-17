@@ -29,22 +29,32 @@ import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
 import {
+    globalIdpQueries,
     orgQueries,
+    type IdpGlobalSyncResponse,
     type IdpSyncEntry,
     type IdpSyncResponse
 } from "@app/lib/queries";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { areArraysEqual } from "@app/lib/areArraysEqual";
 
 type IdpSyncNowDialogProps = {
     open: boolean;
     setOpen: (open: boolean) => void;
-    orgId: string;
+    /** Org IdP. Omit it for a global IdP: the preview covers every org it maps users into. */
+    orgId?: string;
     idpId: string;
-    /** ms since epoch, `null` when the org was never synced. */
-    lastSyncedAt: number | null;
-    onSynced: (syncedAt: number) => void;
+    /** ms since epoch, `null` when the org was never synced. Org IdPs only. */
+    lastSyncedAt?: number | null;
+    onSynced?: (syncedAt: number) => void;
+};
+
+/** The membership changes of one org (`orgName` only for a global IdP). */
+type PreviewGroup = {
+    orgId: string;
+    orgName?: string;
+    changes: IdpSyncEntry[];
 };
 
 /** Previews the sync with a dry run, then applies it on confirm. */
@@ -63,17 +73,62 @@ export default function IdpSyncNowDialog({
     const queryClient = useQueryClient();
     const [applying, setApplying] = useState(false);
 
-    const previewQuery = orgQueries.idpSyncPreview({ orgId, idpId });
+    const isGlobal = orgId === undefined;
+    const orgPreviewQuery = orgQueries.idpSyncPreview({
+        orgId: orgId ?? "",
+        idpId
+    });
+    const globalPreviewQuery = globalIdpQueries.syncPreview({ idpId });
+    const orgPreview = useQuery({
+        ...orgPreviewQuery,
+        enabled: open && !isGlobal
+    });
+    const globalPreview = useQuery({
+        ...globalPreviewQuery,
+        enabled: open && isGlobal
+    });
     const {
-        data: preview,
         error: previewError,
         isFetching: loadingPreview
-    } = useQuery({ ...previewQuery, enabled: open });
+    } = isGlobal ? globalPreview : orgPreview;
+    const counts = isGlobal
+        ? globalPreview.data?.counts
+        : orgPreview.data?.counts;
+
+    const groups: PreviewGroup[] = isGlobal
+        ? (globalPreview.data?.orgs ?? []).flatMap((org) =>
+              org.status === "synced"
+                  ? [
+                        {
+                            orgId: org.orgId,
+                            orgName: org.orgName,
+                            changes: org.entries ?? []
+                        }
+                    ]
+                  : []
+          )
+        : [
+              {
+                  orgId: orgId,
+                  changes:
+                      orgPreview.data?.entries?.filter(
+                          (e) => e.membership !== "unchanged"
+                      ) ?? []
+              }
+          ];
+    const groupsWithChanges = groups.filter((g) => g.changes.length > 0);
+    const globalIssues = (globalPreview.data?.orgs ?? []).filter(
+        (org) => org.status !== "synced"
+    );
 
     // the next opening reads the directory again
     function onOpenChange(nextOpen: boolean) {
         if (!nextOpen) {
-            queryClient.removeQueries({ queryKey: previewQuery.queryKey });
+            queryClient.removeQueries({
+                queryKey: isGlobal
+                    ? globalPreviewQuery.queryKey
+                    : orgPreviewQuery.queryKey
+            });
         }
         setOpen(nextOpen);
     }
@@ -81,20 +136,40 @@ export default function IdpSyncNowDialog({
     async function apply() {
         setApplying(true);
         try {
-            const res = await api.post<AxiosResponse<IdpSyncResponse>>(
-                `/org/${orgId}/idp/${idpId}/sync`,
-                {}
-            );
-            const { counts } = res.data.data;
+            let appliedCounts: IdpSyncResponse["counts"];
+            if (isGlobal) {
+                const res = await api.post<
+                    AxiosResponse<IdpGlobalSyncResponse>
+                >(`/idp/${idpId}/sync`, {});
+                appliedCounts = res.data.data.counts;
+                const failed = res.data.data.orgs.filter(
+                    (org) => org.status === "failed"
+                );
+                if (failed.length > 0) {
+                    toast({
+                        title: t("error"),
+                        description: t("idpSyncOrgsFailed", {
+                            orgs: failed.map((org) => org.orgName).join(", ")
+                        }),
+                        variant: "destructive"
+                    });
+                }
+            } else {
+                const res = await api.post<AxiosResponse<IdpSyncResponse>>(
+                    `/org/${orgId}/idp/${idpId}/sync`,
+                    {}
+                );
+                appliedCounts = res.data.data.counts;
+            }
             toast({
                 title: t("success"),
                 description: t("idpSyncNowSuccess", {
-                    added: counts.membershipsAdded,
-                    updated: counts.membershipsUpdated,
-                    removed: counts.membershipsRemoved
+                    added: appliedCounts.membershipsAdded,
+                    updated: appliedCounts.membershipsUpdated,
+                    removed: appliedCounts.membershipsRemoved
                 })
             });
-            onSynced(Date.now());
+            onSynced?.(Date.now());
             onOpenChange(false);
         } catch (e) {
             toast({
@@ -107,9 +182,6 @@ export default function IdpSyncNowDialog({
         }
     }
 
-    const changes =
-        preview?.entries?.filter((e) => e.membership !== "unchanged") ?? [];
-
     return (
         <Credenza open={open} onOpenChange={onOpenChange}>
             <CredenzaContent className="max-w-3xl sm:w-full">
@@ -120,7 +192,9 @@ export default function IdpSyncNowDialog({
                     </CredenzaDescription>
                 </CredenzaHeader>
                 <CredenzaBody className="min-w-0 space-y-4">
-                    <IdpLastSyncedAt lastSyncedAt={lastSyncedAt} />
+                    {!isGlobal && (
+                        <IdpLastSyncedAt lastSyncedAt={lastSyncedAt ?? null} />
+                    )}
 
                     {loadingPreview && (
                         <p className="text-sm text-muted-foreground">
@@ -136,18 +210,40 @@ export default function IdpSyncNowDialog({
                         </Alert>
                     )}
 
-                    {preview && (
+                    {counts && (
                         <>
                             <p className="text-sm">
                                 {t("idpSyncPreviewSummary", {
-                                    added: preview.counts.membershipsAdded,
-                                    updated: preview.counts.membershipsUpdated,
-                                    removed: preview.counts.membershipsRemoved,
-                                    unchanged: preview.counts.unchanged
+                                    added: counts.membershipsAdded,
+                                    updated: counts.membershipsUpdated,
+                                    removed: counts.membershipsRemoved,
+                                    unchanged: counts.unchanged
                                 })}
                             </p>
 
-                            {changes.length === 0 ? (
+                            {globalIssues.length > 0 && (
+                                <Alert variant="warning">
+                                    <AlertDescription>
+                                        <ul className="space-y-1">
+                                            {globalIssues.map((org) => (
+                                                <li key={org.orgId}>
+                                                    <span className="font-medium">
+                                                        {org.orgName}
+                                                    </span>
+                                                    {": "}
+                                                    {org.status === "failed"
+                                                        ? org.error
+                                                        : t(
+                                                              "idpSyncOrgNotEntitled"
+                                                          )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            {groupsWithChanges.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
                                     {t("idpSyncPreviewNoChanges")}
                                 </p>
@@ -171,42 +267,56 @@ export default function IdpSyncNowDialog({
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {changes.map((entry, i) => (
-                                                <TableRow key={i}>
-                                                    <TableCell>
-                                                        <div className="font-medium">
-                                                            {entry.name ??
-                                                                entry.email ??
-                                                                entry.username ??
-                                                                "-"}
-                                                        </div>
-                                                        {entry.name &&
-                                                            entry.email && (
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    {
-                                                                        entry.email
-                                                                    }
+                                            {groupsWithChanges.map((group) => (
+                                                <Fragment key={group.orgId}>
+                                                    {group.orgName && (
+                                                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                                            <TableCell
+                                                                colSpan={4}
+                                                                className="px-3 py-2 text-sm font-medium"
+                                                            >
+                                                                {group.orgName}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                    {group.changes.map((entry, i) => (
+                                                        <TableRow key={i}>
+                                                            <TableCell>
+                                                                <div className="font-medium">
+                                                                    {entry.name ??
+                                                                        entry.email ??
+                                                                        entry.username ??
+                                                                        "-"}
                                                                 </div>
-                                                            )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <ChangeBadge
-                                                            entry={entry}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        <RoleBadges
-                                                            roles={
-                                                                entry.previousRoles
-                                                            }
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        <RoleBadges
-                                                            roles={entry.roles}
-                                                        />
-                                                    </TableCell>
-                                                </TableRow>
+                                                                {entry.name &&
+                                                                    entry.email && (
+                                                                        <div className="text-xs text-muted-foreground">
+                                                                            {
+                                                                                entry.email
+                                                                            }
+                                                                        </div>
+                                                                    )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <ChangeBadge
+                                                                    entry={entry}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell className="text-sm">
+                                                                <RoleBadges
+                                                                    roles={
+                                                                        entry.previousRoles
+                                                                    }
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell className="text-sm">
+                                                                <RoleBadges
+                                                                    roles={entry.roles}
+                                                                />
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </Fragment>
                                             ))}
                                         </TableBody>
                                     </Table>
@@ -222,7 +332,7 @@ export default function IdpSyncNowDialog({
                     <Button
                         onClick={apply}
                         loading={applying}
-                        disabled={!preview || applying}
+                        disabled={!counts || applying}
                     >
                         {t("idpSyncApply")}
                     </Button>
