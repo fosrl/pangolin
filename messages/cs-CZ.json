@@ -1398,6 +1398,7 @@
     "actionDeleteIdpOrg": "Odstranit IDP Org Policy",
     "actionListIdpOrgs": "Seznam IDP orgánů",
     "actionUpdateIdpOrg": "Aktualizovat IDP Org",
+    "actionCreateUserSession": "Create User Session",
     "actionCreateClient": "Vytvořit klienta",
     "actionDeleteClient": "Odstranit klienta",
     "actionArchiveClient": "Archivovat klienta",
