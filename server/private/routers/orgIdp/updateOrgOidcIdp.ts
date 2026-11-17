@@ -26,6 +26,7 @@ import { eq, and } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { isSubscribed } from "#private/lib/isSubscribed";
+import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
 import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
@@ -230,6 +231,25 @@ export async function updateOrgOidcIdp(
             );
         }
 
+        // the API integration and sync are paid features. Only turning them on is refused:
+        // after a downgrade the stored settings stay and other edits must still save
+        const enablesApiFeatures =
+            (effectiveApiIntegrationEnabled &&
+                !existingIdp.apiIntegrationEnabled) ||
+            (effectiveDirectorySyncEnabled &&
+                !existingIdp.directorySyncEnabled);
+        if (
+            enablesApiFeatures &&
+            !(await isLicensedOrSubscribed(orgId, tierMatrix.idpAPIIntegration))
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "The IdP API integration and directory sync are not available on your current plan"
+                )
+            );
+        }
+
         const resolvedApiConfig = resolveIDPAPIConfig({
             variant: existingOidcConfig?.variant ?? "oidc",
             incomingApiConfig: apiConfig,
@@ -238,10 +258,7 @@ export async function updateOrgOidcIdp(
         });
         if (!resolvedApiConfig.success) {
             return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    resolvedApiConfig.error
-                )
+                createHttpError(HttpCode.BAD_REQUEST, resolvedApiConfig.error)
             );
         }
 

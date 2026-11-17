@@ -26,6 +26,7 @@ import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { isSubscribed } from "#private/lib/isSubscribed";
+import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
 import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
@@ -177,6 +178,21 @@ export async function createOrgOidcIdp(
             );
         }
 
+        // the API integration and sync are paid features
+        const enablesApiFeatures =
+            effectiveApiIntegrationEnabled || effectiveDirectorySyncEnabled;
+        if (
+            enablesApiFeatures &&
+            !(await isLicensedOrSubscribed(orgId, tierMatrix.idpAPIIntegration))
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "The IdP API integration and directory sync are not available on your current plan"
+                )
+            );
+        }
+
         const resolvedApiConfig = resolveIDPAPIConfig({
             variant,
             incomingApiConfig: apiConfig,
@@ -185,10 +201,7 @@ export async function createOrgOidcIdp(
         });
         if (!resolvedApiConfig.success) {
             return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    resolvedApiConfig.error
-                )
+                createHttpError(HttpCode.BAD_REQUEST, resolvedApiConfig.error)
             );
         }
 

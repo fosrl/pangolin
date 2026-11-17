@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
+import license from "#dynamic/license/license";
 
 const paramsSchema = z
     .object({
@@ -197,6 +198,22 @@ export async function updateOidcIdp(
             );
         }
 
+        // the API integration and sync need a license (always unlocked on saas, never on oss).
+        // Only turning them on is refused, so other edits still save without a license
+        const enablesApiFeatures =
+            (effectiveApiIntegrationEnabled &&
+                !existingIdp.apiIntegrationEnabled) ||
+            (effectiveDirectorySyncEnabled &&
+                !existingIdp.directorySyncEnabled);
+        if (enablesApiFeatures && !(await license.isUnlocked())) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "The IdP API integration and directory sync require a valid license"
+                )
+            );
+        }
+
         const resolvedApiConfig = resolveIDPAPIConfig({
             variant: effectiveVariant,
             incomingApiConfig: apiConfig,
@@ -205,10 +222,7 @@ export async function updateOidcIdp(
         });
         if (!resolvedApiConfig.success) {
             return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    resolvedApiConfig.error
-                )
+                createHttpError(HttpCode.BAD_REQUEST, resolvedApiConfig.error)
             );
         }
 

@@ -13,6 +13,7 @@ import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
+import license from "#dynamic/license/license";
 
 const bodySchema = z.strictObject({
     name: z.string().nonempty(),
@@ -128,6 +129,19 @@ export async function createOidcIdp(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
                     "Directory sync requires the API integration"
+                )
+            );
+        }
+
+        // the API integration and sync need a license (always unlocked on saas, never on oss).
+        // Global IdPs aren't tied to one org, the sync job checks each org's plan
+        const enablesApiFeatures =
+            effectiveApiIntegrationEnabled || effectiveDirectorySyncEnabled;
+        if (enablesApiFeatures && !(await license.isUnlocked())) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "The IdP API integration and directory sync require a valid license"
                 )
             );
         }
