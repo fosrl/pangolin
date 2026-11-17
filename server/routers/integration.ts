@@ -1303,6 +1303,16 @@ authenticated.get(
     user.adminGetUser
 );
 
+if (build !== "saas" && config.getRawConfig().flags?.enable_api_create_user_sessions) {
+    authenticated.post(
+        "/user/:userId/session",
+        verifyApiKeyIsRoot,
+        verifyApiKeyHasAction(ActionsEnum.createUserSession),
+        logActionAudit(ActionsEnum.createUserSession),
+        user.createUserSession
+    );
+}
+
 authenticated.get(
     "/org/:orgId/users",
     verifyApiKeyOrgAccess,
@@ -1395,20 +1405,6 @@ authenticated.post(
     logActionAudit(ActionsEnum.updateIdp),
     idp.updateOidcIdp
 );
-
-// Bridge an already-authenticated external IdP session into Pangolin by minting
-// a user session token for a pre-provisioned user. This is a highly privileged,
-// impersonation-capable route, so it is root-key gated (not org-scoped), off by
-// default behind flags.enable_idp_create_session, and self-hosted only.
-if (build !== "saas" && config.getRawConfig().flags?.enable_idp_create_session) {
-    authenticated.post(
-        "/idp/:idpId/oidc/create-session",
-        verifyApiKeyIsRoot,
-        verifyApiKeyHasAction(ActionsEnum.createIdpSession),
-        logActionAudit(ActionsEnum.createIdpSession),
-        idp.createIdpSession
-    );
-}
 
 authenticated.get(
     "/idp", // no guards on this because anyone can list idps for login purposes

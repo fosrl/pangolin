@@ -284,11 +284,15 @@ function getActionsCategories(root: boolean) {
             "listIdpOrgs";
         actionsByCategory["Identity Provider (IDP)"][t("actionUpdateIdpOrg")] =
             "updateIdpOrg";
-
         actionsByCategory["User"] = {
             [t("actionUpdateUser")]: "updateUser",
             [t("actionGetUser")]: "getUser"
         };
+
+        if (build !== "saas" && env.flags.enableApiCreateUserSessions) {
+            actionsByCategory["User"][t("actionCreateUserSession")] =
+                "createUserSession";
+        }
 
         if (build === "saas") {
             actionsByCategory["SAAS"] = {

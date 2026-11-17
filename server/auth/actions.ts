@@ -108,7 +108,7 @@ export enum ActionsEnum {
     createNewt = "createNewt",
     createOlm = "createOlm",
     createIdp = "createIdp",
-    createIdpSession = "createIdpSession",
+    createUserSession = "createUserSession",
     updateIdp = "updateIdp",
     deleteIdp = "deleteIdp",
     listIdps = "listIdps",
