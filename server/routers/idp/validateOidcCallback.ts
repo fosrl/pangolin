@@ -42,6 +42,7 @@ import jmespath from "jmespath";
 import jsonwebtoken from "jsonwebtoken";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
+import { pushBlocklistForUser } from "@server/lib/dnsBlocklist";
 
 const ensureTrailingSlash = (url: string): string => {
     return url;
@@ -664,6 +665,12 @@ export async function validateOidcCallback(
                     });
                 }
             });
+
+            // The sync may have changed the user's roles in any of these orgs,
+            // so their connected devices need the matching blocklists.
+            for (const orgInfo of userOrgInfo) {
+                void pushBlocklistForUser(orgInfo.orgId, userId!);
+            }
 
             calculateUserClientsForOrgs(userId!).catch((err) => {
                 logger.error(

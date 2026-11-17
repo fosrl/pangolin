@@ -16,6 +16,7 @@ import {
     type RoleFormValues
 } from "./RoleForm";
 import { saveRoleClientSettings } from "./RoleClientSettingsFields";
+import { saveRoleDnsBlocking } from "./RoleDnsBlockingFields";
 import SettingsSectionTitle from "./SettingsSectionTitle";
 import { useRouter } from "next/navigation";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -99,6 +100,25 @@ export default function CreateRoleForm({ orgId }: CreateRoleFormProps) {
                         api,
                         createdRole.roleId,
                         values.clientSettings
+                    );
+                } catch (e) {
+                    toast({
+                        variant: "destructive",
+                        title: t("accessRoleErrorUpdate"),
+                        description: formatAxiosError(
+                            e,
+                            t("accessRoleErrorUpdateDescription")
+                        )
+                    });
+                }
+            }
+
+            if (values.dnsBlocking?.enabled) {
+                try {
+                    await saveRoleDnsBlocking(
+                        api,
+                        createdRole.roleId,
+                        values.dnsBlocking
                     );
                 } catch (e) {
                     toast({

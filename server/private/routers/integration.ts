@@ -24,6 +24,7 @@ import * as resourceSession from "#private/routers/resourceSession";
 import * as healthChecks from "#private/routers/healthChecks";
 import * as resource from "#private/routers/resource";
 import * as customDnsRecord from "#private/routers/customDnsRecord";
+import * as dnsBlocking from "#private/routers/dnsBlocking";
 import {
     verifyApiKeyHasAction,
     verifyApiKeyDomainAccess,
@@ -559,4 +560,71 @@ authenticated.get(
     verifyApiKeyOrgAccess,
     verifyApiKeyHasAction(ActionsEnum.getTarget),
     healthChecks.getHealthCheckStatusHistory
+);
+
+// DNS blocking: categories, custom lists, per-role selections and the block log
+authenticated.get(
+    "/org/:orgId/dns-block-lists",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.listDnsBlockLists),
+    dnsBlocking.listDnsBlockLists
+);
+
+authenticated.get(
+    "/org/:orgId/dns-block-list/:listId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.getDnsBlockList),
+    dnsBlocking.getDnsBlockList
+);
+
+authenticated.put(
+    "/org/:orgId/dns-block-list",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.createDnsBlockList),
+    logActionAudit(ActionsEnum.createDnsBlockList),
+    dnsBlocking.createDnsBlockList
+);
+
+authenticated.post(
+    "/org/:orgId/dns-block-list/:listId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateDnsBlockList),
+    logActionAudit(ActionsEnum.updateDnsBlockList),
+    dnsBlocking.updateDnsBlockList
+);
+
+authenticated.delete(
+    "/org/:orgId/dns-block-list/:listId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteDnsBlockList),
+    logActionAudit(ActionsEnum.deleteDnsBlockList),
+    dnsBlocking.deleteDnsBlockList
+);
+
+authenticated.get(
+    "/org/:orgId/logs/dns-blocks",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.viewLogs),
+    dnsBlocking.queryDnsBlockLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/dns-blocks/analytics",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.viewLogs),
+    dnsBlocking.queryDnsBlockAnalytics
 );

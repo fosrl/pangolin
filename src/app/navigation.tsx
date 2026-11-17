@@ -41,7 +41,8 @@ import {
     UserCog,
     Users,
     Waypoints,
-    MonitorSmartphone
+    MonitorSmartphone,
+    ShieldBan
 } from "lucide-react";
 
 export type SidebarNavSection = {
@@ -190,6 +191,15 @@ export const orgNavSections = (
                 href: "/{orgId}/settings/redirects",
                 icon: <Repeat className="size-4 flex-none" />
             },
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "sidebarDnsBlocking",
+                          href: "/{orgId}/settings/dns-blocking",
+                          icon: <ShieldBan className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             ...(env?.flags.usePangolinDns
                 ? [
                       {
@@ -323,6 +333,13 @@ export const orgNavSections = (
                                   href: "/{orgId}/settings/logs/ssh",
                                   icon: (
                                       <SquareTerminal className="size-4 flex-none" />
+                                  )
+                              },
+                              {
+                                  title: "sidebarLogsDnsBlocks",
+                                  href: "/{orgId}/settings/logs/dns-blocks",
+                                  icon: (
+                                      <ShieldBan className="size-4 flex-none" />
                                   )
                               },
                               {
@@ -539,6 +556,15 @@ export const commandBarNavSections = (
                 href: "/{orgId}/settings/redirects",
                 icon: <Repeat className="size-4 flex-none" />
             },
+            ...(!env?.flags.disableEnterpriseFeatures
+                ? [
+                      {
+                          title: "commandDnsBlocking",
+                          href: "/{orgId}/settings/dns-blocking",
+                          icon: <ShieldBan className="size-4 flex-none" />
+                      }
+                  ]
+                : []),
             ...(env?.flags.usePangolinDns
                 ? [
                       {
@@ -656,6 +682,11 @@ export const commandBarNavSections = (
                           title: "commandLogsSsh",
                           href: "/{orgId}/settings/logs/ssh",
                           icon: <SquareTerminal className="size-4 flex-none" />
+                      },
+                      {
+                          title: "commandLogsDnsBlocks",
+                          href: "/{orgId}/settings/logs/dns-blocks",
+                          icon: <ShieldBan className="size-4 flex-none" />
                       },
                       {
                           title: "commandLogsStreaming",

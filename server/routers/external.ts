@@ -9,6 +9,7 @@ import * as target from "./target";
 import * as user from "./user";
 import * as auth from "./auth";
 import * as role from "./role";
+import * as dnsBlocking from "./dnsBlocking";
 import * as client from "./client";
 import * as siteResource from "./siteResource";
 import * as supporterKey from "./supporterKey";
@@ -888,6 +889,28 @@ authenticated.get(
     verifyOrgAccess,
     verifyUserHasAction(ActionsEnum.listRoles),
     role.listRoles
+);
+
+authenticated.get(
+    "/org/:orgId/dns-block-categories",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getRoleDnsBlocking),
+    dnsBlocking.listDnsBlockCategories
+);
+
+authenticated.get(
+    "/role/:roleId/dns-blocking",
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.getRoleDnsBlocking),
+    dnsBlocking.getRoleDnsBlocking
+);
+
+authenticated.post(
+    "/role/:roleId/dns-blocking",
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.updateRoleDnsBlocking),
+    logActionAudit(ActionsEnum.updateRoleDnsBlocking),
+    dnsBlocking.updateRoleDnsBlocking
 );
 
 authenticated.get(

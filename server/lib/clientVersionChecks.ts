@@ -85,3 +85,19 @@ export function supportsSync(
         return false;
     }
 }
+
+// Whether this olm client understands the olm/dns/blocklist message (DNS
+// blocklists pushed by the server) and sends olm/dns/blocklog batches. Bump the
+// version floor here to match whatever release first ships the olm-side support.
+// OLM
+export function supportsDnsBlocklist(
+    clientVersion: string | null | undefined
+): boolean {
+    try {
+        if (!clientVersion) return false;
+        if (!semver.valid(clientVersion)) return false;
+        return semver.gte(clientVersion, "1.11.0");
+    } catch {
+        return false;
+    }
+}

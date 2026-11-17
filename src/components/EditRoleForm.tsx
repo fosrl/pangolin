@@ -20,6 +20,7 @@ import {
 } from "./RoleForm";
 import { saveBudgetRows } from "./BudgetsEditor";
 import { saveRoleClientSettings } from "./RoleClientSettingsFields";
+import { saveRoleDnsBlocking } from "./RoleDnsBlockingFields";
 import SettingsSectionTitle from "./SettingsSectionTitle";
 import { useRouter } from "next/navigation";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -108,6 +109,29 @@ export default function EditRoleForm({ role }: EditRoleFormProps) {
                     );
                     await queryClient.invalidateQueries({
                         queryKey: ["ROLE", role.roleId, "CLIENT_SETTINGS"]
+                    });
+                } catch (e) {
+                    toast({
+                        variant: "destructive",
+                        title: t("accessRoleErrorUpdate"),
+                        description: formatAxiosError(
+                            e,
+                            t("accessRoleErrorUpdateDescription")
+                        )
+                    });
+                    return;
+                }
+            }
+
+            if (values.dnsBlocking) {
+                try {
+                    await saveRoleDnsBlocking(
+                        api,
+                        role.roleId,
+                        values.dnsBlocking
+                    );
+                    await queryClient.invalidateQueries({
+                        queryKey: ["ROLE", role.roleId, "DNS_BLOCKING"]
                     });
                 } catch (e) {
                     toast({

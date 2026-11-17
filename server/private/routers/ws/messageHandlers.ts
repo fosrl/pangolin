@@ -16,6 +16,7 @@ import {
     handleRemoteExitNodePingMessage
 } from "#private/routers/remoteExitNode";
 import { MessageHandler } from "@server/routers/ws";
+import { handleDnsBlockLogMessage } from "#private/routers/olm/handleDnsBlockLogMessage";
 import {
     handleConnectionLogMessage,
     handleSshSessionLogMessage
@@ -25,5 +26,6 @@ export const messageHandlers: Record<string, MessageHandler> = {
     "remoteExitNode/register": handleRemoteExitNodeRegisterMessage,
     "remoteExitNode/ping": handleRemoteExitNodePingMessage,
     "newt/access-log": handleConnectionLogMessage,
-    "newt/ssh-session-log": handleSshSessionLogMessage
+    "newt/ssh-session-log": handleSshSessionLogMessage,
+    "olm/dns/blocklog": handleDnsBlockLogMessage
 };

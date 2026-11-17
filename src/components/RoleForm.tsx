@@ -56,6 +56,11 @@ import type { AiBudgetPeriod, AiBudgetUnit } from "@app/lib/aiBudgetScope";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import type { Role } from "@server/db";
 import type { RoleClientSettingsValues } from "@server/routers/role/types";
+import type { RoleDnsBlockingValues } from "@server/routers/dnsBlocking/types";
+import {
+    defaultRoleDnsBlocking,
+    RoleDnsBlockingFields
+} from "@app/components/RoleDnsBlockingFields";
 import {
     defaultRoleClientSettings,
     RoleClientSettingsFields
@@ -125,6 +130,7 @@ export type RoleFormValues = {
     sshUnixGroups?: string;
     budgets?: PendingRoleBudget[];
     clientSettings?: RoleClientSettingsValues;
+    dnsBlocking?: RoleDnsBlockingValues;
 };
 
 type RoleFormProps = {
@@ -306,6 +312,27 @@ export function RoleForm({
         }
     }, [clientSettingsQuery.data]);
 
+    const [pendingDnsBlocking, setPendingDnsBlocking] =
+        useState<RoleDnsBlockingValues>(defaultRoleDnsBlocking);
+
+    const dnsBlockingQuery = useQuery({
+        queryKey: ["ROLE", role?.roleId, "DNS_BLOCKING"] as const,
+        queryFn: async ({ signal }) => {
+            const res = await api.get<AxiosResponse<RoleDnsBlockingValues>>(
+                `/role/${role?.roleId}/dns-blocking`,
+                { signal }
+            );
+            return res.data.data;
+        },
+        enabled: variant === "edit" && !!role
+    });
+
+    useEffect(() => {
+        if (dnsBlockingQuery.data) {
+            setPendingDnsBlocking(dnsBlockingQuery.data);
+        }
+    }, [dnsBlockingQuery.data]);
+
     useEffect(() => {
         if (variant !== "edit" || !budgetsQuery.data) return;
         setPendingBudgetRows(rowsFromBudgets(budgetsQuery.data));
@@ -388,7 +415,8 @@ export function RoleForm({
                           pendingClientSettings.matchDomains
                               ?.map((domain) => domain.trim())
                               .filter(Boolean) ?? null
-                  }
+                  },
+            dnsBlocking: pendingDnsBlocking
         });
     }
 
@@ -480,6 +508,10 @@ export function RoleForm({
                             },
                             {
                                 title: t("accessRoleClientSettings"),
+                                href: "#"
+                            },
+                            {
+                                title: t("accessRoleDnsBlocking"),
                                 href: "#"
                             }
                         ]}
@@ -829,6 +861,19 @@ export function RoleForm({
                                     clientSettingsDisabled ||
                                     clientSettingsQuery.isLoading
                                 }
+                            />
+                        </RoleFormSection>
+
+                        <RoleFormSection
+                            title={t("accessRoleDnsBlocking")}
+                            description={t("accessRoleDnsBlockingDescription")}
+                            footer={footer}
+                        >
+                            <RoleDnsBlockingFields
+                                orgId={orgId}
+                                value={pendingDnsBlocking}
+                                onChange={setPendingDnsBlocking}
+                                disabled={dnsBlockingQuery.isLoading}
                             />
                         </RoleFormSection>
                     </HorizontalTabs>

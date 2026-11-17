@@ -38,6 +38,7 @@ import {
 } from "@server/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { clearIdpSessionGrants } from "#private/auth/sessions/idpRevalidation";
+import { pushBlocklistForOrg } from "@server/lib/dnsBlocklist";
 
 /**
  * Get the maximum allowed retention days for a given tier
@@ -157,6 +158,17 @@ async function capRetentionDays(
         needsUpdate = true;
         logger.info(
             `Capping SSH session log retention from ${org.settingsLogRetentionDaysSsh} to ${maxRetentionDays} days for org ${orgId}`
+        );
+    }
+
+    if (
+        org.settingsLogRetentionDaysDnsBlock !== null &&
+        org.settingsLogRetentionDaysDnsBlock > maxRetentionDays
+    ) {
+        updates.settingsLogRetentionDaysDnsBlock = maxRetentionDays;
+        needsUpdate = true;
+        logger.info(
+            `Capping DNS block log retention from ${org.settingsLogRetentionDaysDnsBlock} to ${maxRetentionDays} days for org ${orgId}`
         );
     }
 
@@ -312,6 +324,10 @@ async function disableFeature(
 
             case TierFeature.SSHSessionLogs:
                 await disableSSHSessionLogs(orgId);
+                break;
+
+            case TierFeature.DnsBlocking:
+                await disableDnsBlocking(orgId);
                 break;
 
             case TierFeature.MaintenancePage:
@@ -536,6 +552,19 @@ async function disableSSHSessionLogs(orgId: string): Promise<void> {
         .where(eq(orgs.orgId, orgId));
 
     logger.info(`Disabled SSH session logs for org ${orgId}`);
+}
+
+async function disableDnsBlocking(orgId: string): Promise<void> {
+    await db
+        .update(orgs)
+        .set({ settingsLogRetentionDaysDnsBlock: 0 })
+        .where(eq(orgs.orgId, orgId));
+
+    // Connected clients stop blocking once their lists are recomputed
+    // (the resolver returns nothing for an unlicensed org).
+    await pushBlocklistForOrg(orgId);
+
+    logger.info(`Disabled DNS blocking for org ${orgId}`);
 }
 
 async function disableRotateCredentials(orgId: string): Promise<void> {}

@@ -24,6 +24,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
+import { pushBlocklistForUser } from "@server/lib/dnsBlocklist";
 
 const removeUserRoleParamsSchema = z.strictObject({
     userId: z.string(),
@@ -176,6 +177,9 @@ export async function removeUserRole(
                 );
             });
         }
+
+        // The user's devices pick up the new blocklist right away.
+        void pushBlocklistForUser(role.orgId, userId);
 
         return response(res, {
             data: { userId, orgId: role.orgId, roleId },

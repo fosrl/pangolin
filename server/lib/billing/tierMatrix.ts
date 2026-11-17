@@ -30,7 +30,8 @@ export enum TierFeature {
     RoleBasedSSHControls = "roleBasedSSHControls",
     CustomDnsRecords = "customDnsRecords", // handle downgrade by disabling custom DNS records
     ResourceSessions = "resourceSessions",
-    ClientSettings = "clientSettings" // handle downgrade by returning no settings (checked when resolving them)
+    ClientSettings = "clientSettings", // handle downgrade by returning no settings (checked when resolving them)
+    DnsBlocking = "dnsBlocking" // handle downgrade by sending clients an empty blocklist and setting log retention to none
 }
 
 export const tierMatrix: Record<TierFeature, Tier[]> = {
@@ -78,5 +79,6 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.RoleBasedSSHControls]: ["tier3", "enterprise"],
     [TierFeature.CustomDnsRecords]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.ResourceSessions]: ["tier2", "tier3", "enterprise"],
-    [TierFeature.ClientSettings]: ["enterprise"]
+    [TierFeature.ClientSettings]: ["enterprise"],
+    [TierFeature.DnsBlocking]: ["enterprise"]
 };

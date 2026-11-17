@@ -672,6 +672,65 @@ export const roleClientSettings = pgTable("roleClientSettings", {
     preferLocalRoutes: boolean("preferLocalRoutes")
 });
 
+// DNS blocking. Custom lists are a newline separated set of domains an org
+// defines itself; roles pick lists plus built-in categories.
+export const dnsBlockLists = pgTable(
+    "dnsBlockLists",
+    {
+        dnsBlockListId: serial("dnsBlockListId").primaryKey(),
+        orgId: varchar("orgId", { length: 255 })
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        name: varchar("name", { length: 255 }).notNull(),
+        description: varchar("description", { length: 1000 }),
+        domains: text("domains").notNull().default(""), // newline separated
+        domainCount: integer("domainCount").notNull().default(0),
+        updatedAt: bigint("updatedAt", { mode: "number" }).notNull() // epoch seconds
+    },
+    (table) => [index("idx_dnsBlockLists_orgId").on(table.orgId)]
+);
+
+export const roleDnsBlockLists = pgTable(
+    "roleDnsBlockLists",
+    {
+        roleId: integer("roleId")
+            .notNull()
+            .references(() => roles.roleId, { onDelete: "cascade" }),
+        dnsBlockListId: integer("dnsBlockListId")
+            .notNull()
+            .references(() => dnsBlockLists.dnsBlockListId, {
+                onDelete: "cascade"
+            })
+    },
+    (table) => [
+        primaryKey({ columns: [table.roleId, table.dnsBlockListId] }),
+        index("idx_roleDnsBlockLists_list").on(table.dnsBlockListId)
+    ]
+);
+
+// Blocked DNS queries reported by olm, aggregated per client, domain and
+// reporting batch. clientId and userId are not foreign keys because this table
+// can live in a separate logs database.
+export const dnsBlockLog = pgTable(
+    "dnsBlockLog",
+    {
+        id: serial("id").primaryKey(),
+        orgId: varchar("orgId", { length: 255 })
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        clientId: integer("clientId"),
+        userId: varchar("userId", { length: 255 }),
+        domain: varchar("domain", { length: 255 }).notNull(),
+        count: integer("count").notNull(),
+        timestamp: bigint("timestamp", { mode: "number" }).notNull() // epoch seconds, when the domain was first blocked in the batch
+    },
+    (table) => [
+        index("idx_dnsBlockLog_timestamp").on(table.timestamp),
+        index("idx_dnsBlockLog_org_timestamp").on(table.orgId, table.timestamp),
+        index("idx_dnsBlockLog_org_domain").on(table.orgId, table.domain)
+    ]
+);
+
 export const trialNotifications = pgTable("trialNotifications", {
     notificationId: serial("notificationId").primaryKey(),
     subscriptionId: varchar("subscriptionId", { length: 255 })
@@ -927,3 +986,5 @@ export type ResourceSessionReauth = InferSelectModel<
     typeof resourceSessionReauth
 >;
 export type RoleClientSettings = InferSelectModel<typeof roleClientSettings>;
+export type DnsBlockList = InferSelectModel<typeof dnsBlockLists>;
+export type DnsBlockLog = InferSelectModel<typeof dnsBlockLog>;

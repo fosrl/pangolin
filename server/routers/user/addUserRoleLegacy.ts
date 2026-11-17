@@ -14,6 +14,7 @@ import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
 } from "@server/lib/rebuildClientAssociations";
+import { pushBlocklistForUser } from "@server/lib/dnsBlocklist";
 
 /** Legacy path param order: /role/:roleId/add/:userId */
 const addUserRoleLegacyParamsSchema = z.strictObject({
@@ -177,6 +178,9 @@ export async function addUserRoleLegacy(
                 );
             });
         }
+
+        // The user's devices pick up the new blocklist right away.
+        void pushBlocklistForUser(role.orgId, userId);
 
         return response(res, {
             data: { ...existingUser, roleId },

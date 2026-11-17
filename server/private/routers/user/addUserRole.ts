@@ -27,6 +27,7 @@ import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
 } from "@server/lib/rebuildClientAssociations";
+import { pushBlocklistForUser } from "@server/lib/dnsBlocklist";
 
 const addUserRoleParamsSchema = z.strictObject({
     userId: z.string(),
@@ -181,6 +182,9 @@ export async function addUserRole(
                 );
             });
         }
+
+        // The user's devices pick up the new blocklist right away.
+        void pushBlocklistForUser(role.orgId, userId);
 
         return response(res, {
             data: newUserRole ?? { userId, orgId: role.orgId, roleId },

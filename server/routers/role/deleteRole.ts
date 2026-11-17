@@ -10,6 +10,10 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    pushBlocklistForClient,
+    pushBlocklistForRoles
+} from "@server/lib/dnsBlocklist";
 
 const deleteRoleSchema = z.strictObject({
     roleId: z.coerce.number().int().positive()
@@ -179,6 +183,13 @@ export async function deleteRole(
                     `Failed to rebuild client associations for client ${machineClient.clientId} after deleting role ${roleId}: ${e}`
                 );
             });
+        }
+
+        // Users who had the deleted role now hold the replacement role, and
+        // machine clients lost it, so their devices need new blocklists.
+        void pushBlocklistForRoles(role[0].orgId, [newRoleId]);
+        for (const machineClient of machineClientsToRebuild) {
+            void pushBlocklistForClient(machineClient.clientId);
         }
 
         return response(res, {

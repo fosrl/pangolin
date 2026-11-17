@@ -49,6 +49,10 @@ const updateOrgBodySchema = z
             .number()
             .min(build === "saas" ? 0 : -1)
             .optional(),
+        settingsLogRetentionDaysDnsBlock: z
+            .number()
+            .min(build === "saas" ? 0 : -1)
+            .optional(),
         settingsEnableGlobalNewtAutoUpdate: z.boolean().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
@@ -196,6 +200,15 @@ export async function updateOrg(
             parsedBody.data.settingsLogRetentionDaysSsh = undefined;
         }
 
+        // Check DNS blocking feature
+        const hasDnsBlockingFeature = await isLicensedOrSubscribed(
+            orgId,
+            tierMatrix[TierFeature.DnsBlocking]
+        );
+        if (!hasDnsBlockingFeature) {
+            parsedBody.data.settingsLogRetentionDaysDnsBlock = undefined;
+        }
+
         if (build == "saas") {
             const { tier } = await getOrgTierData(orgId);
 
@@ -290,6 +303,19 @@ export async function updateOrg(
                         )
                     );
                 }
+                if (
+                    parsedBody.data.settingsLogRetentionDaysDnsBlock !==
+                        undefined &&
+                    parsedBody.data.settingsLogRetentionDaysDnsBlock >
+                        maxRetentionDays
+                ) {
+                    return next(
+                        createHttpError(
+                            HttpCode.FORBIDDEN,
+                            `You are not allowed to set log retention days greater than ${maxRetentionDays} with your current subscription`
+                        )
+                    );
+                }
             }
         }
 
@@ -312,6 +338,8 @@ export async function updateOrg(
                     parsedBody.data.settingsLogRetentionDaysAISessions,
                 settingsLogRetentionDaysSsh:
                     parsedBody.data.settingsLogRetentionDaysSsh,
+                settingsLogRetentionDaysDnsBlock:
+                    parsedBody.data.settingsLogRetentionDaysDnsBlock,
                 settingsEnableGlobalNewtAutoUpdate:
                     parsedBody.data.settingsEnableGlobalNewtAutoUpdate
             })
@@ -333,6 +361,7 @@ export async function updateOrg(
         await cache.del(`org_${orgId}_accessDays`);
         await cache.del(`org_${orgId}_connectionDays`);
         await cache.del(`org_${orgId}_aiSessionsDays`);
+        await cache.del(`org_${orgId}_dnsBlockDays`);
 
         return response(res, {
             data: updatedOrg[0],

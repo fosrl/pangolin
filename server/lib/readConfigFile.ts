@@ -73,6 +73,9 @@ export const configSchema = z
             .optional(),
         server: z
             .object({
+                // Directory holding the DNS blocklist files used by DNS
+                // blocking. Defaults to config/blocklists.
+                dns_blocklists_path: z.string().optional(),
                 integration_port: portSchema
                     .optional()
                     .default(3003)
