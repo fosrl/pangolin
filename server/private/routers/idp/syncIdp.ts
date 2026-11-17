@@ -53,6 +53,7 @@ export type SyncIdpOrgResult = {
           /** Only for a dry run, and only the membership changes. */
           entries?: SyncEntrySummary[];
       }
+    // only `notEntitled`: orgs skipped for `noRoleMapping` are left out of the response
     | { status: "skipped"; reason: "notEntitled" }
     | { status: "failed"; error: string }
 );
@@ -217,6 +218,7 @@ export async function syncIdp(
                     break;
                 }
                 case "skipped":
+                    // always `notEntitled`: `noRoleMapping` results were filtered out above
                     orgResults.push({
                         ...org,
                         status: "skipped",
