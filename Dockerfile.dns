@@ -10,7 +10,7 @@
 
 # Mirror of docker.io/library/node, kept in sync by
 # .github/workflows/mirror-node.yml (avoids Docker Hub / ECR pull rate limits)
-ARG NODE_IMAGE=ghcr.io/fosrl/node:24.22.1-slim
+ARG NODE_IMAGE=ghcr.io/fosrl/node:24.22.3-slim
 
 FROM ${NODE_IMAGE} AS builder
 
