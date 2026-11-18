@@ -174,16 +174,16 @@
         "drizzle-kit": "0.31.11",
         "esbuild": "0.28.2",
         "esbuild-node-externals": "2.0.0",
-        "eslint": "10.13.0",
+        "eslint": "10.15.0",
         "eslint-config-next": "16.4.3",
         "postcss": "8.5.32",
         "prettier": "3.9.10",
-        "react-email": "6.11.6",
+        "react-email": "6.11.16",
         "tailwindcss": "4.3.3",
         "tsc-alias": "1.9.9",
         "tsx": "4.23.15",
         "typescript": "7.0.2",
-        "typescript-eslint": "8.72.1"
+        "typescript-eslint": "8.73.0"
     },
     "overrides": {
         "esbuild": "0.28.2",
