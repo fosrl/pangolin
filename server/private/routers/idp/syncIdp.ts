@@ -54,8 +54,7 @@ export type SyncIdpOrgResult = {
           /** Only for a dry run, and only the membership changes. */
           entries?: SyncEntrySummary[];
       }
-    // only `notEntitled`: orgs skipped for `noRoleMapping` are left out of the response
-    | { status: "skipped"; reason: "notEntitled" }
+    | { status: "skipped"; reason: "notEntitled" | "noRoleMapping" }
     | { status: "failed"; error: string }
 );
 
@@ -63,7 +62,6 @@ export type SyncIdpResponse = {
     dryRun: boolean;
     /** Totals over the synced orgs. */
     counts: SyncCounts;
-    /** Orgs without a role mapping (nothing to sync) are left out. */
     orgs: SyncIdpOrgResult[];
 };
 
@@ -171,11 +169,7 @@ export async function syncIdp(
             );
         }
 
-        const results = (
-            await runIdpDirectorySync({ dryRun, idpId, orgId })
-        ).filter(
-            (r) => !(r.status === "skipped" && r.reason === "noRoleMapping")
-        );
+        const results = await runIdpDirectorySync({ dryRun, idpId, orgId });
 
         const orgNames = new Map(
             results.length === 0
@@ -219,11 +213,10 @@ export async function syncIdp(
                     break;
                 }
                 case "skipped":
-                    // always `notEntitled`: `noRoleMapping` results were filtered out above
                     orgResults.push({
                         ...org,
                         status: "skipped",
-                        reason: "notEntitled"
+                        reason: result.reason
                     });
                     break;
                 case "failed":

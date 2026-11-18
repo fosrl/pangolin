@@ -199,7 +199,7 @@ export type IdpGlobalSyncResponse = {
               /** Dry run only, membership changes only. */
               entries?: IdpSyncEntry[];
           }
-        | { status: "skipped"; reason: "notEntitled" }
+        | { status: "skipped"; reason: "notEntitled" | "noRoleMapping" }
         | { status: "failed"; error: string }
     ))[];
 };

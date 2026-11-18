@@ -233,9 +233,14 @@ export default function IdpSyncNowDialog({
                                                     {": "}
                                                     {org.status === "failed"
                                                         ? org.error
-                                                        : t(
-                                                              "idpSyncOrgNotEntitled"
-                                                          )}
+                                                        : org.reason ===
+                                                            "noRoleMapping"
+                                                          ? t(
+                                                                "idpSyncOrgNoRoleMapping"
+                                                            )
+                                                          : t(
+                                                                "idpSyncOrgNotEntitled"
+                                                            )}
                                                 </li>
                                             ))}
                                         </ul>
