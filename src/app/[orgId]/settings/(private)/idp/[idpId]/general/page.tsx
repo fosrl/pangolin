@@ -740,11 +740,7 @@ export default function GeneralPage() {
 
                 {/* API Integration */}
                 {supportsApiIntegration(variant) && (
-                    <SettingsSection
-                        className={
-                            form.watch("autoProvision") ? undefined : "min-h-0"
-                        }
-                    >
+                    <SettingsSection>
                         <SettingsSectionHeader>
                             <SettingsSectionTitle>
                                 {t("idpApiIntegration")}
@@ -826,7 +822,7 @@ export default function GeneralPage() {
                                     onClick={() => setSyncDialogOpen(true)}
                                     className="gap-2"
                                 >
-                                    <RefreshCwIcon className="size-4 flex-noen" />
+                                    <RefreshCwIcon className="size-4 flex-none" />
                                     {t("idpSyncNow")}
                                 </Button>
                                 <p className="text-sm text-muted-foreground">

@@ -46,7 +46,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
 import { SwitchInput } from "@app/components/SwitchInput";
 
 export default function Page() {
@@ -405,34 +404,6 @@ export default function Page() {
                                     </FormDescription>
                                 </form>
                             </Form>
-                        </SettingsSectionBody>
-                    </SettingsSection>
-                </fieldset>
-                <fieldset
-                    disabled={templatesLocked}
-                    className="min-w-0 space-y-6 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60"
-                >
-                    <SettingsSection className="min-h-0">
-                        <SettingsSectionHeader>
-                            <SettingsSectionTitle>
-                                {t("idpAutoProvisionUsers")}
-                            </SettingsSectionTitle>
-                            <SettingsSectionDescription>
-                                <IdpAutoProvisionUsersDescription />
-                            </SettingsSectionDescription>
-                        </SettingsSectionHeader>
-                        <SettingsSectionBody>
-                            <SwitchInput
-                                id="auto-provision-toggle"
-                                label={t("idpAutoProvisionUsers")}
-                                defaultChecked={form.getValues("autoProvision")}
-                                onCheckedChange={(checked) => {
-                                    form.setValue("autoProvision", checked);
-                                }}
-                                description={t(
-                                    "idpAutoProvisionConfigureAfterCreate"
-                                )}
-                            />
                         </SettingsSectionBody>
                     </SettingsSection>
 
