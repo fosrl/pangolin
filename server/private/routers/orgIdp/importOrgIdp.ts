@@ -25,6 +25,7 @@ import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { checkOrgAccessPolicy } from "#private/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
+import { OpenAPITags, registry } from "@server/openApi";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty(),
@@ -33,6 +34,25 @@ const paramsSchema = z.strictObject({
 
 const bodySchema = z.strictObject({
     sourceOrgId: z.string().nonempty()
+});
+
+registry.registerPath({
+    method: "post",
+    path: "/org/{orgId}/idp/{idpId}/import",
+    description:
+        "Link an existing organization IdP from a source organization to this organization. Requires a root API key.",
+    tags: [OpenAPITags.OrgIdp],
+    request: {
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: bodySchema
+                }
+            }
+        }
+    },
+    responses: {}
 });
 
 async function userIsOrgAdmin(
@@ -112,8 +132,6 @@ export async function importOrgIdp(
             );
         }
 
-        const userId = req.user!.userId;
-
         const sourceLinked = await db
             .select()
             .from(idpOrg)
@@ -129,18 +147,32 @@ export async function importOrgIdp(
             );
         }
 
-        const sourceAdmin = await userIsOrgAdmin(
-            userId,
-            sourceOrgId,
-            req.session
-        );
-        if (!sourceAdmin) {
-            return next(
-                createHttpError(
-                    HttpCode.FORBIDDEN,
-                    "You must be an organization admin in the source organization where this IdP is linked"
-                )
+        if (req.apiKey) {
+            // The integration route is root-only. Org keys can't belong to
+            // both the source and target org, so they can't prove access to
+            // the source org's IdP.
+            if (!req.apiKey.isRoot) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Importing an IdP requires a root API key"
+                    )
+                );
+            }
+        } else {
+            const sourceAdmin = await userIsOrgAdmin(
+                req.user!.userId,
+                sourceOrgId,
+                req.session
             );
+            if (!sourceAdmin) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "You must be an organization admin in the source organization where this IdP is linked"
+                    )
+                );
+            }
         }
 
         const [targetOrg] = await db
