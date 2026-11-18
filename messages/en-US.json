@@ -1086,7 +1086,7 @@
     "idpSyncNowSuccess": "Sync completed: {added} added, {updated} updated, {removed} removed.",
     "idpSyncGlobalNowDescription": "See what a sync would change in every organization this identity provider maps users into. Nothing is applied until you confirm. Save your changes first.",
     "idpSyncOrgNotEntitled": "skipped, this organization's plan doesn't include the IdP API integration",
-    "idpSyncOrgNoRoleMapping": "skipped, no role mapping is configured for this organization",
+    "idpSyncOrgsNoRoleMapping": "Skipped, no role mapping configured for these organizations:",
     "idpSyncOrgsFailed": "The sync failed for: {orgs}. Check the server logs.",
     "idpGoogleServiceAccountKey": "Service Account Key",
     "idpGoogleServiceAccountKeyDescription": "JSON key of a service account with read access to the Admin SDK Directory API (users and groups).",

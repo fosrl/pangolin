@@ -12,7 +12,11 @@ import {
 } from "@app/components/Credenza";
 import IdpLastSyncedAt from "@app/components/IdpLastSyncedAt";
 import UserRoleBadges from "@app/components/UserRoleBadges";
-import { Alert, AlertDescription } from "@app/components/ui/alert";
+import {
+    Alert,
+    AlertDescription,
+    AlertTitle
+} from "@app/components/ui/alert";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import {
@@ -117,8 +121,15 @@ export default function IdpSyncNowDialog({
               }
           ];
     const groupsWithChanges = groups.filter((g) => g.changes.length > 0);
-    const globalIssues = (globalPreview.data?.orgs ?? []).filter(
-        (org) => org.status !== "synced"
+    const globalOrgs = globalPreview.data?.orgs ?? [];
+    const globalIssues = globalOrgs.filter(
+        (org) =>
+            org.status === "failed" ||
+            (org.status === "skipped" && org.reason === "notEntitled")
+    );
+    // nothing to sync without a role mapping, not worth a warning
+    const unmappedOrgs = globalOrgs.filter(
+        (org) => org.status === "skipped" && org.reason === "noRoleMapping"
     );
 
     // the next opening reads the directory again
@@ -233,14 +244,29 @@ export default function IdpSyncNowDialog({
                                                     {": "}
                                                     {org.status === "failed"
                                                         ? org.error
-                                                        : org.reason ===
-                                                            "noRoleMapping"
-                                                          ? t(
-                                                                "idpSyncOrgNoRoleMapping"
-                                                            )
-                                                          : t(
-                                                                "idpSyncOrgNotEntitled"
-                                                            )}
+                                                        : t(
+                                                              "idpSyncOrgNotEntitled"
+                                                          )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            {unmappedOrgs.length > 0 && (
+                                <Alert variant="warning">
+                                    <AlertTitle>
+                                        {t("idpSyncOrgsNoRoleMapping")}
+                                    </AlertTitle>
+                                    <AlertDescription>
+                                        <ul className="list-disc space-y-1 pl-5">
+                                            {unmappedOrgs.map((org) => (
+                                                <li
+                                                    key={org.orgId}
+                                                    className="font-medium"
+                                                >
+                                                    {org.orgName}
                                                 </li>
                                             ))}
                                         </ul>
