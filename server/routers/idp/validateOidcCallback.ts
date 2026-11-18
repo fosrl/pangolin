@@ -450,17 +450,27 @@ export async function validateOidcCallback(
                             )
                         );
 
-                    if (!existingUserOrgs.length) {
-                        // delete all auto-provisioned user orgs
-                        const autoManagedUserOrgs = await db
-                            .select()
-                            .from(userOrgs)
-                            .where(
-                                and(
-                                    eq(userOrgs.userId, existingUser.userId),
-                                    eq(userOrgs.autoManaged, true)
-                                )
-                            );
+                    const autoProvisionCandidateOrgIds = new Set(
+                        allOrgs.map((org) => org.orgId)
+                    );
+                    const autoManagedUserOrgs = await db
+                        .select()
+                        .from(userOrgs)
+                        .where(
+                            and(
+                                eq(userOrgs.userId, existingUser.userId),
+                                eq(userOrgs.autoManaged, true)
+                            )
+                        );
+                    // Auto-managed memberships in orgs with auto-provision off (e.g.
+                    // created by directory sync) are kept and still let the user in.
+                    // The sync below removes the stale ones among the candidate orgs.
+                    const keepsOtherMemberships = autoManagedUserOrgs.some(
+                        (uo) => !autoProvisionCandidateOrgIds.has(uo.orgId)
+                    );
+
+                    if (!existingUserOrgs.length && !keepsOtherMemberships) {
+                        // delete all auto-managed user orgs, all in candidate orgs here
                         const orgIdsToRemove = autoManagedUserOrgs.map(
                             (uo) => uo.orgId
                         );
