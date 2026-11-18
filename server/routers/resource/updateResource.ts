@@ -48,6 +48,13 @@ import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { applyInlinePolicyFields } from "./inlinePolicyFields";
+import {
+    clearMtls,
+    countMtlsCertificates,
+    getResourceMtlsOwner,
+    isMtlsEnabled
+} from "@server/lib/mtls";
+import { resourceModeSupportsMtls } from "@server/lib/mtlsModes";
 
 const updateResourceParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -87,10 +94,28 @@ const updateHttpResourceBodySchema = z
                 "When no shared resource policy is assigned (resourcePolicyId is null), updates the resource's inline policy. When a shared policy is assigned, this value overrides the shared policy for this resource."
             ),
         domainId: z.string().optional(),
+        matchBaseDomain: z
+            .boolean()
+            .optional()
+            .describe(
+                "For HTTP resources with a wildcard subdomain: also serve the host the wildcard sits under, so *.apps.example.com also matches apps.example.com."
+            ),
         enabled: z.boolean().optional(),
         stickySession: z.boolean().optional(),
+        loadBalancingStrategy: z
+            .enum(["wrr", "p2c", "hrw", "leasttime"])
+            .optional()
+            .describe(
+                "How requests are distributed across targets: wrr (weighted round robin, default), p2c (power of two choices), hrw (highest random weight / client IP hashing), leasttime (lowest response time)."
+            ),
         tlsServerName: z.string().nullable().optional(),
         setHostHeader: z.string().nullable().optional(),
+        forwardIdentityHeaders: z
+            .boolean()
+            .optional()
+            .describe(
+                "Whether to forward the authenticated user's identity to the backend in the Remote-User, Remote-Email, Remote-Name, Remote-Role, and Remote-User-Id headers."
+            ),
         skipToIdpId: z
             .int()
             .positive()
@@ -117,6 +142,12 @@ const updateHttpResourceBodySchema = z
         maintenanceTitle: z.string().max(255).nullable().optional(),
         maintenanceMessage: z.string().max(2000).nullable().optional(),
         maintenanceEstimatedTime: z.string().max(100).nullable().optional(),
+        mtlsEnabled: z
+            .boolean()
+            .optional()
+            .describe(
+                "Require clients to present a certificate signed by one of the resource's trusted CA certificates. Requires SSL and at least one CA certificate. When no shared resource policy is assigned (resourcePolicyId is null), updates the resource's inline policy. When a shared policy is assigned, this applies to this resource only if the shared policy does not enable mTLS itself."
+            ),
         postAuthPath: z.string().nullable().optional(),
         // SSH settings
         pamMode: z.enum(["passthrough", "push"]).optional(),
@@ -391,6 +422,26 @@ export async function updateResource(
     }
 }
 
+// a resource may only be assigned a shared (global) policy from its own org
+async function getAssignableResourcePolicy(
+    resourcePolicyId: number,
+    orgId: string
+) {
+    const [policy] = await db
+        .select()
+        .from(resourcePolicies)
+        .where(
+            and(
+                eq(resourcePolicies.resourcePolicyId, resourcePolicyId),
+                eq(resourcePolicies.orgId, orgId),
+                eq(resourcePolicies.scope, "global")
+            )
+        )
+        .limit(1);
+
+    return policy;
+}
+
 async function clearResourceSpecificSettings(
     resourceId: number,
     orgId: string,
@@ -405,7 +456,7 @@ async function clearResourceSpecificSettings(
     if (adminRole.length === 0) {
         throw new Error(`Admin role not found for org ${orgId}`);
     }
-    // remove the resource specific pincode, password, header auth, rules, nad whitelist entries so that the resource will fall back to the policy settings
+    // remove the resource specific pincode, password, header auth, rules, whitelist entries and mTLS so that the resource will fall back to the policy settings
     await Promise.all([
         trx
             .delete(resourcePassword)
@@ -430,6 +481,7 @@ async function clearResourceSpecificSettings(
         trx
             .delete(resourceRules)
             .where(eq(resourceRules.resourceId, resourceId)),
+        clearMtls({ type: "resource", resourceId }, trx),
         // delete the roles and the users as well
         trx
             .delete(userResources)
@@ -487,16 +539,10 @@ async function updateHttpResource(
             );
         }
 
-        const [existingPolicy] = await db
-            .select()
-            .from(resourcePolicies)
-            .where(
-                eq(
-                    resourcePolicies.resourcePolicyId,
-                    updateData.resourcePolicyId
-                )
-            )
-            .limit(1);
+        const existingPolicy = await getAssignableResourcePolicy(
+            updateData.resourcePolicyId,
+            resource.orgId
+        );
 
         if (!existingPolicy) {
             return next(
@@ -508,9 +554,45 @@ async function updateHttpResource(
         }
     }
 
+    const mtlsOwner = getResourceMtlsOwner(resource);
+    const effectiveSsl = updateData.ssl ?? resource.ssl;
+    const effectiveMtlsEnabled =
+        updateData.mtlsEnabled ?? (await isMtlsEnabled(mtlsOwner));
+
+    if (updateData.mtlsEnabled === true) {
+        if (!resourceModeSupportsMtls(resource.mode)) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "mTLS is not supported on TCP/UDP resources."
+                )
+            );
+        }
+
+        if ((await countMtlsCertificates(mtlsOwner)) === 0) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Add at least one trusted CA certificate before enabling mTLS."
+                )
+            );
+        }
+    }
+
+    if (effectiveMtlsEnabled && !effectiveSsl) {
+        return next(
+            createHttpError(
+                HttpCode.BAD_REQUEST,
+                "mTLS requires SSL to be enabled for this resource. Disable mTLS before turning SSL off."
+            )
+        );
+    }
+
     // catch when the resource policy changes or gets cleared
-    if (updateData.resourcePolicyId !== undefined && 
-        resource.resourcePolicyId !== updateData.resourcePolicyId) {
+    if (
+        updateData.resourcePolicyId !== undefined &&
+        resource.resourcePolicyId !== updateData.resourcePolicyId
+    ) {
         await clearResourceSpecificSettings(
             resource.resourceId,
             resource.orgId,
@@ -557,6 +639,26 @@ async function updateHttpResource(
 
     // Wildcard subdomains are a paid feature
     if (updateData.subdomain && updateData.subdomain.includes("*")) {
+        if (!isLicensed) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Wildcard subdomains are not supported on your current plan. Please upgrade to access this feature."
+                )
+            );
+        }
+    }
+
+    if (updateData.matchBaseDomain) {
+        if (resource.mode !== "http") {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Matching the base domain is only supported on HTTP resources."
+                )
+            );
+        }
+
         if (!isLicensed) {
             return next(
                 createHttpError(
@@ -619,29 +721,42 @@ async function updateHttpResource(
 
         logger.debug(`Full domain: ${fullDomain}`);
 
+        if (updateData.matchBaseDomain && !wildcard) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Matching the base domain requires a wildcard subdomain."
+                )
+            );
+        }
+
+        // A resource moving off a wildcard has no base host left to match
+        const matchBaseDomain =
+            wildcard &&
+            (updateData.matchBaseDomain ?? resource.matchBaseDomain);
+        updateData.matchBaseDomain = matchBaseDomain;
+
         if (fullDomain) {
-            // Inference resources route through the central AI gateway
-            // rather than normal target-based proxying, so they're allowed
-            // to share a full-domain with a non-inference resource (and
-            // vice versa) - only conflicts within the same routing category
-            // are rejected. mode isn't updatable here, so `resource.mode`
-            // reflects the resource's actual (unchanging) routing category.
+            // The full domain must be unique across every org. Inference
+            // resources may share a full domain with each other, but any
+            // other resource conflicts with every existing resource on that
+            // domain. mode isn't updatable here, so `resource.mode` reflects
+            // the resource's actual (unchanging) routing category.
             const [existingDomain] = await db
                 .select()
                 .from(resources)
                 .where(
                     and(
                         eq(resources.fullDomain, fullDomain),
+                        ne(resources.resourceId, resource.resourceId),
                         resource.mode === "inference"
                             ? ne(resources.mode, "inference")
-                            : eq(resources.mode, "inference")
+                            : undefined
                     )
-                );
+                )
+                .limit(1);
 
-            if (
-                existingDomain &&
-                existingDomain.resourceId !== resource.resourceId
-            ) {
+            if (existingDomain) {
                 return next(
                     createHttpError(
                         HttpCode.CONFLICT,
@@ -652,7 +767,8 @@ async function updateHttpResource(
 
             const wildcardConflict = await checkWildcardDomainConflict(
                 fullDomain,
-                resource.resourceId
+                resource.resourceId,
+                matchBaseDomain
             );
             if (wildcardConflict.conflict) {
                 return next(
@@ -703,6 +819,26 @@ async function updateHttpResource(
         updateData.subdomain = finalSubdomain;
 
         await createCertificate(domainId, fullDomain, db);
+    } else if (updateData.matchBaseDomain) {
+        if (!resource.wildcard || !resource.fullDomain) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Matching the base domain requires a wildcard subdomain."
+                )
+            );
+        }
+
+        const wildcardConflict = await checkWildcardDomainConflict(
+            resource.fullDomain,
+            resource.resourceId,
+            true
+        );
+        if (wildcardConflict.conflict) {
+            return next(
+                createHttpError(HttpCode.CONFLICT, wildcardConflict.message)
+            );
+        }
     }
 
     let requestHeaders = undefined;
@@ -750,6 +886,7 @@ async function updateHttpResource(
             emailWhitelistEnabled,
             applyRules,
             skipToIdpId,
+            mtlsEnabled,
             ...resourceOnlyDataRest
         } = updateData;
 
@@ -767,6 +904,7 @@ async function updateHttpResource(
             policyUpdate.emailWhitelistEnabled = emailWhitelistEnabled;
         if (applyRules !== undefined) policyUpdate.applyRules = applyRules;
         if (skipToIdpId !== undefined) policyUpdate.idpId = skipToIdpId;
+        if (mtlsEnabled !== undefined) policyUpdate.mtlsEnabled = mtlsEnabled;
 
         if (Object.keys(policyUpdate).length > 0) {
             await db
@@ -855,6 +993,35 @@ async function updateRawResource(
 
     const updateData = parsedBody.data;
     let updatedResource: Resource | null = null;
+
+    if (updateData.resourcePolicyId != null) {
+        const isLicensed = await isLicensedOrSubscribed(
+            resource.orgId,
+            tierMatrix.resourcePolicies
+        );
+        if (!isLicensed) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Resource policies are not supported on your current plan. Please upgrade to access this feature."
+                )
+            );
+        }
+
+        const existingPolicy = await getAssignableResourcePolicy(
+            updateData.resourcePolicyId,
+            resource.orgId
+        );
+
+        if (!existingPolicy) {
+            return next(
+                createHttpError(
+                    HttpCode.NOT_FOUND,
+                    `Resource policy with ID ${updateData.resourcePolicyId} not found`
+                )
+            );
+        }
+    }
 
     const [existingResource] = await db
         .select()

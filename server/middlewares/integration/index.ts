@@ -22,3 +22,4 @@ export * from "./verifyApiKeyAiBudgetAccess";
 export * from "./verifyApiKeyResourcePolicyAccess";
 export * from "./verifyApiKeySiteProvisioningKeyAccess";
 export * from "./verifyVirtualApiKeyAccess";
+export * from "./verifyApiKeyRedirectAccess";

@@ -1,10 +1,9 @@
 "use client";
 
 import { TableCell, TableRow } from "@/components/ui/table";
+import { Inbox } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode } from "react";
-
-const PLACEHOLDER_ROW_COUNT = 5;
 
 type DataTableEmptyStateProps = {
     colSpan: number;
@@ -20,32 +19,19 @@ export function DataTableEmptyState({
     const t = useTranslations();
 
     return (
-        <TableRow className="hidden sm:table-row hover:bg-transparent data-[state=selected]:bg-transparent">
-            <TableCell colSpan={colSpan} className="p-0">
-                <div className="relative w-full overflow-hidden min-h-[12.5rem]">
+        <TableRow className="hidden sm:table-row data-[state=selected]:bg-transparent">
+            <TableCell colSpan={colSpan} className="h-auto p-0">
+                <div className="flex min-h-40 flex-col items-center justify-center gap-3 px-4 py-10 text-center">
                     <div
-                        className="pointer-events-none absolute inset-0 flex flex-col justify-start opacity-50"
+                        className="flex size-9 items-center justify-center rounded-md border bg-table-header text-muted-foreground"
                         aria-hidden
                     >
-                        {Array.from({ length: PLACEHOLDER_ROW_COUNT }).map(
-                            (_, i) => (
-                                <div
-                                    key={i}
-                                    className="flex h-10 shrink-0 items-center border-b border-border/60 px-4 last:border-b-0"
-                                >
-                                    <div className="h-3.5 w-full rounded bg-muted/60" />
-                                </div>
-                            )
-                        )}
+                        <Inbox className="size-4" />
                     </div>
-                    <div className="relative flex w-full flex-col items-center justify-center px-4 min-h-[12.5rem] gap-4 py-8">
-                        <p className="text-sm text-muted-foreground">
-                            {message ?? t("noResults")}
-                        </p>
-                        {action ? (
-                            <div className="bg-background">{action}</div>
-                        ) : null}
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        {message ?? t("noResults")}
+                    </p>
+                    {action ? <div className="pt-1">{action}</div> : null}
                 </div>
             </TableCell>
         </TableRow>

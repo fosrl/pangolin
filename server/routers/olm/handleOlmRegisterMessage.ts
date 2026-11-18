@@ -20,7 +20,6 @@ import { OlmErrorCodes, sendOlmError } from "./error";
 import { handleFingerprintInsertion } from "./fingerprintingUtils";
 import { build } from "@server/build";
 import { canCompress } from "@server/lib/clientVersionChecks";
-import config from "@server/lib/config";
 import cache from "#dynamic/lib/cache"; // not using regional here because we need this in the register message handler before we know where the client is
 import { waitForClientRebuildIdle } from "@server/lib/rebuildClientAssociations";
 import {
@@ -56,6 +55,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         relay,
         olmVersion,
         olmAgent,
+        agentVersion,
         orgId,
         userToken,
         pingResults,
@@ -93,9 +93,17 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         await handleFingerprintInsertion(olm, fingerprint, postures);
     }
 
+    // Olm clients that predate agentVersion report the version of the app
+    // embedding olm (Pangolin Windows, the CLI, ...) in olmVersion, so it
+    // doubles as the agent version. Newer clients report the olm library
+    // version in olmVersion and the app version in agentVersion.
+    const reportedAgentVersion =
+        agentVersion === undefined ? olmVersion : agentVersion;
+
     if (
         (olmVersion && olm.version !== olmVersion) ||
         (olmAgent && olm.agent !== olmAgent) ||
+        (reportedAgentVersion && olm.agentVersion !== reportedAgentVersion) ||
         olm.archived
     ) {
         await db
@@ -103,6 +111,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
             .set({
                 version: olmVersion,
                 agent: olmAgent,
+                agentVersion: reportedAgentVersion,
                 archived: false
             })
             .where(eq(olms.olmId, olm.olmId));
@@ -314,6 +323,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
     }
 
     let clientSubnet = client.exitNodeSubnet;
+    let releaseSubnetLock: (() => Promise<void>) | null = null;
     if (
         exitNodeId &&
         (client.exitNodeId !== exitNodeId || !client.exitNodeSubnet)
@@ -341,7 +351,8 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
 
         // TODO: IF WE DO NOT HAVE AN INFERENCE RESOURCE DO WE NEED TO BE HOLDING A SUBNET ON THE CLIENT?
 
-        const newSubnet = await getUniqueSubnetForExitNode(exitNode);
+        const { value: newSubnet, release } =
+            await getUniqueSubnetForExitNode(exitNode);
 
         if (!newSubnet) {
             logger.error(
@@ -353,6 +364,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
         }
 
         clientSubnet = newSubnet;
+        releaseSubnetLock = release;
     }
 
     if (
@@ -365,16 +377,21 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
             "[handleOlmRegisterMessage] Public key mismatch. Updating public key and clearing session info...",
             { orgId: client.orgId, clientId: client.clientId }
         );
-        // Update the client's public key
-        await db
-            .update(clients)
-            .set({
-                pubKey: publicKey,
-                archived: false,
-                exitNodeId: exitNodeId, // this can be undefined if no exit node was selected, which is fine just means we cant talk to the node or connect to it
-                exitNodeSubnet: clientSubnet
-            })
-            .where(eq(clients.clientId, client.clientId));
+        try {
+            // Update the client's public key
+            await db
+                .update(clients)
+                .set({
+                    pubKey: publicKey,
+                    archived: false,
+                    exitNodeId: exitNodeId, // this can be undefined if no exit node was selected, which is fine just means we cant talk to the node or connect to it
+                    exitNodeSubnet: clientSubnet
+                })
+                .where(eq(clients.clientId, client.clientId));
+        } finally {
+            // only release once the subnet is persisted so no other node can pick it
+            await releaseSubnetLock?.();
+        }
 
         // set isRelay to false for all of the client's sites to reset the connection metadata
         await db
@@ -396,6 +413,9 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
                 )
             );
     }
+
+    // safety net in case a subnet was locked but the update above was skipped (release is idempotent)
+    await releaseSubnetLock?.();
 
     if (client.pubKey && client.pubKey !== publicKey && client.exitNodeId) {
         // test the old client to see if its different then remove
@@ -438,7 +458,7 @@ export const handleOlmRegisterMessage: MessageHandler = async (context) => {
     // TODO: I still think there is a better way to do this rather than locking it out here but ???
     if (now - (client.lastHolePunch || 0) > 12 && sitesCount > 0) {
         logger.warn(
-            `[handleOlmRegisterMessage] Client last hole punch is too old and we have sites to send; skipping this register. The client is failing to hole punch and identify its network address with the server. Can the client reach the server on UDP port ${config.getRawConfig().gerbil.clients_start_port}?`,
+            `[handleOlmRegisterMessage] Client last hole punch is too old and we have sites to send; skipping this register. The client is failing to hole punch and identify its network address with the server. Can the client reach the server on its relay UDP port?`,
             { orgId: client.orgId, clientId: client.clientId }
         );
 

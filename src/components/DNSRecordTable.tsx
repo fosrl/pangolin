@@ -27,9 +27,7 @@ export default function DNSRecordsTable({ records, type }: Props) {
 
     const statusColumn: ColumnDef<DNSRecordRow> = {
         accessorKey: "verified",
-        header: ({ column }) => {
-            return <div>{t("status")}</div>;
-        },
+        header: () => <span className="p-3">{t("status")}</span>,
         cell: ({ row }) => {
             const verified = row.original.verified;
             return verified ? (
@@ -52,11 +50,11 @@ export default function DNSRecordsTable({ records, type }: Props) {
         {
             accessorKey: "baseDomain",
             friendlyName: t("recordName", { fallback: "Record name" }),
-            header: ({ column }) => {
-                return (
-                    <div>{t("recordName", { fallback: "Record name" })}</div>
-                );
-            },
+            header: () => (
+                <span className="p-3">
+                    {t("recordName", { fallback: "Record name" })}
+                </span>
+            ),
             cell: ({ row }) => {
                 const baseDomain = row.original.baseDomain;
                 return baseDomain ? (
@@ -73,9 +71,7 @@ export default function DNSRecordsTable({ records, type }: Props) {
         {
             accessorKey: "recordType",
             friendlyName: t("type"),
-            header: ({ column }) => {
-                return <div>{t("type")}</div>;
-            },
+            header: () => <span className="p-3">{t("type")}</span>,
             cell: ({ row }) => {
                 const type = row.original.recordType;
                 return <div className="">{type}</div>;
@@ -84,9 +80,7 @@ export default function DNSRecordsTable({ records, type }: Props) {
         {
             accessorKey: "ttl",
             friendlyName: t("TTL"),
-            header: ({ column }) => {
-                return <div>{t("TTL")}</div>;
-            },
+            header: () => <span className="p-3">{t("TTL")}</span>,
             cell: ({ row }) => {
                 return <div>{t("auto")}</div>;
             }
@@ -94,9 +88,7 @@ export default function DNSRecordsTable({ records, type }: Props) {
         {
             accessorKey: "value",
             friendlyName: t("value"),
-            header: () => {
-                return <div>{t("value")}</div>;
-            },
+            header: () => <span className="p-3">{t("value")}</span>,
             cell: ({ row }) => {
                 const value = row.original.value;
                 return (

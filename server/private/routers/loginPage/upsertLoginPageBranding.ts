@@ -86,10 +86,11 @@ export async function upsertLoginPageBranding(
         // Empty strings are transformed to null by the schema, which will clear the logo URL in the database
         // We keep it as null (not undefined) because undefined fields are omitted from Drizzle updates
 
-        if (
-            build !== "saas" &&
-            !config.getRawPrivateConfig().flags.use_org_only_idp
-        ) {
+        const orgIdpMode =
+            config.getRawPrivateConfig().app.identity_provider_mode === "org" ||
+            config.getRawPrivateConfig().flags.use_org_only_idp === true;
+
+        if (build !== "saas" && !orgIdpMode) {
             const { orgTitle, orgSubtitle, ...rest } = updateData;
             updateData = rest;
         }

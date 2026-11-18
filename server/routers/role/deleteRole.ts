@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db } from "@server/db";
+import { Client, clientOrgRoles, clients, db } from "@server/db";
 import { roles, userOrgRoles } from "@server/db";
 import { and, eq, exists, aliasedTable } from "drizzle-orm";
+import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -128,7 +129,21 @@ export async function deleteRole(
             );
         }
 
+        let machineClientsToRebuild: Client[] = [];
         await db.transaction(async (trx) => {
+            // machine clients in this role lose it when the role is deleted
+            // (clientOrgRoles cascades) and are not moved to the new role, so
+            // their associations need to be rebuilt afterwards
+            machineClientsToRebuild = await trx
+                .select({ client: clients })
+                .from(clientOrgRoles)
+                .innerJoin(
+                    clients,
+                    eq(clients.clientId, clientOrgRoles.clientId)
+                )
+                .where(eq(clientOrgRoles.roleId, roleId))
+                .then((rows) => rows.map((row) => row.client));
+
             const uorNewRole = aliasedTable(userOrgRoles, "user_org_roles_new");
 
             // Users who already have newRoleId: drop the old assignment only (unique on userId+orgId+roleId).
@@ -157,6 +172,14 @@ export async function deleteRole(
 
             await trx.delete(roles).where(eq(roles.roleId, roleId));
         });
+
+        for (const machineClient of machineClientsToRebuild) {
+            rebuildClientAssociationsFromClient(machineClient).catch((e) => {
+                logger.error(
+                    `Failed to rebuild client associations for client ${machineClient.clientId} after deleting role ${roleId}: ${e}`
+                );
+            });
+        }
 
         return response(res, {
             data: null,

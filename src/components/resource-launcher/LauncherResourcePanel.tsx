@@ -42,7 +42,8 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@app/components/ui/table";
 import { useMyVirtualApiKeySecret } from "@app/hooks/useMyVirtualApiKeySecret";
 import type { AiConfigBlock } from "@app/lib/aiClientConfig";
@@ -262,7 +263,7 @@ function LauncherResourceSitesSection({
                 </SettingsSectionDescription>
             </SettingsSectionHeader>
             <SettingsSectionBody>
-                <div className="min-w-0 overflow-x-auto overflow-y-hidden">
+                <TableContainer className="overflow-x-auto overflow-y-hidden">
                     <Table sticky>
                         <TableHeader>
                             <TableRow>
@@ -289,8 +290,7 @@ function LauncherResourceSitesSection({
                                 <TableHead
                                     className={cn(
                                         "whitespace-nowrap text-right",
-                                        "sticky right-0 z-10 w-auto min-w-fit bg-card",
-                                        "[mask-image:linear-gradient(to_right,transparent_0%,black_20px)]"
+                                        "sticky right-0 z-10 w-auto min-w-fit"
                                     )}
                                 >
                                     <span className="sr-only">
@@ -311,8 +311,7 @@ function LauncherResourceSitesSection({
                                     <TableCell
                                         className={cn(
                                             "whitespace-nowrap text-right",
-                                            "sticky right-0 z-10 w-auto min-w-fit bg-card",
-                                            "[mask-image:linear-gradient(to_right,transparent_0%,black_20px)]"
+                                            "sticky right-0 z-10 w-auto min-w-fit bg-card"
                                         )}
                                     >
                                         <DropdownMenu>
@@ -355,7 +354,7 @@ function LauncherResourceSitesSection({
                             ))}
                         </TableBody>
                     </Table>
-                </div>
+                </TableContainer>
             </SettingsSectionBody>
         </SettingsSection>
     );

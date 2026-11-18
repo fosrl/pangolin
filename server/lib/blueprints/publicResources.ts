@@ -47,6 +47,7 @@ import logger from "@server/logger";
 import { defaultRoleAllowedActions } from "@server/routers/role/createRole";
 import { pickPort } from "@server/routers/target/helpers";
 import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
+import { checkWildcardDomainConflict } from "@server/lib/domainUtils";
 import { tierMatrix } from "../billing/tierMatrix";
 import {
     isValidCIDR,
@@ -55,13 +56,19 @@ import {
     isValidUrlGlobPattern,
     parseHttpMethodList
 } from "../validators";
-import { Config, isTargetsOnlyResource, TargetData } from "./types";
+import {
+    Config,
+    getBlueprintResourceMtls,
+    isTargetsOnlyResource,
+    TargetData
+} from "./types";
 import { getOrCreateLabelIds, syncResourceLabels } from "./labels";
 import { findOrgUsersByIdentifier } from "./findOrgUser";
 import { LimitId } from "../billing";
 import { usageService } from "../billing/usageService";
 import { syncInferenceAiConfig } from "./aiProviders";
 import { syncAiBudgets } from "./aiBudgets";
+import { clearMtls, syncMtlsCertificates } from "../mtls";
 
 export type PublicResourcesResults = {
     proxyResource: Resource;
@@ -103,7 +110,8 @@ export async function updatePublicResources(
 
         async function createTarget( // reusable function to create a target
             resourceId: number,
-            targetData: TargetData
+            targetData: TargetData,
+            resourceName: string
         ) {
             const targetSiteId = targetData.site;
             let site: Partial<Site> | undefined;
@@ -191,10 +199,14 @@ export async function updatePublicResources(
                 ? JSON.stringify(healthcheckData.headers)
                 : null;
 
+            const healthCheckName =
+                healthcheckData?.name ||
+                `Resource ${resourceName} - ${targetData.hostname}:${targetData.port}`;
+
             const [newHealthcheck] = await trx
                 .insert(targetHealthCheck)
                 .values({
-                    name: `${targetData.hostname}:${targetData.port}`,
+                    name: healthCheckName,
                     siteId: site.siteId!,
                     targetId: newTarget.targetId,
                     orgId: orgId,
@@ -261,18 +273,25 @@ export async function updatePublicResources(
             resourceData.ssl == undefined || resourceData.ssl == null
                 ? true
                 : resourceData.ssl;
-        // `headers` is a deprecated alias for `requestHeaders`
+        // `headers` and `requestHeaders` are deprecated aliases for
+        // `request-headers`; `responseHeaders` for `response-headers`
         const mergedRequestHeaders = [
             ...(resourceData.headers ?? []),
-            ...(resourceData.requestHeaders ?? [])
+            ...(resourceData.requestHeaders ?? []),
+            ...(resourceData["request-headers"] ?? [])
         ];
         const requestHeaders =
             mergedRequestHeaders.length > 0
                 ? JSON.stringify(mergedRequestHeaders)
                 : null;
-        const responseHeaders = resourceData.responseHeaders?.length
-            ? JSON.stringify(resourceData.responseHeaders)
-            : null;
+        const mergedResponseHeaders = [
+            ...(resourceData.responseHeaders ?? []),
+            ...(resourceData["response-headers"] ?? [])
+        ];
+        const responseHeaders =
+            mergedResponseHeaders.length > 0
+                ? JSON.stringify(mergedResponseHeaders)
+                : null;
 
         if (resourceData.policy) {
             const isLicensed = await isLicensedOrSubscribed(
@@ -310,7 +329,8 @@ export async function updatePublicResources(
                     resourceData["full-domain"]!,
                     orgId,
                     resourceData.mode === "inference",
-                    trx
+                    trx,
+                    resourceData["match-base-domain"]
                 );
 
                 await enforceDomainNamespacePaywall(
@@ -397,14 +417,22 @@ export async function updatePublicResources(
                             subdomain: domain ? domain.subdomain : null,
                             domainId: domain ? domain.domainId : null,
                             wildcard: domain ? domain.wildcard : false,
+                            matchBaseDomain:
+                                resourceData["match-base-domain"] ?? false,
                             enabled: resourceEnabled,
                             sso: resourceData.auth?.["sso-enabled"] || false,
                             skipToIdpId:
                                 resourceData.auth?.["auto-login-idp"] || null,
                             ssl: resourceSsl,
                             setHostHeader: resourceData["host-header"] || null,
+                            forwardIdentityHeaders:
+                                resourceData["forward-identity-headers"] ??
+                                true,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
+                            loadBalancingStrategy:
+                                resourceData["load-balancing-strategy"] ??
+                                "wrr",
                             emailWhitelistEnabled: resourceData.auth?.[
                                 "whitelist-users"
                             ]
@@ -431,6 +459,8 @@ export async function updatePublicResources(
                                 resourceData.maintenance?.message,
                             maintenanceEstimatedTime:
                                 resourceData.maintenance?.["estimated-time"],
+                            mtlsEnabled:
+                                getBlueprintResourceMtls(resourceData)?.enabled,
                             proxyProtocol:
                                 resourceData.mode === "tcp"
                                     ? (resourceData["proxy-protocol"] ?? false)
@@ -567,6 +597,21 @@ export async function updatePublicResources(
                             trx
                         );
                     }
+
+                    const mtlsCaCertificates =
+                        getBlueprintResourceMtls(resourceData)?.[
+                            "ca-certificates"
+                        ];
+                    if (mtlsCaCertificates) {
+                        await syncMtlsCertificates(
+                            {
+                                type: "resource",
+                                resourceId: existingResource.resourceId
+                            },
+                            mtlsCaCertificates,
+                            trx
+                        );
+                    }
                 } else {
                     // INLINE POLICY MODE: ensure inline policy exists
                     const inlinePolicyId = await ensureInlinePolicy(
@@ -603,11 +648,19 @@ export async function updatePublicResources(
                             subdomain: domain ? domain.subdomain : null,
                             domainId: domain ? domain.domainId : null,
                             wildcard: domain ? domain.wildcard : false,
+                            matchBaseDomain:
+                                resourceData["match-base-domain"] ?? false,
                             enabled: resourceEnabled,
                             ssl: resourceSsl,
                             setHostHeader: resourceData["host-header"] || null,
+                            forwardIdentityHeaders:
+                                resourceData["forward-identity-headers"] ??
+                                true,
                             tlsServerName:
                                 resourceData["tls-server-name"] || null,
+                            loadBalancingStrategy:
+                                resourceData["load-balancing-strategy"] ??
+                                "wrr",
                             requestHeaders,
                             responseHeaders,
                             maintenanceModeEnabled:
@@ -687,7 +740,14 @@ export async function updatePublicResources(
                                     resourceWhitelist.resourceId,
                                     existingResource.resourceId
                                 )
-                            )
+                            ),
+                        clearMtls(
+                            {
+                                type: "resource",
+                                resourceId: existingResource.resourceId
+                            },
+                            trx
+                        )
                     ]);
 
                     // Update inline policy auth fields and policy-level tables
@@ -788,19 +848,26 @@ export async function updatePublicResources(
                             ip: targetData.hostname,
                             method:
                                 resourceData.mode == "http" // the other types of ssh, rdp, and vnc use the browser gateway targets and not this one so this is okay
-                                    ? targetData.method
+                                    ? (targetData.method ?? null)
                                     : null,
                             port: targetData.port,
                             enabled: targetData.enabled,
-                            path: targetData.path,
-                            pathMatchType: targetData["path-match"],
+                            // Targets are matched to existing rows by
+                            // position, so every optional field must be
+                            // written explicitly (null when omitted).
+                            // Drizzle skips `undefined` keys in .set(),
+                            // which would otherwise make a target inherit
+                            // the previous target's value at this index.
+                            path: targetData.path ?? null,
+                            pathMatchType: targetData["path-match"] ?? null,
                             rewritePath:
                                 targetData.rewritePath ||
                                 targetData["rewrite-path"] ||
                                 (targetData["rewrite-match"] === "stripPrefix"
                                     ? "/"
-                                    : undefined),
-                            rewritePathType: targetData["rewrite-match"],
+                                    : null),
+                            rewritePathType:
+                                targetData["rewrite-match"] ?? null,
                             priority: targetData.priority,
                             mode: resourceData.mode as Target["mode"]
                         })
@@ -849,30 +916,40 @@ export async function updatePublicResources(
                         ? JSON.stringify(healthcheckData.headers)
                         : null;
 
+                    const healthCheckName =
+                        healthcheckData?.name ||
+                        `Resource ${existingResource.name} - ${targetData.hostname}:${targetData.port}`;
+
                     const [newHealthcheck] = await trx
                         .update(targetHealthCheck)
                         .set({
+                            // Same as the target above: write every field so
+                            // omitted values reset to the column defaults
+                            // instead of inheriting from the positional match.
+                            name: healthCheckName,
                             hcEnabled: healthcheckData?.enabled || false,
-                            hcPath: healthcheckData?.path,
-                            hcScheme: healthcheckData?.scheme,
-                            hcMode: healthcheckData?.mode,
-                            hcHostname: healthcheckData?.hostname,
-                            hcPort: healthcheckData?.port,
-                            hcInterval: healthcheckData?.interval,
+                            hcPath: healthcheckData?.path ?? null,
+                            hcScheme: healthcheckData?.scheme ?? null,
+                            hcMode: healthcheckData?.mode ?? "http",
+                            hcHostname: healthcheckData?.hostname ?? null,
+                            hcPort: healthcheckData?.port ?? null,
+                            hcInterval: healthcheckData?.interval ?? 30,
                             hcUnhealthyInterval:
-                                healthcheckData?.unhealthyInterval ||
-                                healthcheckData?.["unhealthy-interval"],
-                            hcTimeout: healthcheckData?.timeout,
+                                healthcheckData?.unhealthyInterval ??
+                                healthcheckData?.["unhealthy-interval"] ??
+                                30,
+                            hcTimeout: healthcheckData?.timeout ?? 5,
                             hcHeaders: hcHeaders,
                             hcFollowRedirects:
-                                healthcheckData?.followRedirects ||
-                                healthcheckData?.["follow-redirects"],
-                            hcMethod: healthcheckData?.method,
-                            hcStatus: healthcheckData?.status,
+                                healthcheckData?.followRedirects ??
+                                healthcheckData?.["follow-redirects"] ??
+                                true,
+                            hcMethod: healthcheckData?.method ?? "GET",
+                            hcStatus: healthcheckData?.status ?? null,
                             hcHealthyThreshold:
-                                healthcheckData?.["healthy-threshold"],
+                                healthcheckData?.["healthy-threshold"] ?? 1,
                             hcUnhealthyThreshold:
-                                healthcheckData?.["unhealthy-threshold"]
+                                healthcheckData?.["unhealthy-threshold"] ?? 1
                         })
                         .where(
                             eq(
@@ -914,7 +991,11 @@ export async function updatePublicResources(
                         );
                     }
                 } else {
-                    await createTarget(existingResource.resourceId, targetData);
+                    await createTarget(
+                        existingResource.resourceId,
+                        targetData,
+                        existingResource.name
+                    );
                 }
             }
 
@@ -1128,7 +1209,8 @@ export async function updatePublicResources(
                     resourceData["full-domain"]!,
                     orgId,
                     resourceData.mode === "inference",
-                    trx
+                    trx,
+                    resourceData["match-base-domain"]
                 );
 
                 await enforceDomainNamespacePaywall(
@@ -1228,9 +1310,14 @@ export async function updatePublicResources(
                     subdomain: domain ? domain.subdomain : null,
                     domainId: domain ? domain.domainId : null,
                     wildcard: domain ? domain.wildcard : false,
+                    matchBaseDomain: resourceData["match-base-domain"] ?? false,
                     enabled: resourceEnabled,
                     setHostHeader: resourceData["host-header"] || null,
+                    forwardIdentityHeaders:
+                        resourceData["forward-identity-headers"] ?? true,
                     tlsServerName: resourceData["tls-server-name"] || null,
+                    loadBalancingStrategy:
+                        resourceData["load-balancing-strategy"] ?? "wrr",
                     ssl: resourceSsl,
                     requestHeaders,
                     responseHeaders,
@@ -1270,7 +1357,10 @@ export async function updatePublicResources(
                                   : false,
                               applyRules:
                                   resourceData.rules &&
-                                  resourceData.rules.length > 0
+                                  resourceData.rules.length > 0,
+                              mtlsEnabled:
+                                  getBlueprintResourceMtls(resourceData)
+                                      ?.enabled
                           }
                         : {})
                 })
@@ -1388,6 +1478,19 @@ export async function updatePublicResources(
                     );
                 }
 
+                const mtlsCaCertificates =
+                    getBlueprintResourceMtls(resourceData)?.["ca-certificates"];
+                if (mtlsCaCertificates) {
+                    await syncMtlsCertificates(
+                        {
+                            type: "resource",
+                            resourceId: newResource.resourceId
+                        },
+                        mtlsCaCertificates,
+                        trx
+                    );
+                }
+
                 // Rules into OLD resourceRules table
                 for (const [index, rule] of resourceData.rules?.entries() ||
                     []) {
@@ -1426,7 +1529,11 @@ export async function updatePublicResources(
                     // If targetData is null or an empty object, we can skip it
                     continue;
                 }
-                await createTarget(newResource.resourceId, targetData);
+                await createTarget(
+                    newResource.resourceId,
+                    targetData,
+                    newResource.name
+                );
             }
 
             await usageService.add(orgId, LimitId.PUBLIC_RESOURCES, 1, trx);
@@ -1729,7 +1836,9 @@ async function syncInlinePolicyAuth(
     resourceData: any,
     trx: Transaction
 ) {
-    // Update policy-level SSO/whitelist/applyRules fields
+    const mtls = getBlueprintResourceMtls(resourceData);
+
+    // Update policy-level SSO/whitelist/applyRules/mTLS fields
     await trx
         .update(resourcePolicies)
         .set({
@@ -1738,9 +1847,19 @@ async function syncInlinePolicyAuth(
             emailWhitelistEnabled: resourceData.auth?.["whitelist-users"]
                 ? resourceData.auth["whitelist-users"].length > 0
                 : false,
-            applyRules: !!(resourceData.rules && resourceData.rules.length > 0)
+            applyRules: !!(resourceData.rules && resourceData.rules.length > 0),
+            mtlsEnabled: mtls?.enabled
         })
         .where(eq(resourcePolicies.resourcePolicyId, policyId));
+
+    // mTLS trusted CAs → resourcePolicyMtlsCertificates
+    if (mtls?.["ca-certificates"]) {
+        await syncMtlsCertificates(
+            { type: "policy", resourcePolicyId: policyId },
+            mtls["ca-certificates"],
+            trx
+        );
+    }
 
     // Password
     await trx
@@ -1857,13 +1976,9 @@ async function syncInlinePolicyRules(
                     .update(resourcePolicyRules)
                     .set({
                         action: getRuleAction(rule.action) as
-                            | "ACCEPT"
-                            | "DROP"
-                            | "PASS",
+                            "ACCEPT" | "DROP" | "PASS",
                         match: rule.match.toUpperCase() as
-                            | "CIDR"
-                            | "IP"
-                            | "PATH",
+                            "CIDR" | "IP" | "PATH",
                         value: getRuleValue(
                             rule.match.toUpperCase(),
                             rule.value
@@ -1877,9 +1992,7 @@ async function syncInlinePolicyRules(
             await trx.insert(resourcePolicyRules).values({
                 resourcePolicyId: policyId,
                 action: getRuleAction(rule.action) as
-                    | "ACCEPT"
-                    | "DROP"
-                    | "PASS",
+                    "ACCEPT" | "DROP" | "PASS",
                 match: rule.match.toUpperCase() as "CIDR" | "IP" | "PATH",
                 value: getRuleValue(rule.match.toUpperCase(), rule.value),
                 priority: intendedPriority
@@ -2081,6 +2194,7 @@ function checkIfHealthcheckChanged(
     if (existing && !incoming) return true;
     if (!existing || !incoming) return false;
 
+    if (existing.name !== incoming.name) return true;
     if (existing.hcEnabled !== incoming.hcEnabled) return true;
     if (existing.hcPath !== incoming.hcPath) return true;
     if (existing.hcScheme !== incoming.hcScheme) return true;
@@ -2158,23 +2272,20 @@ export async function getDomain(
     fullDomain: string,
     orgId: string,
     isInference: boolean,
-    trx: Transaction
+    trx: Transaction,
+    matchBaseDomain: boolean = false
 ) {
     const [fullDomainExists] = await trx
         .select({ resourceId: resources.resourceId })
         .from(resources)
         .where(
             and(
+                // The full domain must be unique across every org, not just
+                // this one. Inference resources may share a full domain with
+                // each other, but any other resource conflicts with every
+                // existing resource on that domain.
                 eq(resources.fullDomain, fullDomain),
-                eq(resources.orgId, orgId),
-                // Inference resources route through the central AI gateway
-                // rather than normal target-based proxying, so they're
-                // allowed to share a full-domain with a non-inference
-                // resource (and vice versa) - only conflicts within the
-                // same routing category are rejected.
-                isInference
-                    ? ne(resources.mode, "inference")
-                    : eq(resources.mode, "inference"),
+                isInference ? ne(resources.mode, "inference") : undefined,
                 resourceId
                     ? ne(resources.resourceId, resourceId)
                     : isNotNull(resources.resourceId)
@@ -2194,6 +2305,18 @@ export async function getDomain(
         throw new Error(
             `Domain not found for full-domain: ${fullDomain} in org ${orgId}`
         );
+    }
+
+    if (matchBaseDomain) {
+        const wildcardConflict = await checkWildcardDomainConflict(
+            fullDomain,
+            resourceId,
+            true,
+            trx
+        );
+        if (wildcardConflict.conflict) {
+            throw new Error(wildcardConflict.message);
+        }
     }
 
     await createCertificate(domain.domainId, fullDomain, trx);

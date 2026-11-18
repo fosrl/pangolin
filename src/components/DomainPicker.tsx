@@ -26,7 +26,6 @@ import { createApiClient } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import {
     finalizeSubdomainSanitize,
-    isValidSubdomainStructure,
     isWildcardSubdomain,
     sanitizeInputRaw,
     validateByDomainType
@@ -569,35 +568,13 @@ export default function DomainPicker({
                             }
                         }}
                     />
-                    {showSubdomainInput &&
-                        subdomainInput &&
-                        !isValidSubdomainStructure(
-                            subdomainInput,
-                            wildcardAllowed &&
-                                isWildcardSubdomain(subdomainInput)
-                        ) && (
-                            <p className="text-sm text-red-500">
-                                {t("domainPickerInvalidSubdomainStructure")}
-                            </p>
-                        )}
                     {allowWildcard &&
                         !wildcardAllowed &&
                         showSubdomainInput &&
                         isWildcardSubdomain(subdomainInput) && (
-                            <>
-                                <p className="text-sm text-red-500">
-                                    {t(
-                                        "domainPickerWildcardSubdomainNotAllowed"
-                                    )}
-                                </p>
-                                <PaidFeaturesAlert
-                                    tiers={
-                                        tierMatrix[
-                                            TierFeature.WildcardSubdomain
-                                        ]
-                                    }
-                                />
-                            </>
+                            <p className="text-sm text-red-500">
+                                {t("domainPickerWildcardSubdomainNotAllowed")}
+                            </p>
                         )}
                 </div>
 
@@ -791,6 +768,15 @@ export default function DomainPicker({
                     </Popover>
                 </div>
             </div>
+
+            {allowWildcard &&
+                !wildcardAllowed &&
+                showSubdomainInput &&
+                isWildcardSubdomain(subdomainInput) && (
+                    <PaidFeaturesAlert
+                        tiers={tierMatrix[TierFeature.WildcardSubdomain]}
+                    />
+                )}
 
             {requiresPaywall && !hideFreeDomain && (
                 <Card className="mt-3 border-black-500/30 bg-linear-to-br from-black-500/10 via-background to-background overflow-hidden">

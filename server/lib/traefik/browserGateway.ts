@@ -1,4 +1,6 @@
 import config from "@server/lib/config";
+import { applyMtlsConfig } from "./mtls";
+import { buildHostRule } from "./rule";
 import { sanitize } from "./utils";
 
 export type BrowserGatewayResourceRow = {
@@ -116,6 +118,8 @@ export function buildBrowserGatewayResourcesMap(
 export function buildBrowserGatewayConfig(params: {
     config_output: any;
     browserGatewayResourcesMap: Map<number, BrowserGatewayResourceEntry>;
+    // trusted client-CA PEMs for resources that require mTLS
+    mtlsCaCertsByResource: Map<number, string[]>;
     browserGatewayUiUrl: string;
     maintenancePageUiUrl: string | null;
     badgerMiddlewareName: string;
@@ -130,6 +134,7 @@ export function buildBrowserGatewayConfig(params: {
     const {
         config_output,
         browserGatewayResourcesMap,
+        mtlsCaCertsByResource,
         browserGatewayUiUrl,
         maintenancePageUiUrl,
         badgerMiddlewareName,
@@ -170,10 +175,10 @@ export function buildBrowserGatewayConfig(params: {
             ...additionalMiddlewares
         ];
 
-        const hostRule = `Host(\`${fullDomain}\`)`;
+        const hostRule = buildHostRule(fullDomain);
 
         // Build TLS config
-        const tls = resolveTls({
+        let tls = resolveTls({
             fullDomain,
             hasSubdomain: !!bgResource.subdomain,
             domainCertResolver: bgResource.domainCertResolver,
@@ -181,6 +186,20 @@ export function buildBrowserGatewayConfig(params: {
         });
         if (tls === null) {
             continue;
+        }
+
+        // Every TLS router below (including the maintenance ones) must
+        // reference the same options, since Traefik resolves them per host.
+        const mtlsOptionsName = bgResource.ssl
+            ? applyMtlsConfig(
+                  config_output,
+                  bgResource.resourceId,
+                  mtlsCaCertsByResource.get(bgResource.resourceId),
+                  routerMiddlewares
+              )
+            : undefined;
+        if (mtlsOptionsName) {
+            tls = { ...tls, options: mtlsOptionsName };
         }
 
         const bgUiServiceName = `bg-r${bgResource.resourceId}-ui-service`;

@@ -12,6 +12,7 @@ import { fromError } from "zod-validation-error";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { OpenAPITags, registry } from "@server/openApi";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { pushClientIdentitiesForRole } from "@server/lib/clientIdentities";
 
 const updateRoleParamsSchema = z.strictObject({
     roleId: z.coerce.number().int().positive()
@@ -214,6 +215,16 @@ export async function updateRole(
                     `Role with ID ${roleId} not found`
                 )
             );
+        }
+
+        if (updateData.name !== undefined && updateData.name !== role[0].name) {
+            // Role names are forwarded by newt as the Remote-Role header.
+            pushClientIdentitiesForRole(roleId, orgId).catch((err) => {
+                logger.error(
+                    `Error pushing client identities after renaming role ${roleId}`,
+                    err
+                );
+            });
         }
 
         return response(res, {

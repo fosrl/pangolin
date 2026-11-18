@@ -15,8 +15,13 @@ export async function verifySiteAccess(
     const userId = req.user!.userId; // Assuming you have user information in the request
     const siteIdStr =
         req.params?.siteId || req.body?.siteId || req.query?.siteId;
-    const niceId = req.params?.niceId || req.body?.niceId || req.query?.niceId;
-    const orgId = req.params?.orgId || req.body?.orgId || req.query?.orgId;
+    // Only take the niceId/orgId pair from the route path. Reading it from the
+    // query or body would let a caller authorize against an object they own
+    // while the handler acts on the id in the path.
+    const niceId =
+        typeof req.params?.niceId === "string" ? req.params.niceId : undefined;
+    const orgId =
+        typeof req.params?.orgId === "string" ? req.params.orgId : undefined;
 
     if (!userId) {
         return next(

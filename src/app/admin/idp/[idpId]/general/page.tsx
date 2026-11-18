@@ -32,6 +32,7 @@ import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useState, useEffect } from "react";
 import ApiIntegrationConfigWidget from "@app/components/ApiIntegrationConfigWidget";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
 import {
     buildGoogleIDPAPIConfig,
     googleDirectorySyncFormFields,
@@ -49,10 +50,22 @@ import IdpTypeBadge from "@app/components/IdpTypeBadge";
 import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
 import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
 import { RefreshCwIcon } from "lucide-react";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { useTranslations } from "next-intl";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
+import type { buildGoogleIDPAPIConfig } from "@app/components/GoogleIDPAPIConfigFields";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
+import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import type { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
+import { RefreshCwIcon } from "lucide-react";
+import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import type { SwitchInput } from "@app/components/SwitchInput";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -80,6 +93,7 @@ export default function GeneralPage() {
     // the server refuses the sync too, so don't offer it without the plan
     const canSyncNow =
         savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
+    const { isPaidUser } = usePaidStatus();
 
     const OidcFormSchema = z.object({
         name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
@@ -95,6 +109,7 @@ export default function GeneralPage() {
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
         allowManualProvisioning: z.boolean().default(true),
         autoProvision: z.boolean().default(false),
+        sessionRevalidation: z.boolean().default(false),
         apiIntegrationEnabled: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
         directorySyncDeletions: z.boolean().default(true)
@@ -109,6 +124,7 @@ export default function GeneralPage() {
                 .min(1, { message: t("idpClientSecretRequired") }),
             allowManualProvisioning: z.boolean().default(true),
             autoProvision: z.boolean().default(false),
+            sessionRevalidation: z.boolean().default(false),
             apiIntegrationEnabled: z.boolean().default(false),
             directorySyncEnabled: z.boolean().default(false),
             directorySyncDeletions: z.boolean().default(true),
@@ -131,6 +147,7 @@ export default function GeneralPage() {
         tenantId: z.string().min(1, { message: t("idpTenantIdRequired") }),
         allowManualProvisioning: z.boolean().default(true),
         autoProvision: z.boolean().default(false),
+        sessionRevalidation: z.boolean().default(false),
         apiIntegrationEnabled: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
         directorySyncDeletions: z.boolean().default(true)
@@ -167,6 +184,7 @@ export default function GeneralPage() {
             scopes: "openid profile email",
             allowManualProvisioning: true,
             autoProvision: true,
+            sessionRevalidation: false,
             apiIntegrationEnabled: false,
             directorySyncEnabled: false,
             directorySyncDeletions: true,
@@ -219,6 +237,9 @@ export default function GeneralPage() {
                         apiIntegrationEnabled: data.idp.apiIntegrationEnabled,
                         directorySyncEnabled: data.idp.directorySyncEnabled,
                         directorySyncDeletions: data.idp.directorySyncDeletions
+                        autoProvision: data.idp.autoProvision,
+                        sessionRevalidation:
+                            data.idp.sessionRevalidation ?? false
                     };
 
                     if (idpVariant === "oidc") {
@@ -298,11 +319,16 @@ export default function GeneralPage() {
                     data.apiIntegrationEnabled &&
                     data.directorySyncEnabled,
                 directorySyncDeletions: data.directorySyncDeletions,
+                sessionRevalidation: data.sessionRevalidation,
                 variant
             };
 
             if (variant === "oidc") {
                 const oidcData = data as OidcFormValues;
+                let scopes = oidcData.scopes;
+                if (data.sessionRevalidation) {
+                    scopes = scopesForSessionRevalidation(scopes, "oidc");
+                }
                 payload = {
                     ...payload,
                     authUrl: oidcData.authUrl,
@@ -310,12 +336,16 @@ export default function GeneralPage() {
                     identifierPath: oidcData.identifierPath,
                     emailPath: oidcData.emailPath ?? "",
                     namePath: oidcData.namePath ?? "",
-                    scopes: oidcData.scopes
+                    scopes
                 };
             } else if (variant === "azure") {
                 const azureData = data as AzureFormValues;
                 const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
                 const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
+                let scopes = "openid profile email";
+                if (data.sessionRevalidation) {
+                    scopes = scopesForSessionRevalidation(scopes, "azure");
+                }
                 payload = {
                     ...payload,
                     authUrl,
@@ -323,9 +353,10 @@ export default function GeneralPage() {
                     identifierPath: "email",
                     emailPath: "email",
                     namePath: "name",
-                    scopes: "openid profile email"
+                    scopes
                 };
             } else if (variant === "google") {
+                // Google refresh tokens use access_type=offline, not offline_access
                 payload = {
                     ...payload,
                     authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -483,6 +514,55 @@ export default function GeneralPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    {!env.flags.disableEnterpriseFeatures && (
+                                        <div className="space-y-2">
+                                            <PaidFeaturesAlert
+                                                tiers={
+                                                    tierMatrix.sessionRevalidation
+                                                }
+                                            />
+                                            <SwitchInput
+                                                id="session-revalidation-toggle"
+                                                label={t(
+                                                    "idpSessionRevalidation"
+                                                )}
+                                                checked={form.watch(
+                                                    "sessionRevalidation"
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    form.setValue(
+                                                        "sessionRevalidation",
+                                                        checked
+                                                    );
+                                                    if (
+                                                        checked &&
+                                                        variant === "oidc"
+                                                    ) {
+                                                        const current =
+                                                            form.getValues(
+                                                                "scopes"
+                                                            ) ||
+                                                            "openid profile email";
+                                                        form.setValue(
+                                                            "scopes",
+                                                            scopesForSessionRevalidation(
+                                                                current,
+                                                                "oidc"
+                                                            )
+                                                        );
+                                                    }
+                                                }}
+                                                disabled={
+                                                    !isPaidUser(
+                                                        tierMatrix.sessionRevalidation
+                                                    )
+                                                }
+                                            />
+                                            <FormDescription>
+                                                <IdpSessionRevalidationDescription />
+                                            </FormDescription>
+                                        </div>
+                                    )}
                                 </form>
                             </Form>
                         </SettingsSectionForm>
@@ -559,6 +639,47 @@ export default function GeneralPage() {
                                 />
                                 {(form.watch("autoProvision") ||
                                     form.watch("directorySyncEnabled")) && (
+                                    <FormDescription>
+                                        {t.rich(
+                                            "idpAdminAutoProvisionPoliciesTabHint",
+                                            {
+                                                policiesTabLink: (chunks) => (
+                                                    <Link
+                                                        href={`/admin/idp/${idpId}/policies`}
+                                                        className="text-primary hover:underline inline-flex items-center gap-1"
+                                                    >
+                                                        {chunks}
+                                                    </Link>
+                                                )
+                                            }
+                                        )}
+                                    </FormDescription>
+                                )}
+                <SettingsSection className="min-h-0">
+                    <SettingsSectionHeader>
+                        <SettingsSectionTitle>
+                            {t("idpAutoProvisionUsers")}
+                        </SettingsSectionTitle>
+                        <SettingsSectionDescription>
+                            <IdpAutoProvisionUsersDescription />
+                        </SettingsSectionDescription>
+                    </SettingsSectionHeader>
+                    <SettingsSectionBody>
+                        <Form {...form}>
+                            <form
+                                onSubmit={form.handleSubmit(onSubmit)}
+                                className="space-y-4"
+                                id="general-settings-form"
+                            >
+                                <SwitchInput
+                                    id="auto-provision-toggle"
+                                    label={t("idpAutoProvisionUsers")}
+                                    checked={form.watch("autoProvision")}
+                                    onCheckedChange={(checked) => {
+                                        form.setValue("autoProvision", checked);
+                                    }}
+                                />
+                                {form.watch("autoProvision") && (
                                     <FormDescription>
                                         {t.rich(
                                             "idpAdminAutoProvisionPoliciesTabHint",
@@ -1011,7 +1132,7 @@ export default function GeneralPage() {
                         form.handleSubmit(onSubmit)();
                     }}
                 >
-                    {t("saveGeneralSettings")}
+                    {t("saveSettings")}
                 </Button>
             </div>
         </>

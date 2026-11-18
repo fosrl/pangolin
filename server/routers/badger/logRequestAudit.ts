@@ -20,6 +20,7 @@ Reasons:
 107 - Valid SSO
 108 - Connected Client
 109 - Valid Virtual API Key
+110 - Allowed Redirect
 
 201 - Resource Not Found
 202 - Resource Blocked

@@ -23,6 +23,7 @@ import { sendToClient } from "#dynamic/routers/ws";
 import { deletePeer } from "@server/routers/gerbil/peers";
 import { OlmErrorCodes } from "@server/routers/olm/error";
 import { sendTerminateClient } from "@server/routers/client/terminate";
+import { cleanupSiteAssociations } from "@server/lib/rebuildClientAssociations";
 import { usageService } from "./billing/usageService";
 import { LimitId } from "./billing";
 
@@ -55,8 +56,7 @@ export async function deleteOrgById(
     const orgSites = await db
         .select()
         .from(sites)
-        .where(eq(sites.orgId, orgId))
-        .limit(1);
+        .where(eq(sites.orgId, orgId));
 
     const orgClients = await db
         .select()
@@ -70,23 +70,31 @@ export async function deleteOrgById(
     let siteCount: number | null = null;
     let userCount: number | null = null;
     let remoteExitNodeCount: number | null = null;
+    // billingOrgId has no FK, so the billing org may already be gone (e.g.
+    // a partially failed account deletion). Writing usage for it would
+    // violate the usage FK and abort the transaction.
+    let billingOrgExists = false;
 
     await db.transaction(async (trx) => {
         for (const site of orgSites) {
-            if (site.pubKey) {
-                if (site.type == "wireguard") {
+            if (site.type == "wireguard") {
+                if (site.pubKey) {
                     await deletePeer(site.exitNodeId!, site.pubKey);
-                } else if (site.type == "newt") {
-                    const [deletedNewt] = await trx
-                        .delete(newts)
-                        .where(eq(newts.siteId, site.siteId))
-                        .returning();
-                    if (deletedNewt) {
-                        deletedNewtIds.push(deletedNewt.newtId);
-                        await trx
-                            .delete(newtSessions)
-                            .where(eq(newtSessions.newtId, deletedNewt.newtId));
-                    }
+                }
+            } else if (site.type == "newt") {
+                // Same per-site cleanup deleteSite.ts performs, so that
+                // removing an org does not leave other orgs' clients
+                // holding stale associations for these sites.
+                await cleanupSiteAssociations(site, trx);
+                const [deletedNewt] = await trx
+                    .delete(newts)
+                    .where(eq(newts.siteId, site.siteId))
+                    .returning();
+                if (deletedNewt) {
+                    deletedNewtIds.push(deletedNewt.newtId);
+                    await trx
+                        .delete(newtSessions)
+                        .where(eq(newtSessions.newtId, deletedNewt.newtId));
                 }
             }
             logger.info(`Deleting site ${site.siteId}`);
@@ -157,7 +165,17 @@ export async function deleteOrgById(
                 .where(inArray(domains.domainId, domainIdsToDelete));
         }
 
-        await usageService.add(orgId, LimitId.ORGANIZATIONS, -1, trx); // here we are decreasing the org count BEFORE deleting the org because we need to still be able to get the org to get the billing org inside of here
+        const [billingOrg] = org.billingOrgId
+            ? await trx
+                  .select({ orgId: orgs.orgId })
+                  .from(orgs)
+                  .where(eq(orgs.orgId, org.billingOrgId))
+                  .limit(1)
+            : [org];
+        billingOrgExists = !!billingOrg;
+        if (billingOrgExists) {
+            await usageService.add(orgId, LimitId.ORGANIZATIONS, -1, trx); // here we are decreasing the org count BEFORE deleting the org because we need to still be able to get the org to get the billing org inside of here
+        }
 
         await trx.delete(orgs).where(eq(orgs.orgId, orgId));
 
@@ -201,7 +219,11 @@ export async function deleteOrgById(
         }
     });
 
-    if (org.billingOrgId) {
+    if (
+        org.billingOrgId &&
+        org.billingOrgId !== orgId &&
+        billingOrgExists
+    ) {
         usageService.updateCount(
             org.billingOrgId,
             LimitId.DOMAINS,

@@ -13,5 +13,9 @@
 
 export * from "./listGeneratedLicenses";
 export * from "./generateNewLicense";
-export * from "./generateNewEnterpriseLicense";
 export * from "./clearInstanceName";
+export * from "./previewLicenseUpdate";
+export * from "./updateLicense";
+export * from "./cancelLicense";
+export * from "./createLicensePortalSession";
+export * from "./sendLicenseSupportEmail";

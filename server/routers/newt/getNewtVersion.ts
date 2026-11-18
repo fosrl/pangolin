@@ -10,130 +10,8 @@ import { verifyPassword } from "@server/auth/password";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import logger from "@server/logger";
-import { regionalCache as cache } from "#dynamic/lib/cache";
 import config from "@server/lib/config";
-
-type ReleaseInfo = {
-    version: string;
-    // binary filename -> sha256 hex (sourced from asset `digest` field in GitHub API)
-    assetDigests: Record<string, string>;
-};
-
-// Cache key holding the last known good release info. It never expires, so
-// it keeps serving if GitHub is unreachable, even across restarts/nodes.
-const RELEASE_INFO_KEY = "cache:releaseInfo";
-// Short-lived marker controlling how often we re-check GitHub. While it's
-// missing (expired, or a previous attempt failed) every request retries.
-const RELEASE_INFO_FRESH_KEY = "cache:releaseInfoFresh";
-const RELEASE_INFO_REFRESH_SECONDS = 3600;
-
-/**
- * Fetches the latest stable newt release from GitHub and returns the version
- * tag together with a map of asset-name → sha256 hex digest.
- * The last successful result is cached indefinitely and re-checked hourly;
- * on failure the last known good data keeps being served and every
- * subsequent request retries GitHub until it succeeds again.
- */
-async function getLatestReleaseInfo(repo: string): Promise<ReleaseInfo | null> {
-    const stored = await cache.get<ReleaseInfo>(`${RELEASE_INFO_KEY}:${repo}`);
-    const isFresh = await cache.has(`${RELEASE_INFO_FRESH_KEY}:${repo}`);
-    if (stored && isFresh) {
-        return stored;
-    }
-
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        const fetchResponse = await fetch(
-            `https://api.github.com/repos/fosrl/${repo}/releases`,
-            { signal: controller.signal }
-        );
-
-        clearTimeout(timeoutId);
-
-        if (!fetchResponse.ok) {
-            logger.warn(
-                `Failed to fetch Newt releases from GitHub: ${fetchResponse.status} ${fetchResponse.statusText}`
-            );
-            return stored ?? null;
-        }
-
-        let releases: any[] = await fetchResponse.json();
-        if (!Array.isArray(releases) || releases.length === 0) {
-            logger.warn("No releases found for repository");
-            return stored ?? null;
-        }
-
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-        // Drop drafts, pre-releases, anything with "rc" in the tag name,
-        // and releases published less than 1 day ago.
-        releases = releases.filter(
-            (r: any) =>
-                !r.draft &&
-                !r.prerelease &&
-                !r.tag_name.includes("rc") &&
-                !r.tag_name.includes("v") &&
-                r.published_at &&
-                new Date(r.published_at) <= oneDayAgo
-        );
-
-        // Sort descending by semver to find the true latest stable release.
-        releases.sort((a: any, b: any) => {
-            const va = semver.coerce(a.tag_name);
-            const vb = semver.coerce(b.tag_name);
-            if (!va && !vb) return 0;
-            if (!va) return 1;
-            if (!vb) return -1;
-            return semver.rcompare(va, vb);
-        });
-
-        if (releases.length === 0) {
-            logger.warn("No stable releases found for repository");
-            return stored ?? null;
-        }
-
-        const latest = releases[0];
-        const version: string = latest.tag_name;
-
-        // Build a map of binary filename → sha256 hex from the asset `digest`
-        // field returned by the GitHub API (format: "sha256:<hex>").
-        const assetDigests: Record<string, string> = {};
-        if (Array.isArray(latest.assets)) {
-            for (const asset of latest.assets) {
-                if (
-                    typeof asset.name === "string" &&
-                    typeof asset.digest === "string" &&
-                    asset.digest.startsWith("sha256:")
-                ) {
-                    assetDigests[asset.name] = asset.digest.slice(
-                        "sha256:".length
-                    );
-                }
-            }
-        }
-
-        const info: ReleaseInfo = { version, assetDigests };
-        await cache.set(RELEASE_INFO_KEY, info, 0);
-        await cache.set(
-            RELEASE_INFO_FRESH_KEY,
-            true,
-            RELEASE_INFO_REFRESH_SECONDS
-        );
-        return info;
-    } catch (error: any) {
-        if (error.name === "AbortError") {
-            logger.warn("Request to fetch Newt releases timed out (5s)");
-        } else {
-            logger.warn(
-                "Error fetching Newt releases:",
-                error.message || error
-            );
-        }
-        return stored ?? null;
-    }
-}
+import { getLatestVersions } from "@server/lib/latestVersions";
 
 const bodySchema = z.object({
     newtId: z.string(),
@@ -246,6 +124,15 @@ export async function getNewtVersion(
             );
         }
 
+        const isCli = agent === "cli";
+        const agentName = isCli ? "cli" : "newt";
+        // The newt row stores the embedded newt version in `version` and the
+        // agent's own version in `agentVersion` (equal to `version` for a
+        // standalone newt).
+        const currentVersion = isCli
+            ? (existingNewt.agentVersion ?? null)
+            : (existingNewt.version ?? null);
+
         let doUpdate = false;
 
         if (site.autoUpdateOverrideOrg) {
@@ -258,7 +145,7 @@ export async function getNewtVersion(
             // return no content http code
             return response(res, {
                 data: {
-                    latestVersion: existingNewt.version ?? "",
+                    latestVersion: currentVersion ?? "",
                     currentIsLatest: true,
                     downloadUrl: "",
                     sha256: ""
@@ -271,62 +158,71 @@ export async function getNewtVersion(
             });
         }
 
-        // Fetch latest release info (version + asset digests) in one API call.
-        const releaseInfoNewt = await getLatestReleaseInfo("newt");
-        let releaseInfoCli: ReleaseInfo | undefined | null;
-        if (agent == "cli") {
-            releaseInfoCli = await getLatestReleaseInfo("cli");
-        }
+        // Versions and asset digests come from the Fossorial API, which
+        // tracks GitHub releases and holds each one back for a day before
+        // offering it to self-updating agents.
+        //
+        // Each agent is compared against its own release line: a standalone
+        // newt against newt releases, and the Pangolin CLI (which embeds newt
+        // for `pangolin up site`) against CLI releases. Comparing the CLI's
+        // embedded newt version against newt releases would make CLI sites
+        // re-download the same CLI release in a loop whenever newt ships
+        // ahead of the CLI, and miss CLI-only releases entirely.
+        const versions = await getLatestVersions();
+        const releaseInfo = isCli
+            ? versions?.cli?.autoUpdate
+            : versions?.newt?.autoUpdate;
 
-        if (!releaseInfoNewt || (agent == "cli" && !releaseInfoCli)) {
+        if (!releaseInfo) {
+            logger.warn(
+                `Unable to determine the latest ${agentName} version for auto-update`
+            );
             return next(
                 createHttpError(
-                    HttpCode.INTERNAL_SERVER_ERROR,
-                    "Unable to determine latest Newt version"
+                    HttpCode.SERVICE_UNAVAILABLE,
+                    `Unable to determine latest ${agentName} version`
                 )
             );
         }
 
-        const latestVersion = releaseInfoNewt.version;
+        const latestVersion = releaseInfo.version;
 
-        // Binary name follows the get-newt.sh convention: newt_<platform>[.exe]
-        const binaryNameNewt = platform.includes("windows")
-            ? `newt_${platform}.exe`
-            : `newt_${platform}`;
+        // Binary names follow the release asset convention:
+        // newt_<platform>[.exe] and pangolin-cli_<platform>[.exe]
+        const binaryPrefix = isCli ? "pangolin-cli" : "newt";
+        const binaryName = platform.includes("windows")
+            ? `${binaryPrefix}_${platform}.exe`
+            : `${binaryPrefix}_${platform}`;
 
-        const binaryNameCli = platform.includes("windows")
-            ? `pangolin-cli_${platform}.exe`
-            : `pangolin-cli_${platform}`;
+        const downloadUrl = `https://github.com/fosrl/${isCli ? "cli" : "newt"}/releases/download/${encodeURIComponent(latestVersion)}/${encodeURIComponent(binaryName)}`;
 
-        const downloadUrl = `https://github.com/fosrl/${agent}/releases/download/${agent == "cli" ? releaseInfoCli?.version : releaseInfoNewt.version}/${agent == "cli" ? binaryNameCli : binaryNameNewt}`;
+        // SHA256 of this binary, from the release asset metadata of the
+        // repo the binary is actually downloaded from.
+        const sha256 = releaseInfo.assetDigests[binaryName] ?? "";
+        if (!sha256) {
+            logger.warn(
+                `No sha256 digest found for ${binaryName} in ${agentName} release ${latestVersion}`
+            );
+        }
 
-        // Look up the SHA256 digest for this specific binary from the GitHub
-        // release asset metadata (the `digest` field, format "sha256:<hex>").
-        const sha256 =
-            releaseInfoNewt.assetDigests[
-                agent == "cli" ? binaryNameCli : binaryNameNewt
-            ] ?? "";
-
-        // Determine whether the newt that's asking is already up to date.
-        // We store the current version on the newt row when it registers.
-        const currentVersion = existingNewt.version ?? null;
+        // Determine whether the agent that's asking is already up to date,
+        // using the version it reported when it registered.
         let currentIsLatest = false;
-        if (currentVersion) {
-            try {
-                const latest = semver.coerce(latestVersion);
-                const current = semver.coerce(currentVersion);
-                if (latest && current) {
-                    currentIsLatest = !semver.lt(current, latest);
-                }
-            } catch {
-                // If we can't compare, assume not latest
-            }
+        const latest = semver.coerce(latestVersion);
+        const current = currentVersion ? semver.coerce(currentVersion) : null;
+        if (latest && current) {
+            currentIsLatest = !semver.lt(current, latest);
+        } else if (isCli) {
+            // Unknown or non-semver CLI version (e.g. a "dev" build, or a row
+            // that hasn't registered with an agentVersion yet). Don't replace
+            // it, since that could restart the site in a loop.
+            currentIsLatest = true;
         }
 
         return response<GetNewtVersionResponse>(res, {
             data: {
-                latestVersion, // this will always be the newt version
-                currentIsLatest, // this will always be based on the newt version
+                latestVersion,
+                currentIsLatest,
                 downloadUrl,
                 sha256
             },

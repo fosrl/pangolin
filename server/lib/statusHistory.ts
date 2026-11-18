@@ -56,7 +56,7 @@ export async function getCachedStatusHistory(
                 gte(statusHistory.timestamp, startSec)
             )
         )
-        .orderBy(asc(statusHistory.timestamp));
+        .orderBy(asc(statusHistory.timestamp), asc(statusHistory.id));
 
     // Fetch the last known state before the window so that entities that
     // haven't changed status recently still show the correct status rather
@@ -71,7 +71,7 @@ export async function getCachedStatusHistory(
                 lt(statusHistory.timestamp, startSec)
             )
         )
-        .orderBy(desc(statusHistory.timestamp))
+        .orderBy(desc(statusHistory.timestamp), desc(statusHistory.id))
         .limit(1);
 
     const priorStatus = lastKnownEvent?.status ?? null;
@@ -167,6 +167,14 @@ export function computeBuckets(
     // 0) so dates are stable calendar days for the requesting client and
     // don't drift as the cache expires and is recomputed
     const todayMidnightSec = localMidnightSec(tzOffsetMinutes);
+
+    // Several status changes can land in the same second (e.g. a resource
+    // going degraded -> healthy as each target reports in), and the database
+    // does not keep a stable order for rows with equal timestamps. Order by id
+    // as well so the last event of the second is the one that was written last.
+    events = [...events].sort(
+        (a, b) => a.timestamp - b.timestamp || a.id - b.id
+    );
 
     const buckets: StatusHistoryDayBucket[] = [];
     let totalDowntime = 0;
@@ -328,7 +336,7 @@ export async function getBatchedStatusHistory(
                 gte(statusHistory.timestamp, startSec)
             )
         )
-        .orderBy(asc(statusHistory.timestamp));
+        .orderBy(asc(statusHistory.timestamp), asc(statusHistory.id));
 
     // Fetch the last known state before the window so that entities that
     // haven't changed status recently still show the correct status rather
@@ -349,7 +357,7 @@ export async function getBatchedStatusHistory(
             status: statusHistory.status,
             timestamp: statusHistory.timestamp,
             row_number:
-                sql<number>`ROW_NUMBER() OVER (PARTITION BY ${statusHistory.entityId} ORDER BY ${statusHistory.timestamp} DESC)`.as(
+                sql<number>`ROW_NUMBER() OVER (PARTITION BY ${statusHistory.entityId} ORDER BY ${statusHistory.timestamp} DESC, ${statusHistory.id} DESC)`.as(
                     "row_number"
                 )
         })

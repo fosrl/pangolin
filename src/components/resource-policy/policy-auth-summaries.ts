@@ -43,3 +43,10 @@ export function getHeaderAuthSummary({
 }: SummaryParams & { headerName: string }) {
     return headerName || t("policyAuthHeaderAuthSummary");
 }
+
+export function getMtlsSummary({
+    t,
+    count
+}: SummaryParams & { count: number }) {
+    return t("policyAuthMtlsSummary", { count });
+}

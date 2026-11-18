@@ -91,7 +91,7 @@ export function PrivateResourceInfoSections({
     const modeLabel: Record<PrivateResourceMode, string> = {
         host: t("editInternalResourceDialogModeHost"),
         cidr: t("editInternalResourceDialogModeCidr"),
-        http: t("editInternalResourceDialogModeHttp"),
+        http: t("resourceTypeHttp"),
         ssh: t("editInternalResourceDialogModeSsh"),
         inference: t("editInternalResourceDialogModeInference"),
         gateway: t("editInternalResourceDialogModeGateway")

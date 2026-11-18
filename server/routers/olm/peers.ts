@@ -1,7 +1,6 @@
 import { sendToClient, sendToClientsBatch } from "#dynamic/routers/ws";
 import { clientSitesAssociationsCache, db, olms } from "@server/db";
 import { canCompress } from "@server/lib/clientVersionChecks";
-import config from "@server/lib/config";
 import logger from "@server/logger";
 import { and, eq, inArray } from "drizzle-orm";
 import { Alias } from "yaml";
@@ -149,12 +148,62 @@ export async function updatePeer(
     logger.info(`Updated peer ${peer.publicKey} on olm ${olmId}`);
 }
 
+export async function updatePeersBatch(
+    updates: {
+        clientId: number;
+        peer: {
+            siteId: number;
+            publicKey: string;
+            endpoint: string;
+            relayEndpoint?: string;
+            serverIP?: string | null;
+            serverPort?: number | null;
+            remoteSubnets?: string[] | null;
+            aliases?: Alias[] | null;
+        };
+        olmId: string;
+        version?: string | null;
+    }[]
+) {
+    if (updates.length === 0) {
+        return;
+    }
+
+    await sendToClientsBatch(
+        updates.map((item) => ({
+            clientId: item.olmId,
+            message: {
+                type: "olm/wg/peer/update",
+                data: {
+                    siteId: item.peer.siteId,
+                    publicKey: item.peer.publicKey,
+                    endpoint: item.peer.endpoint,
+                    relayEndpoint: item.peer.relayEndpoint,
+                    serverIP: item.peer.serverIP,
+                    serverPort: item.peer.serverPort,
+                    remoteSubnets: item.peer.remoteSubnets,
+                    aliases: item.peer.aliases
+                }
+            },
+            options: {
+                incrementConfigVersion: true,
+                compress: canCompress(item.version, "olm")
+            }
+        }))
+    ).catch((error) => {
+        logger.warn(`Error sending batched olm peer updates:`, error);
+    });
+
+    logger.info(`Updated ${updates.length} peer(s) on olms (batch)`);
+}
+
 export async function initPeerAddHandshake(
     clientId: number,
     peer: {
         siteId: number;
         exitNode: {
             publicKey: string;
+            relayPort: number;
             endpoint: string;
         };
     },
@@ -181,7 +230,7 @@ export async function initPeerAddHandshake(
                 siteId: peer.siteId,
                 exitNode: {
                     publicKey: peer.exitNode.publicKey,
-                    relayPort: config.getRawConfig().gerbil.clients_start_port,
+                    relayPort: peer.exitNode.relayPort,
                     endpoint: peer.exitNode.endpoint
                 },
                 chainId
@@ -297,6 +346,7 @@ export async function initPeerAddHandshakeBatch(
             siteId: number;
             exitNode: {
                 publicKey: string;
+                relayPort: number;
                 endpoint: string;
             };
         };
@@ -317,8 +367,7 @@ export async function initPeerAddHandshakeBatch(
                     siteId: item.peer.siteId,
                     exitNode: {
                         publicKey: item.peer.exitNode.publicKey,
-                        relayPort:
-                            config.getRawConfig().gerbil.clients_start_port,
+                        relayPort: item.peer.exitNode.relayPort,
                         endpoint: item.peer.exitNode.endpoint
                     },
                     chainId: item.chainId
@@ -330,20 +379,28 @@ export async function initPeerAddHandshakeBatch(
         logger.warn(`Error sending batched olm handshakes:`, error);
     });
 
+    // One update per site instead of one per handshake
+    const clientIdsBySiteId = new Map<number, number[]>();
+    for (const item of handshakes) {
+        const clientIds = clientIdsBySiteId.get(item.peer.siteId);
+        if (clientIds) {
+            clientIds.push(item.clientId);
+        } else {
+            clientIdsBySiteId.set(item.peer.siteId, [item.clientId]);
+        }
+    }
+
     await Promise.all(
-        handshakes.map((item) =>
+        Array.from(clientIdsBySiteId.entries()).map(([siteId, clientIds]) =>
             db
                 .update(clientSitesAssociationsCache)
                 .set({ isJitMode: false })
                 .where(
                     and(
-                        eq(
+                        eq(clientSitesAssociationsCache.siteId, siteId),
+                        inArray(
                             clientSitesAssociationsCache.clientId,
-                            item.clientId
-                        ),
-                        eq(
-                            clientSitesAssociationsCache.siteId,
-                            item.peer.siteId
+                            clientIds
                         )
                     )
                 )

@@ -111,6 +111,21 @@ export class LockManager {
     }
 
     /**
+     * Check whether any of the given locks currently exist
+     * @param lockKeys - Unique identifiers for the locks
+     * @returns Promise<boolean> - true if at least one lock is held
+     */
+    async anyLockExists(lockKeys: string[]): Promise<boolean> {
+        for (const lockKey of lockKeys) {
+            this.clearExpiredLocalLock(lockKey);
+            if (localLocks.has(lockKey)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Extend the TTL of an existing lock, provided the token matches the
      * acquisition currently holding it.
      * @param lockKey - Unique identifier for the lock

@@ -27,17 +27,20 @@ import {
     exportAiSessionLogs
 } from "@server/routers/auditLogs";
 import * as misc from "#private/routers/misc";
-import * as reKey from "#private/routers/re-key";
 import * as approval from "#private/routers/approvals";
+import * as resourceSession from "#private/routers/resourceSession";
 import * as user from "#private/routers/user";
+import * as client from "#private/routers/client";
 import * as siteProvisioning from "#private/routers/siteProvisioning";
 import * as eventStreamingDestination from "#private/routers/eventStreamingDestination";
 import * as alertRule from "#private/routers/alertRule";
 import * as healthChecks from "#private/routers/healthChecks";
 import * as policy from "#private/routers/policy";
-
+import * as customDnsRecord from "#private/routers/customDnsRecord";
+import * as roleClientSettings from "#private/routers/roleClientSettings";
 import {
     verifyOrgAccess,
+    verifyDomainAccess,
     verifyUserHasAction,
     verifyUserIsServerAdmin,
     verifySiteAccess,
@@ -49,7 +52,8 @@ import {
     verifySiteProvisioningKeyAccess,
     verifyIsLoggedInUser,
     verifyAdmin,
-    verifyResourcePolicyAccess
+    verifyResourcePolicyAccess,
+    verifyResourceAccess
 } from "@server/middlewares";
 import { ActionsEnum } from "@server/auth/actions";
 import {
@@ -238,12 +242,36 @@ if (build === "saas") {
         generateLicense.generateNewLicense
     );
 
-    authenticated.put(
-        "/org/:orgId/license/enterprise",
+    // Paid license keys: change quantities (billed immediately) or cancel
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/preview",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        generateLicense.previewLicenseUpdate
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey",
         verifyOrgAccess,
         verifyUserHasAction(ActionsEnum.billing),
         logActionAudit(ActionsEnum.billing),
-        generateLicense.generateNewEnterpriseLicense
+        generateLicense.updateLicense
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/cancel",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        logActionAudit(ActionsEnum.billing),
+        generateLicense.cancelLicense
+    );
+
+    authenticated.post(
+        "/org/:orgId/license/:licenseKey/portal-session",
+        verifyOrgAccess,
+        verifyUserHasAction(ActionsEnum.billing),
+        logActionAudit(ActionsEnum.billing),
+        generateLicense.createLicensePortalSession
     );
 
     authenticated.post(
@@ -251,6 +279,27 @@ if (build === "saas") {
         verifyOrgAccess,
         verifyUserHasAction(ActionsEnum.billing),
         generateLicense.clearInstanceName
+    );
+
+    // Support request about a self-hosted license; the email includes the
+    // license's details
+    authenticated.post(
+        "/org/:orgId/license-support-request",
+        verifyOrgAccess,
+        rateLimit({
+            windowMs: 15 * 60 * 1000,
+            max: 3,
+            keyGenerator: (req) =>
+                `sendLicenseSupportRequest:${req.user?.userId || ipKeyGenerator(req.ip || "")}`,
+            handler: (req, res, next) => {
+                const message = `You can only send 3 support requests every 15 minutes. Please try again later.`;
+                return next(
+                    createHttpError(HttpCode.TOO_MANY_REQUESTS, message)
+                );
+            },
+            store: createStore()
+        }),
+        generateLicense.sendLicenseSupportEmail
     );
 
     authenticated.post(
@@ -282,6 +331,49 @@ authenticated.get(
     "/domain/check-namespace-availability",
     verifyValidLicense,
     domain.checkDomainNamespaceAvailability
+);
+
+authenticated.get(
+    "/org/:orgId/domain/:domainId/custom-dns-records",
+    verifyValidLicense,
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyUserHasAction(ActionsEnum.listCustomDnsRecords),
+    customDnsRecord.listCustomDnsRecords
+);
+
+authenticated.put(
+    "/org/:orgId/domain/:domainId/custom-dns-record",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.customDnsRecords),
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.createCustomDnsRecord),
+    logActionAudit(ActionsEnum.createCustomDnsRecord),
+    customDnsRecord.createCustomDnsRecord
+);
+
+authenticated.post(
+    "/org/:orgId/domain/:domainId/custom-dns-record/:customDnsRecordId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.customDnsRecords),
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyUserHasAction(ActionsEnum.updateCustomDnsRecord),
+    logActionAudit(ActionsEnum.updateCustomDnsRecord),
+    customDnsRecord.updateCustomDnsRecord
+);
+
+authenticated.delete(
+    "/org/:orgId/domain/:domainId/custom-dns-record/:customDnsRecordId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.customDnsRecords),
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyUserHasAction(ActionsEnum.deleteCustomDnsRecord),
+    logActionAudit(ActionsEnum.deleteCustomDnsRecord),
+    customDnsRecord.deleteCustomDnsRecord
 );
 
 authenticated.put(
@@ -416,6 +508,25 @@ authenticated.get(
     verifyUserHasAction(ActionsEnum.listApprovals),
     logActionAudit(ActionsEnum.listApprovals),
     approval.listApprovals
+);
+
+authenticated.get(
+    "/org/:orgId/resource-sessions",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.resourceSessions),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.listResourceSessions),
+    resourceSession.listResourceSessions
+);
+
+authenticated.delete(
+    "/org/:orgId/resource-session/:sessionId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.resourceSessions),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.deleteResourceSession),
+    logActionAudit(ActionsEnum.deleteResourceSession),
+    resourceSession.deleteResourceSession
 );
 
 authenticated.get(
@@ -635,34 +746,32 @@ authenticated.get(
     exportAiSessionLogs
 );
 
-authenticated.post(
-    "/re-key/:clientId/regenerate-client-secret",
-    verifyClientAccess, // this is first to set the org id
+authenticated.get(
+    "/org/:orgId/logs/ssh",
     verifyValidLicense,
-    verifyValidSubscription(tierMatrix.rotateCredentials),
-    verifyLimits,
-    verifyUserHasAction(ActionsEnum.reGenerateSecret),
-    reKey.reGenerateClientSecret
-);
-
-authenticated.post(
-    "/re-key/:siteId/regenerate-site-secret",
-    verifySiteAccess, // this is first to set the org id
-    verifyValidLicense,
-    verifyValidSubscription(tierMatrix.rotateCredentials),
-    verifyLimits,
-    verifyUserHasAction(ActionsEnum.reGenerateSecret),
-    reKey.reGenerateSiteSecret
-);
-
-authenticated.put(
-    "/re-key/:orgId/regenerate-remote-exit-node-secret",
-    verifyValidLicense,
-    verifyValidSubscription(tierMatrix.rotateCredentials),
+    verifyValidSubscription(tierMatrix.sshSessionLogs),
     verifyOrgAccess,
-    verifyLimits,
-    verifyUserHasAction(ActionsEnum.reGenerateSecret),
-    reKey.reGenerateExitNodeSecret
+    verifyUserHasAction(ActionsEnum.viewLogs),
+    logs.querySshSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh/export",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.logExport),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.exportLogs),
+    logActionAudit(ActionsEnum.exportLogs),
+    logs.exportSshSessionLogs
+);
+
+authenticated.get(
+    "/org/:orgId/logs/ssh/:sshSessionLogId/commands",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.sshSessionLogs),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.viewLogs),
+    logs.querySshSessionCommands
 );
 
 authenticated.post(
@@ -693,6 +802,36 @@ authenticated.post(
     verifyUserCanSetUserOrgRoles(),
     logActionAudit(ActionsEnum.setUserOrgRoles),
     user.setUserOrgRoles
+);
+
+authenticated.post(
+    "/client/:clientId/add-role/:roleId",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.addClientRole),
+    logActionAudit(ActionsEnum.addClientRole),
+    client.addClientRole
+);
+
+authenticated.delete(
+    "/client/:clientId/remove-role/:roleId",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.removeClientRole),
+    logActionAudit(ActionsEnum.removeClientRole),
+    client.removeClientRole
+);
+
+authenticated.post(
+    "/client/:clientId/roles",
+    verifyClientAccess,
+    verifyRoleAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.setClientRoles),
+    logActionAudit(ActionsEnum.setClientRoles),
+    client.setClientRoles
 );
 
 authenticated.put(
@@ -882,4 +1021,23 @@ authenticated.post(
     "/org/:orgId/logs/access/attempt",
     verifyOrgAccess,
     logs.logAccessAuditAttempt
+);
+
+authenticated.get(
+    "/role/:roleId/client-settings",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.clientSettings),
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.getRoleClientSettings),
+    roleClientSettings.getRoleClientSettings
+);
+
+authenticated.post(
+    "/role/:roleId/client-settings",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.clientSettings),
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.updateRoleClientSettings),
+    logActionAudit(ActionsEnum.updateRoleClientSettings),
+    roleClientSettings.updateRoleClientSettings
 );

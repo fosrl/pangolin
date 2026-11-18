@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { NextFunction, Request, Response } from "express";
 import { bannedEmails, bannedIps, db, users } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
@@ -224,7 +225,11 @@ export async function signup(
         // });
 
         const token = generateSessionToken();
-        const sess = await createSession(token, userId);
+        const sess = await createSession(
+            token,
+            userId,
+            getRequestClientInfo(req)
+        );
         const isSecure = req.protocol === "https";
         const cookie = serializeSessionCookie(
             token,

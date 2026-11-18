@@ -215,9 +215,10 @@ export default function SupporterStatus({
                                 href="https://docs.pangolin.net/self-host/supporter-program"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="underline"
+                                className="underline inline-flex items-center gap-1"
                             >
                                 {t("supportKeyLearnMore")}
+                                <ExternalLink className="size-3.5 shrink-0" />
                             </Link>
                         </p>
 

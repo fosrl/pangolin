@@ -141,6 +141,11 @@ export default async function ResourceAuthPage(props: {
                 host: string
             ): boolean => {
                 if (!wildcardDomain.startsWith("*.")) return false;
+                if (
+                    authInfo.matchBaseDomain &&
+                    host === wildcardDomain.slice(2)
+                )
+                    return true;
                 const suffix = wildcardDomain.slice(1); // e.g. ".wildcard.owen.fosrl.io"
                 return host.endsWith(suffix) && host.length > suffix.length;
             };
@@ -247,7 +252,9 @@ export default async function ResourceAuthPage(props: {
                 cookie
             );
 
-            if (res.data.data.requestToken) {
+            // When an admin revoked this resource session, skip issuing a new
+            // exchange token and fall through to the normal auth form.
+            if (!res.data.data.reauthRequired && res.data.data.requestToken) {
                 const paramName = env.server.resourceSessionRequestParam;
                 // append the param with the token to the redirect url
                 const fullUrl = new URL(redirectUrl);
@@ -311,7 +318,12 @@ export default async function ResourceAuthPage(props: {
                     resourceId={authInfo.resourceId}
                     skipToIdpId={authInfo.skipToIdpId}
                     redirectUrl={postAuthRedirect}
-                    orgId={build === "saas" ? authInfo.orgId : undefined}
+                    orgId={
+                        build === "saas" ||
+                        env.app.identityProviderMode === "org"
+                            ? authInfo.orgId
+                            : undefined
+                    }
                 />
             );
         }
@@ -350,7 +362,12 @@ export default async function ResourceAuthPage(props: {
                         }}
                         redirect={postAuthRedirect}
                         idps={loginIdps}
-                        orgId={build === "saas" ? authInfo.orgId : undefined}
+                        orgId={
+                            build === "saas" ||
+                            env.app.identityProviderMode === "org"
+                                ? authInfo.orgId
+                                : undefined
+                        }
                         branding={
                             !branding || build === "oss"
                                 ? undefined

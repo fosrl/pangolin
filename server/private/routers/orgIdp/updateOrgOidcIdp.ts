@@ -28,6 +28,8 @@ import config from "@server/lib/config";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
+import { clearIdpSessionGrants } from "#private/auth/sessions/idpRevalidation";
 import { build } from "@server/build";
 import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
@@ -53,6 +55,7 @@ const bodySchema = z.strictObject({
     apiIntegrationEnabled: z.boolean().optional(),
     allowManualProvisioning: z.boolean().optional(),
     directorySyncEnabled: z.boolean().optional(),
+    sessionRevalidation: z.boolean().optional(),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
     syncRoleMapping: z.string().nullish(),
@@ -134,7 +137,6 @@ export async function updateOrgOidcIdp(
             clientSecret,
             authUrl,
             tokenUrl,
-            scopes,
             identifierPath,
             emailPath,
             namePath,
@@ -154,7 +156,7 @@ export async function updateOrgOidcIdp(
             tags
         } = parsedBody.data;
 
-        let { autoProvision } = parsedBody.data;
+        let { autoProvision, scopes, sessionRevalidation } = parsedBody.data;
 
         if (build == "saas") {
             // this is not paywalled with a ee license because this whole endpoint is restricted
@@ -164,6 +166,32 @@ export async function updateOrgOidcIdp(
             );
             if (!subscribed) {
                 autoProvision = false;
+            }
+
+            const sessionRevalidationSubscribed = await isSubscribed(
+                orgId,
+                tierMatrix.sessionRevalidation
+            );
+            if (!sessionRevalidationSubscribed) {
+                sessionRevalidation = false;
+            }
+        }
+
+        if (sessionRevalidation === true) {
+            const [existingConfig] = await db
+                .select({
+                    scopes: idpOidcConfig.scopes,
+                    variant: idpOidcConfig.variant
+                })
+                .from(idpOidcConfig)
+                .where(eq(idpOidcConfig.idpId, idpId))
+                .limit(1);
+            const baseScopes = scopes ?? existingConfig?.scopes;
+            if (baseScopes) {
+                scopes = scopesForSessionRevalidation(
+                    baseScopes,
+                    existingConfig?.variant
+                );
             }
         }
 
@@ -266,7 +294,7 @@ export async function updateOrgOidcIdp(
         await db.transaction(async (trx) => {
             const idpData = {
                 name,
-                autoProvision,
+                sessionRevalidation,
                 apiIntegrationEnabled: effectiveApiIntegrationEnabled,
                 allowManualProvisioning,
                 directorySyncEnabled: effectiveDirectorySyncEnabled,
@@ -316,6 +344,7 @@ export async function updateOrgOidcIdp(
                 createMissingRoles?: boolean;
                 syncCreateMissingRoles?: boolean;
                 directorySyncDeletions?: boolean;
+                autoProvision?: boolean;
             } = {};
             if (roleMapping !== undefined) {
                 idpOrgPolicyPatch.roleMapping = roleMapping;
@@ -343,6 +372,9 @@ export async function updateOrgOidcIdp(
                 idpOrgPolicyPatch.directorySyncDeletions =
                     directorySyncDeletions;
             }
+            if (autoProvision !== undefined) {
+                idpOrgPolicyPatch.autoProvision = autoProvision;
+            }
             if (Object.keys(idpOrgPolicyPatch).length > 0) {
                 await trx
                     .update(idpOrg)
@@ -352,6 +384,10 @@ export async function updateOrgOidcIdp(
                     );
             }
         });
+
+        if (sessionRevalidation === false) {
+            await clearIdpSessionGrants(idpId);
+        }
 
         return response<UpdateOrgIdpResponse>(res, {
             data: {

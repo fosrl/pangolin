@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
@@ -15,14 +16,17 @@ import { sha256 } from "@oslojs/crypto/sha2";
 import { response } from "@server/lib/response";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
+import { isResourceReauthRequired } from "#dynamic/lib/resourceSessionReauth";
 
 const getExchangeTokenParams = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
 
-export type GetExchangeTokenResponse = {
-    requestToken: string;
-};
+export type GetExchangeTokenResponse =
+    | { requestToken: string; reauthRequired?: false }
+    // An admin revoked this dashboard session's access to the resource, so
+    // the user has to log in again instead of being signed in silently.
+    | { requestToken?: undefined; reauthRequired: true };
 
 export async function getExchangeToken(
     req: Request,
@@ -89,15 +93,26 @@ export async function getExchangeToken(
             sha256(new TextEncoder().encode(ssoSession))
         );
 
+        if (await isResourceReauthRequired(sessionId, resourceId)) {
+            return response<GetExchangeTokenResponse>(res, {
+                data: { reauthRequired: true },
+                success: true,
+                error: false,
+                message: "Login required",
+                status: HttpCode.OK
+            });
+        }
+
         const token = generateSessionToken();
-        await createResourceSession({
+        const requestSession = await createResourceSession({
             resourceId,
             token,
             userSessionId: sessionId,
             isRequestToken: true,
             expiresAt: Date.now() + 1000 * 30, // 30 seconds
             sessionLength: 1000 * 30,
-            doNotExtend: true
+            doNotExtend: true,
+            clientInfo: getRequestClientInfo(req)
         });
 
         if (req.user) {
@@ -110,6 +125,9 @@ export async function getExchangeToken(
                 },
                 action: true,
                 type: "login",
+                // The request token is exchanged for the real session, which
+                // keeps this id as its requestSessionId
+                metadata: { resourceSessionId: requestSession.sessionId },
                 userAgent: req.headers["user-agent"],
                 requestIp: req.ip
             });

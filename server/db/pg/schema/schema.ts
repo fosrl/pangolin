@@ -3,7 +3,6 @@ import { InferSelectModel, sql } from "drizzle-orm";
 import {
     bigint,
     boolean,
-    check,
     index,
     integer,
     pgTable,
@@ -68,6 +67,9 @@ export const orgs = pgTable("orgs", {
     settingsLogRetentionDaysAISessions: integer(
         "settingsLogRetentionDaysAISessions"
     ) // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
+        .notNull()
+        .default(0),
+    settingsLogRetentionDaysSsh: integer("settingsLogRetentionDaysSsh") // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
         .notNull()
         .default(0),
     sshCaPrivateKey: text("sshCaPrivateKey"), // Encrypted SSH CA private key (PEM format)
@@ -181,6 +183,10 @@ export const resources = pgTable(
         applyRules: boolean("applyRules"),
         enabled: boolean("enabled").notNull().default(true),
         stickySession: boolean("stickySession").notNull().default(false),
+        loadBalancingStrategy: varchar("loadBalancingStrategy", { length: 32 })
+            .$type<"wrr" | "p2c" | "hrw" | "leasttime">()
+            .notNull()
+            .default("wrr"), // traefik http loadBalancer.strategy
         tlsServerName: varchar("tlsServerName"),
         setHostHeader: varchar("setHostHeader"),
         enableProxy: boolean("enableProxy").default(true),
@@ -200,9 +206,14 @@ export const resources = pgTable(
         maintenanceTitle: text("maintenanceTitle"),
         maintenanceMessage: text("maintenanceMessage"),
         maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
+        mtlsEnabled: boolean("mtlsEnabled").notNull().default(false),
+        forwardIdentityHeaders: boolean("forwardIdentityHeaders")
+            .notNull()
+            .default(true),
         postAuthPath: text("postAuthPath"),
         health: varchar("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: boolean("wildcard").notNull().default(false),
+        matchBaseDomain: boolean("matchBaseDomain").notNull().default(false), // wildcard resources only: also serve the host the wildcard sits under
         mode: text("mode")
             .default("http")
             .$type<
@@ -228,6 +239,41 @@ export const resources = pgTable(
         index("idx_resources_orgid_niceid").on(t.orgId, t.niceId)
     ]
 );
+
+export const redirects = pgTable("redirects", {
+    redirectId: serial("redirectId").primaryKey(),
+    orgId: varchar("orgId")
+        .references(() => orgs.orgId, {
+            onDelete: "cascade"
+        })
+        .notNull(),
+    resourceId: integer("resourceId").references(() => resources.resourceId, {
+        onDelete: "cascade"
+    }),
+    domainId: varchar("domainId").references(() => domains.domainId, {
+        onDelete: "cascade"
+    }),
+    niceId: text("niceId").notNull(),
+    name: varchar("name").notNull(),
+    subdomain: varchar("subdomain"),
+    destinationHost: varchar("destinationHost").notNull(), // scheme://host[:port]
+    pathMatchType: varchar("pathMatchType")
+        .$type<"exact" | "prefix" | "regex">()
+        .notNull()
+        .default("regex"), // exact, prefix, regex
+    matchPath: varchar("matchPath"),
+    rewritePath: varchar("rewritePath"), // if set, rewrites the path to this value,
+    //  else, the original path will be kept
+    rewritePathType: varchar("rewritePathType").$type<
+        "exact" | "prefix" | "regex" | "stripPrefix"
+    >(), // exact, prefix, regex, stripPrefix
+    priority: integer("priority").default(100),
+    permanent: boolean("permanent").notNull().default(false),
+    // Only consulted for domain-attached redirects; resource-attached ones
+    // inherit the resource's ssl setting.
+    ssl: boolean("ssl").notNull().default(true),
+    enabled: boolean("enabled").notNull().default(true)
+});
 
 export const resourceAiProviders = pgTable(
     "resourceAiProviders",
@@ -460,6 +506,7 @@ export const exitNodes = pgTable("exitNodes", {
     endpoint: varchar("endpoint").notNull(),
     publicKey: varchar("publicKey").notNull(),
     listenPort: integer("listenPort").notNull(),
+    relayPort: integer("relayPort").notNull().default(21820),
     reachableAt: varchar("reachableAt"),
     maxConnections: integer("maxConnections"),
     online: boolean("online").notNull().default(false),
@@ -719,10 +766,37 @@ export const sessions = pgTable(
             .references(() => users.userId, { onDelete: "cascade" }),
         expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
         issuedAt: bigint("issuedAt", { mode: "number" }),
-        deviceAuthUsed: boolean("deviceAuthUsed").notNull().default(false)
+        deviceAuthUsed: boolean("deviceAuthUsed").notNull().default(false),
+        // Client details captured when the session was created
+        ip: varchar("ip"),
+        userAgent: text("userAgent"),
+        countryCode: varchar("countryCode"),
+        asn: integer("asn")
     },
     (t) => [index("idx_sessions_userid").on(t.userId)]
 );
+
+export const idpGrants = pgTable("idpGrants", {
+    grantId: varchar("grantId").primaryKey(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    refreshToken: text("refreshToken").notNull(),
+    validatedAt: bigint("validatedAt", { mode: "number" }).notNull(),
+    attemptedAt: bigint("attemptedAt", { mode: "number" }),
+    leaseId: varchar("leaseId"),
+    leaseExpiresAt: bigint("leaseExpiresAt", { mode: "number" }),
+    revokedAt: bigint("revokedAt", { mode: "number" })
+});
+
+export const sessionIdpGrants = pgTable("sessionIdpGrants", {
+    sessionId: varchar("sessionId")
+        .primaryKey()
+        .references(() => sessions.sessionId, { onDelete: "cascade" }),
+    grantId: varchar("grantId")
+        .notNull()
+        .references(() => idpGrants.grantId, { onDelete: "cascade" })
+});
 
 export const newtSessions = pgTable("newtSession", {
     sessionId: varchar("id").primaryKey(),
@@ -815,6 +889,27 @@ export const userOrgRoles = pgTable(
             .references(() => roles.roleId, { onDelete: "cascade" })
     },
     (t) => [unique().on(t.userId, t.orgId, t.roleId)]
+);
+
+// roles assigned to machine clients (clients with no userId) so they can be
+// granted access to site resources through roleSiteResources like users are
+export const clientOrgRoles = pgTable(
+    "clientOrgRoles",
+    {
+        clientId: integer("clientId")
+            .notNull()
+            .references(() => clients.clientId, { onDelete: "cascade" }),
+        orgId: varchar("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        roleId: integer("roleId")
+            .notNull()
+            .references(() => roles.roleId, { onDelete: "cascade" })
+    },
+    (t) => [
+        unique().on(t.clientId, t.orgId, t.roleId),
+        index("idx_clientorgroles_roleid").on(t.roleId)
+    ]
 );
 
 export const roleActions = pgTable(
@@ -1106,7 +1201,15 @@ export const resourceSessions = pgTable("resourceSessions", {
             onDelete: "cascade"
         }
     ),
-    issuedAt: bigint("issuedAt", { mode: "number" })
+    issuedAt: bigint("issuedAt", { mode: "number" }),
+    // Id of the short-lived request token this session was exchanged from.
+    // Login audit logs reference that id, so this links them to the session.
+    requestSessionId: varchar("requestSessionId"),
+    // Client details captured when the session was created
+    ip: varchar("ip"),
+    userAgent: text("userAgent"),
+    countryCode: varchar("countryCode"),
+    asn: integer("asn")
 });
 
 export const resourceWhitelist = pgTable("resourceWhitelist", {
@@ -1193,6 +1296,7 @@ export const resourcePolicies = pgTable(
         emailWhitelistEnabled: boolean("emailWhitelistEnabled")
             .notNull()
             .default(false),
+        mtlsEnabled: boolean("mtlsEnabled").notNull().default(false),
         idpId: integer("idpId").references(() => idp.idpId, {
             onDelete: "set null"
         }),
@@ -1238,6 +1342,9 @@ export const idp = pgTable("idp", {
         .default(true),
     // Just in time provisioning, at login
     autoProvision: boolean("autoProvision").notNull().default(false),
+    sessionRevalidation: boolean("sessionRevalidation")
+        .notNull()
+        .default(false),
     // When false, admins can't pre-provision users for this IdP
     allowManualProvisioning: boolean("allowManualProvisioning")
         .notNull()
@@ -1375,6 +1482,7 @@ export const idpOrg = pgTable("idpOrg", {
     // JIT mappings
     roleMapping: varchar("roleMapping"),
     orgMapping: varchar("orgMapping"),
+    autoProvision: boolean("autoProvision").notNull().default(false),
     // Create the roles returned by the role mapping that don't exist in the org
     createMissingRoles: boolean("createMissingRoles").notNull().default(false),
     // Directory sync mappings
@@ -1486,6 +1594,7 @@ export const olms = pgTable(
         dateCreated: varchar("dateCreated").notNull(),
         version: text("version"),
         agent: text("agent"),
+        agentVersion: text("agentVersion"),
         name: varchar("name"),
         clientId: integer("clientId").references(() => clients.clientId, {
             // we will switch this depending on the current org it wants to connect to
@@ -1737,7 +1846,8 @@ export const deviceWebAuthCodes = pgTable("deviceWebAuthCodes", {
     verified: boolean("verified").notNull().default(false),
     userId: varchar("userId").references(() => users.userId, {
         onDelete: "cascade"
-    })
+    }),
+    approvingSessionId: varchar("approvingSessionId")
 });
 
 export const roundTripMessageTracker = pgTable("roundTripMessageTracker", {
@@ -2046,6 +2156,43 @@ export const certificates = pgTable("certificates", {
     keyFile: text("keyFile")
 });
 
+export const resourceMtlsCertificates = pgTable("resourceMtlsCertificates", {
+    mtlsCertificateId: serial("mtlsCertificateId").primaryKey(),
+    resourceId: integer("resourceId")
+        .notNull()
+        .references(() => resources.resourceId, { onDelete: "cascade" }),
+    name: varchar("name"),
+    certificate: text("certificate").notNull(),
+    subject: varchar("subject"),
+    issuer: varchar("issuer"),
+    serialNumber: varchar("serialNumber"),
+    fingerprint: varchar("fingerprint"),
+    notBefore: bigint("notBefore", { mode: "number" }),
+    notAfter: bigint("notAfter", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull()
+});
+
+export const resourcePolicyMtlsCertificates = pgTable(
+    "resourcePolicyMtlsCertificates",
+    {
+        mtlsCertificateId: serial("mtlsCertificateId").primaryKey(),
+        resourcePolicyId: integer("resourcePolicyId")
+            .notNull()
+            .references(() => resourcePolicies.resourcePolicyId, {
+                onDelete: "cascade"
+            }),
+        name: varchar("name"),
+        certificate: text("certificate").notNull(),
+        subject: varchar("subject"),
+        issuer: varchar("issuer"),
+        serialNumber: varchar("serialNumber"),
+        fingerprint: varchar("fingerprint"),
+        notBefore: bigint("notBefore", { mode: "number" }),
+        notAfter: bigint("notAfter", { mode: "number" }),
+        createdAt: bigint("createdAt", { mode: "number" }).notNull()
+    }
+);
+
 export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
@@ -2072,6 +2219,7 @@ export type UserInvite = InferSelectModel<typeof userInvites>;
 export type UserInviteRole = InferSelectModel<typeof userInviteRoles>;
 export type UserOrg = InferSelectModel<typeof userOrgs>;
 export type UserOrgRole = InferSelectModel<typeof userOrgRoles>;
+export type ClientOrgRole = InferSelectModel<typeof clientOrgRoles>;
 export type ResourceSession = InferSelectModel<typeof resourceSessions>;
 export type ResourcePincode = InferSelectModel<typeof resourcePincode>;
 export type ResourcePassword = InferSelectModel<typeof resourcePassword>;
@@ -2117,6 +2265,7 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;
 export type SecurityKey = InferSelectModel<typeof securityKeys>;
@@ -2134,6 +2283,7 @@ export type ResourcePolicy = InferSelectModel<typeof resourcePolicies>;
 export type RolePolicy = InferSelectModel<typeof rolePolicies>;
 export type UserPolicy = InferSelectModel<typeof userPolicies>;
 export type ResourcePolicyRule = InferSelectModel<typeof resourcePolicyRules>;
+export type Redirect = InferSelectModel<typeof redirects>;
 export type AiProvider = InferSelectModel<typeof aiProviders>;
 export type AiModel = InferSelectModel<typeof aiModels>;
 export type AiBudget = InferSelectModel<typeof aiBudgets>;
@@ -2146,3 +2296,9 @@ export type SiteResourceAiProvider = InferSelectModel<
 export type ResourceAiModel = InferSelectModel<typeof resourceAiModels>;
 export type SiteResourceAiModel = InferSelectModel<typeof siteResourceAiModels>;
 export type Certificate = InferSelectModel<typeof certificates>;
+export type ResourceMtlsCertificate = InferSelectModel<
+    typeof resourceMtlsCertificates
+>;
+export type ResourcePolicyMtlsCertificate = InferSelectModel<
+    typeof resourcePolicyMtlsCertificates
+>;

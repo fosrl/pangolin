@@ -173,13 +173,21 @@ export class JobScheduler {
         logger.info("DNS validation job scheduler started successfully");
     }
 
-    async stop(): Promise<void> {
+    // Stops only issuance/renewal (e.g. when this instance stops being the
+    // ACME leader) and leaves the DNS jobs running. A batch already in
+    // flight finishes on its own; the per-domain cert locks keep it from
+    // overlapping with the new leader's work on the same certificate.
+    async stopCertJobs(): Promise<void> {
         if (this.certRunning) {
             logger.info("Stopping certificate job scheduler");
             this.certRunning = false;
             this.certIntervals.forEach((interval) => clearInterval(interval));
             this.certIntervals = [];
         }
+    }
+
+    async stop(): Promise<void> {
+        await this.stopCertJobs();
 
         if (this.dnsRunning) {
             logger.info("Stopping DNS validation job scheduler");

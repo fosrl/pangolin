@@ -2,6 +2,7 @@
 
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import ExportBlueprintModal from "@app/components/ExportBlueprintModal";
 import { ResourceAccessCertIndicator } from "@app/components/ResourceAccessCertIndicator";
 import {
     ResourceSitesStatusCell,
@@ -170,6 +171,10 @@ export default function PrivateResourcesTable({
     const [editingResource, setEditingResource] =
         useState<PrivateResourceRow | null>();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportResource, setExportResource] =
+        useState<PrivateResourceRow | null>(null);
 
     const [isRefreshing, startRefreshTransition] = useTransition();
 
@@ -385,7 +390,11 @@ export default function PrivateResourcesTable({
                         inference: t("editInternalResourceDialogModeInference"),
                         gateway: t("editInternalResourceDialogModeGateway")
                     };
-                    return <span>{modeLabels[resourceRow.mode]}</span>;
+                    return (
+                        <Badge variant="secondary">
+                            {modeLabels[resourceRow.mode]}
+                        </Badge>
+                    );
                 }
             },
             {
@@ -579,6 +588,14 @@ export default function PrivateResourcesTable({
                                     </Link>
                                     <DropdownMenuItem
                                         onClick={() => {
+                                            setExportResource(resourceRow);
+                                            setIsExportModalOpen(true);
+                                        }}
+                                    >
+                                        {t("exportAsBlueprint")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => {
                                             setSelectedInternalResource(
                                                 resourceRow
                                             );
@@ -676,6 +693,20 @@ export default function PrivateResourcesTable({
                     }
                     string={selectedInternalResource.name}
                     title={t("resourceDelete")}
+                />
+            )}
+
+            {exportResource && (
+                <ExportBlueprintModal
+                    open={isExportModalOpen}
+                    setOpen={(val) => {
+                        setIsExportModalOpen(val);
+                        if (!val) {
+                            setExportResource(null);
+                        }
+                    }}
+                    endpoint={`/site-resource/${exportResource.id}/blueprint`}
+                    resourceName={exportResource.niceId || exportResource.name}
                 />
             )}
 

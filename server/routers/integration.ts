@@ -16,6 +16,9 @@ import * as siteResource from "./siteResource";
 import * as aiProvider from "./aiProvider";
 import * as aiBudget from "./aiBudget";
 import * as virtualApiKey from "./virtualApiKey";
+import * as redirect from "./redirect";
+import * as labels from "./labels";
+import * as reKey from "./re-key";
 import {
     verifyApiKey,
     verifyApiKeyOrgAccess,
@@ -38,12 +41,15 @@ import {
     verifyApiKeyAiModelAccess,
     verifyApiKeyAiBudgetAccess,
     verifyApiKeyVirtualApiKeyAccess,
+    verifyApiKeyRedirectAccess,
     verifyUserHasAction
 } from "@server/middlewares";
 import HttpCode from "@server/types/HttpCode";
 import { Router } from "express";
 import { ActionsEnum } from "@server/auth/actions";
 import { logActionAudit } from "#dynamic/middlewares";
+import { build } from "@server/build";
+import config from "@server/lib/config";
 
 export const unauthenticated = Router();
 
@@ -144,6 +150,24 @@ authenticated.post(
     verifyApiKeyHasAction(ActionsEnum.updateSite),
     logActionAudit(ActionsEnum.updateSite),
     site.updateSite
+);
+
+authenticated.post(
+    "/re-key/:siteId/regenerate-site-secret",
+    verifyApiKeySiteAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.reGenerateSecret),
+    logActionAudit(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateSiteSecret
+);
+
+authenticated.put(
+    "/re-key/:orgId/regenerate-remote-exit-node-secret",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.reGenerateSecret),
+    logActionAudit(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateExitNodeSecret
 );
 
 authenticated.post(
@@ -1009,6 +1033,39 @@ authenticated.put(
     policy.setResourcePolicyRules
 );
 
+authenticated.put(
+    [
+        "/resource-policy/:resourcePolicyId/mtls/certificate",
+        "/public-resource-policy/:resourcePolicyId/mtls/certificate"
+    ],
+    verifyApiKeyResourcePolicyAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateResourcePolicy),
+    logActionAudit(ActionsEnum.updateResourcePolicy),
+    policy.createResourcePolicyMtlsCertificate
+);
+
+authenticated.get(
+    [
+        "/resource-policy/:resourcePolicyId/mtls/certificates",
+        "/public-resource-policy/:resourcePolicyId/mtls/certificates"
+    ],
+    verifyApiKeyResourcePolicyAccess,
+    verifyApiKeyHasAction(ActionsEnum.getResourcePolicy),
+    policy.listResourcePolicyMtlsCertificates
+);
+
+authenticated.delete(
+    [
+        "/resource-policy/:resourcePolicyId/mtls/certificate/:mtlsCertificateId",
+        "/public-resource-policy/:resourcePolicyId/mtls/certificate/:mtlsCertificateId"
+    ],
+    verifyApiKeyResourcePolicyAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateResourcePolicy),
+    logActionAudit(ActionsEnum.updateResourcePolicy),
+    policy.deleteResourcePolicyMtlsCertificate
+);
+
 authenticated.post(
     [
         "/resource/:resourceId/roles/add",
@@ -1245,6 +1302,16 @@ authenticated.get(
     verifyApiKeyHasAction(ActionsEnum.getUser),
     user.adminGetUser
 );
+
+if (build !== "saas" && config.getRawConfig().flags?.enable_api_create_user_sessions) {
+    authenticated.post(
+        "/user/:userId/session",
+        verifyApiKeyIsRoot,
+        verifyApiKeyHasAction(ActionsEnum.createUserSession),
+        logActionAudit(ActionsEnum.createUserSession),
+        user.createUserSession
+    );
+}
 
 authenticated.get(
     "/org/:orgId/users",
@@ -1492,6 +1559,15 @@ authenticated.post(
     verifyApiKeyHasAction(ActionsEnum.updateClient),
     logActionAudit(ActionsEnum.updateClient),
     client.updateClient
+);
+
+authenticated.post(
+    "/re-key/:clientId/regenerate-client-secret",
+    verifyApiKeyClientAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.reGenerateSecret),
+    logActionAudit(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateClientSecret
 );
 
 authenticated.put(
@@ -1832,4 +1908,136 @@ authenticated.get(
     verifyApiKeyVirtualApiKeyAccess,
     verifyApiKeyHasAction(ActionsEnum.listAiBudgets),
     aiBudget.listAiBudgetsForVirtualApiKey
+);
+
+authenticated.put(
+    "/org/:orgId/redirect",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.createRedirect),
+    logActionAudit(ActionsEnum.createRedirect),
+    redirect.createRedirect
+);
+
+authenticated.get(
+    "/org/:orgId/redirects",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.listRedirects),
+    redirect.listRedirects
+);
+
+authenticated.get(
+    "/org/:orgId/redirects/:redirectId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyRedirectAccess,
+    verifyApiKeyHasAction(ActionsEnum.getRedirect),
+    redirect.getRedirect
+);
+
+authenticated.get(
+    "/org/:orgId/redirect/:niceId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyRedirectAccess,
+    verifyApiKeyHasAction(ActionsEnum.getRedirect),
+    redirect.getRedirect
+);
+
+authenticated.post(
+    "/org/:orgId/redirects/:redirectId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyRedirectAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateRedirect),
+    logActionAudit(ActionsEnum.updateRedirect),
+    redirect.updateRedirect
+);
+
+authenticated.delete(
+    "/org/:orgId/redirects/:redirectId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyRedirectAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteRedirect),
+    logActionAudit(ActionsEnum.deleteRedirect),
+    redirect.deleteRedirect
+);
+
+authenticated.get(
+    "/org/:orgId/labels",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.listOrgLabels),
+    labels.listOrgLabels
+);
+
+authenticated.post(
+    "/org/:orgId/labels",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.createOrgLabel),
+    logActionAudit(ActionsEnum.createOrgLabel),
+    labels.createOrgLabel
+);
+
+authenticated.patch(
+    "/org/:orgId/label/:labelId",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateOrgLabel),
+    logActionAudit(ActionsEnum.updateOrgLabel),
+    labels.updateOrgLabel
+);
+
+authenticated.delete(
+    "/org/:orgId/label/:labelId",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteOrgLabel),
+    logActionAudit(ActionsEnum.deleteOrgLabel),
+    labels.deleteOrgLabel
+);
+
+authenticated.put(
+    "/org/:orgId/label/:labelId/attach",
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.attachLabelToItem),
+    logActionAudit(ActionsEnum.attachLabelToItem),
+    labels.attachLabelToItem
+);
+
+authenticated.put(
+    "/org/:orgId/label/:labelId/detach",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.detachLabelFromItem),
+    logActionAudit(ActionsEnum.detachLabelFromItem),
+    labels.detachLabelFromItem
+);
+
+authenticated.put(
+    [
+        "/resource/:resourceId/mtls/certificate",
+        "/public-resource/:resourceId/mtls/certificate"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.createResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.createResourceMtlsCertificate),
+    resource.createResourceMtlsCertificate
+);
+
+authenticated.get(
+    [
+        "/resource/:resourceId/mtls/certificates",
+        "/public-resource/:resourceId/mtls/certificates"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyApiKeyHasAction(ActionsEnum.listResourceMtlsCertificates),
+    resource.listResourceMtlsCertificates
+);
+
+authenticated.delete(
+    [
+        "/resource/:resourceId/mtls/certificate/:mtlsCertificateId",
+        "/public-resource/:resourceId/mtls/certificate/:mtlsCertificateId"
+    ],
+    verifyApiKeyResourceAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.deleteResourceMtlsCertificate),
+    resource.deleteResourceMtlsCertificate
 );

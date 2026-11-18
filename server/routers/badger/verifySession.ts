@@ -3,13 +3,17 @@ import {
     serializeResourceSessionCookie,
     validateResourceSessionToken
 } from "@server/auth/sessions/resource";
+import type { SessionClientInfo } from "@server/auth/sessions/clientInfo";
 import { generateSessionToken } from "@server/auth/sessions/app";
+import { revalidateIdpSession } from "#dynamic/auth/sessions/idpRevalidation";
 import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
 import {
     extractVirtualApiKeyCredential,
     verifyVirtualApiKey
 } from "@server/auth/verifyVirtualApiKey";
 import {
+    type RedirectByHost,
+    getRedirectsByHost,
     getResourceByDomain,
     getResourceRules,
     getRoleResourceAccess,
@@ -40,6 +44,8 @@ import {
 import config from "@server/lib/config";
 import { isIpInCidr, stripPortFromHost } from "@server/lib/ip";
 import { isPathAllowed } from "@server/lib/pathMatch";
+import { matchesPath } from "@server/lib/traefik/rule";
+import { rewriteRequestPath } from "@server/lib/traefik/middleware";
 import { parseHttpMethodList } from "@server/lib/validators";
 import { response } from "@server/lib/response";
 import logger from "@server/logger";
@@ -65,9 +71,22 @@ import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 import { REGIONS } from "@server/db/regions";
 import { localCache } from "#dynamic/lib/cache";
 import { APP_VERSION } from "@server/lib/consts";
-import { isSubscribed } from "#dynamic/lib/isSubscribed";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { eq } from "drizzle-orm";
+import type ResponseT from "@server/types/MessageResponse";
+import { ipKeyGenerator, type Options } from "express-rate-limit";
+import { createStore } from "#dynamic/lib/rateLimitStore";
+
+// Limit failed HTTP Basic (header auth) attempts per client IP and resource,
+// matching the limits on /resource/:resourceId/password and /pincode.
+const HEADER_AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const HEADER_AUTH_RATE_LIMIT_MAX = 15;
+const headerAuthRateLimitStore = createStore();
+headerAuthRateLimitStore.init?.({
+    windowMs: HEADER_AUTH_RATE_LIMIT_WINDOW_MS,
+    max: HEADER_AUTH_RATE_LIMIT_MAX
+} as Options);
 
 const verifyResourceSessionSchema = z.object({
     sessions: z.record(z.string(), z.string()).optional(),
@@ -109,6 +128,9 @@ export type VerifyUserResponse = {
     valid: boolean;
     headerAuthChallenged?: boolean;
     redirectUrl?: string;
+    // Set alongside redirectUrl when the redirect is a configured Redirect
+    // rather than a login bounce, so badger can answer 307 instead of 302.
+    redirectPermanent?: boolean;
     userData?: BasicUserData;
     pangolinVersion?: string;
     dontStripSession?: boolean;
@@ -193,6 +215,30 @@ export async function verifyResourceSession(
             cleanHost = cleanHost.slice(0, -1 * matched.length);
         }
 
+        // Redirects always win: they are routed ahead of resources in
+        // Traefik and never require auth, even when attached to a resource,
+        // so let a matching one through to the redirect middleware before
+        // any resource lookup.
+        const redirect = await findRedirect(cleanHost, path);
+        if (redirect) {
+            const redirectUrl = buildRedirectUrl(redirect, parsedBody.data);
+            logger.debug(
+                `Redirecting ${cleanHost}${path} to ${redirectUrl} (redirect ${redirect.redirectId})`
+            );
+
+            logRequestAudit(
+                {
+                    action: true,
+                    reason: 110, // redirected
+                    orgId: redirect.orgId,
+                    location: ipCC
+                },
+                parsedBody.data
+            );
+
+            return redirected(res, redirectUrl, redirect.permanent);
+        }
+
         const resourceCacheKey = `resource:${cleanHost}`;
         let resourceData:
             | {
@@ -200,9 +246,7 @@ export async function verifyResourceSession(
                   pincode: ResourcePincode | ResourcePolicyPincode | null;
                   password: ResourcePassword | ResourcePolicyPassword | null;
                   headerAuth:
-                      | ResourceHeaderAuth
-                      | ResourcePolicyHeaderAuth
-                      | null;
+                      ResourceHeaderAuth | ResourcePolicyHeaderAuth | null;
                   headerAuthExtendedCompatibility: ResourceHeaderAuthExtendedCompatibility | null;
                   applyRules: boolean | null;
                   sso: boolean | null;
@@ -593,12 +637,30 @@ export async function verifyResourceSession(
                 );
 
                 return allowed(res, undefined, dontStripSession);
+            }
+
+            // Count the attempt before hashing so concurrent guesses can't
+            // slip past the limit; successful attempts are refunded below.
+            const rateLimitKey = `headerAuth:${ipKeyGenerator(clientIp || "unknown")}:${resource.resourceId}`;
+            const { totalHits } =
+                await headerAuthRateLimitStore.increment(rateLimitKey);
+            const rateLimited = totalHits > HEADER_AUTH_RATE_LIMIT_MAX;
+
+            if (rateLimited) {
+                if (config.getRawConfig().app.log_failed_attempts) {
+                    logger.info(
+                        `Header auth rate limit exceeded. Resource ID: ${
+                            resource.resourceId
+                        }. IP: ${clientIp}.`
+                    );
+                }
             } else if (
                 await verifyPassword(
                     clientHeaderAuth,
                     headerAuth.headerAuthHash
                 )
             ) {
+                await headerAuthRateLimitStore.decrement(rateLimitKey);
                 localCache.set(clientHeaderAuthKey, clientHeaderAuth, 5);
                 logger.debug("Resource allowed because header auth is valid");
 
@@ -690,7 +752,7 @@ export async function verifyResourceSession(
         );
 
         if (resourceSessionToken) {
-            const sessionCacheKey = `session:${resourceSessionToken}`;
+            const sessionCacheKey = `session:${resource.resourceId}:${resourceSessionToken}`;
             let resourceSession: ResourceSession | null | undefined =
                 localCache.get(sessionCacheKey);
 
@@ -704,6 +766,14 @@ export async function verifyResourceSession(
                 if (resourceSession) {
                     localCache.set(sessionCacheKey, resourceSession, 5);
                 }
+            }
+
+            // sessions are scoped to a single resource; never honor one issued for another
+            if (
+                resourceSession &&
+                resourceSession.resourceId !== resource.resourceId
+            ) {
+                resourceSession = null;
             }
 
             if (resourceSession?.isRequestToken) {
@@ -762,7 +832,10 @@ export async function verifyResourceSession(
                             reason: 104, // valid pincode
                             resourceId: resource.resourceId,
                             orgId: resource.orgId,
-                            location: ipCC
+                            location: ipCC,
+                            metadata: {
+                                resourceSessionId: resourceSession.sessionId
+                            }
                         },
                         parsedBody.data
                     );
@@ -785,7 +858,10 @@ export async function verifyResourceSession(
                             reason: 105, // valid password
                             resourceId: resource.resourceId,
                             orgId: resource.orgId,
-                            location: ipCC
+                            location: ipCC,
+                            metadata: {
+                                resourceSessionId: resourceSession.sessionId
+                            }
                         },
                         parsedBody.data
                     );
@@ -820,14 +896,22 @@ export async function verifyResourceSession(
                             reason: 106, // valid email
                             resourceId: resource.resourceId,
                             orgId: resource.orgId,
-                            location: ipCC
+                            location: ipCC,
+                            metadata: {
+                                resourceSessionId: resourceSession.sessionId
+                            }
                         },
                         parsedBody.data
                     );
 
                     return allowed(
                         res,
-                        whitelistEmail ? { email: whitelistEmail } : undefined,
+                        forwardedUserData(
+                            resource,
+                            whitelistEmail
+                                ? { email: whitelistEmail }
+                                : undefined
+                        ),
                         dontStripSession
                     );
                 }
@@ -864,12 +948,17 @@ export async function verifyResourceSession(
                                 location: ipCC,
                                 accessTokenId: resourceSession.accessTokenId,
                                 tokenTitle: tokenItem.title ?? null,
-                                userData
+                                userData,
+                                resourceSessionId: resourceSession.sessionId
                             },
                             parsedBody.data
                         );
 
-                        return allowed(res, userData, dontStripSession);
+                        return allowed(
+                            res,
+                            forwardedUserData(resource, userData),
+                            dontStripSession
+                        );
                     }
 
                     logger.debug(
@@ -914,6 +1003,9 @@ export async function verifyResourceSession(
                                 user: {
                                     username: allowedUserData.username,
                                     userId: allowedUserData.userId
+                                },
+                                metadata: {
+                                    resourceSessionId: resourceSession.sessionId
                                 }
                             },
                             parsedBody.data
@@ -921,7 +1013,10 @@ export async function verifyResourceSession(
 
                         return allowed(
                             res,
-                            { ...allowedUserData, dontStripSession },
+                            forwardedUserData(resource, {
+                                ...allowedUserData,
+                                dontStripSession
+                            }),
                             dontStripSession
                         );
                     }
@@ -1019,6 +1114,71 @@ function extractResourceSessionToken(
     return latest.token;
 }
 
+async function findRedirect(
+    host: string,
+    path: string
+): Promise<RedirectByHost | null> {
+    const cacheKey = `redirects:${host}`;
+    let candidates: RedirectByHost[] | undefined = localCache.get(cacheKey);
+    if (!candidates) {
+        candidates = await getRedirectsByHost(host);
+        localCache.set(cacheKey, candidates, 5);
+    }
+
+    // Candidates come back highest priority first, matching the order
+    // Traefik evaluates the routers in.
+    return (
+        candidates.find((r) =>
+            matchesPath(path, r.matchPath, r.pathMatchType)
+        ) ?? null
+    );
+}
+
+/**
+ * Destination for a configured redirect: the scheme and host come from the
+ * redirect's destination, the request's query is kept and the path is run
+ * through the redirect's rewrite rules (if any).
+ */
+function buildRedirectUrl(
+    redirect: RedirectByHost,
+    request: VerifyResourceSessionSchema
+): string {
+    const newPath = rewriteRequestPath(
+        request.path,
+        redirect.matchPath,
+        redirect.pathMatchType,
+        redirect.rewritePath,
+        redirect.rewritePathType
+    );
+
+    let search = "";
+    try {
+        search = new URL(request.originalRequestURL).search;
+    } catch {
+        // originalRequestURL is validated as a URL, so this is only defensive
+    }
+
+    return `${redirect.destinationHost}${newPath}${search}`;
+}
+
+// Like a notAllowed login bounce, but the destination is the configured
+// redirect target rather than the auth page.
+function redirected(res: Response, redirectUrl: string, permanent: boolean) {
+    const data = {
+        data: {
+            valid: true,
+            redirectUrl,
+            redirectPermanent: permanent,
+            pangolinVersion: APP_VERSION
+        },
+        success: true,
+        error: false,
+        message: "Redirected",
+        status: HttpCode.OK
+    } satisfies ResponseT<VerifyUserResponse>;
+    return response<VerifyUserResponse>(res, data);
+}
+
 async function notAllowed(
     res: Response,
     redirectPath?: string,
@@ -1026,12 +1186,11 @@ async function notAllowed(
 ) {
     let loginPage: LoginPage | null = null;
     if (orgId) {
-        const subscribed = await isSubscribed(
-            // this is fine because the org login page is only a saas feature
+        const allowed = await isLicensedOrSubscribed(
             orgId,
             tierMatrix.loginPageDomain
         );
-        if (subscribed) {
+        if (allowed) {
             loginPage = await getOrgLoginPage(orgId);
         }
     }
@@ -1061,6 +1220,19 @@ async function notAllowed(
     };
     // logger.debug(JSON.stringify(data));
     return response<VerifyUserResponse>(res, data);
+}
+
+// Badger only sets the Remote-* identity headers for fields present in the
+// response, so omitting the user data is enough to keep them off the upstream
+// request. Some backends (e.g. embedded device web servers) reject requests
+// carrying headers they don't recognize. Inference resources skip this since
+// the AI gateway relies on those headers for attribution.
+function forwardedUserData<T>(
+    resource: Resource,
+    userData: T | undefined
+): T | undefined {
+    // Treat a missing value (older hybrid payloads) as enabled
+    return resource.forwardIdentityHeaders === false ? undefined : userData;
 }
 
 function allowed(
@@ -1100,21 +1272,23 @@ async function allowAccessToken(
 ) {
     const userData = await getAccessTokenUserData(tokenItem, resource.orgId);
 
-    logAccessTokenRequestAudit(
-        {
-            resourceId: resource.resourceId,
-            orgId: resource.orgId,
-            location,
-            accessTokenId: tokenItem.accessTokenId,
-            tokenTitle: tokenItem.title,
-            userData
-        },
-        auditBody
-    );
+    const auditData = {
+        resourceId: resource.resourceId,
+        orgId: resource.orgId,
+        location,
+        accessTokenId: tokenItem.accessTokenId,
+        tokenTitle: tokenItem.title,
+        userData
+    };
 
     if (!tokenItem.persistSession) {
+        logAccessTokenRequestAudit(auditData, auditBody);
         logAccessTokenAccessAudit(tokenItem, resource, userData, auditBody);
-        return allowed(res, userData, dontStripSession);
+        return allowed(
+            res,
+            forwardedUserData(resource, userData),
+            dontStripSession
+        );
     }
 
     const resourceSessionToken = extractResourceSessionToken(
@@ -1123,7 +1297,7 @@ async function allowAccessToken(
     );
 
     if (resourceSessionToken) {
-        const sessionCacheKey = `session:${resourceSessionToken}`;
+        const sessionCacheKey = `session:${resource.resourceId}:${resourceSessionToken}`;
         let resourceSession: ResourceSession | null | undefined =
             localCache.get(sessionCacheKey);
 
@@ -1140,28 +1314,56 @@ async function allowAccessToken(
 
         if (
             resourceSession &&
+            resourceSession.resourceId === resource.resourceId &&
             !resourceSession.isRequestToken &&
             resourceSession.accessTokenId === tokenItem.accessTokenId
         ) {
             logger.debug(
                 "Resource allowed because existing access token session is valid"
             );
-            return allowed(res, userData, dontStripSession);
+            logAccessTokenRequestAudit(
+                { ...auditData, resourceSessionId: resourceSession.sessionId },
+                auditBody
+            );
+            return allowed(
+                res,
+                forwardedUserData(resource, userData),
+                dontStripSession
+            );
         }
     }
 
-    logAccessTokenAccessAudit(tokenItem, resource, userData, auditBody);
-    return await createAccessTokenSession(res, resource, tokenItem, userData);
+    const sess = await createAccessTokenSession(res, resource, tokenItem, {
+        ip: auditBody.requestIp
+            ? stripPortFromHost(auditBody.requestIp, auditBody.badgerVersion)
+            : null,
+        userAgent: getClientHeader(auditBody.headers, "user-agent"),
+        countryCode: location
+    });
+    logAccessTokenRequestAudit(
+        { ...auditData, resourceSessionId: sess.sessionId },
+        auditBody
+    );
+    logAccessTokenAccessAudit(
+        tokenItem,
+        resource,
+        userData,
+        auditBody,
+        sess.sessionId
+    );
+    return allowed(res, forwardedUserData(resource, userData));
 }
 
+// Sets the session cookie on the response; the caller sends the response.
 async function createAccessTokenSession(
     res: Response,
     resource: Resource,
     tokenItem: ResourceAccessToken,
-    userData?: BasicUserData
-) {
+    clientInfo: SessionClientInfo
+): Promise<ResourceSession> {
     const token = generateSessionToken();
     const sess = await createResourceSession({
+        clientInfo,
         resourceId: resource.resourceId,
         token,
         accessTokenId: tokenItem.accessTokenId,
@@ -1179,7 +1381,7 @@ async function createAccessTokenSession(
     );
     res.appendHeader("Set-Cookie", cookie);
     logger.debug("Access token is valid, creating new session");
-    return allowed(res, userData);
+    return sess;
 }
 
 async function getAccessTokenUserData(
@@ -1228,6 +1430,7 @@ function logAccessTokenRequestAudit(
         accessTokenId: string;
         tokenTitle: string | null;
         userData?: BasicUserData;
+        resourceSessionId?: string;
     },
     body: VerifyResourceSessionSchema
 ) {
@@ -1245,7 +1448,8 @@ function logAccessTokenRequestAudit(
                 },
                 metadata: {
                     accessTokenId: data.accessTokenId,
-                    accessTokenTitle: data.tokenTitle
+                    accessTokenTitle: data.tokenTitle,
+                    resourceSessionId: data.resourceSessionId
                 }
             },
             body
@@ -1263,7 +1467,10 @@ function logAccessTokenRequestAudit(
             apiKey: {
                 name: data.tokenTitle,
                 apiKeyId: data.accessTokenId
-            }
+            },
+            metadata: data.resourceSessionId
+                ? { resourceSessionId: data.resourceSessionId }
+                : undefined
         },
         body
     );
@@ -1273,7 +1480,8 @@ function logAccessTokenAccessAudit(
     tokenItem: ResourceAccessToken,
     resource: Resource,
     userData: BasicUserData | undefined,
-    body: VerifyResourceSessionSchema
+    body: VerifyResourceSessionSchema,
+    resourceSessionId?: string
 ) {
     const userAgent =
         body.headers?.["user-agent"] || body.headers?.["User-Agent"];
@@ -1290,7 +1498,8 @@ function logAccessTokenAccessAudit(
             },
             metadata: {
                 accessTokenId: tokenItem.accessTokenId,
-                accessTokenTitle: tokenItem.title
+                accessTokenTitle: tokenItem.title,
+                resourceSessionId
             },
             userAgent,
             requestIp: body.requestIp
@@ -1307,6 +1516,7 @@ function logAccessTokenAccessAudit(
             name: tokenItem.title,
             apiKeyId: tokenItem.accessTokenId
         },
+        metadata: resourceSessionId ? { resourceSessionId } : undefined,
         userAgent,
         requestIp: body.requestIp
     });
@@ -1319,11 +1529,11 @@ async function headerAuthChallenged(
 ) {
     let loginPage: LoginPage | null = null;
     if (orgId) {
-        const subscribed = await isSubscribed(
+        const allowed = await isLicensedOrSubscribed(
             orgId,
             tierMatrix.loginPageDomain
-        ); // this is fine because the org login page is only a saas feature
-        if (subscribed) {
+        );
+        if (allowed) {
             loginPage = await getOrgLoginPage(orgId);
         }
     }
@@ -1365,6 +1575,10 @@ async function isUserAllowedToAccessResource(
     resource: Resource,
     org: Org
 ): Promise<BasicUserData | null> {
+    if (!(await revalidateIdpSession(userSessionId))) {
+        return null;
+    }
+
     const result = await getUserSessionWithUser(userSessionId);
 
     if (!result) {

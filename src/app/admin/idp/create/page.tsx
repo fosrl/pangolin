@@ -23,6 +23,7 @@ import {
 } from "@app/components/ui/form";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import ApiIntegrationConfigWidget from "@app/components/ApiIntegrationConfigWidget";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
 import {
     buildGoogleIDPAPIConfig,
     googleDirectorySyncFormFields,
@@ -35,6 +36,7 @@ import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 import { applyOidcIdpProviderType } from "@app/lib/idp/oidcIdpProviderDefaults";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -44,6 +46,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
+import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import { SwitchInput } from "@app/components/SwitchInput";
 
 export default function Page() {
     const { env } = useEnvContext();
@@ -79,6 +83,7 @@ export default function Page() {
             tenantId: z.string().optional(),
             allowManualProvisioning: z.boolean().default(true),
             autoProvision: z.boolean().default(false),
+            sessionRevalidation: z.boolean().default(false),
             apiIntegrationEnabled: z.boolean().default(false),
             directorySyncEnabled: z.boolean().default(false),
             directorySyncDeletions: z.boolean().default(true),
@@ -116,7 +121,8 @@ export default function Page() {
             directorySyncDeletions: true,
             googleServiceAccountKey: "",
             googleAdminEmail: "",
-            googleCustomerId: ""
+            googleCustomerId: "",
+            sessionRevalidation: false
         }
     });
 
@@ -144,6 +150,11 @@ export default function Page() {
                 tokenUrl = tokenUrl?.replace("{{TENANT_ID}}", data.tenantId);
             }
 
+            let scopes = data.scopes || "openid profile email";
+            if (data.sessionRevalidation) {
+                scopes = scopesForSessionRevalidation(scopes, data.type);
+            }
+
             const apiIntegrationSupported = supportsApiIntegration(data.type);
             const payload: Record<string, unknown> = {
                 name: data.name,
@@ -163,7 +174,8 @@ export default function Page() {
                     data.apiIntegrationEnabled &&
                     data.directorySyncEnabled,
                 directorySyncDeletions: data.directorySyncDeletions,
-                scopes: data.scopes,
+                sessionRevalidation: data.sessionRevalidation,
+                scopes,
                 variant: data.type
             };
             if (data.type === "google") {
@@ -259,6 +271,57 @@ export default function Page() {
                                                 </FormItem>
                                             )}
                                         />
+                                        {!env.flags
+                                            .disableEnterpriseFeatures && (
+                                            <div className="space-y-2">
+                                                <PaidFeaturesAlert
+                                                    tiers={
+                                                        tierMatrix.sessionRevalidation
+                                                    }
+                                                />
+                                                <SwitchInput
+                                                    id="session-revalidation-toggle"
+                                                    label={t(
+                                                        "idpSessionRevalidation"
+                                                    )}
+                                                    checked={form.watch(
+                                                        "sessionRevalidation"
+                                                    )}
+                                                    onCheckedChange={(
+                                                        checked
+                                                    ) => {
+                                                        form.setValue(
+                                                            "sessionRevalidation",
+                                                            checked
+                                                        );
+                                                        if (checked) {
+                                                            const current =
+                                                                form.getValues(
+                                                                    "scopes"
+                                                                ) ||
+                                                                "openid profile email";
+                                                            form.setValue(
+                                                                "scopes",
+                                                                scopesForSessionRevalidation(
+                                                                    current,
+                                                                    form.getValues(
+                                                                        "type"
+                                                                    )
+                                                                )
+                                                            );
+                                                        }
+                                                    }}
+                                                    disabled={
+                                                        !isPaidUser(
+                                                            tierMatrix.sessionRevalidation
+                                                        )
+                                                    }
+                                                />
+                                                <FormDescription>
+                                                    <IdpSessionRevalidationDescription />
+                                                </FormDescription>
+                                            </div>
+                                        )}
                                     </form>
                                 </Form>
                             </SettingsSectionForm>
@@ -345,11 +408,34 @@ export default function Page() {
                         </SettingsSectionBody>
                     </SettingsSection>
                 </fieldset>
-
                 <fieldset
                     disabled={templatesLocked}
-                    className="min-w-0 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60"
+                    className="min-w-0 space-y-6 border-0 p-0 m-0 disabled:pointer-events-none disabled:opacity-60"
                 >
+                    <SettingsSection className="min-h-0">
+                        <SettingsSectionHeader>
+                            <SettingsSectionTitle>
+                                {t("idpAutoProvisionUsers")}
+                            </SettingsSectionTitle>
+                            <SettingsSectionDescription>
+                                <IdpAutoProvisionUsersDescription />
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <SettingsSectionBody>
+                            <SwitchInput
+                                id="auto-provision-toggle"
+                                label={t("idpAutoProvisionUsers")}
+                                defaultChecked={form.getValues("autoProvision")}
+                                onCheckedChange={(checked) => {
+                                    form.setValue("autoProvision", checked);
+                                }}
+                                description={t(
+                                    "idpAutoProvisionConfigureAfterCreate"
+                                )}
+                            />
+                        </SettingsSectionBody>
+                    </SettingsSection>
+
                     {watchedType === "google" && (
                         <SettingsSection>
                             <SettingsSectionHeader>

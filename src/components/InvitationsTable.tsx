@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
     DropdownMenu,
@@ -18,7 +19,6 @@ import { toast } from "@app/hooks/useToast";
 import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useTranslations } from "next-intl";
-import moment from "moment";
 import { useRouter } from "next/navigation";
 import UserRoleBadges from "@app/components/UserRoleBadges";
 
@@ -84,7 +84,7 @@ export default function InvitationsTable({
 
                 return (
                     <span className={isExpired ? "text-red-500" : ""}>
-                        {moment(expiresAt).format("lll")}
+                        <Timestamp value={expiresAt} />
                     </span>
                 );
             }

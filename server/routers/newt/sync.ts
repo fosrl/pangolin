@@ -28,10 +28,8 @@ export async function sendNewtSyncMessage(newt: Newt, site: Site) {
             .where(eq(exitNodes.exitNodeId, site.exitNodeId))
             .limit(1);
     }
-    const { peers, targets } = await buildClientConfigurationForNewtClient(
-        site,
-        exitNode
-    );
+    const { peers, targets, clientIdentities } =
+        await buildClientConfigurationForNewtClient(site, exitNode);
 
     // Older newt clients only understand inline tlsCert/tlsKey on each
     // target, so only switch to certId references once we know the client
@@ -55,6 +53,7 @@ export async function sendNewtSyncMessage(newt: Newt, site: Site) {
                 peers: peers,
                 clientTargets: clientTargets,
                 certs: certs,
+                clientIdentities: clientIdentities,
                 browserGatewayTargets: browserGatewayTargets,
                 remoteExitNodeSubnets: remoteExitNodeSubnets
             }

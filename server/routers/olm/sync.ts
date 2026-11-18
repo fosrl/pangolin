@@ -12,7 +12,6 @@ import { buildSiteConfigurationForOlmClient } from "./buildConfiguration";
 import { sendToClient } from "#dynamic/routers/ws";
 import logger from "@server/logger";
 import { count, eq, inArray } from "drizzle-orm";
-import config from "@server/lib/config";
 import { canCompress } from "@server/lib/clientVersionChecks";
 import { build } from "@server/build";
 
@@ -125,7 +124,7 @@ export async function sendOlmSyncMessage(olm: Olm, client: Client) {
         exitNodesData = allExitNodes.map((exitNode) => {
             return {
                 publicKey: exitNode.publicKey,
-                relayPort: config.getRawConfig().gerbil.clients_start_port,
+                relayPort: exitNode.relayPort,
                 endpoint: exitNode.endpoint,
                 siteIds: exitNodeIdToSiteIds[exitNode.exitNodeId] ?? []
             };

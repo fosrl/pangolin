@@ -62,6 +62,8 @@ import {
     resourceAccessToken
 } from "@server/db";
 import { eq, and, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { resourceHostCondition } from "@server/db/queries/verifySessionQueries";
+import { pickResourceForHost } from "@server/lib/traefik/rule";
 import { alias } from "@server/db";
 import { response } from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -90,16 +92,26 @@ import { checkExitNodeOrg, resolveExitNodes } from "#private/lib/exitNodes";
 import { maxmindLookup } from "@server/db/maxmind";
 import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
 import { generateSessionToken } from "@server/auth/sessions/app";
+import { revalidateIdpSession } from "#private/auth/sessions/idpRevalidation";
 import { logAccessAudit } from "#private/lib/logAccessAudit";
 import { getUserOrgRoles } from "@server/lib/userOrgRoles";
 import semver from "semver";
 import { maxmindAsnLookup } from "@server/db/maxmindAsn";
 import { checkOrgAccessPolicy } from "@server/lib/checkOrgAccessPolicy";
 import { sanitizeString } from "@server/lib/sanitize";
+import {
+    getRedirectsByHost,
+    getWhitelistEmail,
+    type RedirectByHost
+} from "@server/db/queries/verifySessionQueries";
 
 // Zod schemas for request validation
 const getResourceByDomainParamsSchema = z.strictObject({
     domain: z.string().min(1, "Domain is required")
+});
+
+const getRedirectsByHostParamsSchema = z.strictObject({
+    host: z.string().min(1, "Host is required")
 });
 
 const getUserSessionParamsSchema = z.strictObject({
@@ -189,7 +201,17 @@ const createAccessTokenSessionParamsSchema = z.strictObject({
 });
 
 const createAccessTokenSessionBodySchema = z.strictObject({
-    accessTokenId: z.string().min(1)
+    accessTokenId: z.string().min(1),
+    // Details of the client the remote node saw. Country and ASN are looked
+    // up from the IP here when the node does not send them.
+    clientInfo: z
+        .strictObject({
+            ip: z.string().max(255).nullable().optional(),
+            userAgent: z.string().nullable().optional(),
+            countryCode: z.string().max(16).nullable().optional(),
+            asn: z.number().int().nullable().optional()
+        })
+        .optional()
 });
 
 const getAccessTokenParamsSchema = z.strictObject({
@@ -590,14 +612,6 @@ hybridRouter.get(
                 );
             }
 
-            // Build wildcard domain candidates for the requested domain.
-            // e.g. "me.example.test.com" -> ["*.example.test.com", "*.test.com"]
-            const domainParts = domain.split(".");
-            const wildcardCandidates: string[] = [];
-            for (let i = 1; i < domainParts.length; i++) {
-                wildcardCandidates.push(`*.${domainParts.slice(i).join(".")}`);
-            }
-
             const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
             const defaultPolicy = alias(resourcePolicies, "defaultPolicy");
             const sharedPolicyPincode = alias(
@@ -704,28 +718,13 @@ hybridRouter.get(
                     )
                 )
                 .innerJoin(orgs, eq(orgs.orgId, resources.orgId))
-                .where(
-                    or(
-                        // Exact match
-                        eq(resources.fullDomain, domain),
-                        // Wildcard match
-                        wildcardCandidates.length > 0
-                            ? and(
-                                  eq(resources.wildcard, true),
-                                  inArray(
-                                      resources.fullDomain,
-                                      wildcardCandidates
-                                  )
-                              )
-                            : sql`false`
-                    )
-                );
+                .where(resourceHostCondition(domain));
 
-            // Prefer exact match over wildcard match
-            const exactMatch = potentialResults.find(
-                (r) => r.resources?.fullDomain === domain
+            const result = pickResourceForHost(
+                potentialResults,
+                domain,
+                (r) => r.resources?.fullDomain
             );
-            const result = exactMatch ?? potentialResults[0];
 
             if (
                 result &&
@@ -818,6 +817,44 @@ hybridRouter.get(
     }
 );
 
+hybridRouter.get(
+    "/redirects/host/:host",
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const parsedParams = getRedirectsByHostParamsSchema.safeParse(
+                req.params
+            );
+            if (!parsedParams.success) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        fromError(parsedParams.error).toString()
+                    )
+                );
+            }
+
+            const { host } = parsedParams.data;
+            const redirects = await getRedirectsByHost(host);
+
+            return response<RedirectByHost[]>(res, {
+                data: redirects,
+                success: true,
+                error: false,
+                message: "Redirects retrieved successfully",
+                status: HttpCode.OK
+            });
+        } catch (error) {
+            logger.error(error);
+            return next(
+                createHttpError(
+                    HttpCode.INTERNAL_SERVER_ERROR,
+                    "Failed to get redirects by host"
+                )
+            );
+        }
+    }
+);
+
 const getOrgLoginPageParamsSchema = z.strictObject({
     orgId: z.string().min(1)
 });
@@ -904,6 +941,30 @@ hybridRouter.get(
     }
 );
 
+// TODO: THIS SEEMS TO BE TERRIBLY INEFFICIENT AND WE CAN FIX WITH SOME KIND OF BETTER SCHEMA!!!!!!!!!!!!!!!
+// Check if the user belongs to any organization that the exit node has access to
+async function exitNodeCanAccessUser(
+    exitNodeId: number,
+    userId: string
+): Promise<boolean> {
+    const userOrgsResult = await db
+        .select({
+            orgId: userOrgs.orgId
+        })
+        .from(userOrgs)
+        .where(eq(userOrgs.userId, userId));
+
+    for (const userOrg of userOrgsResult) {
+        // checkExitNodeOrg returns true when access is denied, false when allowed
+        const accessDenied = await checkExitNodeOrg(exitNodeId, userOrg.orgId);
+        if (!accessDenied) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Get user session with user information
 hybridRouter.get(
     "/session/:userSessionId",
@@ -949,38 +1010,19 @@ hybridRouter.get(
                 });
             }
 
-            // TODO: THIS SEEMS TO BE TERRIBLY INEFFICIENT AND WE CAN FIX WITH SOME KIND OF BETTER SCHEMA!!!!!!!!!!!!!!!
-            // Check if the user belongs to any organization that the exit node has access to
-            if (res_data.user) {
-                const userOrgsResult = await db
-                    .select({
-                        orgId: userOrgs.orgId
-                    })
-                    .from(userOrgs)
-                    .where(eq(userOrgs.userId, res_data.user.userId));
-
-                // Check if the exit node has access to any of the user's organizations
-                let hasAccess = false;
-                for (const userOrg of userOrgsResult) {
-                    const accessDenied = await checkExitNodeOrg(
-                        remoteExitNode.exitNodeId,
-                        userOrg.orgId
-                    );
-                    if (!accessDenied) {
-                        // checkExitNodeOrg returns true when access is denied, false when allowed
-                        hasAccess = true;
-                        break;
-                    }
-                }
-
-                if (!hasAccess) {
-                    return next(
-                        createHttpError(
-                            HttpCode.FORBIDDEN,
-                            "Exit node not authorized to access this user session"
-                        )
-                    );
-                }
+            if (
+                res_data.user &&
+                !(await exitNodeCanAccessUser(
+                    remoteExitNode.exitNodeId,
+                    res_data.user.userId
+                ))
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Exit node not authorized to access this user session"
+                    )
+                );
             }
 
             const userSessionWithUser: UserSessionWithUser = {
@@ -1001,6 +1043,79 @@ hybridRouter.get(
                 createHttpError(
                     HttpCode.INTERNAL_SERVER_ERROR,
                     "Failed to get user session"
+                )
+            );
+        }
+    }
+);
+
+// Revalidate the user session with its IdP, ending it if the IdP revoked it
+hybridRouter.get(
+    "/session/:userSessionId/revalidate",
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const parsedParams = getUserSessionParamsSchema.safeParse(
+                req.params
+            );
+            if (!parsedParams.success) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        fromError(parsedParams.error).toString()
+                    )
+                );
+            }
+
+            const { userSessionId } = parsedParams.data;
+            const remoteExitNode = req.remoteExitNode;
+
+            if (!remoteExitNode?.exitNodeId) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "Remote exit node not found"
+                    )
+                );
+            }
+
+            const [session] = await db
+                .select({ userId: sessions.userId })
+                .from(sessions)
+                .where(eq(sessions.sessionId, userSessionId));
+
+            if (
+                session &&
+                !(await exitNodeCanAccessUser(
+                    remoteExitNode.exitNodeId,
+                    session.userId
+                ))
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Exit node not authorized to access this user session"
+                    )
+                );
+            }
+
+            // a missing session is rejected by the session lookup instead
+            const valid = session
+                ? await revalidateIdpSession(userSessionId)
+                : true;
+
+            return response<{ valid: boolean }>(res, {
+                data: { valid },
+                success: true,
+                error: false,
+                message: "Session revalidated successfully",
+                status: HttpCode.OK
+            });
+        } catch (error) {
+            logger.error(error);
+            return next(
+                createHttpError(
+                    HttpCode.INTERNAL_SERVER_ERROR,
+                    "Failed to revalidate user session"
                 )
             );
         }
@@ -1835,8 +1950,19 @@ hybridRouter.post(
                 resourceId
             );
 
+            // Lets the node forward the whitelisted email downstream as
+            // Remote-Email, same as verifySession does locally
+            const whitelistEmail = result.resourceSession
+                ? await getWhitelistEmail(
+                      result.resourceSession.whitelistId,
+                      result.resourceSession.policyWhitelistId
+                  )
+                : null;
+
             // this is for backward compatibility with nodes that did not have the policy id checking
-            const modifiedResult: ResourceSessionValidationResult = {
+            const modifiedResult: ResourceSessionValidationResult & {
+                whitelistEmail: string | null;
+            } = {
                 ...result,
                 resourceSession: result.resourceSession
                     ? {
@@ -1855,7 +1981,8 @@ hybridRouter.post(
                               result.resourceSession.whitelistId ??
                               null
                       }
-                    : null
+                    : null,
+                whitelistEmail
             };
 
             return response(res, {
@@ -1970,7 +2097,7 @@ hybridRouter.post(
             }
 
             const { resourceId } = parsedParams.data;
-            const { accessTokenId } = parsedBody.data;
+            const { accessTokenId, clientInfo } = parsedBody.data;
 
             const [tokenItem] = await db
                 .select()
@@ -1983,6 +2110,21 @@ hybridRouter.post(
                     createHttpError(
                         HttpCode.NOT_FOUND,
                         "Access token not found"
+                    )
+                );
+            }
+
+            if (
+                !req.remoteExitNode?.exitNodeId ||
+                (await checkExitNodeOrg(
+                    req.remoteExitNode.exitNodeId,
+                    tokenItem.orgId
+                ))
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Exit node not allowed for this organization"
                     )
                 );
             }
@@ -2010,6 +2152,7 @@ hybridRouter.post(
 
             const token = generateSessionToken();
             const sess = await createResourceSession({
+                clientInfo,
                 resourceId: resource.resourceId,
                 token,
                 accessTokenId: tokenItem.accessTokenId,
@@ -2028,7 +2171,7 @@ hybridRouter.post(
             );
 
             return response(res, {
-                data: { cookie },
+                data: { cookie, sessionId: sess.sessionId },
                 success: true,
                 error: false,
                 message: "Access token session created successfully",
@@ -2076,6 +2219,21 @@ hybridRouter.get(
                     createHttpError(
                         HttpCode.NOT_FOUND,
                         "Access token not found"
+                    )
+                );
+            }
+
+            if (
+                !req.remoteExitNode?.exitNodeId ||
+                (await checkExitNodeOrg(
+                    req.remoteExitNode.exitNodeId,
+                    tokenItem.orgId
+                ))
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Exit node not allowed for this organization"
                     )
                 );
             }

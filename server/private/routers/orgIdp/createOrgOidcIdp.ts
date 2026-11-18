@@ -20,7 +20,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { idp, idpOidcConfig, idpOrg, orgs } from "@server/db";
+import { idp, idpOidcConfig, idpOrg } from "@server/db";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
@@ -28,6 +28,7 @@ import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
 import { build } from "@server/build";
 import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
@@ -48,6 +49,7 @@ const bodySchema = z.strictObject({
     apiIntegrationEnabled: z.boolean().optional(),
     allowManualProvisioning: z.boolean().optional(),
     directorySyncEnabled: z.boolean().optional(),
+    sessionRevalidation: z.boolean().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc"),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
@@ -128,7 +130,6 @@ export async function createOrgOidcIdp(
             clientSecret,
             authUrl,
             tokenUrl,
-            scopes,
             identifierPath,
             emailPath,
             namePath,
@@ -149,7 +150,11 @@ export async function createOrgOidcIdp(
             tags
         } = parsedBody.data;
 
-        let { autoProvision } = parsedBody.data;
+        let {
+            autoProvision,
+            scopes,
+            sessionRevalidation = false
+        } = parsedBody.data;
 
         if (build == "saas") {
             // this is not paywalled with a ee license because this whole endpoint is restricted
@@ -160,6 +165,18 @@ export async function createOrgOidcIdp(
             if (!subscribed) {
                 autoProvision = false;
             }
+
+            const sessionRevalidationSubscribed = await isSubscribed(
+                orgId,
+                tierMatrix.sessionRevalidation
+            );
+            if (!sessionRevalidationSubscribed) {
+                sessionRevalidation = false;
+            }
+        }
+
+        if (sessionRevalidation) {
+            scopes = scopesForSessionRevalidation(scopes, variant);
         }
 
         // the API integration (and sync, which needs it) is only supported for google/azure idps
@@ -216,7 +233,8 @@ export async function createOrgOidcIdp(
                 .insert(idp)
                 .values({
                     name,
-                    autoProvision,
+                    autoProvision: false,
+                    sessionRevalidation,
                     apiIntegrationEnabled: effectiveApiIntegrationEnabled,
                     allowManualProvisioning,
                     directorySyncEnabled: effectiveDirectorySyncEnabled,
@@ -246,6 +264,7 @@ export async function createOrgOidcIdp(
                 orgId: orgId,
                 roleMapping: roleMapping || null,
                 orgMapping: orgMappingBody,
+                autoProvision: autoProvision ?? false,
                 syncRoleMapping: syncRoleMapping || null,
                 syncOrgMapping: syncOrgMapping || null,
                 mappingsLinked: mappingsLinked ?? true,

@@ -15,6 +15,23 @@ import logger from "@server/logger";
 import { privateConfig } from "#private/lib/config";
 import { acmeClientManager } from "./acme-client";
 import { jobScheduler } from "./scheduler";
+import { LeaderElection } from "#private/lib/leaderElection";
+
+// Only one instance sharing this Redis talks to the ACME server at a time.
+// Every instance runs the election; whichever holds the lease runs issuance
+// and renewal, and another takes over if it goes away.
+const acmeLeaderElection = new LeaderElection("acme-client", {
+    onElected: async () => {
+        logger.info("Starting certificate management server...");
+
+        // Initialize ACME client
+        await acmeClientManager.initialize();
+
+        // Start certificate issuance/renewal jobs
+        await jobScheduler.start();
+    },
+    onDemoted: () => jobScheduler.stopCertJobs()
+});
 
 export async function startCertificateManager() {
     const acmeConfig = privateConfig.getRawPrivateConfig().acme;
@@ -23,13 +40,7 @@ export async function startCertificateManager() {
         acmeConfig.cert_mode === "pangolin" &&
         acmeConfig.enable_acme_client
     ) {
-        logger.info("Starting certificate management server...");
-
-        // Initialize ACME client
-        await acmeClientManager.initialize();
-
-        // Start certificate issuance/renewal jobs
-        await jobScheduler.start();
+        acmeLeaderElection.start();
     }
 
     if (privateConfig.getRawPrivateConfig().flags.use_pangolin_dns) {
@@ -41,5 +52,6 @@ export async function startCertificateManager() {
 }
 
 export async function stopCertificateManager() {
+    await acmeLeaderElection.stop();
     await jobScheduler.stop();
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import { Button } from "@app/components/ui/button";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
@@ -15,7 +16,7 @@ import { useNavigationContext } from "@app/hooks/useNavigationContext";
 import { getNextSortOrder, getSortDirection } from "@app/lib/sortColumn";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
-import { formatFingerprintInfo } from "@app/lib/formatDeviceFingerprint";
+import { formatPlatform } from "@app/lib/formatDeviceFingerprint";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
 import { build } from "@server/build";
 import type { PaginationState } from "@tanstack/react-table";
@@ -31,11 +32,15 @@ import {
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { FaApple, FaWindows, FaLinux } from "react-icons/fa";
+import { SiAndroid } from "react-icons/si";
 import { useDebouncedCallback } from "use-debounce";
 import ClientDownloadBanner from "./ClientDownloadBanner";
+import { ColumnEntityFilter } from "./ColumnEntityFilter";
 import { ColumnFilterButton } from "./ColumnFilterButton";
 import IdpTypeBadge from "./IdpTypeBadge";
+import { UserSelector, type SelectedUser } from "./user-selector";
 import { Badge } from "./ui/badge";
 import { ControlledDataTable } from "./ui/controlled-data-table";
 import {
@@ -44,6 +49,40 @@ import {
 } from "@app/lib/queries";
 import { useQuery } from "@tanstack/react-query";
 import semver from "semver";
+
+function DetailItem({
+    label,
+    children
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="min-w-0">
+            <div className="font-medium">{label}</div>
+            <div className="mt-1 text-muted-foreground break-all">
+                {children}
+            </div>
+        </div>
+    );
+}
+
+function getPlatformIcon(platform: string | null | undefined) {
+    if (!platform) return null;
+    switch (platform.toLowerCase()) {
+        case "macos":
+        case "ios":
+            return <FaApple className="h-4 w-4 shrink-0" />;
+        case "windows":
+            return <FaWindows className="h-4 w-4 shrink-0" />;
+        case "linux":
+            return <FaLinux className="h-4 w-4 shrink-0" />;
+        case "android":
+            return <SiAndroid className="h-4 w-4 shrink-0" />;
+        default:
+            return null;
+    }
+}
 
 export type ClientRow = {
     id: number;
@@ -55,6 +94,7 @@ export type ClientRow = {
     orgId: string;
     online: boolean;
     olmVersion?: string;
+    agentVersion?: string;
     olmUpdateAvailable: boolean;
     userId: string | null;
     username: string | null;
@@ -86,12 +126,15 @@ type ClientTableProps = {
     orgId: string;
     pagination: PaginationState;
     rowCount: number;
+    initialFilterUser?: SelectedUser | null;
 };
 
 export default function UserDevicesTable({
     userClients,
+    orgId,
     pagination,
-    rowCount
+    rowCount,
+    initialFilterUser = null
 }: ClientTableProps) {
     const router = useRouter();
     const t = useTranslations();
@@ -100,6 +143,7 @@ export default function UserDevicesTable({
     const [selectedClient, setSelectedClient] = useState<ClientRow | null>(
         null
     );
+    const [userFilterOpen, setUserFilterOpen] = useState(false);
 
     const api = createApiClient(useEnvContext());
     const {
@@ -111,6 +155,17 @@ export default function UserDevicesTable({
     const data = useQuery(productUpdatesQueries.latestVersion(true));
 
     const latestPlatformVersions = data.data?.data;
+
+    const userIdQ = searchParams.get("userId");
+    const selectedUser: SelectedUser | null = useMemo(() => {
+        if (!userIdQ) {
+            return null;
+        }
+        if (initialFilterUser && initialFilterUser.id === userIdQ) {
+            return initialFilterUser;
+        }
+        return { id: userIdQ, text: userIdQ };
+    }, [initialFilterUser, userIdQ]);
 
     const defaultUserColumnVisibility = {
         subnet: false,
@@ -322,6 +377,45 @@ export default function UserDevicesTable({
         return userClients.some((client) => !client.userId);
     }, [userClients]);
 
+    function handleFilterChange(
+        column: string,
+        value: string | null | undefined | string[]
+    ) {
+        searchParams.delete(column);
+        searchParams.delete("page");
+
+        if (typeof value === "string") {
+            searchParams.set(column, value);
+        } else if (value) {
+            for (const val of value) {
+                searchParams.append(column, val);
+            }
+        }
+
+        filter({
+            searchParams
+        });
+    }
+
+    function selectUser(user: SelectedUser | null) {
+        searchParams.delete("page");
+        if (user?.id) {
+            searchParams.set("userId", user.id);
+        } else {
+            searchParams.delete("userId");
+        }
+        filter({ searchParams });
+        setUserFilterOpen(false);
+    }
+
+    function toggleSort(column: string) {
+        const newSearch = getNextSortOrder(column, searchParams);
+
+        filter({
+            searchParams: newSearch
+        });
+    }
+
     const columns: ExtendedColumnDef<ClientRow>[] = useMemo(() => {
         const baseColumns: ExtendedColumnDef<ClientRow>[] = [
             {
@@ -331,24 +425,13 @@ export default function UserDevicesTable({
                 header: () => <span className="px-3">{t("name")}</span>,
                 cell: ({ row }) => {
                     const r = row.original;
-                    const fingerprintInfo = r.fingerprint
-                        ? formatFingerprintInfo(r.fingerprint, t)
-                        : null;
+                    const platformIcon = getPlatformIcon(
+                        r.fingerprint?.platform
+                    );
                     return (
                         <div className="flex items-center gap-2">
+                            {platformIcon}
                             <span>{r.name}</span>
-                            {fingerprintInfo && (
-                                <InfoPopup>
-                                    <div className="space-y-1 text-sm">
-                                        <div className="font-semibold mb-2">
-                                            {t("deviceInformation")}
-                                        </div>
-                                        <div className="text-muted-foreground whitespace-pre-line">
-                                            {fingerprintInfo}
-                                        </div>
-                                    </div>
-                                </InfoPopup>
-                            )}
                             {r.archived && (
                                 <Badge variant="secondary">
                                     {t("archived")}
@@ -383,7 +466,25 @@ export default function UserDevicesTable({
             {
                 accessorKey: "userEmail",
                 friendlyName: t("users"),
-                header: () => <span className="px-3">{t("users")}</span>,
+                header: () => (
+                    <ColumnEntityFilter
+                        label={t("users")}
+                        open={userFilterOpen}
+                        onOpenChange={setUserFilterOpen}
+                        selectedName={selectedUser?.text}
+                        clearLabel={t("resourceSessionsFilterAnyUser")}
+                        onClear={() => {
+                            selectUser(null);
+                        }}
+                    >
+                        <UserSelector
+                            orgId={orgId}
+                            selectedUser={selectedUser}
+                            allowClear={false}
+                            onSelectUser={selectUser}
+                        />
+                    </ColumnEntityFilter>
+                ),
                 cell: ({ row }) => {
                     const r = row.original;
                     return r.userId ? (
@@ -578,10 +679,16 @@ export default function UserDevicesTable({
                         "Olm CLI": "olm"
                     };
 
+                    // agentVersion was added after olmVersion, and older olm
+                    // clients report the app version in olmVersion, so fall
+                    // back to it for rows that have not re-registered yet.
+                    const displayedVersion =
+                        originalRow.agentVersion ?? originalRow.olmVersion;
+
                     let updateAvailable = false;
 
                     if (
-                        originalRow.olmVersion &&
+                        displayedVersion &&
                         originalRow.agent &&
                         latestPlatformVersions
                     ) {
@@ -590,13 +697,14 @@ export default function UserDevicesTable({
                         ] as keyof LatestVersionResponse;
 
                         if (agent in latestPlatformVersions) {
-                            const agentVersion = latestPlatformVersions[agent];
+                            const latestAgentVersion =
+                                latestPlatformVersions[agent];
 
                             updateAvailable = Boolean(
-                                semver.valid(originalRow.olmVersion) &&
+                                semver.valid(displayedVersion) &&
                                 semver.lt(
-                                    originalRow.olmVersion,
-                                    agentVersion.latestVersion
+                                    displayedVersion,
+                                    latestAgentVersion.latestVersion
                                 )
                             );
                         }
@@ -604,11 +712,11 @@ export default function UserDevicesTable({
 
                     return (
                         <div className="flex items-center space-x-1">
-                            {originalRow.agent && originalRow.olmVersion ? (
+                            {originalRow.agent && displayedVersion ? (
                                 <Badge variant="secondary">
                                     {originalRow.agent +
                                         " v" +
-                                        originalRow.olmVersion}
+                                        displayedVersion}
                                 </Badge>
                             ) : (
                                 "-"
@@ -654,7 +762,7 @@ export default function UserDevicesTable({
                 cell: ({ row }) => {
                     const firstSeen = row.original.firstSeen;
                     if (!firstSeen) return "-";
-                    return new Date(firstSeen * 1000).toLocaleString();
+                    return <Timestamp value={firstSeen} unit="s" />;
                 }
             },
             {
@@ -685,7 +793,7 @@ export default function UserDevicesTable({
                 cell: ({ row }) => {
                     const lastSeen = row.original.lastSeen;
                     if (!lastSeen) return "-";
-                    return new Date(lastSeen * 1000).toLocaleString();
+                    return <Timestamp value={lastSeen} unit="s" />;
                 }
             }
         ];
@@ -784,7 +892,15 @@ export default function UserDevicesTable({
         });
 
         return baseColumns;
-    }, [hasRowsWithoutUserId, t, getSortDirection, toggleSort]);
+    }, [
+        hasRowsWithoutUserId,
+        t,
+        getSortDirection,
+        toggleSort,
+        orgId,
+        userFilterOpen,
+        selectedUser
+    ]);
 
     const statusFilterOptions = useMemo(() => {
         const allOptions = [
@@ -825,34 +941,6 @@ export default function UserDevicesTable({
         return allOptions;
     }, [t, latestPlatformVersions]);
 
-    function handleFilterChange(
-        column: string,
-        value: string | null | undefined | string[]
-    ) {
-        searchParams.delete(column);
-        searchParams.delete("page");
-
-        if (typeof value === "string") {
-            searchParams.set(column, value);
-        } else if (value) {
-            for (const val of value) {
-                searchParams.append(column, val);
-            }
-        }
-
-        filter({
-            searchParams
-        });
-    }
-
-    function toggleSort(column: string) {
-        const newSearch = getNextSortOrder(column, searchParams);
-
-        filter({
-            searchParams: newSearch
-        });
-    }
-
     const handlePaginationChange = (newPage: PaginationState) => {
         searchParams.set("page", (newPage.pageIndex + 1).toString());
         searchParams.set("pageSize", newPage.pageSize.toString());
@@ -868,6 +956,68 @@ export default function UserDevicesTable({
             searchParams
         });
     }, 300);
+
+    function renderExpandedRow(client: ClientRow) {
+        const fingerprint = client.fingerprint;
+        const normalizedPlatform =
+            fingerprint?.platform?.toLowerCase() || "unknown";
+        const isMobile =
+            normalizedPlatform === "ios" || normalizedPlatform === "android";
+
+        if (!fingerprint) {
+            return (
+                <div className="space-y-4 text-xs whitespace-normal">
+                    <p className="text-muted-foreground">
+                        {t("deviceInformationNotAvailable")}
+                    </p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-4 text-xs whitespace-normal">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {fingerprint.platform && (
+                        <DetailItem label={t("platform")}>
+                            {formatPlatform(fingerprint.platform)}
+                        </DetailItem>
+                    )}
+                    {fingerprint.deviceModel && (
+                        <DetailItem label={t("deviceModel")}>
+                            {fingerprint.deviceModel}
+                        </DetailItem>
+                    )}
+                    {fingerprint.osVersion && (
+                        <DetailItem label={t("osVersion")}>
+                            {fingerprint.osVersion}
+                        </DetailItem>
+                    )}
+                    {fingerprint.arch && (
+                        <DetailItem label={t("architecture")}>
+                            {fingerprint.arch}
+                        </DetailItem>
+                    )}
+                    {!isMobile && fingerprint.hostname && (
+                        <DetailItem label={t("hostname")}>
+                            {fingerprint.hostname}
+                        </DetailItem>
+                    )}
+                    {!isMobile && fingerprint.username && (
+                        <DetailItem label={t("username")}>
+                            {fingerprint.username}
+                        </DetailItem>
+                    )}
+                    {!isMobile && fingerprint.serialNumber && (
+                        <DetailItem label={t("serialNumber")}>
+                            <span className="font-mono">
+                                {fingerprint.serialNumber}
+                            </span>
+                        </DetailItem>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>
@@ -908,6 +1058,8 @@ export default function UserDevicesTable({
                 rowCount={rowCount}
                 stickyLeftColumn="name"
                 stickyRightColumn="actions"
+                renderExpandedRow={renderExpandedRow}
+                getRowId={(client) => String(client.id)}
                 filters={[
                     {
                         id: "status",

@@ -32,6 +32,7 @@ import { useRouter } from "next/navigation";
 import { startTransition, useMemo, useState, useTransition } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { ColumnFilterButton } from "./ColumnFilterButton";
+import { ColumnMultiFilterButton } from "./ColumnMultiFilterButton";
 import { LabelColumnFilterButton } from "./LabelColumnFilterButton";
 import { LabelsTableCell } from "./LabelsTableCell";
 import { Badge } from "./ui/badge";
@@ -43,6 +44,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import semver from "semver";
 import { InfoPopup } from "./ui/info-popup";
+import UserRoleBadges from "./UserRoleBadges";
 
 export type ClientRow = {
     id: number;
@@ -54,6 +56,7 @@ export type ClientRow = {
     orgId: string;
     online: boolean;
     olmVersion?: string;
+    agentVersion?: string;
     olmUpdateAvailable: boolean;
     userId: string | null;
     username: string | null;
@@ -68,20 +71,25 @@ export type ClientRow = {
         name: string;
         color: string;
     }>;
+    roleLabels: string[];
 };
+
+type FilterOption = { value: string; label: string };
 
 type ClientTableProps = {
     machineClients: ClientRow[];
     orgId: string;
     pagination: PaginationState;
     rowCount: number;
+    roleFilterOptions: FilterOption[];
 };
 
 export default function MachineClientsTable({
     machineClients,
     orgId,
     pagination,
-    rowCount
+    rowCount,
+    roleFilterOptions
 }: ClientTableProps) {
     const router = useRouter();
 
@@ -376,7 +384,52 @@ export default function MachineClientsTable({
             {
                 accessorKey: "client",
                 friendlyName: t("agent"),
-                header: () => <span className="px-3">{t("agent")}</span>,
+                header: () => (
+                    <ColumnFilterButton
+                        options={[
+                            {
+                                value: "macos",
+                                label: "Pangolin macOS"
+                            },
+                            {
+                                value: "ios",
+                                label: "Pangolin iOS"
+                            },
+                            {
+                                value: "ipados",
+                                label: "Pangolin iPadOS"
+                            },
+                            {
+                                value: "android",
+                                label: "Pangolin Android"
+                            },
+                            {
+                                value: "windows",
+                                label: "Pangolin Windows"
+                            },
+                            {
+                                value: "cli",
+                                label: "Pangolin CLI"
+                            },
+                            {
+                                value: "olm",
+                                label: "Olm CLI"
+                            },
+                            {
+                                value: "unknown",
+                                label: t("unknown")
+                            }
+                        ]}
+                        selectedValue={searchParams.get("agent") ?? undefined}
+                        onValueChange={(value) =>
+                            handleFilterChange("agent", value)
+                        }
+                        searchPlaceholder={t("searchPlaceholder")}
+                        emptyMessage={t("emptySearchOptions")}
+                        label={t("agent")}
+                        className="p-3"
+                    />
+                ),
                 cell: ({ row }) => {
                     const originalRow = row.original;
 
@@ -390,10 +443,16 @@ export default function MachineClientsTable({
                         "Olm CLI": "olm"
                     };
 
+                    // agentVersion was added after olmVersion, and older olm
+                    // clients report the app version in olmVersion, so fall
+                    // back to it for rows that have not re-registered yet.
+                    const displayedVersion =
+                        originalRow.agentVersion ?? originalRow.olmVersion;
+
                     let updateAvailable = false;
 
                     if (
-                        originalRow.olmVersion &&
+                        displayedVersion &&
                         originalRow.agent &&
                         latestPlatformVersions
                     ) {
@@ -402,13 +461,14 @@ export default function MachineClientsTable({
                         ] as keyof LatestVersionResponse;
 
                         if (agent in latestPlatformVersions) {
-                            const agentVersion = latestPlatformVersions[agent];
+                            const latestAgentVersion =
+                                latestPlatformVersions[agent];
 
                             updateAvailable = Boolean(
-                                semver.valid(originalRow.olmVersion) &&
+                                semver.valid(displayedVersion) &&
                                 semver.lt(
-                                    originalRow.olmVersion,
-                                    agentVersion.latestVersion
+                                    displayedVersion,
+                                    latestAgentVersion.latestVersion
                                 )
                             );
                         }
@@ -416,11 +476,11 @@ export default function MachineClientsTable({
 
                     return (
                         <div className="flex items-center space-x-1">
-                            {originalRow.agent && originalRow.olmVersion ? (
+                            {originalRow.agent && displayedVersion ? (
                                 <Badge variant="secondary">
                                     {originalRow.agent +
                                         " v" +
-                                        originalRow.olmVersion}
+                                        displayedVersion}
                                 </Badge>
                             ) : (
                                 "-"
@@ -436,6 +496,27 @@ export default function MachineClientsTable({
                 accessorKey: "subnet",
                 friendlyName: t("address"),
                 header: () => <span className="px-3">{t("address")}</span>
+            },
+            {
+                id: "role",
+                accessorFn: (row) => row.roleLabels.join(", "),
+                friendlyName: t("roles"),
+                header: () => (
+                    <ColumnMultiFilterButton
+                        options={roleFilterOptions}
+                        selectedValues={searchParams.getAll("role_id")}
+                        onSelectedValuesChange={(values) =>
+                            handleFilterChange("role_id", values)
+                        }
+                        searchPlaceholder={t("searchPlaceholder")}
+                        emptyMessage={t("emptySearchOptions")}
+                        label={t("roles")}
+                        className="p-3"
+                    />
+                ),
+                cell: ({ row }) => (
+                    <UserRoleBadges roleLabels={row.original.roleLabels} />
+                )
             },
             {
                 id: "labels",
@@ -540,7 +621,7 @@ export default function MachineClientsTable({
         }
 
         return baseColumns;
-    }, [hasRowsWithoutUserId, orgId, t, searchParams]);
+    }, [hasRowsWithoutUserId, orgId, t, searchParams, roleFilterOptions]);
 
     function handleFilterChange(
         column: string,

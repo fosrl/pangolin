@@ -19,6 +19,7 @@ import {
     type Label
 } from "@server/db";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { effectiveMtlsSql } from "@server/lib/mtls";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import response from "@server/lib/response";
 import logger from "@server/logger";
@@ -111,7 +112,7 @@ const listResourcesSchema = z.strictObject({
             type: "string",
             enum: ["protected", "not_protected", "none"],
             description:
-                "Filter resources based on authentication state. `protected` means the resource has at least one auth mechanism (password, pincode, header auth, SSO, or email whitelist). `not_protected` means the resource has no auth mechanisms. `none` means the resource is not protected by HTTP (i.e. it has no auth mechanisms and http is false)."
+                "Filter resources based on authentication state. `protected` means the resource has at least one auth mechanism (password, pincode, header auth, SSO, email whitelist, or mTLS). `not_protected` means the resource has no auth mechanisms. `none` means the resource is not protected by HTTP (i.e. it has no auth mechanisms and http is false)."
         }),
     healthStatus: z
         .enum(["healthy", "degraded", "unhealthy", "unknown"])
@@ -188,6 +189,7 @@ export type ResourceWithTargets = {
     sso: boolean;
     pincodeId: number | null;
     whitelist: boolean;
+    mtls: boolean;
     proxyPort: number | null;
     enabled: boolean;
     domainId: string | null;
@@ -306,6 +308,7 @@ function queryResourcesBase() {
             sso: effectiveSso,
             pincodeId: effectivePincodeId,
             whitelist: effectiveWhitelist,
+            mtls: effectiveMtlsSql(sharedPolicy, defaultPolicy),
             proxyPort: resources.proxyPort,
             enabled: resources.enabled,
             domainId: resources.domainId,
@@ -646,6 +649,7 @@ export async function listResources(
                     ${resourcePassword.passwordId}
                 )
             `;
+            const effectiveMtls = effectiveMtlsSql(sharedPolicy, defaultPolicy);
             const browserGatewayModes = ["http", "ssh", "rdp", "vnc"] as const;
 
             switch (authState) {
@@ -662,6 +666,7 @@ export async function listResources(
                             or(
                                 effectiveSso,
                                 effectiveWhitelist,
+                                effectiveMtls,
                                 not(isNull(effectiveHeaderAuthId)),
                                 not(isNull(effectivePincodeId)),
                                 not(isNull(effectivePasswordId))
@@ -675,6 +680,7 @@ export async function listResources(
                             inArray(resources.mode, browserGatewayModes),
                             not(effectiveSso),
                             not(effectiveWhitelist),
+                            not(effectiveMtls),
                             isNull(effectiveHeaderAuthId),
                             isNull(effectivePincodeId),
                             isNull(effectivePasswordId)
@@ -850,6 +856,7 @@ export async function listResources(
                     sso: row.sso ?? false,
                     pincodeId: row.pincodeId,
                     whitelist: row.whitelist ?? false,
+                    mtls: Boolean(row.mtls),
                     proxyPort: row.proxyPort,
                     wildcard: row.wildcard,
                     mode: row.mode,

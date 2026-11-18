@@ -24,6 +24,7 @@ import {
     loginPageBrandingOrg,
     loginPageOrg,
     orgs,
+    resourcePolicies,
     resources,
     roles,
     siteResources,
@@ -31,9 +32,12 @@ import {
     siteProvisioningKeyOrg,
     siteProvisioningKeys,
     alertRules,
-    targetHealthCheck
+    targetHealthCheck,
+    customDnsRecords,
+    orgDomains
 } from "@server/db";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import { clearIdpSessionGrants } from "#private/auth/sessions/idpRevalidation";
 
 /**
  * Get the maximum allowed retention days for a given tier
@@ -142,6 +146,17 @@ async function capRetentionDays(
         needsUpdate = true;
         logger.info(
             `Capping AI session log retention from ${org.settingsLogRetentionDaysAISessions} to ${maxRetentionDays} days for org ${orgId}`
+        );
+    }
+
+    if (
+        org.settingsLogRetentionDaysSsh !== null &&
+        org.settingsLogRetentionDaysSsh > maxRetentionDays
+    ) {
+        updates.settingsLogRetentionDaysSsh = maxRetentionDays;
+        needsUpdate = true;
+        logger.info(
+            `Capping SSH session log retention from ${org.settingsLogRetentionDaysSsh} to ${maxRetentionDays} days for org ${orgId}`
         );
     }
 
@@ -295,8 +310,8 @@ async function disableFeature(
                 await disableAISessionLogs(orgId);
                 break;
 
-            case TierFeature.RotateCredentials:
-                await disableRotateCredentials(orgId);
+            case TierFeature.SSHSessionLogs:
+                await disableSSHSessionLogs(orgId);
                 break;
 
             case TierFeature.MaintenancePage:
@@ -323,6 +338,10 @@ async function disableFeature(
                 await disableAutoProvisioning(orgId);
                 break;
 
+            case TierFeature.SessionRevalidation:
+                await disableSessionRevalidation(orgId);
+                break;
+
             case TierFeature.FullRbac:
                 await disableFullRbac(orgId);
                 break;
@@ -337,6 +356,10 @@ async function disableFeature(
 
             case TierFeature.StandaloneHealthChecks:
                 await disableStandaloneHealthChecks(orgId);
+                break;
+
+            case TierFeature.CustomDnsRecords:
+                await disableCustomDnsRecords(orgId);
                 break;
 
             default:
@@ -506,6 +529,15 @@ async function disableAISessionLogs(orgId: string): Promise<void> {
     logger.info(`Disabled AI session logs for org ${orgId}`);
 }
 
+async function disableSSHSessionLogs(orgId: string): Promise<void> {
+    await db
+        .update(orgs)
+        .set({ settingsLogRetentionDaysSsh: 0 })
+        .where(eq(orgs.orgId, orgId));
+
+    logger.info(`Disabled SSH session logs for org ${orgId}`);
+}
+
 async function disableRotateCredentials(orgId: string): Promise<void> {}
 
 async function disablemaintenancePage(orgId: string): Promise<void> {
@@ -517,6 +549,27 @@ async function disablemaintenancePage(orgId: string): Promise<void> {
         .where(eq(resources.orgId, orgId));
 
     logger.info(`Disabled maintenance page on all resources for org ${orgId}`);
+}
+
+// The uploaded CA certificates are kept so mTLS can be re-enabled on upgrade.
+async function disableMtls(orgId: string): Promise<void> {
+    await db
+        .update(resources)
+        .set({
+            mtlsEnabled: false
+        })
+        .where(eq(resources.orgId, orgId));
+
+    await db
+        .update(resourcePolicies)
+        .set({
+            mtlsEnabled: false
+        })
+        .where(eq(resourcePolicies.orgId, orgId));
+
+    logger.info(
+        `Disabled mTLS on all resources and resource policies for org ${orgId}`
+    );
 }
 
 async function disableDevicePosture(orgId: string): Promise<void> {}
@@ -557,6 +610,25 @@ async function disableAlertingRules(orgId: string): Promise<void> {
     logger.info(`Disabled all alert rules for org ${orgId}`);
 }
 
+async function disableCustomDnsRecords(orgId: string): Promise<void> {
+    // Records are kept (just stop being served) so re-subscribing restores
+    // them by re-enabling
+    await db
+        .update(customDnsRecords)
+        .set({ enabled: false, updatedAt: Date.now() })
+        .where(
+            inArray(
+                customDnsRecords.domainId,
+                db
+                    .select({ domainId: orgDomains.domainId })
+                    .from(orgDomains)
+                    .where(eq(orgDomains.orgId, orgId))
+            )
+        );
+
+    logger.info(`Disabled all custom DNS records for org ${orgId}`);
+}
+
 async function disableStandaloneHealthChecks(orgId: string): Promise<void> {
     await db
         .update(targetHealthCheck)
@@ -572,17 +644,27 @@ async function disableStandaloneHealthChecks(orgId: string): Promise<void> {
 }
 
 async function disableAutoProvisioning(orgId: string): Promise<void> {
-    // Get all IDP IDs for this org through the idpOrg join table
-    const orgIdps = await db
+    // Disable auto-provision only for this org's IdP links so shared IdPs
+    // keep auto-provision enabled in sibling orgs.
+    await db
+        .update(idpOrg)
+        .set({ autoProvision: false })
+        .where(eq(idpOrg.orgId, orgId));
+}
+
+async function disableSessionRevalidation(orgId: string): Promise<void> {
+    const linkedIdps = await db
         .select({ idpId: idpOrg.idpId })
         .from(idpOrg)
         .where(eq(idpOrg.orgId, orgId));
 
-    // Update autoProvision to false for all IDPs in this org
-    for (const { idpId } of orgIdps) {
+    for (const { idpId } of linkedIdps) {
         await db
             .update(idp)
-            .set({ autoProvision: false })
+            .set({ sessionRevalidation: false })
             .where(eq(idp.idpId, idpId));
+        await clearIdpSessionGrants(idpId);
     }
+
+    logger.info(`Disabled session revalidation for org ${orgId}`);
 }

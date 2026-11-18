@@ -7,6 +7,7 @@ import {
     refineGoogleDirectorySyncFields
 } from "@app/components/GoogleIDPAPIConfigFields";
 import IdpUserProvisioningFields from "@app/components/IdpUserProvisioningFields";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import {
     SettingsContainer,
@@ -20,6 +21,7 @@ import {
 } from "@app/components/Settings";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import { OidcIdpProviderTypeSelect } from "@app/components/idp/OidcIdpProviderTypeSelect";
+import { SwitchInput } from "@app/components/SwitchInput";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { Button } from "@app/components/ui/button";
 import {
@@ -36,6 +38,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 import { applyOidcIdpProviderType } from "@app/lib/idp/oidcIdpProviderDefaults";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -102,6 +105,7 @@ export default function Page() {
             apiIntegrationEnabled: z.boolean().default(false),
             allowManualProvisioning: z.boolean().default(true),
             autoProvision: z.boolean().default(false),
+            sessionRevalidation: z.boolean().default(false),
             roleMapping: z.string().nullable().optional(),
             roleId: z.number().nullable().optional(),
             orgMapping: z.string().optional(),
@@ -141,6 +145,7 @@ export default function Page() {
             apiIntegrationEnabled: false,
             allowManualProvisioning: true,
             autoProvision: false,
+            sessionRevalidation: false,
             roleMapping: null,
             roleId: null,
             orgMapping: "",
@@ -217,6 +222,11 @@ export default function Page() {
                 return;
             }
 
+            let scopes = data.scopes || "openid profile email";
+            if (data.sessionRevalidation) {
+                scopes = scopesForSessionRevalidation(scopes, data.type);
+            }
+
             const payload: Record<string, unknown> = {
                 name: data.name,
                 clientId: data.clientId,
@@ -253,8 +263,9 @@ export default function Page() {
                           data.syncCreateMissingRoles
                       ),
                 directorySyncDeletions: data.directorySyncDeletions,
+                sessionRevalidation: data.sessionRevalidation,
                 roleMapping: roleMappingExpression,
-                scopes: data.scopes,
+                scopes,
                 variant: data.type
             };
             if (data.type === "google") {
@@ -363,6 +374,57 @@ export default function Page() {
                                                 </FormItem>
                                             )}
                                         />
+                                        {!env.flags
+                                            .disableEnterpriseFeatures && (
+                                            <div className="space-y-2">
+                                                <PaidFeaturesAlert
+                                                    tiers={
+                                                        tierMatrix.sessionRevalidation
+                                                    }
+                                                />
+                                                <SwitchInput
+                                                    id="session-revalidation-toggle"
+                                                    label={t(
+                                                        "idpSessionRevalidation"
+                                                    )}
+                                                    checked={form.watch(
+                                                        "sessionRevalidation"
+                                                    )}
+                                                    onCheckedChange={(
+                                                        checked
+                                                    ) => {
+                                                        form.setValue(
+                                                            "sessionRevalidation",
+                                                            checked
+                                                        );
+                                                        if (checked) {
+                                                            const current =
+                                                                form.getValues(
+                                                                    "scopes"
+                                                                ) ||
+                                                                "openid profile email";
+                                                            form.setValue(
+                                                                "scopes",
+                                                                scopesForSessionRevalidation(
+                                                                    current,
+                                                                    form.getValues(
+                                                                        "type"
+                                                                    )
+                                                                )
+                                                            );
+                                                        }
+                                                    }}
+                                                    disabled={
+                                                        !isPaidUser(
+                                                            tierMatrix.sessionRevalidation
+                                                        )
+                                                    }
+                                                />
+                                                <FormDescription>
+                                                    <IdpSessionRevalidationDescription />
+                                                </FormDescription>
+                                            </div>
+                                        )}
                                     </form>
                                 </Form>
                             </SettingsSectionForm>
@@ -420,7 +482,11 @@ export default function Page() {
                     )}
 
                     {/* User Provisioning */}
-                    <SettingsSection>
+                    <SettingsSection
+                        className={
+                            form.watch("autoProvision") ? undefined : "min-h-0"
+                        }
+                    >
                         <SettingsSectionHeader>
                             <SettingsSectionTitle>
                                 {t("idpUserProvisioning")}

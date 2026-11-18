@@ -63,6 +63,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { RefreshCwIcon } from "lucide-react";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
+import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
+import type { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { SwitchInput } from "@app/components/SwitchInput";
+import type { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -101,6 +106,7 @@ export default function GeneralPage() {
     // the server refuses the sync too, so don't offer it without the plan
     const canSyncNow =
         savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
+    const { isPaidUser } = usePaidStatus();
 
     // OIDC form schema (full configuration)
     const OidcFormSchema = z.object({
@@ -122,6 +128,7 @@ export default function GeneralPage() {
         autoProvision: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
         directorySyncDeletions: z.boolean().default(true),
+        sessionRevalidation: z.boolean().default(false),
         orgMapping: z.string().optional(),
         syncOrgMapping: z.string().optional(),
         mappingsLinked: z.boolean().default(true),
@@ -144,6 +151,7 @@ export default function GeneralPage() {
             autoProvision: z.boolean().default(false),
             directorySyncEnabled: z.boolean().default(false),
             directorySyncDeletions: z.boolean().default(true),
+            sessionRevalidation: z.boolean().default(false),
             orgMapping: z.string().optional(),
             syncOrgMapping: z.string().optional(),
             mappingsLinked: z.boolean().default(true),
@@ -174,6 +182,7 @@ export default function GeneralPage() {
         autoProvision: z.boolean().default(false),
         directorySyncEnabled: z.boolean().default(false),
         directorySyncDeletions: z.boolean().default(true),
+        sessionRevalidation: z.boolean().default(false),
         orgMapping: z.string().optional(),
         syncOrgMapping: z.string().optional(),
         mappingsLinked: z.boolean().default(true),
@@ -216,6 +225,7 @@ export default function GeneralPage() {
             autoProvision: true,
             directorySyncEnabled: false,
             directorySyncDeletions: true,
+            sessionRevalidation: false,
             roleMapping: null,
             roleId: null,
             tenantId: "",
@@ -282,10 +292,14 @@ export default function GeneralPage() {
                         apiIntegrationEnabled: data.idp.apiIntegrationEnabled,
                         allowManualProvisioning:
                             data.idp.allowManualProvisioning,
-                        autoProvision: data.idp.autoProvision,
+                        autoProvision:
+                            data.idpOrg?.autoProvision ??
+                            data.idp.autoProvision,
                         directorySyncEnabled: data.idp.directorySyncEnabled,
                         directorySyncDeletions:
                             data.idpOrg?.directorySyncDeletions ?? true,
+                        sessionRevalidation:
+                            data.idp.sessionRevalidation ?? false,
                         roleMapping: roleMapping || null,
                         roleId: null,
                         orgMapping: data.idpOrg?.orgMapping ?? "",
@@ -444,6 +458,7 @@ export default function GeneralPage() {
                     supportsApiIntegration(variant) &&
                     data.apiIntegrationEnabled &&
                     data.directorySyncEnabled,
+                sessionRevalidation: data.sessionRevalidation,
                 roleMapping: roleMappingExpression,
                 orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed,
                 syncRoleMapping: syncRoleMappingExpression || null,
@@ -470,6 +485,10 @@ export default function GeneralPage() {
             // Add variant-specific fields
             if (variant === "oidc") {
                 const oidcData = data as OidcFormValues;
+                let scopes = oidcData.scopes;
+                if (data.sessionRevalidation) {
+                    scopes = scopesForSessionRevalidation(scopes, "oidc");
+                }
                 payload = {
                     ...payload,
                     authUrl: oidcData.authUrl,
@@ -477,13 +496,17 @@ export default function GeneralPage() {
                     identifierPath: oidcData.identifierPath,
                     emailPath: oidcData.emailPath || "",
                     namePath: oidcData.namePath || "",
-                    scopes: oidcData.scopes
+                    scopes
                 };
             } else if (variant === "azure") {
                 const azureData = data as AzureFormValues;
                 // Construct URLs dynamically for Azure provider
                 const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
                 const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
+                let scopes = "openid profile email";
+                if (data.sessionRevalidation) {
+                    scopes = scopesForSessionRevalidation(scopes, "azure");
+                }
                 payload = {
                     ...payload,
                     authUrl: authUrl,
@@ -491,10 +514,10 @@ export default function GeneralPage() {
                     identifierPath: "email",
                     emailPath: "email",
                     namePath: "name",
-                    scopes: "openid profile email"
+                    scopes
                 };
             } else if (variant === "google") {
-                // Google uses predefined URLs
+                // Google refresh tokens use access_type=offline, not offline_access
                 payload = {
                     ...payload,
                     authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -662,6 +685,55 @@ export default function GeneralPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    {!env.flags.disableEnterpriseFeatures && (
+                                        <div className="space-y-2">
+                                            <PaidFeaturesAlert
+                                                tiers={
+                                                    tierMatrix.sessionRevalidation
+                                                }
+                                            />
+                                            <SwitchInput
+                                                id="session-revalidation-toggle"
+                                                label={t(
+                                                    "idpSessionRevalidation"
+                                                )}
+                                                checked={form.watch(
+                                                    "sessionRevalidation"
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    form.setValue(
+                                                        "sessionRevalidation",
+                                                        checked
+                                                    );
+                                                    if (
+                                                        checked &&
+                                                        variant === "oidc"
+                                                    ) {
+                                                        const current =
+                                                            form.getValues(
+                                                                "scopes"
+                                                            ) ||
+                                                            "openid profile email";
+                                                        form.setValue(
+                                                            "scopes",
+                                                            scopesForSessionRevalidation(
+                                                                current,
+                                                                "oidc"
+                                                            )
+                                                        );
+                                                    }
+                                                }}
+                                                disabled={
+                                                    !isPaidUser(
+                                                        tierMatrix.sessionRevalidation
+                                                    )
+                                                }
+                                            />
+                                            <FormDescription>
+                                                <IdpSessionRevalidationDescription />
+                                            </FormDescription>
+                                        </div>
+                                    )}
                                 </form>
                             </Form>
                         </SettingsSectionForm>
@@ -670,7 +742,11 @@ export default function GeneralPage() {
 
                 {/* API Integration */}
                 {supportsApiIntegration(variant) && (
-                    <SettingsSection>
+                    <SettingsSection
+                        className={
+                            form.watch("autoProvision") ? undefined : "min-h-0"
+                        }
+                    >
                         <SettingsSectionHeader>
                             <SettingsSectionTitle>
                                 {t("idpApiIntegration")}

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { z } from "zod";
+import { config, z } from "zod";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db } from "@server/db";
 import response from "@server/lib/response";
@@ -15,6 +15,8 @@ import config from "@server/lib/config";
 import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
 import license from "#dynamic/license/license";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
+import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
+import { clearIdpSessionGrants } from "#dynamic/auth/sessions/idpRevalidation";
 
 const paramsSchema = z
     .object({
@@ -39,6 +41,7 @@ const bodySchema = z.strictObject({
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, omitted secrets are kept from the stored config
     apiConfig: z.record(z.string(), z.unknown()).optional(),
+    sessionRevalidation: z.boolean().optional(),
     defaultRoleMapping: z.string().optional(),
     defaultOrgMapping: z.string().optional(),
     defaultCreateMissingRoles: z.boolean().optional(),
@@ -116,7 +119,6 @@ export async function updateOidcIdp(
             clientSecret,
             authUrl,
             tokenUrl,
-            scopes,
             identifierPath,
             emailPath,
             namePath,
@@ -137,6 +139,8 @@ export async function updateOidcIdp(
             tags,
             variant
         } = parsedBody.data;
+
+        let { scopes, sessionRevalidation } = parsedBody.data;
 
         if (process.env.IDENTITY_PROVIDER_MODE === "org") {
             return next(
@@ -164,6 +168,25 @@ export async function updateOidcIdp(
                     "IdP is not an OIDC provider"
                 )
             );
+        }
+
+        if (sessionRevalidation === true) {
+            const [existingConfig] = await db
+                .select({
+                    scopes: idpOidcConfig.scopes,
+                    variant: idpOidcConfig.variant
+                })
+                .from(idpOidcConfig)
+                .where(eq(idpOidcConfig.idpId, idpId))
+                .limit(1);
+            const effectiveVariant = variant ?? existingConfig?.variant;
+            const baseScopes = scopes ?? existingConfig?.scopes;
+            if (baseScopes) {
+                scopes = scopesForSessionRevalidation(
+                    baseScopes,
+                    effectiveVariant
+                );
+            }
         }
 
         const key = config.getRawConfig().server.secret!;
@@ -236,6 +259,7 @@ export async function updateOidcIdp(
                 directorySyncEnabled: effectiveDirectorySyncEnabled,
                 directorySyncDeletions,
                 apiConfig: resolvedApiConfig.value,
+                sessionRevalidation,
                 defaultRoleMapping,
                 defaultOrgMapping,
                 defaultCreateMissingRoles,
@@ -280,6 +304,10 @@ export async function updateOidcIdp(
                     .where(eq(idpOidcConfig.idpId, idpId));
             }
         });
+
+        if (sessionRevalidation === false) {
+            await clearIdpSessionGrants(idpId);
+        }
 
         return response<UpdateIdpResponse>(res, {
             data: {

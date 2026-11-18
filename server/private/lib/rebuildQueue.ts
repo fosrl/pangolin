@@ -66,6 +66,24 @@ class RedisRebuildQueue {
         }
     }
 
+    // Pipelines the membership checks so any number of jobs costs one round trip
+    async anyQueued(jobs: RebuildJob[]): Promise<boolean> {
+        if (jobs.length === 0) return false;
+        if (!redis || redis.status !== "ready") return false;
+        try {
+            const pipeline = redis.pipeline();
+            for (const job of jobs) {
+                pipeline.sismember(QUEUED_SET_KEY, `${job.type}:${job.id}`);
+            }
+            const results = await pipeline.exec();
+            return (results ?? []).some(
+                ([err, member]) => !err && member === 1
+            );
+        } catch {
+            return false;
+        }
+    }
+
     async enqueue(job: RebuildJob): Promise<void> {
         if (!redis || redis.status !== "ready") {
             logger.warn(

@@ -99,7 +99,7 @@ export async function exportAccessAuditLogs(
 
         const csvData = generateCSV(log);
 
-        res.setHeader("Content-Type", "text/csv");
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
         res.setHeader(
             "Content-Disposition",
             `attachment; filename="access-audit-logs-${data.orgId}-${Date.now()}.csv"`

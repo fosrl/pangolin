@@ -12,6 +12,7 @@ import {
 } from "@server/db";
 import response from "@server/lib/response";
 import logger from "@server/logger";
+import { OpenAPITags, registry } from "@server/openApi";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, isNull } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -29,6 +30,40 @@ const attachLabelBodySchema = z.strictObject({
     resourceId: z.number().int().optional(),
     siteResourceId: z.number().int().optional(),
     clientId: z.number().int().optional()
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/org/{orgId}/label/{labelId}/attach",
+    description:
+        "Attach a label to a site, public resource, private resource or client.",
+    tags: [OpenAPITags.Label],
+    request: {
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: attachLabelBodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export async function attachLabelToItem(

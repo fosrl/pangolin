@@ -4,7 +4,6 @@ import { clients, clientSitesAssociationsCache, Olm } from "@server/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { updatePeersBatch } from "../newt/peers";
 import logger from "@server/logger";
-import config from "@server/lib/config";
 import { parseSiteChainBatch, resolveNewtIdsBySite } from "./batchUtils";
 
 export const handleOlmRelayMessage: MessageHandler = async (context) => {
@@ -77,6 +76,7 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         siteId: number;
         chainId?: string;
         relayEndpoint: string;
+        relayPort: number;
     }[] = [];
 
     for (let i = 0; i < siteIds.length; i++) {
@@ -97,7 +97,8 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         valid.push({
             siteId,
             chainId: chainIds[i],
-            relayEndpoint: exitNode.endpoint
+            relayEndpoint: exitNode.endpoint,
+            relayPort: exitNode.relayPort
         });
     }
 
@@ -121,7 +122,9 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         );
 
     // Only ack sites we can actually tell their newt to relay for
-    const newtIdBySiteId = await resolveNewtIdsBySite(valid.map((v) => v.siteId));
+    const newtIdBySiteId = await resolveNewtIdsBySite(
+        valid.map((v) => v.siteId)
+    );
     const pushable = valid.filter((v) => {
         if (!newtIdBySiteId.has(v.siteId)) {
             logger.warn(`Newt not found for site ${v.siteId}`);
@@ -144,19 +147,36 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
         }))
     );
 
-    const relayPort = config.getRawConfig().gerbil.clients_start_port;
-
     if (isBatch) {
+        // olm treats relayPort as a single value shared by the whole batch, so
+        // send one batched ack per distinct relay port
+        const byPort = new Map<number, typeof pushable>();
+        for (const v of pushable) {
+            const group = byPort.get(v.relayPort);
+            if (group) {
+                group.push(v);
+            } else {
+                byPort.set(v.relayPort, [v]);
+            }
+        }
+
+        const messages = [...byPort.entries()].map(([relayPort, group]) => ({
+            type: "olm/wg/peer/relay",
+            data: {
+                siteIds: group.map((v) => v.siteId),
+                relayEndpoints: group.map((v) => v.relayEndpoint),
+                relayPort,
+                chainIds: group.map((v) => v.chainId)
+            }
+        }));
+
+        const last = messages.pop()!;
+        for (const msg of messages) {
+            await sendToClient(olm.olmId, msg);
+        }
+
         return {
-            message: {
-                type: "olm/wg/peer/relay",
-                data: {
-                    siteIds: pushable.map((v) => v.siteId),
-                    relayEndpoints: pushable.map((v) => v.relayEndpoint),
-                    relayPort,
-                    chainIds: pushable.map((v) => v.chainId)
-                }
-            },
+            message: last,
             broadcast: false,
             excludeSender: false
         };
@@ -169,7 +189,7 @@ export const handleOlmRelayMessage: MessageHandler = async (context) => {
             data: {
                 siteId: single.siteId,
                 relayEndpoint: single.relayEndpoint,
-                relayPort,
+                relayPort: single.relayPort,
                 chainId: single.chainId
             }
         },

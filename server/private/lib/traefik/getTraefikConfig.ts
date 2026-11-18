@@ -11,80 +11,89 @@
  * This file is not licensed under the AGPLv3.
  */
 
+import { regionalCache } from "#private/lib/cache";
+import privateConfig from "#private/lib/config";
+import license from "#private/license/license";
+import { build } from "@server/build";
 import {
     certificates,
     db,
     domainNamespaces,
     domains,
+    exitNodeOrgs,
     exitNodes,
     loginPage,
-    SiteResource,
-    targetHealthCheck
-} from "@server/db";
-import {
-    and,
-    eq,
-    inArray,
-    or,
-    isNull,
-    ne,
-    isNotNull,
-    desc,
-    sql
-} from "drizzle-orm";
-import logger from "@server/logger";
-import config from "@server/lib/config";
-import {
-    orgs,
+    redirects,
     resources,
-    sites,
     siteNetworks,
+    SiteResource,
     siteResources,
+    sites,
+    targetHealthCheck,
     targets
 } from "@server/db";
-import {
-    sanitize,
-    encodePath,
-    validatePathRewriteConfig
-} from "@server/lib/traefik/utils";
-import privateConfig from "#private/lib/config";
-import { applyPathRewriteMiddleware } from "@server/lib/traefik/middleware";
 import {
     CertificateResult,
     getValidCertificatesForDomains
 } from "@server/lib/certificates";
-import { build } from "@server/build";
-import license from "#private/license/license";
-import regionalCache from "#private/lib/cache";
-import { TargetWithSite } from "@server/lib/traefik/types";
-import { buildWildcardTls } from "@server/lib/traefik/certResolver";
+import config from "@server/lib/config";
 import {
-    buildHostRule,
-    appendPathMatch,
-    computeRoutePriority
-} from "@server/lib/traefik/rule";
-import {
-    buildHttpLoadBalancerServers,
-    buildStickySessionCookie,
-    buildTcpUdpLoadBalancerServers,
-    buildStickySessionIp
-} from "@server/lib/traefik/loadBalancer";
-import { buildCustomHeadersMiddleware } from "@server/lib/traefik/headersMiddleware";
-import {
+    AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
     AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE,
     AI_GATEWAY_TRUST_MIDDLEWARE_SITE_RESOURCE,
-    AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
-    getAiGatewayHost,
-    buildAiGatewayTrustMiddlewares,
     buildAiGatewayClientIpMiddleware,
     buildAiGatewayHostHeaderMiddleware,
-    buildAiGatewayRouterAndService
+    buildAiGatewayRouterAndService,
+    buildAiGatewayTrustMiddlewares,
+    getAiGatewayHost
 } from "@server/lib/traefik/aiGatewayMiddlewares";
 import {
-    buildBrowserGatewayResourcesMap,
-    buildBrowserGatewayConfig
+    buildBrowserGatewayConfig,
+    buildBrowserGatewayResourcesMap
 } from "@server/lib/traefik/browserGateway";
+import { buildWildcardTls } from "@server/lib/traefik/certResolver";
+import { buildCustomHeadersMiddleware } from "@server/lib/traefik/headersMiddleware";
+import {
+    applyMtlsConfig,
+    getMtlsCaCertificatesByResource
+} from "@server/lib/traefik/mtls";
+import {
+    buildHttpLoadBalancerServers,
+    buildLoadBalancingStrategy,
+    buildStickySessionCookie,
+    buildStickySessionIp,
+    buildTcpUdpLoadBalancerServers
+} from "@server/lib/traefik/loadBalancer";
+import { applyPathRewriteMiddleware } from "@server/lib/traefik/middleware";
+import {
+    buildRedirectConfig,
+    RedirectRouteRow
+} from "@server/lib/traefik/redirect";
+import {
+    appendPathMatch,
+    buildHostRule,
+    computeRoutePriority,
+    ruleValue
+} from "@server/lib/traefik/rule";
 import { buildSiteResourceAliasCertPlaceholders } from "@server/lib/traefik/siteResourceAlias";
+import { ResourceWithTargets } from "@server/lib/traefik/types";
+import {
+    encodePath,
+    sanitize,
+    validatePathRewriteConfig
+} from "@server/lib/traefik/utils";
+import logger from "@server/logger";
+import {
+    and,
+    desc,
+    eq,
+    inArray,
+    isNotNull,
+    isNull,
+    not,
+    or,
+    sql
+} from "drizzle-orm";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const redirectToRootMiddlewareName = "redirect-to-root";
@@ -130,6 +139,7 @@ export async function getTraefikConfig(
             domainId: resources.domainId,
             enabled: resources.enabled,
             stickySession: resources.stickySession,
+            loadBalancingStrategy: resources.loadBalancingStrategy,
             tlsServerName: resources.tlsServerName,
             setHostHeader: resources.setHostHeader,
             enableProxy: resources.enableProxy,
@@ -138,6 +148,7 @@ export async function getTraefikConfig(
             proxyProtocol: resources.proxyProtocol,
             proxyProtocolVersion: resources.proxyProtocolVersion,
             wildcard: resources.wildcard,
+            matchBaseDomain: resources.matchBaseDomain,
             mode: resources.mode,
 
             maintenanceModeEnabled: resources.maintenanceModeEnabled,
@@ -215,7 +226,7 @@ export async function getTraefikConfig(
         .orderBy(desc(targets.priority), targets.targetId); // stable ordering
 
     // Group by resource and include targets with their unique site data
-    const resourcesMap = new Map();
+    const resourcesMap = new Map<string, ResourceWithTargets>();
 
     for (const row of resourcesWithTargetsAndSites) {
         if (!["http", "tcp", "udp"].includes(row.mode)) {
@@ -243,7 +254,7 @@ export async function getTraefikConfig(
             .filter(Boolean)
             .join("-");
         const mapKey = [resourceId, pathKey].filter(Boolean).join("-");
-        const key = sanitize(mapKey);
+        const key = sanitize(mapKey) ?? "";
 
         if (!resourcesMap.has(mapKey)) {
             const validation = validatePathRewriteConfig(
@@ -272,6 +283,7 @@ export async function getTraefikConfig(
                 domainId: row.domainId,
                 enabled: row.enabled,
                 stickySession: row.stickySession,
+                loadBalancingStrategy: row.loadBalancingStrategy,
                 tlsServerName: row.tlsServerName,
                 setHostHeader: row.setHostHeader,
                 enableProxy: row.enableProxy,
@@ -288,6 +300,7 @@ export async function getTraefikConfig(
                 domainCertResolver: row.domainCertResolver,
                 preferWildcardCert: row.preferWildcardCert,
                 wildcard: row.wildcard,
+                matchBaseDomain: row.matchBaseDomain,
 
                 maintenanceModeEnabled: row.maintenanceModeEnabled,
                 maintenanceModeType: row.maintenanceModeType,
@@ -298,7 +311,7 @@ export async function getTraefikConfig(
         }
 
         // Add target with its associated site data
-        resourcesMap.get(mapKey).targets.push({
+        resourcesMap.get(mapKey)!.targets.push({
             resourceId: row.resourceId,
             targetId: row.targetId,
             ip: row.ip,
@@ -398,6 +411,110 @@ export async function getTraefikConfig(
             )
         );
 
+    // Redirects have no targets/sites, so like inference resources they are
+    // queried separately and emitted on every exit node. A redirect listens
+    // either on a resource's fullDomain or on subdomain.baseDomain of a
+    // domain; the domain join resolves to whichever one applies.
+    // Remote exit nodes belong to specific orgs, so only emit the redirects
+    // of those orgs - otherwise every other org's redirect hosts leak to them.
+    const isRemoteExitNode = exitNode?.type === "remoteExitNode";
+    const redirectRows = await db
+        .select({
+            name: redirects.name,
+            enabled: redirects.enabled,
+            redirectId: redirects.redirectId,
+            subdomain: redirects.subdomain,
+            matchPath: redirects.matchPath,
+            pathMatchType: redirects.pathMatchType,
+            priority: redirects.priority,
+            ssl: redirects.ssl,
+            // Resource (when attached to one)
+            resourceId: resources.resourceId,
+            resourceFullDomain: resources.fullDomain,
+            resourceSubdomain: resources.subdomain,
+            resourceSsl: resources.ssl,
+            resourceWildcard: resources.wildcard,
+            resourceMatchBaseDomain: resources.matchBaseDomain,
+            // Domain (the redirect's own, or the resource's)
+            baseDomain: domains.baseDomain,
+            domainCertResolver: domains.certResolver,
+            preferWildcardCert: domains.preferWildcardCert,
+            domainNamespaceId: domainNamespaces.domainNamespaceId
+        })
+        .from(redirects)
+        .leftJoin(resources, eq(resources.resourceId, redirects.resourceId))
+        .leftJoin(
+            domains,
+            eq(
+                domains.domainId,
+                sql`coalesce(${redirects.domainId}, ${resources.domainId})`
+            )
+        )
+        .leftJoin(
+            domainNamespaces,
+            eq(domainNamespaces.domainId, domains.domainId)
+        )
+        .where(
+            and(
+                eq(redirects.enabled, true),
+                or(
+                    isNull(redirects.resourceId),
+                    and(
+                        eq(resources.enabled, true),
+                        not(isNull(resources.domainId))
+                    )
+                ),
+                isRemoteExitNode
+                    ? inArray(
+                          redirects.orgId,
+                          db
+                              .select({ orgId: exitNodeOrgs.orgId })
+                              .from(exitNodeOrgs)
+                              .where(eq(exitNodeOrgs.exitNodeId, exitNodeId))
+                      )
+                    : undefined
+            )
+        )
+        .orderBy(desc(redirects.priority), redirects.redirectId); // stable ordering
+
+    const redirectRoutes: RedirectRouteRow[] = [];
+    for (const row of redirectRows) {
+        if (filterOutNamespaceDomains && row.domainNamespaceId) {
+            continue;
+        }
+
+        const attachedToResource = row.resourceId !== null;
+        const fullDomain = attachedToResource
+            ? row.resourceFullDomain
+            : [row.subdomain, row.baseDomain].filter(Boolean).join(".");
+        if (!fullDomain) {
+            logger.debug(
+                `Redirect ${row.redirectId} has no host to listen on, skipping Traefik config`
+            );
+            continue;
+        }
+
+        redirectRoutes.push({
+            enabled: row.enabled,
+            name: sanitize(row.name) || "",
+            redirectId: row.redirectId,
+            fullDomain,
+            hasSubdomain: attachedToResource
+                ? !!row.resourceSubdomain
+                : !!row.subdomain,
+            wildcard: row.resourceWildcard,
+            matchBaseDomain: row.resourceMatchBaseDomain,
+            ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
+            attachedTo: attachedToResource ? "resource" : "domain",
+            resourceId: row.resourceId,
+            matchPath: row.matchPath,
+            pathMatchType: row.pathMatchType,
+            priority: row.priority,
+            domainCertResolver: row.domainCertResolver,
+            preferWildcardCert: row.preferWildcardCert
+        });
+    }
+
     // Pangolin-managed DNS-01/ACME cert mode requires either a tier1
     // license (self-hosted) or a saas build - otherwise fall back to
     // Traefik's own cert resolvers (buildWildcardTls) throughout.
@@ -437,10 +554,34 @@ export async function getTraefikConfig(
                 domains.add(sr.fullDomain);
             }
         }
+        // Include redirect hosts
+        for (const redirect of redirectRoutes) {
+            if (redirect.ssl) {
+                domains.add(redirect.fullDomain);
+            }
+        }
         // get the valid certs for these domains
         validCerts = await getValidCertificatesForDomains(domains, true); // we are caching here because this is called often
         // logger.debug(`Valid certs for domains: ${JSON.stringify(validCerts)}`);
     }
+
+    // Trusted client-CA certificates for resources that require mTLS: HTTP,
+    // browser-gateway (SSH/RDP/VNC) and inference resources served over SSL,
+    // and the redirects attached to them.
+    const mtlsCaCertsByResource = await getMtlsCaCertificatesByResource([
+        ...[...resourcesMap.values()]
+            .filter((r) => r.mode === "http" && r.ssl)
+            .map((r) => r.resourceId as number),
+        ...[...browserGatewayResourcesMap.values()]
+            .filter((r) => r.ssl)
+            .map((r) => r.resourceId),
+        ...inferenceResources.filter((r) => r.ssl).map((r) => r.resourceId),
+        // redirects attached to a resource share its host, and are emitted
+        // even on exit nodes that don't serve the resource itself
+        ...redirectRoutes
+            .filter((r) => r.attachedTo === "resource" && r.ssl)
+            .map((r) => r.resourceId!)
+    ]);
 
     const traefikRateLimit = config.getRawConfig().traefik.rate_limit;
 
@@ -471,7 +612,7 @@ export async function getTraefikConfig(
 
     // get the key and the resource
     for (const [, resource] of resourcesMap.entries()) {
-        const targets = resource.targets as TargetWithSite[];
+        const targets = resource.targets;
         const key = resource.key;
 
         const routerName = `${key}-${resource.name}-router`;
@@ -480,9 +621,9 @@ export async function getTraefikConfig(
         const transportName = `${key}-transport`;
         const headersMiddlewareName = `${key}-headers-middleware`;
 
-        logger.debug(
-            `Processing resource ${resource.name} with domain ${fullDomain} and ${targets.length} targets`
-        );
+        // logger.debug(
+        //     `Processing resource ${resource.name} with domain ${fullDomain} and ${targets.length} targets`
+        // );
 
         if (!resource.enabled) {
             logger.debug(
@@ -523,7 +664,11 @@ export async function getTraefikConfig(
                 ...additionalMiddlewares
             ];
 
-            let rule: string = buildHostRule(fullDomain, resource.wildcard);
+            let rule: string = buildHostRule(
+                fullDomain,
+                resource.wildcard,
+                resource.matchBaseDomain
+            );
 
             const priority = computeRoutePriority(
                 resource.priority,
@@ -531,14 +676,15 @@ export async function getTraefikConfig(
                 resource.pathMatchType
             );
 
-            let tls = {};
+            let tls: Record<string, any> = {};
             if (!pangolinCertModeEnabled) {
                 tls = buildWildcardTls({
                     fullDomain,
                     hasSubdomain: !!resource.subdomain,
                     domainCertResolver: resource.domainCertResolver,
                     preferWildcardCert:
-                        resource.preferWildcardCert || resource.wildcard
+                        resource.preferWildcardCert || resource.wildcard,
+                    matchBaseDomain: resource.matchBaseDomain
                 });
             } else {
                 // find a cert that matches the full domain, if not continue
@@ -553,9 +699,26 @@ export async function getTraefikConfig(
                 }
             }
 
+            const mtlsOptionsName = resource.ssl
+                ? applyMtlsConfig(
+                      config_output,
+                      resource.resourceId,
+                      mtlsCaCertsByResource.get(resource.resourceId),
+                      routerMiddlewares
+                  )
+                : undefined;
+            if (mtlsOptionsName) {
+                // every TLS router below (including the maintenance ones)
+                // must reference the same options
+                tls = { ...tls, options: mtlsOptionsName };
+            }
+
             config_output.http.services![serviceName] = {
                 loadBalancer: {
                     servers: buildHttpLoadBalancerServers(targets),
+                    ...buildLoadBalancingStrategy(
+                        resource.loadBalancingStrategy
+                    ),
                     ...(resource.stickySession
                         ? buildStickySessionCookie(resource.ssl)
                         : {})
@@ -594,7 +757,7 @@ export async function getTraefikConfig(
 
                 if (!target.site.online) return false;
 
-                if (target.health == "unhealthy") return false;
+                if (target.health === "unhealthy") return false;
 
                 return true;
             });
@@ -784,10 +947,41 @@ export async function getTraefikConfig(
         }
     }
 
+    buildRedirectConfig({
+        config_output,
+        redirects: redirectRoutes,
+        mtlsCaCertsByResource,
+        badgerMiddlewareName,
+        redirectHttpsMiddlewareName,
+        resolveTls: (redirect) => {
+            if (!privateConfig.getRawPrivateConfig().flags.use_pangolin_dns) {
+                return buildWildcardTls({
+                    fullDomain: redirect.fullDomain,
+                    hasSubdomain: redirect.hasSubdomain,
+                    domainCertResolver: redirect.domainCertResolver,
+                    preferWildcardCert:
+                        redirect.preferWildcardCert || redirect.wildcard,
+                    matchBaseDomain: redirect.matchBaseDomain
+                });
+            }
+            const matchingCert = validCerts.find(
+                (cert) => cert.queriedDomain === redirect.fullDomain
+            );
+            if (!matchingCert) {
+                logger.debug(
+                    `No matching certificate found for redirect domain: ${redirect.fullDomain}`
+                );
+                return null;
+            }
+            return {};
+        }
+    });
+
     if (browserGatewayUiUrl) {
         buildBrowserGatewayConfig({
             config_output,
             browserGatewayResourcesMap,
+            mtlsCaCertsByResource,
             browserGatewayUiUrl,
             maintenancePageUiUrl,
             badgerMiddlewareName,
@@ -968,6 +1162,18 @@ export async function getTraefikConfig(
 
             routerMiddlewares.push(...additionalMiddlewares);
 
+            const mtlsOptionsName = ir.ssl
+                ? applyMtlsConfig(
+                      config_output,
+                      ir.resourceId,
+                      mtlsCaCertsByResource.get(ir.resourceId),
+                      routerMiddlewares
+                  )
+                : undefined;
+            if (mtlsOptionsName) {
+                tls = { ...tls, options: mtlsOptionsName };
+            }
+
             const { routers, services } = buildAiGatewayRouterAndService({
                 routerName,
                 serviceName,
@@ -1007,7 +1213,7 @@ export async function getTraefikConfig(
                 const srKey = `inference-sr${sr.siteResourceId}`;
                 const routerName = `${srKey}-router`;
                 const serviceName = `${srKey}-service`;
-                const rule = `Host(\`${fullDomain}\`) && ClientIP(\`${exitNode.address}\`)`; // restrict to coming from the exit node ip range that the client is connected to
+                const rule = `${buildHostRule(fullDomain)} && ClientIP(${ruleValue(exitNode.address)})`; // restrict to coming from the exit node ip range that the client is connected to
 
                 let tls: any = {};
                 if (!pangolinCertModeEnabled) {
@@ -1068,23 +1274,30 @@ export async function getTraefikConfig(
         }
     }
 
+    const usePangolinDns =
+        privateConfig.getRawPrivateConfig().flags.use_pangolin_dns;
+
     if (generateLoginPageRouters) {
         const exitNodeLoginPages = await db
             .select({
                 loginPageId: loginPage.loginPageId,
                 fullDomain: loginPage.fullDomain,
+                subdomain: loginPage.subdomain,
                 exitNodeId: exitNodes.exitNodeId,
-                domainId: loginPage.domainId
+                domainId: loginPage.domainId,
+                domainCertResolver: domains.certResolver,
+                preferWildcardCert: domains.preferWildcardCert
             })
             .from(loginPage)
             .innerJoin(
                 exitNodes,
                 eq(exitNodes.exitNodeId, loginPage.exitNodeId)
             )
+            .leftJoin(domains, eq(domains.domainId, loginPage.domainId))
             .where(eq(exitNodes.exitNodeId, exitNodeId));
 
         let validCertsLoginPages: CertificateResult[] = [];
-        if (pangolinCertModeEnabled) {
+        if (usePangolinDns) {
             // create a list of all domains to get certs for
             const domains = new Set<string>();
             for (const lp of exitNodeLoginPages) {
@@ -1128,9 +1341,14 @@ export async function getTraefikConfig(
                     continue;
                 }
 
-                const tls = {};
-                if (!pangolinCertModeEnabled) {
-                    // TODO: we need to add the wildcard logic here too
+                let tls: Record<string, any> = {};
+                if (!usePangolinDns) {
+                    tls = buildWildcardTls({
+                        fullDomain: lp.fullDomain,
+                        hasSubdomain: !!lp.subdomain,
+                        domainCertResolver: lp.domainCertResolver,
+                        preferWildcardCert: lp.preferWildcardCert
+                    });
                 } else {
                     // find a cert that matches the full domain, if not continue
                     const matchingCert = validCertsLoginPages.find(
@@ -1163,7 +1381,7 @@ export async function getTraefikConfig(
                     ],
                     middlewares: [landingRateLimitMiddlewareName],
                     service: "landing-service",
-                    rule: `Host(\`${fullDomain}\`) && (PathRegexp(\`^/auth/resource/[^/]+$\`) || PathRegexp(\`^/auth/idp/[0-9]+/oidc/callback\`) || PathPrefix(\`/_next\`) || Path(\`/auth/org\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
+                    rule: `${buildHostRule(fullDomain)} && (PathRegexp(\`^/auth/resource/[^/]+$\`) || PathRegexp(\`^/auth/idp/[0-9]+/oidc/callback\`) || PathPrefix(\`/_next\`) || Path(\`/auth/org\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
                     priority: 203,
                     tls: tls
                 };
@@ -1185,7 +1403,7 @@ export async function getTraefikConfig(
                         redirectToRootMiddlewareName
                     ],
                     service: "landing-service",
-                    rule: `Host(\`${fullDomain}\`)`,
+                    rule: buildHostRule(fullDomain),
                     priority: 202,
                     tls: tls
                 };
@@ -1197,7 +1415,7 @@ export async function getTraefikConfig(
                     ],
                     middlewares: [redirectHttpsMiddlewareName],
                     service: "landing-service",
-                    rule: `Host(\`${fullDomain}\`)`,
+                    rule: buildHostRule(fullDomain),
                     priority: 201
                 };
             }

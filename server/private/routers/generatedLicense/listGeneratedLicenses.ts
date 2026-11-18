@@ -17,38 +17,10 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { response as sendResponse } from "@server/lib/response";
 import { getFirstString } from "@server/lib/requestParams";
-import privateConfig from "#private/lib/config";
-import {
-    GeneratedLicenseKey,
-    ListGeneratedLicenseKeysResponse
-} from "@server/routers/generatedLicense/types";
-
-async function fetchLicenseKeys(orgId: string): Promise<any> {
-    try {
-        const response = await fetch(
-            `${privateConfig.getRawPrivateConfig().server.fossorial_api}/api/v1/license-internal/enterprise/${orgId}/list`,
-            {
-                method: "GET",
-                headers: {
-                    "api-key":
-                        privateConfig.getRawPrivateConfig().server
-                            .fossorial_api_key!,
-                    "Content-Type": "application/json"
-                }
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error("Error fetching license keys:", error);
-        throw error;
-    }
-}
+import stripe from "#private/lib/stripe";
+import { listOrgLicenses } from "#private/lib/billing/licenseApi";
+import { ListGeneratedLicenseKeysResponse } from "@server/routers/generatedLicense/types";
+import { toGeneratedLicenseKey } from "./licenseSubscription";
 
 export async function listSaasLicenseKeys(
     req: Request,
@@ -67,8 +39,34 @@ export async function listSaasLicenseKeys(
             );
         }
 
-        const apiResponse = await fetchLicenseKeys(orgId);
-        const keys: GeneratedLicenseKey[] = apiResponse.data.licenseKeys || [];
+        const result = await listOrgLicenses(orgId);
+        if (!result.ok) {
+            throw new Error(
+                `Fossorial API returned ${result.status} listing licenses for org ${orgId}: ${result.body}`
+            );
+        }
+
+        // Paid keys show their subscription's state (renewal date, whether
+        // it is set to cancel, whether it can be edited).
+        const keys = await Promise.all(
+            result.data.licenseKeys.map(async (license) => {
+                if (!license.stripeSubscriptionId) {
+                    return toGeneratedLicenseKey(license, null);
+                }
+                try {
+                    const subscription = await stripe!.subscriptions.retrieve(
+                        license.stripeSubscriptionId
+                    );
+                    return toGeneratedLicenseKey(license, subscription);
+                } catch (error) {
+                    logger.error(
+                        `Failed to load subscription ${license.stripeSubscriptionId} for a license in org ${orgId}:`,
+                        error
+                    );
+                    return toGeneratedLicenseKey(license, null);
+                }
+            })
+        );
 
         return sendResponse<ListGeneratedLicenseKeysResponse>(res, {
             data: keys,

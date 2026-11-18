@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 import { InferSelectModel, sql } from "drizzle-orm";
 import {
-    check,
     index,
     integer,
     primaryKey,
@@ -69,6 +68,9 @@ export const orgs = sqliteTable("orgs", {
     ) // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
         .notNull()
         .default(7),
+    settingsLogRetentionDaysSsh: integer("settingsLogRetentionDaysSsh") // where 0 = dont keep logs and -1 = keep forever and 9001 = end of the following year
+        .notNull()
+        .default(0),
     sshCaPrivateKey: text("sshCaPrivateKey"), // Encrypted SSH CA private key (PEM format)
     sshCaPublicKey: text("sshCaPublicKey"), // SSH CA public key (OpenSSH format)
     isBillingOrg: integer("isBillingOrg", { mode: "boolean" }),
@@ -130,7 +132,7 @@ export const sites = sqliteTable(
         address: text("address"), // this is the address of the wireguard interface in newt
         endpoint: text("endpoint"), // this is how to reach gerbil externally - gets put into the wireguard config
         localEndpoints: text("localEndpoints"), // JSON encoded list of string ips on the local machine to try to connect to
-        publicKey: text("publicKey"), // TODO: Fix typo in publicKey
+        publicKey: text("publicKey"),
         lastHolePunch: integer("lastHolePunch"),
         listenPort: integer("listenPort"),
         dockerSocketEnabled: integer("dockerSocketEnabled", { mode: "boolean" })
@@ -197,6 +199,10 @@ export const resources = sqliteTable(
         stickySession: integer("stickySession", { mode: "boolean" })
             .notNull()
             .default(false),
+        loadBalancingStrategy: text("loadBalancingStrategy")
+            .$type<"wrr" | "p2c" | "hrw" | "leasttime">()
+            .notNull()
+            .default("wrr"), // traefik http loadBalancer.strategy
         tlsServerName: text("tlsServerName"),
         setHostHeader: text("setHostHeader"),
         enableProxy: integer("enableProxy", { mode: "boolean" }).default(true),
@@ -220,9 +226,20 @@ export const resources = sqliteTable(
         maintenanceTitle: text("maintenanceTitle"),
         maintenanceMessage: text("maintenanceMessage"),
         maintenanceEstimatedTime: text("maintenanceEstimatedTime"),
+        mtlsEnabled: integer("mtlsEnabled", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        forwardIdentityHeaders: integer("forwardIdentityHeaders", {
+            mode: "boolean"
+        })
+            .notNull()
+            .default(true),
         postAuthPath: text("postAuthPath"),
         health: text("health").default("unknown"), // "healthy", "unhealthy", "unknown"
         wildcard: integer("wildcard", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        matchBaseDomain: integer("matchBaseDomain", { mode: "boolean" }) // wildcard resources only: also serve the host the wildcard sits under
             .notNull()
             .default(false),
         mode: text("mode")
@@ -244,6 +261,43 @@ export const resources = sqliteTable(
     },
     (table) => [index("idx_resources_orgId").on(table.orgId)]
 );
+
+export const redirects = sqliteTable("redirects", {
+    redirectId: integer("redirectId").primaryKey({ autoIncrement: true }),
+    orgId: text("orgId")
+        .references(() => orgs.orgId, {
+            onDelete: "cascade"
+        })
+        .notNull(),
+    resourceId: integer("resourceId").references(() => resources.resourceId, {
+        onDelete: "cascade"
+    }),
+    domainId: text("domainId").references(() => domains.domainId, {
+        onDelete: "cascade"
+    }),
+    niceId: text("niceId").notNull(),
+    name: text("name").notNull(),
+    subdomain: text("subdomain"),
+    destinationHost: text("destinationHost").notNull(), // scheme://host[:port]
+    pathMatchType: text("pathMatchType")
+        .$type<"exact" | "prefix" | "regex">()
+        .notNull()
+        .default("regex"), // exact, prefix, regex
+    matchPath: text("matchPath"),
+    rewritePath: text("rewritePath"), // if set, rewrites the path to this value,
+    //  else, the original path will be kept
+    rewritePathType: text("rewritePathType").$type<
+        "exact" | "prefix" | "regex" | "stripPrefix"
+    >(), // exact, prefix, regex, stripPrefix
+    priority: integer("priority").default(100),
+    permanent: integer("permanent", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    // Only consulted for domain-attached redirects; resource-attached ones
+    // inherit the resource's ssl setting.
+    ssl: integer("ssl", { mode: "boolean" }).notNull().default(true),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true)
+});
 
 export const resourceAiProviders = sqliteTable(
     "resourceAiProviders",
@@ -481,6 +535,7 @@ export const exitNodes = sqliteTable("exitNodes", {
     endpoint: text("endpoint").notNull(), // this is how to reach gerbil externally - gets put into the wireguard config
     publicKey: text("publicKey").notNull(),
     listenPort: integer("listenPort").notNull(),
+    relayPort: integer("relayPort").notNull().default(21820),
     reachableAt: text("reachableAt"), // this is the internal address of the gerbil http server for command control
     maxConnections: integer("maxConnections"),
     online: integer("online", { mode: "boolean" }).notNull().default(false),
@@ -801,6 +856,7 @@ export const olms = sqliteTable(
         dateCreated: text("dateCreated").notNull(),
         version: text("version"),
         agent: text("agent"),
+        agentVersion: text("agentVersion"),
         name: text("name"),
         clientId: integer("clientId").references(() => clients.clientId, {
             // we will switch this depending on the current org it wants to connect to
@@ -988,10 +1044,37 @@ export const sessions = sqliteTable(
         issuedAt: integer("issuedAt"),
         deviceAuthUsed: integer("deviceAuthUsed", { mode: "boolean" })
             .notNull()
-            .default(false)
+            .default(false),
+        // Client details captured when the session was created
+        ip: text("ip"),
+        userAgent: text("userAgent"),
+        countryCode: text("countryCode"),
+        asn: integer("asn")
     },
     (table) => [index("idx_sessions_userId").on(table.userId)]
 );
+
+export const idpGrants = sqliteTable("idpGrants", {
+    grantId: text("grantId").primaryKey(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    refreshToken: text("refreshToken").notNull(),
+    validatedAt: integer("validatedAt").notNull(),
+    attemptedAt: integer("attemptedAt"),
+    leaseId: text("leaseId"),
+    leaseExpiresAt: integer("leaseExpiresAt"),
+    revokedAt: integer("revokedAt")
+});
+
+export const sessionIdpGrants = sqliteTable("sessionIdpGrants", {
+    sessionId: text("sessionId")
+        .primaryKey()
+        .references(() => sessions.sessionId, { onDelete: "cascade" }),
+    grantId: text("grantId")
+        .notNull()
+        .references(() => idpGrants.grantId, { onDelete: "cascade" })
+});
 
 export const newtSessions = sqliteTable("newtSession", {
     sessionId: text("id").primaryKey(),
@@ -1099,6 +1182,27 @@ export const userOrgRoles = sqliteTable(
             .references(() => roles.roleId, { onDelete: "cascade" })
     },
     (t) => [unique().on(t.userId, t.orgId, t.roleId)]
+);
+
+// roles assigned to machine clients (clients with no userId) so they can be
+// granted access to site resources through roleSiteResources like users are
+export const clientOrgRoles = sqliteTable(
+    "clientOrgRoles",
+    {
+        clientId: integer("clientId")
+            .notNull()
+            .references(() => clients.clientId, { onDelete: "cascade" }),
+        orgId: text("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        roleId: integer("roleId")
+            .notNull()
+            .references(() => roles.roleId, { onDelete: "cascade" })
+    },
+    (t) => [
+        unique().on(t.clientId, t.orgId, t.roleId),
+        index("idx_clientOrgRoles_roleId").on(t.roleId)
+    ]
 );
 
 export const roleActions = sqliteTable("roleActions", {
@@ -1373,7 +1477,15 @@ export const resourceSessions = sqliteTable("resourceSessions", {
             onDelete: "cascade"
         }
     ),
-    issuedAt: integer("issuedAt")
+    issuedAt: integer("issuedAt"),
+    // Id of the short-lived request token this session was exchanged from.
+    // Login audit logs reference that id, so this links them to the session.
+    requestSessionId: text("requestSessionId"),
+    // Client details captured when the session was created
+    ip: text("ip"),
+    userAgent: text("userAgent"),
+    countryCode: text("countryCode"),
+    asn: integer("asn")
 });
 
 export const resourceWhitelist = sqliteTable("resourceWhitelist", {
@@ -1494,6 +1606,9 @@ export const resourcePolicies = sqliteTable("resourcePolicies", {
     emailWhitelistEnabled: integer("emailWhitelistEnabled", { mode: "boolean" })
         .notNull()
         .default(false),
+    mtlsEnabled: integer("mtlsEnabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
     niceId: text("niceId").notNull(),
     idpId: integer("idpId").references(() => idp.idpId, {
         onDelete: "set null"
@@ -1544,6 +1659,11 @@ export const idp = sqliteTable("idp", {
         .default(true),
     // Just in time provisioning, at login
     autoProvision: integer("autoProvision", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    sessionRevalidation: integer("sessionRevalidation", {
         mode: "boolean"
     })
         .notNull()
@@ -1698,6 +1818,9 @@ export const idpOrg = sqliteTable("idpOrg", {
     // JIT (autoProvision) mappings
     roleMapping: text("roleMapping"),
     orgMapping: text("orgMapping"),
+    autoProvision: integer("autoProvision", { mode: "boolean" })
+        .notNull()
+        .default(false),
     // Create the roles returned by the role mapping that don't exist in the org
     createMissingRoles: integer("createMissingRoles", { mode: "boolean" })
         .notNull()
@@ -1789,7 +1912,8 @@ export const deviceWebAuthCodes = sqliteTable("deviceWebAuthCodes", {
     verified: integer("verified", { mode: "boolean" }).notNull().default(false),
     userId: text("userId").references(() => users.userId, {
         onDelete: "cascade"
-    })
+    }),
+    approvingSessionId: text("approvingSessionId")
 });
 
 export const roundTripMessageTracker = sqliteTable("roundTripMessageTracker", {
@@ -2106,6 +2230,50 @@ export const certificates = sqliteTable("certificates", {
     keyFile: text("keyFile")
 });
 
+export const resourceMtlsCertificates = sqliteTable(
+    "resourceMtlsCertificates",
+    {
+        mtlsCertificateId: integer("mtlsCertificateId").primaryKey({
+            autoIncrement: true
+        }),
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" }),
+        name: text("name"),
+        certificate: text("certificate").notNull(),
+        subject: text("subject"),
+        issuer: text("issuer"),
+        serialNumber: text("serialNumber"),
+        fingerprint: text("fingerprint"),
+        notBefore: integer("notBefore"),
+        notAfter: integer("notAfter"),
+        createdAt: integer("createdAt").notNull()
+    }
+);
+
+export const resourcePolicyMtlsCertificates = sqliteTable(
+    "resourcePolicyMtlsCertificates",
+    {
+        mtlsCertificateId: integer("mtlsCertificateId").primaryKey({
+            autoIncrement: true
+        }),
+        resourcePolicyId: integer("resourcePolicyId")
+            .notNull()
+            .references(() => resourcePolicies.resourcePolicyId, {
+                onDelete: "cascade"
+            }),
+        name: text("name"),
+        certificate: text("certificate").notNull(),
+        subject: text("subject"),
+        issuer: text("issuer"),
+        serialNumber: text("serialNumber"),
+        fingerprint: text("fingerprint"),
+        notBefore: integer("notBefore"),
+        notAfter: integer("notAfter"),
+        createdAt: integer("createdAt").notNull()
+    }
+);
+
 export type Org = InferSelectModel<typeof orgs>;
 export type User = InferSelectModel<typeof users>;
 export type Site = InferSelectModel<typeof sites>;
@@ -2134,6 +2302,7 @@ export type UserInvite = InferSelectModel<typeof userInvites>;
 export type UserInviteRole = InferSelectModel<typeof userInviteRoles>;
 export type UserOrg = InferSelectModel<typeof userOrgs>;
 export type UserOrgRole = InferSelectModel<typeof userOrgRoles>;
+export type ClientOrgRole = InferSelectModel<typeof clientOrgRoles>;
 export type ResourceSession = InferSelectModel<typeof resourceSessions>;
 export type ResourcePincode = InferSelectModel<typeof resourcePincode>;
 export type ResourcePassword = InferSelectModel<typeof resourcePassword>;
@@ -2168,6 +2337,7 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;
 export type SecurityKey = InferSelectModel<typeof securityKeys>;
@@ -2192,6 +2362,7 @@ export type ResourcePolicyHeaderAuth = InferSelectModel<
 >;
 export type RolePolicy = InferSelectModel<typeof rolePolicies>;
 export type UserPolicy = InferSelectModel<typeof userPolicies>;
+export type Redirect = InferSelectModel<typeof redirects>;
 export type AiProvider = InferSelectModel<typeof aiProviders>;
 export type AiModel = InferSelectModel<typeof aiModels>;
 export type AiBudget = InferSelectModel<typeof aiBudgets>;
@@ -2204,3 +2375,9 @@ export type SiteResourceAiProvider = InferSelectModel<
 export type ResourceAiModel = InferSelectModel<typeof resourceAiModels>;
 export type SiteResourceAiModel = InferSelectModel<typeof siteResourceAiModels>;
 export type Certificate = InferSelectModel<typeof certificates>;
+export type ResourceMtlsCertificate = InferSelectModel<
+    typeof resourceMtlsCertificates
+>;
+export type ResourcePolicyMtlsCertificate = InferSelectModel<
+    typeof resourcePolicyMtlsCertificates
+>;

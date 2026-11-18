@@ -2,6 +2,7 @@ import "@server/extendZod";
 import { assertEqualsObj } from "@test/assert";
 import {
     buildHttpLoadBalancerServers,
+    buildLoadBalancingStrategy,
     buildTcpUdpLoadBalancerServers
 } from "./loadBalancer";
 import type { TargetWithSite } from "./types";
@@ -10,21 +11,12 @@ function makeTarget(ip: string, siteType: string): TargetWithSite {
     return {
         targetId: 1,
         resourceId: 1,
-        providerId: null,
-        siteId: 1,
         ip,
         port: 8080,
         internalPort: 9000,
         method: "http",
         enabled: true,
         health: "healthy",
-        path: null,
-        pathMatchType: null,
-        rewritePath: null,
-        rewritePathType: null,
-        priority: 100,
-        mode: "http",
-        authToken: null,
         site: {
             siteId: 1,
             type: siteType,
@@ -72,6 +64,24 @@ function runTests() {
             buildTcpUdpLoadBalancerServers([target]),
             [{ address: `${host}:9000` }],
             "Newt TCP/UDP target should use the subnet endpoint and internal port"
+        );
+    }
+
+    assertEqualsObj(
+        buildLoadBalancingStrategy("wrr"),
+        {},
+        "Default wrr strategy should be omitted"
+    );
+    assertEqualsObj(
+        buildLoadBalancingStrategy(null),
+        {},
+        "Missing strategy should be omitted"
+    );
+    for (const strategy of ["p2c", "hrw", "leasttime"]) {
+        assertEqualsObj(
+            buildLoadBalancingStrategy(strategy),
+            { strategy },
+            `${strategy} strategy should be emitted`
         );
     }
 

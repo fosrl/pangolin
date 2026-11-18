@@ -5,6 +5,7 @@ import type { ListOrgIdpsResponse } from "@server/routers/orgIdp/types";
 import type { ListRolesResponse } from "@server/routers/role/listRoles";
 import { ListUsersResponse } from "@server/routers/user";
 import UsersTable, { UserRow } from "@app/components/UsersTable";
+import UsersBanner from "@app/components/UsersBanner";
 import { GetOrgResponse } from "@server/routers/org";
 import { cache } from "react";
 import OrgProvider from "@app/providers/OrgProvider";
@@ -143,6 +144,7 @@ export default async function UsersPage(props: UsersPageProps) {
                 title={t("accessUsersManage")}
                 description={t("accessUsersDescription")}
             />
+            <UsersBanner orgId={params.orgId} />
             <UserProvider user={user!}>
                 <OrgProvider org={org}>
                     <UsersTable

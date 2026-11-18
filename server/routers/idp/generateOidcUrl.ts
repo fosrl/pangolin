@@ -128,13 +128,20 @@ export async function generateOidcUrl(
             }
         }
 
+        const isGoogle = existingIdp.idpOidcConfig.variant === "google";
         const parsedScopes = existingIdp.idpOidcConfig.scopes
             .split(" ")
             .map((scope) => {
                 return scope.trim();
             })
             .filter((scope) => {
-                return scope.length > 0;
+                if (scope.length === 0) {
+                    return false;
+                }
+                if (isGoogle && scope === "offline_access") {
+                    return false;
+                }
+                return true;
             });
 
         const key = config.getRawConfig().server.secret!;
@@ -169,6 +176,13 @@ export async function generateOidcUrl(
             codeVerifier,
             parsedScopes
         );
+
+        // Google issues refresh tokens via access_type=offline; prompt=consent
+        // is required so returning users still receive a refresh token.
+        if (existingIdp.idp.sessionRevalidation && isGoogle) {
+            url.searchParams.set("access_type", "offline");
+            url.searchParams.set("prompt", "consent");
+        }
 
         const stateJwt = jsonwebtoken.sign(
             {

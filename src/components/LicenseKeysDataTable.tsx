@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { DataTable } from "@app/components/ui/data-table";
 import { Button } from "@app/components/ui/button";
@@ -8,7 +9,6 @@ import { LicenseKeyCache } from "@server/license/license";
 import { ArrowUpDown } from "lucide-react";
 import CopyToClipboard from "@app/components/CopyToClipboard";
 import { useTranslations } from "next-intl";
-import moment from "moment";
 
 type LicenseKeysDataTableProps = {
     licenseKeys: LicenseKeyCache[];
@@ -103,12 +103,11 @@ export function LicenseKeysDataTable({
                 switch (tier) {
                     case "enterprise":
                         return t("licenseTierEnterprise");
-                    case "tier1":
-                        return t("licenseTierTier1");
-                    case "tier2":
-                        return t("licenseTierTier2");
-                    default:
+                    case "personal":
+                    case undefined:
                         return t("licenseTierPersonal");
+                    default:
+                        return t("licenseTierBusiness");
                 }
             }
         },
@@ -161,6 +160,30 @@ export function LicenseKeysDataTable({
             }
         },
         {
+            accessorKey: "quantity_3",
+            friendlyName: t("machineClients"),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() =>
+                            column.toggleSorting(column.getIsSorted() === "asc")
+                        }
+                    >
+                        {t("machineClients")}
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                );
+            },
+            cell: ({ row }) => {
+                const quantity = row.original.quantity_3;
+                if (quantity === undefined) {
+                    return "-";
+                }
+                return quantity < 0 ? t("licenseUnlimited") : quantity;
+            }
+        },
+        {
             accessorKey: "terminateAt",
             friendlyName: t("licenseTableValidUntil"),
             header: ({ column }) => {
@@ -178,7 +201,7 @@ export function LicenseKeysDataTable({
             },
             cell: ({ row }) => {
                 const termianteAt = row.original.terminateAt;
-                return moment(termianteAt).format("lll");
+                return <Timestamp value={termianteAt} />;
             }
         },
         {

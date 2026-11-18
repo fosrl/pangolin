@@ -4,6 +4,17 @@ import { configFilePath1, configFilePath2 } from "./consts";
 import { z } from "zod";
 import stoi from "./stoi";
 import { getEnvOrYaml, readEnvOrFile } from "./getEnvOrYaml";
+import { getRunMode } from "./runMode";
+// type-only: offlineThresholds imports config, which imports this file
+import type { OfflineThresholds } from "@server/lib/offlineThresholds";
+
+export const DEFAULT_OFFLINE_THRESHOLDS: OfflineThresholds = {
+    checkIntervalMs: 30 * 1000, // 30 seconds
+    newtMs: 2 * 60 * 1000, // 2 minutes
+    newtWireguardMs: 8 * 60 * 1000, // 8 minutes
+    olmMs: 2 * 60 * 1000, // 2 minutes
+    remoteExitNodeMs: 2 * 60 * 1000 // 2 minutes
+};
 
 const portSchema = z.number().positive().gt(0).lte(65535);
 
@@ -209,7 +220,7 @@ export const configSchema = z
                             .positive()
                             .optional()
                             .default(5000),
-                        jit_mode: z.boolean().default(true)
+                        jit_mode: z.boolean().default(false)
                     })
                     .prefault({})
             })
@@ -315,6 +326,10 @@ export const configSchema = z
                 base_endpoint: z
                     .string()
                     .optional()
+                    // The standalone DNS server never creates exit nodes
+                    .transform((url) =>
+                        url === undefined && getRunMode() === "dns" ? "" : url
+                    )
                     .pipe(z.string())
                     .transform((url) => url.toLowerCase()),
                 subnet_group: z.string().optional().default("100.89.137.0/18"),
@@ -402,6 +417,7 @@ export const configSchema = z
                 disable_user_create_org: z.boolean().optional(),
                 allow_raw_resources: z.boolean().optional(),
                 enable_integration_api: z.boolean().optional(),
+                enable_api_create_user_sessions: z.boolean().optional().default(false),
                 disable_local_sites: z.boolean().optional(),
                 disable_basic_wireguard_sites: z.boolean().optional(),
                 disable_config_managed_domains: z.boolean().optional(),
@@ -456,6 +472,36 @@ export const configSchema = z
                     })
                     .prefault({})
             })
+            .prefault({}),
+        // How long a newt site / olm client / remote exit node has to go
+        // without a ping before the offline checker marks it offline, and how
+        // often the checkers run.
+        offline_checker: z
+            .object({
+                check_interval_ms: z
+                    .number()
+                    .int()
+                    .positive()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.checkIntervalMs),
+                newt_threshold_ms: z
+                    .number()
+                    .int()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.newtMs),
+                // wireguard sites don't ping, so they are judged by their
+                // last bandwidth update instead
+                newt_wireguard_threshold_ms: z
+                    .number()
+                    .int()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.newtWireguardMs),
+                olm_threshold_ms: z
+                    .number()
+                    .int()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.olmMs),
+                remote_exit_node_threshold_ms: z
+                    .number()
+                    .int()
+                    .default(DEFAULT_OFFLINE_THRESHOLDS.remoteExitNodeMs)
+            })
             .prefault({})
     })
     .refine(
@@ -476,6 +522,10 @@ export const configSchema = z
     )
     .refine(
         (data) => {
+            // The standalone DNS server never uses the secret
+            if (getRunMode() === "dns") {
+                return true;
+            }
             // If hybrid is not defined, server secret must be defined
             return (
                 data.server?.secret !== undefined &&

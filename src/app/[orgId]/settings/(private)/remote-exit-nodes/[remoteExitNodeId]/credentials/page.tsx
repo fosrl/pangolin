@@ -17,10 +17,7 @@ import { toast } from "@app/hooks/useToast";
 import { useParams, useRouter } from "next/navigation";
 import { AxiosResponse } from "axios";
 import { useTranslations } from "next-intl";
-import {
-    PickRemoteExitNodeDefaultsResponse,
-    QuickStartRemoteExitNodeResponse
-} from "@server/routers/remoteExitNode/types";
+import { PickRemoteExitNodeDefaultsResponse } from "@server/routers/remoteExitNode/types";
 import { useRemoteExitNodeContext } from "@app/hooks/useRemoteExitNodeContext";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
 import {
@@ -30,11 +27,10 @@ import {
     InfoSectionTitle
 } from "@app/components/InfoSection";
 import CopyToClipboard from "@app/components/CopyToClipboard";
+import CopyTextBox from "@app/components/CopyTextBox";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { InfoIcon } from "lucide-react";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
-import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { build } from "@server/build";
 
 export default function CredentialsPage() {
     const { env } = useEnvContext();
@@ -44,14 +40,7 @@ export default function CredentialsPage() {
     const t = useTranslations();
     const { remoteExitNode } = useRemoteExitNodeContext();
 
-    const { isPaidUser } = usePaidStatus();
-
     const [modalOpen, setModalOpen] = useState(false);
-    const [credentials, setCredentials] =
-        useState<PickRemoteExitNodeDefaultsResponse | null>(null);
-    const [currentRemoteExitNodeId, setCurrentRemoteExitNodeId] = useState<
-        string | null
-    >(remoteExitNode.remoteExitNodeId);
     const [regeneratedSecret, setRegeneratedSecret] = useState<string | null>(
         null
     );
@@ -65,28 +54,19 @@ export default function CredentialsPage() {
             >(`/org/${orgId}/pick-remote-exit-node-defaults`);
 
             const data = response.data.data;
-            setCredentials(data);
 
-            const rekeyRes = await api.put<
-                AxiosResponse<QuickStartRemoteExitNodeResponse>
-            >(`/re-key/${orgId}/regenerate-remote-exit-node-secret`, {
-                remoteExitNodeId: remoteExitNode.remoteExitNodeId,
-                secret: data.secret,
-                disconnect: shouldDisconnect
-            });
-
-            if (rekeyRes && rekeyRes.status === 200) {
-                const rekeyData = rekeyRes.data.data;
-                if (rekeyData && rekeyData.remoteExitNodeId) {
-                    setCurrentRemoteExitNodeId(rekeyData.remoteExitNodeId);
-                    setRegeneratedSecret(data.secret);
-                    setCredentials({
-                        ...data,
-                        remoteExitNodeId: rekeyData.remoteExitNodeId
-                    });
-                    setShowCredentialsAlert(true);
+            // Only the secret is rotated; the node keeps its existing ID
+            await api.put(
+                `/re-key/${orgId}/regenerate-remote-exit-node-secret`,
+                {
+                    remoteExitNodeId: remoteExitNode.remoteExitNodeId,
+                    secret: data.secret,
+                    disconnect: shouldDisconnect
                 }
-            }
+            );
+
+            setRegeneratedSecret(data.secret);
+            setShowCredentialsAlert(true);
 
             toast({
                 title: t("credentialsSaved"),
@@ -112,9 +92,9 @@ export default function CredentialsPage() {
         );
     };
 
-    const displayRemoteExitNodeId =
-        currentRemoteExitNodeId || remoteExitNode?.remoteExitNodeId || null;
+    const displayRemoteExitNodeId = remoteExitNode?.remoteExitNodeId || null;
     const displaySecret = regeneratedSecret || null;
+    const showEndpoint = build !== "saas";
 
     return (
         <>
@@ -129,21 +109,19 @@ export default function CredentialsPage() {
                         </SettingsSectionDescription>
                     </SettingsSectionHeader>
                     <SettingsSectionBody>
-                        <PaidFeaturesAlert
-                            tiers={tierMatrix.rotateCredentials}
-                        />
-
-                        <InfoSections cols={3}>
-                            <InfoSection>
-                                <InfoSectionTitle>
-                                    {t("endpoint")}
-                                </InfoSectionTitle>
-                                <InfoSectionContent>
-                                    <CopyToClipboard
-                                        text={env.app.dashboardUrl}
-                                    />
-                                </InfoSectionContent>
-                            </InfoSection>
+                        <InfoSections cols={showEndpoint ? 3 : 2}>
+                            {showEndpoint && (
+                                <InfoSection>
+                                    <InfoSectionTitle>
+                                        {t("endpoint")}
+                                    </InfoSectionTitle>
+                                    <InfoSectionContent>
+                                        <CopyToClipboard
+                                            text={env.app.dashboardUrl}
+                                        />
+                                    </InfoSectionContent>
+                                </InfoSection>
+                            )}
                             <InfoSection>
                                 <InfoSectionTitle>
                                     {t("remoteExitNodeId")}
@@ -174,6 +152,21 @@ export default function CredentialsPage() {
                             </InfoSection>
                         </InfoSections>
 
+                        {displaySecret && (
+                            <div className="mt-4">
+                                <CopyTextBox
+                                    text={`managed:
+  id: "${displayRemoteExitNodeId}"
+  secret: "${displaySecret}"${
+      showEndpoint
+          ? `
+  endpoint: "${env.app.dashboardUrl}"`
+          : ""
+  }`}
+                                />
+                            </div>
+                        )}
+
                         {showCredentialsAlert && displaySecret && (
                             <Alert variant="neutral" className="mt-4">
                                 <InfoIcon className="h-4 w-4" />
@@ -188,33 +181,25 @@ export default function CredentialsPage() {
                             </Alert>
                         )}
                     </SettingsSectionBody>
-                    {!env.flags.disableEnterpriseFeatures && (
-                        <SettingsSectionFooter>
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setShouldDisconnect(false);
-                                    setModalOpen(true);
-                                }}
-                                disabled={
-                                    !isPaidUser(tierMatrix.rotateCredentials)
-                                }
-                            >
-                                {t("regenerateCredentialsButton")}
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    setShouldDisconnect(true);
-                                    setModalOpen(true);
-                                }}
-                                disabled={
-                                    !isPaidUser(tierMatrix.rotateCredentials)
-                                }
-                            >
-                                {t("remoteExitNodeRegenerateAndDisconnect")}
-                            </Button>
-                        </SettingsSectionFooter>
-                    )}
+                    <SettingsSectionFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShouldDisconnect(false);
+                                setModalOpen(true);
+                            }}
+                        >
+                            {t("regenerateCredentialsButton")}
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setShouldDisconnect(true);
+                                setModalOpen(true);
+                            }}
+                        >
+                            {t("remoteExitNodeRegenerateAndDisconnect")}
+                        </Button>
+                    </SettingsSectionFooter>
                 </SettingsSection>
             </SettingsContainer>
 

@@ -37,6 +37,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import HeaderTitle from "@app/components/SettingsSectionTitle";
 import { StrategySelect } from "@app/components/StrategySelect";
+import { build } from "@server/build";
 
 export default function CreateRemoteExitNodePage() {
     const { env } = useEnvContext();
@@ -315,7 +316,12 @@ export default function CreateRemoteExitNodePage() {
                                 <CopyTextBox
                                     text={`managed:
   id: "${defaults?.remoteExitNodeId}"
-  secret: "${defaults?.secret}"`}
+  secret: "${defaults?.secret}"${
+      build !== "saas"
+          ? `
+  endpoint: "${env.app.dashboardUrl}"`
+          : ""
+  }`}
                                 />
                             </SettingsSectionBody>
                         </SettingsSection>

@@ -61,6 +61,7 @@ export async function queryResourcePolicy(
             sso: resourcePolicies.sso,
             applyRules: resourcePolicies.applyRules,
             emailWhitelistEnabled: resourcePolicies.emailWhitelistEnabled,
+            mtlsEnabled: resourcePolicies.mtlsEnabled,
             idpId: resourcePolicies.idpId,
             niceId: resourcePolicies.niceId,
             name: resourcePolicies.name,

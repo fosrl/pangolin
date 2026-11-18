@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnDef } from "@tanstack/react-table";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { Button } from "@app/components/ui/button";
@@ -68,11 +69,11 @@ export default function BlueprintsTable({ blueprints, orgId }: Props) {
             },
             cell: ({ row }) => {
                 return (
-                    <time dateTime={row.original.createdAt.toString()}>
-                        {new Date(
-                            row.original.createdAt * 1000
-                        ).toLocaleString()}
-                    </time>
+                    <Timestamp
+                        value={row.original.createdAt}
+                        unit="s"
+                        display="absolute"
+                    />
                 );
             }
         },

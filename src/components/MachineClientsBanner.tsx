@@ -23,7 +23,7 @@ export const MachineClientsBanner = ({ orgId }: MachineClientsBannerProps) => {
             description={t("machineClientsBannerDescription")}
         >
             <Link
-                href="https://docs.pangolin.net/manage/clients/install-client#pangolin-cli-linux"
+                href="https://docs.pangolin.net/manage/clients/platforms/cli"
                 target="_blank"
                 rel="noopener noreferrer"
             >
@@ -37,7 +37,7 @@ export const MachineClientsBanner = ({ orgId }: MachineClientsBannerProps) => {
                 </Button>
             </Link>
             <Link
-                href="https://docs.pangolin.net/manage/clients/install-client#docker-pangolin-cli"
+                href="https://docs.pangolin.net/manage/clients/platforms/cli#docker-pangolin-cli"
                 target="_blank"
                 rel="noopener noreferrer"
             >

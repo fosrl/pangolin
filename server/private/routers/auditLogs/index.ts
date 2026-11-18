@@ -18,3 +18,6 @@ export * from "./exportAccessAuditLog";
 export * from "./queryConnectionAuditLog";
 export * from "./exportConnectionAuditLog";
 export * from "./logAccessAuditAttempt";
+export * from "./querySshSessionLog";
+export * from "./querySshSessionCommands";
+export * from "./exportSshSessionLog";

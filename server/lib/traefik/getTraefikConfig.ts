@@ -1,55 +1,64 @@
 import {
     db,
-    targetHealthCheck,
     domains,
-    aiProviders,
-    resourceAiProviders,
-    siteResources,
+    exitNodes,
+    redirects,
+    resources,
     siteNetworks,
-    exitNodes
+    siteResources,
+    sites,
+    targetHealthCheck,
+    targets
 } from "@server/db";
+import regionalCache from "@server/lib/cache";
+import config from "@server/lib/config";
+import logger from "@server/logger";
 import {
     and,
+    desc,
     eq,
     inArray,
-    or,
-    isNull,
-    ne,
     isNotNull,
-    desc,
+    isNull,
+    not,
+    or,
     sql
 } from "drizzle-orm";
-import logger from "@server/logger";
-import config from "@server/lib/config";
-import { resources, sites, targets } from "@server/db";
-import { applyPathRewriteMiddleware } from "./middleware";
-import { sanitize, encodePath, validatePathRewriteConfig } from "./utils";
-import regionalCache from "@server/lib/cache";
-import { TargetWithSite } from "./types";
-import { buildWildcardTls } from "./certResolver";
-import { buildHostRule, appendPathMatch, computeRoutePriority } from "./rule";
 import {
-    buildHttpLoadBalancerServers,
-    buildStickySessionCookie,
-    buildTcpUdpLoadBalancerServers,
-    buildStickySessionIp
-} from "./loadBalancer";
-import { buildCustomHeadersMiddleware } from "./headersMiddleware";
-import {
+    AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
     AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE,
     AI_GATEWAY_TRUST_MIDDLEWARE_SITE_RESOURCE,
-    AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
-    getAiGatewayHost,
-    buildAiGatewayTrustMiddlewares,
     buildAiGatewayClientIpMiddleware,
     buildAiGatewayHostHeaderMiddleware,
-    buildAiGatewayRouterAndService
+    buildAiGatewayRouterAndService,
+    buildAiGatewayTrustMiddlewares,
+    getAiGatewayHost
 } from "./aiGatewayMiddlewares";
 import {
-    buildBrowserGatewayResourcesMap,
-    buildBrowserGatewayConfig
+    buildBrowserGatewayConfig,
+    buildBrowserGatewayResourcesMap
 } from "./browserGateway";
+import { buildWildcardTls } from "./certResolver";
+import { buildCustomHeadersMiddleware } from "./headersMiddleware";
+import {
+    buildHttpLoadBalancerServers,
+    buildLoadBalancingStrategy,
+    buildStickySessionCookie,
+    buildStickySessionIp,
+    buildTcpUdpLoadBalancerServers
+} from "./loadBalancer";
+import { applyPathRewriteMiddleware } from "./middleware";
+import { applyMtlsConfig, getMtlsCaCertificatesByResource } from "./mtls";
+import { buildRedirectConfig, RedirectRouteRow } from "./redirect";
+import {
+    appendPathMatch,
+    buildHostRule,
+    computeRoutePriority,
+    ruleValue
+} from "./rule";
 import { buildSiteResourceAliasCertPlaceholders } from "./siteResourceAlias";
+import { TargetWithSite } from "./types";
+import { encodePath, sanitize, validatePathRewriteConfig } from "./utils";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const badgerMiddlewareName = "badger";
@@ -93,6 +102,7 @@ export async function getTraefikConfig(
             domainId: resources.domainId,
             enabled: resources.enabled,
             stickySession: resources.stickySession,
+            loadBalancingStrategy: resources.loadBalancingStrategy,
             tlsServerName: resources.tlsServerName,
             setHostHeader: resources.setHostHeader,
             enableProxy: resources.enableProxy,
@@ -129,6 +139,7 @@ export async function getTraefikConfig(
             siteOnline: sites.online,
             subnet: sites.exitNodeSubnet,
             exitNodeId: sites.exitNodeId,
+
             // Domain cert resolver fields
             domainCertResolver: domains.certResolver,
             preferWildcardCert: domains.preferWildcardCert
@@ -222,6 +233,7 @@ export async function getTraefikConfig(
                 domainId: row.domainId,
                 enabled: row.enabled,
                 stickySession: row.stickySession,
+                loadBalancingStrategy: row.loadBalancingStrategy,
                 tlsServerName: row.tlsServerName,
                 setHostHeader: row.setHostHeader,
                 enableProxy: row.enableProxy,
@@ -328,12 +340,112 @@ export async function getTraefikConfig(
             )
         );
 
+    // Redirects have no targets/sites, so like inference resources they are
+    // queried separately and emitted on every exit node. A redirect listens
+    // either on a resource's fullDomain or on subdomain.baseDomain of a
+    // domain; the domain join resolves to whichever one applies.
+    const redirectRows = await db
+        .select({
+            name: redirects.name,
+            enabled: redirects.enabled,
+            redirectId: redirects.redirectId,
+            subdomain: redirects.subdomain,
+            matchPath: redirects.matchPath,
+            pathMatchType: redirects.pathMatchType,
+            priority: redirects.priority,
+            ssl: redirects.ssl,
+            // Resource (when attached to one)
+            resourceId: resources.resourceId,
+            resourceFullDomain: resources.fullDomain,
+            resourceSubdomain: resources.subdomain,
+            resourceSsl: resources.ssl,
+            resourceWildcard: resources.wildcard,
+            // Domain (the redirect's own, or the resource's)
+            baseDomain: domains.baseDomain,
+            domainCertResolver: domains.certResolver,
+            preferWildcardCert: domains.preferWildcardCert
+        })
+        .from(redirects)
+        .leftJoin(resources, eq(resources.resourceId, redirects.resourceId))
+        .leftJoin(
+            domains,
+            eq(
+                domains.domainId,
+                sql`coalesce(${redirects.domainId}, ${resources.domainId})`
+            )
+        )
+        .where(
+            and(
+                eq(redirects.enabled, true),
+                or(
+                    isNull(redirects.resourceId),
+                    and(
+                        eq(resources.enabled, true),
+                        not(isNull(resources.domainId))
+                    )
+                )
+            )
+        )
+        .orderBy(desc(redirects.priority), redirects.redirectId); // stable ordering
+
+    const redirectRoutes: RedirectRouteRow[] = [];
+    for (const row of redirectRows) {
+        const attachedToResource = row.resourceId !== null;
+        const fullDomain = attachedToResource
+            ? row.resourceFullDomain
+            : [row.subdomain, row.baseDomain].filter(Boolean).join(".");
+        if (!fullDomain) {
+            logger.debug(
+                `Redirect ${row.redirectId} has no host to listen on, skipping Traefik config`
+            );
+            continue;
+        }
+
+        redirectRoutes.push({
+            enabled: row.enabled,
+            name: sanitize(row.name) || "",
+            redirectId: row.redirectId,
+            fullDomain,
+            hasSubdomain: attachedToResource
+                ? !!row.resourceSubdomain
+                : !!row.subdomain,
+            wildcard: row.resourceWildcard,
+            ssl: attachedToResource ? !!row.resourceSsl : row.ssl,
+            attachedTo: attachedToResource ? "resource" : "domain",
+            resourceId: row.resourceId,
+            matchPath: row.matchPath,
+            pathMatchType: row.pathMatchType,
+            priority: row.priority,
+            domainCertResolver: row.domainCertResolver,
+            preferWildcardCert: row.preferWildcardCert
+        });
+    }
+
+    // Trusted client-CA certificates for resources that require mTLS: HTTP,
+    // browser-gateway (SSH/RDP/VNC) and inference resources served over SSL,
+    // and the redirects attached to them.
+    const mtlsCaCertsByResource = await getMtlsCaCertificatesByResource([
+        ...[...resourcesMap.values()]
+            .filter((r) => r.mode === "http" && r.ssl)
+            .map((r) => r.resourceId as number),
+        ...[...browserGatewayResourcesMap.values()]
+            .filter((r) => r.ssl)
+            .map((r) => r.resourceId),
+        ...inferenceResources.filter((r) => r.ssl).map((r) => r.resourceId),
+        // redirects attached to a resource share its host, and are emitted
+        // even on exit nodes that don't serve the resource itself
+        ...redirectRoutes
+            .filter((r) => r.attachedTo === "resource" && r.ssl)
+            .map((r) => r.resourceId!)
+    ]);
+
     // make sure we have at least one resource
     if (
         resourcesMap.size === 0 &&
         inferenceResources.length === 0 &&
         browserGatewayResourcesMap.size === 0 &&
-        siteResourcesWithFullDomain.length === 0
+        siteResourcesWithFullDomain.length === 0 &&
+        redirectRoutes.length === 0
     ) {
         return {};
     }
@@ -378,7 +490,7 @@ export async function getTraefikConfig(
                 config_output.http.services = {};
             }
 
-            const tls = buildWildcardTls({
+            let tls: Record<string, any> = buildWildcardTls({
                 fullDomain,
                 hasSubdomain: !!resource.subdomain,
                 domainCertResolver: resource.domainCertResolver,
@@ -421,6 +533,18 @@ export async function getTraefikConfig(
                 routerMiddlewares.push(headersMiddlewareName);
             }
 
+            const mtlsOptionsName = resource.ssl
+                ? applyMtlsConfig(
+                      config_output,
+                      resource.resourceId,
+                      mtlsCaCertsByResource.get(resource.resourceId),
+                      routerMiddlewares
+                  )
+                : undefined;
+            if (mtlsOptionsName) {
+                tls = { ...tls, options: mtlsOptionsName };
+            }
+
             // Build routing rules
             let rule = buildHostRule(fullDomain);
             const priority = computeRoutePriority(
@@ -458,6 +582,9 @@ export async function getTraefikConfig(
             config_output.http.services![serviceName] = {
                 loadBalancer: {
                     servers: buildHttpLoadBalancerServers(targets),
+                    ...buildLoadBalancingStrategy(
+                        resource.loadBalancingStrategy
+                    ),
                     ...(resource.stickySession
                         ? buildStickySessionCookie(resource.ssl)
                         : {})
@@ -521,10 +648,27 @@ export async function getTraefikConfig(
         }
     }
 
+    buildRedirectConfig({
+        config_output,
+        redirects: redirectRoutes,
+        mtlsCaCertsByResource,
+        badgerMiddlewareName,
+        redirectHttpsMiddlewareName,
+        resolveTls: (redirect) =>
+            buildWildcardTls({
+                fullDomain: redirect.fullDomain,
+                hasSubdomain: redirect.hasSubdomain,
+                domainCertResolver: redirect.domainCertResolver,
+                preferWildcardCert:
+                    redirect.preferWildcardCert || redirect.wildcard
+            })
+    });
+
     if (browserGatewayUiUrl) {
         buildBrowserGatewayConfig({
             config_output,
             browserGatewayResourcesMap,
+            mtlsCaCertsByResource,
             browserGatewayUiUrl,
             maintenancePageUiUrl,
             badgerMiddlewareName,
@@ -632,7 +776,7 @@ export async function getTraefikConfig(
 
             const rule = buildHostRule(fullDomain, ir.wildcard);
 
-            const tls = buildWildcardTls({
+            let tls: Record<string, any> = buildWildcardTls({
                 fullDomain,
                 hasSubdomain: !!ir.subdomain,
                 domainCertResolver: ir.domainCertResolver,
@@ -651,6 +795,18 @@ export async function getTraefikConfig(
                 irHeadersMiddlewareName,
                 ...additionalMiddlewares
             ];
+
+            const mtlsOptionsName = ir.ssl
+                ? applyMtlsConfig(
+                      config_output,
+                      ir.resourceId,
+                      mtlsCaCertsByResource.get(ir.resourceId),
+                      routerMiddlewares
+                  )
+                : undefined;
+            if (mtlsOptionsName) {
+                tls = { ...tls, options: mtlsOptionsName };
+            }
 
             const { routers, services } = buildAiGatewayRouterAndService({
                 routerName,
@@ -706,7 +862,7 @@ export async function getTraefikConfig(
                 const srKey = `inference-sr${sr.siteResourceId}`;
                 const routerName = `${srKey}-router`;
                 const serviceName = `${srKey}-service`;
-                const rule = `Host(\`${fullDomain}\`) && ClientIP(\`${exitNode.address}\`)`; // restrict to coming from the exit node ip range that the client is connected to
+                const rule = `${buildHostRule(fullDomain)} && ClientIP(${ruleValue(exitNode.address)})`; // restrict to coming from the exit node ip range that the client is connected to
 
                 // siteResource aliases don't have a per-domain cert resolver
                 // stored, so always fall back to the global defaults.

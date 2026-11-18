@@ -1,5 +1,9 @@
 "use client";
 
+import {
+    TIMESTAMP_PLACEHOLDER,
+    TimestampInText
+} from "@app/components/Timestamp";
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
@@ -494,14 +498,17 @@ export default function SecurityKeyForm({
                                                                     }
                                                                 </p>
                                                                 <p className="text-xs text-muted-foreground">
-                                                                    {t(
-                                                                        "securityKeyLastUsed",
-                                                                        {
-                                                                            date: new Date(
-                                                                                securityKey.lastUsed
-                                                                            ).toLocaleDateString()
+                                                                    <TimestampInText
+                                                                        text={t(
+                                                                            "securityKeyLastUsed",
+                                                                            {
+                                                                                date: TIMESTAMP_PLACEHOLDER
+                                                                            }
+                                                                        )}
+                                                                        value={
+                                                                            securityKey.lastUsed
                                                                         }
-                                                                    )}
+                                                                    />
                                                                 </p>
                                                             </div>
                                                         </div>

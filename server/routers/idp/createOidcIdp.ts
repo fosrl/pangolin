@@ -10,6 +10,7 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { idp, idpOidcConfig, idpOrg, orgs } from "@server/db";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
+import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
@@ -33,6 +34,7 @@ const bodySchema = z.strictObject({
     directorySyncDeletions: z.boolean().optional(),
     // provider-specific, validated against the variant's schema
     apiConfig: z.record(z.string(), z.unknown()).optional(),
+    sessionRevalidation: z.boolean().optional(),
     tags: z.string().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc")
 });
@@ -93,7 +95,6 @@ export async function createOidcIdp(
             clientSecret,
             authUrl,
             tokenUrl,
-            scopes,
             identifierPath,
             emailPath,
             namePath,
@@ -158,6 +159,10 @@ export async function createOidcIdp(
             );
         }
 
+        if (sessionRevalidation) {
+            scopes = scopesForSessionRevalidation(scopes, variant);
+        }
+
         const key = config.getRawConfig().server.secret!;
 
         const encryptedSecret = encrypt(clientSecret, key);
@@ -175,6 +180,7 @@ export async function createOidcIdp(
                     directorySyncEnabled: effectiveDirectorySyncEnabled,
                     directorySyncDeletions,
                     apiConfig: resolvedApiConfig.value,
+                    sessionRevalidation,
                     type: "oidc",
                     tags,
                     defaultOrgMapping: `'{{orgId}}'`,

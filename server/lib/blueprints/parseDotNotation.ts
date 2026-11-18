@@ -61,8 +61,9 @@ export function convertValue(value: string): any {
     if (value === "true") return true;
     if (value === "false") return false;
 
-    // Convert numeric strings
-    if (/^\d+$/.test(value)) {
+    // Convert numeric strings. Digit strings with a leading zero (a PIN like
+    // "012345") stay strings, since converting them would drop the zeros.
+    if (/^(0|[1-9]\d*)$/.test(value)) {
         const num = parseInt(value, 10);
         return num;
     }

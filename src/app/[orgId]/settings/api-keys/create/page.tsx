@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import {
     SettingsContainer,
     SettingsSection,
@@ -42,7 +43,6 @@ import {
     InfoSectionTitle
 } from "@app/components/InfoSection";
 import CopyToClipboard from "@app/components/CopyToClipboard";
-import moment from "moment";
 import CopyTextBox from "@app/components/CopyTextBox";
 import PermissionsSelectBox from "@app/components/PermissionsSelectBox";
 import { useTranslations } from "next-intl";
@@ -283,9 +283,10 @@ export default function Page() {
                                             {t("created")}
                                         </InfoSectionTitle>
                                         <InfoSectionContent>
-                                            {moment(apiKey.createdAt).format(
-                                                "lll"
-                                            )}
+                                            <Timestamp
+                                                value={apiKey.createdAt}
+                                                display="absolute"
+                                            />
                                         </InfoSectionContent>
                                     </InfoSection>
                                 </InfoSections>

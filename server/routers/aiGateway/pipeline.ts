@@ -739,7 +739,11 @@ export function recordAiGatewayCompletion(args: {
         }
 
         model = extractResponseModel(responseText) ?? requestedModel;
-        pricing = getModelPricing(provider.type as AiProviderType, model);
+        pricing = getModelPricing(
+            provider.type as AiProviderType,
+            model,
+            provider.niceId
+        );
         cost = calculateAiCost(pricing, usage);
     } else {
         usage = emptyUsage();
@@ -1054,6 +1058,8 @@ export async function handleAiGatewayProxy(
             "keep-alive",
             "proxy-authenticate",
             "proxy-authorization",
+            // never hand the caller's dashboard session to the upstream
+            "cookie",
             "te",
             "trailers",
             "transfer-encoding",

@@ -182,7 +182,14 @@ export async function deleteMyAccount(
         const allDeletedNewtIds: string[] = [];
         const allOlmsToTerminate: string[] = [];
 
-        for (const row of ownedOrgsRows) {
+        // Delete billing orgs last: deleting a child org decrements usage on
+        // its billing org, which fails (and aborts the transaction) if the
+        // billing org is already gone.
+        const orgsInDeleteOrder = [...ownedOrgsRows].sort(
+            (a, b) => Number(!!a.isBillingOrg) - Number(!!b.isBillingOrg)
+        );
+
+        for (const row of orgsInDeleteOrder) {
             try {
                 const result = await deleteOrgById(row.orgId);
                 allDeletedNewtIds.push(...result.deletedNewtIds);

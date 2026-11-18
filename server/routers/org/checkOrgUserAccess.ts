@@ -28,8 +28,7 @@ async function queryUser(orgId: string, userId: string) {
             idpId: users.idpId,
             idpName: idp.name,
             idpType: idp.type,
-            idpVariant: idpOidcConfig.variant,
-            idpAutoProvision: idp.autoProvision
+            idpVariant: idpOidcConfig.variant
         })
         .from(userOrgs)
         .leftJoin(users, eq(userOrgs.userId, users.userId))

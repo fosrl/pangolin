@@ -27,3 +27,38 @@ export type ResourcePolicyWithResources = Pick<
 export type ListResourcePoliciesResponse = PaginatedResponse<{
     policies: Array<ResourcePolicyWithResources>;
 }>;
+
+export type DeleteResourceMtlsCertificateResponse = {
+    // true when removing the last CA certificate forced mTLS off
+    mtlsDisabled: boolean;
+};
+
+export type CreateResourceMtlsCertificateResponse = {
+    certificates: {
+        mtlsCertificateId: number;
+        resourceId: number;
+        name: string | null;
+        subject: string | null;
+        issuer: string | null;
+        serialNumber: string | null;
+        fingerprint: string | null;
+        notBefore: number | null;
+        notAfter: number | null;
+        createdAt: number;
+    }[];
+};
+
+export type ListResourceMtlsCertificatesResponse = {
+    certificates: {
+        mtlsCertificateId: number;
+        resourceId: number;
+        name: string | null;
+        subject: string | null;
+        issuer: string | null;
+        serialNumber: string | null;
+        fingerprint: string | null;
+        notBefore: number | null;
+        notAfter: number | null;
+        createdAt: number;
+    }[];
+};

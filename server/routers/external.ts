@@ -22,6 +22,7 @@ import * as newt from "./newt";
 import * as olm from "./olm";
 import * as ssh from "./ssh";
 import * as serverInfo from "./serverInfo";
+import * as reKey from "./re-key";
 import HttpCode from "@server/types/HttpCode";
 import {
     verifyAccessTokenAccess,
@@ -62,6 +63,7 @@ import { createStore } from "#dynamic/lib/rateLimitStore";
 import { checkRoundTripMessage } from "./ws";
 import * as labels from "@server/routers/labels";
 import * as aiProvider from "@server/routers/aiProvider";
+import * as redirect from "@server/routers/redirect";
 import * as aiBudget from "@server/routers/aiBudget";
 import * as virtualApiKey from "@server/routers/virtualApiKey";
 import * as certificates from "@server/routers/certificates";
@@ -386,6 +388,13 @@ authenticated.get(
     siteResource.getSiteResource
 );
 
+authenticated.get(
+    "/site-resource/:siteResourceId/blueprint",
+    verifySiteResourceAccess,
+    verifyUserHasAction(ActionsEnum.getSiteResource),
+    siteResource.exportSiteResourceBlueprint
+);
+
 authenticated.post(
     "/site-resource/:siteResourceId",
     verifySiteResourceAccess,
@@ -687,6 +696,7 @@ authenticated.get(
 authenticated.get(
     "/org/:orgId/domain/:domainId",
     verifyOrgAccess,
+    verifyDomainAccess,
     verifyUserHasAction(ActionsEnum.getDomain),
     domain.getDomain
 );
@@ -701,6 +711,7 @@ authenticated.patch(
 authenticated.get(
     "/org/:orgId/domain/:domainId/dns-records",
     verifyOrgAccess,
+    verifyDomainAccess,
     verifyUserHasAction(ActionsEnum.getDNSRecords),
     domain.getDNSRecords
 );
@@ -763,6 +774,13 @@ authenticated.get(
     verifyResourceAccess,
     verifyUserHasAction(ActionsEnum.getResource),
     resource.getResource
+);
+
+authenticated.get(
+    "/resource/:resourceId/blueprint",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.getResource),
+    resource.exportResourceBlueprint
 );
 authenticated.get(
     "/org/:orgId/resource/:niceId",
@@ -872,6 +890,12 @@ authenticated.get(
     role.listRoles
 );
 
+authenticated.get(
+    "/org/:orgId/my-client-settings",
+    verifyOrgAccess,
+    role.getMyClientSettings
+);
+
 authenticated.post(
     "/role/:roleId",
     verifyRoleAccess,
@@ -910,13 +934,12 @@ authenticated.put(
     policy.updateResourcePolicy
 );
 
-// authenticated.get(
-//     "/role/:roleId",
-//     verifyRoleAccess,
-//     verifyUserInRole,
-//     verifyUserHasAction(ActionsEnum.getRole),
-//     role.getRole
-// );
+authenticated.get(
+    "/role/:roleId",
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.getRole),
+    role.getRole
+);
 // authenticated.post(
 //     "/role/:roleId",
 //     verifyRoleAccess,
@@ -1060,6 +1083,28 @@ authenticated.put(
     verifyUserHasAction(ActionsEnum.setResourcePolicyRules),
     logActionAudit(ActionsEnum.setResourcePolicyRules),
     policy.setResourcePolicyRules
+);
+
+authenticated.put(
+    "/resource-policy/:resourcePolicyId/mtls/certificate",
+    verifyResourcePolicyAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.updateResourcePolicy),
+    logActionAudit(ActionsEnum.updateResourcePolicy),
+    policy.createResourcePolicyMtlsCertificate
+);
+authenticated.get(
+    "/resource-policy/:resourcePolicyId/mtls/certificates",
+    verifyResourcePolicyAccess,
+    verifyUserHasAction(ActionsEnum.getResourcePolicy),
+    policy.listResourcePolicyMtlsCertificates
+);
+authenticated.delete(
+    "/resource-policy/:resourcePolicyId/mtls/certificate/:mtlsCertificateId",
+    verifyResourcePolicyAccess,
+    verifyUserHasAction(ActionsEnum.updateResourcePolicy),
+    logActionAudit(ActionsEnum.updateResourcePolicy),
+    policy.deleteResourcePolicyMtlsCertificate
 );
 
 authenticated.post(
@@ -1635,6 +1680,50 @@ authenticated.delete(
 );
 
 authenticated.put(
+    "/org/:orgId/redirect",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.createRedirect),
+    logActionAudit(ActionsEnum.createRedirect),
+    redirect.createRedirect
+);
+
+authenticated.get(
+    "/org/:orgId/redirects",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.listRedirects),
+    redirect.listRedirects
+);
+
+authenticated.get(
+    "/org/:orgId/redirects/:redirectId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getRedirect),
+    redirect.getRedirect
+);
+authenticated.get(
+    "/org/:orgId/redirect/:niceId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getRedirect),
+    redirect.getRedirect
+);
+
+authenticated.post(
+    "/org/:orgId/redirects/:redirectId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.updateRedirect),
+    logActionAudit(ActionsEnum.updateRedirect),
+    redirect.updateRedirect
+);
+
+authenticated.delete(
+    "/org/:orgId/redirects/:redirectId",
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.deleteRedirect),
+    logActionAudit(ActionsEnum.deleteRedirect),
+    redirect.deleteRedirect
+);
+
+authenticated.put(
     "/ai-provider/:providerId/model",
     verifyAiProviderAccess,
     verifyUserHasAction(ActionsEnum.createAiModel),
@@ -1913,6 +2002,52 @@ authenticated.post(
     certificates.restartCertificate
 );
 
+authenticated.post(
+    "/re-key/:clientId/regenerate-client-secret",
+    verifyClientAccess, // this is first to set the org id
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateClientSecret
+);
+
+authenticated.post(
+    "/re-key/:siteId/regenerate-site-secret",
+    verifySiteAccess, // this is first to set the org id
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateSiteSecret
+);
+
+authenticated.put(
+    "/re-key/:orgId/regenerate-remote-exit-node-secret",
+    verifyOrgAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.reGenerateSecret),
+    reKey.reGenerateExitNodeSecret
+);
+
+authenticated.put(
+    "/resource/:resourceId/mtls/certificate",
+    verifyResourceAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.createResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.createResourceMtlsCertificate),
+    resource.createResourceMtlsCertificate
+);
+authenticated.get(
+    "/resource/:resourceId/mtls/certificates",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.listResourceMtlsCertificates),
+    resource.listResourceMtlsCertificates
+);
+authenticated.delete(
+    "/resource/:resourceId/mtls/certificate/:mtlsCertificateId",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.deleteResourceMtlsCertificate),
+    logActionAudit(ActionsEnum.deleteResourceMtlsCertificate),
+    resource.deleteResourceMtlsCertificate
+);
+
 // Auth routes
 export const authRouter = Router();
 unauthenticated.use("/auth", authRouter);
@@ -1971,6 +2106,18 @@ authRouter.post("/logout", auth.logout);
 authRouter.post("/delete-my-account", auth.deleteMyAccount);
 authRouter.post(
     "/lookup-user",
+    // The limiter below is keyed on the identifier, so on its own one caller
+    // could try any number of different identifiers. Cap each IP as well.
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 200,
+        keyGenerator: (req) => `lookupUserIp:${ipKeyGenerator(req.ip || "")}`,
+        handler: (req, res, next) => {
+            const message = `Too many user lookups from this IP. Please try again later.`;
+            return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
+        },
+        store: createStore()
+    }),
     rateLimit({
         windowMs: 15 * 60 * 1000,
         max: 15,
@@ -2045,6 +2192,21 @@ authRouter.post(
         store: createStore()
     }),
     olm.getOlmToken
+);
+authRouter.post(
+    "/olm/client-settings",
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 300,
+        keyGenerator: (req) =>
+            `olmClientSettings:${req.body.olmId || ipKeyGenerator(req.ip || "")}`,
+        handler: (req, res, next) => {
+            const message = `You can only request Olm client settings ${300} times every ${15} minutes. Please try again later.`;
+            return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
+        },
+        store: createStore()
+    }),
+    olm.getOlmClientSettings
 );
 
 authRouter.post(

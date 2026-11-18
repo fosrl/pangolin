@@ -5,10 +5,9 @@ import { Newt } from "@server/db";
 import { eq } from "drizzle-orm";
 import logger from "@server/logger";
 import { sendNewtSyncMessage } from "./sync";
-import semver from "semver";
 import { recordSitePing } from "./pingAccumulator";
+import { supportsSync } from "@server/lib/clientVersionChecks";
 
-const NEWT_SUPPORTS_SYNC_VERSION = ">=1.14.0";
 const PONG = {
     message: {
         type: "pong",
@@ -50,10 +49,7 @@ export const handleNewtPingMessage: MessageHandler = async (context) => {
     // cross-region latency to the database.
     recordSitePing(newt.siteId);
 
-    if (
-        newt.version &&
-        !semver.satisfies(newt.version, NEWT_SUPPORTS_SYNC_VERSION)
-    ) {
+    if (newt.version && !supportsSync(newt.version)) {
         // Newt does not support the sync message so not checking - stop here -
         return PONG;
     }

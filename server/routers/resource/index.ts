@@ -43,3 +43,8 @@ export * from "./listResourceAiProviders";
 export * from "./setResourceAiProviders";
 export * from "./addAiProviderToResource";
 export * from "./removeAiProviderFromResource";
+export * from "./exportResourceBlueprint";
+export * from "./types";
+export * from "./deleteResourceMtlsCertificate";
+export * from "./createResourceMtlsCertificate";
+export * from "./listResourceMtlsCertificates";

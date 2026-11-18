@@ -16,6 +16,7 @@ export async function createExitNode(
         const { value: address, release } = await getNextAvailableSubnet();
         try {
             const listenPort = config.getRawConfig().gerbil.start_port;
+            const relayPort = config.getRawConfig().gerbil.clients_start_port;
 
             const exitNodeName =
                 config.getRawConfig().gerbil.exit_node_name ||
@@ -30,6 +31,7 @@ export async function createExitNode(
                     address,
                     online: true,
                     listenPort,
+                    relayPort,
                     reachableAt,
                     name: exitNodeName
                 })

@@ -11,6 +11,7 @@ export async function copyInConfig() {
 
     const endpoint = config.getRawConfig().gerbil.base_endpoint;
     const listenPort = config.getRawConfig().gerbil.start_port;
+    const relayPort = config.getRawConfig().gerbil.clients_start_port;
 
     if (
         !config.getRawConfig().flags?.disable_config_managed_domains &&
@@ -23,7 +24,7 @@ export async function copyInConfig() {
     if (exitNodeName) {
         await db
             .update(exitNodes)
-            .set({ endpoint, listenPort })
+            .set({ endpoint, listenPort, relayPort })
             .where(eq(exitNodes.name, exitNodeName));
     } else {
         await db
@@ -34,6 +35,10 @@ export async function copyInConfig() {
             .update(exitNodes)
             .set({ listenPort })
             .where(ne(exitNodes.listenPort, listenPort));
+        await db
+            .update(exitNodes)
+            .set({ relayPort })
+            .where(ne(exitNodes.relayPort, relayPort));
     }
 }
 

@@ -1,3 +1,4 @@
+import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
@@ -230,6 +231,7 @@ export async function startRegistration(
             rpID,
             userID: isoBase64URL.toBuffer(user.userId),
             userName: user.email || user.username,
+            userDisplayName: user.name || user.email || user.username, // Safari fails to register a passkey with empty display name - #3931
             attestationType: "none",
             excludeCredentials,
             authenticatorSelection: {
@@ -732,7 +734,11 @@ export async function verifyAuthentication(
         const { createSession, generateSessionToken, serializeSessionCookie } =
             await import("@server/auth/sessions/app");
         const token = generateSessionToken();
-        const session = await createSession(token, user.userId);
+        const session = await createSession(
+            token,
+            user.userId,
+            getRequestClientInfo(req)
+        );
         const isSecure = req.protocol === "https";
         const cookie = serializeSessionCookie(
             token,

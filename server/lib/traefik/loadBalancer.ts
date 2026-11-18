@@ -49,7 +49,7 @@ export function buildHttpLoadBalancerServers(targets: TargetWithSite[]) {
                 target.site.type === "wireguard"
             ) {
                 return {
-                    url: `${target.method}://${formatEndpoint(target.ip, target.port)}`
+                    url: `${target.method}://${formatEndpoint(target.ip!, target.port!)}`
                 };
             } else if (target.site.type === "newt") {
                 const ip = target.site.subnet!.split("/")[0];
@@ -61,6 +61,18 @@ export function buildHttpLoadBalancerServers(targets: TargetWithSite[]) {
         .filter(
             (v, i, a) => a.findIndex((t) => t && v && t.url === v.url) === i
         );
+}
+
+/**
+ * Build the loadBalancer.strategy for an HTTP-mode resource. Traefik defaults
+ * to wrr when strategy is omitted, so only emit it for the non-default
+ * strategies to keep the generated config unchanged for existing resources.
+ */
+export function buildLoadBalancingStrategy(strategy: string | null) {
+    if (!strategy || strategy === "wrr") {
+        return {};
+    }
+    return { strategy };
 }
 
 export function buildStickySessionCookie(ssl: boolean | null) {
@@ -112,7 +124,7 @@ export function buildTcpUdpLoadBalancerServers(targets: TargetWithSite[]) {
                 target.site.type === "wireguard"
             ) {
                 return {
-                    address: formatEndpoint(target.ip, target.port)
+                    address: formatEndpoint(target.ip!, target.port!)
                 };
             } else if (target.site.type === "newt") {
                 const ip = target.site.subnet!.split("/")[0];

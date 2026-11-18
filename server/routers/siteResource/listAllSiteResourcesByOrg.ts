@@ -97,6 +97,15 @@ const listAllSiteResourcesByOrgQuerySchema = z.strictObject({
             enum: ["pending", "approved"],
             description: "Filter by site resource status"
         }),
+    enabled: z
+        .enum(["true", "false"])
+        .transform((v) => v === "true")
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "boolean",
+            description: "Filter site resources based on enabled status"
+        }),
     labels: z
         .preprocess((val) => {
             if (val === undefined || val === null || val === "") {
@@ -322,6 +331,7 @@ export async function listAllSiteResourcesByOrg(
             order,
             siteId,
             status,
+            enabled,
             labels: labelFilter
         } = parsedQuery.data;
 
@@ -397,6 +407,10 @@ export async function listAllSiteResourcesByOrg(
 
         if (typeof status !== "undefined") {
             conditions.push(eq(siteResources.status, status));
+        }
+
+        if (typeof enabled !== "undefined") {
+            conditions.push(eq(siteResources.enabled, enabled));
         }
 
         if (labelFilter && labelFilter.length > 0) {

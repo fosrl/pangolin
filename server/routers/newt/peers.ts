@@ -98,6 +98,37 @@ export async function deletePeer(
     return site;
 }
 
+export async function addPeersBatch(
+    peers: {
+        siteId: number;
+        newtId: string;
+        peer: {
+            publicKey: string;
+            allowedIps: string[];
+            endpoint: string;
+        };
+    }[]
+) {
+    if (peers.length === 0) {
+        return;
+    }
+
+    await sendToClientsBatch(
+        peers.map((peer) => ({
+            clientId: peer.newtId,
+            message: {
+                type: "newt/wg/peer/add",
+                data: peer.peer
+            },
+            options: { incrementConfigVersion: true }
+        }))
+    ).catch((error) => {
+        logger.warn(`Error sending batched newt peer additions:`, error);
+    });
+
+    logger.info(`Added ${peers.length} peer(s) to newts (batch)`);
+}
+
 export async function deletePeersBatch(
     peers: {
         siteId: number;

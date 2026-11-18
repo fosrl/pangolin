@@ -14,7 +14,7 @@ import {
     users
 } from "@server/db";
 import { eq, and } from "drizzle-orm";
-import { Config, ResourcePolicyData } from "./types";
+import { BlueprintMtls, Config, ResourcePolicyData } from "./types";
 import logger from "@server/logger";
 import { getUniqueResourcePolicyName } from "@server/db/names";
 import { hashPassword } from "@server/auth/password";
@@ -29,6 +29,7 @@ import {
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "../billing/tierMatrix";
 import { findOrgUsersByIdentifier } from "./findOrgUser";
+import { syncMtlsCertificates } from "../mtls";
 
 export type ResourcePoliciesResults = {
     resourcePolicyId: number;
@@ -97,6 +98,8 @@ export async function updateResourcePolicies(
             }
         }
 
+        const mtls = policyData.mtls as BlueprintMtls | undefined;
+
         // Look up the admin role
         const [adminRole] = await trx
             .select()
@@ -134,7 +137,9 @@ export async function updateResourcePolicies(
                         policyData["email-whitelist-enabled"] ??
                         policyData["whitelist-users"].length > 0,
                     applyRules:
-                        policyData["apply-rules"] || policyData.rules.length > 0
+                        policyData["apply-rules"] ||
+                        policyData.rules.length > 0,
+                    mtlsEnabled: mtls?.enabled
                 })
                 .where(
                     eq(
@@ -177,15 +182,7 @@ export async function updateResourcePolicies(
                 });
             }
 
-            // Sync header auth
-            await trx
-                .delete(resourcePolicyHeaderAuth)
-                .where(
-                    eq(
-                        resourcePolicyHeaderAuth.resourcePolicyId,
-                        resourcePolicyId
-                    )
-                );
+            // Sync header auth (hash before delete so delete+insert stay adjacent)
             if (policyData["basic-auth"]) {
                 const basicAuth = policyData["basic-auth"];
                 const headerAuthHash = await hashPassword(
@@ -193,12 +190,29 @@ export async function updateResourcePolicies(
                         `${basicAuth.user}:${basicAuth.password}`
                     ).toString("base64")
                 );
+                await trx
+                    .delete(resourcePolicyHeaderAuth)
+                    .where(
+                        eq(
+                            resourcePolicyHeaderAuth.resourcePolicyId,
+                            resourcePolicyId
+                        )
+                    );
                 await trx.insert(resourcePolicyHeaderAuth).values({
                     resourcePolicyId,
                     headerAuthHash,
                     extendedCompatibility:
                         basicAuth["extended-compatibility"] ?? true
                 });
+            } else {
+                await trx
+                    .delete(resourcePolicyHeaderAuth)
+                    .where(
+                        eq(
+                            resourcePolicyHeaderAuth.resourcePolicyId,
+                            resourcePolicyId
+                        )
+                    );
             }
 
             // Sync SSO roles
@@ -247,6 +261,7 @@ export async function updateResourcePolicies(
                     applyRules:
                         policyData["apply-rules"] ||
                         policyData.rules.length > 0,
+                    mtlsEnabled: mtls?.enabled ?? false,
                     scope: "global"
                 })
                 .returning();
@@ -337,6 +352,14 @@ export async function updateResourcePolicies(
 
             logger.debug(
                 `Created resource policy ${resourcePolicyId} (${policyNiceId})`
+            );
+        }
+
+        if (mtls?.["ca-certificates"]) {
+            await syncMtlsCertificates(
+                { type: "policy", resourcePolicyId },
+                mtls["ca-certificates"],
+                trx
             );
         }
 
