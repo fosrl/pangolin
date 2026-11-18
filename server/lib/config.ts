@@ -88,6 +88,10 @@ export class Config {
             ?.disable_product_help_banners
             ? "true"
             : "false";
+        process.env.FLAGS_DISABLE_LOGIN_ORG_NAMES = parsedConfig.flags
+            ?.disable_login_org_names
+            ? "true"
+            : "false";
 
         process.env.PRODUCT_UPDATES_NOTIFICATION_ENABLED = parsedConfig.app
             .notifications.product_updates
