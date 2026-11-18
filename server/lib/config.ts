@@ -117,6 +117,11 @@ export class Config {
             ? "true"
             : "false";
 
+        process.env.FLAGS_ENABLE_API_CREATE_USER_SESSIONS = parsedConfig.flags
+            ?.enable_api_create_user_sessions
+            ? "true"
+            : "false";
+
         this.rawConfig = parsedConfig;
     }
 

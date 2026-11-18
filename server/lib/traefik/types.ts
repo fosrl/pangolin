@@ -42,6 +42,7 @@ export type ResourceWithTargets = Pick<
     | "responseHeaders"
     | "proxyProtocol"
     | "wildcard"
+    | "matchBaseDomain"
     | "mode"
     | "maintenanceModeEnabled"
     | "maintenanceModeType"

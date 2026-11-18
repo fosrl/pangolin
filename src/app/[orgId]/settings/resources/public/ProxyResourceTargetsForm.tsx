@@ -28,7 +28,8 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
+    TableContainer
 } from "@app/components/ui/table";
 import {
     Tooltip,
@@ -40,6 +41,7 @@ import type { ResourceContextType } from "@app/contexts/resourceContext";
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient } from "@app/lib/api";
+import { cn } from "@app/lib/cn";
 import { formatAxiosError } from "@app/lib/api/formatAxiosError";
 import { DockerManager, DockerState } from "@app/lib/docker";
 import { orgQueries, resourceQueries, aiProviderQueries } from "@app/lib/queries";
@@ -111,8 +113,6 @@ type ProxyResourceTargetsFormProps = {
     embedded?: boolean;
     /** Hide the built-in save button (use ref.save from parent) */
     hideSaveButton?: boolean;
-    /** Hide the advanced mode toggle and always use non-advanced mode (e.g. AI providers) */
-    disableAdvancedMode?: boolean;
     /** Targets picker is for an AI provider (changes which routing warnings are shown) */
     isAiProvider?: boolean;
 };
@@ -133,7 +133,6 @@ export const ProxyResourceTargetsForm = forwardRef<
         emptyMessage,
         embedded = false,
         hideSaveButton = false,
-        disableAdvancedMode = false,
         isAiProvider = false
     },
     ref
@@ -232,17 +231,6 @@ export const ProxyResourceTargetsForm = forwardRef<
         },
         [dockerStates]
     );
-
-    const [isAdvancedMode, setIsAdvancedMode] = useState(() => {
-        if (disableAdvancedMode) {
-            return false;
-        }
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("proxy-advanced-mode");
-            return saved === "true";
-        }
-        return false;
-    });
 
     const removeTarget = useCallback((targetId: number) => {
         setTargets((prevTargets) => {
@@ -607,32 +595,21 @@ export const ProxyResourceTargetsForm = forwardRef<
             maxSize: 120
         };
 
-        if (isAdvancedMode) {
-            const cols = [
-                siteColumn,
-                addressColumn,
-                healthCheckColumn,
-                enabledColumn,
-                actionsColumn
-            ];
+        const cols = [
+            siteColumn,
+            addressColumn,
+            healthCheckColumn,
+            enabledColumn,
+            actionsColumn
+        ];
 
-            if (isHttp) {
-                cols.unshift(matchPathColumn);
-                cols.splice(4, 0, rewritePathColumn, priorityColumn);
-            }
-
-            return cols;
-        } else {
-            return [
-                siteColumn,
-                addressColumn,
-                healthCheckColumn,
-                enabledColumn,
-                actionsColumn
-            ];
+        if (isHttp) {
+            cols.unshift(matchPathColumn);
+            cols.splice(4, 0, rewritePathColumn, priorityColumn);
         }
+
+        return cols;
     }, [
-        isAdvancedMode,
         isHttp,
         updateTarget,
         getDockerStateForSite,
@@ -730,16 +707,6 @@ export const ProxyResourceTargetsForm = forwardRef<
             initializeDockerForSite(site.siteId);
         }
     }, [sites]);
-
-    useEffect(() => {
-        if (disableAdvancedMode) return;
-        if (typeof window !== "undefined") {
-            localStorage.setItem(
-                "proxy-advanced-mode",
-                isAdvancedMode.toString()
-            );
-        }
-    }, [isAdvancedMode, disableAdvancedMode]);
 
     const [, formAction, isSubmitting] = useActionState(
         async () => {
@@ -878,15 +845,9 @@ export const ProxyResourceTargetsForm = forwardRef<
         save: saveTargets
     }));
 
-    const advancedModeToggleId = providerId
-        ? `advanced-mode-toggle-provider-${providerId}`
-        : resource
-          ? `advanced-mode-toggle-resource-${resource.resourceId}`
-          : "advanced-mode-toggle";
-
     const targetsTable = (
         <>
-            <div className="overflow-x-auto">
+            <TableContainer>
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -958,29 +919,16 @@ export const ProxyResourceTargetsForm = forwardRef<
                         )}
                     </TableBody>
                 </Table>
+            </TableContainer>
+            {/* The empty state (and its add button) is hidden on mobile, so always show the add button there */}
+            <div
+                className={cn(
+                    "flex items-center mb-4",
+                    !hasTargets && "sm:hidden"
+                )}
+            >
+                {addTargetButton}
             </div>
-            {hasTargets && (
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center justify-between w-full gap-2">
-                        {addTargetButton}
-                        {!disableAdvancedMode && (
-                            <div className="flex items-center gap-2">
-                                <Switch
-                                    id={advancedModeToggleId}
-                                    checked={isAdvancedMode}
-                                    onCheckedChange={setIsAdvancedMode}
-                                />
-                                <label
-                                    htmlFor={advancedModeToggleId}
-                                    className="text-sm"
-                                >
-                                    {t("advancedMode")}
-                                </label>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
             {build === "saas" &&
                 !isAiProvider &&
                 targets.length > 1 &&

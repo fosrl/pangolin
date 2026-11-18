@@ -25,12 +25,23 @@ import logger from "@server/logger";
 import { handleSubscriptionLifesycle } from "../subscriptionLifecycle";
 import { getSubType } from "./getSubType";
 import stripe from "#private/lib/stripe";
-import privateConfig from "#private/lib/config";
+import {
+    invalidateLicense,
+    legacyLicenseId
+} from "#private/lib/billing/licenseApi";
 import { handleTierChange } from "../featureLifecycle";
+import {
+    handleSelfHostedSubscriptionDeleted,
+    isSelfHostedLicense
+} from "./handleSelfHostedLicense";
 
 export async function handleSubscriptionDeleted(
     subscription: Stripe.Subscription
 ): Promise<void> {
+    if (isSelfHostedLicense(subscription.metadata)) {
+        return handleSelfHostedSubscriptionDeleted(subscription);
+    }
+
     try {
         // Fetch the subscription from Stripe with expanded price.tiers
         const fullSubscription = await stripe!.subscriptions.retrieve(
@@ -124,35 +135,13 @@ export async function handleSubscriptionDeleted(
             logger.debug(
                 `Handling license subscription deletion for orgId ${customer.orgId} and subscription ID ${subscription.id}`
             );
-            try {
-                const invalidateResponse = await fetch(
-                    `${privateConfig.getRawPrivateConfig().server.fossorial_api}/api/v1/license-internal/enterprise/invalidate`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "api-key":
-                                privateConfig.getRawPrivateConfig().server
-                                    .fossorial_api_key!,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            orgId: customer.orgId,
-                            licenseKeyId: parseInt(
-                                subscription.metadata.licenseKeyId
-                            )
-                        })
-                    }
-                );
-
-                if (!invalidateResponse.ok) {
-                    logger.error(
-                        `Fossorial API returned ${invalidateResponse.status} when invalidating license for orgId ${customer.orgId} and subscription ID ${subscription.id}: ${await invalidateResponse.text()}`
-                    );
-                }
-            } catch (error) {
+            const result = await invalidateLicense({
+                subscriptionId: subscription.id,
+                licenseId: legacyLicenseId(subscription.metadata)
+            });
+            if (!result.ok) {
                 logger.error(
-                    `Error notifying Fossorial API of license subscription deletion for orgId ${customer.orgId} and subscription ID ${subscription.id}:`,
-                    error
+                    `Fossorial API returned ${result.status} invalidating the license for subscription ${subscription.id}: ${result.body}`
                 );
             }
         }

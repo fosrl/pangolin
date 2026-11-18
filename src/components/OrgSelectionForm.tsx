@@ -13,6 +13,7 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { useLicenseStatusContext } from "@app/hooks/useLicenseStatusContext";
 import { useLocalStorage } from "@app/hooks/useLocalStorage";
 import { CheckboxWithLabel } from "@app/components/ui/checkbox";
+import { ExternalLink } from "lucide-react";
 
 export function OrgSelectionForm() {
     const router = useRouter();
@@ -98,9 +99,10 @@ export function OrgSelectionForm() {
                                     href="https://docs.pangolin.net/manage/organizations/org-id"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="underline"
+                                    className="underline inline-flex items-center gap-1"
                                 >
                                     {t("learnMore")}
+                                    <ExternalLink className="size-3.5 shrink-0" />
                                 </Link>
                             </p>
                         </div>

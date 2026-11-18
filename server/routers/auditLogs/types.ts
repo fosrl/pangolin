@@ -207,3 +207,76 @@ export type QueryConnectionAuditLogResponse = {
         }[];
     };
 };
+
+export type QuerySshSessionLogResponse = {
+    log: {
+        id: number;
+        sessionId: string;
+        orgId: string;
+        siteId: number;
+        siteResourceId: number | null;
+        resourceId: number | null;
+        clientId: number | null;
+        userId: string | null;
+        transport: string; // "ssh" or "browser"
+        sourceAddr: string;
+        destAddr: string;
+        username: string;
+        authMethod: string | null;
+        keyFingerprint: string | null;
+        certKeyId: string | null;
+        commandCount: number;
+        startedAt: number;
+        endedAt: number | null;
+        // "site" for siteResourceId, "public" for resourceId
+        resourceType: "site" | "public" | null;
+        resourceName: string | null;
+        resourceNiceId: string | null;
+        siteName: string | null;
+        siteNiceId: string | null;
+        clientName: string | null;
+        clientNiceId: string | null;
+        clientType: string | null;
+        userEmail: string | null;
+    }[];
+    pagination: {
+        total: number;
+        limit: number;
+        offset: number;
+    };
+    filterAttributes: {
+        resources: {
+            id: number;
+            name: string | null;
+            type: "site" | "public";
+        }[];
+        sites: {
+            id: number;
+            name: string | null;
+        }[];
+        clients: {
+            id: number;
+            name: string;
+        }[];
+        users: {
+            id: string;
+            email: string | null;
+        }[];
+        usernames: string[];
+    };
+};
+
+export type QuerySshSessionCommandsResponse = {
+    commands: {
+        id: number;
+        command: string;
+        channel: string;
+        inexact: boolean;
+        timestamp: number;
+    }[];
+    pagination: {
+        total: number;
+        limit: number;
+        offset: number;
+    };
+};

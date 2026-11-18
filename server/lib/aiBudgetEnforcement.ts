@@ -77,6 +77,12 @@ function windowStart(period: BudgetPeriod, now: number): number {
     return now - PERIOD_DURATIONS_MS[period];
 }
 
+// aiUsageRecords.createdAt is epoch seconds, while windowStart is epoch ms
+// (which aiBudgetBreachEvents.createdAt really is).
+function usageWindowStartSec(period: BudgetPeriod, now: number): number {
+    return Math.floor(windowStart(period, now) / 1000);
+}
+
 export type BudgetScopeContext = {
     orgId: string;
     providerId: number;
@@ -163,12 +169,15 @@ async function fetchApplicableBudgets(
         );
 }
 
+function usageColumn(unit: AiBudget["unit"]) {
+    return unit === "usd" ? aiUsageRecords.costUsd : aiUsageRecords.totalTokens;
+}
+
 async function sumUsageAmount(
     where: SQL,
     unit: AiBudget["unit"]
 ): Promise<number> {
-    const column =
-        unit === "usd" ? aiUsageRecords.costUsd : aiUsageRecords.totalTokens;
+    const column = usageColumn(unit);
     const [row] = await logsDb
         .select({ total: sql<number>`coalesce(sum(${column}), 0)` })
         .from(aiUsageRecords)
@@ -179,15 +188,15 @@ async function sumUsageAmount(
 /**
  * Sums recorded usage for a single budget's scope + rolling window. Model
  * budgets can't be pushed down to SQL because the model's key may itself be
- * a glob, so those rows are fetched for the provider+window and matched in
- * JS the same way access-control matching does.
+ * a glob, so usage is summed per requested model for the provider+window and
+ * those totals are matched in JS the same way access-control matching does.
  */
 export async function sumUsageForBudget(
     budget: AiBudget,
     ctx: BudgetScopeContext,
     now: number
 ): Promise<number> {
-    const start = windowStart(budget.period, now);
+    const start = usageWindowStartSec(budget.period, now);
 
     if (budget.modelId != null) {
         const [model] = await db
@@ -204,8 +213,7 @@ export async function sumUsageForBudget(
         const rows = await logsDb
             .select({
                 requestedModel: aiUsageRecords.requestedModel,
-                costUsd: aiUsageRecords.costUsd,
-                totalTokens: aiUsageRecords.totalTokens
+                total: sql<number>`coalesce(sum(${usageColumn(budget.unit)}), 0)`
             })
             .from(aiUsageRecords)
             .where(
@@ -214,15 +222,11 @@ export async function sumUsageForBudget(
                     eq(aiUsageRecords.providerId, model.providerId),
                     gte(aiUsageRecords.createdAt, start)
                 )
-            );
+            )
+            .groupBy(aiUsageRecords.requestedModel);
         return rows
             .filter((r) => modelKeyMatches(model.modelKey, r.requestedModel))
-            .reduce(
-                (sum, r) =>
-                    sum +
-                    (budget.unit === "usd" ? (r.costUsd ?? 0) : r.totalTokens),
-                0
-            );
+            .reduce((sum, r) => sum + Number(r.total), 0);
     }
 
     if (budget.providerId != null) {

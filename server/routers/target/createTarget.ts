@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { routePathSchema } from "@server/lib/schemas";
 import {
     db,
     statusHistory,
@@ -76,7 +77,7 @@ const createTargetSchema = z
         hcTlsServerName: z.string().optional().nullable(),
         hcHealthyThreshold: z.int().positive().min(1).optional().nullable(),
         hcUnhealthyThreshold: z.int().positive().min(1).optional().nullable(),
-        path: z.string().optional().nullable(),
+        path: routePathSchema.optional().nullable(),
         pathMatchType: z
             .enum(["exact", "prefix", "regex"])
             .optional()
@@ -319,11 +320,16 @@ export async function createTarget(
             );
         }
 
-        if (provider && site.orgId && site.orgId !== provider.orgId) {
+        // The site must be in the same org as the resource or provider that owns
+        // the target, otherwise a target could route into another org's site.
+        const ownerOrgId = provider ? provider.orgId : resource!.orgId;
+        if (site.orgId !== ownerOrgId) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
-                    "Site must belong to the AI provider organization"
+                    provider
+                        ? "Site must belong to the AI provider organization"
+                        : "Site must belong to the resource organization"
                 )
             );
         }

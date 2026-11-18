@@ -1,5 +1,6 @@
 export * from "./handleOlmRegisterMessage";
 export * from "./getOlmToken";
+export * from "./getOlmClientSettings";
 export * from "./createUserOlm";
 export * from "./handleOlmRelayMessage";
 export * from "./handleOlmPingMessage";

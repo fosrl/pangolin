@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { db, roundTripMessageTracker } from "@server/db";
+import { primaryDb, roundTripMessageTracker } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -65,8 +65,10 @@ export async function checkRoundTripMessage(
 
         const { messageId } = parsedParams.data;
 
-        // Get the round trip message from the tracker
-        const [message] = await db
+        // Read from the primary: the completion is written by whichever
+        // Pangolin handled the device's reply, and a lagging replica would keep
+        // reporting it incomplete
+        const [message] = await primaryDb
             .select()
             .from(roundTripMessageTracker)
             .where(eq(roundTripMessageTracker.messageId, messageId))

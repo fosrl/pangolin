@@ -212,6 +212,10 @@ export function SidebarSupportButton({
                             onSubmit={form.handleSubmit(onSubmit)}
                             className="space-y-4"
                         >
+                            <h3 className="text-base font-semibold">
+                                {t("supportCloudAccountTitle")}
+                            </h3>
+
                             <FormItem>
                                 <FormLabel>{t("supportReplyTo")}</FormLabel>
                                 <FormControl>

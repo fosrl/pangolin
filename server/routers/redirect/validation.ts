@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isValidDomain } from "@server/lib/validators";
 import { build } from "@server/build";
+import { routePathSchema } from "@server/lib/schemas";
 
 export const redirectNiceIdSchema = z
     .string()
@@ -20,7 +21,7 @@ export const redirectRewritePathTypeSchema = z.enum([
     "stripPrefix"
 ]);
 
-export const redirectMatchPathSchema = z.string().nonempty();
+export const redirectMatchPathSchema = routePathSchema.nonempty();
 
 export function isValidRegex(pattern: string): boolean {
     try {

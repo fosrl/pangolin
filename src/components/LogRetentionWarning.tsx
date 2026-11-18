@@ -26,7 +26,7 @@ export function LogRetentionWarning({
                 logType: logTypeLabel
             })}
             actions={
-                <Link href={`/${orgId}/settings/general/security`}>
+                <Link href={`/${orgId}/settings/general/logs`}>
                     <Button variant="outline" className="gap-2">
                         {t("logRetentionDisabledWarningButton")}
                         <ArrowRight className="size-4" />

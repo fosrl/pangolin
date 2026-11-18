@@ -182,15 +182,7 @@ export async function updateResourcePolicies(
                 });
             }
 
-            // Sync header auth
-            await trx
-                .delete(resourcePolicyHeaderAuth)
-                .where(
-                    eq(
-                        resourcePolicyHeaderAuth.resourcePolicyId,
-                        resourcePolicyId
-                    )
-                );
+            // Sync header auth (hash before delete so delete+insert stay adjacent)
             if (policyData["basic-auth"]) {
                 const basicAuth = policyData["basic-auth"];
                 const headerAuthHash = await hashPassword(
@@ -198,12 +190,29 @@ export async function updateResourcePolicies(
                         `${basicAuth.user}:${basicAuth.password}`
                     ).toString("base64")
                 );
+                await trx
+                    .delete(resourcePolicyHeaderAuth)
+                    .where(
+                        eq(
+                            resourcePolicyHeaderAuth.resourcePolicyId,
+                            resourcePolicyId
+                        )
+                    );
                 await trx.insert(resourcePolicyHeaderAuth).values({
                     resourcePolicyId,
                     headerAuthHash,
                     extendedCompatibility:
                         basicAuth["extended-compatibility"] ?? true
                 });
+            } else {
+                await trx
+                    .delete(resourcePolicyHeaderAuth)
+                    .where(
+                        eq(
+                            resourcePolicyHeaderAuth.resourcePolicyId,
+                            resourcePolicyId
+                        )
+                    );
             }
 
             // Sync SSO roles

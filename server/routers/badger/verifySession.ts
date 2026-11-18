@@ -3,7 +3,9 @@ import {
     serializeResourceSessionCookie,
     validateResourceSessionToken
 } from "@server/auth/sessions/resource";
+import type { SessionClientInfo } from "@server/auth/sessions/clientInfo";
 import { generateSessionToken } from "@server/auth/sessions/app";
+import { revalidateIdpSession } from "#dynamic/auth/sessions/idpRevalidation";
 import { verifyResourceAccessToken } from "@server/auth/verifyResourceAccessToken";
 import {
     extractVirtualApiKeyCredential,
@@ -69,10 +71,22 @@ import { logAccessAudit } from "#dynamic/lib/logAccessAudit";
 import { REGIONS } from "@server/db/regions";
 import { localCache } from "#dynamic/lib/cache";
 import { APP_VERSION } from "@server/lib/consts";
-import { isSubscribed } from "#dynamic/lib/isSubscribed";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { eq } from "drizzle-orm";
 import type ResponseT from "@server/types/MessageResponse";
+import { ipKeyGenerator, type Options } from "express-rate-limit";
+import { createStore } from "#dynamic/lib/rateLimitStore";
+
+// Limit failed HTTP Basic (header auth) attempts per client IP and resource,
+// matching the limits on /resource/:resourceId/password and /pincode.
+const HEADER_AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const HEADER_AUTH_RATE_LIMIT_MAX = 15;
+const headerAuthRateLimitStore = createStore();
+headerAuthRateLimitStore.init?.({
+    windowMs: HEADER_AUTH_RATE_LIMIT_WINDOW_MS,
+    max: HEADER_AUTH_RATE_LIMIT_MAX
+} as Options);
 
 const verifyResourceSessionSchema = z.object({
     sessions: z.record(z.string(), z.string()).optional(),
@@ -623,12 +637,30 @@ export async function verifyResourceSession(
                 );
 
                 return allowed(res, undefined, dontStripSession);
+            }
+
+            // Count the attempt before hashing so concurrent guesses can't
+            // slip past the limit; successful attempts are refunded below.
+            const rateLimitKey = `headerAuth:${ipKeyGenerator(clientIp || "unknown")}:${resource.resourceId}`;
+            const { totalHits } =
+                await headerAuthRateLimitStore.increment(rateLimitKey);
+            const rateLimited = totalHits > HEADER_AUTH_RATE_LIMIT_MAX;
+
+            if (rateLimited) {
+                if (config.getRawConfig().app.log_failed_attempts) {
+                    logger.info(
+                        `Header auth rate limit exceeded. Resource ID: ${
+                            resource.resourceId
+                        }. IP: ${clientIp}.`
+                    );
+                }
             } else if (
                 await verifyPassword(
                     clientHeaderAuth,
                     headerAuth.headerAuthHash
                 )
             ) {
+                await headerAuthRateLimitStore.decrement(rateLimitKey);
                 localCache.set(clientHeaderAuthKey, clientHeaderAuth, 5);
                 logger.debug("Resource allowed because header auth is valid");
 
@@ -720,7 +752,7 @@ export async function verifyResourceSession(
         );
 
         if (resourceSessionToken) {
-            const sessionCacheKey = `session:${resourceSessionToken}`;
+            const sessionCacheKey = `session:${resource.resourceId}:${resourceSessionToken}`;
             let resourceSession: ResourceSession | null | undefined =
                 localCache.get(sessionCacheKey);
 
@@ -734,6 +766,14 @@ export async function verifyResourceSession(
                 if (resourceSession) {
                     localCache.set(sessionCacheKey, resourceSession, 5);
                 }
+            }
+
+            // sessions are scoped to a single resource; never honor one issued for another
+            if (
+                resourceSession &&
+                resourceSession.resourceId !== resource.resourceId
+            ) {
+                resourceSession = null;
             }
 
             if (resourceSession?.isRequestToken) {
@@ -792,7 +832,10 @@ export async function verifyResourceSession(
                             reason: 104, // valid pincode
                             resourceId: resource.resourceId,
                             orgId: resource.orgId,
-                            location: ipCC
+                            location: ipCC,
+                            metadata: {
+                                resourceSessionId: resourceSession.sessionId
+                            }
                         },
                         parsedBody.data
                     );
@@ -815,7 +858,10 @@ export async function verifyResourceSession(
                             reason: 105, // valid password
                             resourceId: resource.resourceId,
                             orgId: resource.orgId,
-                            location: ipCC
+                            location: ipCC,
+                            metadata: {
+                                resourceSessionId: resourceSession.sessionId
+                            }
                         },
                         parsedBody.data
                     );
@@ -850,7 +896,10 @@ export async function verifyResourceSession(
                             reason: 106, // valid email
                             resourceId: resource.resourceId,
                             orgId: resource.orgId,
-                            location: ipCC
+                            location: ipCC,
+                            metadata: {
+                                resourceSessionId: resourceSession.sessionId
+                            }
                         },
                         parsedBody.data
                     );
@@ -859,7 +908,9 @@ export async function verifyResourceSession(
                         res,
                         forwardedUserData(
                             resource,
-                            whitelistEmail ? { email: whitelistEmail } : undefined
+                            whitelistEmail
+                                ? { email: whitelistEmail }
+                                : undefined
                         ),
                         dontStripSession
                     );
@@ -897,7 +948,8 @@ export async function verifyResourceSession(
                                 location: ipCC,
                                 accessTokenId: resourceSession.accessTokenId,
                                 tokenTitle: tokenItem.title ?? null,
-                                userData
+                                userData,
+                                resourceSessionId: resourceSession.sessionId
                             },
                             parsedBody.data
                         );
@@ -951,6 +1003,9 @@ export async function verifyResourceSession(
                                 user: {
                                     username: allowedUserData.username,
                                     userId: allowedUserData.userId
+                                },
+                                metadata: {
+                                    resourceSessionId: resourceSession.sessionId
                                 }
                             },
                             parsedBody.data
@@ -1131,12 +1186,11 @@ async function notAllowed(
 ) {
     let loginPage: LoginPage | null = null;
     if (orgId) {
-        const subscribed = await isSubscribed(
-            // this is fine because the org login page is only a saas feature
+        const allowed = await isLicensedOrSubscribed(
             orgId,
             tierMatrix.loginPageDomain
         );
-        if (subscribed) {
+        if (allowed) {
             loginPage = await getOrgLoginPage(orgId);
         }
     }
@@ -1218,19 +1272,17 @@ async function allowAccessToken(
 ) {
     const userData = await getAccessTokenUserData(tokenItem, resource.orgId);
 
-    logAccessTokenRequestAudit(
-        {
-            resourceId: resource.resourceId,
-            orgId: resource.orgId,
-            location,
-            accessTokenId: tokenItem.accessTokenId,
-            tokenTitle: tokenItem.title,
-            userData
-        },
-        auditBody
-    );
+    const auditData = {
+        resourceId: resource.resourceId,
+        orgId: resource.orgId,
+        location,
+        accessTokenId: tokenItem.accessTokenId,
+        tokenTitle: tokenItem.title,
+        userData
+    };
 
     if (!tokenItem.persistSession) {
+        logAccessTokenRequestAudit(auditData, auditBody);
         logAccessTokenAccessAudit(tokenItem, resource, userData, auditBody);
         return allowed(
             res,
@@ -1245,7 +1297,7 @@ async function allowAccessToken(
     );
 
     if (resourceSessionToken) {
-        const sessionCacheKey = `session:${resourceSessionToken}`;
+        const sessionCacheKey = `session:${resource.resourceId}:${resourceSessionToken}`;
         let resourceSession: ResourceSession | null | undefined =
             localCache.get(sessionCacheKey);
 
@@ -1262,11 +1314,16 @@ async function allowAccessToken(
 
         if (
             resourceSession &&
+            resourceSession.resourceId === resource.resourceId &&
             !resourceSession.isRequestToken &&
             resourceSession.accessTokenId === tokenItem.accessTokenId
         ) {
             logger.debug(
                 "Resource allowed because existing access token session is valid"
+            );
+            logAccessTokenRequestAudit(
+                { ...auditData, resourceSessionId: resourceSession.sessionId },
+                auditBody
             );
             return allowed(
                 res,
@@ -1276,18 +1333,37 @@ async function allowAccessToken(
         }
     }
 
-    logAccessTokenAccessAudit(tokenItem, resource, userData, auditBody);
-    return await createAccessTokenSession(res, resource, tokenItem, userData);
+    const sess = await createAccessTokenSession(res, resource, tokenItem, {
+        ip: auditBody.requestIp
+            ? stripPortFromHost(auditBody.requestIp, auditBody.badgerVersion)
+            : null,
+        userAgent: getClientHeader(auditBody.headers, "user-agent"),
+        countryCode: location
+    });
+    logAccessTokenRequestAudit(
+        { ...auditData, resourceSessionId: sess.sessionId },
+        auditBody
+    );
+    logAccessTokenAccessAudit(
+        tokenItem,
+        resource,
+        userData,
+        auditBody,
+        sess.sessionId
+    );
+    return allowed(res, forwardedUserData(resource, userData));
 }
 
+// Sets the session cookie on the response; the caller sends the response.
 async function createAccessTokenSession(
     res: Response,
     resource: Resource,
     tokenItem: ResourceAccessToken,
-    userData?: BasicUserData
-) {
+    clientInfo: SessionClientInfo
+): Promise<ResourceSession> {
     const token = generateSessionToken();
     const sess = await createResourceSession({
+        clientInfo,
         resourceId: resource.resourceId,
         token,
         accessTokenId: tokenItem.accessTokenId,
@@ -1305,7 +1381,7 @@ async function createAccessTokenSession(
     );
     res.appendHeader("Set-Cookie", cookie);
     logger.debug("Access token is valid, creating new session");
-    return allowed(res, forwardedUserData(resource, userData));
+    return sess;
 }
 
 async function getAccessTokenUserData(
@@ -1354,6 +1430,7 @@ function logAccessTokenRequestAudit(
         accessTokenId: string;
         tokenTitle: string | null;
         userData?: BasicUserData;
+        resourceSessionId?: string;
     },
     body: VerifyResourceSessionSchema
 ) {
@@ -1371,7 +1448,8 @@ function logAccessTokenRequestAudit(
                 },
                 metadata: {
                     accessTokenId: data.accessTokenId,
-                    accessTokenTitle: data.tokenTitle
+                    accessTokenTitle: data.tokenTitle,
+                    resourceSessionId: data.resourceSessionId
                 }
             },
             body
@@ -1389,7 +1467,10 @@ function logAccessTokenRequestAudit(
             apiKey: {
                 name: data.tokenTitle,
                 apiKeyId: data.accessTokenId
-            }
+            },
+            metadata: data.resourceSessionId
+                ? { resourceSessionId: data.resourceSessionId }
+                : undefined
         },
         body
     );
@@ -1399,7 +1480,8 @@ function logAccessTokenAccessAudit(
     tokenItem: ResourceAccessToken,
     resource: Resource,
     userData: BasicUserData | undefined,
-    body: VerifyResourceSessionSchema
+    body: VerifyResourceSessionSchema,
+    resourceSessionId?: string
 ) {
     const userAgent =
         body.headers?.["user-agent"] || body.headers?.["User-Agent"];
@@ -1416,7 +1498,8 @@ function logAccessTokenAccessAudit(
             },
             metadata: {
                 accessTokenId: tokenItem.accessTokenId,
-                accessTokenTitle: tokenItem.title
+                accessTokenTitle: tokenItem.title,
+                resourceSessionId
             },
             userAgent,
             requestIp: body.requestIp
@@ -1433,6 +1516,7 @@ function logAccessTokenAccessAudit(
             name: tokenItem.title,
             apiKeyId: tokenItem.accessTokenId
         },
+        metadata: resourceSessionId ? { resourceSessionId } : undefined,
         userAgent,
         requestIp: body.requestIp
     });
@@ -1445,11 +1529,11 @@ async function headerAuthChallenged(
 ) {
     let loginPage: LoginPage | null = null;
     if (orgId) {
-        const subscribed = await isSubscribed(
+        const allowed = await isLicensedOrSubscribed(
             orgId,
             tierMatrix.loginPageDomain
-        ); // this is fine because the org login page is only a saas feature
-        if (subscribed) {
+        );
+        if (allowed) {
             loginPage = await getOrgLoginPage(orgId);
         }
     }
@@ -1491,6 +1575,10 @@ async function isUserAllowedToAccessResource(
     resource: Resource,
     org: Org
 ): Promise<BasicUserData | null> {
+    if (!(await revalidateIdpSession(userSessionId))) {
+        return null;
+    }
+
     const result = await getUserSessionWithUser(userSessionId);
 
     if (!result) {

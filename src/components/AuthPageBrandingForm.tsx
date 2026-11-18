@@ -465,7 +465,7 @@ export default function AuthPageBrandingForm({
                             !isPaidUser(tierMatrix.loginPageBranding)
                         }
                     >
-                        {t("saveAuthPageBranding")}
+                        {t("saveSettings")}
                     </Button>
                 </SettingsSectionFooter>
             </SettingsSection>

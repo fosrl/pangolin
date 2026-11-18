@@ -27,6 +27,10 @@ export interface DateTimePickerProps {
     className?: string;
     disabled?: boolean;
     showTime?: boolean;
+    /** Earliest selectable date. Earlier days and years are hidden/disabled. */
+    minDate?: Date;
+    /** Latest selectable date. Later days and years are hidden/disabled. */
+    maxDate?: Date;
 }
 
 export function DateTimePicker({
@@ -36,7 +40,9 @@ export function DateTimePicker({
     placeholder = "Select date & time",
     className,
     disabled = false,
-    showTime = true
+    showTime = true,
+    minDate,
+    maxDate
 }: DateTimePickerProps) {
     const [open, setOpen] = useState(false);
     const [internalDate, setInternalDate] = useState<Date | undefined>(
@@ -85,6 +91,17 @@ export function DateTimePicker({
         return `${dateStr} ${timeStr}`;
     };
 
+    // Without explicit bounds the dropdown caption defaults to the previous
+    // 100 years through the end of the current year.
+    const calendarBounds = {
+        startMonth: minDate,
+        endMonth: maxDate,
+        disabled: [
+            ...(minDate ? [{ before: minDate }] : []),
+            ...(maxDate ? [{ after: maxDate }] : [])
+        ]
+    };
+
     const hasValue = internalDate || (showTime && internalTime);
 
     return (
@@ -125,6 +142,7 @@ export function DateTimePicker({
                                             }
                                         }}
                                         className="grow w-[250px]"
+                                        {...calendarBounds}
                                     />
                                     <div className="p-3 border-l">
                                         <div className="flex flex-col gap-3">
@@ -154,6 +172,7 @@ export function DateTimePicker({
                                         handleDateChange(date);
                                         setOpen(false);
                                     }}
+                                    {...calendarBounds}
                                 />
                             )}
                         </PopoverContent>

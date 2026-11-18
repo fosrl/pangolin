@@ -118,10 +118,9 @@ function extractOpenAiResponses(
     if (isStream) {
         for (const frame of sseDataFrames(text)) {
             const parsed = tryParseJson(frame);
-            if (
-                parsed?.type === "response.completed" &&
-                parsed?.response?.usage
-            ) {
+            // response.completed and response.incomplete (e.g. max_output_tokens)
+            // carry the final usage in `response`.
+            if (parsed?.response?.usage) {
                 usage = parsed.response.usage;
             } else if (parsed?.usage) {
                 usage = parsed.usage;
@@ -217,7 +216,8 @@ function extractGoogleGenerateContent(
         "promptTokenCount",
         "candidatesTokenCount",
         "cachedContentTokenCount",
-        "thoughtsTokenCount"
+        "thoughtsTokenCount",
+        "toolUsePromptTokenCount"
     ]);
 
     if (fields.promptTokenCount === undefined) {
@@ -226,9 +226,15 @@ function extractGoogleGenerateContent(
 
     const cacheReadTokens = fields.cachedContentTokenCount ?? 0;
     const reasoningTokens = fields.thoughtsTokenCount ?? 0;
+    // Tokens of tool results (Google Search, URL context) are reported in
+    // `toolUsePromptTokenCount`, separately from `promptTokenCount`, but are
+    // billed as input.
+    const toolUsePromptTokens = fields.toolUsePromptTokenCount ?? 0;
 
     return {
-        promptTokens: Math.max(0, fields.promptTokenCount - cacheReadTokens),
+        promptTokens:
+            Math.max(0, fields.promptTokenCount - cacheReadTokens) +
+            toolUsePromptTokens,
         cacheReadTokens,
         cacheWriteTokens: 0,
         completionTokens: fields.candidatesTokenCount ?? 0,
@@ -248,12 +254,11 @@ function extractBedrockConverse(
     const parsed = tryParseJson(text);
     const usage = parsed?.usage;
     if (usage) {
+        // With prompt caching on, Bedrock's `inputTokens` already excludes
+        // the cache read/write counters, so it is used as-is.
         const cacheReadTokens = usage.cacheReadInputTokens ?? 0;
         return {
-            promptTokens: Math.max(
-                0,
-                (usage.inputTokens ?? 0) - cacheReadTokens
-            ),
+            promptTokens: usage.inputTokens ?? 0,
             cacheReadTokens,
             cacheWriteTokens: usage.cacheWriteInputTokens ?? 0,
             completionTokens: usage.outputTokens ?? 0,
@@ -271,15 +276,26 @@ function extractBedrockConverse(
     if (fields.inputTokens === undefined) {
         return null;
     }
-    const cacheReadTokens = fields.cacheReadInputTokens ?? 0;
     return {
-        promptTokens: Math.max(0, fields.inputTokens - cacheReadTokens),
-        cacheReadTokens,
+        promptTokens: fields.inputTokens,
+        cacheReadTokens: fields.cacheReadInputTokens ?? 0,
         cacheWriteTokens: fields.cacheWriteInputTokens ?? 0,
         completionTokens: fields.outputTokens ?? 0,
         reasoningTokens: 0,
         estimated: false
     };
+}
+
+// Pulls the base64 `bytes` payload out of each invoke-with-response-stream
+// event-stream frame and re-expresses the decoded events as SSE `data:` lines.
+// Returns null when the text has no such chunks.
+function decodeBedrockInvokeChunks(text: string): string | null {
+    const events: string[] = [];
+    for (const m of text.matchAll(/"bytes"\s*:\s*"([A-Za-z0-9+/=]+)"/g)) {
+        const json = Buffer.from(m[1], "base64").toString("utf8");
+        events.push(`data: ${json}\n\n`);
+    }
+    return events.length > 0 ? events.join("") : null;
 }
 
 function extractBedrockModelInvoke(
@@ -302,16 +318,18 @@ function extractBedrockModelInvoke(
         };
     }
 
-    // invoke-with-response-stream has no equivalent headers; the model's
-    // own usage shape (frequently Anthropic-style on Bedrock) is embedded
-    // inside binary event-stream framing, so fall back to a couple of
-    // known field-name shapes via regex.
-    const anthropicStyle = extractAnthropicMessages(text, true);
+    // invoke-with-response-stream has no equivalent headers. Each event-stream
+    // frame carries {"bytes":"<base64>"} whose decoded JSON is the model's own
+    // event (frequently Anthropic-style on Bedrock), so decode those chunks
+    // first and fall back to a couple of known field-name shapes via regex.
+    const decoded = decodeBedrockInvokeChunks(text);
+    const body = decoded ?? text;
+    const anthropicStyle = extractAnthropicMessages(body, true);
     if (anthropicStyle) {
         return anthropicStyle;
     }
 
-    const fields = scanNumericFields(text, [
+    const fields = scanNumericFields(body, [
         "inputTokenCount",
         "outputTokenCount"
     ]);

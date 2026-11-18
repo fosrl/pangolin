@@ -1,5 +1,11 @@
 import { build } from "@server/build";
-import { db, deviceWebAuthCodes, sessionTransferToken } from "@server/db";
+import {
+    db,
+    deviceWebAuthCodes,
+    idpGrants,
+    sessionIdpGrants,
+    sessionTransferToken
+} from "@server/db";
 import {
     emailVerificationCodes,
     newtSessions,
@@ -11,7 +17,7 @@ import {
     userInvites
 } from "@server/db";
 import logger from "@server/logger";
-import { lt } from "drizzle-orm";
+import { lt, notInArray } from "drizzle-orm";
 
 export async function clearStaleData() {
     try {
@@ -20,6 +26,21 @@ export async function clearStaleData() {
             .where(lt(sessions.expiresAt, new Date().getTime()));
     } catch (e) {
         logger.warn("Error clearing expired sessions:", e);
+    }
+
+    try {
+        await db
+            .delete(idpGrants)
+            .where(
+                notInArray(
+                    idpGrants.grantId,
+                    db
+                        .select({ grantId: sessionIdpGrants.grantId })
+                        .from(sessionIdpGrants)
+                )
+            );
+    } catch (e) {
+        logger.warn("Error clearing unused idpGrants:", e);
     }
 
     try {

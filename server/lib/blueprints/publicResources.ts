@@ -47,6 +47,7 @@ import logger from "@server/logger";
 import { defaultRoleAllowedActions } from "@server/routers/role/createRole";
 import { pickPort } from "@server/routers/target/helpers";
 import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
+import { checkWildcardDomainConflict } from "@server/lib/domainUtils";
 import { tierMatrix } from "../billing/tierMatrix";
 import {
     isValidCIDR,
@@ -328,7 +329,8 @@ export async function updatePublicResources(
                     resourceData["full-domain"]!,
                     orgId,
                     resourceData.mode === "inference",
-                    trx
+                    trx,
+                    resourceData["match-base-domain"]
                 );
 
                 await enforceDomainNamespacePaywall(
@@ -415,6 +417,8 @@ export async function updatePublicResources(
                             subdomain: domain ? domain.subdomain : null,
                             domainId: domain ? domain.domainId : null,
                             wildcard: domain ? domain.wildcard : false,
+                            matchBaseDomain:
+                                resourceData["match-base-domain"] ?? false,
                             enabled: resourceEnabled,
                             sso: resourceData.auth?.["sso-enabled"] || false,
                             skipToIdpId:
@@ -646,6 +650,8 @@ export async function updatePublicResources(
                             subdomain: domain ? domain.subdomain : null,
                             domainId: domain ? domain.domainId : null,
                             wildcard: domain ? domain.wildcard : false,
+                            matchBaseDomain:
+                                resourceData["match-base-domain"] ?? false,
                             enabled: resourceEnabled,
                             ssl: resourceSsl,
                             setHostHeader: resourceData["host-header"] || null,
@@ -846,19 +852,26 @@ export async function updatePublicResources(
                             ip: targetData.hostname,
                             method:
                                 resourceData.mode == "http" // the other types of ssh, rdp, and vnc use the browser gateway targets and not this one so this is okay
-                                    ? targetData.method
+                                    ? (targetData.method ?? null)
                                     : null,
                             port: targetData.port,
                             enabled: targetData.enabled,
-                            path: targetData.path,
-                            pathMatchType: targetData["path-match"],
+                            // Targets are matched to existing rows by
+                            // position, so every optional field must be
+                            // written explicitly (null when omitted).
+                            // Drizzle skips `undefined` keys in .set(),
+                            // which would otherwise make a target inherit
+                            // the previous target's value at this index.
+                            path: targetData.path ?? null,
+                            pathMatchType: targetData["path-match"] ?? null,
                             rewritePath:
                                 targetData.rewritePath ||
                                 targetData["rewrite-path"] ||
                                 (targetData["rewrite-match"] === "stripPrefix"
                                     ? "/"
-                                    : undefined),
-                            rewritePathType: targetData["rewrite-match"],
+                                    : null),
+                            rewritePathType:
+                                targetData["rewrite-match"] ?? null,
                             priority: targetData.priority,
                             mode: resourceData.mode as Target["mode"]
                         })
@@ -914,28 +927,33 @@ export async function updatePublicResources(
                     const [newHealthcheck] = await trx
                         .update(targetHealthCheck)
                         .set({
+                            // Same as the target above: write every field so
+                            // omitted values reset to the column defaults
+                            // instead of inheriting from the positional match.
                             name: healthCheckName,
                             hcEnabled: healthcheckData?.enabled || false,
-                            hcPath: healthcheckData?.path,
-                            hcScheme: healthcheckData?.scheme,
-                            hcMode: healthcheckData?.mode,
-                            hcHostname: healthcheckData?.hostname,
-                            hcPort: healthcheckData?.port,
-                            hcInterval: healthcheckData?.interval,
+                            hcPath: healthcheckData?.path ?? null,
+                            hcScheme: healthcheckData?.scheme ?? null,
+                            hcMode: healthcheckData?.mode ?? "http",
+                            hcHostname: healthcheckData?.hostname ?? null,
+                            hcPort: healthcheckData?.port ?? null,
+                            hcInterval: healthcheckData?.interval ?? 30,
                             hcUnhealthyInterval:
-                                healthcheckData?.unhealthyInterval ||
-                                healthcheckData?.["unhealthy-interval"],
-                            hcTimeout: healthcheckData?.timeout,
+                                healthcheckData?.unhealthyInterval ??
+                                healthcheckData?.["unhealthy-interval"] ??
+                                30,
+                            hcTimeout: healthcheckData?.timeout ?? 5,
                             hcHeaders: hcHeaders,
                             hcFollowRedirects:
-                                healthcheckData?.followRedirects ||
-                                healthcheckData?.["follow-redirects"],
-                            hcMethod: healthcheckData?.method,
-                            hcStatus: healthcheckData?.status,
+                                healthcheckData?.followRedirects ??
+                                healthcheckData?.["follow-redirects"] ??
+                                true,
+                            hcMethod: healthcheckData?.method ?? "GET",
+                            hcStatus: healthcheckData?.status ?? null,
                             hcHealthyThreshold:
-                                healthcheckData?.["healthy-threshold"],
+                                healthcheckData?.["healthy-threshold"] ?? 1,
                             hcUnhealthyThreshold:
-                                healthcheckData?.["unhealthy-threshold"]
+                                healthcheckData?.["unhealthy-threshold"] ?? 1
                         })
                         .where(
                             eq(
@@ -1195,7 +1213,8 @@ export async function updatePublicResources(
                     resourceData["full-domain"]!,
                     orgId,
                     resourceData.mode === "inference",
-                    trx
+                    trx,
+                    resourceData["match-base-domain"]
                 );
 
                 await enforceDomainNamespacePaywall(
@@ -1295,6 +1314,7 @@ export async function updatePublicResources(
                     subdomain: domain ? domain.subdomain : null,
                     domainId: domain ? domain.domainId : null,
                     wildcard: domain ? domain.wildcard : false,
+                    matchBaseDomain: resourceData["match-base-domain"] ?? false,
                     enabled: resourceEnabled,
                     setHostHeader: resourceData["host-header"] || null,
                     forwardIdentityHeaders:
@@ -2258,23 +2278,20 @@ export async function getDomain(
     fullDomain: string,
     orgId: string,
     isInference: boolean,
-    trx: Transaction
+    trx: Transaction,
+    matchBaseDomain: boolean = false
 ) {
     const [fullDomainExists] = await trx
         .select({ resourceId: resources.resourceId })
         .from(resources)
         .where(
             and(
+                // The full domain must be unique across every org, not just
+                // this one. Inference resources may share a full domain with
+                // each other, but any other resource conflicts with every
+                // existing resource on that domain.
                 eq(resources.fullDomain, fullDomain),
-                eq(resources.orgId, orgId),
-                // Inference resources route through the central AI gateway
-                // rather than normal target-based proxying, so they're
-                // allowed to share a full-domain with a non-inference
-                // resource (and vice versa) - only conflicts within the
-                // same routing category are rejected.
-                isInference
-                    ? ne(resources.mode, "inference")
-                    : eq(resources.mode, "inference"),
+                isInference ? ne(resources.mode, "inference") : undefined,
                 resourceId
                     ? ne(resources.resourceId, resourceId)
                     : isNotNull(resources.resourceId)
@@ -2294,6 +2311,18 @@ export async function getDomain(
         throw new Error(
             `Domain not found for full-domain: ${fullDomain} in org ${orgId}`
         );
+    }
+
+    if (matchBaseDomain) {
+        const wildcardConflict = await checkWildcardDomainConflict(
+            fullDomain,
+            resourceId,
+            true,
+            trx
+        );
+        if (wildcardConflict.conflict) {
+            throw new Error(wildcardConflict.message);
+        }
     }
 
     await createCertificate(domain.domainId, fullDomain, trx);

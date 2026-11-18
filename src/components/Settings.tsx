@@ -77,6 +77,10 @@ export function SettingsFormGrid({
         <div
             className={cn(
                 "grid grid-cols-1 md:grid-cols-4 gap-4 items-start",
+                // The grid gap spaces cells, so drop the paid features banner's
+                // own bottom margin and hide cells that render nothing (e.g. a
+                // banner for a feature the org already has).
+                "[&>[data-slot=paid-features-alert]]:mb-0 [&>*>[data-slot=paid-features-alert]]:mb-0 [&>*:empty]:hidden",
                 className
             )}
         >

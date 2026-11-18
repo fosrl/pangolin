@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { ColumnDef } from "@tanstack/react-table";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { OrgApiKeysDataTable } from "@app/components/OrgApiKeysDataTable";
@@ -19,7 +20,6 @@ import { toast } from "@app/hooks/useToast";
 import { formatAxiosError } from "@app/lib/api";
 import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import moment from "moment";
 import { useTranslations } from "next-intl";
 
 export type OrgApiKeyRow = {
@@ -123,7 +123,11 @@ export default function OrgApiKeysTable({
             header: () => <span className="p-3">{t("createdAt")}</span>,
             cell: ({ row }) => {
                 const r = row.original;
-                return <span>{moment(r.createdAt).format("lll")}</span>;
+                return (
+                    <span>
+                        <Timestamp value={r.createdAt} />
+                    </span>
+                );
             }
         },
         {

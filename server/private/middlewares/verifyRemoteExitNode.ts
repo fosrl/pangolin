@@ -36,6 +36,16 @@ export const verifySessionRemoteExitNodeMiddleware = async (
         return next(unauthorized());
     }
 
+    // Nodes made by quick-start have no exit node until an admin links them
+    if (!remoteExitNode.exitNodeId) {
+        if (config.getRawConfig().app.log_failed_attempts) {
+            logger.info(
+                `Remote exit node ${remoteExitNode.remoteExitNodeId} is not linked to an exit node. IP: ${req.ip}.`
+            );
+        }
+        return next(unauthorized());
+    }
+
     // const existingUser = await db
     //     .select()
     //     .from(users)

@@ -18,6 +18,14 @@ export type CatalogProvider = (typeof CATALOG_PROVIDERS)[number];
 
 const CATALOG_PROVIDER_SET = new Set<string>(CATALOG_PROVIDERS);
 
+/**
+ * Operator-defined entries for models served by `custom` providers (e.g. a
+ * local Ollama instance). These live in their own index so they never leak
+ * into the typed catalogs or the cross-provider pricing fallback used by
+ * aggregators.
+ */
+export const CUSTOM_CATALOG_PROVIDER = "custom";
+
 // Each of our provider types maps to at most one catalog provider. Provider
 // types that proxy arbitrary underlying models (openRouter, vercelAiGateway,
 // custom) have no mapping.
@@ -59,7 +67,12 @@ export type AiModelCapabilityFlags = {
 };
 
 export type AiModelCatalogEntry = {
-    provider: CatalogProvider;
+    provider: CatalogProvider | typeof CUSTOM_CATALOG_PROVIDER;
+    /**
+     * Only meaningful on `custom` entries: scopes the entry to the custom
+     * provider with this niceId. Null applies to every custom provider.
+     */
+    providerNiceId: string | null;
     model: string;
     pricing: {
         in: number | null;
@@ -84,6 +97,7 @@ const flag = z.boolean().nullable().optional();
 const catalogEntrySchema = z.object({
     model: z.string(),
     provider: z.string(),
+    providerNiceId: z.string().nullable().optional(),
     pricing: z
         .object({
             in: z.number().nullable().optional(),
@@ -116,7 +130,12 @@ const catalogFileSchema = z.object({
 
 type RawCatalogEntry = z.infer<typeof catalogEntrySchema>;
 
-function normalizeCatalogProvider(raw: string): CatalogProvider | null {
+function normalizeCatalogProvider(
+    raw: string
+): CatalogProvider | typeof CUSTOM_CATALOG_PROVIDER | null {
+    if (raw === CUSTOM_CATALOG_PROVIDER) {
+        return CUSTOM_CATALOG_PROVIDER;
+    }
     if (CATALOG_PROVIDER_SET.has(raw)) {
         return raw as CatalogProvider;
     }
@@ -144,6 +163,10 @@ function normalizeEntry(raw: RawCatalogEntry): AiModelCatalogEntry | null {
 
     return {
         provider,
+        providerNiceId:
+            provider === CUSTOM_CATALOG_PROVIDER
+                ? raw.providerNiceId || null
+                : null,
         model: raw.model,
         pricing: {
             in: raw.pricing?.in ?? null,
@@ -170,11 +193,18 @@ function providerKey(provider: CatalogProvider, key: string): string {
     return `${provider}\0${key}`;
 }
 
+// niceIds are never empty, so "" safely stands for "every custom provider".
+function customKey(providerNiceId: string | null, key: string): string {
+    return `${providerNiceId ?? ""}\0${key}`;
+}
+
 export class AiModelCatalog {
     private entries: AiModelCatalogEntry[] = [];
     private byProvider = new Map<CatalogProvider, AiModelCatalogEntry[]>();
     private byProviderAndKey = new Map<string, AiModelCatalogEntry>();
     private byKey = new Map<string, AiModelCatalogEntry[]>();
+    private customByKey = new Map<string, AiModelCatalogEntry>();
+    private customEntries: AiModelCatalogEntry[] = [];
     private refreshTimer: NodeJS.Timeout | null = null;
 
     /**
@@ -204,6 +234,41 @@ export class AiModelCatalog {
         return this.byKey.get(key) ?? [];
     }
 
+    /**
+     * Custom-provider entry for a model key: one scoped to `providerNiceId`
+     * wins over an unscoped one.
+     */
+    getCustom(
+        providerNiceId: string | null | undefined,
+        key: string
+    ): AiModelCatalogEntry | undefined {
+        if (providerNiceId) {
+            const scoped = this.customByKey.get(customKey(providerNiceId, key));
+            if (scoped) {
+                return scoped;
+            }
+        }
+        return this.customByKey.get(customKey(null, key));
+    }
+
+    /**
+     * Custom-provider entries visible to `providerNiceId`: those scoped to it
+     * plus unscoped ones, scoped first.
+     */
+    listCustom(
+        providerNiceId: string | null | undefined
+    ): AiModelCatalogEntry[] {
+        const scoped = providerNiceId
+            ? this.customEntries.filter(
+                  (e) => e.providerNiceId === providerNiceId
+              )
+            : [];
+        const unscoped = this.customEntries.filter(
+            (e) => e.providerNiceId == null
+        );
+        return [...scoped, ...unscoped];
+    }
+
     /** Full in-memory catalog. */
     getAll(): AiModelCatalogEntry[] {
         return this.entries;
@@ -213,8 +278,19 @@ export class AiModelCatalog {
         const byProvider = new Map<CatalogProvider, AiModelCatalogEntry[]>();
         const byProviderAndKey = new Map<string, AiModelCatalogEntry>();
         const byKey = new Map<string, AiModelCatalogEntry[]>();
+        const customByKey = new Map<string, AiModelCatalogEntry>();
+        const customEntries: AiModelCatalogEntry[] = [];
 
         for (const entry of entries) {
+            if (entry.provider === CUSTOM_CATALOG_PROVIDER) {
+                customEntries.push(entry);
+                const mapKey = customKey(entry.providerNiceId, entry.model);
+                if (!customByKey.has(mapKey)) {
+                    customByKey.set(mapKey, entry);
+                }
+                continue;
+            }
+
             const list = byProvider.get(entry.provider) ?? [];
             list.push(entry);
             byProvider.set(entry.provider, list);
@@ -233,6 +309,8 @@ export class AiModelCatalog {
         this.byProvider = byProvider;
         this.byProviderAndKey = byProviderAndKey;
         this.byKey = byKey;
+        this.customByKey = customByKey;
+        this.customEntries = customEntries;
     }
 
     private async fetchFromFile(
@@ -342,15 +420,22 @@ export const aiModelCatalog = new AiModelCatalog();
  * Full catalog entries for a provider type, deduplicated by model id and
  * sorted by id. Model discovery uses these to report real token limits and
  * capability flags; `listCatalogModelsForType` is the id-only view of the
- * same list.
+ * same list. Custom providers get the operator's `custom` entries, narrowed
+ * to `providerNiceId` when given.
  */
 export function listCatalogEntriesForType(
     type: AiProviderType,
-    query?: string
+    query?: string,
+    providerNiceId?: string | null
 ): AiModelCatalogEntry[] {
     const catalogProvider = getCatalogProviderForType(type);
 
-    let entries = catalogProvider ? aiModelCatalog.list(catalogProvider) : [];
+    let entries =
+        type === "custom"
+            ? aiModelCatalog.listCustom(providerNiceId)
+            : catalogProvider
+              ? aiModelCatalog.list(catalogProvider)
+              : [];
 
     if (query) {
         const q = query.toLowerCase();
@@ -371,11 +456,14 @@ export function listCatalogEntriesForType(
 
 export function listCatalogModelsForType(
     type: AiProviderType,
-    query?: string
+    query?: string,
+    providerNiceId?: string | null
 ): { model: string }[] {
-    return listCatalogEntriesForType(type, query).map((entry) => ({
-        model: entry.model
-    }));
+    return listCatalogEntriesForType(type, query, providerNiceId).map(
+        (entry) => ({
+            model: entry.model
+        })
+    );
 }
 
 /**

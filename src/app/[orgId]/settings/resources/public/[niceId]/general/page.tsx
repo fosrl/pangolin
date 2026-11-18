@@ -100,6 +100,13 @@ export default function GeneralForm() {
         `${resource.ssl ? "https" : "http"}://${toUnicode(resource.fullDomain || "")}`
     );
 
+    // The host a wildcard sits under, which the resource can opt in to serving
+    const [wildcardBaseHost, setWildcardBaseHost] = useState<string | null>(
+        resource.wildcard && resource.fullDomain
+            ? toUnicode(resource.fullDomain).slice(2)
+            : null
+    );
+
     const resourceFullDomainName = useMemo(() => {
         try {
             const url = new URL(resourceFullDomain);
@@ -116,6 +123,7 @@ export default function GeneralForm() {
             name: z.string().min(1).max(255),
             niceId: z.string().min(1).max(255).optional(),
             domainId: z.string().optional(),
+            matchBaseDomain: z.boolean(),
             proxyPort: z.number().int().min(1).max(65535).optional()
         })
         .refine(
@@ -167,6 +175,7 @@ export default function GeneralForm() {
             niceId: resource.niceId,
             subdomain: resource.subdomain ? resource.subdomain : undefined,
             domainId: resource.domainId || undefined,
+            matchBaseDomain: resource.matchBaseDomain,
             proxyPort: resource.proxyPort || undefined
         },
         mode: "onChange"
@@ -179,6 +188,7 @@ export default function GeneralForm() {
         if (!isValid) return;
 
         const data = form.getValues();
+        const matchBaseDomain = !!wildcardBaseHost && data.matchBaseDomain;
 
         let resourcePolicyId: number | null | undefined;
 
@@ -202,6 +212,9 @@ export default function GeneralForm() {
                         : undefined,
                     domainId: data.domainId,
                     proxyPort: data.proxyPort,
+                    ...(resource.mode === "http" && {
+                        matchBaseDomain: matchBaseDomain
+                    }),
                     ...(resourcePolicyId !== undefined && { resourcePolicyId })
                 }
             )
@@ -227,6 +240,7 @@ export default function GeneralForm() {
                 fullDomain: updated.fullDomain,
                 proxyPort: data.proxyPort,
                 domainId: data.domainId,
+                matchBaseDomain,
                 ...(resourcePolicyId !== undefined && {
                     resourcePolicyId
                 })
@@ -506,6 +520,9 @@ export default function GeneralForm() {
                                                                             setResourceFullDomain(
                                                                                 `${resource.ssl ? "https" : "http"}://`
                                                                             );
+                                                                            setWildcardBaseHost(
+                                                                                null
+                                                                            );
                                                                             return;
                                                                         }
                                                                         form.setValue(
@@ -524,6 +541,15 @@ export default function GeneralForm() {
                                                                         setResourceFullDomain(
                                                                             `${resource.ssl ? "https" : "http"}://${toUnicode(res.fullDomain)}`
                                                                         );
+                                                                        setWildcardBaseHost(
+                                                                            res.wildcard
+                                                                                ? toUnicode(
+                                                                                      res.fullDomain
+                                                                                  ).slice(
+                                                                                      2
+                                                                                  )
+                                                                                : null
+                                                                        );
                                                                     }}
                                                                 />
                                                             </div>
@@ -533,6 +559,45 @@ export default function GeneralForm() {
                                                 />
                                             </SettingsFormCell>
                                         )}
+
+                                        {resource.mode === "http" &&
+                                            wildcardBaseHost && (
+                                                <SettingsFormCell span="full">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="matchBaseDomain"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    <SwitchInput
+                                                                        id="match-base-domain"
+                                                                        checked={
+                                                                            field.value
+                                                                        }
+                                                                        label={t(
+                                                                            "resourceMatchBaseDomain",
+                                                                            {
+                                                                                host: wildcardBaseHost
+                                                                            }
+                                                                        )}
+                                                                        onCheckedChange={
+                                                                            field.onChange
+                                                                        }
+                                                                    />
+                                                                </FormControl>
+                                                                <FormDescription>
+                                                                    {t(
+                                                                        "resourceMatchBaseDomainDescription",
+                                                                        {
+                                                                            host: wildcardBaseHost
+                                                                        }
+                                                                    )}
+                                                                </FormDescription>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </SettingsFormCell>
+                                            )}
                                         {!["tcp", "udp", "inference"].includes(
                                             resource.mode
                                         ) &&

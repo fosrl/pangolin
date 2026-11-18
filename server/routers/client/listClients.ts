@@ -99,6 +99,34 @@ const listClientsSchema = z.strictObject({
             type: "boolean",
             description: "Filter by online status"
         }),
+    agent: z
+        .enum([
+            "windows",
+            "android",
+            "cli",
+            "olm",
+            "macos",
+            "ios",
+            "ipados",
+            "unknown"
+        ])
+        .optional()
+        .catch(undefined)
+        .openapi({
+            type: "string",
+            enum: [
+                "windows",
+                "android",
+                "cli",
+                "olm",
+                "macos",
+                "ios",
+                "ipados",
+                "unknown"
+            ],
+            description:
+                "Filter by agent type. Use 'unknown' to filter clients with no agent detected."
+        }),
     status: z.preprocess(
         (val: string | undefined) => {
             if (val) {
@@ -280,6 +308,7 @@ export async function listClients(
             online,
             query,
             status,
+            agent,
             sort_by,
             order,
             labels: labelFilter,
@@ -345,6 +374,26 @@ export async function listClients(
 
         if (typeof online !== "undefined") {
             conditions.push(eq(clients.online, online));
+        }
+
+        const agentValueMap = {
+            windows: "Pangolin Windows",
+            android: "Pangolin Android",
+            ios: "Pangolin iOS",
+            ipados: "Pangolin iPadOS",
+            macos: "Pangolin macOS",
+            cli: "Pangolin CLI",
+            olm: "Olm CLI"
+        } satisfies Record<
+            Exclude<typeof agent, undefined | "unknown">,
+            string
+        >;
+        if (typeof agent !== "undefined") {
+            if (agent === "unknown") {
+                conditions.push(isNull(olms.agent));
+            } else {
+                conditions.push(eq(olms.agent, agentValueMap[agent]));
+            }
         }
 
         if (status.length > 0) {

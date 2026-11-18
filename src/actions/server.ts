@@ -81,11 +81,15 @@ async function makeApiRequest<T>(
     const headersList = await reqHeaders();
     const host = headersList.get("host");
     const xForwardedFor = headersList.get("x-forwarded-for");
+    // Forward the browser's user agent so the API records it on sessions and
+    // audit logs instead of the Next.js server's fetch client
+    const userAgent = headersList.get("user-agent");
 
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
         "X-CSRF-Token": "x-csrf-protection",
         ...(xForwardedFor ? { "X-Forwarded-For": xForwardedFor } : {}),
+        ...(userAgent ? { "User-Agent": userAgent } : {}),
         ...(cookieHeader && { Cookie: cookieHeader }),
         ...additionalHeaders
     };

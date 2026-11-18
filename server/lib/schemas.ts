@@ -62,3 +62,14 @@ export const privateNamespaceSubdomainSchema = z
     .min(1, "Namespace subdomain must be at least 1 character long")
     .max(32, "Namespace subdomain must be at most 32 characters long")
     .transform((val) => val.toLowerCase());
+
+/**
+ * A path matched by a Traefik router (target path, redirect match path).
+ * Backticks and control characters are never valid in a URL path and are
+ * rejected so the value can't break out of its literal in the router rule.
+ */
+export const routePathSchema = z
+    .string()
+    .refine((val) => !/[`\u0000-\u001f\u007f]/.test(val), {
+        message: "Path cannot contain backticks or control characters"
+    });

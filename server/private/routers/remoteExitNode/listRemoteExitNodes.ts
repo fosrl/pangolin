@@ -22,91 +22,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { ListRemoteExitNodesResponse } from "@server/routers/remoteExitNode/types";
-import { regionalCache as cache } from "#private/lib/cache";
+import { getLatestVersion } from "@server/lib/latestVersions";
 import semver from "semver";
-
-let stalePangolinNodeVersion: string | null = null;
-
-async function getLatestPangolinNodeVersion(): Promise<string | null> {
-    try {
-        const cachedVersion = await cache.get<string>(
-            "cache:latestPangolinNodeVersion"
-        );
-        if (cachedVersion) {
-            return cachedVersion;
-        }
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1500);
-
-        const res = await fetch(
-            "https://api.github.com/repos/fosrl/pangolin-node/tags",
-            { signal: controller.signal }
-        );
-
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-            logger.warn(
-                `Failed to fetch latest pangolin-node version from GitHub: ${res.status} ${res.statusText}`
-            );
-            return stalePangolinNodeVersion;
-        }
-
-        let tags = await res.json();
-        if (!Array.isArray(tags) || tags.length === 0) {
-            logger.warn("No tags found for pangolin-node repository");
-            return stalePangolinNodeVersion;
-        }
-
-        tags = tags.filter((tag: any) => !tag.name.includes("rc"));
-        tags.sort((a: any, b: any) => {
-            const va = semver.coerce(a.name);
-            const vb = semver.coerce(b.name);
-            if (!va && !vb) return 0;
-            if (!va) return 1;
-            if (!vb) return -1;
-            return semver.rcompare(va, vb);
-        });
-
-        const seen = new Set<string>();
-        tags = tags.filter((tag: any) => {
-            const normalised = semver.coerce(tag.name)?.version;
-            if (!normalised || seen.has(normalised)) return false;
-            seen.add(normalised);
-            return true;
-        });
-
-        if (tags.length === 0) {
-            logger.warn(
-                "No valid semver tags found for pangolin-node repository"
-            );
-            return stalePangolinNodeVersion;
-        }
-
-        const latestVersion = tags[0].name;
-        stalePangolinNodeVersion = latestVersion;
-        await cache.set("cache:latestPangolinNodeVersion", latestVersion, 3600);
-
-        return latestVersion;
-    } catch (error: any) {
-        if (error.name === "AbortError") {
-            logger.warn(
-                "Request to fetch latest pangolin-node version timed out (1.5s)"
-            );
-        } else if (error.cause?.code === "UND_ERR_CONNECT_TIMEOUT") {
-            logger.warn(
-                "Connection timeout while fetching latest pangolin-node version"
-            );
-        } else {
-            logger.warn(
-                "Error fetching latest pangolin-node version:",
-                error.message || error
-            );
-        }
-        return stalePangolinNodeVersion;
-    }
-}
 
 const listRemoteExitNodesParamsSchema = z.strictObject({
     orgId: z.string()
@@ -203,7 +120,9 @@ export async function listRemoteExitNodes(
         const totalCountResult = await countQuery;
         const totalCount = totalCountResult[0].count;
 
-        const latestPangolinNodeVersionPromise = getLatestPangolinNodeVersion();
+        const latestPangolinNodeVersionPromise = getLatestVersion(
+            "panglin-node"
+        ).then((version) => version?.latestVersion ?? null);
 
         const nodesWithUpdates = remoteExitNodesList.map((node) => ({
             ...node,

@@ -21,17 +21,32 @@ import { CheckIcon, ChevronsUpDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
-export const aiProviderTypeLabelMap = {
-    openai: "aiProviderTypeOpenai",
-    anthropic: "aiProviderTypeAnthropic",
-    googleGemini: "aiProviderTypeGoogleGemini",
-    vertexAi: "aiProviderTypeVertexAi",
-    bedrock: "aiProviderTypeBedrock",
-    microsoftFoundry: "aiProviderTypeMicrosoftFoundry",
-    openRouter: "aiProviderTypeOpenRouter",
-    vercelAiGateway: "aiProviderTypeVercelAiGateway",
-    custom: "aiProviderTypeCustom"
-} as const;
+// Brand names are proper nouns and are never translated. Keeping them out of
+// the message catalog means a bad locale file can't relabel one provider as
+// another (see #4095).
+const aiProviderBrandNames: Record<
+    Exclude<AiProviderType, "custom">,
+    string
+> = {
+    openai: "OpenAI",
+    anthropic: "Anthropic",
+    googleGemini: "Google Gemini",
+    vertexAi: "Vertex AI",
+    bedrock: "Amazon Bedrock",
+    microsoftFoundry: "Microsoft Foundry",
+    openRouter: "OpenRouter",
+    vercelAiGateway: "Vercel AI Gateway"
+};
+
+export function aiProviderTypeLabel(
+    type: AiProviderType,
+    t: (key: string) => string
+): string {
+    if (type === "custom") {
+        return t("aiProviderTypeCustom");
+    }
+    return aiProviderBrandNames[type] ?? type;
+}
 
 const typeDescriptionMap = {
     openai: "aiProviderTypeOpenaiDescription",
@@ -65,7 +80,7 @@ export function AiProviderTypeSelect({
         () =>
             aiProviderTypeValues.map((type) => ({
                 type,
-                title: t(aiProviderTypeLabelMap[type]),
+                title: aiProviderTypeLabel(type, t),
                 description: t(typeDescriptionMap[type])
             })),
         [t]

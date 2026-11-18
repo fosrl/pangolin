@@ -25,9 +25,15 @@ export async function createNewtSession(
 export async function validateNewtSessionToken(
     token: string
 ): Promise<SessionValidationResult> {
-    const sessionId = encodeHexLowerCase(
-        sha256(new TextEncoder().encode(token))
+    return validateNewtSession(
+        encodeHexLowerCase(sha256(new TextEncoder().encode(token)))
     );
+}
+
+// For callers that only have the hash of the token, like the WebSocket gateway
+export async function validateNewtSession(
+    sessionId: string
+): Promise<SessionValidationResult> {
     const result = await db
         .select({ newt: newts, session: newtSessions })
         .from(newtSessions)

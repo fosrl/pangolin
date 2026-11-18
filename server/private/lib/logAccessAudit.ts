@@ -113,8 +113,8 @@ export async function logAccessAudit(data: {
         const timestamp = Math.floor(Date.now() / 1000);
 
         let metadata = null;
-        if (metadata) {
-            metadata = JSON.stringify(metadata);
+        if (data.metadata) {
+            metadata = JSON.stringify(data.metadata);
         }
 
         const clientIp = data.requestIp

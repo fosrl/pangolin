@@ -93,7 +93,6 @@ export default function Page() {
 
     const [olmId, setOlmId] = useState("");
     const [olmSecret, setOlmSecret] = useState("");
-    const [olmVersion, setOlmVersion] = useState("latest");
 
     const [createLoading, setCreateLoading] = useState(false);
     const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -155,42 +154,6 @@ export default function Page() {
     useEffect(() => {
         const load = async () => {
             setLoadingPage(true);
-
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-                const response = await fetch(
-                    `https://api.github.com/repos/fosrl/olm/releases/latest`,
-                    { signal: controller.signal }
-                );
-
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    throw new Error(
-                        t("olmErrorFetchReleases", {
-                            err: response.statusText
-                        })
-                    );
-                }
-                const data = await response.json();
-                const latestVersion = data.tag_name;
-                setOlmVersion(latestVersion);
-            } catch (error) {
-                if (error instanceof Error && error.name === "AbortError") {
-                    console.error(t("olmErrorFetchTimeout"));
-                } else {
-                    console.error(
-                        t("olmErrorFetchLatest", {
-                            err:
-                                error instanceof Error
-                                    ? error.message
-                                    : String(error)
-                        })
-                    );
-                }
-            }
 
             await api
                 .get(`/org/${orgId}/pick-client-defaults`)

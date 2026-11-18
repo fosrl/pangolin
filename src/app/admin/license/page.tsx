@@ -44,6 +44,7 @@ import {
 import { Progress } from "@app/components/ui/progress";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import {
+    AlertTriangle,
     ArrowRight,
     Check,
     ExternalLink,
@@ -61,6 +62,8 @@ import { Checkbox } from "@app/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 // import { useSupporterStatusContext } from "@app/hooks/useSupporterStatusContext";
 import { useTranslations } from "next-intl";
+import { getLicenseLimitViolations } from "@app/lib/licenseLimits";
+import LicenseLimitsExceededBanner from "@app/components/LicenseLimitsExceededBanner";
 
 const ENTERPRISE_DOCS_URL =
     "https://docs.pangolin.net/self-host/enterprise-edition";
@@ -75,14 +78,83 @@ function getTierLabel(
     switch (tier) {
         case "enterprise":
             return t("licenseTierEnterprise");
-        case "tier1":
-            return t("licenseTierTier1");
-        case "tier2":
-            return t("licenseTierTier2");
         case "personal":
-        default:
+        case undefined:
             return t("licenseTierPersonal");
+        default:
+            return t("licenseTierBusiness");
     }
+}
+
+type UsageRowProps = {
+    label: string;
+    used: number;
+    max: number | undefined;
+    usedText: string;
+    usedMaxText: string;
+    noLimitText: string;
+};
+
+function UsageRow({
+    label,
+    used,
+    max,
+    usedText,
+    usedMaxText,
+    noLimitText
+}: UsageRowProps) {
+    const t = useTranslations();
+    const isOver = max !== undefined && used > max;
+    const percent = max ? (used / max) * 100 : 0;
+
+    return (
+        <div className="space-y-2">
+            <div className="text-sm font-medium">{label}</div>
+            <div
+                className={`text-2xl flex items-center gap-2 ${isOver ? "text-amber-600 dark:text-amber-500" : ""}`}
+            >
+                {isOver && <AlertTriangle className="w-5 h-5" />}
+                {usedText}
+            </div>
+            {max ? (
+                <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                        <span
+                            className={
+                                isOver
+                                    ? "text-amber-600 dark:text-amber-500"
+                                    : "text-muted-foreground"
+                            }
+                        >
+                            {usedMaxText}
+                            {isOver &&
+                                ` (${t("licenseUsageOverBy", { count: used - max })})`}
+                        </span>
+                        <span
+                            className={
+                                isOver
+                                    ? "text-amber-600 dark:text-amber-500"
+                                    : "text-muted-foreground"
+                            }
+                        >
+                            {Math.round(percent)}%
+                        </span>
+                    </div>
+                    <Progress
+                        value={Math.min(percent, 100)}
+                        variant={isOver ? "warning" : "default"}
+                        className="h-5"
+                    />
+                </div>
+            ) : (
+                <div className="text-sm text-muted-foreground">
+                    {isOver
+                        ? `${usedMaxText} (${t("licenseUsageOverBy", { count: used })})`
+                        : noLimitText}
+                </div>
+            )}
+        </div>
+    );
 }
 
 export default function LicensePage() {
@@ -105,6 +177,9 @@ export default function LicensePage() {
     // const { supporterStatus } = useSupporterStatusContext();
 
     const t = useTranslations();
+
+    const limitViolations = getLicenseLimitViolations(licenseStatus);
+    const isOverLimits = limitViolations.length > 0;
 
     const formSchema = z.object({
         licenseKey: z
@@ -356,7 +431,14 @@ export default function LicensePage() {
                 description={t("licenseTitleDescription")}
             />
 
-            {!licenseStatus?.isLicenseValid && (
+            {isOverLimits && (
+                <LicenseLimitsExceededBanner
+                    violations={limitViolations}
+                    purchaseUrl={LICENSE_PORTAL_URL}
+                />
+            )}
+
+            {!licenseStatus?.isLicenseValid && !isOverLimits && (
                 <DismissableBanner
                     storageKey="license-banner-dismissed"
                     version={1}
@@ -442,147 +524,46 @@ export default function LicensePage() {
                             </SettingsSectionDescription>
                         </SettingsSectionHeader>
                         <div className="space-y-6">
-                            <div className="space-y-2">
-                                <div className="text-sm font-medium">
-                                    {t("licenseUsageSites")}
-                                </div>
-                                <div className="text-2xl">
-                                    {t("licenseSitesUsed", {
-                                        count: licenseStatus?.usedSites || 0
-                                    })}
-                                </div>
-                                {licenseStatus?.maxSites ? (
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">
-                                                {t("licenseSitesUsedMax", {
-                                                    usedSites:
-                                                        licenseStatus.usedSites ||
-                                                        0,
-                                                    maxSites:
-                                                        licenseStatus.maxSites
-                                                })}
-                                            </span>
-                                            <span className="text-muted-foreground">
-                                                {Math.round(
-                                                    ((licenseStatus.usedSites ||
-                                                        0) /
-                                                        licenseStatus.maxSites) *
-                                                        100
-                                                )}
-                                                %
-                                            </span>
-                                        </div>
-                                        <Progress
-                                            value={
-                                                ((licenseStatus.usedSites ||
-                                                    0) /
-                                                    licenseStatus.maxSites) *
-                                                100
-                                            }
-                                            className="h-5"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="text-sm text-muted-foreground">
-                                        {t("licenseNoSiteLimit")}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <div className="text-sm font-medium">
-                                    {t("licenseUsageUsers")}
-                                </div>
-                                <div className="text-2xl">
-                                    {t("licenseUsersUsed", {
-                                        count: licenseStatus?.usedUsers || 0
-                                    })}
-                                </div>
-                                {licenseStatus?.maxUsers ? (
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">
-                                                {t("licenseUsersUsedMax", {
-                                                    usedUsers:
-                                                        licenseStatus.usedUsers ||
-                                                        0,
-                                                    maxUsers:
-                                                        licenseStatus.maxUsers
-                                                })}
-                                            </span>
-                                            <span className="text-muted-foreground">
-                                                {Math.round(
-                                                    ((licenseStatus.usedUsers ||
-                                                        0) /
-                                                        licenseStatus.maxUsers) *
-                                                        100
-                                                )}
-                                                %
-                                            </span>
-                                        </div>
-                                        <Progress
-                                            value={
-                                                ((licenseStatus.usedUsers ||
-                                                    0) /
-                                                    licenseStatus.maxUsers) *
-                                                100
-                                            }
-                                            className="h-5"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="text-sm text-muted-foreground">
-                                        {t("licenseNoUserLimit")}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                <div className="text-sm font-medium">
-                                    {t("licenseUsageMachines")}
-                                </div>
-                                <div className="text-2xl">
-                                    {t("licenseMachinesUsed", {
-                                        count: licenseStatus?.usedMachines || 0
-                                    })}
-                                </div>
-                                {licenseStatus?.maxMachines ? (
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">
-                                                {t("licenseMachinesUsedMax", {
-                                                    usedMachines:
-                                                        licenseStatus.usedMachines ||
-                                                        0,
-                                                    maxMachines:
-                                                        licenseStatus.maxMachines
-                                                })}
-                                            </span>
-                                            <span className="text-muted-foreground">
-                                                {Math.round(
-                                                    ((licenseStatus.usedMachines ||
-                                                        0) /
-                                                        licenseStatus.maxMachines) *
-                                                        100
-                                                )}
-                                                %
-                                            </span>
-                                        </div>
-                                        <Progress
-                                            value={
-                                                ((licenseStatus.usedMachines ||
-                                                    0) /
-                                                    licenseStatus.maxMachines) *
-                                                100
-                                            }
-                                            className="h-5"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="text-sm text-muted-foreground">
-                                        {t("licenseNoMachineLimit")}
-                                    </div>
-                                )}
-                            </div>
+                            <UsageRow
+                                label={t("licenseUsageSites")}
+                                used={licenseStatus?.usedSites || 0}
+                                max={licenseStatus?.maxSites}
+                                usedText={t("licenseSitesUsed", {
+                                    count: licenseStatus?.usedSites || 0
+                                })}
+                                usedMaxText={t("licenseSitesUsedMax", {
+                                    usedSites: licenseStatus?.usedSites || 0,
+                                    maxSites: licenseStatus?.maxSites ?? 0
+                                })}
+                                noLimitText={t("licenseNoSiteLimit")}
+                            />
+                            <UsageRow
+                                label={t("licenseUsageUsers")}
+                                used={licenseStatus?.usedUsers || 0}
+                                max={licenseStatus?.maxUsers}
+                                usedText={t("licenseUsersUsed", {
+                                    count: licenseStatus?.usedUsers || 0
+                                })}
+                                usedMaxText={t("licenseUsersUsedMax", {
+                                    usedUsers: licenseStatus?.usedUsers || 0,
+                                    maxUsers: licenseStatus?.maxUsers ?? 0
+                                })}
+                                noLimitText={t("licenseNoUserLimit")}
+                            />
+                            <UsageRow
+                                label={t("licenseUsageMachines")}
+                                used={licenseStatus?.usedMachines || 0}
+                                max={licenseStatus?.maxMachines}
+                                usedText={t("licenseMachinesUsed", {
+                                    count: licenseStatus?.usedMachines || 0
+                                })}
+                                usedMaxText={t("licenseMachinesUsedMax", {
+                                    usedMachines:
+                                        licenseStatus?.usedMachines || 0,
+                                    maxMachines: licenseStatus?.maxMachines ?? 0
+                                })}
+                                noLimitText={t("licenseNoMachineLimit")}
+                            />
                         </div>
                     </SettingsSection>
                     <SettingsSection>
@@ -600,6 +581,16 @@ export default function LicensePage() {
                                             <Check />
                                             {t("licensed") +
                                                 `${licenseStatus?.tier === "personal" ? ` (${t("personalUseOnly")})` : ""}`}
+                                        </div>
+                                    </div>
+                                ) : isOverLimits ? (
+                                    <div className="space-y-2">
+                                        <div className="text-2xl flex items-center gap-2 text-amber-600 dark:text-amber-500">
+                                            <AlertTriangle />
+                                            {t("licenseOverLimits")}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                            {t("licenseOverLimitsDescription")}
                                         </div>
                                     </div>
                                 ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import { Timestamp } from "@app/components/Timestamp";
 import { Button } from "@app/components/ui/button";
 import {
     ControlledDataTable,
@@ -19,7 +20,6 @@ import {
     ArrowUpRight,
     ChevronsUpDownIcon
 } from "lucide-react";
-import moment from "moment";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -120,7 +120,7 @@ export default function OrgsTable({
                     const createdAt = row.original.createdAt;
                     return (
                         <span>
-                            {createdAt ? moment(createdAt).format("lll") : "-"}
+                            <Timestamp value={createdAt} />
                         </span>
                     );
                 }

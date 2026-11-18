@@ -1,3 +1,4 @@
+import RedirectsBanner from "@app/components/RedirectsBanner";
 import RedirectsTable, {
     type RedirectFilterDomain
 } from "@app/components/RedirectsTable";
@@ -178,7 +179,7 @@ export default async function RedirectIndexPage(props: RedirectIndexPageProps) {
                 title={t("redirectsTitle")}
                 description={t("redirectsDescription")}
             />
-
+            <RedirectsBanner />
             <RedirectsTable
                 orgId={orgId}
                 redirects={redirectRows}

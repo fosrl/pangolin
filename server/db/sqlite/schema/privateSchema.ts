@@ -37,6 +37,40 @@ export const dnsChallenge = sqliteTable("dnsChallenges", {
     completed: integer("completed", { mode: "boolean" }).default(false)
 });
 
+// User-defined records served by the authoritative DNS server for a domain
+// delegated to Pangolin (type "ns"). fullDomain is the lowercase FQDN without
+// a trailing dot, precomputed so the DNS server can look records up directly.
+export const customDnsRecords = sqliteTable(
+    "customDnsRecords",
+    {
+        customDnsRecordId: integer("customDnsRecordId").primaryKey({
+            autoIncrement: true
+        }),
+        domainId: text("domainId")
+            .notNull()
+            .references(() => domains.domainId, { onDelete: "cascade" }),
+        name: text("name").notNull(), // relative to the domain, "@" for the apex
+        fullDomain: text("fullDomain").notNull(),
+        type: text("type")
+            .$type<"A" | "AAAA" | "CNAME" | "MX" | "NS" | "SRV" | "TXT">()
+            .notNull(),
+        values: text("values").notNull(), // JSON array of strings, one resource record each
+        ttl: integer("ttl").notNull().default(300),
+        priority: integer("priority"), // MX and SRV
+        weight: integer("weight"), // SRV
+        port: integer("port"), // SRV
+        enabled: integer("enabled", { mode: "boolean" })
+            .notNull()
+            .default(true),
+        createdAt: integer("createdAt").notNull(),
+        updatedAt: integer("updatedAt").notNull()
+    },
+    (t) => [
+        index("idx_customDnsRecords_fullDomain").on(t.fullDomain),
+        index("idx_customDnsRecords_domainId").on(t.domainId)
+    ]
+);
+
 export const account = sqliteTable("account", {
     accountId: integer("accountId").primaryKey({ autoIncrement: true }),
     userId: text("userId")
@@ -560,6 +594,17 @@ export const alertResources = sqliteTable("alertResources", {
         .references(() => resources.resourceId, { onDelete: "cascade" })
 });
 
+// Rules match any source (site / resource / health check) carrying at least
+// one of these labels, in addition to the explicit junction tables above.
+export const alertLabels = sqliteTable("alertLabels", {
+    alertRuleId: integer("alertRuleId")
+        .notNull()
+        .references(() => alertRules.alertRuleId, { onDelete: "cascade" }),
+    labelId: integer("labelId")
+        .notNull()
+        .references(() => labels.labelId, { onDelete: "cascade" })
+});
+
 export const alertEmailActions = sqliteTable("alertEmailActions", {
     emailActionId: integer("emailActionId").primaryKey({ autoIncrement: true }),
     alertRuleId: integer("alertRuleId")
@@ -596,6 +641,36 @@ export const alertWebhookActions = sqliteTable("alertWebhookActions", {
     config: text("config"), // encrypted JSON with auth config (authType, credentials)
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     lastSentAt: integer("lastSentAt")
+});
+
+export const roleClientSettings = sqliteTable("roleClientSettings", {
+    roleId: integer("roleId")
+        .primaryKey()
+        .references(() => roles.roleId, { onDelete: "cascade" }),
+    orgId: text("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // Off means clients get nothing from this role, even if values are saved below
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+    // For every setting below, null means the server doesn't manage it
+    overrideDns: integer("overrideDns", { mode: "boolean" }),
+    mtu: integer("mtu"),
+    tunnelDns: integer("tunnelDns", { mode: "boolean" }),
+    primaryDns: text("primaryDns"),
+    secondaryDns: text("secondaryDns"),
+    exitNodeTakesPrecedence: integer("exitNodeTakesPrecedence", {
+        mode: "boolean"
+    }),
+    exitNodeSiteResourceId: integer("exitNodeSiteResourceId").references(
+        () => siteResources.siteResourceId,
+        { onDelete: "set null" }
+    ),
+    // false: the exit node is a default the user can change; true: it is forced
+    exitNodeLocked: integer("exitNodeLocked", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    matchDomains: text("matchDomains"), // JSON array of FQDN wildcard patterns
+    preferLocalRoutes: integer("preferLocalRoutes", { mode: "boolean" })
 });
 
 export const trialNotifications = sqliteTable("trialNotifications", {
@@ -696,10 +771,120 @@ export const aiSessionLog = sqliteTable(
     ]
 );
 
+// One row per SSH connection to a site's native SSH server. Newt reports a
+// long-running session once per flush, so rows are upserted on
+// (siteId, sessionId) and commandCount accumulates across flushes.
+export const sshSessionLog = sqliteTable(
+    "sshSessionLog",
+    {
+        id: integer("id").primaryKey({ autoIncrement: true }),
+        sessionId: text("sessionId").notNull(),
+        orgId: text("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        siteId: integer("siteId")
+            .notNull()
+            .references(() => sites.siteId, { onDelete: "cascade" }),
+        siteResourceId: integer("siteResourceId").references(
+            () => siteResources.siteResourceId,
+            { onDelete: "set null" }
+        ),
+        // public resource, for sessions opened through the browser gateway
+        resourceId: integer("resourceId").references(
+            () => resources.resourceId,
+            { onDelete: "set null" }
+        ),
+        clientId: integer("clientId").references(() => clients.clientId, {
+            onDelete: "set null"
+        }),
+        userId: text("userId").references(() => users.userId, {
+            onDelete: "set null"
+        }),
+        transport: text("transport").notNull().default("ssh"), // ssh or browser
+        sourceAddr: text("sourceAddr").notNull(),
+        destAddr: text("destAddr").notNull(),
+        username: text("username").notNull(), // system user on the host
+        authMethod: text("authMethod"), // publickey, certificate, password
+        keyFingerprint: text("keyFingerprint"),
+        certKeyId: text("certKeyId"),
+        commandCount: integer("commandCount").notNull().default(0),
+        startedAt: integer("startedAt").notNull(), // epoch seconds
+        endedAt: integer("endedAt")
+    },
+    (t) => [
+        uniqueIndex("idx_ssh_session_log_site_session").on(
+            t.siteId,
+            t.sessionId
+        ),
+        index("idx_ssh_session_log_org_started").on(t.orgId, t.startedAt),
+        index("idx_ssh_session_log_org_site_resource_started").on(
+            t.orgId,
+            t.siteResourceId,
+            t.startedAt
+        ),
+        index("idx_ssh_session_log_org_resource_started").on(
+            t.orgId,
+            t.resourceId,
+            t.startedAt
+        ),
+        index("idx_ssh_session_log_org_user_started").on(
+            t.orgId,
+            t.userId,
+            t.startedAt
+        )
+    ]
+);
+
+export const sshCommandLog = sqliteTable(
+    "sshCommandLog",
+    {
+        id: integer("id").primaryKey({ autoIncrement: true }),
+        sshSessionLogId: integer("sshSessionLogId")
+            .notNull()
+            .references(() => sshSessionLog.id, { onDelete: "cascade" }),
+        orgId: text("orgId")
+            .notNull()
+            .references(() => orgs.orgId, { onDelete: "cascade" }),
+        command: text("command").notNull(),
+        channel: text("channel").notNull(), // shell or exec
+        // Interactive line edited with history recall or tab completion, so
+        // the reconstructed text may differ from what the shell ran.
+        inexact: integer("inexact", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        timestamp: integer("timestamp").notNull() // epoch seconds
+    },
+    (t) => [
+        index("idx_ssh_command_log_session_timestamp").on(
+            t.sshSessionLogId,
+            t.timestamp
+        ),
+        index("idx_ssh_command_log_org_timestamp").on(t.orgId, t.timestamp)
+    ]
+);
+// Marks a dashboard session that must log in again before it can get a new
+// SSO session for a resource, set when an admin revokes that resource session.
+export const resourceSessionReauth = sqliteTable(
+    "resourceSessionReauth",
+    {
+        userSessionId: text("userSessionId")
+            .notNull()
+            .references(() => sessions.sessionId, { onDelete: "cascade" }),
+        resourceId: integer("resourceId")
+            .notNull()
+            .references(() => resources.resourceId, { onDelete: "cascade" }),
+        revokedAt: integer("revokedAt").notNull()
+    },
+    (table) => [
+        primaryKey({ columns: [table.userSessionId, table.resourceId] })
+    ]
+);
+
 export type Approval = InferSelectModel<typeof approvals>;
 export type Limit = InferSelectModel<typeof limits>;
 export type Account = InferSelectModel<typeof account>;
 export type DnsChallenge = InferSelectModel<typeof dnsChallenge>;
+export type CustomDnsRecord = InferSelectModel<typeof customDnsRecords>;
 export type Customer = InferSelectModel<typeof customers>;
 export type Subscription = InferSelectModel<typeof subscriptions>;
 export type SubscriptionItem = InferSelectModel<typeof subscriptionItems>;
@@ -727,6 +912,7 @@ export type EventStreamingCursor = InferSelectModel<
     typeof eventStreamingCursors
 >;
 export type AlertResources = InferSelectModel<typeof alertResources>;
+export type AlertLabels = InferSelectModel<typeof alertLabels>;
 export type AlertHealthChecks = InferSelectModel<typeof alertHealthChecks>;
 export type AlertSites = InferSelectModel<typeof alertSites>;
 export type AlertRule = InferSelectModel<typeof alertRules>;
@@ -735,3 +921,9 @@ export type AlertEmailRecipient = InferSelectModel<typeof alertEmailRecipients>;
 export type AlertWebhookAction = InferSelectModel<typeof alertWebhookActions>;
 export type TrialNotification = InferSelectModel<typeof trialNotifications>;
 export type AiSessionLog = InferSelectModel<typeof aiSessionLog>;
+export type SshSessionLog = InferSelectModel<typeof sshSessionLog>;
+export type SshCommandLog = InferSelectModel<typeof sshCommandLog>;
+export type ResourceSessionReauth = InferSelectModel<
+    typeof resourceSessionReauth
+>;
+export type RoleClientSettings = InferSelectModel<typeof roleClientSettings>;

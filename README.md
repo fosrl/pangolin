@@ -41,24 +41,34 @@
     </strong>
 </p>
 
-Pangolin is an open-source SASE platform, built on WireGuard®, with a simple mission: connect and protect your users, wherever they are. It brings networking and security together as one system including a zero-trust VPN, zero-trust reverse proxy, privileged access management, and an identity-aware AI gateway, all sharing one identity and policy model. It's the same idea behind platforms like Cloudflare One, Zscaler, and Prisma but open, self-hostable, and built to stay light and easy to deploy.
+Pangolin is an open-source platform, built on WireGuard®, for secure access to your apps, infrastructure, and AI. Connect and protect your workforce, AI agents, and infrastructure, wherever they are.
 
-### Networking and security that's unified, open, and simple
+Pangolin gives people access to exactly what their role allows (web apps, SSH, remote desktops, databases, private hosts, and AI models) without exposing anything to the public internet or opening up a whole network with a legacy VPN. Share a link and someone can sign in from a browser, or install a client to reach private resources by name. Every access decision follows identity and gets logged.
 
-Legacy SASE platforms got the idea right: connectivity and security belong together. But they delivered it as a heavyweight, closed, cloud-locked stack assembled from years of patchwork. Pangolin exists to do that unification differently, in the open, self-hostable, and simple enough that administrators actually enjoy running it.
+### What you get
 
-* **Open source, not a black box**: the code is open and auditable, so you can see exactly how your traffic is handled and how access decisions get made, instead of trusting a closed cloud control plane.
-* **Networking and security as one platform**: sites, reverse proxy, client access, RBAC, and the AI gateway share one identity and policy model, so protecting users and connecting them are executed together.
-* **Lightweight by design**: the whole platform is built to stay small and fast: easy to self-host on a small server, with a lightweight, user-space connector that goes in your private networks.
-* **Enjoyable to use**: a clean, modern interface and a setup flow that gets out of your way, so managing access feels simple instead of like fighting a legacy admin console.
-* **Zero trust from day one**: access is granted per resource, not per network, with identity provider integration, role-based access control, and full audit logging.
-* **Run it your way**: self-host the Community Edition for free, step up to the Enterprise Edition for advanced features, or use Pangolin Cloud if you'd rather not manage infrastructure at all.
+* **Access in minutes, with just a link**: clientless, browser-based access to web apps, terminals, and remote desktops. No jump boxes, no open ports.
+* **A faster, safer VPN replacement**: users reach only the resources they are granted, over direct peer-to-peer connections, signing in with their existing work account.
+* **A smaller blast radius**: a compromised login can't roam your network. Sync users and roles from your identity provider and offboard someone once, everywhere.
+* **Audits with less work**: every access decision is logged with who, what, and when.
+* **AI under the same rules**: an identity-aware AI gateway puts roles, budgets, and session history in front of cloud and self-hosted model APIs, so AI agents follow the same policy as people.
+
+### Why Pangolin
+
+Connectivity and security belong together. SASE platforms like Cloudflare One, Zscaler, and Prisma Access got that idea right, but delivered it as heavyweight, closed, cloud-locked stacks. Pangolin brings them into one platform with a single identity and policy model, and keeps it simple enough that administrators actually enjoy running it.
+
+* **Open source, not a black box**: every component, from the server to the clients, is open and auditable, so you can see exactly how your traffic is handled and how access decisions get made.
+* **Lightweight by design**: easy to self-host on a small server, with a lightweight, user-space connector that goes in your private networks.
+* **Enjoyable to use**: a clean, modern interface and a setup flow that gets out of your way, instead of a legacy admin console.
+* **Run it your way**: self-host the Community Edition for free, step up to the Enterprise Edition for advanced features, or use Pangolin Cloud if you'd rather not manage infrastructure at all. No lock-in.
 
 ## Installation
 
 - Get started for free with [Pangolin Cloud](https://app.pangolin.net/).
 - Or, check out the [quick install guide](https://docs.pangolin.net/self-host/quick-install) for how to self-host Pangolin.
-  - Install from the [DigitalOcean marketplace](https://marketplace.digitalocean.com/apps/pangolin-ce-1?refcode=edf0480eeb81) for a one-click pre-configured installer.
+- Or, deploy in minutes from a prebuilt image on [AWS or DigitalOcean](https://docs.pangolin.net/self-host/one-click-deploy):
+  - **AWS:** Community and Enterprise AMIs for x86 and Graviton. Configure at launch with user-data or CloudFormation.
+  - **DigitalOcean:** install from the [DigitalOcean marketplace](https://marketplace.digitalocean.com/apps/pangolin-ce-1?refcode=edf0480eeb81) for a one-click pre-configured installer.
 
 <img src="public/screenshots/hero.png" alt="Pangolin" width="100%" />
 
@@ -109,6 +119,7 @@ Access private resources like SSH servers, databases, RDP, and entire network ra
 * Private HTTPS resources only accessible on the private network
 
 <img src="public/screenshots/private-resources.png" alt="Private resources" width="100%" />
+<img src="public/screenshots/user-devices.png" alt="User devices" width="100%" />
 
 ### Identity-aware AI gateway
 
@@ -121,7 +132,8 @@ Put an identity-aware proxy in front of public cloud (OpenAI, Anthropic, Gemini,
 * Audit with detailed session history and analytics
 * Integrate AI clients and coding agents (Claude Code, Codex, OpenCode, etc)
 
-<img src="public/screenshots/expanded-session-logs.png" alt="AI Session Logs" width="100%" />
+<img src="public/screenshots/ai-providers.png" alt="AI Providers" width="100%" />
+<img src="public/screenshots/ai-gateway-session-logs.png" alt="AI Session Logs" width="100%" />
 
 ### Give users and roles access to resources
 

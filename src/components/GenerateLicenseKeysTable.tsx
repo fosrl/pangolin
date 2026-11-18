@@ -1,25 +1,52 @@
 "use client";
 
+import {
+    Timestamp,
+    TimestampInText,
+    TIMESTAMP_PLACEHOLDER
+} from "@app/components/Timestamp";
 import { useTranslations } from "next-intl";
 import { ColumnDef } from "@tanstack/react-table";
 import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { Button } from "./ui/button";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, MessageCircle, MoreHorizontal } from "lucide-react";
 import CopyToClipboard from "./CopyToClipboard";
 import { Badge } from "./ui/badge";
-import moment from "moment";
 import { DataTable } from "./ui/data-table";
-import { GeneratedLicenseKey } from "@server/routers/generatedLicense/types";
-import { useState, useEffect } from "react";
+import {
+    GeneratedLicenseKey,
+    LicenseSupport
+} from "@server/routers/generatedLicense/types";
+import { useState, useEffect, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import NewPricingLicenseForm from "./NewPricingLicenseForm";
+import NewLicenseKeyCredenza from "./NewLicenseKeyCredenza";
+import GeneratePersonalLicenseForm from "./GeneratePersonalLicenseForm";
+import EditLicenseKeyCredenza from "./EditLicenseKeyCredenza";
+import LicenseSupportCredenza from "./LicenseSupportCredenza";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger
+} from "@app/components/ui/tooltip";
+import {
+    Credenza,
+    CredenzaBody,
+    CredenzaClose,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle
+} from "@app/components/Credenza";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
 
@@ -49,12 +76,21 @@ export default function GenerateLicenseKeysTable({
     const api = createApiClient({ env });
 
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [showGenerateForm, setShowGenerateForm] = useState(false);
+    const [showNewKey, setShowNewKey] = useState(false);
+    const [showPersonalForm, setShowPersonalForm] = useState(false);
     const [isClearingInstanceName, setIsClearingInstanceName] = useState(false);
+    const [editingKey, setEditingKey] = useState<GeneratedLicenseKey | null>(
+        null
+    );
+    const [cancelingKey, setCancelingKey] =
+        useState<GeneratedLicenseKey | null>(null);
+    const [isCanceling, setIsCanceling] = useState(false);
+    const [isOpeningPortal, setIsOpeningPortal] = useState(false);
+    const [showSupport, setShowSupport] = useState(false);
 
     useEffect(() => {
         if (searchParams.get(GENERATE_QUERY) !== null) {
-            setShowGenerateForm(true);
+            setShowNewKey(true);
             const next = new URLSearchParams(searchParams);
             next.delete(GENERATE_QUERY);
             const qs = next.toString();
@@ -95,6 +131,50 @@ export default function GenerateLicenseKeysTable({
         }
     };
 
+    const setRenewal = async (key: GeneratedLicenseKey, cancel: boolean) => {
+        setIsCanceling(true);
+        try {
+            await api.post(
+                `/org/${orgId}/license/${encodeURIComponent(key.licenseKey)}/cancel`,
+                { cancel }
+            );
+            toast({
+                title: t("success"),
+                description: cancel
+                    ? t("licenseCancelSuccess")
+                    : t("licenseResumeSuccess")
+            });
+            setCancelingKey(null);
+            await refreshData();
+        } catch (error) {
+            toast({
+                title: t("error"),
+                description: formatAxiosError(error),
+                variant: "destructive"
+            });
+        } finally {
+            setIsCanceling(false);
+        }
+    };
+
+    // Payment methods, invoices and billing details live in the Stripe portal
+    const openBillingPortal = async (key: GeneratedLicenseKey) => {
+        setIsOpeningPortal(true);
+        try {
+            const res = await api.post<{ data: string }>(
+                `/org/${orgId}/license/${encodeURIComponent(key.licenseKey)}/portal-session`
+            );
+            window.location.href = res.data.data;
+        } catch (error) {
+            toast({
+                title: t("billingPortalError"),
+                description: formatAxiosError(error),
+                variant: "destructive"
+            });
+            setIsOpeningPortal(false);
+        }
+    };
+
     const refreshData = async () => {
         console.log("Data refreshed");
         setIsRefreshing(true);
@@ -111,6 +191,48 @@ export default function GenerateLicenseKeysTable({
             setIsRefreshing(false);
         }
     };
+
+    // A value, plus what it changes to at renewal when a change is pending
+    const pendingCell = (
+        shown: ReactNode,
+        atRenewal: string | number | undefined
+    ) => {
+        if (atRenewal === undefined) {
+            return shown;
+        }
+        return (
+            <span className="flex flex-col">
+                <span>{shown}</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {t("licenseRenewsWithValue", { value: atRenewal })}
+                </span>
+            </span>
+        );
+    };
+
+    const countCell = (count: number, atRenewal: number | undefined) =>
+        pendingCell(
+            count === -1 ? "∞" : count,
+            atRenewal === undefined || atRenewal === count
+                ? undefined
+                : atRenewal
+        );
+
+    const supportLabel = (support: LicenseSupport) => {
+        switch (support) {
+            case "email":
+                return t("licenseSupportEmail");
+            case "priority":
+                return t("licenseSupportPriority");
+            default:
+                return t("licenseSupportCommunity");
+        }
+    };
+
+    // Only licenses with email or priority support can message support
+    const canMessageSupport = licenseKeys.some(
+        (key) => key.support !== "community"
+    );
 
     const columns: ExtendedColumnDef<GeneratedLicenseKey>[] = [
         {
@@ -204,12 +326,11 @@ export default function GenerateLicenseKeysTable({
                 switch (tier) {
                     case "enterprise":
                         return t("licenseTierEnterprise");
-                    case "tier1":
-                        return t("licenseTierTier1");
-                    case "tier2":
-                        return t("licenseTierTier2");
-                    default:
+                    case "personal":
+                    case undefined:
                         return t("licenseTierPersonal");
+                    default:
+                        return t("licenseTierBusiness");
                 }
             }
         },
@@ -229,10 +350,11 @@ export default function GenerateLicenseKeysTable({
                     </Button>
                 );
             },
-            cell: ({ row }) => {
-                const users = row.original.users;
-                return users === -1 ? "∞" : users;
-            }
+            cell: ({ row }) =>
+                countCell(
+                    row.original.users,
+                    row.original.subscription?.renewsWith?.users
+                )
         },
         {
             accessorKey: "sites",
@@ -250,10 +372,11 @@ export default function GenerateLicenseKeysTable({
                     </Button>
                 );
             },
-            cell: ({ row }) => {
-                const sites = row.original.sites;
-                return sites === -1 ? "∞" : sites;
-            }
+            cell: ({ row }) =>
+                countCell(
+                    row.original.sites,
+                    row.original.subscription?.renewsWith?.sites
+                )
         },
         {
             accessorKey: "machines",
@@ -271,9 +394,42 @@ export default function GenerateLicenseKeysTable({
                     </Button>
                 );
             },
+            cell: ({ row }) =>
+                countCell(
+                    row.original.machines,
+                    row.original.subscription?.renewsWith?.machineClients
+                )
+        },
+        {
+            id: "addons",
+            friendlyName: t("licenseAddons"),
+            header: () => <span className="p-3">{t("licenseAddons")}</span>,
             cell: ({ row }) => {
-                const machines = row.original.machines;
-                return machines === -1 ? "∞" : machines;
+                const { highAvailability, subscription } = row.original;
+                const atRenewal = subscription?.renewsWith?.highAvailability;
+                return pendingCell(
+                    highAvailability ? t("licenseHighAvailability") : "-",
+                    atRenewal === undefined || atRenewal === highAvailability
+                        ? undefined
+                        : atRenewal
+                          ? t("licenseHighAvailability")
+                          : t("licenseAddonsNone")
+                );
+            }
+        },
+        {
+            id: "support",
+            friendlyName: t("licenseSupport"),
+            header: () => <span className="p-3">{t("licenseSupport")}</span>,
+            cell: ({ row }) => {
+                const { support, subscription } = row.original;
+                const atRenewal = subscription?.renewsWith?.support;
+                return pendingCell(
+                    supportLabel(support),
+                    atRenewal === undefined || atRenewal === support
+                        ? undefined
+                        : supportLabel(atRenewal)
+                );
             }
         },
         {
@@ -294,7 +450,54 @@ export default function GenerateLicenseKeysTable({
             },
             cell: ({ row }) => {
                 const termianteAt = row.original.expiresAt;
-                return moment(termianteAt).format("lll");
+                return <Timestamp value={termianteAt} display="duration" />;
+            }
+        },
+        {
+            id: "subscription",
+            friendlyName: t("licenseTableSubscription"),
+            header: () => (
+                <span className="p-3">{t("licenseTableSubscription")}</span>
+            ),
+            cell: ({ row }) => {
+                const sub = row.original.subscription;
+                if (!sub) {
+                    return "-";
+                }
+                if (sub.status === "past_due" || sub.status === "unpaid") {
+                    return (
+                        <Badge variant="red">
+                            {t("licenseSubscriptionPastDue")}
+                        </Badge>
+                    );
+                }
+                if (sub.status === "canceled") {
+                    return (
+                        <Badge variant="secondary">
+                            {t("licenseSubscriptionEnded")}
+                        </Badge>
+                    );
+                }
+                // "Renews in 3 years" / "Ends in 2 months", with only the
+                // word colored
+                return (
+                    <span className="whitespace-nowrap">
+                        <TimestampInText
+                            text={t(
+                                sub.cancelAtPeriodEnd
+                                    ? "licenseSubscriptionEndsIn"
+                                    : "licenseSubscriptionRenewsIn",
+                                { date: TIMESTAMP_PLACEHOLDER }
+                            )}
+                            textClassName={
+                                sub.cancelAtPeriodEnd
+                                    ? "text-yellow-700 dark:text-yellow-300"
+                                    : "text-green-700 dark:text-green-300"
+                            }
+                            value={sub.currentPeriodEnd}
+                        />
+                    </span>
+                );
             }
         },
         {
@@ -313,6 +516,42 @@ export default function GenerateLicenseKeysTable({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                                {key.subscription?.editable && (
+                                    <DropdownMenuItem
+                                        onClick={() => setEditingKey(key)}
+                                    >
+                                        {t("licenseEditAction")}
+                                    </DropdownMenuItem>
+                                )}
+                                {key.subscription && (
+                                    <DropdownMenuItem
+                                        disabled={isOpeningPortal}
+                                        onClick={() => openBillingPortal(key)}
+                                    >
+                                        {t("licenseManageBillingAction")}
+                                    </DropdownMenuItem>
+                                )}
+                                {key.subscription &&
+                                    key.subscription.status !== "canceled" &&
+                                    (key.subscription.cancelAtPeriodEnd ? (
+                                        <DropdownMenuItem
+                                            disabled={isCanceling}
+                                            onClick={() =>
+                                                setRenewal(key, false)
+                                            }
+                                        >
+                                            {t("licenseResumeAction")}
+                                        </DropdownMenuItem>
+                                    ) : (
+                                        <DropdownMenuItem
+                                            onClick={() => setCancelingKey(key)}
+                                        >
+                                            <span className="text-red-500">
+                                                {t("licenseCancelAction")}
+                                            </span>
+                                        </DropdownMenuItem>
+                                    ))}
+                                {key.subscription && <DropdownMenuSeparator />}
                                 <DropdownMenuItem
                                     disabled={
                                         !key.instanceName ||
@@ -343,19 +582,116 @@ export default function GenerateLicenseKeysTable({
                 searchColumn="licenseKey"
                 onRefresh={refreshData}
                 isRefreshing={isRefreshing}
-                addButtonText={t("generateLicenseKey")}
+                addButtonText={t("newLicenseKeyTitle")}
                 onAdd={() => {
-                    setShowGenerateForm(true);
+                    setShowNewKey(true);
                 }}
                 stickyRightColumn="actions"
+                extraActions={
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span>
+                                    <Button
+                                        variant="outline"
+                                        disabled={!canMessageSupport}
+                                        onClick={() => setShowSupport(true)}
+                                    >
+                                        <MessageCircle className="mr-0 sm:mr-2 h-4 w-4" />
+                                        <span className="hidden sm:inline">
+                                            {t("messageSupport")}
+                                        </span>
+                                    </Button>
+                                </span>
+                            </TooltipTrigger>
+                            {!canMessageSupport && (
+                                <TooltipContent>
+                                    <p>{t("licenseSupportRequiresPlan")}</p>
+                                </TooltipContent>
+                            )}
+                        </Tooltip>
+                    </TooltipProvider>
+                }
             />
 
-            <NewPricingLicenseForm
-                open={showGenerateForm}
-                setOpen={setShowGenerateForm}
+            <LicenseSupportCredenza
+                open={showSupport}
+                setOpen={setShowSupport}
+                orgId={orgId}
+                licenseKeys={licenseKeys}
+            />
+
+            <NewLicenseKeyCredenza
+                open={showNewKey}
+                setOpen={setShowNewKey}
+                orgId={orgId}
+                onChoosePersonal={() => setShowPersonalForm(true)}
+            />
+
+            <GeneratePersonalLicenseForm
+                open={showPersonalForm}
+                setOpen={setShowPersonalForm}
                 orgId={orgId}
                 onGenerated={handleLicenseGenerated}
             />
+
+            <EditLicenseKeyCredenza
+                open={editingKey !== null}
+                setOpen={(open) => {
+                    if (!open) setEditingKey(null);
+                }}
+                orgId={orgId}
+                licenseKey={editingKey}
+                onUpdated={() => refreshData()}
+            />
+
+            <Credenza
+                open={cancelingKey !== null}
+                onOpenChange={(open) => {
+                    if (!open) setCancelingKey(null);
+                }}
+            >
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>{t("licenseCancelTitle")}</CredenzaTitle>
+                        <CredenzaDescription>
+                            {t("licenseCancelDescription")}
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaBody>
+                        {cancelingKey?.subscription && (
+                            <p className="text-sm">
+                                <TimestampInText
+                                    text={t("licenseCancelStopsWorking", {
+                                        date: TIMESTAMP_PLACEHOLDER
+                                    })}
+                                    value={
+                                        cancelingKey.subscription
+                                            .currentPeriodEnd
+                                    }
+                                />
+                            </p>
+                        )}
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <CredenzaClose asChild>
+                            <Button variant="outline" disabled={isCanceling}>
+                                {t("licenseCancelKeep")}
+                            </Button>
+                        </CredenzaClose>
+                        <Button
+                            variant="destructive"
+                            onClick={() =>
+                                cancelingKey && setRenewal(cancelingKey, true)
+                            }
+                            disabled={isCanceling}
+                            loading={isCanceling}
+                        >
+                            {t("licenseCancelConfirm")}
+                        </Button>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
         </>
     );
 }

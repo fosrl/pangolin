@@ -19,6 +19,7 @@ import {
     alertSites,
     alertHealthChecks,
     alertResources,
+    alertLabels,
     alertEmailActions,
     alertEmailRecipients,
     alertWebhookActions
@@ -122,6 +123,12 @@ export async function getAlertRule(
             .from(alertResources)
             .where(eq(alertResources.alertRuleId, alertRuleId));
 
+        // Fetch label associations
+        const labelRows = await db
+            .select()
+            .from(alertLabels)
+            .where(eq(alertLabels.alertRuleId, alertRuleId));
+
         // Resolve the single email action row for this rule, then collect all
         // recipients into a flat list. The emailAction pivot row is an internal
         // implementation detail and is not surfaced to callers.
@@ -167,9 +174,13 @@ export async function getAlertRule(
                 lastTriggeredAt: rule.lastTriggeredAt ?? null,
                 createdAt: rule.createdAt,
                 updatedAt: rule.updatedAt,
+                allSites: rule.allSites,
+                allHealthChecks: rule.allHealthChecks,
+                allResources: rule.allResources,
                 siteIds: siteRows.map((r) => r.siteId),
                 healthCheckIds: healthCheckRows.map((r) => r.healthCheckId),
                 resourceIds: resourceRows.map((r) => r.resourceId),
+                labelIds: labelRows.map((r) => r.labelId),
                 recipients,
                 webhookActions: webhooks.map((w) => {
                     let parsedConfig: WebhookAlertConfig | null = null;

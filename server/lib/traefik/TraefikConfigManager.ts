@@ -16,6 +16,7 @@ import { getValidCertificatesForDomains } from "@server/lib/certificates";
 import { sendToExitNode } from "#dynamic/lib/exitNodes";
 import { build } from "@server/build";
 import license from "#dynamic/license/license";
+import { domainsFromHostRule } from "./rule";
 
 // Flat files in the certificates dir; the per-domain directory scan and
 // cleanup only look at directories, so these don't collide with them.
@@ -582,28 +583,10 @@ export class TraefikConfigManager {
                     traefikConfig.http.routers
                 )) {
                     if (router.rule && typeof router.rule === "string") {
-                        // Match Host(`domain`)
-                        const match = router.rule.match(/Host\(`([^`]+)`\)/);
-                        if (match && match[1]) {
-                            domains.add(match[1]);
-                        }
-                        // Match HostRegexp(`^[^.]+\.parent.domain$`) generated for wildcard resources
-                        const hostRegexpMatch = router.rule.match(
-                            /HostRegexp\(`([^`]+)`\)/
-                        );
-                        if (hostRegexpMatch && hostRegexpMatch[1]) {
-                            const innerRegex = hostRegexpMatch[1];
-                            // Pattern is always ^[^.]+\.PARENT_DOMAIN$ where dots are escaped as \.
-                            const domainMatch = innerRegex.match(
-                                /^\^\[\^\.\]\+\\\.(.+)\$$/
-                            );
-                            if (domainMatch && domainMatch[1]) {
-                                const parentDomain = domainMatch[1].replace(
-                                    /\\\./g,
-                                    "."
-                                );
-                                domains.add(`*.${parentDomain}`);
-                            }
+                        for (const domain of domainsFromHostRule(
+                            router.rule
+                        )) {
+                            domains.add(domain);
                         }
                     }
                 }

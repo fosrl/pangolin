@@ -42,6 +42,7 @@ import {
 import { alias } from "@server/db";
 import { and, desc, eq, inArray, isNull, not, or, sql } from "drizzle-orm";
 import logger from "@server/logger";
+import { pickResourceForHost } from "@server/lib/traefik/rule";
 
 export type ResourceWithAuth = {
     resource: Resource | null;
@@ -123,10 +124,51 @@ export async function getRedirectsByHost(
                         not(isNull(resources.domainId))
                     )
                 ),
-                inArray(redirectHost, candidates)
+                or(
+                    inArray(redirectHost, candidates),
+                    // A redirect on a resource follows it onto its base host
+                    and(
+                        eq(resources.matchBaseDomain, true),
+                        eq(redirectHost, `*.${host}`)
+                    )
+                )
             )
         )
         .orderBy(desc(redirects.priority));
+}
+
+/**
+ * Condition for the resources that may serve a host. Narrow the matches down
+ * with pickResourceForHost.
+ */
+export function resourceHostCondition(host: string) {
+    // Build wildcard domain variants to match against.
+    // For a domain like "me.example.test.com", we want to match:
+    //   - "*.example.test.com" (subdomain wildcard)
+    //   - "*.test.com" (parent wildcard, i.e. just "*" subdomain on parent)
+    const parts = host.split(".");
+    const wildcardCandidates: string[] = [];
+    for (let i = 1; i < parts.length; i++) {
+        wildcardCandidates.push(`*.${parts.slice(i).join(".")}`);
+    }
+
+    return or(
+        // Exact match
+        eq(resources.fullDomain, host),
+        // Wildcard match: resource fullDomain is one of the wildcard candidates
+        wildcardCandidates.length > 0
+            ? and(
+                  eq(resources.wildcard, true),
+                  inArray(resources.fullDomain, wildcardCandidates)
+              )
+            : sql`false`,
+        // Base match: "*.me.example.test.com" also serving "me.example.test.com"
+        and(
+            eq(resources.wildcard, true),
+            eq(resources.matchBaseDomain, true),
+            eq(resources.fullDomain, `*.${host}`)
+        )
+    );
 }
 
 /**
@@ -135,16 +177,6 @@ export async function getRedirectsByHost(
 export async function getResourceByDomain(
     domain: string
 ): Promise<ResourceWithAuth | null> {
-    // Build wildcard domain variants to match against.
-    // For a domain like "me.example.test.com", we want to match:
-    //   - "*.example.test.com" (subdomain wildcard)
-    //   - "*.test.com" (parent wildcard, i.e. just "*" subdomain on parent)
-    const parts = domain.split(".");
-    const wildcardCandidates: string[] = [];
-    for (let i = 1; i < parts.length; i++) {
-        wildcardCandidates.push(`*.${parts.slice(i).join(".")}`);
-    }
-
     const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
     const defaultPolicy = alias(resourcePolicies, "defaultPolicy");
     const sharedPolicyPincode = alias(
@@ -248,29 +280,17 @@ export async function getResourceByDomain(
             )
         )
         .innerJoin(orgs, eq(orgs.orgId, resources.orgId))
-        .where(
-            or(
-                // Exact match
-                eq(resources.fullDomain, domain),
-                // Wildcard match: resource fullDomain is one of the wildcard candidates
-                wildcardCandidates.length > 0
-                    ? and(
-                          eq(resources.wildcard, true),
-                          inArray(resources.fullDomain, wildcardCandidates)
-                      )
-                    : sql`false`
-            )
-        );
+        .where(resourceHostCondition(domain));
 
     if (!potentialResults.length) {
         return null;
     }
 
-    // Prefer exact match over wildcard match
-    const exactMatch = potentialResults.find(
-        (r) => r.resources?.fullDomain === domain
+    const result = pickResourceForHost(
+        potentialResults,
+        domain,
+        (r) => r.resources?.fullDomain
     );
-    const result = exactMatch ?? potentialResults[0];
 
     if (!result) {
         return null;

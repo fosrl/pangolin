@@ -39,7 +39,12 @@ const indicatorVariants = cva("h-full w-full flex-1 transition-all", {
 type ProgressProps = React.ComponentProps<typeof ProgressPrimitive.Root> &
     VariantProps<typeof progressVariants>;
 
-function ProgressBackwards({ className, value, variant, ...props }: ProgressProps) {
+function ProgressBackwards({
+    className,
+    value,
+    variant,
+    ...props
+}: ProgressProps) {
     return (
         <ProgressPrimitive.Root
             data-slot="progress"
