@@ -63,11 +63,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { RefreshCwIcon } from "lucide-react";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
 import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
-import type { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { SwitchInput } from "@app/components/SwitchInput";
-import type { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
+import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -106,7 +105,6 @@ export default function GeneralPage() {
     // the server refuses the sync too, so don't offer it without the plan
     const canSyncNow =
         savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
-    const { isPaidUser } = usePaidStatus();
 
     // OIDC form schema (full configuration)
     const OidcFormSchema = z.object({

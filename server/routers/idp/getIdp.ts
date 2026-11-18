@@ -161,7 +161,8 @@ export async function getIdpWithoutSecrets(
         }
 
         return response<GetIdpResponse>(res, {
-            data: idpRes,
+            // the provider API config holds secrets too, and these callers don't need it
+            data: { ...idpRes, idp: { ...idpRes.idp, apiConfig: null } },
             success: true,
             error: false,
             message: "Idp retrieved successfully",

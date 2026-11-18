@@ -109,6 +109,8 @@ export async function createOidcIdp(
             variant
         } = parsedBody.data;
 
+        let { scopes, sessionRevalidation = false } = parsedBody.data;
+
         if (process.env.IDENTITY_PROVIDER_MODE === "org") {
             return next(
                 createHttpError(

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { config, z } from "zod";
+import { z } from "zod";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db } from "@server/db";
 import response from "@server/lib/response";

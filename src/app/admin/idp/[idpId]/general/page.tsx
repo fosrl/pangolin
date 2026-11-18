@@ -55,17 +55,8 @@ import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { useTranslations } from "next-intl";
-import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
-import type { buildGoogleIDPAPIConfig } from "@app/components/GoogleIDPAPIConfigFields";
-import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
-import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
-import type { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
-import { RefreshCwIcon } from "lucide-react";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
-import type { SwitchInput } from "@app/components/SwitchInput";
+import { SwitchInput } from "@app/components/SwitchInput";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -93,7 +84,6 @@ export default function GeneralPage() {
     // the server refuses the sync too, so don't offer it without the plan
     const canSyncNow =
         savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
-    const { isPaidUser } = usePaidStatus();
 
     const OidcFormSchema = z.object({
         name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
@@ -236,8 +226,7 @@ export default function GeneralPage() {
                         autoProvision: data.idp.autoProvision,
                         apiIntegrationEnabled: data.idp.apiIntegrationEnabled,
                         directorySyncEnabled: data.idp.directorySyncEnabled,
-                        directorySyncDeletions: data.idp.directorySyncDeletions
-                        autoProvision: data.idp.autoProvision,
+                        directorySyncDeletions: data.idp.directorySyncDeletions,
                         sessionRevalidation:
                             data.idp.sessionRevalidation ?? false
                     };
@@ -639,47 +628,6 @@ export default function GeneralPage() {
                                 />
                                 {(form.watch("autoProvision") ||
                                     form.watch("directorySyncEnabled")) && (
-                                    <FormDescription>
-                                        {t.rich(
-                                            "idpAdminAutoProvisionPoliciesTabHint",
-                                            {
-                                                policiesTabLink: (chunks) => (
-                                                    <Link
-                                                        href={`/admin/idp/${idpId}/policies`}
-                                                        className="text-primary hover:underline inline-flex items-center gap-1"
-                                                    >
-                                                        {chunks}
-                                                    </Link>
-                                                )
-                                            }
-                                        )}
-                                    </FormDescription>
-                                )}
-                <SettingsSection className="min-h-0">
-                    <SettingsSectionHeader>
-                        <SettingsSectionTitle>
-                            {t("idpAutoProvisionUsers")}
-                        </SettingsSectionTitle>
-                        <SettingsSectionDescription>
-                            <IdpAutoProvisionUsersDescription />
-                        </SettingsSectionDescription>
-                    </SettingsSectionHeader>
-                    <SettingsSectionBody>
-                        <Form {...form}>
-                            <form
-                                onSubmit={form.handleSubmit(onSubmit)}
-                                className="space-y-4"
-                                id="general-settings-form"
-                            >
-                                <SwitchInput
-                                    id="auto-provision-toggle"
-                                    label={t("idpAutoProvisionUsers")}
-                                    checked={form.watch("autoProvision")}
-                                    onCheckedChange={(checked) => {
-                                        form.setValue("autoProvision", checked);
-                                    }}
-                                />
-                                {form.watch("autoProvision") && (
                                     <FormDescription>
                                         {t.rich(
                                             "idpAdminAutoProvisionPoliciesTabHint",
