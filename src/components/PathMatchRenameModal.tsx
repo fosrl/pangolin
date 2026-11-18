@@ -286,7 +286,7 @@ export function PathRewriteModal({
                     </div>
                 </CredenzaBody>
                 <CredenzaFooter className="gap-2">
-                    {value?.rewritePath && (
+                    {(value?.rewritePath || value?.rewritePathType) && (
                         <Button variant="outline" onClick={handleClear}>
                             {t("clear")}
                         </Button>

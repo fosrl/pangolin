@@ -79,7 +79,10 @@ Give it a termination grace period longer than `WS_GATEWAY_DRAIN_MS` (default
 2. Start the gateways.
 3. Route `/api/v1/ws` to the gateways instead of Pangolin. Devices already
    connected to Pangolin stay there until its next restart, then reconnect
-   through a gateway.
+   through a gateway. Match that exact path (in Traefik, ``Path(`/api/v1/ws`)``,
+   not `PathPrefix`): the gateway answers 404 to every plain HTTP request, and
+   API routes below it such as `/api/v1/ws/round-trip-message/:messageId`,
+   which the CLI polls after `ssh` signs a key, still have to reach Pangolin.
 
 Keep the gateway image out of routine deploys. It only needs rebuilding when
 `server/private/wsGateway` changes, and redeploying it does bounce its sockets.

@@ -890,6 +890,12 @@ authenticated.get(
     role.listRoles
 );
 
+authenticated.get(
+    "/org/:orgId/my-client-settings",
+    verifyOrgAccess,
+    role.getMyClientSettings
+);
+
 authenticated.post(
     "/role/:roleId",
     verifyRoleAccess,
@@ -928,13 +934,12 @@ authenticated.put(
     policy.updateResourcePolicy
 );
 
-// authenticated.get(
-//     "/role/:roleId",
-//     verifyRoleAccess,
-//     verifyUserInRole,
-//     verifyUserHasAction(ActionsEnum.getRole),
-//     role.getRole
-// );
+authenticated.get(
+    "/role/:roleId",
+    verifyRoleAccess,
+    verifyUserHasAction(ActionsEnum.getRole),
+    role.getRole
+);
 // authenticated.post(
 //     "/role/:roleId",
 //     verifyRoleAccess,
@@ -2187,6 +2192,21 @@ authRouter.post(
         store: createStore()
     }),
     olm.getOlmToken
+);
+authRouter.post(
+    "/olm/client-settings",
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 300,
+        keyGenerator: (req) =>
+            `olmClientSettings:${req.body.olmId || ipKeyGenerator(req.ip || "")}`,
+        handler: (req, res, next) => {
+            const message = `You can only request Olm client settings ${300} times every ${15} minutes. Please try again later.`;
+            return next(createHttpError(HttpCode.TOO_MANY_REQUESTS, message));
+        },
+        store: createStore()
+    }),
+    olm.getOlmClientSettings
 );
 
 authRouter.post(

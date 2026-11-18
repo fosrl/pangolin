@@ -48,6 +48,8 @@ import HttpCode from "@server/types/HttpCode";
 import { Router } from "express";
 import { ActionsEnum } from "@server/auth/actions";
 import { logActionAudit } from "#dynamic/middlewares";
+import { build } from "@server/build";
+import config from "@server/lib/config";
 
 export const unauthenticated = Router();
 
@@ -1300,6 +1302,16 @@ authenticated.get(
     verifyApiKeyHasAction(ActionsEnum.getUser),
     user.adminGetUser
 );
+
+if (build !== "saas" && config.getRawConfig().flags?.enable_api_create_user_sessions) {
+    authenticated.post(
+        "/user/:userId/session",
+        verifyApiKeyIsRoot,
+        verifyApiKeyHasAction(ActionsEnum.createUserSession),
+        logActionAudit(ActionsEnum.createUserSession),
+        user.createUserSession
+    );
+}
 
 authenticated.get(
     "/org/:orgId/users",

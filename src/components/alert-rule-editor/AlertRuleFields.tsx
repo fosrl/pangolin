@@ -58,6 +58,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Control, UseFormReturn } from "react-hook-form";
 import { useFormContext, useWatch } from "react-hook-form";
 import { useDebounce } from "use-debounce";
+import { LabelBadge } from "../label-badge";
+import { LabelsFilterSelector } from "../LabelsFilterSelector";
+import { formatLabelsSelectorLabel } from "../labels-selector";
 import { RolesSelector } from "../roles-selector";
 import { UsersSelector } from "../users-selector";
 import { cn } from "@app/lib/cn";
@@ -445,6 +448,108 @@ function ResourceMultiSelect({
                 </Command>
             </PopoverContent>
         </Popover>
+    );
+}
+
+function LabelMultiSelect({
+    orgId,
+    value,
+    onChange
+}: {
+    orgId: string;
+    value: number[];
+    onChange: (v: number[]) => void;
+}) {
+    const t = useTranslations();
+    const [open, setOpen] = useState(false);
+
+    // Full label list, used to resolve the selected IDs to names/colors
+    const { data: allLabels = [] } = useQuery(orgQueries.labels({ orgId }));
+
+    const selectedLabels = useMemo(
+        () => allLabels.filter((l) => value.includes(l.labelId)),
+        [allLabels, value]
+    );
+
+    const toggle = (labelId: number) => {
+        if (value.includes(labelId)) {
+            onChange(value.filter((x) => x !== labelId));
+        } else {
+            onChange([...value, labelId]);
+        }
+    };
+
+    return (
+        <div className="space-y-2">
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                    >
+                        <span className="truncate">
+                            {formatLabelsSelectorLabel(selectedLabels, t)}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    align="start"
+                >
+                    <LabelsFilterSelector
+                        orgId={orgId}
+                        selectedLabels={selectedLabels}
+                        isSelected={(l) => value.includes(l.labelId)}
+                        onToggle={(l) => toggle(l.labelId)}
+                    />
+                </PopoverContent>
+            </Popover>
+            {selectedLabels.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                    {selectedLabels.map((l) => (
+                        <LabelBadge
+                            key={l.labelId}
+                            name={l.name}
+                            color={l.color}
+                            displayOnly
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function AlertRuleLabelsField({
+    orgId,
+    control
+}: {
+    orgId: string;
+    control: Control<AlertRuleFormValues>;
+}) {
+    const t = useTranslations();
+    return (
+        <FormField
+            control={control}
+            name="labelIds"
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>{t("alertingPickLabels")}</FormLabel>
+                    <LabelMultiSelect
+                        orgId={orgId}
+                        value={field.value}
+                        onChange={field.onChange}
+                    />
+                    <FormDescription>
+                        {t("alertingPickLabelsDescription")}
+                    </FormDescription>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
     );
 }
 
@@ -1258,6 +1363,7 @@ export function AlertRuleSourceFields({
                                         field.onChange(v === "all");
                                         if (v === "all") {
                                             setValue("siteIds", []);
+                                            setValue("labelIds", []);
                                         }
                                     }}
                                     cols={2}
@@ -1267,23 +1373,29 @@ export function AlertRuleSourceFields({
                         )}
                     />
                     {!allSites && (
-                        <FormField
-                            control={control}
-                            name="siteIds"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        {t("alertingPickSites")}
-                                    </FormLabel>
-                                    <SiteMultiSelect
-                                        orgId={orgId}
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                    />
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <>
+                            <FormField
+                                control={control}
+                                name="siteIds"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            {t("alertingPickSites")}
+                                        </FormLabel>
+                                        <SiteMultiSelect
+                                            orgId={orgId}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <AlertRuleLabelsField
+                                orgId={orgId}
+                                control={control}
+                            />
+                        </>
                     )}
                 </>
             ) : sourceType === "resource" ? (
@@ -1301,6 +1413,7 @@ export function AlertRuleSourceFields({
                                         field.onChange(v === "all");
                                         if (v === "all") {
                                             setValue("resourceIds", []);
+                                            setValue("labelIds", []);
                                         }
                                     }}
                                     cols={2}
@@ -1310,23 +1423,29 @@ export function AlertRuleSourceFields({
                         )}
                     />
                     {!allResources && (
-                        <FormField
-                            control={control}
-                            name="resourceIds"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        {t("alertingPickResources")}
-                                    </FormLabel>
-                                    <ResourceMultiSelect
-                                        orgId={orgId}
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                    />
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <>
+                            <FormField
+                                control={control}
+                                name="resourceIds"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            {t("alertingPickResources")}
+                                        </FormLabel>
+                                        <ResourceMultiSelect
+                                            orgId={orgId}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <AlertRuleLabelsField
+                                orgId={orgId}
+                                control={control}
+                            />
+                        </>
                     )}
                 </>
             ) : (
@@ -1344,6 +1463,7 @@ export function AlertRuleSourceFields({
                                         field.onChange(v === "all");
                                         if (v === "all") {
                                             setValue("healthCheckIds", []);
+                                            setValue("labelIds", []);
                                         }
                                     }}
                                     cols={2}
@@ -1353,23 +1473,29 @@ export function AlertRuleSourceFields({
                         )}
                     />
                     {!allHealthChecks && (
-                        <FormField
-                            control={control}
-                            name="healthCheckIds"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        {t("alertingPickHealthChecks")}
-                                    </FormLabel>
-                                    <HealthCheckMultiSelect
-                                        orgId={orgId}
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                    />
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <>
+                            <FormField
+                                control={control}
+                                name="healthCheckIds"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            {t("alertingPickHealthChecks")}
+                                        </FormLabel>
+                                        <HealthCheckMultiSelect
+                                            orgId={orgId}
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <AlertRuleLabelsField
+                                orgId={orgId}
+                                control={control}
+                            />
+                        </>
                     )}
                 </>
             )}

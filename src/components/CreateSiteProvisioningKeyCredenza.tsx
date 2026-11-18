@@ -41,6 +41,16 @@ import {
     DateTimeValue
 } from "@app/components/DateTimePicker";
 
+// Expiry dates must be in the future, within a reasonable horizon.
+const EXPIRY_YEARS_AHEAD = 10;
+const getExpiryBounds = () => {
+    const now = new Date();
+    return {
+        minDate: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+        maxDate: new Date(now.getFullYear() + EXPIRY_YEARS_AHEAD, 11, 31)
+    };
+};
+
 const FORM_ID = "create-site-provisioning-key-form";
 
 type CreateSiteProvisioningKeyCredenzaProps = {
@@ -301,6 +311,7 @@ export default function CreateSiteProvisioningKeyCredenza({
                                                 <FormControl>
                                                     <DateTimePicker
                                                         value={dateTimeValue}
+                                                        {...getExpiryBounds()}
                                                         onChange={(value) => {
                                                             if (!value.date) {
                                                                 field.onChange(

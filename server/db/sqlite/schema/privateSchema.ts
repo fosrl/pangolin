@@ -594,6 +594,17 @@ export const alertResources = sqliteTable("alertResources", {
         .references(() => resources.resourceId, { onDelete: "cascade" })
 });
 
+// Rules match any source (site / resource / health check) carrying at least
+// one of these labels, in addition to the explicit junction tables above.
+export const alertLabels = sqliteTable("alertLabels", {
+    alertRuleId: integer("alertRuleId")
+        .notNull()
+        .references(() => alertRules.alertRuleId, { onDelete: "cascade" }),
+    labelId: integer("labelId")
+        .notNull()
+        .references(() => labels.labelId, { onDelete: "cascade" })
+});
+
 export const alertEmailActions = sqliteTable("alertEmailActions", {
     emailActionId: integer("emailActionId").primaryKey({ autoIncrement: true }),
     alertRuleId: integer("alertRuleId")
@@ -630,6 +641,36 @@ export const alertWebhookActions = sqliteTable("alertWebhookActions", {
     config: text("config"), // encrypted JSON with auth config (authType, credentials)
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     lastSentAt: integer("lastSentAt")
+});
+
+export const roleClientSettings = sqliteTable("roleClientSettings", {
+    roleId: integer("roleId")
+        .primaryKey()
+        .references(() => roles.roleId, { onDelete: "cascade" }),
+    orgId: text("orgId")
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // Off means clients get nothing from this role, even if values are saved below
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+    // For every setting below, null means the server doesn't manage it
+    overrideDns: integer("overrideDns", { mode: "boolean" }),
+    mtu: integer("mtu"),
+    tunnelDns: integer("tunnelDns", { mode: "boolean" }),
+    primaryDns: text("primaryDns"),
+    secondaryDns: text("secondaryDns"),
+    exitNodeTakesPrecedence: integer("exitNodeTakesPrecedence", {
+        mode: "boolean"
+    }),
+    exitNodeSiteResourceId: integer("exitNodeSiteResourceId").references(
+        () => siteResources.siteResourceId,
+        { onDelete: "set null" }
+    ),
+    // false: the exit node is a default the user can change; true: it is forced
+    exitNodeLocked: integer("exitNodeLocked", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    matchDomains: text("matchDomains"), // JSON array of FQDN wildcard patterns
+    preferLocalRoutes: integer("preferLocalRoutes", { mode: "boolean" })
 });
 
 export const trialNotifications = sqliteTable("trialNotifications", {
@@ -871,6 +912,7 @@ export type EventStreamingCursor = InferSelectModel<
     typeof eventStreamingCursors
 >;
 export type AlertResources = InferSelectModel<typeof alertResources>;
+export type AlertLabels = InferSelectModel<typeof alertLabels>;
 export type AlertHealthChecks = InferSelectModel<typeof alertHealthChecks>;
 export type AlertSites = InferSelectModel<typeof alertSites>;
 export type AlertRule = InferSelectModel<typeof alertRules>;
@@ -884,3 +926,4 @@ export type SshCommandLog = InferSelectModel<typeof sshCommandLog>;
 export type ResourceSessionReauth = InferSelectModel<
     typeof resourceSessionReauth
 >;
+export type RoleClientSettings = InferSelectModel<typeof roleClientSettings>;

@@ -129,7 +129,10 @@ export function PaidFeaturesAlert({ tiers }: Props) {
     return (
         <>
             {build === "saas" && !hasSaasSubscription(tiers) ? (
-                <Card className={bannerClassName}>
+                <Card
+                    data-slot="paid-features-alert"
+                    className={bannerClassName}
+                >
                     <CardContent className={bannerContentClassName}>
                         <div className={bannerRowClassName}>
                             <KeyRound className={bannerIconClassName} />
@@ -155,7 +158,10 @@ export function PaidFeaturesAlert({ tiers }: Props) {
 
             {(build === "enterprise" || build === "oss") &&
             !hasEnterpriseLicense ? (
-                <Card className={bannerClassName}>
+                <Card
+                    data-slot="paid-features-alert"
+                    className={bannerClassName}
+                >
                     <CardContent className={bannerContentClassName}>
                         <div className={bannerRowClassName}>
                             <KeyRound className={bannerIconClassName} />
