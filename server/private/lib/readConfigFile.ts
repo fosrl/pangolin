@@ -286,7 +286,7 @@ export const privateConfigSchema = z
                         "208.67.222.222"
                     ])
             })
-            .optional(),
+            .prefault({}),
         branding: z
             .object({
                 app_name: z.string().optional(),
