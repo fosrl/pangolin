@@ -78,5 +78,5 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
     [TierFeature.RoleBasedSSHControls]: ["tier3", "enterprise"],
     [TierFeature.CustomDnsRecords]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.ResourceSessions]: ["tier2", "tier3", "enterprise"],
-    [TierFeature.ClientSettings]: ["enterprise"]
+    [TierFeature.ClientSettings]: ["tier3", "enterprise"]
 };
