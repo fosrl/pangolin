@@ -106,7 +106,7 @@
         "next-intl": "4.15.1",
         "next-themes": "0.4.6",
         "nextjs-toploader": "3.9.17",
-        "nodemailer": "10.5.0",
+        "nodemailer": "10.6.0",
         "oslo": "1.2.1",
         "pg": "8.23.1",
         "posthog-node": "5.74.0",
