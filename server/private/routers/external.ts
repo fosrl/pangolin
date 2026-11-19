@@ -1004,18 +1004,18 @@ authenticated.post(
 
 authenticated.get(
     "/role/:roleId/client-settings",
+    verifyRoleAccess,
     verifyValidLicense,
     verifyValidSubscription(tierMatrix.clientSettings),
-    verifyRoleAccess,
     verifyUserHasAction(ActionsEnum.getRoleClientSettings),
     roleClientSettings.getRoleClientSettings
 );
 
 authenticated.post(
     "/role/:roleId/client-settings",
+    verifyRoleAccess,
     verifyValidLicense,
     verifyValidSubscription(tierMatrix.clientSettings),
-    verifyRoleAccess,
     verifyUserHasAction(ActionsEnum.updateRoleClientSettings),
     logActionAudit(ActionsEnum.updateRoleClientSettings),
     roleClientSettings.updateRoleClientSettings

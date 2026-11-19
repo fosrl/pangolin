@@ -34,7 +34,8 @@ export function verifyValidSubscription(tiers: Tier[]) {
                 req.params?.orgId ||
                 req.body?.orgId ||
                 req.query?.orgId ||
-                req.userOrgId;
+                req.userOrgId ||
+                req.apiKeyOrg?.orgId;
 
             if (!orgId) {
                 return next(
