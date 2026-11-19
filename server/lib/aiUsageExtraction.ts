@@ -163,7 +163,12 @@ function extractAnthropicMessages(
 
     const applyUsage = (usage: any) => {
         if (!usage) return;
-        found = true;
+        // Only Anthropic-shaped usage counts. An OpenAI-shaped `usage`
+        // (prompt_tokens/completion_tokens) must fall through as "not found"
+        // rather than be reported as zero tokens.
+        found ||=
+            typeof usage.input_tokens === "number" ||
+            typeof usage.output_tokens === "number";
         if (typeof usage.input_tokens === "number") {
             inputTokens = usage.input_tokens;
         }
@@ -358,10 +363,12 @@ const EXTRACTORS: Record<
     gemini_generate_content: extractGoogleGenerateContent,
     google_generate_content: extractGoogleGenerateContent,
     // rawPredict is a passthrough to whatever the underlying publisher
-    // model speaks (often Anthropic-shaped on Vertex); try that, then give
-    // up to the token-count estimate.
+    // model speaks: Anthropic-shaped for Claude, OpenAI chat-completion
+    // shaped for Mistral and other partner models. Try both, then give up
+    // to the token-count estimate.
     google_raw_predict: (text, isStream) =>
-        extractAnthropicMessages(text, isStream),
+        extractAnthropicMessages(text, isStream) ??
+        extractOpenAiChat(text, isStream),
     bedrock_model_invoke: extractBedrockModelInvoke,
     bedrock_converse: extractBedrockConverse
 };
