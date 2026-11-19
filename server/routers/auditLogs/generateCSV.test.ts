@@ -67,6 +67,44 @@ function runTests() {
         );
     }
 
+    // A plain space is leading whitespace as well. Without matching it, a
+    // value like " =1+1" slips past the prefix check and Excel evaluates the
+    // formula after trimming the space. This is the regression that a leading
+    // space must be neutralised just like a tab or CR.
+    {
+        const csv = generateCSV([{ actor: " =1+1" }]);
+
+        assertEquals(
+            csv,
+            "actor\n' =1+1",
+            "A space before a formula should be neutralised"
+        );
+    }
+
+    // Mixed leading whitespace (spaces then a tab) must also be covered, since
+    // spreadsheets skip an arbitrary run of whitespace before a formula.
+    {
+        const csv = generateCSV([{ actor: "  \t@SUM(1+1)" }]);
+
+        assertEquals(
+            csv,
+            "actor\n'  \t@SUM(1+1)",
+            "A whitespace run before a formula should be neutralised"
+        );
+    }
+
+    // A value that is only whitespace followed by a normal value is not a
+    // formula and must be left untouched, so the export stays readable.
+    {
+        const csv = generateCSV([{ actor: "  alice" }]);
+
+        assertEquals(
+            csv,
+            "actor\n  alice",
+            "Leading whitespace without a formula prefix should be left alone"
+        );
+    }
+
     // CR, LF and CRLF all end a record for some parsers. Collapsing them keeps
     // one record on one line so a value cannot forge additional rows.
     {
@@ -200,5 +238,5 @@ try {
     runTests();
 } catch (error) {
     console.error("Test failed:", error);
-process.exit(1);
+    process.exit(1);
 }
