@@ -2,14 +2,14 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
 import { users, userOrgs, orgs, idpOrg, idp, idpOidcConfig } from "@server/db";
-import { eq, or, sql, and, isNotNull, inArray } from "drizzle-orm";
+import { eq, or, sql, inArray } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
-import { OpenAPITags, registry } from "@server/openApi";
 import { UserType } from "@server/types/UserTypes";
+import config from "@server/lib/config";
 
 const lookupBodySchema = z.strictObject({
     identifier: z.string().min(1).toLowerCase()
@@ -61,6 +61,38 @@ export type LookupUserResponse = {
 // }
 // }
 // });
+
+type LookupOrg = LookupUserResponse["accounts"][number]["orgs"][number];
+
+/**
+ * Collapse an account's orgs into a single entry with no org name or ID, so
+ * the response only carries the IdPs the user can sign in with.
+ */
+function redactOrgData(orgsData: LookupOrg[]): LookupOrg[] {
+    if (orgsData.length === 0) {
+        return [];
+    }
+
+    const idps: LookupOrg["idps"] = [];
+    const seenIdpIds = new Set<number>();
+    for (const org of orgsData) {
+        for (const idp of org.idps) {
+            if (!seenIdpIds.has(idp.idpId)) {
+                seenIdpIds.add(idp.idpId);
+                idps.push(idp);
+            }
+        }
+    }
+
+    return [
+        {
+            orgId: "",
+            orgName: "",
+            idps,
+            hasInternalAuth: orgsData.some((org) => org.hasInternalAuth)
+        }
+    ];
+}
 
 export async function lookupUser(
     req: Request,
@@ -149,6 +181,11 @@ export async function lookupUser(
                       .where(inArray(idpOrg.orgId, orgIds))
                 : [];
 
+        // This endpoint is unauthenticated, so optionally keep org names and
+        // IDs (often a slug of the customer name) out of the response
+        const redactOrgs =
+            config.getRawConfig().flags?.disable_login_org_names === true;
+
         // Build response structure
         const accounts: LookupUserResponse["accounts"] = [];
 
@@ -216,7 +253,7 @@ export async function lookupUser(
                 email: user.email,
                 username: user.username,
                 hasInternalAuth,
-                orgs: orgsData
+                orgs: redactOrgs ? redactOrgData(orgsData) : orgsData
             });
         }
 

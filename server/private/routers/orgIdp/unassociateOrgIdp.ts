@@ -32,6 +32,18 @@ const paramsSchema = z
     })
     .strict();
 
+registry.registerPath({
+    method: "delete",
+    path: "/org/{orgId}/idp/{idpId}/association",
+    description:
+        "Unlink an IdP from this organization without deleting it from the other organizations it is linked to. Removes the organization's users that sign in with this IdP. Requires a root API key.",
+    tags: [OpenAPITags.OrgIdp],
+    request: {
+        params: paramsSchema
+    },
+    responses: {}
+});
+
 export async function unassociateOrgIdp(
     req: Request,
     res: Response,

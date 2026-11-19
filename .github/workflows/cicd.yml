@@ -499,32 +499,32 @@ jobs:
                   fi
               shell: bash
 
-    post-run:
-        needs: [pre-run, release-arm, release-amd, create-manifest, sign-and-package]
-        if: >-
-            ${{
-                always() &&
-                needs.pre-run.result == 'success' &&
-                (needs.release-arm.result == 'success' || needs.release-arm.result == 'skipped' || needs.release-arm.result == 'failure') &&
-                (needs.release-amd.result == 'success' || needs.release-amd.result == 'skipped' || needs.release-amd.result == 'failure') &&
-                (needs.create-manifest.result == 'success' || needs.create-manifest.result == 'skipped' || needs.create-manifest.result == 'failure') &&
-                (needs.sign-and-package.result == 'success' || needs.sign-and-package.result == 'skipped' || needs.sign-and-package.result == 'failure')
-            }}
-        runs-on: ubuntu-latest
-        permissions: write-all
-        steps:
-            - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v6
-              with:
-                  role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
-                  role-duration-seconds: 3600
-                  aws-region: ${{ secrets.AWS_REGION }}
+    # post-run:
+    #     needs: [pre-run, release-arm, release-amd, create-manifest, sign-and-package]
+    #     if: >-
+    #         ${{
+    #             always() &&
+    #             needs.pre-run.result == 'success' &&
+    #             (needs.release-arm.result == 'success' || needs.release-arm.result == 'skipped' || needs.release-arm.result == 'failure') &&
+    #             (needs.release-amd.result == 'success' || needs.release-amd.result == 'skipped' || needs.release-amd.result == 'failure') &&
+    #             (needs.create-manifest.result == 'success' || needs.create-manifest.result == 'skipped' || needs.create-manifest.result == 'failure') &&
+    #             (needs.sign-and-package.result == 'success' || needs.sign-and-package.result == 'skipped' || needs.sign-and-package.result == 'failure')
+    #         }}
+    #     runs-on: ubuntu-latest
+    #     permissions: write-all
+    #     steps:
+    #         - name: Configure AWS credentials
+    #           uses: aws-actions/configure-aws-credentials@v6
+    #           with:
+    #               role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
+    #               role-duration-seconds: 3600
+    #               aws-region: ${{ secrets.AWS_REGION }}
 
-            - name: Verify AWS identity
-              run: aws sts get-caller-identity
+    #         - name: Verify AWS identity
+    #           run: aws sts get-caller-identity
 
-            - name: Stop EC2 instances
-              run: |
-                  aws ec2 stop-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID_ARM_RUNNER }}
-                  aws ec2 stop-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID_AMD_RUNNER }}
-                  echo "EC2 instances stopped"
+    #         - name: Stop EC2 instances
+    #           run: |
+    #               aws ec2 stop-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID_ARM_RUNNER }}
+    #               aws ec2 stop-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID_AMD_RUNNER }}
+    #               echo "EC2 instances stopped"

@@ -424,6 +424,9 @@ export const configSchema = z
                 disable_product_help_banners: z.boolean().optional(),
                 disable_enterprise_features: z.boolean().optional(),
                 disable_virtual_api_keys_ui: z.boolean().optional(),
+                // Hide org names next to IdPs on the login pages and redact
+                // org names/IDs from the unauthenticated user lookup API
+                disable_login_org_names: z.boolean().optional(),
                 enable_acme_cert_sync: z.boolean().optional().default(true),
                 disable_private_http_placeholder: z
                     .boolean()

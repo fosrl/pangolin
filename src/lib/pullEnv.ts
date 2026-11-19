@@ -78,6 +78,10 @@ export function pullEnv(): Env {
             enableApiCreateUserSessions:
                 process.env.FLAGS_ENABLE_API_CREATE_USER_SESSIONS === "true"
                     ? true
+                    : false,
+            disableLoginOrgNames:
+                process.env.FLAGS_DISABLE_LOGIN_ORG_NAMES === "true"
+                    ? true
                     : false
         },
 
