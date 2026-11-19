@@ -10,7 +10,12 @@ import {
     sites,
     userSiteResources
 } from "@server/db";
-import { validateAndConstructDomain } from "@server/lib/domainUtils";
+import {
+    checkSiteResourceWildcardDomainConflict,
+    validateAndConstructDomain
+} from "@server/lib/domainUtils";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import response from "@server/lib/response";
 import { eq, and, ne, inArray } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
@@ -463,6 +468,44 @@ export async function updateSiteResource(
 
             fullDomain = domainResult.fullDomain;
             finalSubdomain = domainResult.subdomain;
+
+            const effectiveMode = mode ?? existingSiteResource.mode;
+
+            if (domainResult.wildcard) {
+                if (effectiveMode !== "http") {
+                    return next(
+                        createHttpError(
+                            HttpCode.BAD_REQUEST,
+                            "Wildcard subdomains are only supported for HTTP resources."
+                        )
+                    );
+                }
+
+                const isLicensed = await isLicensedOrSubscribed(
+                    org.orgId,
+                    tierMatrix.wildcardSubdomain
+                );
+                if (!isLicensed) {
+                    return next(
+                        createHttpError(
+                            HttpCode.FORBIDDEN,
+                            "Wildcard subdomains are not supported on your current plan. Please upgrade to access this feature."
+                        )
+                    );
+                }
+            }
+
+            const wildcardConflict =
+                await checkSiteResourceWildcardDomainConflict(
+                    fullDomain,
+                    effectiveMode,
+                    existingSiteResource.siteResourceId
+                );
+            if (wildcardConflict.conflict) {
+                return next(
+                    createHttpError(HttpCode.CONFLICT, wildcardConflict.message)
+                );
+            }
 
             // make sure the full domain is unique
             const [existingDomain] = await db

@@ -1,6 +1,7 @@
 import {
     clients,
     clientSiteResources,
+    domainNamespaces,
     domains,
     orgDomains,
     roleActions,
@@ -28,6 +29,9 @@ import { LimitId } from "../billing";
 import { usageService } from "../billing/usageService";
 import { syncInferenceAiConfig } from "./aiProviders";
 import { syncAiBudgets } from "./aiBudgets";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { tierMatrix } from "../billing/tierMatrix";
+import { checkSiteResourceWildcardDomainConflict } from "../domainUtils";
 
 async function getDomainForSiteResource(
     siteResourceId: number | undefined,
@@ -61,6 +65,36 @@ async function getDomainForSiteResource(
         );
     }
 
+    const isWildcardFullDomain = fullDomain.startsWith("*.");
+
+    if (isWildcardFullDomain) {
+        if (isInference) {
+            throw new Error(
+                `Wildcard full-domains are only supported for http private resources: ${fullDomain}`
+            );
+        }
+
+        const isLicensed = await isLicensedOrSubscribed(
+            orgId,
+            tierMatrix.wildcardSubdomain
+        );
+        if (!isLicensed) {
+            throw new Error(
+                "Wildcard subdomains are not supported on your current plan. Please upgrade to access this feature."
+            );
+        }
+    }
+
+    const wildcardConflict = await checkSiteResourceWildcardDomainConflict(
+        fullDomain,
+        isInference ? "inference" : "http",
+        siteResourceId,
+        trx
+    );
+    if (wildcardConflict.conflict) {
+        throw new Error(wildcardConflict.message);
+    }
+
     const possibleDomains = await trx
         .select()
         .from(domains)
@@ -75,6 +109,10 @@ async function getDomainForSiteResource(
     }
 
     const validDomains = possibleDomains.filter((domain) => {
+        if (isWildcardFullDomain && domain.domains.type === "cname") {
+            return false;
+        }
+
         if (domain.domains.type == "ns" || domain.domains.type == "wildcard") {
             return (
                 fullDomain === domain.domains.baseDomain ||
@@ -93,6 +131,20 @@ async function getDomainForSiteResource(
 
     const domainSelection = validDomains[0].domains;
     const baseDomain = domainSelection.baseDomain;
+
+    if (isWildcardFullDomain) {
+        const [namespaceDomain] = await trx
+            .select()
+            .from(domainNamespaces)
+            .where(eq(domainNamespaces.domainId, domainSelection.domainId))
+            .limit(1);
+
+        if (namespaceDomain) {
+            throw new Error(
+                `Wildcard full-domains are not supported for provided or free domains: ${fullDomain}`
+            );
+        }
+    }
 
     let subdomain: string | null = null;
     if (fullDomain !== baseDomain) {

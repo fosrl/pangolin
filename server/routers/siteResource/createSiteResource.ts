@@ -31,7 +31,12 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
-import { validateAndConstructDomain } from "@server/lib/domainUtils";
+import {
+    checkSiteResourceWildcardDomainConflict,
+    validateAndConstructDomain
+} from "@server/lib/domainUtils";
+import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { createCertificate } from "@server/routers/certificates/createCertificate";
 import { build } from "@server/build";
 import { usageService } from "@server/lib/billing/usageService";
@@ -497,6 +502,41 @@ export async function createSiteResource(
 
             fullDomain = domainResult.fullDomain;
             finalSubdomain = domainResult.subdomain;
+
+            if (domainResult.wildcard) {
+                if (mode !== "http") {
+                    return next(
+                        createHttpError(
+                            HttpCode.BAD_REQUEST,
+                            "Wildcard subdomains are only supported for HTTP resources."
+                        )
+                    );
+                }
+
+                const isLicensed = await isLicensedOrSubscribed(
+                    orgId,
+                    tierMatrix.wildcardSubdomain
+                );
+                if (!isLicensed) {
+                    return next(
+                        createHttpError(
+                            HttpCode.FORBIDDEN,
+                            "Wildcard subdomains are not supported on your current plan. Please upgrade to access this feature."
+                        )
+                    );
+                }
+            }
+
+            const wildcardConflict =
+                await checkSiteResourceWildcardDomainConflict(
+                    fullDomain,
+                    mode
+                );
+            if (wildcardConflict.conflict) {
+                return next(
+                    createHttpError(HttpCode.CONFLICT, wildcardConflict.message)
+                );
+            }
 
             // make sure the full domain is unique
             const existingResource = await db

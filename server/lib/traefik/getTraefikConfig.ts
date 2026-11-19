@@ -709,7 +709,11 @@ export async function getTraefikConfig(
             resolveTls: (fullDomain) =>
                 buildWildcardTls({
                     fullDomain,
-                    hasSubdomain: true
+                    hasSubdomain: true,
+                    // Traefik can't derive a cert from a HostRegexp rule
+                    preferWildcardCert: fullDomain.startsWith("*.")
+                        ? true
+                        : undefined
                 })
         });
     }
