@@ -8,6 +8,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { and, eq } from "drizzle-orm";
+import { notifyTraefikConfigChanged } from "@server/lib/traefik/configUpdates";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty(),
@@ -75,6 +76,9 @@ export async function deleteRedirect(
                     eq(redirects.orgId, orgId)
                 )
             );
+
+        // redirects are emitted on every exit node
+        notifyTraefikConfigChanged("all", `redirect ${redirectId} deleted`);
 
         return response(res, {
             data: null,

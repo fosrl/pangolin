@@ -21,6 +21,10 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { eq, and } from "drizzle-orm";
 import { DeleteLoginPageResponse } from "@server/routers/loginPage/types";
+import {
+    exitNodeScopeOf,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 const paramsSchema = z
     .object({
@@ -84,6 +88,11 @@ export async function deleteLoginPage(
             .delete(loginPageOrg)
             .where(eq(loginPageOrg.loginPageId, parsedParams.data.loginPageId));
         // }
+
+        notifyTraefikConfigChanged(
+            exitNodeScopeOf(existingLoginPage.loginPage.exitNodeId),
+            `login page ${existingLoginPage.loginPage.loginPageId} deleted`
+        );
 
         return response<LoginPage>(res, {
             data: existingLoginPage.loginPage,

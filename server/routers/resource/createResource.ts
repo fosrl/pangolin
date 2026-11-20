@@ -45,6 +45,10 @@ import {
     setPublicResourceAiProviders,
     type ResourceAiProviderAttachment
 } from "@server/lib/aiInferenceResource";
+import {
+    getExitNodeScopeForResources,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 const createResourceParamsSchema = z.strictObject({
     orgId: z.string()
@@ -671,6 +675,13 @@ async function createHttpResource(
     }
 
     await createCertificate(domainId, fullDomain, db);
+
+    // a new resource has no targets yet, so this only reaches nodes for
+    // modes that are served everywhere (inference)
+    notifyTraefikConfigChanged(
+        getExitNodeScopeForResources([resource.resourceId]),
+        `resource ${resource.resourceId} created`
+    );
 
     return response<CreateResourceResponse>(res, {
         data: resource,

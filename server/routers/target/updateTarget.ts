@@ -20,6 +20,10 @@ import { pickPort } from "./helpers";
 import { isTargetValid } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
+import {
+    getExitNodeScopeForSites,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 const updateTargetParamsSchema = z.strictObject({
     targetId: z.coerce.number().int().positive()
@@ -464,6 +468,15 @@ export async function updateTarget(
                     );
                 }
             }
+        }
+
+        // AI provider targets aren't part of the traefik config. The target
+        // may have moved sites, so both the old and new site's nodes reload.
+        if (resource) {
+            notifyTraefikConfigChanged(
+                getExitNodeScopeForSites([target.siteId, updatedTarget.siteId]),
+                `target ${targetId} updated`
+            );
         }
 
         return response(res, {

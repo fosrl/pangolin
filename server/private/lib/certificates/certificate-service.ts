@@ -22,6 +22,7 @@ import { withTimeout, withRetry } from "@server/lib/retry";
 import logger from "@server/logger";
 import { lockManager } from "../lock";
 import { pushCertUpdateToAffectedNewts } from "@server/lib/acmeCertSync";
+import { notifyTraefikConfigChanged } from "@server/lib/traefik/configUpdates";
 import crypto from "crypto";
 
 // Number of on-demand DNS validation attempts made right before a
@@ -426,6 +427,14 @@ export class CertificateService {
 
         logger.info(
             `Certificate successfully obtained/renewed for domain: ${cert.domain}`
+        );
+
+        // In pangolin cert mode a router is left out of the traefik config
+        // until its certificate is valid, so the nodes need to pull now to
+        // start serving the domain. The domain can be on any node.
+        notifyTraefikConfigChanged(
+            "all",
+            `certificate issued for ${cert.domain}`
         );
 
         await pushCertUpdateToAffectedNewts(

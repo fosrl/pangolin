@@ -13,6 +13,10 @@ import {
 } from "@server/lib/deleteResource";
 import { LimitId } from "@server/lib/billing";
 import { usageService } from "@server/lib/billing/usageService";
+import {
+    getExitNodeScopeForResources,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 const deleteResourceSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -90,6 +94,10 @@ export async function deleteResource(
 
         let deleteResult = null;
 
+        // resolve before deleting: afterwards the targets and attached
+        // redirects that decide which nodes served it are gone
+        const exitNodeScope = await getExitNodeScopeForResources([resourceId]);
+
         await db.transaction(async (trx) => {
             deleteResult = await performDeleteResource(resourceId, trx);
             if (deleteResult?.deletedResource?.orgId) {
@@ -112,6 +120,11 @@ export async function deleteResource(
         }
 
         await runResourceDeleteSideEffects(deleteResult);
+
+        notifyTraefikConfigChanged(
+            exitNodeScope,
+            `resource ${resourceId} deleted`
+        );
 
         return response(res, {
             data: null,

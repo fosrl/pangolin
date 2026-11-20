@@ -27,6 +27,13 @@ import {
     updatePrivateResources
 } from "./privateResources";
 import { updateResourcePolicies } from "./resourcePolicies";
+import {
+    getExitNodeScopeForOrg,
+    getExitNodeScopeForResources,
+    getExitNodeScopeForSiteResources,
+    mergeExitNodeScopes,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 import { BlueprintSource } from "@server/routers/blueprints/types";
 import { stringify as stringifyYaml } from "yaml";
 import { generateName } from "@server/db/names";
@@ -82,6 +89,26 @@ export async function applyBlueprint({
                 siteId
             );
         });
+
+        // A blueprint can only touch the org's own sites, so every exit node
+        // those sites are on covers it, plus whatever the touched resources
+        // add on top (inference resources are served on every node).
+        notifyTraefikConfigChanged(
+            Promise.all([
+                getExitNodeScopeForOrg(orgId),
+                getExitNodeScopeForResources(
+                    publicResourcesResults.map(
+                        (r) => r.proxyResource.resourceId
+                    )
+                ),
+                getExitNodeScopeForSiteResources(
+                    privateResourcesResults.map(
+                        (r) => r.newSiteResource.siteResourceId
+                    )
+                )
+            ]).then((scopes) => mergeExitNodeScopes(...scopes)),
+            `blueprint applied for org ${orgId}`
+        );
 
         // Push updates to newts/clients only after the transaction has
         // committed. Doing this while the transaction is still open can

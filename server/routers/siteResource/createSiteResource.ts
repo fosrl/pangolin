@@ -33,6 +33,10 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { validateAndConstructDomain } from "@server/lib/domainUtils";
 import { createCertificate } from "@server/routers/certificates/createCertificate";
+import {
+    getExitNodeScopeForSiteResources,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 import { build } from "@server/build";
 import { usageService } from "@server/lib/billing/usageService";
 import { LimitId } from "@server/lib/billing";
@@ -779,6 +783,11 @@ export async function createSiteResource(
                     err
                 );
             }
+        );
+
+        notifyTraefikConfigChanged(
+            getExitNodeScopeForSiteResources([newSiteResource.siteResourceId]),
+            `site resource ${newSiteResource.siteResourceId} created`
         );
 
         return response(res, {

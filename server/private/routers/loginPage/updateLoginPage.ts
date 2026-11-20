@@ -23,6 +23,10 @@ import { eq, and, or } from "drizzle-orm";
 import { validateAndConstructDomain } from "@server/lib/domainUtils";
 import { subdomainSchema } from "@server/lib/schemas";
 import { createCertificate } from "@server/routers/certificates/createCertificate";
+import {
+    exitNodeScopeOf,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 import { UpdateLoginPageResponse } from "@server/routers/loginPage/types";
 
@@ -207,6 +211,11 @@ export async function updateLoginPage(
                 )
             );
         }
+
+        notifyTraefikConfigChanged(
+            exitNodeScopeOf(updatedLoginPage[0].exitNodeId),
+            `login page ${loginPageId} updated`
+        );
 
         return response<LoginPage>(res, {
             data: updatedLoginPage[0],

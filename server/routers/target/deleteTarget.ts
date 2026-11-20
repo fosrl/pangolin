@@ -12,6 +12,10 @@ import { removeTargets } from "../newt/targets";
 import { OpenAPITags, registry } from "@server/openApi";
 import { targetHealthCheck } from "@server/db";
 import { removeBrowserGatewayTarget } from "@server/routers/newt/targets";
+import {
+    getExitNodeScopeForSites,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 const deleteTargetSchema = z.strictObject({
     targetId: z.coerce.number().int().positive()
@@ -180,6 +184,14 @@ export async function deleteTarget(
                     );
                 }
             }
+        }
+
+        // AI provider targets aren't part of the traefik config
+        if (resource) {
+            notifyTraefikConfigChanged(
+                getExitNodeScopeForSites([site.siteId]),
+                `target ${targetId} deleted`
+            );
         }
 
         return response(res, {

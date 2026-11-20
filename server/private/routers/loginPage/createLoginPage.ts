@@ -33,6 +33,10 @@ import { createCertificate } from "@server/routers/certificates/createCertificat
 import { build } from "@server/build";
 import privateConfig from "#private/lib/config";
 import { getCurrentExitNodeId } from "@server/lib/exitNodes";
+import {
+    exitNodeScopeOf,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 import { CreateLoginPageResponse } from "@server/routers/loginPage/types";
 
@@ -224,6 +228,11 @@ export async function createLoginPage(
         }
 
         await createCertificate(domainId, fullDomain, db);
+
+        notifyTraefikConfigChanged(
+            exitNodeScopeOf(returned.exitNodeId),
+            `login page ${returned.loginPageId} created`
+        );
 
         return response<LoginPage>(res, {
             data: returned,

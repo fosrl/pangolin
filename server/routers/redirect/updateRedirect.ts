@@ -22,6 +22,7 @@ import {
     isAllowedSsl
 } from "@server/routers/redirect/validation";
 import { createCertificate } from "../certificates";
+import { notifyTraefikConfigChanged } from "@server/lib/traefik/configUpdates";
 
 export type UpdateRedirectResponse = {
     redirect: Redirect;
@@ -307,6 +308,9 @@ export async function updateRedirect(
                 .join(".");
             await createCertificate(domain.domainId, fullDomain, db);
         }
+
+        // redirects are emitted on every exit node
+        notifyTraefikConfigChanged("all", `redirect ${redirectId} updated`);
 
         return response<UpdateRedirectResponse>(res, {
             data: {

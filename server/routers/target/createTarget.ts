@@ -36,6 +36,10 @@ import { encrypt } from "@server/lib/crypto";
 import { generateId } from "@server/auth/sessions/app";
 import config from "@server/lib/config";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
+import {
+    getExitNodeScopeForSites,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 const resourceTargetParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -548,6 +552,14 @@ export async function createTarget(
                     );
                 }
             }
+        }
+
+        // AI provider targets aren't part of the traefik config
+        if (resource) {
+            notifyTraefikConfigChanged(
+                getExitNodeScopeForSites([site.siteId]),
+                `target ${newTarget[0].targetId} created`
+            );
         }
 
         return response<CreateTargetResponse>(res, {

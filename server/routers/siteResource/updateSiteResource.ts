@@ -30,6 +30,11 @@ import { fromError } from "zod-validation-error";
 import { clearSiteResourceAiConfig } from "@server/lib/aiInferenceResource";
 import { build } from "@server/build";
 import { createCertificate } from "../certificates/createCertificate";
+import {
+    getExitNodeScopeForSiteResources,
+    mergeExitNodeScopes,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 const updateSiteResourceParamsSchema = z.strictObject({
     siteResourceId: z.coerce.number().int().positive()
@@ -443,6 +448,12 @@ export async function updateSiteResource(
             : [];
         const existingSiteIds = existingSiteNetworks.map((sn) => sn.siteId);
 
+        // the domain, mode or network may change, so the nodes that served
+        // it before need to reload as well as the ones that serve it after
+        const exitNodeScopeBefore = await getExitNodeScopeForSiteResources([
+            siteResourceId
+        ]);
+
         // undefined means "leave unchanged" (partial update); only nulled out
         // when the mode is explicitly being changed away from http
         let fullDomain: string | null | undefined = undefined;
@@ -767,6 +778,13 @@ export async function updateSiteResource(
                     `Failed to rebuild and handle messaging for site resource ${siteResourceId}. Error: ${e}`
                 );
             });
+
+        notifyTraefikConfigChanged(
+            getExitNodeScopeForSiteResources([siteResourceId]).then((after) =>
+                mergeExitNodeScopes(exitNodeScopeBefore, after)
+            ),
+            `site resource ${siteResourceId} updated`
+        );
 
         return response(res, {
             data: updatedSiteResource,

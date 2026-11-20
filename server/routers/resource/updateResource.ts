@@ -55,6 +55,19 @@ import {
     isMtlsEnabled
 } from "@server/lib/mtls";
 import { resourceModeSupportsMtls } from "@server/lib/mtlsModes";
+import {
+    getExitNodeScopeForResources,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
+
+function notifyResourceUpdated(resourceId: number) {
+    // targets, mode and attached redirects don't change here, so the nodes
+    // serving the resource are the same before and after the update
+    notifyTraefikConfigChanged(
+        getExitNodeScopeForResources([resourceId]),
+        `resource ${resourceId} updated`
+    );
+}
 
 const updateResourceParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -934,6 +947,8 @@ async function updateHttpResource(
             );
         }
 
+        notifyResourceUpdated(resource.resourceId);
+
         return response(res, {
             data: applyInlinePolicyFields(updatedResource[0], inlinePolicy),
             success: true,
@@ -957,6 +972,8 @@ async function updateHttpResource(
             )
         );
     }
+
+    notifyResourceUpdated(resource.resourceId);
 
     return response(res, {
         data: updatedResource[0],
@@ -1084,6 +1101,8 @@ async function updateRawResource(
             )
         );
     }
+
+    notifyResourceUpdated(resource.resourceId);
 
     return response(res, {
         data: updatedResource,

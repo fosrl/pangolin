@@ -14,6 +14,10 @@ import {
 } from "@server/lib/deleteSiteResource";
 import { LimitId } from "@server/lib/billing";
 import { usageService } from "@server/lib/billing/usageService";
+import {
+    getExitNodeScopeForSiteResources,
+    notifyTraefikConfigChanged
+} from "@server/lib/traefik/configUpdates";
 
 const deleteSiteResourceParamsSchema = z.strictObject({
     siteResourceId: z.coerce.number().int().positive()
@@ -109,6 +113,11 @@ export async function deleteSiteResource(
 
         let removedSiteResource = null;
 
+        // resolve before deleting: afterwards its network is gone
+        const exitNodeScope = await getExitNodeScopeForSiteResources([
+            siteResourceId
+        ]);
+
         await db.transaction(async (trx) => {
             removedSiteResource = await performDeleteSiteResource(
                 siteResourceId,
@@ -131,6 +140,11 @@ export async function deleteSiteResource(
         }
 
         runSiteResourceDeleteSideEffects(removedSiteResource);
+
+        notifyTraefikConfigChanged(
+            exitNodeScope,
+            `site resource ${siteResourceId} deleted`
+        );
 
         return response(res, {
             data: { message: "Site resource deleted successfully" },

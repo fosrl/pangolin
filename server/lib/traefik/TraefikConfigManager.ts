@@ -17,10 +17,20 @@ import { sendToExitNode } from "#dynamic/lib/exitNodes";
 import { build } from "@server/build";
 import license from "#dynamic/license/license";
 import { domainsFromHostRule } from "./rule";
+import {
+    subscribeTraefikConfigUpdates,
+    unsubscribeTraefikConfigUpdates,
+    type TraefikConfigUpdateChannel
+} from "#dynamic/lib/traefik/configUpdateTransport";
 
 // Flat files in the certificates dir; the per-domain directory scan and
 // cleanup only look at directories, so these don't collide with them.
 const MTLS_CA_FILE_PREFIX = "mtls-ca-";
+
+// Wait a moment after an update signal before pulling the config, so a burst
+// of changes (e.g. a blueprint apply) collapses into one reload and the
+// write has time to reach any read replica the config query hits.
+const UPDATE_SIGNAL_DEBOUNCE_MS = 500;
 
 export class TraefikConfigManager {
     private intervalId: NodeJS.Timeout | null = null;
@@ -40,7 +50,88 @@ export class TraefikConfigManager {
         }
     >();
 
+    // An update signal or poll that arrives while a cycle is running
+    // joins it; a signal also forces one more cycle afterwards, since the
+    // running one may have read the config before the change was written.
+    private cycleInFlight: Promise<void> | null = null;
+    private rerunRequested = false;
+    private updateSignalTimer: NodeJS.Timeout | null = null;
+    private subscribedChannels = new Set<TraefikConfigUpdateChannel>();
+
     constructor() {}
+
+    private readonly handleUpdateSignal = (reason: string): void => {
+        if (!this.isRunning || this.updateSignalTimer) return;
+        logger.debug(`Traefik config update signal received (${reason})`);
+        this.updateSignalTimer = setTimeout(() => {
+            this.updateSignalTimer = null;
+            this.runCycle(true).catch((error) => {
+                logger.error(
+                    "Error handling traefik config update signal:",
+                    error
+                );
+            });
+        }, UPDATE_SIGNAL_DEBOUNCE_MS);
+    };
+
+    private runCycle(forceRerun: boolean): Promise<void> {
+        if (this.cycleInFlight) {
+            if (forceRerun) this.rerunRequested = true;
+            return this.cycleInFlight;
+        }
+
+        this.cycleInFlight = (async () => {
+            try {
+                do {
+                    this.rerunRequested = false;
+                    await this.HandleTraefikConfig();
+                } while (this.rerunRequested && this.isRunning);
+            } finally {
+                this.cycleInFlight = null;
+            }
+        })();
+        return this.cycleInFlight;
+    }
+
+    /**
+     * Subscribe to update signals for this exit node and for all nodes.
+     * Retried every cycle until it sticks: the exit node may not be
+     * registered yet at startup, and a subscribe can fail while Redis is
+     * unavailable.
+     */
+    private async ensureUpdateSubscriptions(): Promise<void> {
+        const channels: TraefikConfigUpdateChannel[] = ["all"];
+        try {
+            const exitNodeId = await getCurrentExitNodeId();
+            if (exitNodeId) channels.push(exitNodeId);
+        } catch (error) {
+            logger.debug(
+                "Could not resolve exit node for config update signals yet:",
+                error
+            );
+        }
+
+        for (const channel of channels) {
+            if (this.subscribedChannels.has(channel)) continue;
+            try {
+                const ok = await subscribeTraefikConfigUpdates(
+                    channel,
+                    this.handleUpdateSignal
+                );
+                if (ok) {
+                    this.subscribedChannels.add(channel);
+                    logger.debug(
+                        `Subscribed to traefik config update signals for ${channel === "all" ? "all exit nodes" : `exit node ${channel}`}`
+                    );
+                }
+            } catch (error) {
+                logger.warn(
+                    `Failed to subscribe to traefik config update signals for ${channel}:`,
+                    error
+                );
+            }
+        }
+    }
 
     /**
      * Start monitoring certificates
@@ -53,7 +144,8 @@ export class TraefikConfigManager {
 
         this.timeoutId = setTimeout(async () => {
             try {
-                await this.HandleTraefikConfig();
+                await this.ensureUpdateSubscriptions();
+                await this.runCycle(false);
             } catch (error) {
                 logger.error("Error during certificate monitoring:", error);
             }
@@ -83,8 +175,10 @@ export class TraefikConfigManager {
             `Found ${this.lastLocalCertificateState.size} existing certificate directories`
         );
 
+        await this.ensureUpdateSubscriptions();
+
         // Run initial check
-        await this.HandleTraefikConfig();
+        await this.runCycle(false);
 
         // Start synchronized scheduling
         this.scheduleNextExecution();
@@ -108,6 +202,29 @@ export class TraefikConfigManager {
             clearInterval(this.intervalId);
             this.intervalId = null;
         }
+
+        if (this.timeoutId) {
+            clearTimeout(this.timeoutId);
+            this.timeoutId = null;
+        }
+
+        if (this.updateSignalTimer) {
+            clearTimeout(this.updateSignalTimer);
+            this.updateSignalTimer = null;
+        }
+
+        for (const channel of this.subscribedChannels) {
+            unsubscribeTraefikConfigUpdates(
+                channel,
+                this.handleUpdateSignal
+            ).catch((error) => {
+                logger.warn(
+                    `Failed to unsubscribe from traefik config update signals for ${channel}:`,
+                    error
+                );
+            });
+        }
+        this.subscribedChannels.clear();
 
         this.isRunning = false;
         logger.info("Certificate monitor stopped");
@@ -1313,7 +1430,7 @@ export class TraefikConfigManager {
         logger.info("Forcing certificate refresh");
         this.lastCertificateFetch = null;
         this.lastKnownDomains = new Set();
-        await this.HandleTraefikConfig();
+        await this.runCycle(true);
     }
 
     /**
