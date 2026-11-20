@@ -138,7 +138,7 @@
         "zod-validation-error": "5.0.0"
     },
     "devDependencies": {
-        "@react-email/ui": "^6.11.13",
+        "@react-email/ui": "^6.11.16",
         "@tailwindcss/postcss": "4.3.5",
         "@tanstack/react-query-devtools": "5.107.1",
         "@types/better-sqlite3": "7.6.13",
