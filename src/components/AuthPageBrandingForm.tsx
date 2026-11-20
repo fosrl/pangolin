@@ -42,6 +42,7 @@ import { useRouter } from "next/navigation";
 import { PaidFeaturesAlert } from "./PaidFeaturesAlert";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
 
 export type AuthPageCustomizationProps = {
     orgId: string;
@@ -63,7 +64,8 @@ const AuthPageFormSchema = z.object({
     primaryColor: z
         .string()
         .regex(/^#([0-9a-f]{6}|[0-9a-f]{3})$/i)
-        .optional()
+        .optional(),
+    customCss: z.string().max(100_000).optional()
 });
 
 export default function AuthPageBrandingForm({
@@ -101,7 +103,8 @@ export default function AuthPageBrandingForm({
             resourceSubtitle:
                 branding?.resourceSubtitle ??
                 `Choose your preferred authentication method for {{resourceName}}`,
-            primaryColor: branding?.primaryColor ?? `#f36117` // default pangolin primary color
+            primaryColor: branding?.primaryColor ?? `#f36117`, // default pangolin primary color
+            customCss: branding?.customCss ?? ""
         },
         disabled: !isPaidUser(tierMatrix.loginPageBranding)
     });
@@ -431,6 +434,57 @@ export default function AuthPageBrandingForm({
                                             )}
                                         />
                                     </SettingsFormCell>
+
+                                    {build === "enterprise" && (
+                                        <>
+                                            <SettingsFormCell span="full">
+                                                <SettingsSubsectionHeader>
+                                                    <SettingsSubsectionTitle>
+                                                        {t(
+                                                            "brandingCustomCssTitle"
+                                                        )}
+                                                    </SettingsSubsectionTitle>
+                                                    <SettingsSubsectionDescription>
+                                                        {t(
+                                                            "brandingCustomCssDescription"
+                                                        )}
+                                                    </SettingsSubsectionDescription>
+                                                </SettingsSubsectionHeader>
+                                            </SettingsFormCell>
+
+                                            <SettingsFormCell span="full">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="customCss"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>
+                                                                {t(
+                                                                    "brandingCustomCss"
+                                                                )}
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Textarea
+                                                                    {...field}
+                                                                    rows={12}
+                                                                    spellCheck={
+                                                                        false
+                                                                    }
+                                                                    className="font-mono text-xs"
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription>
+                                                                {t(
+                                                                    "brandingCustomCssHelp"
+                                                                )}
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </SettingsFormCell>
+                                        </>
+                                    )}
                                 </SettingsFormGrid>
                             </form>
                         </Form>

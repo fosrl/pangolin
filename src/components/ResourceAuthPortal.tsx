@@ -95,6 +95,7 @@ type ResourceAuthPortalProps = {
         primaryColor: string | null;
         resourceTitle: string;
         resourceSubtitle: string | null;
+        customCss?: string | null;
     };
 };
 
@@ -366,7 +367,10 @@ export default function ResourceAuthPortal(props: ResourceAuthPortalProps) {
         : 100;
 
     return (
-        <BrandedAuthSurface primaryColor={props.branding?.primaryColor}>
+        <BrandedAuthSurface
+            primaryColor={props.branding?.primaryColor}
+            customCss={props.branding?.customCss}
+        >
             {!accessDenied ? (
                 <div>
                     <PoweredByPangolin />

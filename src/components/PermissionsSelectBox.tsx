@@ -254,6 +254,14 @@ function getActionsCategories(root: boolean) {
         }
     };
 
+    if (build !== "oss") {
+        actionsByCategory["Login Page"] = {
+            [t("actionGetLoginPageBranding")]: "getLoginPage",
+            [t("actionUpdateLoginPageBranding")]: "updateLoginPage",
+            [t("actionDeleteLoginPageBranding")]: "deleteLoginPage"
+        };
+    }
+
     if (root || build === "saas" || env.app.identityProviderMode === "org") {
         actionsByCategory["Identity Provider (IDP)"] = {
             [t("actionCreateIdp")]: "createIdp",

@@ -20,6 +20,7 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { build } from "@server/build";
 import type { LoadLoginPageBrandingResponse } from "@server/routers/loginPage/types";
 
 const querySchema = z.object({
@@ -55,6 +56,7 @@ async function query(orgId: string) {
 
     return {
         ...res,
+        customCss: build === "enterprise" ? res.customCss : null,
         orgId: orgLink.orgs.orgId,
         orgName: orgLink.orgs.name
     };

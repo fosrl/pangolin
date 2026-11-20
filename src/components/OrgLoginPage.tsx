@@ -59,7 +59,10 @@ export default async function OrgLoginPage({
     const onDashboardHost = host === dashboardHost;
 
     return (
-        <BrandedAuthSurface primaryColor={branding?.primaryColor ?? null}>
+        <BrandedAuthSurface
+            primaryColor={branding?.primaryColor ?? null}
+            customCss={branding?.customCss ?? null}
+        >
             <PoweredByPangolin />
             <Card className="w-full max-w-md">
                 <CardHeader>

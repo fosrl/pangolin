@@ -24,14 +24,41 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { OpenAPITags, registry } from "@server/openApi";
 import { eq } from "drizzle-orm";
-
 
 const paramsSchema = z
     .object({
         orgId: z.string()
     })
     .strict();
+
+registry.registerPath({
+    method: "delete",
+    path: "/org/{orgId}/login-page-branding",
+    description:
+        "Delete the login page branding for an organization, reverting its login pages to the default look.",
+    tags: [OpenAPITags.Org],
+    request: {
+        params: paramsSchema
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
+});
 
 export async function deleteLoginPageBranding(
     req: Request,
@@ -50,7 +77,6 @@ export async function deleteLoginPageBranding(
         }
 
         const { orgId } = parsedParams.data;
-
 
         const [existingLoginPageBranding] = await db
             .select()

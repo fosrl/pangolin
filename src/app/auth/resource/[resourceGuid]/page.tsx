@@ -379,7 +379,8 @@ export default async function ResourceAuthPage(props: {
                                       primaryColor: branding.primaryColor,
                                       resourceTitle: branding.resourceTitle,
                                       resourceSubtitle:
-                                          branding.resourceSubtitle
+                                          branding.resourceSubtitle,
+                                      customCss: branding.customCss
                                   }
                         }
                     />
