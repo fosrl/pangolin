@@ -25,6 +25,7 @@ import * as healthChecks from "#private/routers/healthChecks";
 import * as resource from "#private/routers/resource";
 import * as customDnsRecord from "#private/routers/customDnsRecord";
 import * as roleClientSettings from "#private/routers/roleClientSettings";
+import * as loginPage from "#private/routers/loginPage";
 import {
     verifyApiKeyHasAction,
     verifyApiKeyDomainAccess,
@@ -582,6 +583,35 @@ authenticated.get(
     verifyApiKeyOrgAccess,
     verifyApiKeyHasAction(ActionsEnum.getTarget),
     healthChecks.getHealthCheckStatusHistory
+);
+
+authenticated.get(
+    "/org/:orgId/login-page-branding",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.loginPageBranding),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.getLoginPage),
+    loginPage.getLoginPageBranding
+);
+
+authenticated.put(
+    "/org/:orgId/login-page-branding",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.loginPageBranding),
+    verifyApiKeyOrgAccess,
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.updateLoginPage),
+    logActionAudit(ActionsEnum.updateLoginPage),
+    loginPage.upsertLoginPageBranding
+);
+
+authenticated.delete(
+    "/org/:orgId/login-page-branding",
+    verifyValidLicense,
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteLoginPage),
+    logActionAudit(ActionsEnum.deleteLoginPage),
+    loginPage.deleteLoginPageBranding
 );
 
 authenticated.get(

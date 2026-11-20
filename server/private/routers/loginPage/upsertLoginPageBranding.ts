@@ -24,6 +24,7 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { OpenAPITags, registry } from "@server/openApi";
 import { eq, InferInsertModel } from "drizzle-orm";
 import { build } from "@server/build";
 import config from "#private/lib/config";
@@ -54,6 +55,40 @@ const bodySchema = z.strictObject({
         .transform((val) =>
             val === undefined ? undefined : val.trim() ? val : null
         )
+});
+
+registry.registerPath({
+    method: "put",
+    path: "/org/{orgId}/login-page-branding",
+    description:
+        "Create or update the login page branding for an organization. The org title and subtitle are only applied when the server runs in org identity provider mode or on Pangolin Cloud. Custom CSS is only applied on Enterprise builds.",
+    tags: [OpenAPITags.Org],
+    request: {
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: bodySchema
+                }
+            }
+        }
+    },
+    responses: {
+        200: {
+            description: "Successful response",
+            content: {
+                "application/json": {
+                    schema: z.object({
+                        data: z.record(z.string(), z.any()).nullable(),
+                        success: z.boolean(),
+                        error: z.boolean(),
+                        message: z.string(),
+                        status: z.number()
+                    })
+                }
+            }
+        }
+    }
 });
 
 export type UpdateLoginPageBrandingBody = z.infer<typeof bodySchema>;
