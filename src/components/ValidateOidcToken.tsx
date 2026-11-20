@@ -2,6 +2,7 @@
 
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { cleanRedirect } from "@app/lib/cleanRedirect";
 import { AxiosResponse } from "axios";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -133,6 +134,7 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
 
                 if (!redirectUrl) {
                     router.push(env.app.dashboardUrl);
+                    return;
                 }
 
                 if (!isCancelled) {
@@ -141,11 +143,12 @@ export default function ValidateOidcToken(props: ValidateOidcTokenParams) {
                     await new Promise((resolve) => setTimeout(resolve, 100));
                 }
 
-                if (redirectUrl.startsWith("http")) {
-                    window.location.href = data.redirectUrl; // this is validated by the parent using this component
-                } else {
-                    router.push(data.redirectUrl);
-                }
+                const safeRedirect = cleanRedirect(redirectUrl, {
+                    fallback: env.app.dashboardUrl || "/",
+                    allowAllQueryParams: true
+                });
+
+                router.push(safeRedirect);
             } catch (e: any) {
                 console.error(e);
                 if (!isCancelled) {
