@@ -274,6 +274,43 @@ export default function UserDevicesTable({
             });
     };
 
+    const disconnectClient = (clientId: number) => {
+        api.post(`/client/${clientId}/disconnect`)
+            .then(() => {
+                toast({
+                    title: t("success"),
+                    description: t("clientDisconnectedDescription")
+                });
+                startTransition(() => {
+                    router.refresh();
+                });
+            })
+            .catch((e) => {
+                toast({
+                    variant: "destructive",
+                    title: t("error"),
+                    description: formatAxiosError(e)
+                });
+            });
+    };
+
+    const restartClient = (clientId: number) => {
+        api.post(`/client/${clientId}/restart`)
+            .then(() => {
+                toast({
+                    title: t("success"),
+                    description: t("clientRestartRequestedDescription")
+                });
+            })
+            .catch((e) => {
+                toast({
+                    variant: "destructive",
+                    title: t("error"),
+                    description: formatAxiosError(e)
+                });
+            });
+    };
+
     const approveDevice = async (clientRow: ClientRow) => {
         try {
             // Fetch approvalId for this client using clientId query parameter
@@ -833,6 +870,24 @@ export default function UserDevicesTable({
                                             </DropdownMenuItem>
                                         </>
                                     )}
+                                {clientRow.online && (
+                                    <>
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                restartClient(clientRow.id)
+                                            }
+                                        >
+                                            <span>{t("clientRestart")}</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                disconnectClient(clientRow.id)
+                                            }
+                                        >
+                                            <span>{t("clientDisconnect")}</span>
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
                                 <DropdownMenuItem
                                     onClick={() => {
                                         if (clientRow.archived) {

@@ -544,6 +544,15 @@ authenticated.put(
 );
 
 authenticated.post(
+    "/org/:orgId/domain/:domainId/import",
+    verifyApiKeyIsRoot, // org keys can't belong to both the source and target org
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.createOrgDomain),
+    logActionAudit(ActionsEnum.createOrgDomain),
+    domain.importOrgDomain
+);
+
+authenticated.post(
     "/org/:orgId/domain/:domainId",
     verifyApiKeyOrgAccess,
     verifyApiKeyDomainAccess,
@@ -1303,7 +1312,10 @@ authenticated.get(
     user.adminGetUser
 );
 
-if (build !== "saas" && config.getRawConfig().flags?.enable_api_create_user_sessions) {
+if (
+    build !== "saas" &&
+    config.getRawConfig().flags?.enable_api_create_user_sessions
+) {
     authenticated.post(
         "/user/:userId/session",
         verifyApiKeyIsRoot,
@@ -1532,6 +1544,22 @@ authenticated.post(
     verifyApiKeyHasAction(ActionsEnum.unarchiveClient),
     logActionAudit(ActionsEnum.unarchiveClient),
     client.unarchiveClient
+);
+
+authenticated.post(
+    "/client/:clientId/disconnect",
+    verifyApiKeyClientAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateClient),
+    logActionAudit(ActionsEnum.updateClient),
+    client.disconnectClient
+);
+
+authenticated.post(
+    "/client/:clientId/restart",
+    verifyApiKeyClientAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateClient),
+    logActionAudit(ActionsEnum.updateClient),
+    client.restartClient
 );
 
 authenticated.post(

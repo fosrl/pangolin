@@ -38,6 +38,28 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgQueries } from "@app/lib/queries";
 import { toUnicode } from "punycode";
 import { durationToMs } from "@app/lib/durationToMs";
+import {
+    Credenza,
+    CredenzaBody,
+    CredenzaClose,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle
+} from "@app/components/Credenza";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList
+} from "@app/components/ui/command";
+import { cn } from "@app/lib/cn";
+import { useUserContext } from "@app/hooks/useUserContext";
+import { useDebounce } from "use-debounce";
+import type { ListUserAdminOrgDomainsResponse } from "@server/routers/domain";
 
 export type DomainRow = {
     domainId: string;
@@ -57,6 +79,44 @@ type Props = {
     orgId: string;
 };
 
+type ImportableDomain = {
+    domainId: string;
+    baseDomain: string;
+    type: string | null;
+    verified: boolean;
+    sources: { orgId: string; orgName: string }[];
+};
+
+function groupImportableDomains(
+    rows: ListUserAdminOrgDomainsResponse["domains"]
+): ImportableDomain[] {
+    const map = new Map<string, ImportableDomain>();
+    for (const row of rows) {
+        let d = map.get(row.domainId);
+        if (!d) {
+            d = {
+                domainId: row.domainId,
+                baseDomain: toUnicode(row.baseDomain),
+                type: row.type,
+                verified: row.verified,
+                sources: []
+            };
+            map.set(row.domainId, d);
+        }
+        if (!d.sources.some((src) => src.orgId === row.orgId)) {
+            d.sources.push({ orgId: row.orgId, orgName: row.orgName });
+        }
+    }
+    return Array.from(map.values())
+        .map((d) => ({
+            ...d,
+            sources: [...d.sources].sort((a, b) =>
+                a.orgName.localeCompare(b.orgName)
+            )
+        }))
+        .sort((a, b) => a.baseDomain.localeCompare(b.baseDomain));
+}
+
 export default function DomainsTable({ domains, orgId }: Props) {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -71,7 +131,12 @@ export default function DomainsTable({ domains, orgId }: Props) {
     const t = useTranslations();
     const { toast } = useToast();
     const { org } = useOrgContext();
+    const { user } = useUserContext();
     const queryClient = useQueryClient();
+    const [importDialogOpen, setImportDialogOpen] = useState(false);
+    const [importSearchQuery, setImportSearchQuery] = useState("");
+    const [importSubmitting, setImportSubmitting] = useState(false);
+    const [debouncedImportSearch] = useDebounce(importSearchQuery, 150);
 
     const {
         data: rawDomains,
@@ -96,6 +161,64 @@ export default function DomainsTable({ domains, orgId }: Props) {
             ),
         [rawDomains]
     );
+
+    // Domains from other orgs where the user is an admin. Fetched up front so
+    // the import option only shows when there is something to import.
+    const { data: adminOrgDomains = [] } = useQuery({
+        queryKey: ["admin-org-domains", user?.userId],
+        queryFn: async () => {
+            const res = await api.get<{
+                data: ListUserAdminOrgDomainsResponse;
+            }>(`/user/${user.userId}/admin-org-domains`);
+            return res.data.data.domains;
+        },
+        enabled: !!user?.userId
+    });
+
+    const importableDomains = useMemo(() => {
+        const localIds = new Set(tableData.map((d) => d.domainId));
+        return groupImportableDomains(
+            adminOrgDomains.filter(
+                (row) => row.orgId !== orgId && !localIds.has(row.domainId)
+            )
+        );
+    }, [adminOrgDomains, tableData, orgId]);
+
+    const shownImportableDomains = useMemo(() => {
+        const q = debouncedImportSearch.trim().toLowerCase();
+        if (!q) {
+            return importableDomains;
+        }
+        return importableDomains.filter((d) =>
+            `${d.baseDomain} ${d.sources.map((src) => src.orgName).join(" ")}`
+                .toLowerCase()
+                .includes(q)
+        );
+    }, [importableDomains, debouncedImportSearch]);
+
+    const importDomain = async (domain: ImportableDomain) => {
+        setImportSubmitting(true);
+        try {
+            await api.post(`/org/${orgId}/domain/${domain.domainId}/import`, {
+                sourceOrgId: domain.sources[0].orgId
+            });
+            toast({
+                title: t("success"),
+                description: t("domainImportedDescription")
+            });
+            setImportDialogOpen(false);
+            setImportSearchQuery("");
+            refetch();
+        } catch (e) {
+            toast({
+                title: t("error"),
+                description: formatAxiosError(e),
+                variant: "destructive"
+            });
+        } finally {
+            setImportSubmitting(false);
+        }
+    };
 
     const deleteDomain = async (domainId: string) => {
         try {
@@ -409,10 +532,115 @@ export default function DomainsTable({ domains, orgId }: Props) {
                 }}
             />
 
+            <Credenza
+                open={importDialogOpen}
+                onOpenChange={(open) => {
+                    setImportDialogOpen(open);
+                    if (!open) {
+                        setImportSearchQuery("");
+                    }
+                }}
+            >
+                <CredenzaContent className="sm:max-w-lg">
+                    <CredenzaHeader>
+                        <CredenzaTitle>
+                            {t("domainImportDialogTitle")}
+                        </CredenzaTitle>
+                        <CredenzaDescription>
+                            {t("domainImportDialogDescription")}
+                        </CredenzaDescription>
+                    </CredenzaHeader>
+                    <CredenzaBody
+                        className={cn(
+                            importSubmitting && "pointer-events-none opacity-60"
+                        )}
+                    >
+                        <Command shouldFilter={false}>
+                            <CommandInput
+                                placeholder={t("domainImportSearchPlaceholder")}
+                                value={importSearchQuery}
+                                onValueChange={setImportSearchQuery}
+                            />
+                            <CommandList>
+                                <CommandEmpty>
+                                    {t("domainImportEmpty")}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                    {shownImportableDomains.map((domain) => (
+                                        <CommandItem
+                                            key={domain.domainId}
+                                            className="items-start gap-3 py-2.5"
+                                            value={domain.domainId}
+                                            onSelect={() => {
+                                                void importDomain(domain);
+                                            }}
+                                        >
+                                            <div className="min-w-0 flex-1 text-left">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="truncate font-medium leading-tight">
+                                                        {domain.baseDomain}
+                                                    </span>
+                                                    {env.env.flags
+                                                        .usePangolinDns &&
+                                                        domain.type && (
+                                                            <Badge variant="outline">
+                                                                {getTypeDisplay(
+                                                                    domain.type
+                                                                )}
+                                                            </Badge>
+                                                        )}
+                                                </div>
+                                                <div className="mt-1 flex flex-wrap gap-1">
+                                                    {domain.sources.map(
+                                                        (src) => (
+                                                            <Badge
+                                                                key={src.orgId}
+                                                                variant="secondary"
+                                                                className="max-w-full truncate font-normal"
+                                                            >
+                                                                {src.orgName}
+                                                            </Badge>
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <CredenzaClose asChild>
+                            <Button
+                                variant="outline"
+                                disabled={importSubmitting}
+                            >
+                                {t("cancel")}
+                            </Button>
+                        </CredenzaClose>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
+
             <DomainsDataTable
                 columns={columns}
                 data={tableData}
                 onAdd={() => setIsCreateModalOpen(true)}
+                addActions={
+                    importableDomains.length > 0
+                        ? [
+                              {
+                                  label: t("domainAddActionCreateNew"),
+                                  onSelect: () => setIsCreateModalOpen(true)
+                              },
+                              {
+                                  label: t("domainAddActionImportFromOrg"),
+                                  onSelect: () => setImportDialogOpen(true)
+                              }
+                          ]
+                        : undefined
+                }
                 onRefresh={refetch}
                 isRefreshing={isRefetching}
             />

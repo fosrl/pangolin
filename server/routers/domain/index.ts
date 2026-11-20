@@ -5,3 +5,5 @@ export * from "./restartOrgDomain";
 export * from "./getDomain";
 export * from "./getDNSRecords";
 export * from "./updateDomain";
+export * from "./importOrgDomain";
+export * from "./listUserAdminOrgDomains";

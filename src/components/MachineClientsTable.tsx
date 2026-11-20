@@ -222,6 +222,43 @@ export default function MachineClientsTable({
             });
     };
 
+    const disconnectClient = (clientId: number) => {
+        api.post(`/client/${clientId}/disconnect`)
+            .then(() => {
+                toast({
+                    title: t("success"),
+                    description: t("clientDisconnectedDescription")
+                });
+                startTransition(() => {
+                    router.refresh();
+                });
+            })
+            .catch((e) => {
+                toast({
+                    variant: "destructive",
+                    title: t("error"),
+                    description: formatAxiosError(e)
+                });
+            });
+    };
+
+    const restartClient = (clientId: number) => {
+        api.post(`/client/${clientId}/restart`)
+            .then(() => {
+                toast({
+                    title: t("success"),
+                    description: t("clientRestartRequestedDescription")
+                });
+            })
+            .catch((e) => {
+                toast({
+                    variant: "destructive",
+                    title: t("error"),
+                    description: formatAxiosError(e)
+                });
+            });
+    };
+
     // Check if there are any rows without userIds in the current view's data
     const hasRowsWithoutUserId = useMemo(() => {
         return machineClients.some((client) => !client.userId) ?? false;
@@ -564,6 +601,30 @@ export default function MachineClientsTable({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                    {clientRow.online && (
+                                        <>
+                                            <DropdownMenuItem
+                                                onClick={() =>
+                                                    restartClient(clientRow.id)
+                                                }
+                                            >
+                                                <span>
+                                                    {t("clientRestart")}
+                                                </span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onClick={() =>
+                                                    disconnectClient(
+                                                        clientRow.id
+                                                    )
+                                                }
+                                            >
+                                                <span>
+                                                    {t("clientDisconnect")}
+                                                </span>
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
                                     <DropdownMenuItem
                                         onClick={() => {
                                             if (clientRow.archived) {

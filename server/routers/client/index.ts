@@ -12,3 +12,5 @@ export * from "./getClient";
 export * from "./createUserClient";
 export * from "./verifyClientAssociationsCache";
 export * from "./rebuildClientAssociationsCacheRoute";
+export * from "./disconnectClient";
+export * from "./restartClient";

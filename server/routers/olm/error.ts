@@ -88,6 +88,10 @@ export const OlmErrorCodes = {
         code: "TERMINATED_BLOCKED",
         message: "This session was terminated because access was blocked."
     },
+    TERMINATED_DISCONNECTED: {
+        code: "TERMINATED_DISCONNECTED",
+        message: "This session was disconnected by an administrator."
+    },
     HOLEPUNCH_MISSING: {
         code: "HOLEPUNCH_MISSING",
         message: `Unable to coordinate client P2P connection. Please ensure your client can reach the server on its relay UDP port and try registering again.`

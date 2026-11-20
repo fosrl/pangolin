@@ -36,10 +36,11 @@ function chunk<T>(items: T[]): T[][] {
  * same Remote-* headers that Badger sets for public resources. Keyed by the
  * client's tunnel IP since that is the source address newt sees on requests.
  * User clients carry the owning user's details; machine clients (no user)
- * carry the client's name and its machine roles.
+ * carry the client's identifier (niceId), name and machine roles.
  */
 export type ClientIdentity = {
     ip: string;
+    clientId?: string;
     userId?: string;
     username?: string;
     email?: string;
@@ -70,6 +71,7 @@ export async function getClientIdentities(
                         orgId: clients.orgId,
                         subnet: clients.subnet,
                         clientName: clients.name,
+                        clientNiceId: clients.niceId,
                         userId: users.userId,
                         username: users.username,
                         email: users.email,
@@ -167,6 +169,7 @@ export async function getClientIdentities(
             );
             identities.set(row.clientId, {
                 ip,
+                clientId: row.clientNiceId,
                 name: row.clientName,
                 role: roleNames?.length ? roleNames.join(", ") : undefined
             });

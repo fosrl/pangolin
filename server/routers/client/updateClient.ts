@@ -9,6 +9,7 @@ import logger from "@server/logger";
 import { eq, and, ne } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { pushClientIdentitiesToSites } from "@server/lib/clientIdentities";
 
 const updateClientParamsSchema = z.strictObject({
     clientId: z.coerce.number().int().positive()
@@ -108,7 +109,7 @@ export async function updateClient(
                 .where(
                     and(
                         eq(clients.niceId, niceId),
-                        eq(clients.orgId, clients.orgId),
+                        eq(clients.orgId, client.orgId),
                         ne(clients.clientId, clientId)
                     )
                 )
@@ -129,6 +130,21 @@ export async function updateClient(
             .set({ name, niceId })
             .where(eq(clients.clientId, clientId))
             .returning();
+
+        // Machine clients forward their name and identifier to HTTP
+        // resources as Remote-* headers, so refresh them on every newt.
+        if (
+            !client.userId &&
+            ((name !== undefined && name !== client.name) ||
+                (niceId !== undefined && niceId !== client.niceId))
+        ) {
+            await pushClientIdentitiesToSites([clientId]).catch((error) => {
+                logger.warn(
+                    `Error pushing client identities for client ${clientId}:`,
+                    error
+                );
+            });
+        }
 
         return response(res, {
             data: updatedClient,

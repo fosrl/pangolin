@@ -229,6 +229,22 @@ authenticated.post(
 );
 
 authenticated.post(
+    "/client/:clientId/disconnect",
+    verifyClientAccess,
+    verifyUserHasAction(ActionsEnum.updateClient),
+    logActionAudit(ActionsEnum.updateClient),
+    client.disconnectClient
+);
+
+authenticated.post(
+    "/client/:clientId/restart",
+    verifyClientAccess,
+    verifyUserHasAction(ActionsEnum.updateClient),
+    logActionAudit(ActionsEnum.updateClient),
+    client.restartClient
+);
+
+authenticated.post(
     "/client/:clientId/block",
     verifyClientAccess,
     verifyLimits,
@@ -1508,6 +1524,21 @@ authenticated.put(
     verifyUserHasAction(ActionsEnum.createOrgDomain),
     logActionAudit(ActionsEnum.createOrgDomain),
     domain.createOrgDomain
+);
+
+authenticated.post(
+    `/org/:orgId/domain/:domainId/import`,
+    verifyOrgAccess,
+    verifyLimits,
+    verifyUserHasAction(ActionsEnum.createOrgDomain),
+    logActionAudit(ActionsEnum.createOrgDomain),
+    domain.importOrgDomain
+);
+
+authenticated.get(
+    "/user/:userId/admin-org-domains",
+    verifyIsLoggedInUser,
+    domain.listUserAdminOrgDomains
 );
 
 authenticated.post(

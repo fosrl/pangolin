@@ -85,3 +85,19 @@ export function supportsSync(
         return false;
     }
 }
+
+// Whether this olm client understands olm/restart, which tears down and
+// re-establishes its tunnel. Bump the version floor here to match whatever
+// release first ships the olm-side support.
+// OLM
+export function supportsRestart(
+    clientVersion: string | null | undefined
+): boolean {
+    try {
+        if (!clientVersion) return false;
+        if (!semver.valid(clientVersion)) return false;
+        return semver.gte(clientVersion, "1.11.0");
+    } catch {
+        return false;
+    }
+}
