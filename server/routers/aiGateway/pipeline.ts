@@ -1058,6 +1058,8 @@ export async function handleAiGatewayProxy(
             "keep-alive",
             "proxy-authenticate",
             "proxy-authorization",
+            // never hand the caller's dashboard session to the upstream
+            "cookie",
             "te",
             "trailers",
             "transfer-encoding",

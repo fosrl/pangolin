@@ -19,6 +19,7 @@ import { ListOrgIdpsResponse } from "@server/routers/orgIdp/types";
 import AutoLoginHandler from "@app/components/AutoLoginHandler";
 import { build } from "@server/build";
 import { headers } from "next/headers";
+import { hostWithoutPort } from "@app/lib/hostWithoutPort";
 import type {
     LoadLoginPageBrandingResponse,
     LoadLoginPageResponse
@@ -94,9 +95,9 @@ export default async function ResourceAuthPage(props: {
     );
 
     const allHeaders = await headers();
-    const host = allHeaders.get("host");
+    const host = hostWithoutPort(allHeaders.get("host"));
 
-    const expectedHost = env.app.dashboardUrl.split("//")[1];
+    const expectedHost = hostWithoutPort(env.app.dashboardUrl.split("//")[1]);
     if (host !== expectedHost) {
         if (build === "saas" && !hasLoginPageDomain) {
             redirect(env.app.dashboardUrl);

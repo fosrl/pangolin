@@ -82,7 +82,7 @@ export class AuthoritativeDNSServer {
     private domainRefreshInterval: NodeJS.Timeout | null = null;
 
     // Cached license/plan status - only a tier2 license unlocks the DNS
-    // server. license.hasPlan() does a DB round-trip on every call, so it
+    // server. license.hasTier() does a DB round-trip on every call, so it
     // can't be checked per-query on a UDP server that may see very high
     // query volume - instead it's polled on the same cadence as the domain
     // set refresh and read from memory here.
@@ -1538,9 +1538,8 @@ export class AuthoritativeDNSServer {
             // Imported lazily so the standalone DNS server, which runs
             // without a license, never loads the license module (it touches
             // the database and starts phoning home as soon as it is imported)
-            const { default: license } = await import(
-                "#private/license/license"
-            );
+            const { default: license } =
+                await import("#private/license/license");
             this.isLicensed = await license.hasTier([
                 "personal",
                 "tier2",

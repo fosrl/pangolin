@@ -18,7 +18,8 @@ import {
     alertRules,
     alertSites,
     alertHealthChecks,
-    alertResources
+    alertResources,
+    alertLabels
 } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -28,6 +29,10 @@ import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { ListAlertRulesResponse } from "@server/routers/alertRule/types";
+import {
+    getAlertRuleIdsForLabels,
+    getAlertSourceLabelIds
+} from "#private/lib/alerts/sourceLabels";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -187,6 +192,34 @@ export async function listAlertRules(
                   ).map((r) => r.alertRuleId)
                 : [];
 
+        // Rules that target the filtered source through one of its labels
+        const labelRuleIdsFor = async (
+            source: Parameters<typeof getAlertSourceLabelIds>[0]
+        ) => getAlertRuleIdsForLabels(await getAlertSourceLabelIds(source));
+
+        const [
+            labelSiteRuleIds,
+            labelResourceRuleIds,
+            labelHealthCheckRuleIds
+        ] = await Promise.all([
+            siteId !== undefined ? labelRuleIdsFor({ siteId }) : [],
+            resourceId !== undefined ? labelRuleIdsFor({ resourceId }) : [],
+            healthCheckId !== undefined
+                ? labelRuleIdsFor({ healthCheckId })
+                : []
+        ]);
+
+        const labelScopeClause = (
+            ruleIds: number[],
+            eventTypes: readonly (typeof alertRules.$inferSelect)["eventType"][]
+        ) =>
+            ruleIds.length > 0
+                ? and(
+                      inArray(alertRules.eventType, [...eventTypes]),
+                      inArray(alertRules.alertRuleId, ruleIds)
+                  )
+                : undefined;
+
         const allSitesWildcardClause = and(
             eq(alertRules.allSites, true),
             inArray(alertRules.eventType, SITE_ALERT_EVENT_TYPES)
@@ -194,12 +227,13 @@ export async function listAlertRules(
 
         const siteScopeClause =
             siteId !== undefined
-                ? explicitSiteRuleIds.length > 0
-                    ? or(
-                          allSitesWildcardClause,
-                          inArray(alertRules.alertRuleId, explicitSiteRuleIds)
-                      )
-                    : allSitesWildcardClause
+                ? or(
+                      allSitesWildcardClause,
+                      explicitSiteRuleIds.length > 0
+                          ? inArray(alertRules.alertRuleId, explicitSiteRuleIds)
+                          : undefined,
+                      labelScopeClause(labelSiteRuleIds, SITE_ALERT_EVENT_TYPES)
+                  )
                 : undefined;
 
         const allResourcesWildcardClause = and(
@@ -209,15 +243,19 @@ export async function listAlertRules(
 
         const resourceScopeClause =
             resourceId !== undefined
-                ? explicitResourceRuleIds.length > 0
-                    ? or(
-                          allResourcesWildcardClause,
-                          inArray(
-                              alertRules.alertRuleId,
-                              explicitResourceRuleIds
-                          )
+                ? or(
+                      allResourcesWildcardClause,
+                      explicitResourceRuleIds.length > 0
+                          ? inArray(
+                                alertRules.alertRuleId,
+                                explicitResourceRuleIds
+                            )
+                          : undefined,
+                      labelScopeClause(
+                          labelResourceRuleIds,
+                          RESOURCE_ALERT_EVENT_TYPES
                       )
-                    : allResourcesWildcardClause
+                  )
                 : undefined;
 
         const allHealthChecksWildcardClause = and(
@@ -227,15 +265,19 @@ export async function listAlertRules(
 
         const healthCheckScopeClause =
             healthCheckId !== undefined
-                ? explicitHealthCheckRuleIds.length > 0
-                    ? or(
-                          allHealthChecksWildcardClause,
-                          inArray(
-                              alertRules.alertRuleId,
-                              explicitHealthCheckRuleIds
-                          )
+                ? or(
+                      allHealthChecksWildcardClause,
+                      explicitHealthCheckRuleIds.length > 0
+                          ? inArray(
+                                alertRules.alertRuleId,
+                                explicitHealthCheckRuleIds
+                            )
+                          : undefined,
+                      labelScopeClause(
+                          labelHealthCheckRuleIds,
+                          HEALTH_CHECK_ALERT_EVENT_TYPES
                       )
-                    : allHealthChecksWildcardClause
+                  )
                 : undefined;
 
         const whereClause = and(
@@ -306,6 +348,14 @@ export async function listAlertRules(
                       .where(inArray(alertResources.alertRuleId, ruleIds))
                 : [];
 
+        const labelRows =
+            ruleIds.length > 0
+                ? await db
+                      .select()
+                      .from(alertLabels)
+                      .where(inArray(alertLabels.alertRuleId, ruleIds))
+                : [];
+
         // Index by alertRuleId for O(1) lookup when building the response
         const sitesByRule = new Map<number, number[]>();
         for (const row of siteRows) {
@@ -328,6 +378,13 @@ export async function listAlertRules(
             resourcesByRule.set(row.alertRuleId, existing);
         }
 
+        const labelsByRule = new Map<number, number[]>();
+        for (const row of labelRows) {
+            const existing = labelsByRule.get(row.alertRuleId) ?? [];
+            existing.push(row.labelId);
+            labelsByRule.set(row.alertRuleId, existing);
+        }
+
         return response<ListAlertRulesResponse>(res, {
             data: {
                 alertRules: list.map((rule) => ({
@@ -340,10 +397,14 @@ export async function listAlertRules(
                     lastTriggeredAt: rule.lastTriggeredAt ?? null,
                     createdAt: rule.createdAt,
                     updatedAt: rule.updatedAt,
+                    allSites: rule.allSites,
+                    allHealthChecks: rule.allHealthChecks,
+                    allResources: rule.allResources,
                     siteIds: sitesByRule.get(rule.alertRuleId) ?? [],
                     healthCheckIds:
                         healthChecksByRule.get(rule.alertRuleId) ?? [],
-                    resourceIds: resourcesByRule.get(rule.alertRuleId) ?? []
+                    resourceIds: resourcesByRule.get(rule.alertRuleId) ?? [],
+                    labelIds: labelsByRule.get(rule.alertRuleId) ?? []
                 })),
                 pagination: {
                     total: count,

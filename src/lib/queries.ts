@@ -128,6 +128,14 @@ export type LatestVersionResponse = {
         latestVersion: string;
         releaseNotes: string;
     };
+    olm: {
+        latestVersion: string;
+        releaseNotes: string;
+    };
+    linux: {
+        latestVersion: string;
+        releaseNotes: string;
+    };
     "panglin-node": {
         latestVersion: string;
         releaseNotes: string;
@@ -498,6 +506,20 @@ export const orgQueries = {
                 const res = await meta!.api.get<
                     AxiosResponse<ListAllSiteResourcesByOrgResponse>
                 >(`/org/${orgId}/site-resources?${sp.toString()}`, { signal });
+
+                return res.data.data.siteResources;
+            }
+        }),
+
+    gatewayResources: ({ orgId }: { orgId: string }) =>
+        queryOptions({
+            queryKey: ["ORG", orgId, "GATEWAY_RESOURCES"] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<ListAllSiteResourcesByOrgResponse>
+                >(`/org/${orgId}/site-resources?mode=gateway&pageSize=10000`, {
+                    signal
+                });
 
                 return res.data.data.siteResources;
             }

@@ -24,6 +24,7 @@ import * as resourceSession from "#private/routers/resourceSession";
 import * as healthChecks from "#private/routers/healthChecks";
 import * as resource from "#private/routers/resource";
 import * as customDnsRecord from "#private/routers/customDnsRecord";
+import * as roleClientSettings from "#private/routers/roleClientSettings";
 import {
     verifyApiKeyHasAction,
     verifyApiKeyDomainAccess,
@@ -262,6 +263,28 @@ authenticated.put(
     verifyApiKeyHasAction(ActionsEnum.createIdp),
     logActionAudit(ActionsEnum.createIdp),
     orgIdp.createOrgOidcIdp
+);
+
+authenticated.post(
+    "/org/:orgId/idp/:idpId/import",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.orgOidc),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyApiKeyIsRoot, // org keys can't belong to both the source and target org
+    verifyLimits,
+    verifyApiKeyHasAction(ActionsEnum.createIdp),
+    logActionAudit(ActionsEnum.createIdp),
+    orgIdp.importOrgIdp
+);
+
+authenticated.delete(
+    "/org/:orgId/idp/:idpId/association",
+    verifyValidLicense,
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyApiKeyIsRoot,
+    verifyApiKeyHasAction(ActionsEnum.deleteIdp),
+    logActionAudit(ActionsEnum.deleteIdp),
+    orgIdp.unassociateOrgIdp
 );
 
 authenticated.post(
@@ -559,4 +582,23 @@ authenticated.get(
     verifyApiKeyOrgAccess,
     verifyApiKeyHasAction(ActionsEnum.getTarget),
     healthChecks.getHealthCheckStatusHistory
+);
+
+authenticated.get(
+    "/role/:roleId/client-settings",
+    verifyApiKeyRoleAccess,
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.clientSettings),
+    verifyApiKeyHasAction(ActionsEnum.getRoleClientSettings),
+    roleClientSettings.getRoleClientSettings
+);
+
+authenticated.post(
+    "/role/:roleId/client-settings",
+    verifyApiKeyRoleAccess,
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.clientSettings),
+    verifyApiKeyHasAction(ActionsEnum.updateRoleClientSettings),
+    logActionAudit(ActionsEnum.updateRoleClientSettings),
+    roleClientSettings.updateRoleClientSettings
 );

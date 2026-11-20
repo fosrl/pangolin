@@ -37,6 +37,8 @@ export type Env = {
         disableProductHelpBanners: boolean;
         disableEnterpriseFeatures: boolean;
         disableVirtualApiKeysUi: boolean;
+        enableApiCreateUserSessions: boolean;
+        disableLoginOrgNames: boolean;
     };
     branding: {
         appName?: string;

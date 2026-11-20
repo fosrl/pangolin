@@ -19,6 +19,7 @@ import { cleanRedirect } from "@app/lib/cleanRedirect";
 import { Separator } from "@app/components/ui/separator";
 import { setClientCookie } from "@app/lib/setClientCookie";
 import { LAST_USED_IDP_COOKIE_NAME } from "@app/lib/consts";
+import { useEnvContext } from "@app/hooks/useEnvContext";
 
 type SmartLoginOrgSelectorProps = {
     identifier: string;
@@ -115,6 +116,8 @@ export default function SmartLoginOrgSelector({
     onUseDifferentAccount
 }: SmartLoginOrgSelectorProps) {
     const t = useTranslations();
+    const { env } = useEnvContext();
+    const hideOrgNames = env.flags.disableLoginOrgNames;
     const [showPasswordForm, setShowPasswordForm] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [pendingIdpId, setPendingIdpId] = useState<number | null>(null);
@@ -146,7 +149,7 @@ export default function SmartLoginOrgSelector({
         setClientCookie(
             LAST_USED_IDP_COOKIE_NAME,
             JSON.stringify({
-                orgId,
+                orgId: orgId || undefined,
                 idpId
             }),
             {
@@ -289,15 +292,16 @@ export default function SmartLoginOrgSelector({
                                         <span className="font-medium shrink-0">
                                             {group.name}
                                         </span>
-                                        {group.orgs.map((org) => (
-                                            <Badge
-                                                key={org.orgId}
-                                                variant="secondary"
-                                                className="max-w-full shrink-0 truncate font-normal"
-                                            >
-                                                {org.orgName}
-                                            </Badge>
-                                        ))}
+                                        {!hideOrgNames &&
+                                            group.orgs.map((org) => (
+                                                <Badge
+                                                    key={org.orgId}
+                                                    variant="secondary"
+                                                    className="max-w-full shrink-0 truncate font-normal"
+                                                >
+                                                    {org.orgName}
+                                                </Badge>
+                                            ))}
                                     </Button>
                                 );
                             })

@@ -118,6 +118,8 @@ function getActionsCategories(root: boolean) {
             [t("actionGetRole")]: "getRole",
             [t("actionListRole")]: "listRoles",
             [t("actionUpdateRole")]: "updateRole",
+            [t("actionGetRoleClientSettings")]: "getRoleClientSettings",
+            [t("actionUpdateRoleClientSettings")]: "updateRoleClientSettings",
             [t("actionListAllowedRoleResources")]: "listRoleResources",
             [t("actionAddUserRole")]: "addUserRole",
             [t("actionRemoveUserRole")]: "removeUserRole",
@@ -284,11 +286,15 @@ function getActionsCategories(root: boolean) {
             "listIdpOrgs";
         actionsByCategory["Identity Provider (IDP)"][t("actionUpdateIdpOrg")] =
             "updateIdpOrg";
-
         actionsByCategory["User"] = {
             [t("actionUpdateUser")]: "updateUser",
             [t("actionGetUser")]: "getUser"
         };
+
+        if (build !== "saas" && env.flags.enableApiCreateUserSessions) {
+            actionsByCategory["User"][t("actionCreateUserSession")] =
+                "createUserSession";
+        }
 
         if (build === "saas") {
             actionsByCategory["SAAS"] = {

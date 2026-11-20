@@ -1,0 +1,30 @@
+name: Translations
+
+permissions:
+  contents: read
+
+# Fails when messages/en-US.json has keys no code uses (run
+# `npm run translations:prune`) or code uses t("key") calls with keys that
+# aren't in en-US.json. Kept separate from linting.yml, which is
+# workflow_dispatch-only until typescript-eslint supports TypeScript 7.
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.1'
+
+      # The script only uses Node built-ins, so no `npm ci` is needed.
+      - name: Check translation keys
+        run: npm run translations:check

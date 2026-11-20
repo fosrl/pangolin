@@ -25,6 +25,10 @@ import { handleSubscriptionUpdated } from "./hooks/handleSubscriptionUpdated";
 import { handleCustomerUpdated } from "./hooks/handleCustomerUpdated";
 import { handleSubscriptionDeleted } from "./hooks/handleSubscriptionDeleted";
 import { handleCustomerDeleted } from "./hooks/handleCustomerDeleted";
+import {
+    handleSelfHostedCheckoutCompleted,
+    handleSelfHostedInvoicePaid
+} from "./hooks/handleSelfHostedLicense";
 
 export async function billingWebhookHandler(
     req: Request,
@@ -114,6 +118,15 @@ export async function billingWebhookHandler(
             subscription = event.data.object;
             previousAttributes = event.data.previous_attributes;
             handleSubscriptionUpdated(subscription, previousAttributes);
+            break;
+        case "checkout.session.completed":
+        case "checkout.session.async_payment_succeeded":
+            // Only self-hosted license checkouts from the website act on
+            // this; SaaS checkouts are handled via the subscription events.
+            handleSelfHostedCheckoutCompleted(event.data.object);
+            break;
+        case "invoice.paid":
+            handleSelfHostedInvoicePaid(event.data.object);
             break;
         case "customer.subscription.trial_will_end":
             subscription = event.data.object;

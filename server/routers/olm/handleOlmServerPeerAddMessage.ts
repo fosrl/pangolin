@@ -79,6 +79,26 @@ export const handleOlmServerPeerAddMessage: MessageHandler = async (
         return;
     }
 
+    // Same access check the handshake path does: only add the peer on sites
+    // this client is associated with.
+    const [siteAssociation] = await db
+        .select()
+        .from(clientSitesAssociationsCache)
+        .where(
+            and(
+                eq(clientSitesAssociationsCache.clientId, client.clientId),
+                eq(clientSitesAssociationsCache.siteId, site.siteId)
+            )
+        )
+        .limit(1);
+
+    if (!siteAssociation) {
+        logger.warn(
+            `handleOlmServerPeerAddMessage: Client ${client.clientId} does not have access to site ${site.siteId}`
+        );
+        return;
+    }
+
     let endpoint: string | null = null;
 
     // TODO: should we pick only the one from the site its talking to instead of any good current session?

@@ -72,10 +72,146 @@ function testConverseWithoutCache() {
     );
 }
 
+// invoke-with-response-stream wraps each model event as
+// {"bytes":"<base64 of the event JSON>","p":"..."} inside event-stream frames.
+function frame(event: object): string {
+    const b64 = Buffer.from(JSON.stringify(event)).toString("base64");
+    return `\u0000\u0001{"bytes":"${b64}","p":"abc"}\u0002`;
+}
+
+function testInvokeStreamAnthropicChunks() {
+    console.log("Running Bedrock invoke stream (Anthropic chunks) test...");
+    const body = [
+        frame({
+            type: "message_start",
+            message: {
+                usage: {
+                    input_tokens: 100,
+                    cache_read_input_tokens: 800,
+                    cache_creation_input_tokens: 0,
+                    output_tokens: 1
+                }
+            }
+        }),
+        frame({ type: "message_delta", usage: { output_tokens: 20 } }),
+        frame({ type: "message_stop" })
+    ].join("");
+    assertEqualsObj(
+        extractUsage("bedrock_model_invoke", body, true, headers),
+        {
+            promptTokens: 100,
+            cacheReadTokens: 800,
+            cacheWriteTokens: 0,
+            completionTokens: 20,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "usage inside base64 chunks must be read"
+    );
+}
+
+function testInvokeStreamInvocationMetrics() {
+    console.log("Running Bedrock invoke stream (invocationMetrics) test...");
+    const body = frame({
+        "amazon-bedrock-invocationMetrics": {
+            inputTokenCount: 100,
+            outputTokenCount: 20
+        }
+    });
+    assertEqualsObj(
+        extractUsage("bedrock_model_invoke", body, true, headers),
+        {
+            promptTokens: 100,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            completionTokens: 20,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "invocationMetrics inside base64 chunks must be read"
+    );
+}
+
+function testInvokeHeadersStillWin() {
+    console.log("Running Bedrock invoke header usage test...");
+    const h = new Headers({
+        "x-amzn-bedrock-input-token-count": "7",
+        "x-amzn-bedrock-output-token-count": "3"
+    });
+    assertEqualsObj(
+        extractUsage("bedrock_model_invoke", "{}", false, h),
+        {
+            promptTokens: 7,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            completionTokens: 3,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "headers keep priority"
+    );
+}
+
+// Gemini reports tool-result tokens (Google Search, URL context) in
+// `toolUsePromptTokenCount`, separately from `promptTokenCount`; they are
+// billed as input.
+function testGeminiToolUsePromptTokens() {
+    console.log("Running Gemini tool-use prompt tokens test...");
+    const body = JSON.stringify({
+        usageMetadata: {
+            promptTokenCount: 100,
+            cachedContentTokenCount: 20,
+            toolUsePromptTokenCount: 40,
+            candidatesTokenCount: 15,
+            thoughtsTokenCount: 5,
+            totalTokenCount: 160
+        }
+    });
+    assertEqualsObj(
+        extractUsage("gemini_generate_content", body, false, headers),
+        {
+            promptTokens: 120,
+            cacheReadTokens: 20,
+            cacheWriteTokens: 0,
+            completionTokens: 15,
+            reasoningTokens: 5,
+            estimated: false
+        },
+        "tool-use prompt tokens are added to promptTokens"
+    );
+}
+
+// A Responses API stream that stops early (max_output_tokens) ends with
+// `response.incomplete`, which carries the same `response.usage` as
+// `response.completed`.
+function testOpenAiResponsesIncompleteStream() {
+    console.log("Running OpenAI Responses incomplete stream test...");
+    const body =
+        'data: {"type":"response.output_text.delta","delta":"Hi"}\n\n' +
+        'data: {"type":"response.incomplete","response":{"status":"incomplete","usage":{"input_tokens":50,"input_tokens_details":{"cached_tokens":10},"output_tokens":30,"output_tokens_details":{"reasoning_tokens":5}}}}\n\n';
+    assertEqualsObj(
+        extractUsage("openai_responses", body, true, headers),
+        {
+            promptTokens: 40,
+            cacheReadTokens: 10,
+            cacheWriteTokens: 0,
+            completionTokens: 25,
+            reasoningTokens: 5,
+            estimated: false
+        },
+        "usage is read from response.incomplete"
+    );
+}
+
 try {
     testConverseJsonWithCache();
     testConverseStreamWithCache();
     testConverseWithoutCache();
+    testInvokeStreamAnthropicChunks();
+    testInvokeStreamInvocationMetrics();
+    testInvokeHeadersStillWin();
+    testGeminiToolUsePromptTokens();
+    testOpenAiResponsesIncompleteStream();
     console.log("All aiUsageExtraction tests passed!");
 } catch (error) {
     console.error("Test failed:", error);

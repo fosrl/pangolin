@@ -88,6 +88,10 @@ export class Config {
             ?.disable_product_help_banners
             ? "true"
             : "false";
+        process.env.FLAGS_DISABLE_LOGIN_ORG_NAMES = parsedConfig.flags
+            ?.disable_login_org_names
+            ? "true"
+            : "false";
 
         process.env.PRODUCT_UPDATES_NOTIFICATION_ENABLED = parsedConfig.app
             .notifications.product_updates
@@ -114,6 +118,11 @@ export class Config {
 
         process.env.FLAGS_DISABLE_VIRTUAL_API_KEYS_UI = parsedConfig.flags
             ?.disable_virtual_api_keys_ui
+            ? "true"
+            : "false";
+
+        process.env.FLAGS_ENABLE_API_CREATE_USER_SESSIONS = parsedConfig.flags
+            ?.enable_api_create_user_sessions
             ? "true"
             : "false";
 

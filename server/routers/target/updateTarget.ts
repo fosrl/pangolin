@@ -225,11 +225,16 @@ export async function updateTarget(
             );
         }
 
-        if (provider && site.orgId && site.orgId !== provider.orgId) {
+        // The site must be in the same org as the resource or provider that owns
+        // the target, otherwise a target could route into another org's site.
+        const ownerOrgId = provider ? provider.orgId : resource!.orgId;
+        if (site.orgId !== ownerOrgId) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
-                    "Site must belong to the AI provider organization"
+                    provider
+                        ? "Site must belong to the AI provider organization"
+                        : "Site must belong to the resource organization"
                 )
             );
         }

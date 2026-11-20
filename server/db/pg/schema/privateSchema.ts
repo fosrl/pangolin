@@ -598,6 +598,17 @@ export const alertResources = pgTable("alertResources", {
         .references(() => resources.resourceId, { onDelete: "cascade" })
 });
 
+// Rules match any source (site / resource / health check) carrying at least
+// one of these labels, in addition to the explicit junction tables above.
+export const alertLabels = pgTable("alertLabels", {
+    alertRuleId: integer("alertRuleId")
+        .notNull()
+        .references(() => alertRules.alertRuleId, { onDelete: "cascade" }),
+    labelId: integer("labelId")
+        .notNull()
+        .references(() => labels.labelId, { onDelete: "cascade" })
+});
+
 // Separating channels by type avoids the mixed-shape problem entirely
 export const alertEmailActions = pgTable("alertEmailActions", {
     emailActionId: serial("emailActionId").primaryKey(),
@@ -634,6 +645,32 @@ export const alertWebhookActions = pgTable("alertWebhookActions", {
     config: text("config"), // encrypted JSON with auth config (authType, credentials)
     enabled: boolean("enabled").notNull().default(true),
     lastSentAt: bigint("lastSentAt", { mode: "number" }) // nullable
+});
+
+export const roleClientSettings = pgTable("roleClientSettings", {
+    roleId: integer("roleId")
+        .primaryKey()
+        .references(() => roles.roleId, { onDelete: "cascade" }),
+    orgId: varchar("orgId", { length: 255 })
+        .notNull()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // Off means clients get nothing from this role, even if values are saved below
+    enabled: boolean("enabled").notNull().default(false),
+    // For every setting below, null means the server doesn't manage it
+    overrideDns: boolean("overrideDns"),
+    mtu: integer("mtu"),
+    tunnelDns: boolean("tunnelDns"),
+    primaryDns: varchar("primaryDns", { length: 255 }),
+    secondaryDns: varchar("secondaryDns", { length: 255 }),
+    exitNodeTakesPrecedence: boolean("exitNodeTakesPrecedence"),
+    exitNodeSiteResourceId: integer("exitNodeSiteResourceId").references(
+        () => siteResources.siteResourceId,
+        { onDelete: "set null" }
+    ),
+    // false: the exit node is a default the user can change; true: it is forced
+    exitNodeLocked: boolean("exitNodeLocked").notNull().default(false),
+    matchDomains: text("matchDomains"), // JSON array of FQDN wildcard patterns
+    preferLocalRoutes: boolean("preferLocalRoutes")
 });
 
 export const trialNotifications = pgTable("trialNotifications", {
@@ -874,6 +911,7 @@ export type EventStreamingCursor = InferSelectModel<
     typeof eventStreamingCursors
 >;
 export type AlertResources = InferSelectModel<typeof alertResources>;
+export type AlertLabels = InferSelectModel<typeof alertLabels>;
 export type AlertHealthChecks = InferSelectModel<typeof alertHealthChecks>;
 export type AlertSites = InferSelectModel<typeof alertSites>;
 export type AlertRules = InferSelectModel<typeof alertRules>;
@@ -889,3 +927,4 @@ export type SshCommandLog = InferSelectModel<typeof sshCommandLog>;
 export type ResourceSessionReauth = InferSelectModel<
     typeof resourceSessionReauth
 >;
+export type RoleClientSettings = InferSelectModel<typeof roleClientSettings>;

@@ -34,7 +34,8 @@ export async function handleCustomerCreated(
         }
 
         if (!customer.metadata.orgId) {
-            logger.error(
+            // this could be expected when buying a license from the website
+            logger.debug(
                 `Customer with ID ${customer.id} does not have an orgId in metadata.`
             );
             return;

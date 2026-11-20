@@ -8,6 +8,7 @@ import { getTranslations } from "next-intl/server";
 import { pullEnv } from "@app/lib/pullEnv";
 import { LoadLoginPageResponse } from "@server/routers/loginPage/types";
 import { redirect } from "next/navigation";
+import { hostWithoutPort } from "@app/lib/hostWithoutPort";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -47,9 +48,9 @@ export default async function Page(props: {
     }
 
     const allHeaders = await headers();
-    const host = allHeaders.get("host");
+    const host = hostWithoutPort(allHeaders.get("host"));
     const env = pullEnv();
-    const expectedHost = env.app.dashboardUrl.split("//")[1];
+    const expectedHost = hostWithoutPort(env.app.dashboardUrl.split("//")[1]);
     let loginPage: LoadLoginPageResponse | undefined;
     if (host !== expectedHost) {
         try {
