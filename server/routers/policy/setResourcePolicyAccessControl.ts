@@ -39,7 +39,7 @@ const setResourcePolicyAccessControlParamsSchema = z.strictObject({
 });
 
 registry.registerPath({
-    method: "put",
+    method: "post",
     path: "/resource-policy/{resourcePolicyId}/access-control",
     description:
         "Set access control users for a resource policy, including SSO, users, roles, Identity provider.",
@@ -59,7 +59,7 @@ registry.registerPath({
 
 registry.registerPath({
     method: "post",
-    path: "/public-resource-policy/{resourceId}/access-control",
+    path: "/public-resource-policy/{resourcePolicyId}/access-control",
     description:
         "Set access control users for a resource policy, including SSO, users, roles, Identity provider.",
     tags: [OpenAPITags.PublicResourcePolicy, OpenAPITags.User],
@@ -78,7 +78,7 @@ registry.registerPath({
 
 registry.registerPath({
     method: "put",
-    path: "/resource-policy/{resourceId}/access-control",
+    path: "/resource-policy/{resourcePolicyId}/access-control",
     description:
         "Set access control users for a resource policy, including SSO, users, roles, Identity provider. Deprecated: use POST instead.",
     deprecated: true,
@@ -98,7 +98,7 @@ registry.registerPath({
 
 registry.registerPath({
     method: "put",
-    path: "/public-resource-policy/{resourceId}/access-control",
+    path: "/public-resource-policy/{resourcePolicyId}/access-control",
     description:
         "Set access control users for a resource policy, including SSO, users, roles, Identity provider. Deprecated: use POST instead.",
     deprecated: true,

@@ -1,11 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import {
-    Assert,
-    Equals,
-    createApiResponseSchema
-} from "@server/lib/openapi/createApiResponseSchema";
-import { OrgSchema } from "@server/lib/openapi/schemas/org";
+import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
+import { OrgSchema } from "@server/routers/org/types";
 import { db } from "@server/db";
 import { Org, orgs } from "@server/db";
 import { eq } from "drizzle-orm";
@@ -20,16 +16,10 @@ const getOrgSchema = z.strictObject({
     orgId: z.string()
 });
 
-export type GetOrgResponse = {
-    org: Omit<Org, "sshCaPrivateKey">;
-};
+export type GetOrgResponse = z.infer<typeof GetOrgResponseDataSchema>;
 const GetOrgResponseDataSchema = z.object({
     org: OrgSchema
 });
-
-type _GetOrgResponseCheck = Assert<
-    Equals<z.infer<typeof GetOrgResponseDataSchema>, GetOrgResponse>
->;
 
 registry.registerPath({
     method: "get",

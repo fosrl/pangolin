@@ -1,11 +1,6 @@
 import { logsDb, requestAuditLog, driver } from "@server/db";
 import { registry } from "@server/openApi";
-import { RequestAnalyticsSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { eq, gte, lte, and, count, sql, desc, not, isNull } from "drizzle-orm";
@@ -151,12 +146,48 @@ async function query(query: Q) {
     };
 }
 
-type _RequestAnalyticsSchemaQueryRequestAnalyticsResponseCheck = Assert<
-    Equals<
-        z.infer<typeof RequestAnalyticsSchema>,
-        QueryRequestAnalyticsResponse
-    >
->;
+const QueryRequestAnalyticsResponseDataSchema = z.object({
+    requestsPerCountry: z
+        .array(
+            z.object({
+                code: z
+                    .string()
+                    .openapi({ description: "Two letter country code." }),
+                count: z
+                    .number()
+                    .int()
+                    .openapi({ description: "Requests from that country." })
+            })
+        )
+        .openapi({ description: "Request counts grouped by country." }),
+    requestsPerDay: z
+        .array(
+            z.object({
+                day: z.string().openapi({ description: "Day, as YYYY-MM-DD." }),
+                allowedCount: z
+                    .number()
+                    .int()
+                    .openapi({ description: "Requests that were allowed." }),
+                blockedCount: z
+                    .number()
+                    .int()
+                    .openapi({ description: "Requests that were blocked." }),
+                totalCount: z
+                    .number()
+                    .int()
+                    .openapi({ description: "All requests." })
+            })
+        )
+        .openapi({ description: "Request counts grouped by day." }),
+    totalBlocked: z
+        .number()
+        .int()
+        .openapi({ description: "Blocked requests in the period." }),
+    totalRequests: z
+        .number()
+        .int()
+        .openapi({ description: "All requests in the period." })
+});
 
 registry.registerPath({
     method: "get",
@@ -167,10 +198,14 @@ registry.registerPath({
         query: queryAccessAuditLogsQuery,
         params: queryRequestAuditLogsParams
     },
-    responses: createApiSuccessResponses(RequestAnalyticsSchema)
+    responses: createApiSuccessResponses(
+        QueryRequestAnalyticsResponseDataSchema
+    )
 });
 
-export type QueryRequestAnalyticsResponse = Awaited<ReturnType<typeof query>>;
+export type QueryRequestAnalyticsResponse = z.infer<
+    typeof QueryRequestAnalyticsResponseDataSchema
+>;
 
 export async function queryRequestAnalytics(
     req: Request,

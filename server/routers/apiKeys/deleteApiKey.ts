@@ -24,7 +24,7 @@ registry.registerPath({
     description: "Delete an API key.",
     tags: [OpenAPITags.ApiKey],
     request: {
-        params: paramsSchema
+        params: paramsSchema.extend({ orgId: z.string() })
     },
     responses: createApiSuccessResponses(NullDataSchema)
 });

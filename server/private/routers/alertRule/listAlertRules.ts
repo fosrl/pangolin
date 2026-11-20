@@ -30,8 +30,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import {
     LimitOffsetPaginationSchema,
     PaginationSchema
-} from "@server/lib/openapi/schemas/common";
-import { AlertRuleListItemSchema } from "@server/lib/openapi/schemas/alertRule";
+} from "@server/lib/openapi/pagination";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { ListAlertRulesResponse } from "@server/routers/alertRule/types";
@@ -39,6 +38,7 @@ import {
     getAlertRuleIdsForLabels,
     getAlertSourceLabelIds
 } from "#private/lib/alerts/sourceLabels";
+import { ListAlertRulesResponseDataSchema } from "@server/routers/alertRule/types";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -96,11 +96,6 @@ const HEALTH_CHECK_ALERT_EVENT_TYPES = [
     "health_check_unhealthy",
     "health_check_toggle"
 ] as const;
-
-const ListAlertRulesResponseDataSchema = z.object({
-    alertRules: z.array(AlertRuleListItemSchema),
-    pagination: LimitOffsetPaginationSchema
-});
 
 registry.registerPath({
     method: "get",

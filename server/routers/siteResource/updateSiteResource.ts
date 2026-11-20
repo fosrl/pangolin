@@ -17,7 +17,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import {
     PrivateResourceIdParamsSchema,
     SiteResourceSchema
-} from "@server/lib/openapi/schemas/siteResource";
+} from "@server/routers/siteResource/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { isIpInCidr, portRangeStringSchema } from "@server/lib/ip";
 import {
@@ -222,7 +222,7 @@ const updateSiteResourceSchema = z
     );
 
 export type UpdateSiteResourceBody = z.infer<typeof updateSiteResourceSchema>;
-export type UpdateSiteResourceResponse = SiteResource;
+export type UpdateSiteResourceResponse = z.infer<typeof SiteResourceSchema>;
 
 registry.registerPath({
     method: "post",
@@ -743,7 +743,7 @@ export async function updateSiteResource(
                 );
             });
 
-        return response(res, {
+        return response<UpdateSiteResourceResponse>(res, {
             data: updatedSiteResource,
             success: true,
             error: false,

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import z from "zod";
 import { OpenAPITags, registry } from "@server/openApi";
-import { ResourcePolicySchema } from "@server/lib/openapi/schemas/policy";
+import { ResourcePolicySchema } from "@server/routers/policy/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -26,6 +26,8 @@ const updateResourcePolicyBodySchema = z.strictObject({
             "Require clients to present a certificate signed by one of the policy's trusted CA certificates. Requires at least one CA certificate, and only takes effect on resources with SSL enabled (not TCP/UDP)."
         )
 });
+
+export type UpdateResourcePolicyResponse = z.infer<typeof ResourcePolicySchema>;
 
 registry.registerPath({
     method: "post",
@@ -221,7 +223,7 @@ export async function updateResourcePolicy(
             );
         }
 
-        return response<ResourcePolicy>(res, {
+        return response<UpdateResourcePolicyResponse>(res, {
             data: updatedPolicy,
             success: true,
             error: false,

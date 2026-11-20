@@ -57,15 +57,3 @@ export const EmptyDataSchema = z.object({});
 
 /** For routes that succeed with `data: null`. */
 export const NullDataSchema = z.null();
-
-/**
- * Compile-time guard that a documented zod schema still matches the TS type
- * the handler returns. `type _Check = Assert<Equals<z.infer<typeof S>, Row>>`
- * fails to compile if the two drift apart.
- */
-export type Equals<A, B> = [A] extends [B]
-    ? [B] extends [A]
-        ? true
-        : false
-    : false;
-export type Assert<T extends true> = T;

@@ -20,7 +20,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { OrgIdpCreatedSchema } from "@server/lib/openapi/schemas/idp";
+import { OrgIdpCreatedSchema } from "@server/routers/orgIdp/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { idp, idpOidcConfig, idpOrg, orgs } from "@server/db";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";

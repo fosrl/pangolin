@@ -32,10 +32,7 @@ const bodySchema = z.strictObject({
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc")
 });
 
-export type CreateIdpResponse = {
-    idpId: number;
-    redirectUrl: string;
-};
+export type CreateIdpResponse = z.infer<typeof CreateIdpResponseDataSchema>;
 const CreateIdpResponseDataSchema = z.object({
     idpId: z.number(),
     redirectUrl: z.string()

@@ -19,7 +19,6 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { DomainNamespaceOptionsSchema } from "@server/lib/openapi/schemas/domain";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { db, domainNamespaces, resources } from "@server/db";
 import { inArray } from "drizzle-orm";
@@ -27,6 +26,7 @@ import { CheckDomainAvailabilityResponse } from "@server/routers/domain/types";
 import { build } from "@server/build";
 import { isSubscribed } from "#private/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { CheckDomainAvailabilityResponseDataSchema } from "@server/routers/domain/types";
 
 const paramsSchema = z.strictObject({});
 
@@ -44,7 +44,9 @@ registry.registerPath({
         params: paramsSchema,
         query: querySchema
     },
-    responses: createApiSuccessResponses(DomainNamespaceOptionsSchema)
+    responses: createApiSuccessResponses(
+        CheckDomainAvailabilityResponseDataSchema
+    )
 });
 
 export async function checkDomainNamespaceAvailability(

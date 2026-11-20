@@ -24,7 +24,7 @@ import logger from "@server/logger";
 import { subdomainSchema, wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import { OpenAPITags, registry } from "@server/openApi";
-import { ResourceSchema } from "@server/lib/openapi/schemas/resource";
+import { ResourceSchema } from "@server/routers/resource/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { createCertificate } from "@server/routers/certificates";
 import {
@@ -171,7 +171,7 @@ const createRawResourceSchema = z
         }
     );
 
-export type CreateResourceResponse = Resource;
+export type CreateResourceResponse = z.infer<typeof ResourceSchema>;
 
 registry.registerPath({
     method: "put",

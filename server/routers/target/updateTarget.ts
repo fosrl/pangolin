@@ -19,7 +19,7 @@ import {
 import { pickPort } from "./helpers";
 import { isTargetValid } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
-import { TargetWithHealthCheckSchema } from "@server/lib/openapi/schemas/target";
+import { TargetWithHealthCheckSchema } from "@server/routers/target/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
 
@@ -72,6 +72,8 @@ const updateTargetBodySchema = z
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
     });
+
+export type UpdateTargetResponse = z.infer<typeof TargetWithHealthCheckSchema>;
 
 registry.registerPath({
     method: "post",
@@ -453,7 +455,7 @@ export async function updateTarget(
             }
         }
 
-        return response(res, {
+        return response<UpdateTargetResponse>(res, {
             data: {
                 ...updatedTarget,
                 ...updatedHc

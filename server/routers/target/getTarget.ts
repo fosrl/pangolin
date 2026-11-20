@@ -9,17 +9,36 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { TargetDetailSchema } from "@server/lib/openapi/schemas/target";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import {
+    TargetSchema,
+    TargetHealthCheckSchema
+} from "@server/routers/target/types";
 
 const getTargetSchema = z.strictObject({
     targetId: z.coerce.number().int().positive()
 });
 
-type GetTargetResponse = Target &
-    Partial<Omit<TargetHealthCheck, "hcHeaders" | "targetId">> & {
-        hcHeaders: { name: string; value: string }[] | null | undefined;
-    };
+export type GetTargetResponse = z.infer<typeof GetTargetResponseDataSchema>;
+
+const GetTargetResponseDataSchema = TargetSchema.extend(
+    TargetHealthCheckSchema.omit({
+        targetId: true,
+        siteId: true,
+        hcHeaders: true
+    }).partial().shape
+).extend({
+    hcHeaders: z
+        .array(
+            z.object({
+                name: z.string().openapi({ description: "Header name." }),
+                value: z.string().openapi({ description: "Header value." })
+            })
+        )
+        .nullable()
+        .optional()
+        .openapi({ description: "Custom request headers for http checks." })
+});
 
 registry.registerPath({
     method: "get",
@@ -29,7 +48,7 @@ registry.registerPath({
     request: {
         params: getTargetSchema
     },
-    responses: createApiSuccessResponses(TargetDetailSchema)
+    responses: createApiSuccessResponses(GetTargetResponseDataSchema)
 });
 
 export async function getTarget(

@@ -21,12 +21,8 @@ import {
     primaryDb
 } from "@server/db";
 import { registry } from "@server/openApi";
-import { ConnectionAuditLogSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { ConnectionAuditLogSchema } from "@server/routers/auditLogs/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { eq, gt, lt, and, count, desc, inArray } from "drizzle-orm";
@@ -448,13 +444,6 @@ async function queryUniqueFilterAttributes(
         users: usersWithEmails
     };
 }
-
-type _ConnectionAuditLogSchemaQueryConnectionAuditLogResponseCheck = Assert<
-    Equals<
-        z.infer<typeof ConnectionAuditLogSchema>,
-        QueryConnectionAuditLogResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

@@ -8,12 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { DomainSchema } from "@server/lib/openapi/schemas/domain";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { DomainSchema } from "@server/routers/domain/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const getDomainSchema = z.strictObject({
     domainId: z.string().optional(),
@@ -31,11 +27,7 @@ async function query(domainId?: string, orgId?: string) {
     }
 }
 
-export type GetDomainResponse = NonNullable<Awaited<ReturnType<typeof query>>>;
-
-type _DomainSchemaGetDomainResponseCheck = Assert<
-    Equals<z.infer<typeof DomainSchema>, GetDomainResponse>
->;
+export type GetDomainResponse = z.infer<typeof DomainSchema>;
 
 registry.registerPath({
     method: "get",

@@ -20,7 +20,7 @@ const restartCertificateParamsSchema = z.strictObject({
 
 registry.registerPath({
     method: "post",
-    path: "/certificate/{certId}",
+    path: "/org/{orgId}/certificate/{certId}/restart",
     description: "Restart a certificate by ID.",
     tags: ["Certificate"],
     request: {

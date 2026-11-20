@@ -20,18 +20,14 @@ import { OpenAPITags, registry } from "@server/openApi";
 import {
     LimitOffsetPaginationSchema,
     PaginationSchema
-} from "@server/lib/openapi/schemas/common";
-import { HealthCheckListItemSchema } from "@server/lib/openapi/schemas/misc";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+} from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { and, eq, exists, isNotNull, like, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { ListHealthChecksResponse } from "@server/routers/healthChecks/types";
+import { ListHealthChecksResponseDataSchema } from "@server/routers/healthChecks/types";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -68,18 +64,6 @@ const querySchema = z.object({
         .optional()
         .transform((v) => (v === undefined ? undefined : v === "true"))
 });
-
-const ListHealthChecksResponseDataSchema = z.object({
-    healthChecks: z.array(HealthCheckListItemSchema),
-    pagination: LimitOffsetPaginationSchema
-});
-
-type _ListHealthChecksResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListHealthChecksResponseDataSchema>,
-        ListHealthChecksResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

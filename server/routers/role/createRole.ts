@@ -10,7 +10,7 @@ import { fromError } from "zod-validation-error";
 import { ActionsEnum } from "@server/auth/actions";
 import { eq, and } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
-import { RoleSchema } from "@server/lib/openapi/schemas/access";
+import { RoleSchema } from "@server/routers/role/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { build } from "@server/build";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
@@ -43,7 +43,7 @@ export const defaultRoleAllowedActions: ActionsEnum[] = [
 
 export type CreateRoleBody = z.infer<typeof createRoleSchema>;
 
-export type CreateRoleResponse = Role;
+export type CreateRoleResponse = z.infer<typeof RoleSchema>;
 
 registry.registerPath({
     method: "put",
@@ -170,7 +170,7 @@ export async function createRole(
                 )
                 .execute();
 
-            return response<Role>(res, {
+            return response<CreateRoleResponse>(res, {
                 data: newRole[0],
                 success: true,
                 error: false,

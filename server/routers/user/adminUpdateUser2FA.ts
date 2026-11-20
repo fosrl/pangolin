@@ -19,10 +19,9 @@ const updateUser2FABodySchema = z.strictObject({
     twoFactorSetupRequested: z.boolean()
 });
 
-export type UpdateUser2FAResponse = {
-    userId: string;
-    twoFactorRequested: boolean;
-};
+export type UpdateUser2FAResponse = z.infer<
+    typeof UpdateUser2FAResponseDataSchema
+>;
 const UpdateUser2FAResponseDataSchema = z.object({
     userId: z.string(),
     twoFactorRequested: z.boolean()

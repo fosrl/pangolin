@@ -17,13 +17,9 @@ import logger from "@server/logger";
 import stoi from "@server/lib/stoi";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { LimitOffsetPaginationSchema } from "@server/lib/openapi/schemas/common";
-import { AccessTokenListItemSchema } from "@server/lib/openapi/schemas/accessToken";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { LimitOffsetPaginationSchema } from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import { createSelectSchema } from "drizzle-zod";
 
 const listAccessTokensParamsSchema = z
     .strictObject({
@@ -128,22 +124,81 @@ function queryAccessTokens(
     }
 }
 
-export type ListAccessTokensResponse = {
-    accessTokens: NonNullable<Awaited<ReturnType<typeof queryAccessTokens>>>;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListAccessTokensResponse = z.infer<
+    typeof ListAccessTokensResponseDataSchema
+>;
+
+const AccessTokenListItemSchema = createSelectSchema(resourceAccessToken, {
+    accessTokenId: (s) => s.openapi({ description: "ID of the access token." }),
+    orgId: (s) => s.openapi({ description: "ID of the organization." }),
+    resourceId: (s) =>
+        s.openapi({
+            description: "ID of the resource the token grants access to."
+        }),
+    userId: (s) =>
+        s.openapi({ description: "ID of the user that created the token." }),
+    sessionLength: (s) =>
+        s.openapi({
+            description:
+                "How long a session started with the token lasts, in milliseconds."
+        }),
+    expiresAt: (s) =>
+        s.openapi({
+            description:
+                "Epoch milliseconds when the token expires. Null means it never expires."
+        }),
+    title: (s) => s.openapi({ description: "Title of the token." }),
+    description: (s) => s.openapi({ description: "Description of the token." }),
+    persistSession: (s) =>
+        s.openapi({
+            description:
+                "Whether sessions started with the token survive browser restarts."
+        }),
+    createdAt: (s) =>
+        s.openapi({
+            description: "Epoch milliseconds when the token was created."
+        }),
+    tokenHash: (s) => s.openapi({ description: "Hash of the token value." })
+})
+    .pick({
+        accessTokenId: true,
+        orgId: true,
+        resourceId: true,
+        userId: true,
+        sessionLength: true,
+        expiresAt: true,
+        title: true,
+        description: true,
+        persistSession: true,
+        createdAt: true,
+        tokenHash: true
+    })
+    .extend({
+        userName: z.string().nullable().openapi({
+            description: "Name of the user that created the token."
+        }),
+        username: z.string().nullable().openapi({
+            description: "Username of the user that created the token."
+        }),
+        userEmail: z.string().nullable().openapi({
+            description: "Email of the user that created the token."
+        }),
+        resourceName: z
+            .string()
+            .nullable()
+            .openapi({ description: "Name of the resource." }),
+        resourceNiceId: z.string().nullable().openapi({
+            description: "Human readable ID of the resource."
+        }),
+        siteName: z.string().nullable().openapi({
+            description: "Name of a site that serves the resource."
+        })
+    });
 
 const ListAccessTokensResponseDataSchema = z.object({
     accessTokens: z.array(AccessTokenListItemSchema),
     pagination: LimitOffsetPaginationSchema
 });
-
-type _ListAccessTokensResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListAccessTokensResponseDataSchema>,
-        ListAccessTokensResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

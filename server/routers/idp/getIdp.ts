@@ -9,12 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { IdpWithConfigSchema } from "@server/lib/openapi/schemas/idp";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { IdpWithConfigSchema } from "@server/routers/idp/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
 
@@ -34,11 +30,7 @@ async function query(idpId: number) {
     return res;
 }
 
-export type GetIdpResponse = NonNullable<Awaited<ReturnType<typeof query>>>;
-
-type _IdpWithConfigSchemaGetIdpResponseCheck = Assert<
-    Equals<z.infer<typeof IdpWithConfigSchema>, GetIdpResponse>
->;
+export type GetIdpResponse = z.infer<typeof IdpWithConfigSchema>;
 
 registry.registerPath({
     method: "get",

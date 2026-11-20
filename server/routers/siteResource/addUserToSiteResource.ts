@@ -9,7 +9,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { eq, and } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
-import { PrivateResourceIdParamsSchema } from "@server/lib/openapi/schemas/siteResource";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
 import {
     createApiSuccessResponses,
     EmptyDataSchema

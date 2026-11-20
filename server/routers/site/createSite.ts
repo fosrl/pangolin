@@ -13,12 +13,7 @@ import { fromError } from "zod-validation-error";
 import { newts } from "@server/db";
 import moment from "moment";
 import { OpenAPITags, registry } from "@server/openApi";
-import { SiteCreatedSchema } from "@server/lib/openapi/schemas/site";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { hashPassword } from "@server/auth/password";
 import { isValidIP } from "@server/lib/validators";
 import { getNextAvailableClientSubnet, isIpInCidr } from "@server/lib/ip";
@@ -27,6 +22,7 @@ import { build } from "@server/build";
 import { usageService } from "@server/lib/billing/usageService";
 import { LimitId } from "@server/lib/billing";
 import { generateId } from "@server/auth/sessions/app";
+import { SiteSchema } from "@server/routers/site/types";
 
 const createSiteParamsSchema = z.strictObject({
     orgId: z.string()
@@ -60,14 +56,18 @@ const createSiteSchema = z.strictObject({
 
 export type CreateSiteBody = z.infer<typeof createSiteSchema>;
 
-export type CreateSiteResponse = Site & {
-    newtId?: string;
-    secret?: string;
-};
+export type CreateSiteResponse = z.infer<typeof CreateSiteResponseDataSchema>;
 
-type _SiteCreatedSchemaCreateSiteResponseCheck = Assert<
-    Equals<z.infer<typeof SiteCreatedSchema>, CreateSiteResponse>
->;
+const CreateSiteResponseDataSchema = SiteSchema.extend({
+    newtId: z.string().optional().openapi({
+        description:
+            "ID the Newt agent uses to authenticate. Only for newt sites."
+    }),
+    secret: z.string().optional().openapi({
+        description:
+            "Secret the Newt agent uses to authenticate. Only returned once, when the site is created."
+    })
+});
 
 registry.registerPath({
     method: "put",
@@ -88,7 +88,7 @@ registry.registerPath({
             }
         }
     },
-    responses: createApiSuccessResponses(SiteCreatedSchema, 201)
+    responses: createApiSuccessResponses(CreateSiteResponseDataSchema, 201)
 });
 
 export async function createSite(

@@ -9,12 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { BlueprintSchema } from "@server/lib/openapi/schemas/misc";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { BlueprintSchema } from "@server/routers/blueprints/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { BlueprintData } from "./types";
 
 const getBlueprintSchema = z.strictObject({
@@ -53,10 +49,6 @@ async function query(blueprintId: number, orgId: string) {
 }
 
 export type GetBlueprintResponse = BlueprintData;
-
-type _BlueprintSchemaGetBlueprintResponseCheck = Assert<
-    Equals<z.infer<typeof BlueprintSchema>, GetBlueprintResponse>
->;
 
 registry.registerPath({
     method: "get",

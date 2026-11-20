@@ -9,12 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { UserSummarySchema } from "@server/lib/openapi/schemas/access";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { UserSummarySchema } from "@server/routers/user/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listResourceUsersSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -52,20 +48,13 @@ async function queryUsers(resourceId: number, policyId: number | null) {
         .where(eq(userResources.resourceId, resourceId));
 }
 
-export type ListResourceUsersResponse = {
-    users: NonNullable<Awaited<ReturnType<typeof queryUsers>>>;
-};
+export type ListResourceUsersResponse = z.infer<
+    typeof ListResourceUsersResponseDataSchema
+>;
 
 const ListResourceUsersResponseDataSchema = z.object({
     users: z.array(UserSummarySchema)
 });
-
-type _ListResourceUsersResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListResourceUsersResponseDataSchema>,
-        ListResourceUsersResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

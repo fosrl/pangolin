@@ -42,7 +42,7 @@ import {
 } from "@server/lib/validators";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import { ResourcePolicySchema } from "@server/lib/openapi/schemas/policy";
+import { ResourcePolicySchema } from "@server/routers/policy/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, inArray, type InferInsertModel } from "drizzle-orm";
@@ -141,6 +141,8 @@ const createResourcePolicyBodySchema = z.strictObject({
             "PEM-encoded trusted CA certificates for mTLS. Each certificate may be a bundle; the name is only kept for a single certificate."
         )
 });
+
+export type CreateResourcePolicyResponse = z.infer<typeof ResourcePolicySchema>;
 
 registry.registerPath({
     method: "post",
@@ -463,7 +465,7 @@ export async function createResourcePolicy(
                 )
             );
         }
-        return response<ResourcePolicy>(res, {
+        return response<CreateResourcePolicyResponse>(res, {
             data: policy,
             success: true,
             error: false,

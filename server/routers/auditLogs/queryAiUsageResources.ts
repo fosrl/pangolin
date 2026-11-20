@@ -6,12 +6,7 @@ import {
     siteResources
 } from "@server/db";
 import { registry } from "@server/openApi";
-import { AiUsageResourcesSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { count, desc, inArray, sql } from "drizzle-orm";
@@ -173,12 +168,47 @@ async function query(data: Q) {
     };
 }
 
-type _AiUsageResourcesSchemaQueryAiUsageResourcesResponseCheck = Assert<
-    Equals<
-        z.infer<typeof AiUsageResourcesSchema>,
-        QueryAiUsageResourcesResponse
-    >
->;
+const costUsd = z.number().openapi({ description: "Cost in US dollars." });
+
+const dayValueRows = (what: string) =>
+    z
+        .array(
+            z
+                .object({ day: z.string() })
+                .catchall(z.union([z.number(), z.string()]))
+        )
+        .openapi({
+            description: `One object per day, as YYYY-MM-DD in day, with one numeric property per series (${what}). Series outside the top entries are grouped under other.`
+        });
+
+const requests = z
+    .number()
+    .int()
+    .openapi({ description: "Number of requests." });
+
+const totalTokens = z
+    .number()
+    .int()
+    .openapi({ description: "Total tokens used." });
+
+const QueryAiUsageResourcesResponseDataSchema = z.object({
+    resourceCostPerDay: dayValueRows("one per resource"),
+    resourceTokensPerDay: dayValueRows("one per resource"),
+    topResources: z.array(
+        z.object({
+            key: z.string().openapi({
+                description: "Series key used in the per-day objects."
+            }),
+            resourceId: z.number().int().nullable(),
+            siteResourceId: z.number().int().nullable(),
+            type: z.enum(["public", "site"]).nullable(),
+            name: z.string().nullable(),
+            requests,
+            totalTokens,
+            costUsd
+        })
+    )
+});
 
 registry.registerPath({
     method: "get",
@@ -190,10 +220,14 @@ registry.registerPath({
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: createApiSuccessResponses(AiUsageResourcesSchema)
+    responses: createApiSuccessResponses(
+        QueryAiUsageResourcesResponseDataSchema
+    )
 });
 
-export type QueryAiUsageResourcesResponse = Awaited<ReturnType<typeof query>>;
+export type QueryAiUsageResourcesResponse = z.infer<
+    typeof QueryAiUsageResourcesResponseDataSchema
+>;
 
 export async function queryAiUsageResources(
     req: Request,

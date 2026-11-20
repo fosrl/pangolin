@@ -13,12 +13,8 @@
 
 import { logsDb, sshCommandLog, sshSessionLog } from "@server/db";
 import { registry } from "@server/openApi";
-import { SshSessionCommandsSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { SshSessionCommandsSchema } from "@server/routers/auditLogs/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { and, asc, count, eq } from "drizzle-orm";
@@ -50,13 +46,6 @@ const querySshSessionCommandsParams = z.object({
     orgId: z.string(),
     sshSessionLogId: z.string().transform(Number).pipe(z.int().positive())
 });
-
-type _SshSessionCommandsSchemaQuerySshSessionCommandsResponseCheck = Assert<
-    Equals<
-        z.infer<typeof SshSessionCommandsSchema>,
-        QuerySshSessionCommandsResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

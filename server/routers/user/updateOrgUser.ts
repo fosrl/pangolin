@@ -8,7 +8,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { UserOrgSchema } from "@server/lib/openapi/schemas/user";
+import { UserOrgSchema } from "@server/routers/user/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const paramsSchema = z.strictObject({
@@ -23,6 +23,8 @@ const bodySchema = z
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
     });
+
+export type UpdateOrgUserResponse = z.infer<typeof UserOrgSchema>;
 
 registry.registerPath({
     method: "post",
@@ -95,7 +97,7 @@ export async function updateOrgUser(
             .where(and(eq(userOrgs.userId, userId), eq(userOrgs.orgId, orgId)))
             .returning();
 
-        return response(res, {
+        return response<UpdateOrgUserResponse>(res, {
             data: updatedUser,
             success: true,
             error: false,

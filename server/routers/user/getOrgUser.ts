@@ -10,12 +10,8 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { ActionsEnum, checkUserActionPermission } from "@server/auth/actions";
 import { OpenAPITags, registry } from "@server/openApi";
-import { OrgUserSchema } from "@server/lib/openapi/schemas/user";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { OrgUserSchema } from "@server/routers/user/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 export async function queryUser(orgId: string, userId: string) {
     const [userRow] = await db
@@ -69,18 +65,12 @@ export async function queryUser(orgId: string, userId: string) {
     };
 }
 
-export type GetOrgUserResponse = NonNullable<
-    Awaited<ReturnType<typeof queryUser>>
->;
+export type GetOrgUserResponse = z.infer<typeof OrgUserSchema>;
 
 const getOrgUserParamsSchema = z.strictObject({
     userId: z.string(),
     orgId: z.string()
 });
-
-type _OrgUserSchemaGetOrgUserResponseCheck = Assert<
-    Equals<z.infer<typeof OrgUserSchema>, GetOrgUserResponse>
->;
 
 registry.registerPath({
     method: "get",

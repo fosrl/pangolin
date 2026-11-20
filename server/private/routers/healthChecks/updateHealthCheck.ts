@@ -60,28 +60,9 @@ const bodySchema = z.strictObject({
     hcUnhealthyThreshold: z.number().int().positive().optional()
 });
 
-export type UpdateHealthCheckResponse = {
-    targetHealthCheckId: number;
-    name: string | null;
-    siteId: number | null;
-    hcEnabled: boolean;
-    hcHealth: string | null;
-    hcMode: string | null;
-    hcHostname: string | null;
-    hcPort: number | null;
-    hcPath: string | null;
-    hcScheme: string | null;
-    hcMethod: string | null;
-    hcInterval: number | null;
-    hcUnhealthyInterval: number | null;
-    hcTimeout: number | null;
-    hcHeaders: string | null;
-    hcFollowRedirects: boolean | null;
-    hcStatus: number | null;
-    hcTlsServerName: string | null;
-    hcHealthyThreshold: number | null;
-    hcUnhealthyThreshold: number | null;
-};
+export type UpdateHealthCheckResponse = z.infer<
+    typeof UpdateHealthCheckResponseDataSchema
+>;
 const UpdateHealthCheckResponseDataSchema = z.object({
     targetHealthCheckId: z.number(),
     name: z.string().nullable(),

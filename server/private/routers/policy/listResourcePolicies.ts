@@ -21,15 +21,11 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import { PaginationSchema } from "@server/lib/openapi/schemas/common";
-import { ResourcePolicyListItemSchema } from "@server/lib/openapi/schemas/policy";
+import { PaginationSchema } from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
-import type {
-    ListResourcePoliciesResponse,
+    ListResourcePoliciesResponseDataSchema,
+    type ListResourcePoliciesResponse,
     ResourcePolicyWithResources
 } from "@server/routers/resource/types";
 import HttpCode from "@server/types/HttpCode";
@@ -81,18 +77,6 @@ function queryResourcePoliciesBase() {
         })
         .from(resourcePolicies);
 }
-
-const ListResourcePoliciesResponseDataSchema = z.object({
-    policies: z.array(ResourcePolicyListItemSchema),
-    pagination: PaginationSchema
-});
-
-type _ListResourcePoliciesResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListResourcePoliciesResponseDataSchema>,
-        ListResourcePoliciesResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

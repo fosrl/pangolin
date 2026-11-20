@@ -1,11 +1,6 @@
 import { db, logsDb, aiUsageRecords, aiProviders } from "@server/db";
 import { registry } from "@server/openApi";
-import { AiUsageProvidersSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { count, desc, inArray, sql } from "drizzle-orm";
@@ -130,12 +125,42 @@ async function query(data: Q) {
     };
 }
 
-type _AiUsageProvidersSchemaQueryAiUsageProvidersResponseCheck = Assert<
-    Equals<
-        z.infer<typeof AiUsageProvidersSchema>,
-        QueryAiUsageProvidersResponse
-    >
->;
+const costUsd = z.number().openapi({ description: "Cost in US dollars." });
+
+const dayValueRows = (what: string) =>
+    z
+        .array(
+            z
+                .object({ day: z.string() })
+                .catchall(z.union([z.number(), z.string()]))
+        )
+        .openapi({
+            description: `One object per day, as YYYY-MM-DD in day, with one numeric property per series (${what}). Series outside the top entries are grouped under other.`
+        });
+
+const requests = z
+    .number()
+    .int()
+    .openapi({ description: "Number of requests." });
+
+const totalTokens = z
+    .number()
+    .int()
+    .openapi({ description: "Total tokens used." });
+
+const QueryAiUsageProvidersResponseDataSchema = z.object({
+    providerCostPerDay: dayValueRows("one per provider"),
+    providerTokensPerDay: dayValueRows("one per provider"),
+    topProviders: z.array(
+        z.object({
+            providerId: z.number().int().nullable(),
+            name: z.string().nullable(),
+            requests,
+            totalTokens,
+            costUsd
+        })
+    )
+});
 
 registry.registerPath({
     method: "get",
@@ -147,10 +172,14 @@ registry.registerPath({
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: createApiSuccessResponses(AiUsageProvidersSchema)
+    responses: createApiSuccessResponses(
+        QueryAiUsageProvidersResponseDataSchema
+    )
 });
 
-export type QueryAiUsageProvidersResponse = Awaited<ReturnType<typeof query>>;
+export type QueryAiUsageProvidersResponse = z.infer<
+    typeof QueryAiUsageProvidersResponseDataSchema
+>;
 
 export async function queryAiUsageProviders(
     req: Request,

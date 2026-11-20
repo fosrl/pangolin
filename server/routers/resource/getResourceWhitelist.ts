@@ -13,11 +13,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const getResourceWhitelistSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -41,9 +37,9 @@ async function queryPolicyWhitelist(policyId: number) {
         .where(eq(resourcePolicyWhiteList.resourcePolicyId, policyId));
 }
 
-export type GetResourceWhitelistResponse = {
-    whitelist: NonNullable<Awaited<ReturnType<typeof queryWhitelist>>>;
-};
+export type GetResourceWhitelistResponse = z.infer<
+    typeof GetResourceWhitelistResponseDataSchema
+>;
 
 const GetResourceWhitelistResponseDataSchema = z.object({
     whitelist: z.array(
@@ -55,13 +51,6 @@ const GetResourceWhitelistResponseDataSchema = z.object({
         })
     )
 });
-
-type _GetResourceWhitelistResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof GetResourceWhitelistResponseDataSchema>,
-        GetResourceWhitelistResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

@@ -8,20 +8,59 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import { AdminUserSchema } from "@server/lib/openapi/schemas/user";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import { createSelectSchema } from "drizzle-zod";
 
 const adminGetUserSchema = z.strictObject({
     userId: z.string().min(1)
 });
 
-type _AdminUserSchemaAdminGetUserResponseCheck = Assert<
-    Equals<z.infer<typeof AdminUserSchema>, AdminGetUserResponse>
->;
+const AdminGetUserResponseDataSchema = createSelectSchema(users, {
+    userId: (s) => s.openapi({ description: "ID of the user." }),
+    email: (s) => s.openapi({ description: "Email of the user." }),
+    username: (s) => s.openapi({ description: "Username of the user." }),
+    name: (s) => s.openapi({ description: "Display name of the user." }),
+    twoFactorEnabled: (s) =>
+        s.openapi({
+            description:
+                "Whether the user has two-factor authentication enabled."
+        }),
+    twoFactorSetupRequested: (s) =>
+        s.openapi({
+            description:
+                "Whether an admin has asked the user to set up two-factor authentication."
+        }),
+    emailVerified: (s) =>
+        s.openapi({ description: "Whether the user's email is verified." }),
+    serverAdmin: (s) =>
+        s.openapi({ description: "Whether the user is a server admin." }),
+    idpId: (s) =>
+        s.openapi({
+            description:
+                "ID of the identity provider the user belongs to. Null for internal users."
+        }),
+    dateCreated: (s) =>
+        s.openapi({ description: "ISO timestamp when the user was created." })
+})
+    .pick({
+        userId: true,
+        email: true,
+        username: true,
+        name: true,
+        type: true,
+        twoFactorEnabled: true,
+        twoFactorSetupRequested: true,
+        emailVerified: true,
+        serverAdmin: true,
+        idpId: true,
+        dateCreated: true
+    })
+    .extend({
+        idpName: z.string().nullable().openapi({
+            description:
+                "Name of the identity provider the user belongs to. Null for internal users."
+        })
+    });
 
 registry.registerPath({
     method: "get",
@@ -31,7 +70,7 @@ registry.registerPath({
     request: {
         params: adminGetUserSchema
     },
-    responses: createApiSuccessResponses(AdminUserSchema)
+    responses: createApiSuccessResponses(AdminGetUserResponseDataSchema)
 });
 
 async function queryUser(userId: string) {
@@ -57,8 +96,8 @@ async function queryUser(userId: string) {
     return user;
 }
 
-export type AdminGetUserResponse = NonNullable<
-    Awaited<ReturnType<typeof queryUser>>
+export type AdminGetUserResponse = z.infer<
+    typeof AdminGetUserResponseDataSchema
 >;
 
 export async function adminGetUser(

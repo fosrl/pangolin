@@ -13,12 +13,8 @@
 
 import { actionAuditLog, logsDb } from "@server/db";
 import { registry } from "@server/openApi";
-import { ActionAuditLogSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { ActionAuditLogSchema } from "@server/routers/auditLogs/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { eq, gt, lt, and, count, desc } from "drizzle-orm";
@@ -160,10 +156,6 @@ async function queryUniqueFilterAttributes(
             .filter((action): action is string => action !== null)
     };
 }
-
-type _ActionAuditLogSchemaQueryActionAuditLogResponseCheck = Assert<
-    Equals<z.infer<typeof ActionAuditLogSchema>, QueryActionAuditLogResponse>
->;
 
 registry.registerPath({
     method: "get",

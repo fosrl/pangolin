@@ -18,10 +18,9 @@ const setServerAdminBodySchema = z.strictObject({
     serverAdmin: z.boolean()
 });
 
-export type AdminSetServerAdminResponse = {
-    userId: string;
-    serverAdmin: boolean;
-};
+export type AdminSetServerAdminResponse = z.infer<
+    typeof AdminSetServerAdminResponseDataSchema
+>;
 
 const AdminSetServerAdminResponseDataSchema = z.object({
     userId: z.string(),

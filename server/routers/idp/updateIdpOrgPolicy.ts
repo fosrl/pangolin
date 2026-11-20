@@ -21,7 +21,9 @@ const bodySchema = z.strictObject({
     orgMapping: z.string().optional()
 });
 
-export type UpdateIdpOrgPolicyResponse = {};
+export type UpdateIdpOrgPolicyResponse = z.infer<
+    typeof UpdateIdpOrgPolicyResponseDataSchema
+>;
 const UpdateIdpOrgPolicyResponseDataSchema = z.object({});
 
 registry.registerPath({

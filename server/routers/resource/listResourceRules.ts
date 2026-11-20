@@ -12,13 +12,9 @@ import { OpenAPITags, registry } from "@server/openApi";
 import {
     PaginationSchema,
     LimitOffsetPaginationSchema
-} from "@server/lib/openapi/schemas/common";
-import { ResourceRuleListItemSchema } from "@server/lib/openapi/schemas/resource";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+} from "@server/lib/openapi/pagination";
+import { ResourceRuleSchema } from "@server/routers/resource/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listResourceRulesParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -72,22 +68,14 @@ function queryPolicyRules(policyId: number) {
         .where(eq(resourcePolicyRules.resourcePolicyId, policyId));
 }
 
-export type ListResourceRulesResponse = {
-    rules: Awaited<ReturnType<typeof queryResourceRules>>;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListResourceRulesResponse = z.infer<
+    typeof ListResourceRulesResponseDataSchema
+>;
 
 const ListResourceRulesResponseDataSchema = z.object({
-    rules: z.array(ResourceRuleListItemSchema),
+    rules: z.array(ResourceRuleSchema),
     pagination: LimitOffsetPaginationSchema
 });
-
-type _ListResourceRulesResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListResourceRulesResponseDataSchema>,
-        ListResourceRulesResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

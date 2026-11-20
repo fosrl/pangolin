@@ -8,12 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { AiModelSelectionSchema } from "@server/lib/openapi/schemas/ai";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { AiModelSelectionSchema } from "@server/routers/aiProvider/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listResourceAiModelsParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -34,20 +30,13 @@ async function query(resourceId: number) {
         .where(eq(resourceAiModels.resourceId, resourceId));
 }
 
-export type ListResourceAiModelsResponse = {
-    models: NonNullable<Awaited<ReturnType<typeof query>>>;
-};
+export type ListResourceAiModelsResponse = z.infer<
+    typeof ListResourceAiModelsResponseDataSchema
+>;
 
 const ListResourceAiModelsResponseDataSchema = z.object({
     models: z.array(AiModelSelectionSchema)
 });
-
-type _ListResourceAiModelsResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListResourceAiModelsResponseDataSchema>,
-        ListResourceAiModelsResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

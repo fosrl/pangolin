@@ -8,21 +8,16 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { generatePublicResourceBlueprintYaml } from "@server/lib/blueprints/exportResourceBlueprint";
 
 const exportResourceBlueprintSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
 
-export type ExportResourceBlueprintResponse = {
-    name: string;
-    contents: string;
-};
+export type ExportResourceBlueprintResponse = z.infer<
+    typeof ExportResourceBlueprintResponseDataSchema
+>;
 
 const ExportResourceBlueprintResponseDataSchema = z.object({
     name: z.string().openapi({
@@ -32,13 +27,6 @@ const ExportResourceBlueprintResponseDataSchema = z.object({
         description: "Blueprint YAML that recreates this resource."
     })
 });
-
-type _ExportResourceBlueprintResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ExportResourceBlueprintResponseDataSchema>,
-        ExportResourceBlueprintResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

@@ -31,7 +31,7 @@ registry.registerPath({
         "Set actions for an API key. This will replace any existing actions.",
     tags: [OpenAPITags.ApiKey],
     request: {
-        params: paramsSchema,
+        params: paramsSchema.extend({ orgId: z.string() }),
         body: {
             content: {
                 "application/json": {

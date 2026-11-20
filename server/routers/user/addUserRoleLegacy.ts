@@ -11,9 +11,9 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import {
-    UserOrgSchema,
-    UserOrgRoleSchema
-} from "@server/lib/openapi/schemas/user";
+    AddUserRoleLegacyResponseDataSchema,
+    AddUserRoleLegacyResponse
+} from "@server/routers/user/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromClient,
@@ -24,10 +24,6 @@ import {
 const addUserRoleLegacyParamsSchema = z.strictObject({
     roleId: z.coerce.number(),
     userId: z.string()
-});
-
-const AddUserRoleLegacyResponseDataSchema = UserOrgSchema.extend({
-    roleId: UserOrgRoleSchema.shape.roleId
 });
 
 registry.registerPath({
@@ -172,7 +168,7 @@ export async function addUserRoleLegacy(
             });
         }
 
-        return response(res, {
+        return response<AddUserRoleLegacyResponse>(res, {
             data: { ...existingUser, roleId },
             success: true,
             error: false,

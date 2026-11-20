@@ -22,16 +22,12 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { OrgIdpWithConfigSchema } from "@server/lib/openapi/schemas/idp";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { GetOrgIdpResponse } from "@server/routers/orgIdp/types";
+import { GetOrgIdpResponseDataSchema } from "@server/routers/orgIdp/types";
 
 const paramsSchema = z
     .object({
@@ -54,10 +50,6 @@ async function query(idpId: number, orgId: string) {
     return res;
 }
 
-type _OrgIdpWithConfigSchemaGetOrgIdpResponseCheck = Assert<
-    Equals<z.infer<typeof OrgIdpWithConfigSchema>, GetOrgIdpResponse>
->;
-
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/idp/{idpId}",
@@ -66,7 +58,7 @@ registry.registerPath({
     request: {
         params: paramsSchema
     },
-    responses: createApiSuccessResponses(OrgIdpWithConfigSchema)
+    responses: createApiSuccessResponses(GetOrgIdpResponseDataSchema)
 });
 
 export async function getOrgIdp(

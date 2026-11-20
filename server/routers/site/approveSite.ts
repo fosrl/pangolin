@@ -16,7 +16,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { SiteSchema } from "@server/lib/openapi/schemas/site";
+import { SiteSchema } from "@server/routers/site/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     getResourceIdsForSite,
@@ -31,6 +31,8 @@ import {
 const approveSiteParamsSchema = z.strictObject({
     siteId: z.coerce.number().int().positive()
 });
+
+export type ApproveSiteResponse = z.infer<typeof SiteSchema>;
 
 registry.registerPath({
     method: "post",
@@ -222,7 +224,7 @@ export async function approveSite(
                 });
         }
 
-        return response(res, {
+        return response<ApproveSiteResponse>(res, {
             data: updatedSite ?? null,
             success: true,
             error: false,

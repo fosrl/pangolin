@@ -9,13 +9,13 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import { LimitOffsetPaginationSchema } from "@server/lib/openapi/schemas/common";
-import { TargetListItemSchema } from "@server/lib/openapi/schemas/target";
+import { LimitOffsetPaginationSchema } from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+    TargetSchema,
+    TargetHealthCheckSchema
+} from "@server/routers/target/types";
+import { SiteSchema } from "@server/routers/site/types";
 
 const resourceTargetsParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -97,26 +97,69 @@ function queryTargets(owner: { resourceId: number } | { providerId: number }) {
     return baseQuery;
 }
 
-type TargetWithParsedHeaders = Omit<
-    Awaited<ReturnType<typeof queryTargets>>[0],
-    "hcHeaders"
-> & {
-    hcHeaders: { name: string; value: string }[] | null;
-};
+type TargetWithParsedHeaders = ListTargetsResponse["targets"][number];
 
-export type ListTargetsResponse = {
-    targets: TargetWithParsedHeaders[];
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListTargetsResponse = z.infer<typeof ListTargetsResponseDataSchema>;
+
+const TargetListItemSchema = TargetSchema.pick({
+    targetId: true,
+    ip: true,
+    mode: true,
+    method: true,
+    port: true,
+    enabled: true,
+    resourceId: true,
+    providerId: true,
+    siteId: true,
+    path: true,
+    pathMatchType: true,
+    rewritePath: true,
+    rewritePathType: true,
+    priority: true
+})
+    .extend(
+        TargetHealthCheckSchema.pick({
+            hcPath: true,
+            hcScheme: true,
+            hcMode: true,
+            hcHostname: true,
+            hcPort: true,
+            hcInterval: true,
+            hcUnhealthyInterval: true,
+            hcTimeout: true,
+            hcFollowRedirects: true,
+            hcMethod: true,
+            hcStatus: true,
+            hcHealth: true,
+            hcTlsServerName: true,
+            hcHealthyThreshold: true,
+            hcUnhealthyThreshold: true
+        }).shape
+    )
+    .extend({
+        // left joined, so null when the target has no health check
+        hcEnabled: TargetHealthCheckSchema.shape.hcEnabled.nullable(),
+        siteType: SiteSchema.shape.type.nullable().openapi({
+            description: "Kind of site that connects to the target."
+        }),
+        siteName: SiteSchema.shape.name.nullable().openapi({
+            description: "Name of the site that connects to the target."
+        }),
+        hcHeaders: z
+            .array(
+                z.object({
+                    name: z.string().openapi({ description: "Header name." }),
+                    value: z.string().openapi({ description: "Header value." })
+                })
+            )
+            .nullable()
+            .openapi({ description: "Custom request headers for http checks." })
+    });
 
 const ListTargetsResponseDataSchema = z.object({
     targets: z.array(TargetListItemSchema),
     pagination: LimitOffsetPaginationSchema
 });
-
-type _ListTargetsResponseDataSchemaCheck = Assert<
-    Equals<z.infer<typeof ListTargetsResponseDataSchema>, ListTargetsResponse>
->;
 
 registry.registerPath({
     method: "get",

@@ -12,7 +12,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import {
     PrivateResourceIdParamsSchema,
     SiteResourceSchema
-} from "@server/lib/openapi/schemas/siteResource";
+} from "@server/routers/siteResource/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 export const getSiteResourceParamsSchema = z.strictObject({
@@ -97,7 +97,8 @@ registry.registerPath({
     request: {
         params: z.object({
             niceId: z.string(),
-            orgId: z.string()
+            orgId: z.string(),
+            siteId: z.coerce.number().int().positive()
         })
     },
     responses: createApiSuccessResponses(SiteResourceSchema)
@@ -130,7 +131,7 @@ export async function getSiteResource(
             );
         }
 
-        return response(res, {
+        return response<GetSiteResourceResponse>(res, {
             data: siteResource,
             success: true,
             error: false,

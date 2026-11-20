@@ -22,10 +22,10 @@ import { eq, sql } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { LimitOffsetPaginationSchema } from "@server/lib/openapi/schemas/common";
-import { OrgIdpListItemSchema } from "@server/lib/openapi/schemas/idp";
+import { LimitOffsetPaginationSchema } from "@server/lib/openapi/pagination";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { ListOrgIdpsResponse } from "@server/routers/orgIdp/types";
+import { ListOrgIdpsResponseDataSchema } from "@server/routers/orgIdp/types";
 
 const querySchema = z.strictObject({
     limit: z
@@ -65,11 +65,6 @@ async function query(orgId: string, limit: number, offset: number) {
         .offset(offset);
     return res;
 }
-
-const ListOrgIdpsResponseDataSchema = z.object({
-    idps: z.array(OrgIdpListItemSchema),
-    pagination: LimitOffsetPaginationSchema
-});
 
 registry.registerPath({
     method: "get",

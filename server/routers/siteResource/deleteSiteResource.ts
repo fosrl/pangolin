@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import { PrivateResourceIdParamsSchema } from "@server/lib/openapi/schemas/siteResource";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     performDeleteSiteResource,
@@ -110,7 +110,7 @@ export async function deleteSiteResource(
 
         runSiteResourceDeleteSideEffects(removedSiteResource);
 
-        return response(res, {
+        return response<DeleteSiteResourceResponse>(res, {
             data: { message: "Site resource deleted successfully" },
             success: true,
             error: false,

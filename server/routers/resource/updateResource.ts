@@ -37,7 +37,7 @@ import {
     wildcardSubdomainSchema
 } from "@server/lib/schemas";
 import { registry } from "@server/openApi";
-import { ResourceSchema } from "@server/lib/openapi/schemas/resource";
+import { ResourceSchema } from "@server/routers/resource/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { OpenAPITags } from "@server/openApi";
 import { createCertificate } from "@server/routers/certificates/createCertificate";
@@ -249,7 +249,7 @@ const updateHttpResourceBodySchema = z
         }
     );
 
-export type UpdateResourceResponse = Resource;
+export type UpdateResourceResponse = z.infer<typeof ResourceSchema>;
 
 const updateRawResourceBodySchema = z
     .strictObject({
@@ -906,7 +906,7 @@ async function updateHttpResource(
             );
         }
 
-        return response(res, {
+        return response<UpdateResourceResponse>(res, {
             data: applyInlinePolicyFields(updatedResource[0], inlinePolicy),
             success: true,
             error: false,
@@ -930,7 +930,7 @@ async function updateHttpResource(
         );
     }
 
-    return response(res, {
+    return response<UpdateResourceResponse>(res, {
         data: updatedResource[0],
         success: true,
         error: false,
@@ -1057,7 +1057,7 @@ async function updateRawResource(
         );
     }
 
-    return response(res, {
+    return response<UpdateResourceResponse>(res, {
         data: updatedResource,
         success: true,
         error: false,

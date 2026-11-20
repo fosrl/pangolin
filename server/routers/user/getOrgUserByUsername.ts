@@ -9,7 +9,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { OrgUserSchema } from "@server/lib/openapi/schemas/user";
+import { OrgUserSchema } from "@server/routers/user/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { queryUser, type GetOrgUserResponse } from "./getOrgUser";
 

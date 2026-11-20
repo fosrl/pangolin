@@ -39,9 +39,7 @@ const bodySchema = z.strictObject({
     variant: z.enum(["oidc", "google", "azure"]).optional()
 });
 
-export type UpdateIdpResponse = {
-    idpId: number;
-};
+export type UpdateIdpResponse = z.infer<typeof UpdateIdpResponseDataSchema>;
 const UpdateIdpResponseDataSchema = z.object({
     idpId: z.number()
 });

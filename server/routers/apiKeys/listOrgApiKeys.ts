@@ -44,10 +44,9 @@ function queryApiKeys(orgId: string) {
         .innerJoin(apiKeys, eq(apiKeys.apiKeyId, apiKeyOrg.apiKeyId));
 }
 
-export type ListOrgApiKeysResponse = {
-    apiKeys: Awaited<ReturnType<typeof queryApiKeys>>;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListOrgApiKeysResponse = z.infer<
+    typeof ListOrgApiKeysResponseDataSchema
+>;
 
 const ListOrgApiKeysResponseDataSchema = z.object({
     apiKeys: z.array(

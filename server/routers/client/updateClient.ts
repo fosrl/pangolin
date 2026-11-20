@@ -9,7 +9,7 @@ import logger from "@server/logger";
 import { eq, and, ne } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { ClientSchema } from "@server/lib/openapi/schemas/client";
+import { ClientSchema } from "@server/routers/client/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const updateClientParamsSchema = z.strictObject({
@@ -22,6 +22,12 @@ const updateClientSchema = z.strictObject({
 });
 
 export type UpdateClientBody = z.infer<typeof updateClientSchema>;
+
+const UpdateClientResponseDataSchema = z.array(ClientSchema);
+
+export type UpdateClientResponse = z.infer<
+    typeof UpdateClientResponseDataSchema
+>;
 
 registry.registerPath({
     method: "post",
@@ -38,7 +44,7 @@ registry.registerPath({
             }
         }
     },
-    responses: createApiSuccessResponses(ClientSchema)
+    responses: createApiSuccessResponses(UpdateClientResponseDataSchema)
 });
 
 export async function updateClient(
@@ -117,7 +123,7 @@ export async function updateClient(
             .where(eq(clients.clientId, clientId))
             .returning();
 
-        return response(res, {
+        return response<UpdateClientResponse>(res, {
             data: updatedClient,
             success: true,
             error: false,

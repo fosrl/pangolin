@@ -28,7 +28,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import {
     PrivateResourceIdParamsSchema,
     SiteResourceSchema
-} from "@server/lib/openapi/schemas/siteResource";
+} from "@server/routers/siteResource/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, inArray, ne } from "drizzle-orm";
@@ -223,7 +223,7 @@ const createSiteResourceSchema = z
     );
 
 export type CreateSiteResourceBody = z.infer<typeof createSiteResourceSchema>;
-export type CreateSiteResourceResponse = SiteResource;
+export type CreateSiteResourceResponse = z.infer<typeof SiteResourceSchema>;
 
 registry.registerPath({
     method: "put",
@@ -756,7 +756,7 @@ export async function createSiteResource(
             }
         );
 
-        return response(res, {
+        return response<CreateSiteResourceResponse>(res, {
             data: newSiteResource,
             success: true,
             error: false,

@@ -20,33 +20,18 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { CustomDnsRecordSchema } from "@server/lib/openapi/schemas/domain";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { and, asc, eq } from "drizzle-orm";
 import {
     ListCustomDnsRecordsResponse,
     toCustomDnsRecordRow
 } from "@server/routers/customDnsRecord/types";
+import { ListCustomDnsRecordsResponseDataSchema } from "@server/routers/customDnsRecord/types";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty(),
     domainId: z.string().nonempty()
 });
-
-const ListCustomDnsRecordsResponseDataSchema = z.object({
-    records: z.array(CustomDnsRecordSchema)
-});
-
-type _ListCustomDnsRecordsResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListCustomDnsRecordsResponseDataSchema>,
-        ListCustomDnsRecordsResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

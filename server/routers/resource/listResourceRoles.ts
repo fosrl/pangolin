@@ -9,12 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { RoleSummarySchema } from "@server/lib/openapi/schemas/access";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { RoleSummarySchema } from "@server/routers/role/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listResourceRolesSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -46,20 +42,13 @@ async function queryInlinePolicy(policyId: number) {
         .where(eq(rolePolicies.resourcePolicyId, policyId));
 }
 
-export type ListResourceRolesResponse = {
-    roles: NonNullable<Awaited<ReturnType<typeof query>>>;
-};
+export type ListResourceRolesResponse = z.infer<
+    typeof ListResourceRolesResponseDataSchema
+>;
 
 const ListResourceRolesResponseDataSchema = z.object({
     roles: z.array(RoleSummarySchema)
 });
-
-type _ListResourceRolesResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListResourceRolesResponseDataSchema>,
-        ListResourceRolesResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

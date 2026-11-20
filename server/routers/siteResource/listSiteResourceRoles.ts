@@ -9,13 +9,9 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { PrivateResourceIdParamsSchema } from "@server/lib/openapi/schemas/siteResource";
-import { RoleSummarySchema } from "@server/lib/openapi/schemas/access";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
+import { RoleSummarySchema } from "@server/routers/role/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listSiteResourceRolesSchema = z
     .object({
@@ -39,20 +35,13 @@ async function query(siteResourceId: number) {
         .where(eq(roleSiteResources.siteResourceId, siteResourceId));
 }
 
-export type ListSiteResourceRolesResponse = {
-    roles: NonNullable<Awaited<ReturnType<typeof query>>>;
-};
+export type ListSiteResourceRolesResponse = z.infer<
+    typeof ListSiteResourceRolesResponseDataSchema
+>;
 
 const ListSiteResourceRolesResponseDataSchema = z.object({
     roles: z.array(RoleSummarySchema)
 });
-
-type _ListSiteResourceRolesResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListSiteResourceRolesResponseDataSchema>,
-        ListSiteResourceRolesResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

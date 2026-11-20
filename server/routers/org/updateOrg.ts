@@ -9,7 +9,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { OrgSchema } from "@server/lib/openapi/schemas/org";
+import { OrgSchema } from "@server/routers/org/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { build } from "@server/build";
 import { cache } from "#dynamic/lib/cache";
@@ -56,6 +56,8 @@ const updateOrgBodySchema = z
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"
     });
+
+export type UpdateOrgResponse = z.infer<typeof OrgSchema>;
 
 registry.registerPath({
     method: "post",
@@ -321,8 +323,11 @@ export async function updateOrg(
         await cache.del(`org_${orgId}_connectionDays`);
         await cache.del(`org_${orgId}_aiSessionsDays`);
 
-        return response(res, {
-            data: updatedOrg[0],
+        // sshCaPrivateKey is encrypted, but it should never leave the server
+        const { sshCaPrivateKey: _, ...orgWithoutPrivateKey } = updatedOrg[0];
+
+        return response<UpdateOrgResponse>(res, {
+            data: orgWithoutPrivateKey,
             success: true,
             error: false,
             message: "Organization updated successfully",

@@ -30,7 +30,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { AlertRuleDetailSchema } from "@server/lib/openapi/schemas/alertRule";
+import { AlertRuleDetailSchema } from "@server/routers/alertRule/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { and, eq } from "drizzle-orm";
 import { decrypt } from "@server/lib/crypto";

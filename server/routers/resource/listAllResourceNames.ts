@@ -9,12 +9,8 @@ import { eq } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { ResourceNameSchema } from "@server/lib/openapi/schemas/resource";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import { ResourceSchema } from "@server/routers/resource/types";
 
 const listResourcesParamsSchema = z.strictObject({
     orgId: z.string()
@@ -31,18 +27,13 @@ function queryResourceNames(orgId: string) {
         .where(eq(resources.orgId, orgId));
 }
 
-export type ListResourceNamesResponse = Awaited<
-    ReturnType<typeof queryResourceNames>
+export type ListResourceNamesResponse = z.infer<
+    typeof ListResourceNamesResponseDataSchema
 >;
 
-const ListResourceNamesResponseDataSchema = z.array(ResourceNameSchema);
-
-type _ListResourceNamesResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListResourceNamesResponseDataSchema>,
-        ListResourceNamesResponse
-    >
->;
+const ListResourceNamesResponseDataSchema = z.array(
+    ResourceSchema.pick({ resourceId: true, name: true })
+);
 
 registry.registerPath({
     method: "get",

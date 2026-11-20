@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { createSelectSchema } from "drizzle-zod";
+import { LimitOffsetPaginationSchema } from "@server/lib/openapi/pagination";
 import { db } from "@server/db";
 import { idpOrg } from "@server/db";
 import response from "@server/lib/response";
@@ -40,24 +42,34 @@ async function query(idpId: number, limit: number, offset: number) {
     return res;
 }
 
-export type ListIdpOrgPoliciesResponse = {
-    policies: NonNullable<Awaited<ReturnType<typeof query>>>;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListIdpOrgPoliciesResponse = z.infer<
+    typeof ListIdpOrgPoliciesResponseDataSchema
+>;
 
 const ListIdpOrgPoliciesResponseDataSchema = z.object({
     policies: z.array(
-        z.object({
-            idpId: z.number(),
-            orgId: z.string(),
-            assignDefaultOrgRoleId: z.number().nullable()
+        createSelectSchema(idpOrg, {
+            idpId: (s) =>
+                s.openapi({ description: "ID of the identity provider." }),
+            orgId: (s) => s.openapi({ description: "ID of the organization." }),
+            roleMapping: (s) =>
+                s.openapi({
+                    description:
+                        "JMESPath expression evaluated against the ID token to pick the user's role in this organization."
+                }),
+            orgMapping: (s) =>
+                s.openapi({
+                    description:
+                        "JMESPath expression evaluated against the ID token to decide whether the user belongs to this organization."
+                }),
+            autoProvision: (s) =>
+                s.openapi({
+                    description:
+                        "Whether users are created and added to this organization on first login."
+                })
         })
     ),
-    pagination: z.object({
-        total: z.number(),
-        limit: z.number(),
-        offset: z.number()
-    })
+    pagination: LimitOffsetPaginationSchema
 });
 
 registry.registerPath({

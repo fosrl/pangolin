@@ -8,32 +8,21 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { AiProviderAttachmentSchema } from "@server/lib/openapi/schemas/ai";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { AiProviderAttachmentSchema } from "@server/routers/aiProvider/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { listSiteResourceAiProviders as listAttachments } from "@server/lib/aiInferenceResource";
 
 const listSiteResourceAiProvidersParamsSchema = z.strictObject({
     siteResourceId: z.coerce.number().int().positive()
 });
 
-export type ListSiteResourceAiProvidersResponse = {
-    providers: Awaited<ReturnType<typeof listAttachments>>;
-};
+export type ListSiteResourceAiProvidersResponse = z.infer<
+    typeof ListSiteResourceAiProvidersResponseDataSchema
+>;
 
 const ListSiteResourceAiProvidersResponseDataSchema = z.object({
     providers: z.array(AiProviderAttachmentSchema)
 });
-
-type _ListSiteResourceAiProvidersResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListSiteResourceAiProvidersResponseDataSchema>,
-        ListSiteResourceAiProvidersResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

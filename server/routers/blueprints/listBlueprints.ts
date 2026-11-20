@@ -11,13 +11,9 @@ import { OpenAPITags, registry } from "@server/openApi";
 import {
     LimitOffsetPaginationSchema,
     PaginationSchema
-} from "@server/lib/openapi/schemas/common";
-import { BlueprintListItemSchema } from "@server/lib/openapi/schemas/misc";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+} from "@server/lib/openapi/pagination";
+import { BlueprintListItemSchema } from "@server/routers/blueprints/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { BlueprintData } from "./types";
 
 const listBluePrintsParamsSchema = z.strictObject({
@@ -58,32 +54,14 @@ async function queryBlueprints(orgId: string, limit: number, offset: number) {
     return res;
 }
 
-export type ListBlueprintsResponse = {
-    blueprints: NonNullable<
-        Pick<
-            BlueprintData,
-            | "blueprintId"
-            | "name"
-            | "source"
-            | "succeeded"
-            | "orgId"
-            | "createdAt"
-        >[]
-    >;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListBlueprintsResponse = z.infer<
+    typeof ListBlueprintsResponseDataSchema
+>;
 
 const ListBlueprintsResponseDataSchema = z.object({
     blueprints: z.array(BlueprintListItemSchema),
     pagination: LimitOffsetPaginationSchema
 });
-
-type _ListBlueprintsResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListBlueprintsResponseDataSchema>,
-        ListBlueprintsResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

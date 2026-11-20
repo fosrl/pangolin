@@ -7,12 +7,7 @@ import {
     userOrgRoles
 } from "@server/db";
 import { registry } from "@server/openApi";
-import { AiUsageUsersRolesSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
@@ -238,12 +233,53 @@ async function query(data: Q) {
     };
 }
 
-type _AiUsageUsersRolesSchemaQueryAiUsageUsersRolesResponseCheck = Assert<
-    Equals<
-        z.infer<typeof AiUsageUsersRolesSchema>,
-        QueryAiUsageUsersRolesResponse
-    >
->;
+const costUsd = z.number().openapi({ description: "Cost in US dollars." });
+
+const dayValueRows = (what: string) =>
+    z
+        .array(
+            z
+                .object({ day: z.string() })
+                .catchall(z.union([z.number(), z.string()]))
+        )
+        .openapi({
+            description: `One object per day, as YYYY-MM-DD in day, with one numeric property per series (${what}). Series outside the top entries are grouped under other.`
+        });
+
+const requests = z
+    .number()
+    .int()
+    .openapi({ description: "Number of requests." });
+
+const totalTokens = z
+    .number()
+    .int()
+    .openapi({ description: "Total tokens used." });
+
+const QueryAiUsageUsersRolesResponseDataSchema = z.object({
+    topUsers: z.array(
+        z.object({
+            userId: z.string().nullable(),
+            email: z.string().nullable(),
+            requests,
+            totalTokens,
+            costUsd
+        })
+    ),
+    userCostPerDay: dayValueRows("one per user"),
+    userTokensPerDay: dayValueRows("one per user"),
+    topRoles: z.array(
+        z.object({
+            roleId: z.number().int(),
+            name: z.string().nullable(),
+            requests,
+            totalTokens,
+            costUsd
+        })
+    ),
+    roleCostPerDay: dayValueRows("one per role"),
+    roleTokensPerDay: dayValueRows("one per role")
+});
 
 registry.registerPath({
     method: "get",
@@ -255,10 +291,14 @@ registry.registerPath({
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: createApiSuccessResponses(AiUsageUsersRolesSchema)
+    responses: createApiSuccessResponses(
+        QueryAiUsageUsersRolesResponseDataSchema
+    )
 });
 
-export type QueryAiUsageUsersRolesResponse = Awaited<ReturnType<typeof query>>;
+export type QueryAiUsageUsersRolesResponse = z.infer<
+    typeof QueryAiUsageUsersRolesResponseDataSchema
+>;
 
 export async function queryAiUsageUsersRoles(
     req: Request,

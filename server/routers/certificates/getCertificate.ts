@@ -8,9 +8,9 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { registry } from "@server/openApi";
-import { CertificateSchema } from "@server/lib/openapi/schemas/domain";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { GetCertificateResponse } from "@server/routers/certificates/types";
+import { GetCertificateResponseDataSchema } from "@server/routers/certificates/types";
 
 const getCertificateSchema = z.strictObject({
     domainId: z.string(),
@@ -104,7 +104,7 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: createApiSuccessResponses(CertificateSchema)
+    responses: createApiSuccessResponses(GetCertificateResponseDataSchema)
 });
 
 export async function getCertificate(

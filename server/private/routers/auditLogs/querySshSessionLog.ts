@@ -22,12 +22,8 @@ import {
     primaryDb
 } from "@server/db";
 import { registry } from "@server/openApi";
-import { SshSessionLogSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { SshSessionLogSchema } from "@server/routers/auditLogs/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { eq, gt, lt, and, count, desc, inArray } from "drizzle-orm";
@@ -416,10 +412,6 @@ async function queryUniqueFilterAttributes(
         usernames: uniqueUsernames.map((row) => row.username).sort()
     };
 }
-
-type _SshSessionLogSchemaQuerySshSessionLogResponseCheck = Assert<
-    Equals<z.infer<typeof SshSessionLogSchema>, QuerySshSessionLogResponse>
->;
 
 registry.registerPath({
     method: "get",

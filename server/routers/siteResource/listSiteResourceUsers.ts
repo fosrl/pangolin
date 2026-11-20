@@ -9,13 +9,9 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { PrivateResourceIdParamsSchema } from "@server/lib/openapi/schemas/siteResource";
-import { UserSummarySchema } from "@server/lib/openapi/schemas/access";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
+import { UserSummarySchema } from "@server/routers/user/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listSiteResourceUsersSchema = z
     .object({
@@ -42,20 +38,13 @@ async function queryUsers(siteResourceId: number) {
         .where(eq(userSiteResources.siteResourceId, siteResourceId));
 }
 
-export type ListSiteResourceUsersResponse = {
-    users: NonNullable<Awaited<ReturnType<typeof queryUsers>>>;
-};
+export type ListSiteResourceUsersResponse = z.infer<
+    typeof ListSiteResourceUsersResponseDataSchema
+>;
 
 const ListSiteResourceUsersResponseDataSchema = z.object({
     users: z.array(UserSummarySchema)
 });
-
-type _ListSiteResourceUsersResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListSiteResourceUsersResponseDataSchema>,
-        ListSiteResourceUsersResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

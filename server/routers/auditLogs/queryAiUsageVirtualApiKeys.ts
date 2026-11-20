@@ -1,11 +1,6 @@
 import { db, logsDb, aiUsageRecords, virtualApiKeys } from "@server/db";
 import { registry } from "@server/openApi";
-import { AiUsageVirtualApiKeysSchema } from "@server/lib/openapi/schemas/auditLog";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { count, desc, inArray, sql } from "drizzle-orm";
@@ -151,13 +146,44 @@ async function query(data: Q) {
     };
 }
 
-type _AiUsageVirtualApiKeysSchemaQueryAiUsageVirtualApiKeysResponseCheck =
-    Assert<
-        Equals<
-            z.infer<typeof AiUsageVirtualApiKeysSchema>,
-            QueryAiUsageVirtualApiKeysResponse
-        >
-    >;
+const costUsd = z.number().openapi({ description: "Cost in US dollars." });
+
+const dayValueRows = (what: string) =>
+    z
+        .array(
+            z
+                .object({ day: z.string() })
+                .catchall(z.union([z.number(), z.string()]))
+        )
+        .openapi({
+            description: `One object per day, as YYYY-MM-DD in day, with one numeric property per series (${what}). Series outside the top entries are grouped under other.`
+        });
+
+const requests = z
+    .number()
+    .int()
+    .openapi({ description: "Number of requests." });
+
+const totalTokens = z
+    .number()
+    .int()
+    .openapi({ description: "Total tokens used." });
+
+const QueryAiUsageVirtualApiKeysResponseDataSchema = z.object({
+    topVirtualApiKeys: z.array(
+        z.object({
+            virtualApiKeyId: z.string().nullable(),
+            name: z.string().nullable(),
+            lastChars: z.string().nullable(),
+            kind: z.enum(["manual", "user"]).nullable(),
+            requests,
+            totalTokens,
+            costUsd
+        })
+    ),
+    virtualApiKeyCostPerDay: dayValueRows("one per virtual API key"),
+    virtualApiKeyTokensPerDay: dayValueRows("one per virtual API key")
+});
 
 registry.registerPath({
     method: "get",
@@ -169,11 +195,13 @@ registry.registerPath({
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: createApiSuccessResponses(AiUsageVirtualApiKeysSchema)
+    responses: createApiSuccessResponses(
+        QueryAiUsageVirtualApiKeysResponseDataSchema
+    )
 });
 
-export type QueryAiUsageVirtualApiKeysResponse = Awaited<
-    ReturnType<typeof query>
+export type QueryAiUsageVirtualApiKeysResponse = z.infer<
+    typeof QueryAiUsageVirtualApiKeysResponseDataSchema
 >;
 
 export async function queryAiUsageVirtualApiKeys(

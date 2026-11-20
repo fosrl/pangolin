@@ -26,13 +26,9 @@ const bodySchema = z.object({
 
 export type CreateOrgApiKeyBody = z.infer<typeof bodySchema>;
 
-export type CreateOrgApiKeyResponse = {
-    apiKeyId: string;
-    name: string;
-    apiKey: string;
-    lastChars: string;
-    createdAt: string;
-};
+export type CreateOrgApiKeyResponse = z.infer<
+    typeof CreateOrgApiKeyResponseDataSchema
+>;
 const CreateOrgApiKeyResponseDataSchema = z.object({
     apiKeyId: z.string(),
     name: z.string(),
@@ -40,7 +36,6 @@ const CreateOrgApiKeyResponseDataSchema = z.object({
     lastChars: z.string(),
     createdAt: z.string()
 });
-
 
 registry.registerPath({
     method: "put",
@@ -62,7 +57,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(CreateOrgApiKeyResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        CreateOrgApiKeyResponseDataSchema
+                    )
                 }
             }
         }

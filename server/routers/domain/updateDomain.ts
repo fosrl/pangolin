@@ -20,11 +20,9 @@ const bodySchema = z.strictObject({
     preferWildcardCert: z.boolean().optional().nullable()
 });
 
-export type UpdateDomainResponse = {
-    domainId: string;
-    certResolver: string | null;
-    preferWildcardCert: boolean | null;
-};
+export type UpdateDomainResponse = z.infer<
+    typeof UpdateDomainResponseDataSchema
+>;
 const UpdateDomainResponseDataSchema = z.object({
     domainId: z.string(),
     certResolver: z.string().nullable(),

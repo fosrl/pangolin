@@ -15,13 +15,8 @@ import { getUserDeviceName } from "@server/db/names";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import { PaginationSchema } from "@server/lib/openapi/schemas/common";
-import { UserDeviceListItemSchema } from "@server/lib/openapi/schemas/client";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { PaginationSchema } from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import {
@@ -42,6 +37,7 @@ import createHttpError from "http-errors";
 import semver from "semver";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
+import { createSelectSchema } from "drizzle-zod";
 
 const listUserDevicesParamsSchema = z.strictObject({
     orgId: z.string()
@@ -214,21 +210,157 @@ type OlmWithUpdateAvailable = Awaited<
     olmUpdateAvailable?: boolean;
 };
 
-export type ListUserDevicesResponse = PaginatedResponse<{
-    devices: Array<OlmWithUpdateAvailable>;
-}>;
+export type ListUserDevicesResponse = z.infer<
+    typeof ListUserDevicesResponseDataSchema
+>;
+
+const UserDeviceListItemSchema = createSelectSchema(clients, {
+    clientId: (s) => s.openapi({ description: "Numeric ID of the client." }),
+    orgId: (s) =>
+        s.openapi({
+            description: "ID of the organization the client belongs to."
+        }),
+    niceId: (s) =>
+        s.openapi({
+            description:
+                "Human readable ID of the client, unique within the organization."
+        }),
+    name: (s) => s.openapi({ description: "Client name." }),
+    pubKey: (s) =>
+        s.openapi({ description: "WireGuard public key of the client." }),
+    subnet: (s) =>
+        s.openapi({
+            description:
+                "Address assigned to the client inside the overlay network."
+        }),
+    megabytesIn: (s) =>
+        s.openapi({ description: "Megabytes received from the client." }),
+    megabytesOut: (s) =>
+        s.openapi({ description: "Megabytes sent to the client." }),
+    type: (s) => s.openapi({ description: "Kind of client, for example olm." }),
+    online: (s) =>
+        s.openapi({
+            description: "Whether the client is currently connected."
+        }),
+    userId: (s) =>
+        s.openapi({
+            description:
+                "ID of the user that owns the client. Null for machine clients."
+        }),
+    approvalState: z
+        .enum(["approved", "denied", "pending"])
+        .nullable()
+        .openapi({
+            description:
+                "Whether the client was approved by an admin. Only set when the owner's role requires device approval."
+        }),
+    archived: (s) =>
+        s.openapi({
+            description: "Whether the client is archived and hidden from lists."
+        }),
+    blocked: (s) =>
+        s.openapi({
+            description: "Whether the client is blocked from connecting."
+        })
+})
+    .pick({
+        clientId: true,
+        orgId: true,
+        niceId: true,
+        name: true,
+        pubKey: true,
+        subnet: true,
+        megabytesIn: true,
+        megabytesOut: true,
+        type: true,
+        online: true,
+        userId: true,
+        approvalState: true,
+        archived: true,
+        blocked: true
+    })
+    .extend({
+        orgName: z.string().nullable().openapi({
+            description: "Name of the organization the device belongs to."
+        }),
+        olmVersion: z
+            .string()
+            .nullable()
+            .openapi({ description: "Version of the Olm agent." }),
+        username: z
+            .string()
+            .nullable()
+            .openapi({ description: "Username of the owning user." }),
+        userEmail: z
+            .string()
+            .nullable()
+            .openapi({ description: "Email of the owning user." }),
+        userType: z.string().nullable().openapi({
+            description: "Sign-in type of the owning user."
+        }),
+        idpName: z.string().nullable().openapi({
+            description:
+                "Name of the identity provider the owning user belongs to."
+        }),
+        idpVariant: z.string().nullable().openapi({
+            description: "Variant of the identity provider."
+        }),
+        agent: z
+            .string()
+            .nullable()
+            .openapi({ description: "Name of the agent software." }),
+        agentVersion: z.string().nullable().openapi({
+            description: "Version of the agent software."
+        }),
+        olmArchived: z.boolean().nullable().openapi({
+            description: "Whether the device's Olm agent is archived."
+        }),
+        deviceModel: z
+            .string()
+            .nullable()
+            .openapi({ description: "Device model." }),
+        fingerprintPlatform: z
+            .string()
+            .nullable()
+            .openapi({ description: "Operating system platform." }),
+        fingerprintOsVersion: z
+            .string()
+            .nullable()
+            .openapi({ description: "Operating system version." }),
+        fingerprintKernelVersion: z
+            .string()
+            .nullable()
+            .openapi({ description: "Kernel version." }),
+        fingerprintArch: z
+            .string()
+            .nullable()
+            .openapi({ description: "CPU architecture." }),
+        fingerprintSerialNumber: z
+            .string()
+            .nullable()
+            .openapi({ description: "Device serial number." }),
+        fingerprintUsername: z.string().nullable().openapi({
+            description: "OS username the client runs as."
+        }),
+        fingerprintHostname: z
+            .string()
+            .nullable()
+            .openapi({ description: "Device hostname." }),
+        firstSeen: z.number().int().nullable().openapi({
+            description: "Epoch seconds when the device was first seen."
+        }),
+        lastSeen: z.number().int().nullable().openapi({
+            description: "Epoch seconds when the device was last seen."
+        }),
+        olmUpdateAvailable: z.boolean().optional().openapi({
+            description: "Whether a newer Olm version is available."
+        })
+    });
 
 const ListUserDevicesResponseDataSchema = z.object({
     devices: z.array(UserDeviceListItemSchema),
     pagination: PaginationSchema
 });
-
-type _ListUserDevicesResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListUserDevicesResponseDataSchema>,
-        ListUserDevicesResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

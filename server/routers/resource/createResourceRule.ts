@@ -13,7 +13,8 @@ import {
     getResourceRuleValueValidationError
 } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
-import { ResourceRuleSchema } from "@server/lib/openapi/schemas/resource";
+import { ResourceRuleSchema } from "@server/routers/resource/types";
+import { ResourcePolicyRuleSchema } from "@server/routers/policy/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const createResourceRuleSchema = z.strictObject({
@@ -27,6 +28,16 @@ const createResourceRuleSchema = z.strictObject({
 const createResourceRuleParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
+
+// A resource that uses a policy has its rules stored on the policy
+const CreateResourceRuleResponseDataSchema = z.union([
+    ResourceRuleSchema,
+    ResourcePolicyRuleSchema
+]);
+
+export type CreateResourceRuleResponse = z.infer<
+    typeof CreateResourceRuleResponseDataSchema
+>;
 
 registry.registerPath({
     method: "put",
@@ -43,7 +54,10 @@ registry.registerPath({
             }
         }
     },
-    responses: createApiSuccessResponses(ResourceRuleSchema, 201)
+    responses: createApiSuccessResponses(
+        CreateResourceRuleResponseDataSchema,
+        201
+    )
 });
 
 registry.registerPath({
@@ -61,7 +75,10 @@ registry.registerPath({
             }
         }
     },
-    responses: createApiSuccessResponses(ResourceRuleSchema, 201)
+    responses: createApiSuccessResponses(
+        CreateResourceRuleResponseDataSchema,
+        201
+    )
 });
 
 export async function createResourceRule(
@@ -150,7 +167,7 @@ export async function createResourceRule(
                 })
                 .returning();
 
-            return response(res, {
+            return response<CreateResourceRuleResponse>(res, {
                 data: newRule,
                 success: true,
                 error: false,
@@ -172,7 +189,7 @@ export async function createResourceRule(
             })
             .returning();
 
-        return response(res, {
+        return response<CreateResourceRuleResponse>(res, {
             data: newRule,
             success: true,
             error: false,

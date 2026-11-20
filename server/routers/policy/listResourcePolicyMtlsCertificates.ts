@@ -8,7 +8,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { MtlsCertificateInfoSchema } from "@server/lib/openapi/schemas/policy";
+import { MtlsCertificateInfoSchema } from "@server/routers/policy/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     listMtlsCertificates,
@@ -19,9 +19,9 @@ const listResourcePolicyMtlsCertificatesParamsSchema = z.strictObject({
     resourcePolicyId: z.string().transform(Number).pipe(z.int().positive())
 });
 
-export type ListResourcePolicyMtlsCertificatesResponse = {
-    certificates: MtlsCertificateInfo[];
-};
+export type ListResourcePolicyMtlsCertificatesResponse = z.infer<
+    typeof CertificatesDataSchema
+>;
 
 const description =
     "List the trusted CA certificates for a resource policy's mTLS.";

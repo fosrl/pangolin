@@ -14,13 +14,8 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import { PaginationSchema } from "@server/lib/openapi/schemas/common";
-import { SiteResourceWithSitesSchema } from "@server/lib/openapi/schemas/siteResource";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { PaginationSchema } from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
@@ -30,6 +25,8 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { createSelectSchema } from "drizzle-zod";
+import { SiteResourceSchema } from "@server/routers/siteResource/types";
 
 const listAllSiteResourcesByOrgParamsSchema = z.strictObject({
     orgId: z.string()
@@ -135,16 +132,9 @@ const listAllSiteResourcesByOrgQuerySchema = z.strictObject({
         })
 });
 
-export type ListAllSiteResourcesByOrgResponse = PaginatedResponse<{
-    siteResources: (SiteResource & {
-        siteOnlines: boolean[];
-        siteIds: number[];
-        siteNames: string[];
-        siteNiceIds: string[];
-        siteAddresses: (string | null)[];
-        labels?: Array<Pick<Label, "labelId" | "name" | "color">>;
-    })[];
-}>;
+export type ListAllSiteResourcesByOrgResponse = z.infer<
+    typeof ListAllSiteResourcesByOrgResponseDataSchema
+>;
 
 /**
  * Returns an aggregation expression compatible with both SQLite and PostgreSQL.
@@ -244,17 +234,38 @@ function querySiteResourcesBase() {
         .groupBy(siteResources.siteResourceId);
 }
 
+const SiteResourceLabelSchema = createSelectSchema(labels, {
+    labelId: (s) => s.openapi({ description: "Numeric ID of the label." }),
+    name: (s) => s.openapi({ description: "Label name." }),
+    color: (s) => s.openapi({ description: "Label color." })
+}).pick({ labelId: true, name: true, color: true });
+
+const SiteResourceWithSitesSchema = SiteResourceSchema.extend({
+    siteIds: z.array(z.number().int()).openapi({
+        description:
+            "IDs of the sites that can serve this resource. Parallel to siteNames, siteNiceIds, siteAddresses and siteOnlines."
+    }),
+    siteNames: z
+        .array(z.string())
+        .openapi({ description: "Names of the sites." }),
+    siteNiceIds: z.array(z.string()).openapi({
+        description: "Nice IDs of the sites."
+    }),
+    siteAddresses: z.array(z.string().nullable()).openapi({
+        description: "Overlay addresses of the sites."
+    }),
+    siteOnlines: z.array(z.boolean()).openapi({
+        description: "Whether each site is currently online."
+    }),
+    labels: z.array(SiteResourceLabelSchema).optional().openapi({
+        description: "Labels attached to the resource."
+    })
+});
+
 const ListAllSiteResourcesByOrgResponseDataSchema = z.object({
     siteResources: z.array(SiteResourceWithSitesSchema),
     pagination: PaginationSchema
 });
-
-type _ListAllSiteResourcesByOrgResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof ListAllSiteResourcesByOrgResponseDataSchema>,
-        ListAllSiteResourcesByOrgResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

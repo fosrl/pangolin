@@ -30,7 +30,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { AlertRuleCreatedSchema } from "@server/lib/openapi/schemas/alertRule";
+import { AlertRuleCreatedSchema } from "@server/routers/alertRule/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";

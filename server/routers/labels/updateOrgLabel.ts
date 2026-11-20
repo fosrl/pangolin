@@ -3,7 +3,6 @@ import response from "@server/lib/response";
 import logger from "@server/logger";
 import type { CreateOrEditLabelResponse } from "@server/routers/labels/types";
 import { OpenAPITags, registry } from "@server/openApi";
-import { LabelSchema } from "@server/lib/openapi/schemas/misc";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, ne, sql } from "drizzle-orm";
@@ -11,6 +10,7 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
+import { LabelEnvelopeSchema } from "@server/routers/labels/types";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty(),
@@ -24,8 +24,6 @@ const updateLabelBodySchema = z.strictObject({
         .regex(/^#?([0-9a-f]{6}|[0-9a-f]{3})$/i)
         .nonempty()
 });
-
-const LabelEnvelopeSchema = z.object({ label: LabelSchema });
 
 registry.registerPath({
     method: "patch",

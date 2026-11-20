@@ -10,12 +10,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { ActionsEnum, checkUserActionPermission } from "@server/auth/actions";
 import { OpenAPITags, registry } from "@server/openApi";
-import { OrgAccessCheckSchema } from "@server/lib/openapi/schemas/user";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { CheckOrgAccessPolicyResult } from "@server/lib/checkOrgAccessPolicy";
 
@@ -70,16 +65,52 @@ async function queryUser(orgId: string, userId: string) {
     };
 }
 
-export type CheckOrgUserAccessResponse = CheckOrgAccessPolicyResult;
+export type CheckOrgUserAccessResponse = z.infer<
+    typeof CheckOrgUserAccessResponseDataSchema
+>;
 
 const paramsSchema = z.object({
     userId: z.string(),
     orgId: z.string()
 });
 
-type _OrgAccessCheckSchemaCheckOrgUserAccessResponseCheck = Assert<
-    Equals<z.infer<typeof OrgAccessCheckSchema>, CheckOrgUserAccessResponse>
->;
+const CheckOrgUserAccessResponseDataSchema = z.object({
+    allowed: z.boolean().openapi({
+        description:
+            "Whether the user satisfies the organization's access policies."
+    }),
+    error: z.string().optional().openapi({
+        description: "Why access was denied, when it was."
+    }),
+    policies: z
+        .object({
+            requiredTwoFactor: z.boolean().optional().openapi({
+                description: "Whether two-factor authentication is required."
+            }),
+            maxSessionLength: z
+                .object({
+                    compliant: z.boolean(),
+                    maxSessionLengthHours: z.number(),
+                    sessionAgeHours: z.number()
+                })
+                .optional()
+                .openapi({
+                    description: "Result of the maximum session length policy."
+                }),
+            passwordAge: z
+                .object({
+                    compliant: z.boolean(),
+                    maxPasswordAgeDays: z.number(),
+                    passwordAgeDays: z.number()
+                })
+                .optional()
+                .openapi({
+                    description: "Result of the password expiry policy."
+                })
+        })
+        .optional()
+        .openapi({ description: "Per-policy results." })
+});
 
 registry.registerPath({
     method: "get",
@@ -89,7 +120,7 @@ registry.registerPath({
     request: {
         params: paramsSchema
     },
-    responses: createApiSuccessResponses(OrgAccessCheckSchema)
+    responses: createApiSuccessResponses(CheckOrgUserAccessResponseDataSchema)
 });
 
 export async function checkOrgUserAccess(

@@ -8,7 +8,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { MtlsCertificateInfoSchema } from "@server/lib/openapi/schemas/policy";
+import { MtlsCertificateInfoSchema } from "@server/routers/policy/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     addMtlsCertificates,
@@ -24,9 +24,9 @@ const createResourcePolicyMtlsCertificateBodySchema = z.strictObject({
     certificate: z.string().min(1).max(100_000)
 });
 
-export type CreateResourcePolicyMtlsCertificateResponse = {
-    certificates: MtlsCertificateInfo[];
-};
+export type CreateResourcePolicyMtlsCertificateResponse = z.infer<
+    typeof CertificatesDataSchema
+>;
 
 const description =
     "Add a trusted CA certificate that clients must present a certificate signed by when mTLS is enabled on a resource policy. Accepts a PEM bundle; each certificate in the bundle is stored separately.";

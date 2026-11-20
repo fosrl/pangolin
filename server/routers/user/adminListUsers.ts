@@ -11,15 +11,11 @@ import { OpenAPITags, registry } from "@server/openApi";
 import {
     PaginationSchema,
     LimitOffsetPaginationSchema
-} from "@server/lib/openapi/schemas/common";
-import { AdminUserListItemSchema } from "@server/lib/openapi/schemas/user";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+} from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import { UserType } from "@server/types/UserTypes";
+import { createSelectSchema } from "drizzle-zod";
 
 const listUsersSchema = z.strictObject({
     pageSize: z.coerce
@@ -130,35 +126,64 @@ function queryUsersBase() {
 }
 
 /** Row shape returned by `queryUsersBase()` (matches selected columns + join). */
-export type AdminListUserRow = {
-    id: string;
-    email: string | null;
-    username: string;
-    name: string | null;
-    dateCreated: string;
-    serverAdmin: boolean;
-    type: string;
-    idpName: string | null;
-    idpId: number | null;
-    twoFactorEnabled: boolean;
-    twoFactorSetupRequested: boolean | null;
-};
+export type AdminListUserRow = AdminListUsersResponse["users"][number];
 
-export type AdminListUsersResponse = PaginatedResponse<{
-    users: AdminListUserRow[];
-}>;
+export type AdminListUsersResponse = z.infer<
+    typeof AdminListUsersResponseDataSchema
+>;
+
+const AdminUserListItemSchema = createSelectSchema(users, {
+    email: (s) => s.openapi({ description: "Email of the user." }),
+    username: (s) => s.openapi({ description: "Username of the user." }),
+    name: (s) => s.openapi({ description: "Display name of the user." }),
+    type: (s) =>
+        s.openapi({
+            description:
+                "How the user signs in, either an internal account or an identity provider type (e.g. oidc)."
+        }),
+    twoFactorEnabled: (s) =>
+        s.openapi({
+            description:
+                "Whether the user has two-factor authentication enabled."
+        }),
+    twoFactorSetupRequested: (s) =>
+        s.openapi({
+            description:
+                "Whether an admin has asked the user to set up two-factor authentication."
+        }),
+    serverAdmin: (s) =>
+        s.openapi({ description: "Whether the user is a server admin." }),
+    idpId: (s) =>
+        s.openapi({
+            description:
+                "ID of the identity provider the user belongs to. Null for internal users."
+        }),
+    dateCreated: (s) =>
+        s.openapi({ description: "ISO timestamp when the user was created." })
+})
+    .pick({
+        email: true,
+        username: true,
+        name: true,
+        type: true,
+        twoFactorEnabled: true,
+        twoFactorSetupRequested: true,
+        serverAdmin: true,
+        idpId: true,
+        dateCreated: true
+    })
+    .extend({
+        idpName: z.string().nullable().openapi({
+            description:
+                "Name of the identity provider the user belongs to. Null for internal users."
+        }),
+        id: z.string().openapi({ description: "ID of the user." })
+    });
 
 const AdminListUsersResponseDataSchema = z.object({
     users: z.array(AdminUserListItemSchema),
     pagination: PaginationSchema
 });
-
-type _AdminListUsersResponseDataSchemaCheck = Assert<
-    Equals<
-        z.infer<typeof AdminListUsersResponseDataSchema>,
-        AdminListUsersResponse
-    >
->;
 
 registry.registerPath({
     method: "get",

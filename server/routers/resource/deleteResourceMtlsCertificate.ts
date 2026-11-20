@@ -8,7 +8,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { MtlsDisabledSchema } from "@server/lib/openapi/schemas/policy";
+import { DeleteResourceMtlsCertificateResponseDataSchema } from "@server/routers/resource/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { getResourceMtlsOwner, removeMtlsCertificate } from "@server/lib/mtls";
 import { DeleteResourceMtlsCertificateResponse } from "@server/routers/resource/types";
@@ -29,7 +29,9 @@ registry.registerPath({
     request: {
         params: deleteResourceMtlsCertificateParamsSchema
     },
-    responses: createApiSuccessResponses(MtlsDisabledSchema)
+    responses: createApiSuccessResponses(
+        DeleteResourceMtlsCertificateResponseDataSchema
+    )
 });
 
 registry.registerPath({
@@ -40,7 +42,9 @@ registry.registerPath({
     request: {
         params: deleteResourceMtlsCertificateParamsSchema
     },
-    responses: createApiSuccessResponses(MtlsDisabledSchema)
+    responses: createApiSuccessResponses(
+        DeleteResourceMtlsCertificateResponseDataSchema
+    )
 });
 
 export async function deleteResourceMtlsCertificate(

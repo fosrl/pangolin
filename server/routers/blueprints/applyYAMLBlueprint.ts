@@ -1,5 +1,5 @@
 import { OpenAPITags, registry } from "@server/openApi";
-import { BlueprintSchema } from "@server/lib/openapi/schemas/misc";
+import { BlueprintSchema } from "@server/routers/blueprints/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import z from "zod";
 import { applyBlueprint } from "@server/lib/blueprints/applyBlueprint";

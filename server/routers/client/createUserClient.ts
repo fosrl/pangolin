@@ -21,7 +21,7 @@ import { isValidIP } from "@server/lib/validators";
 import { isIpInCidr } from "@server/lib/ip";
 import { listExitNodes } from "#dynamic/lib/exitNodes";
 import { OpenAPITags, registry } from "@server/openApi";
-import { ClientSchema } from "@server/lib/openapi/schemas/client";
+import { ClientSchema } from "@server/routers/client/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromClient,
@@ -47,7 +47,7 @@ const bodySchema = z
 
 export type CreateClientAndOlmBody = z.infer<typeof bodySchema>;
 
-export type CreateClientAndOlmResponse = Client;
+export type CreateClientAndOlmResponse = z.infer<typeof ClientSchema>;
 
 registry.registerPath({
     method: "put",

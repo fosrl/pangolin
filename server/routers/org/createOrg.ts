@@ -24,7 +24,7 @@ import config from "@server/lib/config";
 import { fromError } from "zod-validation-error";
 import { defaultRoleAllowedActions } from "../role";
 import { OpenAPITags, registry } from "@server/openApi";
-import { OrgSchema } from "@server/lib/openapi/schemas/org";
+import { OrgSchema } from "@server/routers/org/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { isValidCIDR } from "@server/lib/validators";
 import { createCustomer, linkEmailOrg } from "#dynamic/lib/billing";
@@ -60,6 +60,8 @@ const createOrgSchema = z.strictObject({
             message: "Invalid utility subnet CIDR"
         })
 });
+
+export type CreateOrgResponse = z.infer<typeof OrgSchema>;
 
 registry.registerPath({
     method: "put",
@@ -423,8 +425,11 @@ export async function createOrg(
             );
         }
 
-        return response(res, {
-            data: org,
+        // sshCaPrivateKey is encrypted, but it should never leave the server
+        const { sshCaPrivateKey: _, ...orgWithoutPrivateKey } = org as Org;
+
+        return response<CreateOrgResponse>(res, {
+            data: orgWithoutPrivateKey,
             success: true,
             error: false,
             message: "Organization created successfully",

@@ -27,12 +27,8 @@ import { eq } from "drizzle-orm";
 import { pickPort } from "./helpers";
 import { isTargetValid } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
-import { TargetWithHealthCheckSchema } from "@server/lib/openapi/schemas/target";
-import {
-    createApiSuccessResponses,
-    Assert,
-    Equals
-} from "@server/lib/openapi/createApiResponseSchema";
+import { TargetWithHealthCheckSchema } from "@server/routers/target/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     fireHealthCheckHealthyAlert,
     fireHealthCheckUnhealthyAlert,
@@ -110,11 +106,7 @@ const createTargetSchema = z
         }
     });
 
-export type CreateTargetResponse = Target & TargetHealthCheck;
-
-type _TargetWithHealthCheckSchemaCreateTargetResponseCheck = Assert<
-    Equals<z.infer<typeof TargetWithHealthCheckSchema>, CreateTargetResponse>
->;
+export type CreateTargetResponse = z.infer<typeof TargetWithHealthCheckSchema>;
 
 registry.registerPath({
     method: "put",

@@ -24,7 +24,7 @@ import { isIpInCidr } from "@server/lib/ip";
 import { listExitNodes } from "#dynamic/lib/exitNodes";
 import { generateId } from "@server/auth/sessions/app";
 import { OpenAPITags, registry } from "@server/openApi";
-import { ClientSchema } from "@server/lib/openapi/schemas/client";
+import { ClientSchema } from "@server/routers/client/types";
 import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromClient,
@@ -49,7 +49,7 @@ const createClientSchema = z.strictObject({
 
 export type CreateClientBody = z.infer<typeof createClientSchema>;
 
-export type CreateClientResponse = Client;
+export type CreateClientResponse = z.infer<typeof ClientSchema>;
 
 registry.registerPath({
     method: "put",

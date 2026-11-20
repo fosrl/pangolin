@@ -46,14 +46,7 @@ async function query(limit: number, offset: number) {
     return res;
 }
 
-export type ListIdpsResponse = {
-    idps: Awaited<ReturnType<typeof query>>;
-    pagination: {
-        total: number;
-        limit: number;
-        offset: number;
-    };
-};
+export type ListIdpsResponse = z.infer<typeof ListIdpsResponseDataSchema>;
 
 const ListIdpsResponseDataSchema = z.object({
     idps: z.array(

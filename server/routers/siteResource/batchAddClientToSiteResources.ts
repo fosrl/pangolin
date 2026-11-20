@@ -49,6 +49,10 @@ const BatchAddClientToSiteResourcesResponseDataSchema = z.object({
     })
 });
 
+export type BatchAddClientToSiteResourcesResponse = z.infer<
+    typeof BatchAddClientToSiteResourcesResponseDataSchema
+>;
+
 registry.registerPath({
     method: "post",
     path: "/client/{clientId}/site-resources",
@@ -277,7 +281,7 @@ export async function batchAddClientToSiteResources(
             );
         });
 
-        return response(res, {
+        return response<BatchAddClientToSiteResourcesResponse>(res, {
             data: {
                 addedCount: siteResourcesToAdd.length,
                 skippedCount:
