@@ -35,6 +35,7 @@ async function query(limit: number, offset: number) {
             variant: idpOidcConfig.variant,
             orgCount: sql<number>`count(${idpOrg.orgId})`,
             autoProvision: idp.autoProvision,
+            allowManualProvisioning: idp.allowManualProvisioning,
             tags: idp.tags
         })
         .from(idp)
@@ -64,6 +65,7 @@ const ListIdpsResponseDataSchema = z.object({
             variant: z.string().nullable(),
             orgCount: z.number(),
             autoProvision: z.boolean().nullable(),
+            allowManualProvisioning: z.boolean(),
             tags: z.string().nullable()
         })
     ),

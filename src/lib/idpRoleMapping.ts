@@ -189,12 +189,13 @@ export function compileRoleMappingExpression(config: RoleMappingConfig): string 
 }
 
 export function detectRoleMappingConfig(
-    expression: string | null | undefined
+    expression: string | null | undefined,
+    defaults: RoleMappingConfig = defaultRoleMappingConfig()
 ): RoleMappingConfig {
     const stored = expression?.trim() || "";
 
     if (!stored) {
-        return defaultRoleMappingConfig();
+        return defaults;
     }
 
     const { evaluationExpression, builderState } = unwrapRoleMapping(stored);
@@ -218,7 +219,7 @@ export function detectRoleMappingConfig(
         return {
             mode: "fixedRoles",
             fixedRoleNames: [singleMatch[1]],
-            mappingBuilder: defaultRoleMappingConfig().mappingBuilder,
+            mappingBuilder: defaults.mappingBuilder,
             rawExpression: tail
         };
     }
@@ -235,7 +236,7 @@ export function detectRoleMappingConfig(
             return {
                 mode: "fixedRoles",
                 fixedRoleNames: roleNames,
-                mappingBuilder: defaultRoleMappingConfig().mappingBuilder,
+                mappingBuilder: defaults.mappingBuilder,
                 rawExpression: tail
             };
         }
@@ -244,7 +245,7 @@ export function detectRoleMappingConfig(
     return {
         mode: "rawExpression",
         fixedRoleNames: [],
-        mappingBuilder: defaultRoleMappingConfig().mappingBuilder,
+        mappingBuilder: defaults.mappingBuilder,
         rawExpression: tail
     };
 }
@@ -261,6 +262,77 @@ export function defaultRoleMappingConfig(): RoleMappingConfig {
     };
 }
 
+/** Directory sync builder rules match on group names, `groups` holds provider group IDs. */
+export function defaultSyncRoleMappingConfig(): RoleMappingConfig {
+    const config = defaultRoleMappingConfig();
+    return {
+        ...config,
+        mappingBuilder: { ...config.mappingBuilder, claimPath: "groupNames" }
+    };
+}
+
 function dedupeNonEmpty(values: string[]): string[] {
     return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+/**
+ * "Create missing roles" only applies to a raw expression, the only mode that can
+ * return role names that aren't in the org. Saved as `false` otherwise, so a
+ * hidden checkbox doesn't stay on after switching modes.
+ */
+export function effectiveCreateMissingRoles(
+    config: RoleMappingConfig,
+    checked: boolean | undefined
+): boolean {
+    return config.mode === "rawExpression" && checked === true;
+}
+
+const COMPARATOR_BEFORE_REGEX = /(==|!=|<=|>=|<|>)\s*$/;
+
+/**
+ * Best-effort list of the role names a raw expression can return: single-quoted
+ * literals that aren't function arguments (`contains(groups, 'x')`), inside a
+ * filter (`[?name == 'x']`) or compared against (`a == 'x'`).
+ * Only used for display.
+ */
+export function extractReturnedRoleNames(expression: string): string[] {
+    const names: string[] = [];
+    // "(" for calls, "?" for filters, "[" for arrays/indexes (literals inside arrays are returned)
+    const stack: string[] = [];
+
+    for (let i = 0; i < expression.length; i++) {
+        const char = expression[i];
+        if (char === "(") {
+            stack.push("(");
+        } else if (char === ")") {
+            stack.pop();
+        } else if (char === "[") {
+            stack.push(expression[i + 1] === "?" ? "?" : "[");
+        } else if (char === "]") {
+            stack.pop();
+        } else if (char === "'") {
+            let value = "";
+            let j = i + 1;
+            while (j < expression.length && expression[j] !== "'") {
+                if (expression[j] === "\\" && j + 1 < expression.length) {
+                    value += expression[j + 1];
+                    j += 2;
+                    continue;
+                }
+                value += expression[j];
+                j++;
+            }
+
+            const nested = stack.some((s) => s === "(" || s === "?");
+            const compared = COMPARATOR_BEFORE_REGEX.test(
+                expression.slice(0, i)
+            );
+            if (!nested && !compared) {
+                names.push(value);
+            }
+            i = j;
+        }
+    }
+
+    return dedupeNonEmpty(names);
 }

@@ -16,7 +16,7 @@ const paramsSchema = z.strictObject({
 
 const bodySchema = z
     .strictObject({
-        autoProvisioned: z.boolean().optional()
+        autoManaged: z.boolean().optional()
     })
     .refine((data) => Object.keys(data).length > 0, {
         error: "At least one field must be provided for update"

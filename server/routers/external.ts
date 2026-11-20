@@ -1254,6 +1254,13 @@ authenticated.post(
 
 authenticated.get("/org/:orgId/user/:userId", verifyOrgAccess, user.getOrgUser);
 authenticated.get("/org/:orgId/user/:userId/check", org.checkOrgUserAccess);
+authenticated.get(
+    "/org/:orgId/user/:userId/login-claims",
+    verifyOrgAccess,
+    verifyUserAccess,
+    verifyUserHasAction(ActionsEnum.updateOrgUser),
+    user.getOrgUserLoginClaims
+);
 
 authenticated.get(
     "/org/:orgId/users",
@@ -1349,6 +1356,32 @@ if (build !== "saas") {
         "/idp/:idpId/oidc",
         verifyUserIsServerAdmin,
         idp.updateOidcIdp
+    );
+
+    authenticated.put(
+        "/idp/:idpId/oidc/test-links",
+        verifyUserIsServerAdmin,
+        idp.createIdpTestLink
+    );
+    authenticated.get(
+        "/idp/:idpId/oidc/test-links",
+        verifyUserIsServerAdmin,
+        idp.listIdpTestLinks
+    );
+    authenticated.get(
+        "/idp/:idpId/oidc/test-results/latest",
+        verifyUserIsServerAdmin,
+        idp.getLatestIdpTestResult
+    );
+    authenticated.get(
+        "/idp/:idpId/oidc/test-links/:linkId",
+        verifyUserIsServerAdmin,
+        idp.getIdpTestLink
+    );
+    authenticated.delete(
+        "/idp/:idpId/oidc/test-links/:linkId",
+        verifyUserIsServerAdmin,
+        idp.deleteIdpTestLink
     );
 
     authenticated.delete("/idp/:idpId", verifyUserIsServerAdmin, idp.deleteIdp);
@@ -2386,6 +2419,11 @@ authRouter.post("/access-token", resource.authWithAccessToken);
 authRouter.post("/idp/:idpId/oidc/generate-url", idp.generateOidcUrl);
 
 authRouter.post("/idp/:idpId/oidc/validate-callback", idp.validateOidcCallback);
+authRouter.get("/idp/:idpId/oidc/test-link/:token", idp.getIdpTestLinkInfo);
+authRouter.post(
+    "/idp/:idpId/oidc/test-link/:token/generate-url",
+    idp.generateIdpTestLinkUrl
+);
 
 authRouter.put("/set-server-admin", auth.setServerAdmin);
 authRouter.post("/validate-setup-token", auth.validateSetupToken);

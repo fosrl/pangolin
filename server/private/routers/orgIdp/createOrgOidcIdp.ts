@@ -20,15 +20,18 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { idp, idpOidcConfig, idpOrg, orgs } from "@server/db";
+import { idp, idpOidcConfig, idpOrg } from "@server/db";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { CreateOrgIdpResponse } from "@server/routers/orgIdp/types";
 import { isSubscribed } from "#private/lib/isSubscribed";
+import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
 import { build } from "@server/build";
+import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 const paramsSchema = z.strictObject({ orgId: z.string().nonempty() });
 
@@ -43,10 +46,21 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
     autoProvision: z.boolean().optional(),
+    apiIntegrationEnabled: z.boolean().optional(),
+    allowManualProvisioning: z.boolean().optional(),
+    directorySyncEnabled: z.boolean().optional(),
     sessionRevalidation: z.boolean().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc"),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
+    syncRoleMapping: z.string().nullish(),
+    syncOrgMapping: z.string().nullish(),
+    mappingsLinked: z.boolean().optional(),
+    createMissingRoles: z.boolean().optional(),
+    syncCreateMissingRoles: z.boolean().optional(),
+    directorySyncDeletions: z.boolean().optional(),
+    // provider-specific, validated against the variant's schema
+    apiConfig: z.record(z.string(), z.unknown()).optional(),
     tags: z.string().optional()
 });
 
@@ -123,6 +137,16 @@ export async function createOrgOidcIdp(
             variant,
             roleMapping,
             orgMapping: orgMappingBody,
+            apiIntegrationEnabled,
+            allowManualProvisioning,
+            directorySyncEnabled,
+            syncRoleMapping,
+            syncOrgMapping,
+            mappingsLinked,
+            createMissingRoles,
+            syncCreateMissingRoles,
+            directorySyncDeletions,
+            apiConfig,
             tags
         } = parsedBody.data;
 
@@ -155,6 +179,49 @@ export async function createOrgOidcIdp(
             scopes = scopesForSessionRevalidation(scopes, variant);
         }
 
+        // the API integration (and sync, which needs it) is only supported for google/azure idps
+        const apiIntegrationSupported = supportsApiIntegration(variant);
+        const effectiveApiIntegrationEnabled =
+            apiIntegrationSupported && !!apiIntegrationEnabled;
+        const effectiveDirectorySyncEnabled =
+            apiIntegrationSupported && !!directorySyncEnabled;
+
+        if (effectiveDirectorySyncEnabled && !effectiveApiIntegrationEnabled) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Directory sync requires the API integration"
+                )
+            );
+        }
+
+        // the API integration and sync are paid features
+        const enablesApiFeatures =
+            effectiveApiIntegrationEnabled || effectiveDirectorySyncEnabled;
+        if (
+            enablesApiFeatures &&
+            !(await isLicensedOrSubscribed(orgId, tierMatrix.idpAPIIntegration))
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "The IdP API integration and directory sync are not available on your current plan"
+                )
+            );
+        }
+
+        const resolvedApiConfig = resolveIDPAPIConfig({
+            variant,
+            incomingApiConfig: apiConfig,
+            existingEncryptedApiConfig: null,
+            apiIntegrationEnabled: effectiveApiIntegrationEnabled
+        });
+        if (!resolvedApiConfig.success) {
+            return next(
+                createHttpError(HttpCode.BAD_REQUEST, resolvedApiConfig.error)
+            );
+        }
+
         const key = config.getRawConfig().server.secret!;
 
         const encryptedSecret = encrypt(clientSecret, key);
@@ -168,6 +235,10 @@ export async function createOrgOidcIdp(
                     name,
                     autoProvision: false,
                     sessionRevalidation,
+                    apiIntegrationEnabled: effectiveApiIntegrationEnabled,
+                    allowManualProvisioning,
+                    directorySyncEnabled: effectiveDirectorySyncEnabled,
+                    apiConfig: resolvedApiConfig.value,
                     type: "oidc",
                     tags
                 })
@@ -193,7 +264,13 @@ export async function createOrgOidcIdp(
                 orgId: orgId,
                 roleMapping: roleMapping || null,
                 orgMapping: orgMappingBody,
-                autoProvision: autoProvision ?? false
+                autoProvision: autoProvision ?? false,
+                syncRoleMapping: syncRoleMapping || null,
+                syncOrgMapping: syncOrgMapping || null,
+                mappingsLinked: mappingsLinked ?? true,
+                createMissingRoles: createMissingRoles ?? false,
+                syncCreateMissingRoles: syncCreateMissingRoles ?? false,
+                directorySyncDeletions: directorySyncDeletions ?? true
             });
         });
 

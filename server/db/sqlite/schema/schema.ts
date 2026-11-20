@@ -687,38 +687,45 @@ export const userSiteResources = sqliteTable("userSiteResources", {
         .references(() => siteResources.siteResourceId, { onDelete: "cascade" })
 });
 
-export const users = sqliteTable("user", {
-    userId: text("id").primaryKey(),
-    email: text("email"),
-    username: text("username").notNull(),
-    name: text("name"),
-    type: text("type").notNull(), // "internal", "oidc"
-    idpId: integer("idpId").references(() => idp.idpId, {
-        onDelete: "cascade"
-    }),
-    passwordHash: text("passwordHash"),
-    twoFactorEnabled: integer("twoFactorEnabled", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    twoFactorSetupRequested: integer("twoFactorSetupRequested", {
-        mode: "boolean"
-    }).default(false),
-    twoFactorSecret: text("twoFactorSecret"),
-    emailVerified: integer("emailVerified", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    dateCreated: text("dateCreated").notNull(),
-    termsAcceptedTimestamp: text("termsAcceptedTimestamp"),
-    termsVersion: text("termsVersion"),
-    marketingEmailConsent: integer("marketingEmailConsent", {
-        mode: "boolean"
-    }).default(false),
-    serverAdmin: integer("serverAdmin", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    lastPasswordChange: integer("lastPasswordChange"),
-    locale: text("locale")
-});
+export const users = sqliteTable(
+    "user",
+    {
+        userId: text("id").primaryKey(),
+        email: text("email"),
+        username: text("username").notNull(),
+        name: text("name"),
+        type: text("type").notNull(), // "internal", "oidc"
+        idpId: integer("idpId").references(() => idp.idpId, {
+            onDelete: "cascade"
+        }),
+        passwordHash: text("passwordHash"),
+        twoFactorEnabled: integer("twoFactorEnabled", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        twoFactorSetupRequested: integer("twoFactorSetupRequested", {
+            mode: "boolean"
+        }).default(false),
+        twoFactorSecret: text("twoFactorSecret"),
+        emailVerified: integer("emailVerified", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        dateCreated: text("dateCreated").notNull(),
+        termsAcceptedTimestamp: text("termsAcceptedTimestamp"),
+        termsVersion: text("termsVersion"),
+        marketingEmailConsent: integer("marketingEmailConsent", {
+            mode: "boolean"
+        }).default(false),
+        serverAdmin: integer("serverAdmin", { mode: "boolean" })
+            .notNull()
+            .default(false),
+        lastPasswordChange: integer("lastPasswordChange"),
+        locale: text("locale")
+    },
+    (t) => [
+        // IdP users are matched on their username (from `identifierPath`)
+        uniqueIndex("idx_user_idpId_username").on(t.idpId, t.username)
+    ]
+);
 
 export const securityKeys = sqliteTable("webauthnCredentials", {
     credentialId: text("credentialId").primaryKey(),
@@ -1099,7 +1106,7 @@ export const userOrgs = sqliteTable(
         isOwner: integer("isOwner", { mode: "boolean" })
             .notNull()
             .default(false),
-        autoProvisioned: integer("autoProvisioned", {
+        autoManaged: integer("autoManaged", {
             mode: "boolean"
         }).default(false),
         pamUsername: text("pamUsername") // cleaned username for ssh and such
@@ -1627,9 +1634,30 @@ export const supporterKey = sqliteTable("supporterKey", {
 export const idp = sqliteTable("idp", {
     idpId: integer("idpId").primaryKey({ autoIncrement: true }),
     name: text("name").notNull(),
-    type: text("type").notNull(),
+    type: text("type").notNull().$type<"oidc" | "google" | "azure">(),
     defaultRoleMapping: text("defaultRoleMapping"),
     defaultOrgMapping: text("defaultOrgMapping"),
+    // Create the roles returned by `defaultRoleMapping` that don't exist in the org
+    defaultCreateMissingRoles: integer("defaultCreateMissingRoles", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    // Directory sync defaults, used for orgs without a sync mapping of their own
+    defaultSyncRoleMapping: text("defaultSyncRoleMapping"),
+    defaultSyncOrgMapping: text("defaultSyncOrgMapping"),
+    defaultSyncCreateMissingRoles: integer("defaultSyncCreateMissingRoles", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    // true = the UI edits one set of default mappings, saved to both JIT and sync
+    defaultMappingsLinked: integer("defaultMappingsLinked", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(true),
+    // Just in time provisioning, at login
     autoProvision: integer("autoProvision", {
         mode: "boolean"
     })
@@ -1640,7 +1668,37 @@ export const idp = sqliteTable("idp", {
     })
         .notNull()
         .default(false),
-    tags: text("tags")
+    storeLoginClaims: integer("storeLoginClaims", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    // When false, admins can't pre-provision users for this IdP
+    allowManualProvisioning: integer("allowManualProvisioning", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(true),
+    tags: text("tags"),
+    // Unlocks provider API features (JIT enrichment, directory sync)
+    apiIntegrationEnabled: integer("apiIntegrationEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    // Background sync, requires `apiIntegrationEnabled`
+    directorySyncEnabled: integer("directorySyncEnabled", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(false),
+    // Global IdPs: remove auto-managed members missing from the directory
+    directorySyncDeletions: integer("directorySyncDeletions", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(true),
+    // Provider-defined JSON, encrypted (e.g. Google service account key + admin email).
+    // Null = the provider reuses the OIDC client credentials (Azure).
+    apiConfig: text("apiConfig")
 });
 
 // Identity Provider OAuth Configuration
@@ -1648,7 +1706,10 @@ export const idpOidcConfig = sqliteTable("idpOidcConfig", {
     idpOauthConfigId: integer("idpOauthConfigId").primaryKey({
         autoIncrement: true
     }),
-    variant: text("variant").notNull().default("oidc"),
+    variant: text("variant")
+        .notNull()
+        .$type<"oidc" | "google" | "azure">()
+        .default("oidc"),
     idpId: integer("idpId")
         .notNull()
         .references(() => idp.idpId, { onDelete: "cascade" }),
@@ -1656,10 +1717,47 @@ export const idpOidcConfig = sqliteTable("idpOidcConfig", {
     clientSecret: text("clientSecret").notNull(),
     authUrl: text("authUrl").notNull(),
     tokenUrl: text("tokenUrl").notNull(),
-    identifierPath: text("identifierPath").notNull(),
+    identifierPath: text("identifierPath").notNull(), // gives `users.username`, should be an immutable ID (oid/sub)
     emailPath: text("emailPath"),
     namePath: text("namePath"),
     scopes: text("scopes").notNull()
+});
+
+// Claims of a user's last OIDC login, when the IdP has `storeLoginClaims` on
+export const userIdpClaims = sqliteTable("userIdpClaims", {
+    userId: text("userId")
+        .primaryKey()
+        .references(() => users.userId, { onDelete: "cascade" }),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    // encrypted JSON: { claims, enrichedClaimKeys }
+    claims: text("claims").notNull(),
+    capturedAt: integer("capturedAt").notNull()
+});
+
+// Single-use links that let someone else run a test login for an admin
+export const idpTestLinks = sqliteTable("idpTestLinks", {
+    linkId: text("linkId").primaryKey(),
+    // sha256 of the token in the link
+    tokenHash: text("tokenHash").notNull().unique(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    // set when created from an org's settings: only this org is evaluated
+    orgId: text("orgId").references(() => orgs.orgId, {
+        onDelete: "cascade"
+    }),
+    createdBy: text("createdBy").references(() => users.userId, {
+        onDelete: "set null"
+    }),
+    // who the link is for, shown to admins
+    label: text("label"),
+    createdAt: integer("createdAt").notNull(),
+    expiresAt: integer("expiresAt").notNull(),
+    completedAt: integer("completedAt"),
+    // encrypted JSON of the test result
+    result: text("result")
 });
 
 export const licenseKey = sqliteTable("licenseKey", {
@@ -1757,13 +1855,35 @@ export const idpOrg = sqliteTable("idpOrg", {
     orgId: text("orgId")
         .notNull()
         .references(() => orgs.orgId, { onDelete: "cascade" }),
+    // JIT (autoProvision) mappings
     roleMapping: text("roleMapping"),
     orgMapping: text("orgMapping"),
-    autoProvision: integer("autoProvision", {
+    autoProvision: integer("autoProvision", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    // Create the roles returned by the role mapping that don't exist in the org
+    createMissingRoles: integer("createMissingRoles", { mode: "boolean" })
+        .notNull()
+        .default(false),
+    // Directory sync mappings
+    syncRoleMapping: text("syncRoleMapping"),
+    syncOrgMapping: text("syncOrgMapping"),
+    syncCreateMissingRoles: integer("syncCreateMissingRoles", {
         mode: "boolean"
     })
         .notNull()
-        .default(false)
+        .default(false),
+    // When true, the UI edits JIT and sync mappings as one
+    mappingsLinked: integer("mappingsLinked", { mode: "boolean" })
+        .notNull()
+        .default(true),
+    directorySyncDeletions: integer("directorySyncDeletions", {
+        mode: "boolean"
+    })
+        .notNull()
+        .default(true),
+    // Last directory sync applied to this org (ms since epoch), dry runs excluded
+    lastSyncedAt: integer("lastSyncedAt")
 });
 
 // Blueprint runs
@@ -2257,6 +2377,8 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type UserIdpClaims = InferSelectModel<typeof userIdpClaims>;
+export type IdpTestLink = InferSelectModel<typeof idpTestLinks>;
 export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;

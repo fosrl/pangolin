@@ -7,6 +7,7 @@ import { Input } from "@app/components/ui/input";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { Tag, TagInput } from "@app/components/tags/tag-input";
+import { CheckboxWithLabel } from "@app/components/ui/checkbox";
 import {
     createMappingBuilderRule,
     MappingBuilderRule,
@@ -41,6 +42,15 @@ export type RoleMappingConfigFieldsProps = {
     showFreeformRoleNamesHint?: boolean;
     /** Org ID to use for role lookup. Falls back to URL params when not provided. */
     orgId?: string;
+    /**
+     * "Create missing roles" checkbox, hidden when the handler is omitted. Only
+     * shown for a raw expression, the only mode that can return roles that
+     * aren't in the org, unless `createMissingRolesInAnyMode` is set.
+     */
+    createMissingRoles?: boolean;
+    onCreateMissingRolesChange?: (checked: boolean) => void;
+    /** Show the checkbox in every mode (global defaults have no org role list, so any mode can name a missing role). */
+    createMissingRolesInAnyMode?: boolean;
 };
 
 export default function RoleMappingConfigFields({
@@ -57,7 +67,10 @@ export default function RoleMappingConfigFields({
     onRawExpressionChange,
     fieldIdPrefix = "role-mapping",
     showFreeformRoleNamesHint = false,
-    orgId
+    orgId,
+    createMissingRoles = false,
+    onCreateMissingRolesChange,
+    createMissingRolesInAnyMode = false
 }: RoleMappingConfigFieldsProps) {
     const t = useTranslations();
     const { env } = useEnvContext();
@@ -365,6 +378,24 @@ export default function RoleMappingConfigFields({
                     </FormDescription>
                 </div>
             )}
+
+            {onCreateMissingRolesChange &&
+                (createMissingRolesInAnyMode ||
+                    roleMappingMode === "rawExpression") && (
+                    <div className="space-y-1">
+                        <CheckboxWithLabel
+                            id={`${fieldIdPrefix}-create-missing-roles`}
+                            label={t("roleMappingCreateMissingRoles")}
+                            checked={createMissingRoles}
+                            onCheckedChange={(checked) =>
+                                onCreateMissingRolesChange(checked === true)
+                            }
+                        />
+                        <FormDescription>
+                            {t("roleMappingCreateMissingRolesDescription")}
+                        </FormDescription>
+                    </div>
+                )}
         </div>
     );
 }

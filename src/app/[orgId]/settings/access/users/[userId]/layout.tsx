@@ -10,6 +10,7 @@ import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import { getUserDisplayName } from "@app/lib/getUserDisplayName";
+import { UserType } from "@server/types/UserTypes";
 
 export const metadata: Metadata = {
     title: "User"
@@ -45,7 +46,15 @@ export default async function UserLayoutProps(props: UserLayoutProps) {
         {
             title: t("general"),
             href: "/{orgId}/settings/access/users/{userId}/general"
-        }
+        },
+        ...(user?.type === UserType.OIDC
+            ? [
+                  {
+                      title: t("userLoginClaimsTab"),
+                      href: "/{orgId}/settings/access/users/{userId}/login-claims"
+                  }
+              ]
+            : [])
     ];
 
     return (

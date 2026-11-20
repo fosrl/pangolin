@@ -1,7 +1,12 @@
 "use client";
 
-import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
+import ApiIntegrationConfigWidget from "@app/components/ApiIntegrationConfigWidget";
+import {
+    buildGoogleIDPAPIConfig,
+    googleDirectorySyncFormFields,
+    refineGoogleDirectorySyncFields
+} from "@app/components/GoogleIDPAPIConfigFields";
+import IdpUserProvisioningFields from "@app/components/IdpUserProvisioningFields";
 import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import {
@@ -47,10 +52,15 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import {
     compileRoleMappingExpression,
-    createMappingBuilderRule,
-    MappingBuilderRule,
-    RoleMappingMode
+    defaultRoleMappingConfig,
+    defaultSyncRoleMappingConfig,
+    effectiveCreateMissingRoles,
+    RoleMappingConfig
 } from "@app/lib/idpRoleMapping";
+import {
+    supportsApiIntegration,
+    type APIIntegrationVariant
+} from "@app/lib/idpApiConfig";
 
 export default function Page() {
     const { env } = useEnvContext();
@@ -58,46 +68,63 @@ export default function Page() {
     const router = useRouter();
     const [createLoading, setCreateLoading] = useState(false);
     const [roles, setRoles] = useState<{ roleId: number; name: string }[]>([]);
-    const [roleMappingMode, setRoleMappingMode] =
-        useState<RoleMappingMode>("fixedRoles");
-    const [fixedRoleNames, setFixedRoleNames] = useState<string[]>([]);
-    const [mappingBuilderClaimPath, setMappingBuilderClaimPath] =
-        useState("groups");
-    const [mappingBuilderRules, setMappingBuilderRules] = useState<
-        MappingBuilderRule[]
-    >([createMappingBuilderRule()]);
-    const [rawRoleExpression, setRawRoleExpression] = useState("");
+    const [roleMapping, setRoleMapping] = useState<RoleMappingConfig>(
+        defaultRoleMappingConfig
+    );
+    const [syncRoleMapping, setSyncRoleMapping] = useState<RoleMappingConfig>(
+        defaultSyncRoleMappingConfig
+    );
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
 
     const params = useParams();
 
-    const createIdpFormSchema = z.object({
-        name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
-        type: z.enum(["oidc", "google", "azure"]),
-        clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
-        clientSecret: z
-            .string()
-            .min(1, { message: t("idpClientSecretRequired") }),
-        authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }).optional(),
-        tokenUrl: z.url({ message: t("idpErrorTokenUrlInvalid") }).optional(),
-        identifierPath: z
-            .string()
-            .min(1, { message: t("idpPathRequired") })
-            .optional(),
-        emailPath: z.string().optional(),
-        namePath: z.string().optional(),
-        scopes: z
-            .string()
-            .min(1, { message: t("idpScopeRequired") })
-            .optional(),
-        tenantId: z.string().optional(),
-        autoProvision: z.boolean().default(false),
-        sessionRevalidation: z.boolean().default(false),
-        roleMapping: z.string().nullable().optional(),
-        roleId: z.number().nullable().optional(),
-        orgMapping: z.string().optional()
-    });
+    const createIdpFormSchema = z
+        .object({
+            name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
+            type: z.enum(["oidc", "google", "azure"]),
+            clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
+            clientSecret: z
+                .string()
+                .min(1, { message: t("idpClientSecretRequired") }),
+            authUrl: z.url({ message: t("idpErrorAuthUrlInvalid") }).optional(),
+            tokenUrl: z
+                .url({ message: t("idpErrorTokenUrlInvalid") })
+                .optional(),
+            identifierPath: z
+                .string()
+                .min(1, { message: t("idpPathRequired") })
+                .optional(),
+            emailPath: z.string().optional(),
+            namePath: z.string().optional(),
+            scopes: z
+                .string()
+                .min(1, { message: t("idpScopeRequired") })
+                .optional(),
+            tenantId: z.string().optional(),
+            apiIntegrationEnabled: z.boolean().default(false),
+            allowManualProvisioning: z.boolean().default(true),
+            autoProvision: z.boolean().default(false),
+            sessionRevalidation: z.boolean().default(false),
+            roleMapping: z.string().nullable().optional(),
+            roleId: z.number().nullable().optional(),
+            orgMapping: z.string().optional(),
+            syncOrgMapping: z.string().optional(),
+            mappingsLinked: z.boolean().default(true),
+            createMissingRoles: z.boolean().default(false),
+            syncCreateMissingRoles: z.boolean().default(false),
+            directorySyncEnabled: z.boolean().default(false),
+            directorySyncDeletions: z.boolean().default(true),
+            ...googleDirectorySyncFormFields
+        })
+        .superRefine((data, ctx) => {
+            if (data.type === "google") {
+                refineGoogleDirectorySyncFields(data, ctx, {
+                    keyRequired: true,
+                    t
+                });
+            }
+        });
 
     type CreateIdpFormValues = z.infer<typeof createIdpFormSchema>;
 
@@ -115,11 +142,22 @@ export default function Page() {
             emailPath: "email",
             scopes: "openid profile email",
             tenantId: "",
+            apiIntegrationEnabled: false,
+            allowManualProvisioning: true,
             autoProvision: false,
             sessionRevalidation: false,
             roleMapping: null,
             roleId: null,
-            orgMapping: ""
+            orgMapping: "",
+            syncOrgMapping: "",
+            mappingsLinked: true,
+            createMissingRoles: false,
+            syncCreateMissingRoles: false,
+            directorySyncEnabled: false,
+            directorySyncDeletions: true,
+            googleServiceAccountKey: "",
+            googleAdminEmail: "",
+            googleCustomerId: ""
         }
     });
 
@@ -163,15 +201,15 @@ export default function Page() {
                 tokenUrl = tokenUrl?.replace("{{TENANT_ID}}", data.tenantId);
             }
 
-            const roleMappingExpression = compileRoleMappingExpression({
-                mode: roleMappingMode,
-                fixedRoleNames,
-                mappingBuilder: {
-                    claimPath: mappingBuilderClaimPath,
-                    rules: mappingBuilderRules
-                },
-                rawExpression: rawRoleExpression
-            });
+            const roleMappingExpression =
+                compileRoleMappingExpression(roleMapping);
+            // linked mappings: sync uses the JIT ones
+            const syncRoleMappingExpression = data.mappingsLinked
+                ? roleMappingExpression
+                : compileRoleMappingExpression(syncRoleMapping);
+            const syncOrgMapping = data.mappingsLinked
+                ? data.orgMapping?.trim()
+                : data.syncOrgMapping?.trim();
 
             if (data.autoProvision && !roleMappingExpression) {
                 toast({
@@ -198,12 +236,41 @@ export default function Page() {
                 identifierPath: data.identifierPath,
                 emailPath: data.emailPath,
                 namePath: data.namePath,
+                apiIntegrationEnabled:
+                    supportsApiIntegration(data.type) &&
+                    data.apiIntegrationEnabled,
+                allowManualProvisioning: data.allowManualProvisioning,
                 autoProvision: data.autoProvision,
+                directorySyncEnabled:
+                    supportsApiIntegration(data.type) &&
+                    data.apiIntegrationEnabled &&
+                    data.directorySyncEnabled,
+                syncRoleMapping: syncRoleMappingExpression || null,
+                syncOrgMapping: syncOrgMapping || null,
+                mappingsLinked: data.mappingsLinked,
+                createMissingRoles: effectiveCreateMissingRoles(
+                    roleMapping,
+                    data.createMissingRoles
+                ),
+                // linked mappings: sync uses the JIT flag
+                syncCreateMissingRoles: data.mappingsLinked
+                    ? effectiveCreateMissingRoles(
+                          roleMapping,
+                          data.createMissingRoles
+                      )
+                    : effectiveCreateMissingRoles(
+                          syncRoleMapping,
+                          data.syncCreateMissingRoles
+                      ),
+                directorySyncDeletions: data.directorySyncDeletions,
                 sessionRevalidation: data.sessionRevalidation,
                 roleMapping: roleMappingExpression,
                 scopes,
                 variant: data.type
             };
+            if (data.type === "google") {
+                payload.apiConfig = buildGoogleIDPAPIConfig(data);
+            }
             const trimmedOrgMapping = data.orgMapping?.trim();
             if (trimmedOrgMapping) {
                 payload.orgMapping = trimmedOrgMapping;
@@ -364,7 +431,57 @@ export default function Page() {
                         </SettingsSectionBody>
                     </SettingsSection>
 
-                    {/* Auto Provision Settings */}
+                    {/* API Integration */}
+                    {supportsApiIntegration(form.watch("type")) && (
+                        <SettingsSection>
+                            <SettingsSectionHeader>
+                                <SettingsSectionTitle>
+                                    {t("idpApiIntegration")}
+                                </SettingsSectionTitle>
+                                <SettingsSectionDescription>
+                                    {t("idpApiIntegrationDescription")}
+                                </SettingsSectionDescription>
+                            </SettingsSectionHeader>
+                            <SettingsSectionBody>
+                                <Form {...form}>
+                                    <form
+                                        className="space-y-4"
+                                        id="create-idp-form"
+                                        onSubmit={form.handleSubmit(onSubmit)}
+                                    >
+                                        <ApiIntegrationConfigWidget
+                                            variant={
+                                                form.watch(
+                                                    "type"
+                                                ) as APIIntegrationVariant
+                                            }
+                                            apiIntegrationEnabled={
+                                                form.watch(
+                                                    "apiIntegrationEnabled"
+                                                ) ?? false
+                                            }
+                                            onApiIntegrationEnabledChange={(
+                                                checked
+                                            ) => {
+                                                form.setValue(
+                                                    "apiIntegrationEnabled",
+                                                    checked
+                                                );
+                                                if (!checked) {
+                                                    form.setValue(
+                                                        "directorySyncEnabled",
+                                                        false
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    </form>
+                                </Form>
+                            </SettingsSectionBody>
+                        </SettingsSection>
+                    )}
+
+                    {/* User Provisioning */}
                     <SettingsSection
                         className={
                             form.watch("autoProvision") ? undefined : "min-h-0"
@@ -372,64 +489,30 @@ export default function Page() {
                     >
                         <SettingsSectionHeader>
                             <SettingsSectionTitle>
-                                {t("idpAutoProvisionUsers")}
+                                {t("idpUserProvisioning")}
                             </SettingsSectionTitle>
                             <SettingsSectionDescription>
-                                <IdpAutoProvisionUsersDescription />
+                                {t("idpUserProvisioningDescription")}
                             </SettingsSectionDescription>
                         </SettingsSectionHeader>
                         <SettingsSectionBody>
-                            <PaidFeaturesAlert
-                                tiers={tierMatrix.autoProvisioning}
-                            />
                             <Form {...form}>
                                 <form
-                                    className="space-y-4"
                                     id="create-idp-form"
                                     onSubmit={form.handleSubmit(onSubmit)}
                                 >
-                                    <AutoProvisionConfigWidget
-                                        autoProvision={
-                                            form.watch(
-                                                "autoProvision"
-                                            ) as boolean
-                                        } // is this right?
-                                        onAutoProvisionChange={(checked) => {
-                                            form.setValue(
-                                                "autoProvision",
-                                                checked
-                                            );
-                                        }}
+                                    <IdpUserProvisioningFields
+                                        syncAvailable={supportsApiIntegration(
+                                            form.watch("type")
+                                        )}
                                         orgId={params.orgId as string}
-                                        roleMappingMode={roleMappingMode}
-                                        onRoleMappingModeChange={(data) => {
-                                            setRoleMappingMode(data);
-                                        }}
                                         roles={roles}
-                                        fixedRoleNames={fixedRoleNames}
-                                        onFixedRoleNamesChange={
-                                            setFixedRoleNames
+                                        jitRoleMapping={roleMapping}
+                                        onJitRoleMappingChange={setRoleMapping}
+                                        syncRoleMapping={syncRoleMapping}
+                                        onSyncRoleMappingChange={
+                                            setSyncRoleMapping
                                         }
-                                        mappingBuilderClaimPath={
-                                            mappingBuilderClaimPath
-                                        }
-                                        onMappingBuilderClaimPathChange={
-                                            setMappingBuilderClaimPath
-                                        }
-                                        mappingBuilderRules={
-                                            mappingBuilderRules
-                                        }
-                                        onMappingBuilderRulesChange={
-                                            setMappingBuilderRules
-                                        }
-                                        rawExpression={rawRoleExpression}
-                                        onRawExpressionChange={
-                                            setRawRoleExpression
-                                        }
-                                        orgMappingField={{
-                                            control: form.control,
-                                            name: "orgMapping"
-                                        }}
                                     />
                                 </form>
                             </Form>

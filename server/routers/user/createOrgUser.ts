@@ -271,6 +271,15 @@ export async function createOrgUser(
                 );
             }
 
+            if (!idpRes.idp.allowManualProvisioning) {
+                return next(
+                    createHttpError(
+                        HttpCode.BAD_REQUEST,
+                        "This identity provider doesn't allow adding users manually"
+                    )
+                );
+            }
+
             let userIdForClients: string | undefined;
             await db.transaction(async (trx) => {
                 const [existingUser] = await trx
@@ -310,7 +319,7 @@ export async function createOrgUser(
                         {
                             orgId,
                             userId: existingUser.userId,
-                            autoProvisioned: false
+                            autoManaged: false
                         },
                         uniqueRoleIds,
                         trx
@@ -337,7 +346,7 @@ export async function createOrgUser(
                         {
                             orgId,
                             userId: newUser.userId,
-                            autoProvisioned: false
+                            autoManaged: false
                         },
                         uniqueRoleIds,
                         trx

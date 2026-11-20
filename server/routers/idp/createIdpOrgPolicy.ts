@@ -19,7 +19,12 @@ const paramsSchema = z.strictObject({
 
 const bodySchema = z.strictObject({
     roleMapping: z.string().optional(),
-    orgMapping: z.string().optional()
+    orgMapping: z.string().optional(),
+    createMissingRoles: z.boolean().optional(),
+    syncRoleMapping: z.string().nullish(),
+    syncOrgMapping: z.string().nullish(),
+    syncCreateMissingRoles: z.boolean().optional(),
+    mappingsLinked: z.boolean().optional()
 });
 
 export type CreateIdpOrgPolicyResponse = {};
@@ -80,7 +85,15 @@ export async function createIdpOrgPolicy(
         }
 
         const { idpId, orgId } = parsedParams.data;
-        const { roleMapping, orgMapping } = parsedBody.data;
+        const {
+            roleMapping,
+            orgMapping,
+            createMissingRoles,
+            syncRoleMapping,
+            syncOrgMapping,
+            syncCreateMissingRoles,
+            mappingsLinked
+        } = parsedBody.data;
 
         if (process.env.IDENTITY_PROVIDER_MODE === "org") {
             return next(
@@ -122,7 +135,12 @@ export async function createIdpOrgPolicy(
             idpId,
             orgId,
             roleMapping,
-            orgMapping
+            orgMapping,
+            createMissingRoles: createMissingRoles ?? false,
+            syncRoleMapping,
+            syncOrgMapping,
+            syncCreateMissingRoles: syncCreateMissingRoles ?? false,
+            mappingsLinked: mappingsLinked ?? true
         });
 
         return response<CreateIdpOrgPolicyResponse>(res, {

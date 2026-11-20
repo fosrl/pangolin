@@ -1,7 +1,33 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import ApiIntegrationConfigWidget from "@app/components/ApiIntegrationConfigWidget";
+import CopyToClipboard from "@app/components/CopyToClipboard";
+import {
+    buildGoogleIDPAPIConfig,
+    googleDirectorySyncFormFields,
+    refineGoogleDirectorySyncFields
+} from "@app/components/GoogleIDPAPIConfigFields";
+import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
+import IdpLastSyncedAt from "@app/components/IdpLastSyncedAt";
+import IdpSyncNowDialog from "@app/components/IdpSyncNowDialog";
+import IdpTypeBadge from "@app/components/IdpTypeBadge";
+import {
+    InfoSection,
+    InfoSectionContent,
+    InfoSections,
+    InfoSectionTitle
+} from "@app/components/InfoSection";
+import IdpUserProvisioningFields from "@app/components/IdpUserProvisioningFields";
+import {
+    SettingsContainer,
+    SettingsSection,
+    SettingsSectionBody,
+    SettingsSectionDescription,
+    SettingsSectionForm,
+    SettingsSectionGrid,
+    SettingsSectionHeader,
+    SettingsSectionTitle
+} from "@app/components/Settings";
 import { Button } from "@app/components/ui/button";
 import {
     Form,
@@ -13,54 +39,34 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 import { Input } from "@app/components/ui/input";
-import { useForm } from "react-hook-form";
-import { toast } from "@app/hooks/useToast";
-import { useRouter, useParams, redirect } from "next/navigation";
-import {
-    SettingsContainer,
-    SettingsSection,
-    SettingsSectionHeader,
-    SettingsSectionTitle,
-    SettingsSectionDescription,
-    SettingsSectionBody,
-    SettingsSectionForm,
-    SettingsSectionFooter,
-    SettingsSectionGrid
-} from "@app/components/Settings";
-import { formatAxiosError } from "@app/lib/api";
-import { createApiClient } from "@app/lib/api";
 import { useEnvContext } from "@app/hooks/useEnvContext";
-import { useState, useEffect } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
-import { InfoIcon, ExternalLink } from "lucide-react";
-import {
-    InfoSection,
-    InfoSectionContent,
-    InfoSections,
-    InfoSectionTitle
-} from "@app/components/InfoSection";
-import CopyToClipboard from "@app/components/CopyToClipboard";
-import IdpTypeBadge from "@app/components/IdpTypeBadge";
-import { useTranslations } from "next-intl";
-import { AxiosResponse } from "axios";
-import { ListRolesResponse } from "@server/routers/role";
-import AutoProvisionConfigWidget from "@app/components/AutoProvisionConfigWidget";
-import IdpAutoProvisionUsersDescription from "@app/components/IdpAutoProvisionUsersDescription";
-import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
-import IdpIdentifierChangeDialog from "@app/components/IdpIdentifierChangeDialog";
-import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
-import { SwitchInput } from "@app/components/SwitchInput";
-import { usePaidStatus } from "@app/hooks/usePaidStatus";
-import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
-import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { toast } from "@app/hooks/useToast";
+import { createApiClient, formatAxiosError } from "@app/lib/api";
 import {
     compileRoleMappingExpression,
-    createMappingBuilderRule,
+    defaultRoleMappingConfig,
+    defaultSyncRoleMappingConfig,
+    effectiveCreateMissingRoles,
     detectRoleMappingConfig,
     ensureMappingBuilderRuleIds,
-    MappingBuilderRule,
-    RoleMappingMode
+    RoleMappingConfig
 } from "@app/lib/idpRoleMapping";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ListRolesResponse } from "@server/routers/role";
+import { AxiosResponse } from "axios";
+import { useTranslations } from "next-intl";
+import { usePaidStatus } from "@app/hooks/usePaidStatus";
+import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { RefreshCwIcon } from "lucide-react";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
+import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
+import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { SwitchInput } from "@app/components/SwitchInput";
+import { scopesForSessionRevalidation } from "@app/lib/idp/ensureOfflineAccessScope";
 
 export default function GeneralPage() {
     const { env } = useEnvContext();
@@ -70,18 +76,21 @@ export default function GeneralPage() {
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [roles, setRoles] = useState<{ roleId: number; name: string }[]>([]);
-    const [roleMappingMode, setRoleMappingMode] =
-        useState<RoleMappingMode>("fixedRoles");
-    const [fixedRoleNames, setFixedRoleNames] = useState<string[]>([]);
-    const [mappingBuilderClaimPath, setMappingBuilderClaimPath] =
-        useState("groups");
-    const [mappingBuilderRules, setMappingBuilderRules] = useState<
-        MappingBuilderRule[]
-    >([createMappingBuilderRule()]);
-    const [rawRoleExpression, setRawRoleExpression] = useState("");
+    const [roleMapping, setRoleMapping] = useState<RoleMappingConfig>(
+        defaultRoleMappingConfig
+    );
+    const [syncRoleMapping, setSyncRoleMapping] = useState<RoleMappingConfig>(
+        defaultSyncRoleMappingConfig
+    );
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
+    const [configuredServiceAccountEmail, setConfiguredServiceAccountEmail] =
+        useState<string | undefined>();
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
+    // saved value: "Sync now" runs what's in the DB, not the unsaved form
+    const [savedSyncEnabled, setSavedSyncEnabled] = useState(false);
+    const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+    const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
     const [pendingPayload, setPendingPayload] = useState<Record<
         string,
         unknown
@@ -93,6 +102,9 @@ export default function GeneralPage() {
     );
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
+    // the server refuses the sync too, so don't offer it without the plan
+    const canSyncNow =
+        savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
 
     // OIDC form schema (full configuration)
     const OidcFormSchema = z.object({
@@ -109,24 +121,49 @@ export default function GeneralPage() {
         emailPath: z.string().nullable().optional(),
         namePath: z.string().nullable().optional(),
         scopes: z.string().min(1, { message: t("idpScopeRequired") }),
+        apiIntegrationEnabled: z.boolean().default(false),
+        allowManualProvisioning: z.boolean().default(true),
         autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
         sessionRevalidation: z.boolean().default(false),
-        orgMapping: z.string().optional()
+        orgMapping: z.string().optional(),
+        syncOrgMapping: z.string().optional(),
+        mappingsLinked: z.boolean().default(true),
+        createMissingRoles: z.boolean().default(false),
+        syncCreateMissingRoles: z.boolean().default(false)
     });
 
     // Google form schema (simplified)
-    const GoogleFormSchema = z.object({
-        name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
-        clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
-        clientSecret: z
-            .string()
-            .min(1, { message: t("idpClientSecretRequired") }),
-        roleMapping: z.string().nullable().optional(),
-        roleId: z.number().nullable().optional(),
-        autoProvision: z.boolean().default(false),
-        sessionRevalidation: z.boolean().default(false),
-        orgMapping: z.string().optional()
-    });
+    const GoogleFormSchema = z
+        .object({
+            name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
+            clientId: z.string().min(1, { message: t("idpClientIdRequired") }),
+            clientSecret: z
+                .string()
+                .min(1, { message: t("idpClientSecretRequired") }),
+            roleMapping: z.string().nullable().optional(),
+            roleId: z.number().nullable().optional(),
+            apiIntegrationEnabled: z.boolean().default(false),
+            allowManualProvisioning: z.boolean().default(true),
+            autoProvision: z.boolean().default(false),
+            directorySyncEnabled: z.boolean().default(false),
+            directorySyncDeletions: z.boolean().default(true),
+            sessionRevalidation: z.boolean().default(false),
+            orgMapping: z.string().optional(),
+            syncOrgMapping: z.string().optional(),
+            mappingsLinked: z.boolean().default(true),
+            createMissingRoles: z.boolean().default(false),
+            syncCreateMissingRoles: z.boolean().default(false),
+            ...googleDirectorySyncFormFields
+        })
+        .superRefine((data, ctx) =>
+            refineGoogleDirectorySyncFields(data, ctx, {
+                // the stored key is kept when the field is left empty
+                keyRequired: !configuredServiceAccountEmail,
+                t
+            })
+        );
 
     // Azure form schema (simplified with tenant ID)
     const AzureFormSchema = z.object({
@@ -138,9 +175,17 @@ export default function GeneralPage() {
         tenantId: z.string().min(1, { message: t("idpTenantIdRequired") }),
         roleMapping: z.string().nullable().optional(),
         roleId: z.number().nullable().optional(),
+        apiIntegrationEnabled: z.boolean().default(false),
+        allowManualProvisioning: z.boolean().default(true),
         autoProvision: z.boolean().default(false),
+        directorySyncEnabled: z.boolean().default(false),
+        directorySyncDeletions: z.boolean().default(true),
         sessionRevalidation: z.boolean().default(false),
-        orgMapping: z.string().optional()
+        orgMapping: z.string().optional(),
+        syncOrgMapping: z.string().optional(),
+        mappingsLinked: z.boolean().default(true),
+        createMissingRoles: z.boolean().default(false),
+        syncCreateMissingRoles: z.boolean().default(false)
     });
 
     type OidcFormValues = z.infer<typeof OidcFormSchema>;
@@ -173,12 +218,23 @@ export default function GeneralPage() {
             emailPath: "email",
             namePath: "name",
             scopes: "openid profile email",
+            apiIntegrationEnabled: false,
+            allowManualProvisioning: true,
             autoProvision: true,
+            directorySyncEnabled: false,
+            directorySyncDeletions: true,
             sessionRevalidation: false,
             roleMapping: null,
             roleId: null,
             tenantId: "",
-            orgMapping: ""
+            orgMapping: "",
+            syncOrgMapping: "",
+            mappingsLinked: true,
+            createMissingRoles: false,
+            syncCreateMissingRoles: false,
+            googleServiceAccountKey: "",
+            googleAdminEmail: "",
+            googleCustomerId: ""
         }
     });
 
@@ -202,6 +258,11 @@ export default function GeneralPage() {
                         data.idpOidcConfig?.identifierPath ?? "sub"
                     );
                     setRedirectUrl(res.data.data.redirectUrl);
+                    setLastSyncedAt(data.idpOrg?.lastSyncedAt ?? null);
+                    setSavedSyncEnabled(
+                        data.idp.apiIntegrationEnabled &&
+                            data.idp.directorySyncEnabled
+                    );
 
                     // Set the variant
                     setVariant(idpVariant as "oidc" | "google" | "azure");
@@ -226,14 +287,26 @@ export default function GeneralPage() {
                         name: data.idp.name,
                         clientId: data.idpOidcConfig.clientId,
                         clientSecret: data.idpOidcConfig.clientSecret,
+                        apiIntegrationEnabled: data.idp.apiIntegrationEnabled,
+                        allowManualProvisioning:
+                            data.idp.allowManualProvisioning,
                         autoProvision:
                             data.idpOrg?.autoProvision ??
                             data.idp.autoProvision,
+                        directorySyncEnabled: data.idp.directorySyncEnabled,
+                        directorySyncDeletions:
+                            data.idpOrg?.directorySyncDeletions ?? true,
                         sessionRevalidation:
                             data.idp.sessionRevalidation ?? false,
                         roleMapping: roleMapping || null,
                         roleId: null,
-                        orgMapping: data.idpOrg?.orgMapping ?? ""
+                        orgMapping: data.idpOrg?.orgMapping ?? "",
+                        syncOrgMapping: data.idpOrg?.syncOrgMapping ?? "",
+                        mappingsLinked: data.idpOrg?.mappingsLinked ?? true,
+                        createMissingRoles:
+                            data.idpOrg?.createMissingRoles ?? false,
+                        syncCreateMissingRoles:
+                            data.idpOrg?.syncCreateMissingRoles ?? false
                     };
 
                     // Add variant-specific fields
@@ -248,23 +321,41 @@ export default function GeneralPage() {
                         formData.scopes = data.idpOidcConfig.scopes;
                     } else if (idpVariant === "azure") {
                         formData.tenantId = tenantId;
+                    } else if (idpVariant === "google") {
+                        const apiConfig = data.idp.apiConfig;
+                        formData.googleServiceAccountKey = "";
+                        formData.googleAdminEmail = apiConfig?.adminEmail ?? "";
+                        formData.googleCustomerId = apiConfig?.customerId ?? "";
+                        setConfiguredServiceAccountEmail(
+                            apiConfig?.serviceAccountEmail
+                        );
                     }
 
                     form.reset(formData);
 
-                    setRoleMappingMode(detectedRoleMappingConfig.mode);
-                    setFixedRoleNames(detectedRoleMappingConfig.fixedRoleNames);
-                    setMappingBuilderClaimPath(
-                        detectedRoleMappingConfig.mappingBuilder.claimPath
+                    setRoleMapping({
+                        ...detectedRoleMappingConfig,
+                        mappingBuilder: {
+                            ...detectedRoleMappingConfig.mappingBuilder,
+                            rules: ensureMappingBuilderRuleIds(
+                                detectedRoleMappingConfig.mappingBuilder.rules
+                            )
+                        }
+                    });
+
+                    const detectedSyncRoleMapping = detectRoleMappingConfig(
+                        data.idpOrg.syncRoleMapping,
+                        defaultSyncRoleMappingConfig()
                     );
-                    setMappingBuilderRules(
-                        ensureMappingBuilderRuleIds(
-                            detectedRoleMappingConfig.mappingBuilder.rules
-                        )
-                    );
-                    setRawRoleExpression(
-                        detectedRoleMappingConfig.rawExpression
-                    );
+                    setSyncRoleMapping({
+                        ...detectedSyncRoleMapping,
+                        mappingBuilder: {
+                            ...detectedSyncRoleMapping.mappingBuilder,
+                            rules: ensureMappingBuilderRuleIds(
+                                detectedSyncRoleMapping.mappingBuilder.rules
+                            )
+                        }
+                    });
                 }
             } catch (e) {
                 toast({
@@ -328,15 +419,16 @@ export default function GeneralPage() {
                 return;
             }
 
-            const roleMappingExpression = compileRoleMappingExpression({
-                mode: roleMappingMode,
-                fixedRoleNames,
-                mappingBuilder: {
-                    claimPath: mappingBuilderClaimPath,
-                    rules: mappingBuilderRules
-                },
-                rawExpression: rawRoleExpression
-            });
+            const roleMappingExpression =
+                compileRoleMappingExpression(roleMapping);
+            // linked mappings: sync uses the JIT ones
+            const syncRoleMappingExpression = data.mappingsLinked
+                ? roleMappingExpression
+                : compileRoleMappingExpression(syncRoleMapping);
+            const syncOrgMappingTrimmed =
+                (data.mappingsLinked
+                    ? data.orgMapping?.trim()
+                    : data.syncOrgMapping?.trim()) ?? "";
 
             if (data.autoProvision && !roleMappingExpression) {
                 toast({
@@ -355,10 +447,37 @@ export default function GeneralPage() {
                 name: data.name,
                 clientId: data.clientId,
                 clientSecret: data.clientSecret,
+                apiIntegrationEnabled:
+                    supportsApiIntegration(variant) &&
+                    data.apiIntegrationEnabled,
+                allowManualProvisioning: data.allowManualProvisioning,
                 autoProvision: data.autoProvision,
+                directorySyncEnabled:
+                    supportsApiIntegration(variant) &&
+                    data.apiIntegrationEnabled &&
+                    data.directorySyncEnabled,
                 sessionRevalidation: data.sessionRevalidation,
                 roleMapping: roleMappingExpression,
-                orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed
+                orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed,
+                syncRoleMapping: syncRoleMappingExpression || null,
+                syncOrgMapping:
+                    syncOrgMappingTrimmed === "" ? null : syncOrgMappingTrimmed,
+                mappingsLinked: data.mappingsLinked,
+                createMissingRoles: effectiveCreateMissingRoles(
+                    roleMapping,
+                    data.createMissingRoles
+                ),
+                // linked mappings: sync uses the JIT flag
+                syncCreateMissingRoles: data.mappingsLinked
+                    ? effectiveCreateMissingRoles(
+                          roleMapping,
+                          data.createMissingRoles
+                      )
+                    : effectiveCreateMissingRoles(
+                          syncRoleMapping,
+                          data.syncCreateMissingRoles
+                      ),
+                directorySyncDeletions: data.directorySyncDeletions
             };
 
             // Add variant-specific fields
@@ -404,7 +523,8 @@ export default function GeneralPage() {
                     identifierPath: "email",
                     emailPath: "email",
                     namePath: "name",
-                    scopes: "openid profile email"
+                    scopes: "openid profile email",
+                    apiConfig: buildGoogleIDPAPIConfig(data as GoogleFormValues)
                 };
             }
 
@@ -441,6 +561,15 @@ export default function GeneralPage() {
             if (typeof payload.identifierPath === "string") {
                 setOriginalIdentifierPath(payload.identifierPath);
             }
+            setSavedSyncEnabled(Boolean(payload.directorySyncEnabled));
+            const apiConfig = payload.apiConfig as
+                ReturnType<typeof buildGoogleIDPAPIConfig> | undefined;
+            if (apiConfig?.serviceAccountKey) {
+                setConfiguredServiceAccountEmail(
+                    apiConfig.serviceAccountKey.client_email
+                );
+                form.setValue("googleServiceAccountKey", "");
+            }
             toast({
                 title: t("success"),
                 description: t("idpUpdatedDescription")
@@ -475,6 +604,14 @@ export default function GeneralPage() {
 
     return (
         <>
+            <IdpSyncNowDialog
+                open={syncDialogOpen}
+                setOpen={setSyncDialogOpen}
+                orgId={orgId as string}
+                idpId={idpId as string}
+                lastSyncedAt={lastSyncedAt}
+                onSynced={setLastSyncedAt}
+            />
             <IdpIdentifierChangeDialog
                 open={identifierConfirmOpen}
                 setOpen={(open) => {
@@ -601,63 +738,100 @@ export default function GeneralPage() {
                     </SettingsSectionBody>
                 </SettingsSection>
 
-                {/* Auto Provision Settings */}
-                <SettingsSection
-                    className={
-                        form.watch("autoProvision") ? undefined : "min-h-0"
-                    }
-                >
+                {/* API Integration */}
+                {supportsApiIntegration(variant) && (
+                    <SettingsSection>
+                        <SettingsSectionHeader>
+                            <SettingsSectionTitle>
+                                {t("idpApiIntegration")}
+                            </SettingsSectionTitle>
+                            <SettingsSectionDescription>
+                                {t("idpApiIntegrationDescription")}
+                            </SettingsSectionDescription>
+                        </SettingsSectionHeader>
+                        <SettingsSectionBody>
+                            <Form {...form}>
+                                <form
+                                    onSubmit={form.handleSubmit(onSubmit)}
+                                    className="space-y-4"
+                                    id="general-settings-form"
+                                >
+                                    <ApiIntegrationConfigWidget
+                                        variant={variant}
+                                        apiIntegrationEnabled={form.watch(
+                                            "apiIntegrationEnabled"
+                                        )}
+                                        onApiIntegrationEnabledChange={(
+                                            checked
+                                        ) => {
+                                            form.setValue(
+                                                "apiIntegrationEnabled",
+                                                checked
+                                            );
+                                            if (!checked) {
+                                                form.setValue(
+                                                    "directorySyncEnabled",
+                                                    false
+                                                );
+                                            }
+                                        }}
+                                        configuredServiceAccountEmail={
+                                            configuredServiceAccountEmail
+                                        }
+                                    />
+                                </form>
+                            </Form>
+                        </SettingsSectionBody>
+                    </SettingsSection>
+                )}
+
+                {/* User Provisioning */}
+                <SettingsSection>
                     <SettingsSectionHeader>
                         <SettingsSectionTitle>
-                            {t("idpAutoProvisionUsers")}
+                            {t("idpUserProvisioning")}
                         </SettingsSectionTitle>
                         <SettingsSectionDescription>
-                            <IdpAutoProvisionUsersDescription />
+                            {t("idpUserProvisioningDescription")}
                         </SettingsSectionDescription>
                     </SettingsSectionHeader>
                     <SettingsSectionBody>
-                        <PaidFeaturesAlert
-                            tiers={tierMatrix.autoProvisioning}
-                        />
-
                         <Form {...form}>
                             <form
                                 onSubmit={form.handleSubmit(onSubmit)}
-                                className="space-y-4"
                                 id="general-settings-form"
                             >
-                                <AutoProvisionConfigWidget
-                                    autoProvision={form.watch("autoProvision")}
-                                    onAutoProvisionChange={(checked) => {
-                                        form.setValue("autoProvision", checked);
-                                    }}
+                                <IdpUserProvisioningFields
+                                    testResultsApiBase={`/org/${orgId}/idp/${idpId}`}
+                                    syncAvailable={supportsApiIntegration(
+                                        variant
+                                    )}
                                     orgId={orgId as string}
-                                    roleMappingMode={roleMappingMode}
-                                    onRoleMappingModeChange={(data) => {
-                                        setRoleMappingMode(data);
-                                    }}
                                     roles={roles}
-                                    fixedRoleNames={fixedRoleNames}
-                                    onFixedRoleNamesChange={setFixedRoleNames}
-                                    mappingBuilderClaimPath={
-                                        mappingBuilderClaimPath
-                                    }
-                                    onMappingBuilderClaimPathChange={
-                                        setMappingBuilderClaimPath
-                                    }
-                                    mappingBuilderRules={mappingBuilderRules}
-                                    onMappingBuilderRulesChange={
-                                        setMappingBuilderRules
-                                    }
-                                    rawExpression={rawRoleExpression}
-                                    onRawExpressionChange={setRawRoleExpression}
-                                    orgMappingField={{
-                                        control: form.control,
-                                        name: "orgMapping"
-                                    }}
+                                    jitRoleMapping={roleMapping}
+                                    onJitRoleMappingChange={setRoleMapping}
+                                    syncRoleMapping={syncRoleMapping}
+                                    onSyncRoleMappingChange={setSyncRoleMapping}
                                 />
                             </form>
                         </Form>
+                        {canSyncNow && (
+                            <div className="flex flex-col gap-2 items-start border-t pt-6 mt-6">
+                                <Button
+                                    type="button"
+                                    variant="outlinePrimary"
+                                    onClick={() => setSyncDialogOpen(true)}
+                                    className="gap-2"
+                                >
+                                    <RefreshCwIcon className="size-4 flex-none" />
+                                    {t("idpSyncNow")}
+                                </Button>
+                                <p className="text-sm text-muted-foreground">
+                                    {t("idpSyncNowDescription")}
+                                </p>
+                                <IdpLastSyncedAt lastSyncedAt={lastSyncedAt} />
+                            </div>
+                        )}
                     </SettingsSectionBody>
                 </SettingsSection>
 

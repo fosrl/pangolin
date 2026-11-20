@@ -16,6 +16,8 @@ import * as billing from "#private/routers/billing";
 import * as remoteExitNode from "#private/routers/remoteExitNode";
 import * as loginPage from "#private/routers/loginPage";
 import * as orgIdp from "#private/routers/orgIdp";
+import * as globalIdp from "#private/routers/idp";
+import * as idp from "@server/routers/idp";
 import * as domain from "#private/routers/domain";
 import * as auth from "#private/routers/auth";
 import * as license from "#private/routers/license";
@@ -129,6 +131,81 @@ authenticated.post(
     verifyUserHasAction(ActionsEnum.updateIdp),
     logActionAudit(ActionsEnum.updateIdp),
     orgIdp.updateOrgOidcIdp
+);
+
+authenticated.post(
+    "/org/:orgId/idp/:idpId/sync",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.idpAPIIntegration),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyOrgAccess,
+    verifyIdpAccess,
+    verifyUserHasAction(ActionsEnum.updateIdp),
+    logActionAudit(ActionsEnum.updateIdp),
+    orgIdp.syncOrgIdp
+);
+
+authenticated.put(
+    "/org/:orgId/idp/:idpId/oidc/test-links",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.orgOidc),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyOrgAccess,
+    verifyIdpAccess,
+    verifyUserHasAction(ActionsEnum.updateIdp),
+    idp.createIdpTestLink
+);
+
+authenticated.get(
+    "/org/:orgId/idp/:idpId/oidc/test-links",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.orgOidc),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyOrgAccess,
+    verifyIdpAccess,
+    verifyUserHasAction(ActionsEnum.updateIdp),
+    idp.listIdpTestLinks
+);
+
+authenticated.get(
+    "/org/:orgId/idp/:idpId/oidc/test-results/latest",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.orgOidc),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyOrgAccess,
+    verifyIdpAccess,
+    verifyUserHasAction(ActionsEnum.updateIdp),
+    idp.getLatestIdpTestResult
+);
+
+authenticated.get(
+    "/org/:orgId/idp/:idpId/oidc/test-links/:linkId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.orgOidc),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyOrgAccess,
+    verifyIdpAccess,
+    verifyUserHasAction(ActionsEnum.updateIdp),
+    idp.getIdpTestLink
+);
+
+authenticated.delete(
+    "/org/:orgId/idp/:idpId/oidc/test-links/:linkId",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.orgOidc),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyOrgAccess,
+    verifyIdpAccess,
+    verifyUserHasAction(ActionsEnum.updateIdp),
+    idp.deleteIdpTestLink
+);
+
+// global IdP (server admin), the handler refuses org identity provider mode
+authenticated.post(
+    "/idp/:idpId/sync",
+    verifyValidLicense,
+    verifyUserIsServerAdmin,
+    globalIdp.syncIdp
 );
 
 authenticated.delete(

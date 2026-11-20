@@ -1,26 +1,23 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
-import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import { IdpDataTable } from "@app/components/AdminIdpDataTable";
-import { Button } from "@app/components/ui/button";
-import { ArrowRight, ArrowUpDown, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
 import ConfirmDeleteDialog from "@app/components/ConfirmDeleteDialog";
-import { toast } from "@app/hooks/useToast";
-import { formatAxiosError } from "@app/lib/api";
-import { createApiClient } from "@app/lib/api";
-import { useEnvContext } from "@app/hooks/useEnvContext";
-import { Badge } from "@app/components/ui/badge";
-import { useRouter } from "next/navigation";
+import { Button } from "@app/components/ui/button";
+import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
-import Link from "next/link";
+import { useEnvContext } from "@app/hooks/useEnvContext";
+import { toast } from "@app/hooks/useToast";
+import { createApiClient, formatAxiosError } from "@app/lib/api";
+import { ArrowRight, ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import IdpTypeBadge from "./IdpTypeBadge";
 
 export type IdpRow = {
@@ -35,7 +32,7 @@ type Props = {
     idps: IdpRow[];
 };
 
-export default function IdpTable({ idps }: Props) {
+export default function AdminIdpTable({ idps }: Props) {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedIdp, setSelectedIdp] = useState<IdpRow | null>(null);
     const api = createApiClient(useEnvContext());

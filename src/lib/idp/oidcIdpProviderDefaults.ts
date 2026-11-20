@@ -17,7 +17,8 @@ export function applyOidcIdpProviderType<T extends FieldValues>(
             "tokenUrl" as never,
             "https://oauth2.googleapis.com/token" as never
         );
-        setValue("identifierPath" as never, "email" as never);
+        // immutable user ID, stored as the username
+        setValue("identifierPath" as never, "sub" as never);
         setValue("emailPath" as never, "email" as never);
         setValue("namePath" as never, "name" as never);
         setValue("scopes" as never, "openid profile email" as never);
@@ -30,7 +31,8 @@ export function applyOidcIdpProviderType<T extends FieldValues>(
             "tokenUrl" as never,
             "https://login.microsoftonline.com/{{TENANT_ID}}/oauth2/v2.0/token" as never
         );
-        setValue("identifierPath" as never, "email" as never);
+        // immutable user ID (`sub` is pairwise per app in Entra), stored as the username
+        setValue("identifierPath" as never, "oid" as never);
         setValue("emailPath" as never, "email" as never);
         setValue("namePath" as never, "name" as never);
         setValue("scopes" as never, "openid profile email" as never);

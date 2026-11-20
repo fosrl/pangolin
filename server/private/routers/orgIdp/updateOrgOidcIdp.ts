@@ -13,6 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { deleteLoginClaimsForIdp } from "@server/lib/idp/loginClaims";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db, idpOrg } from "@server/db";
 import response from "@server/lib/response";
@@ -26,10 +27,13 @@ import { eq, and } from "drizzle-orm";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
 import { isSubscribed } from "#private/lib/isSubscribed";
+import { isLicensedOrSubscribed } from "#private/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
 import { clearIdpSessionGrants } from "#private/auth/sessions/idpRevalidation";
 import { build } from "@server/build";
+import { resolveIDPAPIConfig } from "@server/private/lib/idpAPI/config";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 const paramsSchema = z
     .object({
@@ -49,9 +53,22 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().optional(),
     autoProvision: z.boolean().optional(),
+    apiIntegrationEnabled: z.boolean().optional(),
+    allowManualProvisioning: z.boolean().optional(),
+    directorySyncEnabled: z.boolean().optional(),
     sessionRevalidation: z.boolean().optional(),
+    // keep each user's claims from their last login, for admins to debug mappings
+    storeLoginClaims: z.boolean().optional(),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
+    syncRoleMapping: z.string().nullish(),
+    syncOrgMapping: z.string().nullish(),
+    mappingsLinked: z.boolean().optional(),
+    createMissingRoles: z.boolean().optional(),
+    syncCreateMissingRoles: z.boolean().optional(),
+    directorySyncDeletions: z.boolean().optional(),
+    // provider-specific, omitted secrets are kept from the stored config
+    apiConfig: z.record(z.string(), z.unknown()).optional(),
     tags: z.string().optional()
 });
 
@@ -129,6 +146,17 @@ export async function updateOrgOidcIdp(
             name,
             roleMapping,
             orgMapping,
+            apiIntegrationEnabled,
+            allowManualProvisioning,
+            directorySyncEnabled,
+            syncRoleMapping,
+            syncOrgMapping,
+            mappingsLinked,
+            createMissingRoles,
+            syncCreateMissingRoles,
+            directorySyncDeletions,
+            apiConfig,
+            storeLoginClaims,
             tags
         } = parsedBody.data;
 
@@ -210,10 +238,72 @@ export async function updateOrgOidcIdp(
             : undefined;
         const encryptedClientId = clientId ? encrypt(clientId, key) : undefined;
 
+        const [existingOidcConfig] = await db
+            .select({ variant: idpOidcConfig.variant })
+            .from(idpOidcConfig)
+            .where(eq(idpOidcConfig.idpId, idpId));
+
+        // the API integration (and sync, which needs it) is only supported for google/azure idps
+        const apiIntegrationSupported = supportsApiIntegration(
+            existingOidcConfig?.variant
+        );
+        // omitted flags keep their stored value
+        const effectiveApiIntegrationEnabled =
+            apiIntegrationSupported &&
+            (apiIntegrationEnabled ?? existingIdp.apiIntegrationEnabled);
+        const effectiveDirectorySyncEnabled =
+            apiIntegrationSupported &&
+            (directorySyncEnabled ?? existingIdp.directorySyncEnabled);
+
+        if (effectiveDirectorySyncEnabled && !effectiveApiIntegrationEnabled) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Directory sync requires the API integration"
+                )
+            );
+        }
+
+        // the API integration and sync are paid features. Only turning them on is refused:
+        // after a downgrade the stored settings stay and other edits must still save
+        const enablesApiFeatures =
+            (effectiveApiIntegrationEnabled &&
+                !existingIdp.apiIntegrationEnabled) ||
+            (effectiveDirectorySyncEnabled &&
+                !existingIdp.directorySyncEnabled);
+        if (
+            enablesApiFeatures &&
+            !(await isLicensedOrSubscribed(orgId, tierMatrix.idpAPIIntegration))
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "The IdP API integration and directory sync are not available on your current plan"
+                )
+            );
+        }
+
+        const resolvedApiConfig = resolveIDPAPIConfig({
+            variant: existingOidcConfig?.variant ?? "oidc",
+            incomingApiConfig: apiConfig,
+            existingEncryptedApiConfig: existingIdp.apiConfig,
+            apiIntegrationEnabled: effectiveApiIntegrationEnabled
+        });
+        if (!resolvedApiConfig.success) {
+            return next(
+                createHttpError(HttpCode.BAD_REQUEST, resolvedApiConfig.error)
+            );
+        }
+
         await db.transaction(async (trx) => {
             const idpData = {
                 name,
                 sessionRevalidation,
+                storeLoginClaims,
+                apiIntegrationEnabled: effectiveApiIntegrationEnabled,
+                allowManualProvisioning,
+                directorySyncEnabled: effectiveDirectorySyncEnabled,
+                apiConfig: resolvedApiConfig.value,
                 tags
             };
 
@@ -253,6 +343,12 @@ export async function updateOrgOidcIdp(
             const idpOrgPolicyPatch: {
                 roleMapping?: string;
                 orgMapping?: string | null;
+                syncRoleMapping?: string | null;
+                syncOrgMapping?: string | null;
+                mappingsLinked?: boolean;
+                createMissingRoles?: boolean;
+                syncCreateMissingRoles?: boolean;
+                directorySyncDeletions?: boolean;
                 autoProvision?: boolean;
             } = {};
             if (roleMapping !== undefined) {
@@ -260,6 +356,26 @@ export async function updateOrgOidcIdp(
             }
             if (orgMapping !== undefined) {
                 idpOrgPolicyPatch.orgMapping = orgMapping;
+            }
+            if (syncRoleMapping !== undefined) {
+                idpOrgPolicyPatch.syncRoleMapping = syncRoleMapping;
+            }
+            if (syncOrgMapping !== undefined) {
+                idpOrgPolicyPatch.syncOrgMapping = syncOrgMapping;
+            }
+            if (mappingsLinked !== undefined) {
+                idpOrgPolicyPatch.mappingsLinked = mappingsLinked;
+            }
+            if (createMissingRoles !== undefined) {
+                idpOrgPolicyPatch.createMissingRoles = createMissingRoles;
+            }
+            if (syncCreateMissingRoles !== undefined) {
+                idpOrgPolicyPatch.syncCreateMissingRoles =
+                    syncCreateMissingRoles;
+            }
+            if (directorySyncDeletions !== undefined) {
+                idpOrgPolicyPatch.directorySyncDeletions =
+                    directorySyncDeletions;
             }
             if (autoProvision !== undefined) {
                 idpOrgPolicyPatch.autoProvision = autoProvision;
@@ -276,6 +392,11 @@ export async function updateOrgOidcIdp(
 
         if (sessionRevalidation === false) {
             await clearIdpSessionGrants(idpId);
+        }
+
+        // turning it off forgets the claims stored so far
+        if (storeLoginClaims === false) {
+            await deleteLoginClaimsForIdp(idpId);
         }
 
         return response<UpdateOrgIdpResponse>(res, {

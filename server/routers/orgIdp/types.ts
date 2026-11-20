@@ -1,4 +1,5 @@
 import { Idp, IdpOidcConfig } from "@server/db";
+import type { RedactedIDPAPIConfig } from "@app/lib/idpApiConfig";
 
 export type CreateOrgIdpResponse = {
     idpId: number;
@@ -6,7 +7,9 @@ export type CreateOrgIdpResponse = {
 };
 
 export type GetOrgIdpResponse = {
-    idp: Idp;
+    idp: Omit<Idp, "apiConfig"> & {
+        apiConfig: RedactedIDPAPIConfig | null;
+    };
     idpOidcConfig: IdpOidcConfig | null;
     redirectUrl: string;
 };
