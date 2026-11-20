@@ -2,8 +2,12 @@ import { db, roleActions, roles, type Transaction } from "@server/db";
 import logger from "@server/logger";
 import { defaultRoleAllowedActions } from "@server/routers/role/createRole";
 import { and, eq, inArray } from "drizzle-orm";
-import jmespath from "jmespath";
-import { evaluateRoleMapping } from "./evaluateRoleMapping";
+import {
+    evaluateMappings,
+    type MappingEvaluation
+} from "@app/lib/idpMappingEval";
+
+export { hydrateOrgMapping } from "@app/lib/idpMappingEval";
 
 export type ResolvedRole = { roleId: number; name: string };
 
@@ -14,10 +18,14 @@ export type ResolvedOrgMembership =
           roles: ResolvedRole[];
           /** Mapped role names that don't exist in the org yet, only with `createMissingRoles`. */
           missingRoleNames: string[];
+          /** What each expression returned, for the test login. */
+          trace: MappingEvaluation;
       }
     | {
           matched: false;
           reason:
+              /** An expression is invalid (only with `throwOnExpressionError: false`). */
+              | "expressionError"
               /** The org mapping didn't return `true` or the orgId. */
               | "orgMappingMismatch"
               /** No role mapping, or it returned no role names. */
@@ -25,6 +33,7 @@ export type ResolvedOrgMembership =
               /** The role names don't exist in the org (and `createMissingRoles` is off). */
               | "noMatchingRoles";
           roleNames?: string[];
+          trace: MappingEvaluation;
       };
 
 // same limit as the create role API
@@ -41,6 +50,8 @@ const MAX_ROLE_NAME_LENGTH = 255;
  * - `createMissingRoles`: role names that don't exist in the org are returned in
  *   `missingRoleNames` instead of being dropped. Nothing is written here: the
  *   caller creates them with `createRoles` when it applies the membership.
+ * - `throwOnExpressionError`: an invalid expression throws (default, as login and
+ *   sync always did) or, when `false`, returns `reason: "expressionError"`.
  */
 export async function resolveOrgMembership({
     claims,
@@ -48,7 +59,8 @@ export async function resolveOrgMembership({
     orgMapping,
     roleMapping,
     supportsMultiRole,
-    createMissingRoles
+    createMissingRoles,
+    throwOnExpressionError = true
 }: {
     claims: unknown;
     orgId: string;
@@ -56,21 +68,32 @@ export async function resolveOrgMembership({
     roleMapping: string | null | undefined;
     supportsMultiRole: boolean;
     createMissingRoles: boolean;
+    throwOnExpressionError?: boolean;
 }): Promise<ResolvedOrgMembership> {
-    const hydratedOrgMapping = hydrateOrgMapping(orgMapping, orgId);
-    if (hydratedOrgMapping) {
-        const result = jmespath.search(claims, hydratedOrgMapping);
-        if (result !== true && result !== orgId) {
-            return { matched: false, reason: "orgMappingMismatch" };
+    const trace = evaluateMappings({ claims, orgId, orgMapping, roleMapping });
+
+    // the org mapping is checked first, so a role mapping error doesn't matter when it fails
+    if (
+        trace.orgMapping?.error ||
+        (trace.orgMapping?.passed !== false && trace.roleMapping?.error)
+    ) {
+        const error = trace.orgMapping?.error ?? trace.roleMapping?.error;
+        if (throwOnExpressionError) {
+            throw new Error(error);
         }
+        return { matched: false, reason: "expressionError", trace };
     }
 
-    const roleNames = evaluateRoleMapping(roleMapping, claims).slice(
+    if (trace.orgMapping && !trace.orgMapping.passed) {
+        return { matched: false, reason: "orgMappingMismatch", trace };
+    }
+
+    const roleNames = (trace.roleMapping?.roleNames ?? []).slice(
         0,
         supportsMultiRole ? undefined : 1
     );
     if (roleNames.length === 0) {
-        return { matched: false, reason: "noRoleNames" };
+        return { matched: false, reason: "noRoleNames", trace };
     }
 
     const matchedRoles = await db
@@ -87,10 +110,15 @@ export async function resolveOrgMembership({
         : [];
 
     if (matchedRoles.length === 0 && missingRoleNames.length === 0) {
-        return { matched: false, reason: "noMatchingRoles", roleNames };
+        return {
+            matched: false,
+            reason: "noMatchingRoles",
+            roleNames,
+            trace
+        };
     }
 
-    return { matched: true, roles: matchedRoles, missingRoleNames };
+    return { matched: true, roles: matchedRoles, missingRoleNames, trace };
 }
 
 /**
@@ -140,14 +168,4 @@ export async function createRoles(
     );
 
     return [...existingRoles, ...createdRoles];
-}
-
-export function hydrateOrgMapping(
-    orgMapping: string | null | undefined,
-    orgId: string
-): string | undefined {
-    if (!orgMapping) {
-        return undefined;
-    }
-    return orgMapping.split("{{orgId}}").join(orgId);
 }

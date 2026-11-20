@@ -1345,6 +1345,7 @@ export const idp = pgTable("idp", {
     sessionRevalidation: boolean("sessionRevalidation")
         .notNull()
         .default(false),
+    storeLoginClaims: boolean("storeLoginClaims").notNull().default(false),
     // When false, admins can't pre-provision users for this IdP
     allowManualProvisioning: boolean("allowManualProvisioning")
         .notNull()
@@ -1384,6 +1385,43 @@ export const idpOidcConfig = pgTable("idpOidcConfig", {
     emailPath: varchar("emailPath"),
     namePath: varchar("namePath"),
     scopes: varchar("scopes").notNull()
+});
+
+// Claims of a user's last OIDC login, when the IdP has `storeLoginClaims` on
+export const userIdpClaims = pgTable("userIdpClaims", {
+    userId: varchar("userId")
+        .primaryKey()
+        .references(() => users.userId, { onDelete: "cascade" }),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    // encrypted JSON: { claims, enrichedClaimKeys }
+    claims: text("claims").notNull(),
+    capturedAt: bigint("capturedAt", { mode: "number" }).notNull()
+});
+
+// Single-use links that let someone else run a test login for an admin
+export const idpTestLinks = pgTable("idpTestLinks", {
+    linkId: varchar("linkId").primaryKey(),
+    // sha256 of the token in the link
+    tokenHash: varchar("tokenHash").notNull().unique(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    // set when created from an org's settings: only this org is evaluated
+    orgId: varchar("orgId").references(() => orgs.orgId, {
+        onDelete: "cascade"
+    }),
+    createdBy: varchar("createdBy").references(() => users.userId, {
+        onDelete: "set null"
+    }),
+    // who the link is for, shown to admins
+    label: varchar("label"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+    completedAt: bigint("completedAt", { mode: "number" }),
+    // encrypted JSON of the test result
+    result: text("result")
 });
 
 export const licenseKey = pgTable("licenseKey", {
@@ -2265,6 +2303,8 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type UserIdpClaims = InferSelectModel<typeof userIdpClaims>;
+export type IdpTestLink = InferSelectModel<typeof idpTestLinks>;
 export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;

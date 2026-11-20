@@ -1,5 +1,5 @@
 import { CommandModule } from "yargs";
-import { db, idpOidcConfig, licenseKey, certificates, eventStreamingDestinations, alertWebhookActions, aiProviders, virtualApiKeys } from "@server/db";
+import { db, idp, idpOidcConfig, idpTestLinks, licenseKey, certificates, eventStreamingDestinations, alertWebhookActions, aiProviders, virtualApiKeys, userIdpClaims } from "@server/db";
 import { encrypt, decrypt } from "@server/lib/crypto";
 import { configFilePath1, configFilePath2 } from "@server/lib/consts";
 import { eq } from "drizzle-orm";
@@ -134,6 +134,11 @@ export const rotateServerSecret: CommandModule<
             const webhookActions = await db.select().from(alertWebhookActions);
             const providers = await db.select().from(aiProviders);
             const virtualKeys = await db.select().from(virtualApiKeys);
+            const idpApiConfigs = await db
+                .select({ idpId: idp.idpId, apiConfig: idp.apiConfig })
+                .from(idp);
+            const loginClaims = await db.select().from(userIdpClaims);
+            const testLinks = await db.select().from(idpTestLinks);
 
             console.log(`Found ${idpConfigs.length} OIDC IdP configuration(s)`);
             console.log(`Found ${licenseKeys.length} license key(s)`);
@@ -142,6 +147,9 @@ export const rotateServerSecret: CommandModule<
             console.log(`Found ${webhookActions.length} alert webhook action(s)`);
             console.log(`Found ${providers.length} AI provider(s)`);
             console.log(`Found ${virtualKeys.length} virtual API key(s)`);
+            console.log(`Found ${idpApiConfigs.filter((r) => r.apiConfig).length} IdP API configuration(s)`);
+            console.log(`Found ${loginClaims.length} stored login claim snapshot(s)`);
+            console.log(`Found ${testLinks.filter((l) => l.result).length} IdP test link result(s)`);
 
             // Prepare all decrypted and re-encrypted values
             console.log("\nDecrypting and re-encrypting values...");
@@ -193,6 +201,50 @@ export const rotateServerSecret: CommandModule<
             const webhookActionUpdates: WebhookActionUpdate[] = [];
             const aiProviderUpdates: AiProviderUpdate[] = [];
             const virtualApiKeyUpdates: VirtualApiKeyUpdate[] = [];
+            const idpApiConfigUpdates: { idpId: number; encrypted: string }[] = [];
+            const loginClaimsUpdates: { userId: string; encrypted: string }[] = [];
+            const testLinkUpdates: { linkId: string; encrypted: string }[] = [];
+
+            // Process idp.apiConfig (IdP API integration credentials)
+            for (const row of idpApiConfigs) {
+                if (!row.apiConfig) continue;
+                try {
+                    idpApiConfigUpdates.push({
+                        idpId: row.idpId,
+                        encrypted: encrypt(decrypt(row.apiConfig, oldSecret), newSecret)
+                    });
+                } catch (error) {
+                    console.error(`Error processing API config of IdP ${row.idpId}:`, error);
+                    throw error;
+                }
+            }
+
+            // Process userIdpClaims (claims of each user's last login)
+            for (const row of loginClaims) {
+                try {
+                    loginClaimsUpdates.push({
+                        userId: row.userId,
+                        encrypted: encrypt(decrypt(row.claims, oldSecret), newSecret)
+                    });
+                } catch (error) {
+                    console.error(`Error processing login claims of user ${row.userId}:`, error);
+                    throw error;
+                }
+            }
+
+            // Process idpTestLinks results
+            for (const link of testLinks) {
+                if (!link.result) continue;
+                try {
+                    testLinkUpdates.push({
+                        linkId: link.linkId,
+                        encrypted: encrypt(decrypt(link.result, oldSecret), newSecret)
+                    });
+                } catch (error) {
+                    console.error(`Error processing IdP test link ${link.linkId}:`, error);
+                    throw error;
+                }
+            }
 
             // Process idpOidcConfig entries
             for (const idpConfig of idpConfigs) {
@@ -380,6 +432,27 @@ export const rotateServerSecret: CommandModule<
             // Perform all database updates in a single transaction
             console.log("\nUpdating database in transaction...");
             await db.transaction(async (trx) => {
+                for (const update of idpApiConfigUpdates) {
+                    await trx
+                        .update(idp)
+                        .set({ apiConfig: update.encrypted })
+                        .where(eq(idp.idpId, update.idpId));
+                }
+
+                for (const update of loginClaimsUpdates) {
+                    await trx
+                        .update(userIdpClaims)
+                        .set({ claims: update.encrypted })
+                        .where(eq(userIdpClaims.userId, update.userId));
+                }
+
+                for (const update of testLinkUpdates) {
+                    await trx
+                        .update(idpTestLinks)
+                        .set({ result: update.encrypted })
+                        .where(eq(idpTestLinks.linkId, update.linkId));
+                }
+
                 // Update idpOidcConfig entries
                 for (const update of idpUpdates) {
                     await trx
@@ -482,6 +555,9 @@ export const rotateServerSecret: CommandModule<
             console.log(`Rotated ${webhookActionUpdates.length} alert webhook action(s)`);
             console.log(`Rotated ${aiProviderUpdates.length} AI provider(s)`);
             console.log(`Rotated ${virtualApiKeyUpdates.length} virtual API key(s)`);
+            console.log(`Rotated ${idpApiConfigUpdates.length} IdP API configuration(s)`);
+            console.log(`Rotated ${loginClaimsUpdates.length} stored login claim snapshot(s)`);
+            console.log(`Rotated ${testLinkUpdates.length} IdP test link result(s)`);
 
             // Update config file with new secret
             console.log("\nUpdating config file...");
@@ -497,6 +573,9 @@ export const rotateServerSecret: CommandModule<
             console.log("\nServer secret rotation completed successfully!");
             console.log(`\nSummary:`);
             console.log(`  - OIDC IdP configurations: ${idpUpdates.length}`);
+            console.log(`  - IdP API configurations: ${idpApiConfigUpdates.length}`);
+            console.log(`  - Login claim snapshots: ${loginClaimsUpdates.length}`);
+            console.log(`  - IdP test link results: ${testLinkUpdates.length}`);
             console.log(`  - License keys: ${licenseKeyUpdates.length}`);
             console.log(`  - Certificates: ${certUpdates.length}`);
             console.log(`  - Event streaming destinations: ${streamingDestinationUpdates.length}`);

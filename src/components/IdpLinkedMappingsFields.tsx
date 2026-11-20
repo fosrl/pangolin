@@ -19,6 +19,11 @@ export type IdpMappingSet = {
 };
 
 type IdpLinkedMappingsFieldsProps = {
+    /**
+     * `/idp/:idpId` or `/org/:orgId/idp/:idpId`: the mapping playground prefills
+     * the claims of this IdP's latest completed test link.
+     */
+    testResultsApiBase?: string;
     /** Directory sync is on (google/azure only). When false, only the JIT editor is shown, without the switch. */
     syncAvailable: boolean;
     linked: boolean;
@@ -45,12 +50,14 @@ export default function IdpLinkedMappingsFields({
     roles,
     orgId,
     fieldIdPrefix,
-    showFreeformRoleNamesHint
+    showFreeformRoleNamesHint,
+    testResultsApiBase
 }: IdpLinkedMappingsFieldsProps) {
     const t = useTranslations();
 
     const renderTabs = (set: IdpMappingSet, prefix: string) => (
         <IdpMappingTabs
+            testResultsApiBase={testResultsApiBase}
             fieldIdPrefix={prefix}
             orgId={orgId}
             roles={roles}

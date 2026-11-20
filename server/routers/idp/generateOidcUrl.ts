@@ -8,11 +8,12 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { idp, idpOidcConfig, idpOrg } from "@server/db";
 import { and, eq } from "drizzle-orm";
-import * as arctic from "arctic";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
-import jsonwebtoken from "jsonwebtoken";
-import config from "@server/lib/config";
-import { decrypt } from "@server/lib/crypto";
+import {
+    buildOidcAuthorizationUrl,
+    OIDC_STATE_COOKIE_NAME,
+    OIDC_STATE_TTL_MS
+} from "@server/lib/idp/buildOidcAuthorizationUrl";
 import { build } from "@server/build";
 import { isSubscribed } from "#dynamic/lib/isSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
@@ -30,10 +31,6 @@ const bodySchema = z.strictObject({
 const querySchema = z.object({
     orgId: z.string().optional() // check what actuall calls it
 });
-
-const ensureTrailingSlash = (url: string): string => {
-    return url;
-};
 
 export type GenerateOidcUrlResponse = {
     redirectUrl: string;
@@ -128,76 +125,18 @@ export async function generateOidcUrl(
             }
         }
 
-        const isGoogle = existingIdp.idpOidcConfig.variant === "google";
-        const parsedScopes = existingIdp.idpOidcConfig.scopes
-            .split(" ")
-            .map((scope) => {
-                return scope.trim();
-            })
-            .filter((scope) => {
-                if (scope.length === 0) {
-                    return false;
-                }
-                if (isGoogle && scope === "offline_access") {
-                    return false;
-                }
-                return true;
-            });
-
-        const key = config.getRawConfig().server.secret!;
-
-        const decryptedClientId = decrypt(
-            existingIdp.idpOidcConfig.clientId,
-            key
-        );
-        const decryptedClientSecret = decrypt(
-            existingIdp.idpOidcConfig.clientSecret,
-            key
-        );
-
         const redirectUrl = await generateOidcRedirectUrl(idpId, orgId);
-        logger.debug("OIDC client info", {
-            decryptedClientId,
-            decryptedClientSecret,
-            redirectUrl
+        const { url, stateJwt } = buildOidcAuthorizationUrl({
+            existingIdp,
+            redirectUrl,
+            postAuthRedirectUrl
         });
-        const client = new arctic.OAuth2Client(
-            decryptedClientId,
-            decryptedClientSecret,
-            redirectUrl
-        );
 
-        const codeVerifier = arctic.generateCodeVerifier();
-        const state = arctic.generateState();
-        const url = client.createAuthorizationURLWithPKCE(
-            ensureTrailingSlash(existingIdp.idpOidcConfig.authUrl),
-            state,
-            arctic.CodeChallengeMethod.S256,
-            codeVerifier,
-            parsedScopes
-        );
-
-        // Google issues refresh tokens via access_type=offline; prompt=consent
-        // is required so returning users still receive a refresh token.
-        if (existingIdp.idp.sessionRevalidation && isGoogle) {
-            url.searchParams.set("access_type", "offline");
-            url.searchParams.set("prompt", "consent");
-        }
-
-        const stateJwt = jsonwebtoken.sign(
-            {
-                redirectUrl: postAuthRedirectUrl, // TODO: validate that this is safe
-                state,
-                codeVerifier
-            },
-            config.getRawConfig().server.secret!
-        );
-
-        res.cookie("p_oidc_state", stateJwt, {
+        res.cookie(OIDC_STATE_COOKIE_NAME, stateJwt, {
             path: "/",
             httpOnly: true,
             secure: req.protocol === "https",
-            expires: new Date(Date.now() + 60 * 10 * 1000),
+            expires: new Date(Date.now() + OIDC_STATE_TTL_MS),
             sameSite: "lax"
         });
 

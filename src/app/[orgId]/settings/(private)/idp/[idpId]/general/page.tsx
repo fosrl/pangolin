@@ -802,6 +802,7 @@ export default function GeneralPage() {
                                 id="general-settings-form"
                             >
                                 <IdpUserProvisioningFields
+                                    testResultsApiBase={`/org/${orgId}/idp/${idpId}`}
                                     syncAvailable={supportsApiIntegration(
                                         variant
                                     )}

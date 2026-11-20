@@ -22,6 +22,11 @@ export type IdpUserProvisioningFormValues = IdpProvisioningMethodFormValues & {
 };
 
 type IdpUserProvisioningFieldsProps = {
+    /**
+     * `/idp/:idpId` or `/org/:orgId/idp/:idpId`: the mapping playground prefills
+     * the claims of this IdP's latest completed test link.
+     */
+    testResultsApiBase?: string;
     /** Directory sync is only offered for providers with an API integration (google/azure). */
     syncAvailable: boolean;
     orgId: string;
@@ -44,7 +49,8 @@ export default function IdpUserProvisioningFields({
     jitRoleMapping,
     onJitRoleMappingChange,
     syncRoleMapping,
-    onSyncRoleMappingChange
+    onSyncRoleMappingChange,
+    testResultsApiBase
 }: IdpUserProvisioningFieldsProps) {
     const t = useTranslations();
     const form = useFormContext<IdpUserProvisioningFormValues>();
@@ -104,6 +110,7 @@ export default function IdpUserProvisioningFields({
 
                     {mappingsLinked ? (
                         <IdpMappingTabs
+                            testResultsApiBase={testResultsApiBase}
                             fieldIdPrefix="org-idp-mappings"
                             orgId={orgId}
                             roles={roles}
@@ -128,6 +135,7 @@ export default function IdpUserProvisioningFields({
                                         {t("idpMappingsJit")}
                                     </h4>
                                     <IdpMappingTabs
+                                        testResultsApiBase={testResultsApiBase}
                                         fieldIdPrefix="org-idp-jit-mappings"
                                         orgId={orgId}
                                         roles={roles}
@@ -151,6 +159,7 @@ export default function IdpUserProvisioningFields({
                                         {t("idpMappingsSync")}
                                     </h4>
                                     <IdpMappingTabs
+                                        testResultsApiBase={testResultsApiBase}
                                         fieldIdPrefix="org-idp-sync-mappings"
                                         orgId={orgId}
                                         roles={roles}

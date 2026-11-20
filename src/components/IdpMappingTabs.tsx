@@ -1,6 +1,7 @@
 "use client";
 
 import { HorizontalTabs } from "@app/components/HorizontalTabs";
+import IdpMappingTestButton from "@app/components/idp/IdpMappingTestButton";
 import RoleMappingConfigFields, {
     RoleMappingRoleOption
 } from "@app/components/RoleMappingConfigFields";
@@ -35,6 +36,11 @@ type IdpMappingTabsProps = {
     createMissingRoles?: boolean;
     onCreateMissingRolesChange?: (checked: boolean) => void;
     createMissingRolesInAnyMode?: boolean;
+    /**
+     * `/idp/:idpId` or `/org/:orgId/idp/:idpId`: the mapping playground prefills
+     * the claims of this IdP's latest completed test link.
+     */
+    testResultsApiBase?: string;
 };
 
 /** Role mapping (and optionally org mapping) editors, used for JIT, sync, or both when the mappings are linked. */
@@ -48,9 +54,22 @@ export default function IdpMappingTabs({
     showFreeformRoleNamesHint,
     createMissingRoles,
     onCreateMissingRolesChange,
-    createMissingRolesInAnyMode
+    createMissingRolesInAnyMode,
+    testResultsApiBase
 }: IdpMappingTabsProps) {
     const t = useTranslations();
+
+    const testButton = (
+        <div className="flex justify-end p-1">
+            <IdpMappingTestButton
+                testResultsApiBase={testResultsApiBase}
+                orgId={orgId}
+                roles={roles}
+                roleMapping={roleMapping}
+                orgMappingField={orgMappingField}
+            />
+        </div>
+    );
 
     const roleMappingFields = (
         <div className="space-y-4 mt-4 p-1">
@@ -99,46 +118,54 @@ export default function IdpMappingTabs({
     );
 
     if (!orgMappingField) {
-        return roleMappingFields;
+        return (
+            <div className="space-y-2">
+                {roleMappingFields}
+                {testButton}
+            </div>
+        );
     }
 
     return (
-        <HorizontalTabs
-            clientSide
-            defaultTab={0}
-            items={[
-                { title: t("roleMapping"), href: "#" },
-                { title: t("orgMapping"), href: "#" }
-            ]}
-        >
-            {roleMappingFields}
-            <div className="space-y-4 mt-4 p-1">
-                <p className="text-sm text-muted-foreground">
-                    {t("defaultMappingsOrgDescription")}
-                </p>
-                <FormField
-                    control={orgMappingField.control as Control<any>}
-                    name={orgMappingField.name}
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>
-                                {t(
-                                    orgMappingField.labelKey ??
-                                        "orgMappingPathOptional"
-                                )}
-                            </FormLabel>
-                            <FormControl>
-                                <Input
-                                    {...field}
-                                    value={field.value ?? ""}
-                                    placeholder="e.g., ends_with(email, '@organization.com')"
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            </div>
-        </HorizontalTabs>
+        <div className="space-y-2">
+            <HorizontalTabs
+                clientSide
+                defaultTab={0}
+                items={[
+                    { title: t("roleMapping"), href: "#" },
+                    { title: t("orgMapping"), href: "#" }
+                ]}
+            >
+                {roleMappingFields}
+                <div className="space-y-4 mt-4 p-1">
+                    <p className="text-sm text-muted-foreground">
+                        {t("defaultMappingsOrgDescription")}
+                    </p>
+                    <FormField
+                        control={orgMappingField.control as Control<any>}
+                        name={orgMappingField.name}
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>
+                                    {t(
+                                        orgMappingField.labelKey ??
+                                            "orgMappingPathOptional"
+                                    )}
+                                </FormLabel>
+                                <FormControl>
+                                    <Input
+                                        {...field}
+                                        value={field.value ?? ""}
+                                        placeholder="e.g., ends_with(email, '@organization.com')"
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+            </HorizontalTabs>
+            {testButton}
+        </div>
     );
 }

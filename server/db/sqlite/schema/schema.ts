@@ -1668,6 +1668,9 @@ export const idp = sqliteTable("idp", {
     })
         .notNull()
         .default(false),
+    storeLoginClaims: integer("storeLoginClaims", { mode: "boolean" })
+        .notNull()
+        .default(false),
     // When false, admins can't pre-provision users for this IdP
     allowManualProvisioning: integer("allowManualProvisioning", {
         mode: "boolean"
@@ -1718,6 +1721,43 @@ export const idpOidcConfig = sqliteTable("idpOidcConfig", {
     emailPath: text("emailPath"),
     namePath: text("namePath"),
     scopes: text("scopes").notNull()
+});
+
+// Claims of a user's last OIDC login, when the IdP has `storeLoginClaims` on
+export const userIdpClaims = sqliteTable("userIdpClaims", {
+    userId: text("userId")
+        .primaryKey()
+        .references(() => users.userId, { onDelete: "cascade" }),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    // encrypted JSON: { claims, enrichedClaimKeys }
+    claims: text("claims").notNull(),
+    capturedAt: integer("capturedAt").notNull()
+});
+
+// Single-use links that let someone else run a test login for an admin
+export const idpTestLinks = sqliteTable("idpTestLinks", {
+    linkId: text("linkId").primaryKey(),
+    // sha256 of the token in the link
+    tokenHash: text("tokenHash").notNull().unique(),
+    idpId: integer("idpId")
+        .notNull()
+        .references(() => idp.idpId, { onDelete: "cascade" }),
+    // set when created from an org's settings: only this org is evaluated
+    orgId: text("orgId").references(() => orgs.orgId, {
+        onDelete: "cascade"
+    }),
+    createdBy: text("createdBy").references(() => users.userId, {
+        onDelete: "set null"
+    }),
+    // who the link is for, shown to admins
+    label: text("label"),
+    createdAt: integer("createdAt").notNull(),
+    expiresAt: integer("expiresAt").notNull(),
+    completedAt: integer("completedAt"),
+    // encrypted JSON of the test result
+    result: text("result")
 });
 
 export const licenseKey = sqliteTable("licenseKey", {
@@ -2337,6 +2377,8 @@ export type SetupToken = InferSelectModel<typeof setupTokens>;
 export type HostMeta = InferSelectModel<typeof hostMeta>;
 export type TargetHealthCheck = InferSelectModel<typeof targetHealthCheck>;
 export type IdpOidcConfig = InferSelectModel<typeof idpOidcConfig>;
+export type UserIdpClaims = InferSelectModel<typeof userIdpClaims>;
+export type IdpTestLink = InferSelectModel<typeof idpTestLinks>;
 export type IdpGrant = InferSelectModel<typeof idpGrants>;
 export type Blueprint = InferSelectModel<typeof blueprints>;
 export type LicenseKey = InferSelectModel<typeof licenseKey>;

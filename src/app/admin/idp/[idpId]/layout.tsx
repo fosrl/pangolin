@@ -36,6 +36,10 @@ export default async function SettingsLayout(props: SettingsLayoutProps) {
         {
             title: t("idpMappingsAndPolicies"),
             href: `/admin/idp/${params.idpId}/policies`
+        },
+        {
+            title: t("idpTestTab"),
+            href: `/admin/idp/${params.idpId}/test`
         }
     ];
 

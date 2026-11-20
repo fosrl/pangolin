@@ -13,6 +13,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { deleteLoginClaimsForIdp } from "@server/lib/idp/loginClaims";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db, idpOrg } from "@server/db";
 import response from "@server/lib/response";
@@ -56,6 +57,8 @@ const bodySchema = z.strictObject({
     allowManualProvisioning: z.boolean().optional(),
     directorySyncEnabled: z.boolean().optional(),
     sessionRevalidation: z.boolean().optional(),
+    // keep each user's claims from their last login, for admins to debug mappings
+    storeLoginClaims: z.boolean().optional(),
     roleMapping: z.string().optional(),
     orgMapping: z.string().nullish(),
     syncRoleMapping: z.string().nullish(),
@@ -153,6 +156,7 @@ export async function updateOrgOidcIdp(
             syncCreateMissingRoles,
             directorySyncDeletions,
             apiConfig,
+            storeLoginClaims,
             tags
         } = parsedBody.data;
 
@@ -295,6 +299,7 @@ export async function updateOrgOidcIdp(
             const idpData = {
                 name,
                 sessionRevalidation,
+                storeLoginClaims,
                 apiIntegrationEnabled: effectiveApiIntegrationEnabled,
                 allowManualProvisioning,
                 directorySyncEnabled: effectiveDirectorySyncEnabled,
@@ -387,6 +392,11 @@ export async function updateOrgOidcIdp(
 
         if (sessionRevalidation === false) {
             await clearIdpSessionGrants(idpId);
+        }
+
+        // turning it off forgets the claims stored so far
+        if (storeLoginClaims === false) {
+            await deleteLoginClaimsForIdp(idpId);
         }
 
         return response<UpdateOrgIdpResponse>(res, {

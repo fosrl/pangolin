@@ -6,6 +6,7 @@ import { initTelemetryClient } from "@server/lib/telemetry";
 import { initLogCleanupInterval } from "@server/lib/cleanupLogs";
 import { initAcmeCertSync } from "@server/lib/acmeCertSync";
 import { startRebuildQueueProcessor } from "@server/lib/rebuildClientAssociations";
+import { initTestLinkCleanupInterval } from "@server/lib/idp/testLinks";
 
 export function startSchedulers() {
     // Start the ping accumulator for all builds - it batches per-site online/lastPing
@@ -20,6 +21,8 @@ export function startSchedulers() {
     initTelemetryClient();
 
     initLogCleanupInterval();
+    // all builds: unlike logs, test link results are cleaned up on saas too
+    initTestLinkCleanupInterval();
     initAcmeCertSync();
     startRebuildQueueProcessor();
 }

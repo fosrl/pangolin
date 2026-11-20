@@ -451,6 +451,7 @@ export default function PoliciesPage() {
                                 />
 
                                 <IdpLinkedMappingsFields
+                                    testResultsApiBase={`/idp/${idpId}`}
                                     syncAvailable={syncEnabled}
                                     linked={policyMappingsLinked}
                                     onLinkedChange={(linked) => {
@@ -632,6 +633,7 @@ function DefaultMappingsSection({
                         className="space-y-6"
                     >
                         <IdpLinkedMappingsFields
+                            testResultsApiBase={`/idp/${idpId}`}
                             syncAvailable={syncEnabled}
                             linked={defaultMappingsLinked}
                             onLinkedChange={(linked) => {

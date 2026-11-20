@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { deleteLoginClaimsForIdp } from "@server/lib/idp/loginClaims";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { db } from "@server/db";
 import response from "@server/lib/response";
@@ -42,6 +43,7 @@ const bodySchema = z.strictObject({
     // provider-specific, omitted secrets are kept from the stored config
     apiConfig: z.record(z.string(), z.unknown()).optional(),
     sessionRevalidation: z.boolean().optional(),
+    storeLoginClaims: z.boolean().optional(),
     defaultRoleMapping: z.string().optional(),
     defaultOrgMapping: z.string().optional(),
     defaultCreateMissingRoles: z.boolean().optional(),
@@ -129,6 +131,7 @@ export async function updateOidcIdp(
             directorySyncEnabled,
             directorySyncDeletions,
             apiConfig,
+            storeLoginClaims,
             defaultRoleMapping,
             defaultOrgMapping,
             defaultCreateMissingRoles,
@@ -260,6 +263,7 @@ export async function updateOidcIdp(
                 directorySyncDeletions,
                 apiConfig: resolvedApiConfig.value,
                 sessionRevalidation,
+                storeLoginClaims,
                 defaultRoleMapping,
                 defaultOrgMapping,
                 defaultCreateMissingRoles,
@@ -307,6 +311,11 @@ export async function updateOidcIdp(
 
         if (sessionRevalidation === false) {
             await clearIdpSessionGrants(idpId);
+        }
+
+        // turning it off forgets the claims stored so far
+        if (storeLoginClaims === false) {
+            await deleteLoginClaimsForIdp(idpId);
         }
 
         return response<UpdateIdpResponse>(res, {
