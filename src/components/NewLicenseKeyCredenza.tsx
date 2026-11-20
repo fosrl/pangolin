@@ -29,8 +29,7 @@ export function buyLicenseUrl(orgId: string, email?: string | null): string {
     if (email) {
         params.set("email", email);
     }
-    // return `https://pangolin.net/pricing?${params.toString()}#Self-Hosted`;
-    return `http://localhost:3006/pricing?${params.toString()}#Self-Hosted`;
+    return `https://pangolin.net/pricing?${params.toString()}#Self-Hosted`;
 }
 
 type NewLicenseKeyCredenzaProps = {
