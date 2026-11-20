@@ -28,6 +28,7 @@ import { LimitId } from "../billing";
 import { usageService } from "../billing/usageService";
 import { syncInferenceAiConfig } from "./aiProviders";
 import { syncAiBudgets } from "./aiBudgets";
+import { selectMostSpecificDomain } from "./domainSelection";
 
 async function getDomainForSiteResource(
     siteResourceId: number | undefined,
@@ -74,24 +75,17 @@ async function getDomainForSiteResource(
         );
     }
 
-    const validDomains = possibleDomains.filter((domain) => {
-        if (domain.domains.type == "ns" || domain.domains.type == "wildcard") {
-            return (
-                fullDomain === domain.domains.baseDomain ||
-                fullDomain.endsWith(`.${domain.domains.baseDomain}`)
-            );
-        } else if (domain.domains.type == "cname") {
-            return fullDomain === domain.domains.baseDomain;
-        }
-    });
+    const domainSelection = selectMostSpecificDomain(
+        possibleDomains,
+        fullDomain
+    )?.domains;
 
-    if (validDomains.length === 0) {
+    if (!domainSelection) {
         throw new Error(
             `Domain not found for full-domain: ${fullDomain} in org ${orgId}`
         );
     }
 
-    const domainSelection = validDomains[0].domains;
     const baseDomain = domainSelection.baseDomain;
 
     let subdomain: string | null = null;
