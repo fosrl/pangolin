@@ -21,6 +21,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
@@ -32,6 +33,17 @@ const setClientRolesParamsSchema = z.strictObject({
 
 const setClientRolesBodySchema = z.strictObject({
     roleIds: z.array(z.int().positive())
+});
+
+const SetClientRolesResponseDataSchema = z.object({
+    clientId: z
+        .number()
+        .int()
+        .openapi({ description: "Numeric ID of the client." }),
+    orgId: z.string().openapi({ description: "ID of the organization." }),
+    roleIds: z.array(z.number().int()).openapi({
+        description: "IDs of the roles now assigned to the client."
+    })
 });
 
 registry.registerPath({
@@ -50,22 +62,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SetClientRolesResponseDataSchema)
 });
 
 export async function setClientRoles(

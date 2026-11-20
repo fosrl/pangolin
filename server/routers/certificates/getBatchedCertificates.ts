@@ -1,4 +1,10 @@
-import { certificates, db, domainNamespaces, domains, orgDomains } from "@server/db";
+import {
+    certificates,
+    db,
+    domainNamespaces,
+    domains,
+    orgDomains
+} from "@server/db";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { type GetBatchedCertificateResponse } from "@server/routers/certificates/types";

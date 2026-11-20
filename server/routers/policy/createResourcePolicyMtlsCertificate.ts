@@ -8,6 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { MtlsCertificateInfoSchema } from "@server/lib/openapi/schemas/policy";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     addMtlsCertificates,
     type MtlsCertificateInfo
@@ -29,6 +31,10 @@ export type CreateResourcePolicyMtlsCertificateResponse = {
 const description =
     "Add a trusted CA certificate that clients must present a certificate signed by when mTLS is enabled on a resource policy. Accepts a PEM bundle; each certificate in the bundle is stored separately.";
 
+const CertificatesDataSchema = z.object({
+    certificates: z.array(MtlsCertificateInfoSchema)
+});
+
 registry.registerPath({
     method: "put",
     path: "/resource-policy/{resourcePolicyId}/mtls/certificate",
@@ -44,7 +50,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(CertificatesDataSchema, 201)
 });
 
 registry.registerPath({
@@ -62,7 +68,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(CertificatesDataSchema, 201)
 });
 
 export async function createResourcePolicyMtlsCertificate(

@@ -10,6 +10,12 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { ActionsEnum, checkUserActionPermission } from "@server/auth/actions";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgUserSchema } from "@server/lib/openapi/schemas/user";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 export async function queryUser(orgId: string, userId: string) {
     const [userRow] = await db
@@ -72,6 +78,10 @@ const getOrgUserParamsSchema = z.strictObject({
     orgId: z.string()
 });
 
+type _OrgUserSchemaGetOrgUserResponseCheck = Assert<
+    Equals<z.infer<typeof OrgUserSchema>, GetOrgUserResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/user/{userId}",
@@ -80,22 +90,7 @@ registry.registerPath({
     request: {
         params: getOrgUserParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(OrgUserSchema)
 });
 
 export async function getOrgUser(

@@ -1,4 +1,5 @@
 import { registry } from "@server/openApi";
+import { createCsvResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { OpenAPITags } from "@server/openApi";
@@ -19,7 +20,7 @@ export const MAX_EXPORT_LIMIT = 50_000;
 
 registry.registerPath({
     method: "get",
-    path: "/org/{orgId}/logs/request",
+    path: "/org/{orgId}/logs/request/export",
     description: "Query the request audit log for an organization",
     tags: [OpenAPITags.Logs],
     request: {
@@ -29,22 +30,7 @@ registry.registerPath({
         }),
         params: queryRequestAuditLogsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createCsvResponses("The request audit log as a CSV file.")
 });
 
 export async function exportRequestAuditLogs(

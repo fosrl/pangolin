@@ -7,6 +7,12 @@ import {
     userOrgRoles
 } from "@server/db";
 import { registry } from "@server/openApi";
+import { AiUsageUsersRolesSchema } from "@server/lib/openapi/schemas/auditLog";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
@@ -92,7 +98,7 @@ async function query(data: Q) {
 
     const topUsers = userTotalsRaw.map((r) => ({
         userId: r.userId,
-        email: r.userId ? emailMap.get(r.userId) ?? null : null,
+        email: r.userId ? (emailMap.get(r.userId) ?? null) : null,
         requests: r.requests,
         totalTokens: r.totalTokens,
         costUsd: r.costUsd
@@ -127,7 +133,10 @@ async function query(data: Q) {
 
     // Resolve every user's role membership(s) in this org so usage can be
     // expanded into per-role totals.
-    const userToRoles = new Map<string, { roleId: number; name: string | null }[]>();
+    const userToRoles = new Map<
+        string,
+        { roleId: number; name: string | null }[]
+    >();
     if (userIds.length > 0) {
         const roleRows = await db
             .select({
@@ -152,7 +161,12 @@ async function query(data: Q) {
 
     const roleTotals = new Map<
         number,
-        { name: string | null; requests: number; totalTokens: number; costUsd: number }
+        {
+            name: string | null;
+            requests: number;
+            totalTokens: number;
+            costUsd: number;
+        }
     >();
     for (const r of userTotalsRaw) {
         if (!r.userId) continue;
@@ -181,18 +195,32 @@ async function query(data: Q) {
         if (!row.userId) continue;
         const userRoles = userToRoles.get(row.userId) ?? [];
         for (const role of userRoles) {
-            roleCostRows.push({ day: row.day, key: String(role.roleId), value: row.cost });
-            roleTokenRows.push({ day: row.day, key: String(role.roleId), value: row.tokens });
+            roleCostRows.push({
+                day: row.day,
+                key: String(role.roleId),
+                value: row.cost
+            });
+            roleTokenRows.push({
+                day: row.day,
+                key: String(role.roleId),
+                value: row.tokens
+            });
         }
     }
 
     const roleCostTotals = new Map<string, number>();
     const roleTokenTotals = new Map<string, number>();
     for (const row of roleCostRows) {
-        roleCostTotals.set(row.key, (roleCostTotals.get(row.key) ?? 0) + row.value);
+        roleCostTotals.set(
+            row.key,
+            (roleCostTotals.get(row.key) ?? 0) + row.value
+        );
     }
     for (const row of roleTokenRows) {
-        roleTokenTotals.set(row.key, (roleTokenTotals.get(row.key) ?? 0) + row.value);
+        roleTokenTotals.set(
+            row.key,
+            (roleTokenTotals.get(row.key) ?? 0) + row.value
+        );
     }
     const topRolesByCost = pickTopNKeys(roleCostTotals);
     const topRolesByTokens = pickTopNKeys(roleTokenTotals);
@@ -210,6 +238,13 @@ async function query(data: Q) {
     };
 }
 
+type _AiUsageUsersRolesSchemaQueryAiUsageUsersRolesResponseCheck = Assert<
+    Equals<
+        z.infer<typeof AiUsageUsersRolesSchema>,
+        QueryAiUsageUsersRolesResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/ai/usage/users-roles",
@@ -220,22 +255,7 @@ registry.registerPath({
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(AiUsageUsersRolesSchema)
 });
 
 export type QueryAiUsageUsersRolesResponse = Awaited<ReturnType<typeof query>>;
@@ -249,14 +269,20 @@ export async function queryAiUsageUsersRoles(
         const parsedQuery = aiUsageAnalyticsFiltersQuery.safeParse(req.query);
         if (!parsedQuery.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedQuery.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedQuery.error)
+                )
             );
         }
 
         const parsedParams = aiUsageAnalyticsParams.safeParse(req.params);
         if (!parsedParams.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedParams.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedParams.error)
+                )
             );
         }
 

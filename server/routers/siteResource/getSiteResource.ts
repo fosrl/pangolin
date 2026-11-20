@@ -9,6 +9,11 @@ import { eq, and } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PrivateResourceIdParamsSchema,
+    SiteResourceSchema
+} from "@server/lib/openapi/schemas/siteResource";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 export const getSiteResourceParamsSchema = z.strictObject({
     siteResourceId: z
@@ -58,9 +63,7 @@ async function query(siteResourceId?: number, niceId?: string, orgId?: string) {
     }
 }
 
-export type GetSiteResourceResponse = NonNullable<
-    Awaited<ReturnType<typeof query>>
->;
+export type GetSiteResourceResponse = z.infer<typeof SiteResourceSchema>;
 
 registry.registerPath({
     method: "get",
@@ -72,50 +75,18 @@ registry.registerPath({
             siteResourceId: z.number()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteResourceSchema)
 });
 
 registry.registerPath({
     method: "get",
-    path: "/private-resource/{siteResourceId}",
+    path: "/private-resource/{resourceId}",
     description: "Get a specific site resource by siteResourceId.",
     tags: [OpenAPITags.PrivateResource],
     request: {
-        params: z.object({
-            siteResourceId: z.number()
-        })
+        params: PrivateResourceIdParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteResourceSchema)
 });
 
 registry.registerPath({
@@ -129,22 +100,7 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteResourceSchema)
 });
 
 export async function getSiteResource(

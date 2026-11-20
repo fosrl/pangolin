@@ -7,10 +7,7 @@ import logger from "@server/logger";
 import { response } from "@server/lib/response";
 import { db, users } from "@server/db";
 import { eq } from "drizzle-orm";
-import {
-    createSession,
-    generateSessionToken
-} from "@server/auth/sessions/app";
+import { createSession, generateSessionToken } from "@server/auth/sessions/app";
 
 const paramsSchema = z.strictObject({
     userId: z.string().nonempty()

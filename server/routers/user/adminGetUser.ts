@@ -8,10 +8,20 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { AdminUserSchema } from "@server/lib/openapi/schemas/user";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const adminGetUserSchema = z.strictObject({
     userId: z.string().min(1)
 });
+
+type _AdminUserSchemaAdminGetUserResponseCheck = Assert<
+    Equals<z.infer<typeof AdminUserSchema>, AdminGetUserResponse>
+>;
 
 registry.registerPath({
     method: "get",
@@ -21,22 +31,7 @@ registry.registerPath({
     request: {
         params: adminGetUserSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(AdminUserSchema)
 });
 
 async function queryUser(userId: string) {

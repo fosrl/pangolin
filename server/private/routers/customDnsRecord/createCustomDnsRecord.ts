@@ -20,6 +20,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { CustomDnsRecordSchema } from "@server/lib/openapi/schemas/domain";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     CreateOrUpdateCustomDnsRecordResponse,
     toCustomDnsRecordRow
@@ -57,22 +59,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(CustomDnsRecordSchema, 201)
 });
 
 export async function createCustomDnsRecord(

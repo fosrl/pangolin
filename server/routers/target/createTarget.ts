@@ -27,6 +27,12 @@ import { eq } from "drizzle-orm";
 import { pickPort } from "./helpers";
 import { isTargetValid } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
+import { TargetWithHealthCheckSchema } from "@server/lib/openapi/schemas/target";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import {
     fireHealthCheckHealthyAlert,
     fireHealthCheckUnhealthyAlert,
@@ -106,6 +112,10 @@ const createTargetSchema = z
 
 export type CreateTargetResponse = Target & TargetHealthCheck;
 
+type _TargetWithHealthCheckSchemaCreateTargetResponseCheck = Assert<
+    Equals<z.infer<typeof TargetWithHealthCheckSchema>, CreateTargetResponse>
+>;
+
 registry.registerPath({
     method: "put",
     path: "/resource/{resourceId}/target",
@@ -121,22 +131,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(TargetWithHealthCheckSchema, 201)
 });
 
 registry.registerPath({
@@ -154,22 +149,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(TargetWithHealthCheckSchema, 201)
 });
 
 registry.registerPath({
@@ -187,22 +167,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(TargetWithHealthCheckSchema, 201)
 });
 
 export async function createTarget(

@@ -1,5 +1,11 @@
 import { logsDb, aiUsageRecords } from "@server/db";
 import { registry } from "@server/openApi";
+import { AiUsageOverviewSchema } from "@server/lib/openapi/schemas/auditLog";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { and, count, desc, eq, sql } from "drizzle-orm";
@@ -161,6 +167,10 @@ async function query(data: Q) {
     };
 }
 
+type _AiUsageOverviewSchemaQueryAiUsageOverviewResponseCheck = Assert<
+    Equals<z.infer<typeof AiUsageOverviewSchema>, QueryAiUsageOverviewResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/ai/usage/overview",
@@ -170,22 +180,7 @@ registry.registerPath({
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(AiUsageOverviewSchema)
 });
 
 export type QueryAiUsageOverviewResponse = Awaited<ReturnType<typeof query>>;
@@ -199,14 +194,20 @@ export async function queryAiUsageOverview(
         const parsedQuery = aiUsageAnalyticsFiltersQuery.safeParse(req.query);
         if (!parsedQuery.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedQuery.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedQuery.error)
+                )
             );
         }
 
         const parsedParams = aiUsageAnalyticsParams.safeParse(req.params);
         if (!parsedParams.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedParams.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedParams.error)
+                )
             );
         }
 

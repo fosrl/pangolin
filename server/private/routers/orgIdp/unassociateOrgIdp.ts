@@ -23,6 +23,10 @@ import { and, eq, sql } from "drizzle-orm";
 import { removeUserFromOrg } from "@server/lib/userOrg";
 import { calculateUserClientsForOrgs } from "@server/lib/calculateUserClientsForOrgs";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    NullDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 import { isOrgRebuildRateLimited } from "@server/lib/rebuildClientAssociations";
 
 const paramsSchema = z
@@ -41,7 +45,7 @@ registry.registerPath({
     request: {
         params: paramsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(NullDataSchema)
 });
 
 export async function unassociateOrgIdp(

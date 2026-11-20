@@ -158,7 +158,9 @@ async function triggerFetch(siteId: number) {
 async function queryContainers(siteId: number) {
     const { newt } = await getSiteAndNewt(siteId);
 
-    const result = await cache.get<Container[]>(`${newt.newtId}:dockerContainers`);
+    const result = await cache.get<Container[]>(
+        `${newt.newtId}:dockerContainers`
+    );
     if (!result) {
         throw createHttpError(
             HttpCode.TOO_EARLY,

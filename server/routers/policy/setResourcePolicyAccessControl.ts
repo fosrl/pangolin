@@ -16,6 +16,10 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 import { idpExistsForOrg } from "@server/lib/idp/idpExistsForOrg";
 
 const setResourcePolicyAcccessControlBodySchema = z.strictObject({
@@ -50,7 +54,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -69,7 +73,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -89,7 +93,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -109,7 +113,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 export async function setResourcePolicyAccessControl(

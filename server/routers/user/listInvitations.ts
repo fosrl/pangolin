@@ -9,6 +9,16 @@ import { sql, eq, and, inArray } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PaginationSchema,
+    LimitOffsetPaginationSchema
+} from "@server/lib/openapi/schemas/common";
+import { InvitationListItemSchema } from "@server/lib/openapi/schemas/user";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const listInvitationsParamsSchema = z.strictObject({
     orgId: z.string()
@@ -95,6 +105,18 @@ export type ListInvitationsResponse = {
     pagination: { total: number; limit: number; offset: number };
 };
 
+const ListInvitationsResponseDataSchema = z.object({
+    invitations: z.array(InvitationListItemSchema),
+    pagination: LimitOffsetPaginationSchema
+});
+
+type _ListInvitationsResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListInvitationsResponseDataSchema>,
+        ListInvitationsResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/invitations",
@@ -104,22 +126,7 @@ registry.registerPath({
         params: listInvitationsParamsSchema,
         query: listInvitationsQuerySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListInvitationsResponseDataSchema)
 });
 
 export async function listInvitations(

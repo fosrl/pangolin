@@ -1,5 +1,11 @@
 import { logsDb, requestAuditLog, driver } from "@server/db";
 import { registry } from "@server/openApi";
+import { RequestAnalyticsSchema } from "@server/lib/openapi/schemas/auditLog";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { eq, gte, lte, and, count, sql, desc, not, isNull } from "drizzle-orm";
@@ -145,6 +151,13 @@ async function query(query: Q) {
     };
 }
 
+type _RequestAnalyticsSchemaQueryRequestAnalyticsResponseCheck = Assert<
+    Equals<
+        z.infer<typeof RequestAnalyticsSchema>,
+        QueryRequestAnalyticsResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/analytics",
@@ -154,22 +167,7 @@ registry.registerPath({
         query: queryAccessAuditLogsQuery,
         params: queryRequestAuditLogsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(RequestAnalyticsSchema)
 });
 
 export type QueryRequestAnalyticsResponse = Awaited<ReturnType<typeof query>>;

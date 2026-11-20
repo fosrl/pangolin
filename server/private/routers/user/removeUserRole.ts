@@ -23,6 +23,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { UserOrgRoleSchema } from "@server/lib/openapi/schemas/user";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
 
 const removeUserRoleParamsSchema = z.strictObject({
@@ -39,22 +41,7 @@ registry.registerPath({
     request: {
         params: removeUserRoleParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(UserOrgRoleSchema)
 });
 
 export async function removeUserRole(

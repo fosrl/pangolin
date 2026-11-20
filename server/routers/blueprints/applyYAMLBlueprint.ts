@@ -1,4 +1,6 @@
 import { OpenAPITags, registry } from "@server/openApi";
+import { BlueprintSchema } from "@server/lib/openapi/schemas/misc";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import z from "zod";
 import { applyBlueprint } from "@server/lib/blueprints/applyBlueprint";
 import { NextFunction, Request, Response } from "express";
@@ -54,22 +56,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(BlueprintSchema, 201)
 });
 
 export async function applyYAMLBlueprint(

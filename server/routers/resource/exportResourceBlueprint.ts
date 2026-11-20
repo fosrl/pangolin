@@ -8,6 +8,11 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { generatePublicResourceBlueprintYaml } from "@server/lib/blueprints/exportResourceBlueprint";
 
 const exportResourceBlueprintSchema = z.strictObject({
@@ -19,6 +24,22 @@ export type ExportResourceBlueprintResponse = {
     contents: string;
 };
 
+const ExportResourceBlueprintResponseDataSchema = z.object({
+    name: z.string().openapi({
+        description: "Suggested name for the blueprint (the resource nice ID)."
+    }),
+    contents: z.string().openapi({
+        description: "Blueprint YAML that recreates this resource."
+    })
+});
+
+type _ExportResourceBlueprintResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ExportResourceBlueprintResponseDataSchema>,
+        ExportResourceBlueprintResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/blueprint",
@@ -28,22 +49,9 @@ registry.registerPath({
     request: {
         params: exportResourceBlueprintSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ExportResourceBlueprintResponseDataSchema
+    )
 });
 
 export async function exportResourceBlueprint(

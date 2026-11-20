@@ -7,6 +7,10 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    NullDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 import { eq } from "drizzle-orm";
 
 const paramsSchema = z.strictObject({
@@ -21,11 +25,7 @@ registry.registerPath({
     request: {
         params: paramsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response"
-        }
-    }
+    responses: createApiSuccessResponses(NullDataSchema)
 });
 
 export async function deleteAiBudget(

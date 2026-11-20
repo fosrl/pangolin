@@ -9,6 +9,13 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PrivateResourceIdParamsSchema } from "@server/lib/openapi/schemas/siteResource";
+import { UserSummarySchema } from "@server/lib/openapi/schemas/access";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const listSiteResourceUsersSchema = z
     .object({
@@ -39,6 +46,17 @@ export type ListSiteResourceUsersResponse = {
     users: NonNullable<Awaited<ReturnType<typeof queryUsers>>>;
 };
 
+const ListSiteResourceUsersResponseDataSchema = z.object({
+    users: z.array(UserSummarySchema)
+});
+
+type _ListSiteResourceUsersResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListSiteResourceUsersResponseDataSchema>,
+        ListSiteResourceUsersResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/site-resource/{siteResourceId}/users",
@@ -47,22 +65,9 @@ registry.registerPath({
     request: {
         params: listSiteResourceUsersSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListSiteResourceUsersResponseDataSchema
+    )
 });
 
 registry.registerPath({
@@ -71,24 +76,11 @@ registry.registerPath({
     description: "List all users for a site resource.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.User],
     request: {
-        params: listSiteResourceUsersSchema
+        params: PrivateResourceIdParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListSiteResourceUsersResponseDataSchema
+    )
 });
 
 export async function listSiteResourceUsers(

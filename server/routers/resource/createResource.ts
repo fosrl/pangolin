@@ -24,6 +24,8 @@ import logger from "@server/logger";
 import { subdomainSchema, wildcardSubdomainSchema } from "@server/lib/schemas";
 import config from "@server/lib/config";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourceSchema } from "@server/lib/openapi/schemas/resource";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { createCertificate } from "@server/routers/certificates";
 import {
     validateAndConstructDomain,
@@ -186,22 +188,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceSchema, 201)
 });
 
 registry.registerPath({
@@ -219,22 +206,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceSchema, 201)
 });
 
 export async function createResource(

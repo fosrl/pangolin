@@ -22,6 +22,12 @@ import { createDate, TimeSpan } from "oslo";
 import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { OpenAPITags, registry } from "@server/openApi";
+import { GeneratedAccessTokenSchema } from "@server/lib/openapi/schemas/accessToken";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 export const generateAccessTokenBodySchema = z.strictObject({
     validForSeconds: z.int().positive().optional(), // seconds
@@ -41,6 +47,13 @@ export type GenerateAccessTokenResponse = Omit<
     "tokenHash"
 > & { accessToken: string };
 
+type _GeneratedAccessTokenSchemaGenerateAccessTokenResponseCheck = Assert<
+    Equals<
+        z.infer<typeof GeneratedAccessTokenSchema>,
+        GenerateAccessTokenResponse
+    >
+>;
+
 registry.registerPath({
     method: "post",
     path: "/resource/{resourceId}/access-token",
@@ -56,22 +69,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GeneratedAccessTokenSchema)
 });
 
 registry.registerPath({
@@ -89,22 +87,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GeneratedAccessTokenSchema)
 });
 
 export async function generateAccessToken(

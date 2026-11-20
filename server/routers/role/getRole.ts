@@ -10,6 +10,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { RoleWithSshSchema } from "@server/lib/openapi/schemas/access";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const getRoleSchema = z.strictObject({
     roleId: z.coerce.number().int().positive()
@@ -23,22 +25,7 @@ registry.registerPath({
     request: {
         params: getRoleSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(RoleWithSshSchema)
 });
 
 export async function getRole(

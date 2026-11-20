@@ -6,6 +6,8 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourcePoliciesOfResourceSchema } from "@server/lib/openapi/schemas/policy";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { eq } from "drizzle-orm";
 import type { NextFunction, Request, Response } from "express";
@@ -31,7 +33,7 @@ registry.registerPath({
     request: {
         params: getResourcePoliciesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePoliciesOfResourceSchema)
 });
 
 registry.registerPath({
@@ -43,7 +45,7 @@ registry.registerPath({
     request: {
         params: getResourcePoliciesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePoliciesOfResourceSchema)
 });
 
 export async function getResourcePolicies(

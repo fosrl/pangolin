@@ -8,6 +8,10 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { and, eq } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const setResourcePolicyWhitelistBodySchema = z.strictObject({
     emailWhitelistEnabled: z.boolean(),
@@ -42,7 +46,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -61,7 +65,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -81,7 +85,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -101,7 +105,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 export async function setResourcePolicyWhitelist(

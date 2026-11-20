@@ -15,6 +15,12 @@ import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { SiteResourceSchema } from "@server/lib/openapi/schemas/siteResource";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const listSiteResourcesParamsSchema = z.strictObject({
     siteId: z.coerce.number().int().positive(),
@@ -69,6 +75,17 @@ export type ListSiteResourcesResponse = {
     siteResources: SiteResource[];
 };
 
+const ListSiteResourcesResponseDataSchema = z.object({
+    siteResources: z.array(SiteResourceSchema)
+});
+
+type _ListSiteResourcesResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListSiteResourcesResponseDataSchema>,
+        ListSiteResourcesResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/site/{siteId}/resources",
@@ -78,22 +95,7 @@ registry.registerPath({
         params: listSiteResourcesParamsSchema,
         query: listSiteResourcesQuerySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListSiteResourcesResponseDataSchema)
 });
 
 registry.registerPath({
@@ -105,22 +107,7 @@ registry.registerPath({
         params: listSiteResourcesParamsSchema,
         query: listSiteResourcesQuerySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListSiteResourcesResponseDataSchema)
 });
 
 export async function listSiteResources(

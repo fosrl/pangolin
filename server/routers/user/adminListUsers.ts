@@ -8,6 +8,16 @@ import { and, asc, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PaginationSchema,
+    LimitOffsetPaginationSchema
+} from "@server/lib/openapi/schemas/common";
+import { AdminUserListItemSchema } from "@server/lib/openapi/schemas/user";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import { UserType } from "@server/types/UserTypes";
 
@@ -138,6 +148,18 @@ export type AdminListUsersResponse = PaginatedResponse<{
     users: AdminListUserRow[];
 }>;
 
+const AdminListUsersResponseDataSchema = z.object({
+    users: z.array(AdminUserListItemSchema),
+    pagination: PaginationSchema
+});
+
+type _AdminListUsersResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof AdminListUsersResponseDataSchema>,
+        AdminListUsersResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/users",
@@ -146,22 +168,7 @@ registry.registerPath({
     request: {
         query: listUsersSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(AdminListUsersResponseDataSchema)
 });
 
 export async function adminListUsers(

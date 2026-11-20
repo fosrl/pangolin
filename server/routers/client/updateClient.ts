@@ -9,6 +9,8 @@ import logger from "@server/logger";
 import { eq, and, ne } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ClientSchema } from "@server/lib/openapi/schemas/client";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const updateClientParamsSchema = z.strictObject({
     clientId: z.coerce.number().int().positive()
@@ -36,22 +38,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ClientSchema)
 });
 
 export async function updateClient(

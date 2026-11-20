@@ -31,7 +31,6 @@ const UpdateDomainResponseDataSchema = z.object({
     preferWildcardCert: z.boolean().nullable()
 });
 
-
 registry.registerPath({
     method: "post",
     path: "/org/{orgId}/domain/{domainId}",
@@ -48,7 +47,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateDomainResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateDomainResponseDataSchema
+                    )
                 }
             }
         }
@@ -58,8 +59,7 @@ registry.registerPath({
 registry.registerPath({
     method: "patch",
     path: "/org/{orgId}/domain/{domainId}",
-    description:
-        "Update a domain by domainId. Deprecated: use POST instead.",
+    description: "Update a domain by domainId. Deprecated: use POST instead.",
     deprecated: true,
     tags: [OpenAPITags.Domain],
     request: {
@@ -73,7 +73,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateDomainResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateDomainResponseDataSchema
+                    )
                 }
             }
         }

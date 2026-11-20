@@ -10,6 +10,12 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { ActionsEnum, checkUserActionPermission } from "@server/auth/actions";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgAccessCheckSchema } from "@server/lib/openapi/schemas/user";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { CheckOrgAccessPolicyResult } from "@server/lib/checkOrgAccessPolicy";
 
@@ -71,6 +77,10 @@ const paramsSchema = z.object({
     orgId: z.string()
 });
 
+type _OrgAccessCheckSchemaCheckOrgUserAccessResponseCheck = Assert<
+    Equals<z.infer<typeof OrgAccessCheckSchema>, CheckOrgUserAccessResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/user/{userId}/check",
@@ -79,22 +89,7 @@ registry.registerPath({
     request: {
         params: paramsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(OrgAccessCheckSchema)
 });
 
 export async function checkOrgUserAccess(

@@ -14,6 +14,13 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PaginationSchema } from "@server/lib/openapi/schemas/common";
+import { SiteResourceWithSitesSchema } from "@server/lib/openapi/schemas/siteResource";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
@@ -237,6 +244,18 @@ function querySiteResourcesBase() {
         .groupBy(siteResources.siteResourceId);
 }
 
+const ListAllSiteResourcesByOrgResponseDataSchema = z.object({
+    siteResources: z.array(SiteResourceWithSitesSchema),
+    pagination: PaginationSchema
+});
+
+type _ListAllSiteResourcesByOrgResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListAllSiteResourcesByOrgResponseDataSchema>,
+        ListAllSiteResourcesByOrgResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/site-resources",
@@ -246,22 +265,9 @@ registry.registerPath({
         params: listAllSiteResourcesByOrgParamsSchema,
         query: listAllSiteResourcesByOrgQuerySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListAllSiteResourcesByOrgResponseDataSchema
+    )
 });
 
 registry.registerPath({
@@ -273,22 +279,9 @@ registry.registerPath({
         params: listAllSiteResourcesByOrgParamsSchema,
         query: listAllSiteResourcesByOrgQuerySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListAllSiteResourcesByOrgResponseDataSchema
+    )
 });
 
 export async function listAllSiteResourcesByOrg(

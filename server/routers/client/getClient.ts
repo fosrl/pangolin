@@ -18,6 +18,12 @@ import logger from "@server/logger";
 import stoi from "@server/lib/stoi";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ClientDetailSchema } from "@server/lib/openapi/schemas/client";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { getUserDeviceName } from "@server/db/names";
 import { build } from "@server/build";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
@@ -252,6 +258,10 @@ export type GetClientResponse = NonNullable<
     roles: { roleId: number; name: string }[];
 };
 
+type _ClientDetailSchemaGetClientResponseCheck = Assert<
+    Equals<z.infer<typeof ClientDetailSchema>, GetClientResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/client/{niceId}",
@@ -264,22 +274,7 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ClientDetailSchema)
 });
 
 registry.registerPath({
@@ -292,22 +287,7 @@ registry.registerPath({
             clientId: z.number()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ClientDetailSchema)
 });
 
 export async function getClient(

@@ -37,6 +37,8 @@ import {
     wildcardSubdomainSchema
 } from "@server/lib/schemas";
 import { registry } from "@server/openApi";
+import { ResourceSchema } from "@server/lib/openapi/schemas/resource";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { OpenAPITags } from "@server/openApi";
 import { createCertificate } from "@server/routers/certificates/createCertificate";
 import {
@@ -295,22 +297,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceSchema)
 });
 
 registry.registerPath({
@@ -331,22 +318,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceSchema)
 });
 
 export async function updateResource(

@@ -9,6 +9,12 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { UserSummarySchema } from "@server/lib/openapi/schemas/access";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const listResourceUsersSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -50,6 +56,17 @@ export type ListResourceUsersResponse = {
     users: NonNullable<Awaited<ReturnType<typeof queryUsers>>>;
 };
 
+const ListResourceUsersResponseDataSchema = z.object({
+    users: z.array(UserSummarySchema)
+});
+
+type _ListResourceUsersResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListResourceUsersResponseDataSchema>,
+        ListResourceUsersResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/users",
@@ -58,22 +75,7 @@ registry.registerPath({
     request: {
         params: listResourceUsersSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourceUsersResponseDataSchema)
 });
 
 registry.registerPath({
@@ -84,22 +86,7 @@ registry.registerPath({
     request: {
         params: listResourceUsersSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourceUsersResponseDataSchema)
 });
 
 export async function listResourceUsers(

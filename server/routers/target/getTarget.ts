@@ -9,6 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { TargetDetailSchema } from "@server/lib/openapi/schemas/target";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const getTargetSchema = z.strictObject({
     targetId: z.coerce.number().int().positive()
@@ -27,22 +29,7 @@ registry.registerPath({
     request: {
         params: getTargetSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(TargetDetailSchema)
 });
 
 export async function getTarget(

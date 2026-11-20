@@ -1,5 +1,11 @@
 import { db, logsDb, aiUsageRecords, virtualApiKeys } from "@server/db";
 import { registry } from "@server/openApi";
+import { AiUsageVirtualApiKeysSchema } from "@server/lib/openapi/schemas/auditLog";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { count, desc, inArray, sql } from "drizzle-orm";
@@ -145,6 +151,14 @@ async function query(data: Q) {
     };
 }
 
+type _AiUsageVirtualApiKeysSchemaQueryAiUsageVirtualApiKeysResponseCheck =
+    Assert<
+        Equals<
+            z.infer<typeof AiUsageVirtualApiKeysSchema>,
+            QueryAiUsageVirtualApiKeysResponse
+        >
+    >;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/ai/usage/virtual-api-keys",
@@ -155,22 +169,7 @@ registry.registerPath({
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(AiUsageVirtualApiKeysSchema)
 });
 
 export type QueryAiUsageVirtualApiKeysResponse = Awaited<

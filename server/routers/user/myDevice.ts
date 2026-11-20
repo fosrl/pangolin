@@ -103,9 +103,7 @@ export async function myDevice(
             .from(userOrgRoles)
             .where(eq(userOrgRoles.userId, userId));
 
-        const roleByOrg = new Map(
-            roleRows.map((r) => [r.orgId, r.roleId])
-        );
+        const roleByOrg = new Map(roleRows.map((r) => [r.orgId, r.roleId]));
         const userOrganizations = userOrgRows.map((row) => ({
             ...row,
             roleId: roleByOrg.get(row.orgId) ?? 0

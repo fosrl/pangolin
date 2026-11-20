@@ -19,6 +19,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { DomainNamespaceOptionsSchema } from "@server/lib/openapi/schemas/domain";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { db, domainNamespaces, resources } from "@server/db";
 import { inArray } from "drizzle-orm";
 import { CheckDomainAvailabilityResponse } from "@server/routers/domain/types";
@@ -42,22 +44,7 @@ registry.registerPath({
         params: paramsSchema,
         query: querySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(DomainNamespaceOptionsSchema)
 });
 
 export async function checkDomainNamespaceAvailability(

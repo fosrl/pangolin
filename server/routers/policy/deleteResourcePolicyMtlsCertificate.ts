@@ -6,6 +6,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { MtlsDisabledSchema } from "@server/lib/openapi/schemas/policy";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { removeMtlsCertificate } from "@server/lib/mtls";
 
 const deleteResourcePolicyMtlsCertificateParamsSchema = z.strictObject({
@@ -29,7 +31,7 @@ registry.registerPath({
     request: {
         params: deleteResourcePolicyMtlsCertificateParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(MtlsDisabledSchema)
 });
 
 registry.registerPath({
@@ -40,7 +42,7 @@ registry.registerPath({
     request: {
         params: deleteResourcePolicyMtlsCertificateParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(MtlsDisabledSchema)
 });
 
 export async function deleteResourcePolicyMtlsCertificate(

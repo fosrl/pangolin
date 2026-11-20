@@ -10,6 +10,10 @@ import { response } from "@server/lib/response";
 import logger from "@server/logger";
 import { hashPassword } from "@server/auth/password";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const setResourcePolicyPasswordParamsSchema = z.object({
     resourcePolicyId: z.string().transform(Number).pipe(z.int().positive())
@@ -35,7 +39,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -54,7 +58,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -74,7 +78,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -94,7 +98,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 export async function setResourcePolicyPassword(

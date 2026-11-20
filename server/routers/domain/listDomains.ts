@@ -95,7 +95,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(ListDomainsResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        ListDomainsResponseDataSchema
+                    )
                 }
             }
         }

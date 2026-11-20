@@ -8,6 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { MtlsCertificateInfoSchema } from "@server/lib/openapi/schemas/policy";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { getResourceMtlsOwner, listMtlsCertificates } from "@server/lib/mtls";
 import { ListResourceMtlsCertificatesResponse } from "@server/routers/resource/types";
 
@@ -18,6 +20,10 @@ const listResourceMtlsCertificatesParamsSchema = z.strictObject({
 const description =
     "List the trusted CA certificates for a resource's mTLS. When no shared resource policy is assigned, these are the resource's inline policy certificates.";
 
+const CertificatesDataSchema = z.object({
+    certificates: z.array(MtlsCertificateInfoSchema)
+});
+
 registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/mtls/certificates",
@@ -26,7 +32,7 @@ registry.registerPath({
     request: {
         params: listResourceMtlsCertificatesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(CertificatesDataSchema)
 });
 
 registry.registerPath({
@@ -37,7 +43,7 @@ registry.registerPath({
     request: {
         params: listResourceMtlsCertificatesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(CertificatesDataSchema)
 });
 
 export async function listResourceMtlsCertificates(

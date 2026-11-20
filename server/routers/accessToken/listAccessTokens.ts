@@ -17,6 +17,13 @@ import logger from "@server/logger";
 import stoi from "@server/lib/stoi";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { LimitOffsetPaginationSchema } from "@server/lib/openapi/schemas/common";
+import { AccessTokenListItemSchema } from "@server/lib/openapi/schemas/accessToken";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const listAccessTokensParamsSchema = z
     .strictObject({
@@ -126,6 +133,18 @@ export type ListAccessTokensResponse = {
     pagination: { total: number; limit: number; offset: number };
 };
 
+const ListAccessTokensResponseDataSchema = z.object({
+    accessTokens: z.array(AccessTokenListItemSchema),
+    pagination: LimitOffsetPaginationSchema
+});
+
+type _ListAccessTokensResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListAccessTokensResponseDataSchema>,
+        ListAccessTokensResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/access-tokens",
@@ -137,22 +156,7 @@ registry.registerPath({
         }),
         query: listAccessTokensSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListAccessTokensResponseDataSchema)
 });
 
 registry.registerPath({
@@ -166,22 +170,7 @@ registry.registerPath({
         }),
         query: listAccessTokensSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListAccessTokensResponseDataSchema)
 });
 
 registry.registerPath({
@@ -195,22 +184,7 @@ registry.registerPath({
         }),
         query: listAccessTokensSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListAccessTokensResponseDataSchema)
 });
 
 export async function listAccessTokens(

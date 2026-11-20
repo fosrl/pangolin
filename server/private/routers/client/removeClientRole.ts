@@ -21,6 +21,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
@@ -29,6 +30,15 @@ import {
 const removeClientRoleParamsSchema = z.strictObject({
     clientId: z.coerce.number().int().positive(),
     roleId: z.coerce.number().int().positive()
+});
+
+const ClientRoleResponseDataSchema = z.object({
+    clientId: z
+        .number()
+        .int()
+        .openapi({ description: "Numeric ID of the client." }),
+    orgId: z.string().openapi({ description: "ID of the organization." }),
+    roleId: z.number().int().openapi({ description: "Numeric ID of the role." })
 });
 
 registry.registerPath({
@@ -40,22 +50,7 @@ registry.registerPath({
     request: {
         params: removeClientRoleParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ClientRoleResponseDataSchema)
 });
 
 export async function removeClientRole(

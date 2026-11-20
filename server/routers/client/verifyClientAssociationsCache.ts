@@ -9,10 +9,39 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { verifyClientAssociationsCache as verifyClientAssociationsCacheLib } from "@server/lib/rebuildClientAssociations";
 
 const paramsSchema = z.strictObject({
     clientId: z.string().transform(Number).pipe(z.int().positive())
+});
+
+const ids = (description: string) =>
+    z.array(z.number().int()).openapi({ description });
+
+const VerifyClientAssociationsCacheResponseDataSchema = z.object({
+    clientId: z
+        .number()
+        .int()
+        .openapi({ description: "Numeric ID of the client." }),
+    consistent: z.boolean().openapi({
+        description:
+            "Whether the cached associations match what the client's permissions imply."
+    }),
+    expectedSiteResourceIds: ids(
+        "Private resources the client's permissions say it should have."
+    ),
+    expectedSiteIds: ids("Sites the client's permissions say it should reach."),
+    actualSiteResourceIds: ids("Private resources currently in the cache."),
+    actualSiteIds: ids("Sites currently in the cache."),
+    missingSiteResourceIds: ids(
+        "Private resources that are expected but missing from the cache."
+    ),
+    extraSiteResourceIds: ids(
+        "Private resources in the cache that are not expected."
+    ),
+    missingSiteIds: ids("Sites that are expected but missing from the cache."),
+    extraSiteIds: ids("Sites in the cache that are not expected.")
 });
 
 registry.registerPath({
@@ -24,7 +53,9 @@ registry.registerPath({
     request: {
         params: paramsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(
+        VerifyClientAssociationsCacheResponseDataSchema
+    )
 });
 
 export async function verifyClientAssociationsCache(

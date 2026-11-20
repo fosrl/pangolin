@@ -13,6 +13,12 @@ import { fromError } from "zod-validation-error";
 import { newts } from "@server/db";
 import moment from "moment";
 import { OpenAPITags, registry } from "@server/openApi";
+import { SiteCreatedSchema } from "@server/lib/openapi/schemas/site";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { hashPassword } from "@server/auth/password";
 import { isValidIP } from "@server/lib/validators";
 import { getNextAvailableClientSubnet, isIpInCidr } from "@server/lib/ip";
@@ -59,6 +65,10 @@ export type CreateSiteResponse = Site & {
     secret?: string;
 };
 
+type _SiteCreatedSchemaCreateSiteResponseCheck = Assert<
+    Equals<z.infer<typeof SiteCreatedSchema>, CreateSiteResponse>
+>;
+
 registry.registerPath({
     method: "put",
     path: "/org/{orgId}/site",
@@ -78,22 +88,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteCreatedSchema, 201)
 });
 
 export async function createSite(

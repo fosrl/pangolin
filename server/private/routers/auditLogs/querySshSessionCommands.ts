@@ -13,6 +13,12 @@
 
 import { logsDb, sshCommandLog, sshSessionLog } from "@server/db";
 import { registry } from "@server/openApi";
+import { SshSessionCommandsSchema } from "@server/lib/openapi/schemas/auditLog";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { and, asc, count, eq } from "drizzle-orm";
@@ -45,6 +51,13 @@ const querySshSessionCommandsParams = z.object({
     sshSessionLogId: z.string().transform(Number).pipe(z.int().positive())
 });
 
+type _SshSessionCommandsSchemaQuerySshSessionCommandsResponseCheck = Assert<
+    Equals<
+        z.infer<typeof SshSessionCommandsSchema>,
+        QuerySshSessionCommandsResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/ssh/{sshSessionLogId}/commands",
@@ -54,22 +67,7 @@ registry.registerPath({
         query: querySshSessionCommandsQuery,
         params: querySshSessionCommandsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SshSessionCommandsSchema)
 });
 
 export async function querySshSessionCommands(

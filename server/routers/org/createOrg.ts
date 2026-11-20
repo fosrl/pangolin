@@ -24,6 +24,8 @@ import config from "@server/lib/config";
 import { fromError } from "zod-validation-error";
 import { defaultRoleAllowedActions } from "../role";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgSchema } from "@server/lib/openapi/schemas/org";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { isValidCIDR } from "@server/lib/validators";
 import { createCustomer, linkEmailOrg } from "#dynamic/lib/billing";
 import { usageService } from "@server/lib/billing/usageService";
@@ -73,22 +75,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(OrgSchema, 201)
 });
 
 export async function createOrg(

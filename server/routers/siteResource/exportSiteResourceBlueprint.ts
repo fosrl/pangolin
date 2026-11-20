@@ -8,16 +8,25 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { generatePrivateResourceBlueprintYaml } from "@server/lib/blueprints/exportResourceBlueprint";
 
 const exportSiteResourceBlueprintSchema = z.strictObject({
     siteResourceId: z.coerce.number().int().positive()
 });
 
-export type ExportSiteResourceBlueprintResponse = {
-    name: string;
-    contents: string;
-};
+export type ExportSiteResourceBlueprintResponse = z.infer<
+    typeof ExportSiteResourceBlueprintResponseDataSchema
+>;
+
+const ExportSiteResourceBlueprintResponseDataSchema = z.object({
+    name: z.string().openapi({
+        description: "Suggested name for the blueprint (the resource nice ID)."
+    }),
+    contents: z.string().openapi({
+        description: "Blueprint YAML that recreates this private resource."
+    })
+});
 
 registry.registerPath({
     method: "get",
@@ -28,22 +37,9 @@ registry.registerPath({
     request: {
         params: exportSiteResourceBlueprintSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ExportSiteResourceBlueprintResponseDataSchema
+    )
 });
 
 export async function exportSiteResourceBlueprint(

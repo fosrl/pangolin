@@ -24,6 +24,16 @@ import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PaginationSchema,
+    LimitOffsetPaginationSchema
+} from "@server/lib/openapi/schemas/common";
+import { ResourceListItemSchema } from "@server/lib/openapi/schemas/resource";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import {
@@ -417,6 +427,18 @@ export type ListResourcesResponse = PaginatedResponse<{
     resources: ResourceWithTargets[];
 }>;
 
+const ListResourcesResponseDataSchema = z.object({
+    resources: z.array(ResourceListItemSchema),
+    pagination: PaginationSchema
+});
+
+type _ListResourcesResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListResourcesResponseDataSchema>,
+        ListResourcesResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/resources",
@@ -428,22 +450,7 @@ registry.registerPath({
         }),
         query: listResourcesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourcesResponseDataSchema)
 });
 
 registry.registerPath({
@@ -457,22 +464,7 @@ registry.registerPath({
         }),
         query: listResourcesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourcesResponseDataSchema)
 });
 
 export async function listResources(

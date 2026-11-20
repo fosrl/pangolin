@@ -15,6 +15,12 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourcePolicyDetailSchema } from "@server/lib/openapi/schemas/policy";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, isNull, not, or, type SQL } from "drizzle-orm";
 import type { NextFunction, Request, Response } from "express";
@@ -164,6 +170,13 @@ export type GetResourcePolicyResponse = NonNullable<
     Awaited<ReturnType<typeof queryResourcePolicy>>
 >;
 
+type _ResourcePolicyDetailSchemaGetResourcePolicyResponseCheck = Assert<
+    Equals<
+        z.infer<typeof ResourcePolicyDetailSchema>,
+        GetResourcePolicyResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/resource-policy/{niceId}",
@@ -176,7 +189,7 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicyDetailSchema)
 });
 
 registry.registerPath({
@@ -189,7 +202,7 @@ registry.registerPath({
             resourcePolicyId: z.number()
         })
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicyDetailSchema)
 });
 
 registry.registerPath({
@@ -202,7 +215,7 @@ registry.registerPath({
             resourcePolicyId: z.number()
         })
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicyDetailSchema)
 });
 
 export async function getResourcePolicy(

@@ -15,6 +15,13 @@ import { getUserDeviceName } from "@server/db/names";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PaginationSchema } from "@server/lib/openapi/schemas/common";
+import { UserDeviceListItemSchema } from "@server/lib/openapi/schemas/client";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import {
@@ -211,6 +218,18 @@ export type ListUserDevicesResponse = PaginatedResponse<{
     devices: Array<OlmWithUpdateAvailable>;
 }>;
 
+const ListUserDevicesResponseDataSchema = z.object({
+    devices: z.array(UserDeviceListItemSchema),
+    pagination: PaginationSchema
+});
+
+type _ListUserDevicesResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListUserDevicesResponseDataSchema>,
+        ListUserDevicesResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/user-devices",
@@ -220,22 +239,7 @@ registry.registerPath({
         query: listUserDevicesSchema,
         params: listUserDevicesParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListUserDevicesResponseDataSchema)
 });
 
 export async function listUserDevices(

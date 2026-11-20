@@ -3,6 +3,12 @@ import response from "@server/lib/response";
 import stoi from "@server/lib/stoi";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourceDetailSchema } from "@server/lib/openapi/schemas/resource";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -59,6 +65,10 @@ export type GetResourceResponse = Omit<
     responseHeaders: { name: string; value: string }[] | null;
 };
 
+type _ResourceDetailSchemaGetResourceResponseCheck = Assert<
+    Equals<z.infer<typeof ResourceDetailSchema>, GetResourceResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/resource/{niceId}",
@@ -71,22 +81,7 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceDetailSchema)
 });
 
 registry.registerPath({
@@ -99,22 +94,7 @@ registry.registerPath({
             resourceId: z.number()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceDetailSchema)
 });
 
 registry.registerPath({
@@ -127,22 +107,7 @@ registry.registerPath({
             resourceId: z.number()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceDetailSchema)
 });
 
 export async function getResource(

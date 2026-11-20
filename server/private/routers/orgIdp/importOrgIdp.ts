@@ -26,6 +26,8 @@ import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { checkOrgAccessPolicy } from "#private/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgIdpCreatedSchema } from "@server/lib/openapi/schemas/idp";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty(),
@@ -52,7 +54,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(OrgIdpCreatedSchema, 201)
 });
 
 async function userIsOrgAdmin(

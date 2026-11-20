@@ -7,6 +7,12 @@ import {
     primaryDb
 } from "@server/db";
 import { registry } from "@server/openApi";
+import { RequestAuditLogSchema } from "@server/lib/openapi/schemas/auditLog";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { eq, gt, lt, and, count, desc, inArray, isNull, or } from "drizzle-orm";
@@ -276,6 +282,10 @@ export function countRequestQuery(data: Q) {
     return countQuery;
 }
 
+type _RequestAuditLogSchemaQueryRequestAuditLogResponseCheck = Assert<
+    Equals<z.infer<typeof RequestAuditLogSchema>, QueryRequestAuditLogResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/request",
@@ -285,22 +295,7 @@ registry.registerPath({
         query: queryAccessAuditLogsQuery,
         params: queryRequestAuditLogsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(RequestAuditLogSchema)
 });
 
 async function queryUniqueFilterAttributes(

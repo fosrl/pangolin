@@ -28,7 +28,6 @@ const UpdateUser2FAResponseDataSchema = z.object({
     twoFactorRequested: z.boolean()
 });
 
-
 registry.registerPath({
     method: "post",
     path: "/user/{userId}/2fa",
@@ -49,7 +48,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateUser2FAResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateUser2FAResponseDataSchema
+                    )
                 }
             }
         }

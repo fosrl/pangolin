@@ -1,5 +1,17 @@
-import { db, logsDb, aiUsageRecords, resources, siteResources } from "@server/db";
+import {
+    db,
+    logsDb,
+    aiUsageRecords,
+    resources,
+    siteResources
+} from "@server/db";
 import { registry } from "@server/openApi";
+import { AiUsageResourcesSchema } from "@server/lib/openapi/schemas/auditLog";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { count, desc, inArray, sql } from "drizzle-orm";
@@ -49,7 +61,11 @@ async function query(data: Q) {
         })
         .from(aiUsageRecords)
         .where(baseConditions)
-        .groupBy(dayExpr, aiUsageRecords.resourceId, aiUsageRecords.siteResourceId)
+        .groupBy(
+            dayExpr,
+            aiUsageRecords.resourceId,
+            aiUsageRecords.siteResourceId
+        )
         .orderBy(dayExpr);
 
     const costTotals = new Map<string, number>();
@@ -157,31 +173,24 @@ async function query(data: Q) {
     };
 }
 
+type _AiUsageResourcesSchemaQueryAiUsageResourcesResponseCheck = Assert<
+    Equals<
+        z.infer<typeof AiUsageResourcesSchema>,
+        QueryAiUsageResourcesResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/ai/usage/resources",
-    description: "Query the AI usage analytics resource breakdown for an organization",
+    description:
+        "Query the AI usage analytics resource breakdown for an organization",
     tags: [OpenAPITags.Logs],
     request: {
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(AiUsageResourcesSchema)
 });
 
 export type QueryAiUsageResourcesResponse = Awaited<ReturnType<typeof query>>;
@@ -195,14 +204,20 @@ export async function queryAiUsageResources(
         const parsedQuery = aiUsageAnalyticsFiltersQuery.safeParse(req.query);
         if (!parsedQuery.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedQuery.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedQuery.error)
+                )
             );
         }
 
         const parsedParams = aiUsageAnalyticsParams.safeParse(req.params);
         if (!parsedParams.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedParams.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedParams.error)
+                )
             );
         }
 

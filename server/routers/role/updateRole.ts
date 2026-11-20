@@ -11,6 +11,8 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { OpenAPITags, registry } from "@server/openApi";
+import { RoleSchema } from "@server/lib/openapi/schemas/access";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { pushClientIdentitiesForRole } from "@server/lib/clientIdentities";
 
@@ -54,22 +56,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(RoleSchema)
 });
 
 export async function updateRole(

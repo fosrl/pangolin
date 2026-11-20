@@ -21,6 +21,13 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PaginationSchema } from "@server/lib/openapi/schemas/common";
+import { ResourcePolicyListItemSchema } from "@server/lib/openapi/schemas/policy";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import type {
     ListResourcePoliciesResponse,
     ResourcePolicyWithResources
@@ -75,6 +82,18 @@ function queryResourcePoliciesBase() {
         .from(resourcePolicies);
 }
 
+const ListResourcePoliciesResponseDataSchema = z.object({
+    policies: z.array(ResourcePolicyListItemSchema),
+    pagination: PaginationSchema
+});
+
+type _ListResourcePoliciesResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListResourcePoliciesResponseDataSchema>,
+        ListResourcePoliciesResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/resource-policies",
@@ -86,7 +105,7 @@ registry.registerPath({
         }),
         query: listResourcePoliciesSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(ListResourcePoliciesResponseDataSchema)
 });
 
 export async function listResourcePolicies(

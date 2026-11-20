@@ -21,7 +21,6 @@ const PickClientDefaultsResponseDataSchema = z.object({
     subnet: z.string()
 });
 
-
 const pickClientDefaultsSchema = z.strictObject({
     orgId: z.string()
 });
@@ -39,7 +38,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(PickClientDefaultsResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        PickClientDefaultsResponseDataSchema
+                    )
                 }
             }
         }

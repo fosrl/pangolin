@@ -42,6 +42,8 @@ import {
 } from "@server/lib/validators";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourcePolicySchema } from "@server/lib/openapi/schemas/policy";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, inArray, type InferInsertModel } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -155,7 +157,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicySchema, 201)
 });
 
 export async function createResourcePolicy(

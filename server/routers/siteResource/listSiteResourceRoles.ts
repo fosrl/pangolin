@@ -9,6 +9,13 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PrivateResourceIdParamsSchema } from "@server/lib/openapi/schemas/siteResource";
+import { RoleSummarySchema } from "@server/lib/openapi/schemas/access";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const listSiteResourceRolesSchema = z
     .object({
@@ -36,6 +43,17 @@ export type ListSiteResourceRolesResponse = {
     roles: NonNullable<Awaited<ReturnType<typeof query>>>;
 };
 
+const ListSiteResourceRolesResponseDataSchema = z.object({
+    roles: z.array(RoleSummarySchema)
+});
+
+type _ListSiteResourceRolesResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListSiteResourceRolesResponseDataSchema>,
+        ListSiteResourceRolesResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/site-resource/{siteResourceId}/roles",
@@ -44,22 +62,9 @@ registry.registerPath({
     request: {
         params: listSiteResourceRolesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListSiteResourceRolesResponseDataSchema
+    )
 });
 
 registry.registerPath({
@@ -68,24 +73,11 @@ registry.registerPath({
     description: "List all roles for a site resource.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Role],
     request: {
-        params: listSiteResourceRolesSchema
+        params: PrivateResourceIdParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListSiteResourceRolesResponseDataSchema
+    )
 });
 
 export async function listSiteResourceRoles(

@@ -9,6 +9,16 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PaginationSchema,
+    LimitOffsetPaginationSchema
+} from "@server/lib/openapi/schemas/common";
+import { ResourceRuleListItemSchema } from "@server/lib/openapi/schemas/resource";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const listResourceRulesParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -67,6 +77,18 @@ export type ListResourceRulesResponse = {
     pagination: { total: number; limit: number; offset: number };
 };
 
+const ListResourceRulesResponseDataSchema = z.object({
+    rules: z.array(ResourceRuleListItemSchema),
+    pagination: LimitOffsetPaginationSchema
+});
+
+type _ListResourceRulesResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListResourceRulesResponseDataSchema>,
+        ListResourceRulesResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/rules",
@@ -76,22 +98,7 @@ registry.registerPath({
         params: listResourceRulesParamsSchema,
         query: listResourceRulesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourceRulesResponseDataSchema)
 });
 
 registry.registerPath({
@@ -103,22 +110,7 @@ registry.registerPath({
         params: listResourceRulesParamsSchema,
         query: listResourceRulesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourceRulesResponseDataSchema)
 });
 
 export async function listResourceRules(

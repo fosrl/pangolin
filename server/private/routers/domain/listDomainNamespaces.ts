@@ -41,7 +41,7 @@ const querySchema = z.strictObject({
         .optional()
         .default("0")
         .transform(Number)
-        .pipe(z.int().nonnegative()),
+        .pipe(z.int().nonnegative())
     // orgId: build === "saas" ? z.string() : z.string().optional() // Required for saas, optional otherwise
 });
 

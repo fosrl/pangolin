@@ -17,6 +17,16 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    LimitOffsetPaginationSchema,
+    PaginationSchema
+} from "@server/lib/openapi/schemas/common";
+import { HealthCheckListItemSchema } from "@server/lib/openapi/schemas/misc";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { and, eq, exists, isNotNull, like, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import { z } from "zod";
@@ -59,6 +69,18 @@ const querySchema = z.object({
         .transform((v) => (v === undefined ? undefined : v === "true"))
 });
 
+const ListHealthChecksResponseDataSchema = z.object({
+    healthChecks: z.array(HealthCheckListItemSchema),
+    pagination: LimitOffsetPaginationSchema
+});
+
+type _ListHealthChecksResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListHealthChecksResponseDataSchema>,
+        ListHealthChecksResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/health-checks",
@@ -68,22 +90,7 @@ registry.registerPath({
         params: paramsSchema,
         query: querySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListHealthChecksResponseDataSchema)
 });
 
 export async function listHealthChecks(
@@ -207,9 +214,7 @@ export async function listHealthChecks(
                     siteNiceId: row.siteNiceId ?? null,
                     hcEnabled: row.hcEnabled,
                     hcHealth: (row.hcHealth ?? "unknown") as
-                        | "unknown"
-                        | "healthy"
-                        | "unhealthy",
+                        "unknown" | "healthy" | "unhealthy",
                     hcMode: row.hcMode ?? null,
                     hcHostname: row.hcHostname ?? null,
                     hcPort: row.hcPort ?? null,

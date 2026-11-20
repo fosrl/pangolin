@@ -19,6 +19,13 @@ import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PaginationSchema } from "@server/lib/openapi/schemas/common";
+import { SiteListItemSchema } from "@server/lib/openapi/schemas/site";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
@@ -175,6 +182,15 @@ export type ListSitesResponse = PaginatedResponse<{
     sites: SiteWithUpdateAvailable[];
 }>;
 
+const ListSitesResponseDataSchema = z.object({
+    sites: z.array(SiteListItemSchema),
+    pagination: PaginationSchema
+});
+
+type _ListSitesResponseDataSchemaCheck = Assert<
+    Equals<z.infer<typeof ListSitesResponseDataSchema>, ListSitesResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/sites",
@@ -184,22 +200,7 @@ registry.registerPath({
         params: listSitesParamsSchema,
         query: listSitesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListSitesResponseDataSchema)
 });
 
 export async function listSites(

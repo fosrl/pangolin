@@ -20,6 +20,13 @@ import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PaginationSchema } from "@server/lib/openapi/schemas/common";
+import { ClientListItemSchema } from "@server/lib/openapi/schemas/client";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import {
@@ -260,6 +267,15 @@ export type ListClientsResponse = PaginatedResponse<{
     clients: Array<ClientWithSites>;
 }>;
 
+const ListClientsResponseDataSchema = z.object({
+    clients: z.array(ClientListItemSchema),
+    pagination: PaginationSchema
+});
+
+type _ListClientsResponseDataSchemaCheck = Assert<
+    Equals<z.infer<typeof ListClientsResponseDataSchema>, ListClientsResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/clients",
@@ -269,22 +285,7 @@ registry.registerPath({
         query: listClientsSchema,
         params: listClientsParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListClientsResponseDataSchema)
 });
 
 export async function listClients(

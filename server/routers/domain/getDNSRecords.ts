@@ -8,6 +8,12 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { DnsRecordSchema } from "@server/lib/openapi/schemas/domain";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { getServerIp } from "@server/lib/serverIpService"; // your in-memory IP module
 
 const getDNSRecordsSchema = z.strictObject({
@@ -26,6 +32,15 @@ async function query(domainId: string) {
 
 export type GetDNSRecordsResponse = Awaited<ReturnType<typeof query>>;
 
+const GetDNSRecordsResponseDataSchema = z.array(DnsRecordSchema);
+
+type _GetDNSRecordsResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof GetDNSRecordsResponseDataSchema>,
+        GetDNSRecordsResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/domain/{domainId}/dns-records",
@@ -37,22 +52,7 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetDNSRecordsResponseDataSchema)
 });
 
 export async function getDNSRecords(

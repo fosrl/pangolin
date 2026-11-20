@@ -22,6 +22,9 @@ import { eq, sql } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { LimitOffsetPaginationSchema } from "@server/lib/openapi/schemas/common";
+import { OrgIdpListItemSchema } from "@server/lib/openapi/schemas/idp";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { ListOrgIdpsResponse } from "@server/routers/orgIdp/types";
 
 const querySchema = z.strictObject({
@@ -63,6 +66,11 @@ async function query(orgId: string, limit: number, offset: number) {
     return res;
 }
 
+const ListOrgIdpsResponseDataSchema = z.object({
+    idps: z.array(OrgIdpListItemSchema),
+    pagination: LimitOffsetPaginationSchema
+});
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/idp",
@@ -72,22 +80,7 @@ registry.registerPath({
         query: querySchema,
         params: paramsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListOrgIdpsResponseDataSchema)
 });
 
 export async function listOrgIdps(

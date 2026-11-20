@@ -19,6 +19,16 @@ import {
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PaginationSchema,
+    LimitOffsetPaginationSchema
+} from "@server/lib/openapi/schemas/common";
+import { OrgUserListItemSchema } from "@server/lib/openapi/schemas/user";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import { UserType } from "@server/types/UserTypes";
 
@@ -161,6 +171,15 @@ export type ListUsersResponse = PaginatedResponse<{
     >;
 }>;
 
+const ListUsersResponseDataSchema = z.object({
+    users: z.array(OrgUserListItemSchema),
+    pagination: PaginationSchema
+});
+
+type _ListUsersResponseDataSchemaCheck = Assert<
+    Equals<z.infer<typeof ListUsersResponseDataSchema>, ListUsersResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/users",
@@ -170,22 +189,7 @@ registry.registerPath({
         params: listUsersParamsSchema,
         query: listUsersSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListUsersResponseDataSchema)
 });
 
 export async function listUsers(

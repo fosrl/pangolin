@@ -9,6 +9,13 @@ import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { LimitOffsetPaginationSchema } from "@server/lib/openapi/schemas/common";
+import { TargetListItemSchema } from "@server/lib/openapi/schemas/target";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const resourceTargetsParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -102,6 +109,15 @@ export type ListTargetsResponse = {
     pagination: { total: number; limit: number; offset: number };
 };
 
+const ListTargetsResponseDataSchema = z.object({
+    targets: z.array(TargetListItemSchema),
+    pagination: LimitOffsetPaginationSchema
+});
+
+type _ListTargetsResponseDataSchemaCheck = Assert<
+    Equals<z.infer<typeof ListTargetsResponseDataSchema>, ListTargetsResponse>
+>;
+
 registry.registerPath({
     method: "get",
     path: "/resource/{resourceId}/targets",
@@ -111,22 +127,7 @@ registry.registerPath({
         params: resourceTargetsParamsSchema,
         query: listTargetsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListTargetsResponseDataSchema)
 });
 
 registry.registerPath({
@@ -138,22 +139,7 @@ registry.registerPath({
         params: resourceTargetsParamsSchema,
         query: listTargetsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListTargetsResponseDataSchema)
 });
 
 registry.registerPath({
@@ -165,22 +151,7 @@ registry.registerPath({
         params: providerTargetsParamsSchema,
         query: listTargetsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListTargetsResponseDataSchema)
 });
 
 export async function listTargets(

@@ -14,6 +14,11 @@ import { validateAndConstructDomain } from "@server/lib/domainUtils";
 import response from "@server/lib/response";
 import { eq, and, ne, inArray } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PrivateResourceIdParamsSchema,
+    SiteResourceSchema
+} from "@server/lib/openapi/schemas/siteResource";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { isIpInCidr, portRangeStringSchema } from "@server/lib/ip";
 import {
     handleMessagingForUpdatedSiteResource,
@@ -234,31 +239,16 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteResourceSchema)
 });
 
 registry.registerPath({
     method: "post",
-    path: "/private-resource/{siteResourceId}",
+    path: "/private-resource/{resourceId}",
     description: "Update a site resource.",
     tags: [OpenAPITags.PrivateResource],
     request: {
-        params: updateSiteResourceParamsSchema,
+        params: PrivateResourceIdParamsSchema,
         body: {
             content: {
                 "application/json": {
@@ -267,22 +257,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteResourceSchema)
 });
 
 export async function updateSiteResource(

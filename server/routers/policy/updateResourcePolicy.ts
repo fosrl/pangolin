@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import z from "zod";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourcePolicySchema } from "@server/lib/openapi/schemas/policy";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import { fromError } from "zod-validation-error";
@@ -40,7 +42,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicySchema)
 });
 
 registry.registerPath({
@@ -58,7 +60,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicySchema)
 });
 
 registry.registerPath({
@@ -77,7 +79,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicySchema)
 });
 
 registry.registerPath({
@@ -96,7 +98,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicySchema)
 });
 
 export async function updateResourcePolicy(

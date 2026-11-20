@@ -13,6 +13,8 @@ import {
     getResourceRuleValueValidationError
 } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourceRuleSchema } from "@server/lib/openapi/schemas/resource";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const createResourceRuleSchema = z.strictObject({
     action: z.enum(["ACCEPT", "DROP", "PASS"]),
@@ -41,22 +43,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceRuleSchema, 201)
 });
 
 registry.registerPath({
@@ -74,22 +61,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceRuleSchema, 201)
 });
 
 export async function createResourceRule(

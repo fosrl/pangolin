@@ -16,6 +16,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { SiteSchema } from "@server/lib/openapi/schemas/site";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     getResourceIdsForSite,
     getSiteResourceIdsForSite
@@ -39,22 +41,7 @@ registry.registerPath({
     request: {
         params: approveSiteParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteSchema)
 });
 
 type SiteResourceEnableSideEffect = {

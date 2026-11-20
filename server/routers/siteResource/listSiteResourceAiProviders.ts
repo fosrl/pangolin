@@ -8,6 +8,12 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { AiProviderAttachmentSchema } from "@server/lib/openapi/schemas/ai";
+import {
+    createApiSuccessResponses,
+    Assert,
+    Equals
+} from "@server/lib/openapi/createApiResponseSchema";
 import { listSiteResourceAiProviders as listAttachments } from "@server/lib/aiInferenceResource";
 
 const listSiteResourceAiProvidersParamsSchema = z.strictObject({
@@ -18,6 +24,17 @@ export type ListSiteResourceAiProvidersResponse = {
     providers: Awaited<ReturnType<typeof listAttachments>>;
 };
 
+const ListSiteResourceAiProvidersResponseDataSchema = z.object({
+    providers: z.array(AiProviderAttachmentSchema)
+});
+
+type _ListSiteResourceAiProvidersResponseDataSchemaCheck = Assert<
+    Equals<
+        z.infer<typeof ListSiteResourceAiProvidersResponseDataSchema>,
+        ListSiteResourceAiProvidersResponse
+    >
+>;
+
 registry.registerPath({
     method: "get",
     path: "/site-resource/{siteResourceId}/ai-providers",
@@ -27,22 +44,9 @@ registry.registerPath({
     request: {
         params: listSiteResourceAiProvidersParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListSiteResourceAiProvidersResponseDataSchema
+    )
 });
 
 export async function listSiteResourceAiProviders(

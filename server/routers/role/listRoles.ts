@@ -2,6 +2,9 @@ import { db, orgs, roleActions, roles } from "@server/db";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PaginationSchema } from "@server/lib/openapi/schemas/common";
+import { RoleListItemSchema } from "@server/lib/openapi/schemas/access";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { ActionsEnum } from "@server/auth/actions";
@@ -89,6 +92,11 @@ export type ListRolesResponse = PaginatedResponse<{
     roles: NonNullable<Awaited<ReturnType<typeof queryRolesBase>>>;
 }>;
 
+const ListRolesResponseDataSchema = z.object({
+    roles: z.array(RoleListItemSchema),
+    pagination: PaginationSchema
+});
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/roles",
@@ -98,22 +106,7 @@ registry.registerPath({
         params: listRolesParamsSchema,
         query: listRolesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListRolesResponseDataSchema)
 });
 
 export async function listRoles(
