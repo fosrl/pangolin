@@ -19,6 +19,7 @@ import BrandedAuthSurface from "@app/components/BrandedAuthSurface";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { pullEnv } from "@app/lib/pullEnv";
+import { hostWithoutPort } from "@app/lib/hostWithoutPort";
 
 type OrgLoginPageProps = {
     loginPage: LoadLoginPageResponse | undefined;
@@ -53,8 +54,8 @@ export default async function OrgLoginPage({
 }: OrgLoginPageProps) {
     const env = pullEnv();
     const t = await getTranslations();
-    const host = (await headers()).get("host");
-    const dashboardHost = env.app.dashboardUrl.split("//")[1];
+    const host = hostWithoutPort((await headers()).get("host"));
+    const dashboardHost = hostWithoutPort(env.app.dashboardUrl.split("//")[1]);
     const onDashboardHost = host === dashboardHost;
 
     return (

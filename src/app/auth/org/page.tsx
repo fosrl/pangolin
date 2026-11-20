@@ -9,6 +9,7 @@ import { LoginFormIDP } from "@app/components/LoginForm";
 import { ListOrgIdpsResponse } from "@server/routers/orgIdp/types";
 import { build } from "@server/build";
 import { headers } from "next/headers";
+import { hostWithoutPort } from "@app/lib/hostWithoutPort";
 import {
     LoadLoginPageBrandingResponse,
     LoadLoginPageResponse
@@ -60,9 +61,9 @@ export default async function OrgAuthPage(props: {
     const user = await getUser({ skipCheckVerifyEmail: true });
 
     const allHeaders = await headers();
-    const host = allHeaders.get("host");
+    const host = hostWithoutPort(allHeaders.get("host"));
 
-    const expectedHost = env.app.dashboardUrl.split("//")[1];
+    const expectedHost = hostWithoutPort(env.app.dashboardUrl.split("//")[1]);
 
     let redirectToUrl: string | undefined;
     let loginPage: LoadLoginPageResponse | undefined;
