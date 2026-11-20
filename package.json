@@ -36,7 +36,7 @@
     },
     "dependencies": {
         "@asteasolutions/zod-to-openapi": "9.1.0",
-        "@aws-sdk/client-s3": "3.1169.0",
+        "@aws-sdk/client-s3": "3.1170.0",
         "@devolutions/iron-remote-desktop": "https://static.pangolin.net/packages/devolutions-iron-remote-desktop-0.0.2.tgz",
         "@devolutions/iron-remote-desktop-rdp": "https://static.pangolin.net/packages/devolutions-iron-remote-desktop-rdp-0.0.3.tgz",
         "@headlessui/react": "2.2.10",
@@ -106,7 +106,7 @@
         "next-intl": "4.15.1",
         "next-themes": "0.4.6",
         "nextjs-toploader": "3.9.17",
-        "nodemailer": "10.5.0",
+        "nodemailer": "10.6.0",
         "oslo": "1.2.1",
         "pg": "8.23.1",
         "posthog-node": "5.74.0",
@@ -138,7 +138,7 @@
         "zod-validation-error": "5.0.0"
     },
     "devDependencies": {
-        "@react-email/ui": "^6.11.13",
+        "@react-email/ui": "^6.11.14",
         "@tailwindcss/postcss": "4.3.5",
         "@tanstack/react-query-devtools": "5.107.1",
         "@types/better-sqlite3": "7.6.13",
