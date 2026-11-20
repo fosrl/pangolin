@@ -100,6 +100,31 @@ function flattenContentPart(part: unknown): string {
     return "";
 }
 
+/**
+ * Renders OpenAI-style tool calls (chat `tool_calls`, Responses
+ * `function_call` items) as the same `[tool_call: name(args)]` placeholder the
+ * other providers use. OpenAI sends the arguments as a JSON string already.
+ */
+function formatOpenAiToolCall(name: unknown, args: unknown): string {
+    const label = typeof name === "string" && name ? name : "tool";
+    const rendered =
+        typeof args === "string"
+            ? args
+            : args == null
+              ? ""
+              : safeJsonStringify(args);
+    return `[tool_call: ${label}(${rendered})]`;
+}
+
+function flattenOpenAiChatToolCalls(toolCalls: unknown): string {
+    if (!Array.isArray(toolCalls)) return "";
+    return toolCalls
+        .map((tc: any) =>
+            formatOpenAiToolCall(tc?.function?.name, tc?.function?.arguments)
+        )
+        .join("");
+}
+
 function flattenContentParts(parts: unknown[]): string {
     return parts.map(flattenContentPart).join("");
 }
@@ -138,7 +163,9 @@ function normalizeOpenAiChatRequest(body: any): NormalizedAiMessage[] {
     const messages = Array.isArray(body?.messages) ? body.messages : [];
     return messages.map((m: any) => ({
         role: normalizeRole(m?.role),
-        content: flattenContent(m?.content)
+        content:
+            flattenContent(m?.content) +
+            flattenOpenAiChatToolCalls(m?.tool_calls)
     }));
 }
 
@@ -248,12 +275,35 @@ function normalizeOpenAiChatResponse(
         let role: unknown = "assistant";
         let content = "";
         let found = false;
+        // Tool call fragments arrive keyed by index: the first fragment
+        // carries the name, the rest append to the arguments string.
+        const toolCalls = new Map<number, { name: string; args: string }>();
         for (const frame of sseDataFrames(text)) {
             const delta = tryParseJson(frame)?.choices?.[0]?.delta;
             if (!delta) continue;
             found = true;
             if (typeof delta.role === "string") role = delta.role;
             if (typeof delta.content === "string") content += delta.content;
+            if (Array.isArray(delta.tool_calls)) {
+                for (const tc of delta.tool_calls) {
+                    const index = typeof tc?.index === "number" ? tc.index : 0;
+                    const entry = toolCalls.get(index) ?? {
+                        name: "",
+                        args: ""
+                    };
+                    if (typeof tc?.function?.name === "string") {
+                        entry.name += tc.function.name;
+                    }
+                    if (typeof tc?.function?.arguments === "string") {
+                        entry.args += tc.function.arguments;
+                    }
+                    toolCalls.set(index, entry);
+                }
+            }
+        }
+        for (const index of [...toolCalls.keys()].sort((a, b) => a - b)) {
+            const entry = toolCalls.get(index)!;
+            content += formatOpenAiToolCall(entry.name, entry.args);
         }
         return found ? [{ role: normalizeRole(role), content }] : null;
     }
@@ -263,21 +313,29 @@ function normalizeOpenAiChatResponse(
     return [
         {
             role: normalizeRole(message.role),
-            content: flattenContent(message.content)
+            content:
+                flattenContent(message.content) +
+                flattenOpenAiChatToolCalls(message.tool_calls)
         }
     ];
 }
 
 function extractOpenAiResponsesOutputText(response: any): string | null {
-    if (typeof response?.output_text === "string") return response.output_text;
     const output = Array.isArray(response?.output) ? response.output : [];
+    const calls: string[] = [];
     const pieces: string[] = [];
     for (const item of output) {
         if (item?.type === "message" && Array.isArray(item.content)) {
             pieces.push(flattenContentParts(item.content));
+        } else if (item?.type === "function_call") {
+            calls.push(formatOpenAiToolCall(item.name, item.arguments));
         }
     }
-    return pieces.length > 0 ? pieces.join("") : null;
+    if (typeof response?.output_text === "string") {
+        return response.output_text + calls.join("");
+    }
+    const all = [...pieces, ...calls];
+    return all.length > 0 ? all.join("") : null;
 }
 
 function normalizeOpenAiResponsesResponse(
