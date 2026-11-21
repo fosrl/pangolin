@@ -119,6 +119,7 @@ type DataTableProps<TData, TValue> = {
     onPageChange?: (page: number) => void;
     onPageSizeChange?: (pageSize: number) => void;
     isLoading?: boolean;
+    emptyMessage?: string;
     // Row expansion props
     expandable?: boolean;
     renderExpandedRow?: (row: TData) => React.ReactNode;
@@ -146,6 +147,7 @@ export function LogDataTable<TData, TValue>({
     onPageChange,
     onPageSizeChange: onPageSizeChangeProp,
     isLoading = false,
+    emptyMessage,
     expandable = false,
     disabled = false,
     renderExpandedRow,
@@ -563,7 +565,9 @@ export function LogDataTable<TData, TValue>({
                             ) : (
                                 <DataTableEmptyState
                                     colSpan={enhancedColumns.length}
-                                    message={t("logsEmptyState")}
+                                    message={
+                                        emptyMessage ?? t("logsEmptyState")
+                                    }
                                 />
                             )}
                         </TableBody>
