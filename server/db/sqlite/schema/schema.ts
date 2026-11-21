@@ -255,6 +255,7 @@ export const resources = sqliteTable(
             .$type<"site" | "remote" | "native">()
             .default("site"),
         authDaemonPort: integer("authDaemonPort").default(22123),
+        rdpEntraDeviceId: text("rdpEntraDeviceId"),
         status: text("status")
             .$type<"pending" | "approved">()
             .default("approved")

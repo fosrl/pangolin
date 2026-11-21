@@ -227,6 +227,7 @@ export const resources = pgTable(
             .$type<"site" | "remote" | "native">()
             .default("site"),
         authDaemonPort: integer("authDaemonPort").default(22123),
+        rdpEntraDeviceId: text("rdpEntraDeviceId"),
         status: varchar("status")
             .$type<"pending" | "approved">()
             .default("approved")

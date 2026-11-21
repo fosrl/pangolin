@@ -1,4 +1,5 @@
 export * from "./getResource";
+export * from "./listResourceRdpEntraIdps";
 export * from "./createResource";
 export * from "./deleteResource";
 export * from "./updateResource";

@@ -777,6 +777,13 @@ authenticated.get(
 );
 
 authenticated.get(
+    "/resource/:resourceId/rdp-entra-idps",
+    verifyResourceAccess,
+    verifyUserHasAction(ActionsEnum.getResource),
+    resource.listResourceRdpEntraIdps
+);
+
+authenticated.get(
     "/resource/:resourceId/blueprint",
     verifyResourceAccess,
     verifyUserHasAction(ActionsEnum.getResource),

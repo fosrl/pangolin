@@ -85,6 +85,7 @@ import {
     useEffect
 } from "react";
 import { useForm, type Resolver } from "react-hook-form";
+import { createRdpEntraDeviceFormSchema } from "@app/lib/rdpEntraDeviceForm";
 import { z } from "zod";
 
 type TranslateFn = (key: string) => string;
@@ -365,6 +366,10 @@ export default function Page() {
         [t]
     );
     const addTargetSchema = useMemo(() => createAddTargetSchema(t), [t]);
+    const rdpEntraDeviceSchema = useMemo(
+        () => createRdpEntraDeviceFormSchema(t),
+        [t]
+    );
 
     const baseForm = useForm({
         resolver: zodResolver(baseResourceFormSchema),
@@ -396,6 +401,13 @@ export default function Page() {
         resolver: zodResolver(sshDaemonPortSchema),
         defaultValues: {
             authDaemonPort: "22123"
+        }
+    });
+
+    const rdpEntraDeviceForm = useForm({
+        resolver: zodResolver(rdpEntraDeviceSchema),
+        defaultValues: {
+            rdpEntraDeviceId: ""
         }
     });
 
@@ -521,6 +533,13 @@ export default function Page() {
                         authDaemonMode: effectiveMode,
                         authDaemonPort: effectivePort || undefined
                     });
+                } else if (resourceType === "rdp") {
+                    const rdpEntraDeviceId = rdpEntraDeviceForm
+                        .getValues()
+                        .rdpEntraDeviceId.trim();
+                    if (rdpEntraDeviceId) {
+                        Object.assign(payload, { rdpEntraDeviceId });
+                    }
                 }
             } else {
                 const tcpUdpData = tcpUdpForm.getValues();
@@ -1389,6 +1408,52 @@ export default function Page() {
                                 </SettingsSection>
                             )}
 
+                            {resourceType === "rdp" && (
+                                <SettingsSection>
+                                    <SettingsSectionHeader>
+                                        <SettingsSectionTitle>
+                                            {t("rdpEntraSettings")}
+                                        </SettingsSectionTitle>
+                                        <SettingsSectionDescription>
+                                            {t("rdpEntraSettingsDescription")}
+                                        </SettingsSectionDescription>
+                                    </SettingsSectionHeader>
+                                    <SettingsSectionBody>
+                                        <SettingsSectionForm variant="half">
+                                            <Form {...rdpEntraDeviceForm}>
+                                                <FormField
+                                                    control={
+                                                        rdpEntraDeviceForm.control
+                                                    }
+                                                    name="rdpEntraDeviceId"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>
+                                                                {t(
+                                                                    "rdpEntraDeviceId"
+                                                                )}
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input
+                                                                    autoComplete="off"
+                                                                    {...field}
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription>
+                                                                {t(
+                                                                    "rdpEntraDeviceIdDescription"
+                                                                )}
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </Form>
+                                        </SettingsSectionForm>
+                                    </SettingsSectionBody>
+                                </SettingsSection>
+                            )}
+
                             {/* VNC Server Section */}
                             {resourceType === "vnc" && (
                                 <SettingsSection>
@@ -1519,11 +1584,17 @@ export default function Page() {
                                                 ? await bgTargetForm.trigger()
                                                 : true;
 
+                                        const rdpEntraValid =
+                                            resourceType === "rdp"
+                                                ? await rdpEntraDeviceForm.trigger()
+                                                : true;
+
                                         if (
                                             baseValid &&
                                             domainValid &&
                                             tcpValid &&
-                                            bgValid
+                                            bgValid &&
+                                            rdpEntraValid
                                         ) {
                                             onSubmit();
                                         }

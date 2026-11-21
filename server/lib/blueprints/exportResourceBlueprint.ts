@@ -472,6 +472,10 @@ export async function buildPublicResourceBlueprintConfig(
         });
     }
 
+    if (mode === "rdp" && resource.rdpEntraDeviceId) {
+        resourceConfig["rdp-entra-device-id"] = resource.rdpEntraDeviceId;
+    }
+
     if (resource.maintenanceModeEnabled) {
         resourceConfig.maintenance = stripUndefined({
             enabled: resource.maintenanceModeEnabled,

@@ -153,6 +153,14 @@ const updateHttpResourceBodySchema = z
         pamMode: z.enum(["passthrough", "push"]).optional(),
         authDaemonMode: z.enum(["site", "remote", "native"]).optional(),
         authDaemonPort: z.int().min(1).max(65535).nullable().optional(),
+        // RDP settings
+        rdpEntraDeviceId: z
+            .guid()
+            .nullable()
+            .optional()
+            .describe(
+                "For rdp-mode resources: Microsoft Entra device ID of the host, used for sign-in with Microsoft Entra ID. Set to null to clear it."
+            ),
         resourcePolicyId: z
             .number()
             .nullable()
