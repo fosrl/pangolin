@@ -6,9 +6,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
+import { Checkbox } from "@app/components/ui/checkbox";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@app/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
+import { runRdpEntraPopup } from "@app/lib/rdpEntraPopup";
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -68,6 +79,17 @@ type RdpCredentialsForm = {
     kdcProxyUrl: string;
     pcb: string;
     enableClipboard: boolean;
+    // Network Level Authentication (CredSSP). When off, the client connects
+    // with TLS only and the Windows sign-in screen handles the logon. Needed
+    // for hosts whose accounts NTLM cannot resolve, e.g. Microsoft Entra
+    // joined devices without on-premises Active Directory.
+    nla: boolean;
+    // "entra" signs in with a Microsoft Entra ID token (RDS AAD Auth), which
+    // keeps NLA on for Entra joined hosts.
+    authMode: "password" | "entra";
+    entraIdpId: string;
+    // Device ID or computer name of the host in Entra ID
+    entraDeviceName: string;
 };
 
 const DEFAULT_RDP_CREDENTIALS: RdpCredentialsForm = {
@@ -76,8 +98,47 @@ const DEFAULT_RDP_CREDENTIALS: RdpCredentialsForm = {
     domain: "",
     kdcProxyUrl: "",
     pcb: "",
-    enableClipboard: true
+    enableClipboard: true,
+    nla: true,
+    authMode: "password",
+    entraIdpId: "",
+    entraDeviceName: ""
 };
+
+// Entra device names are NetBIOS-style computer names without a suffix.
+const ENTRA_DEVICE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/;
+
+// A device in GUID form is an Entra device ID. The server builds the token
+// scope by the same rule, and the assertion has to name the host the same way.
+const ENTRA_DEVICE_ID_PATTERN =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ENTRA_RDP_RESOURCE = "ms-device-service://termsrv.wvd.microsoft.com";
+
+type EntraAssertionParams = {
+    accessToken: string;
+    resourceUri: string;
+    serverNonce: string;
+    aadNonce: string;
+    key: CryptoKeyPair;
+};
+
+type EntraSignIn = {
+    accessToken: string;
+    nonce: string;
+    // Proof-of-possession key the token is bound to; it never leaves the page.
+    key: CryptoKeyPair;
+    deviceName: string;
+};
+
+// Numeric values of `IronErrorKind` from @devolutions/iron-remote-desktop.
+// The runtime bundle only ships the enum as a type declaration, so the
+// values are mirrored here for classifying connection failures.
+const IRON_ERROR_KIND = {
+    WrongPassword: 1,
+    LogonFailure: 2,
+    AccessDenied: 3,
+    NegotiationFailure: 6
+} as const;
 
 const isIronError = (error: unknown): error is IronError => {
     return (
@@ -98,23 +159,74 @@ export default function RdpClient({
     primaryColor?: string | null;
 }) {
     const t = useTranslations();
-    const api = createApiClient(useEnvContext());
+    const { env } = useEnvContext();
+    const api = createApiClient({ env });
     const STORAGE_KEY = "pangolin_rdp_credentials";
     const resourceName = target?.name?.trim() || null;
+    const entraIdps = target?.entraIdps ?? [];
+    // Set on the resource by an admin; used unless the user enters another
+    // device.
+    const entraDeviceId = target?.rdpEntraDeviceId ?? null;
 
-    const formSchema = z.object({
-        username: z.string().min(1, { message: t("usernameRequired") }),
-        password: z.string().min(1, { message: t("passwordRequired") }),
-        domain: z.string(),
-        kdcProxyUrl: z.string(),
-        pcb: z.string(),
-        enableClipboard: z.boolean()
-    });
+    const formSchema = z
+        .object({
+            username: z.string(),
+            password: z.string(),
+            domain: z.string(),
+            kdcProxyUrl: z.string(),
+            pcb: z.string(),
+            enableClipboard: z.boolean(),
+            nla: z.boolean(),
+            authMode: z.enum(["password", "entra"]),
+            entraIdpId: z.string(),
+            entraDeviceName: z.string()
+        })
+        .superRefine((values, ctx) => {
+            if (values.authMode === "entra") {
+                if (values.entraDeviceName.length === 0) {
+                    if (entraDeviceId) {
+                        return;
+                    }
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ["entraDeviceName"],
+                        message: t("rdpEntraDeviceNameRequired")
+                    });
+                } else if (
+                    !ENTRA_DEVICE_NAME_PATTERN.test(values.entraDeviceName)
+                ) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ["entraDeviceName"],
+                        message: t("rdpEntraDeviceNameInvalid")
+                    });
+                }
+                return;
+            }
+            // Without NLA the user can sign in on the Windows logon screen,
+            // so credentials are only mandatory when CredSSP is used.
+            if (!values.nla) return;
+            if (values.username.length === 0) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ["username"],
+                    message: t("usernameRequired")
+                });
+            }
+            if (values.password.length === 0) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ["password"],
+                    message: t("passwordRequired")
+                });
+            }
+        });
 
     const form = useForm<RdpCredentialsForm>({
         resolver: zodResolver(formSchema),
         defaultValues: DEFAULT_RDP_CREDENTIALS
     });
+    const authMode = form.watch("authMode");
 
     useEffect(() => {
         let cancelled = false;
@@ -124,7 +236,16 @@ export default function RdpClient({
             target?.authToken
         ).then((saved) => {
             if (cancelled || !saved) return;
-            form.reset({ ...DEFAULT_RDP_CREDENTIALS, ...saved });
+            const restored = { ...DEFAULT_RDP_CREDENTIALS, ...saved };
+            if (restored.authMode === "entra" && entraIdps.length === 0) {
+                restored.authMode = "password";
+            }
+            if (entraDeviceId) {
+                // The resource's own device is the default; a device from an
+                // earlier session must not silently replace it.
+                restored.entraDeviceName = "";
+            }
+            form.reset(restored);
         });
 
         return () => {
@@ -136,6 +257,9 @@ export default function RdpClient({
     const [moduleReady, setModuleReady] = useState(false);
     const [connecting, setConnecting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [submitErrorDetails, setSubmitErrorDetails] = useState<string | null>(
+        null
+    );
     const [unicodeMode, setUnicodeMode] = useState(false);
     const [cursorOverrideActive, setCursorOverrideActive] = useState(false);
 
@@ -152,6 +276,13 @@ export default function RdpClient({
         displayControl: (enable: boolean) => unknown;
         preConnectionBlob: (pcb: string) => unknown;
         kdcProxyUrl: (url: string) => unknown;
+        enableCredssp: (enable: boolean) => unknown;
+        entraAssertion: (
+            sign: (serverNonce: string) => Promise<string>
+        ) => unknown;
+        generateEntraPopKey: () => Promise<CryptoKeyPair>;
+        entraReqCnf: (publicKey: CryptoKey) => Promise<string>;
+        signEntraAssertion: (params: EntraAssertionParams) => Promise<string>;
     } | null>(null);
 
     // Load the iron-remote-desktop modules client-side and register the
@@ -171,7 +302,12 @@ export default function RdpClient({
             extensionsRef.current = {
                 displayControl: rdpMod.displayControl,
                 preConnectionBlob: rdpMod.preConnectionBlob,
-                kdcProxyUrl: rdpMod.kdcProxyUrl
+                kdcProxyUrl: rdpMod.kdcProxyUrl,
+                enableCredssp: rdpMod.enableCredssp,
+                entraAssertion: rdpMod.entraAssertion,
+                generateEntraPopKey: rdpMod.generateEntraPopKey,
+                entraReqCnf: rdpMod.entraReqCnf,
+                signEntraAssertion: rdpMod.signEntraAssertion
             };
 
             // Store the class; a fresh instance is created per session.
@@ -209,6 +345,132 @@ export default function RdpClient({
         el.addEventListener("ready", onReady);
     };
 
+    // Turn an IronRDP failure into a user-facing summary. The raw backtrace
+    // is kept as details so the underlying protocol error stays visible.
+    const describeConnectError = (
+        err: unknown,
+        nlaEnabled: boolean,
+        entra: boolean
+    ): { message: string; details: string | null } => {
+        if (!isIronError(err)) {
+            return { message: `${err}`, details: null };
+        }
+        const details = err.backtrace();
+        switch (err.kind()) {
+            case IRON_ERROR_KIND.WrongPassword:
+                return { message: t("rdpErrorWrongPassword"), details };
+            case IRON_ERROR_KIND.LogonFailure:
+                if (entra) {
+                    return { message: t("rdpErrorEntraLogonFailure"), details };
+                }
+                // NTLM rejected the account. On Microsoft Entra joined
+                // hosts (no on-premises AD) this happens for every
+                // username format because NTLM cannot resolve cloud-only
+                // identities, so point at the NLA switch.
+                return {
+                    message: nlaEnabled
+                        ? `${t("rdpErrorLogonFailure")} ${t("rdpErrorLogonFailureNlaHint")}`
+                        : t("rdpErrorLogonFailure"),
+                    details
+                };
+            case IRON_ERROR_KIND.AccessDenied:
+                return { message: t("rdpErrorAccessDenied"), details };
+            case IRON_ERROR_KIND.NegotiationFailure:
+                return {
+                    message: nlaEnabled
+                        ? t("rdpErrorNegotiationFailed")
+                        : `${t("rdpErrorNegotiationFailed")} ${t("rdpErrorNegotiationFailedNlaHint")}`,
+                    details
+                };
+            default:
+                return { message: t("rdpConnectionFailed"), details };
+        }
+    };
+
+    const runEntraPopup = (
+        idpId: string,
+        params: () => Promise<Record<string, string>>
+    ) =>
+        runRdpEntraPopup({
+            dashboardUrl: env.app.dashboardUrl,
+            idpId,
+            params,
+            messages: {
+                noIdp: t("rdpEntraNoIdp"),
+                popupBlocked: t("rdpEntraPopupBlocked"),
+                cancelled: t("rdpEntraSignInCancelled"),
+                timeout: t("rdpEntraSignInTimeout")
+            }
+        });
+
+    // Runs the Microsoft sign-in and resolves with a token bound to a fresh
+    // key held by this page.
+    const signInWithEntra = async (
+        values: RdpCredentialsForm,
+        generatePopKey: () => Promise<CryptoKeyPair>,
+        reqCnfOf: (publicKey: CryptoKey) => Promise<string>
+    ): Promise<EntraSignIn> => {
+        const idpId = values.entraIdpId || String(entraIdps[0]?.idpId ?? "");
+        const device = values.entraDeviceName || entraDeviceId || "";
+        // Filled in by the popup's parameter callback, after the window opens.
+        const pop: { key?: CryptoKeyPair } = {};
+
+        const result = await runEntraPopup(idpId, async () => {
+            pop.key = await generatePopKey();
+            return {
+                deviceName: device,
+                reqCnf: await reqCnfOf(pop.key.publicKey)
+            };
+        });
+
+        if (
+            !pop.key ||
+            !result.accessToken ||
+            !result.nonce ||
+            result.deviceName !== device
+        ) {
+            throw new Error(t("rdpEntraSignInFailed"));
+        }
+
+        return {
+            accessToken: result.accessToken,
+            nonce: result.nonce,
+            key: pop.key,
+            deviceName: device
+        };
+    };
+
+    const [entraDevices, setEntraDevices] = useState<
+        { deviceId: string; name: string }[] | null
+    >(null);
+    const [loadingEntraDevices, setLoadingEntraDevices] = useState(false);
+
+    const loadEntraDevices = async () => {
+        const idpId =
+            form.getValues("entraIdpId") || String(entraIdps[0]?.idpId ?? "");
+        setLoadingEntraDevices(true);
+        try {
+            const result = await runEntraPopup(idpId, async () => ({
+                purpose: "devices"
+            }));
+            const devices = result.devices ?? [];
+            setEntraDevices(devices);
+            if (devices.length === 1) {
+                form.setValue("entraDeviceName", devices[0].deviceId, {
+                    shouldValidate: true
+                });
+            }
+        } catch (err) {
+            toast({
+                variant: "destructive",
+                title: t("rdpEntraDevicesFailed"),
+                description: err instanceof Error ? err.message : String(err)
+            });
+        } finally {
+            setLoadingEntraDevices(false);
+        }
+    };
+
     const startSession = async (values: RdpCredentialsForm) => {
         setConnecting(true);
         const userInteraction = userInteractionRef.current;
@@ -217,6 +479,22 @@ export default function RdpClient({
             setConnecting(false);
             setSubmitError(t("rdpModuleInitializing"));
             return;
+        }
+
+        const useEntra = values.authMode === "entra" && entraIdps.length > 0;
+        let entra: EntraSignIn | null = null;
+        if (useEntra) {
+            try {
+                entra = await signInWithEntra(
+                    values,
+                    exts.generateEntraPopKey,
+                    exts.entraReqCnf
+                );
+            } catch (err) {
+                setConnecting(false);
+                setSubmitError(err instanceof Error ? err.message : `${err}`);
+                return;
+            }
         }
 
         userInteraction.setEnableClipboard(values.enableClipboard);
@@ -305,6 +583,26 @@ export default function RdpClient({
         if (values.kdcProxyUrl !== "") {
             builder.withExtension(exts.kdcProxyUrl(values.kdcProxyUrl));
         }
+        if (entra) {
+            const { accessToken, nonce, key, deviceName } = entra;
+            const form = ENTRA_DEVICE_ID_PATTERN.test(deviceName)
+                ? "id"
+                : "name";
+            const resourceUri = `${ENTRA_RDP_RESOURCE}/${form}/${deviceName}`;
+            builder.withExtension(
+                exts.entraAssertion((serverNonce) =>
+                    exts.signEntraAssertion({
+                        accessToken,
+                        resourceUri,
+                        serverNonce,
+                        aadNonce: nonce,
+                        key
+                    })
+                )
+            );
+        } else if (!values.nla) {
+            builder.withExtension(exts.enableCredssp(false));
+        }
 
         try {
             const sessionInfo = await userInteraction.connect(builder.build());
@@ -335,16 +633,19 @@ export default function RdpClient({
             });
             setConnecting(false);
             setShowLogin(true);
-            if (isIronError(err)) {
-                setSubmitError(err.backtrace());
-            } else {
-                setSubmitError(`${err}`);
-            }
+            const { message, details } = describeConnectError(
+                err,
+                values.nla,
+                entra !== null
+            );
+            setSubmitError(message);
+            setSubmitErrorDetails(details);
         }
     };
 
     const onSubmit = (values: RdpCredentialsForm) => {
         setSubmitError(null);
+        setSubmitErrorDetails(null);
         startSession(values);
     };
 
@@ -399,66 +700,312 @@ export default function RdpClient({
                                     onSubmit={form.handleSubmit(onSubmit)}
                                     className="space-y-4"
                                 >
-                                    <FormField
-                                        control={form.control}
-                                        name="domain"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>
-                                                    {t("domain")}
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="username"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>
-                                                    {t("username")}
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="password"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>
-                                                    {t("password")}
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="password"
-                                                        {...field}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                    {entraIdps.length > 0 && (
+                                        <FormField
+                                            control={form.control}
+                                            name="authMode"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <Tabs
+                                                        value={field.value}
+                                                        onValueChange={
+                                                            field.onChange
+                                                        }
+                                                    >
+                                                        <TabsList className="grid w-full grid-cols-2">
+                                                            <TabsTrigger value="password">
+                                                                {t(
+                                                                    "rdpAuthModePassword"
+                                                                )}
+                                                            </TabsTrigger>
+                                                            <TabsTrigger value="entra">
+                                                                {t(
+                                                                    "rdpAuthModeEntra"
+                                                                )}
+                                                            </TabsTrigger>
+                                                        </TabsList>
+                                                    </Tabs>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
+                                    {authMode === "entra" && (
+                                        <>
+                                            {entraIdps.length > 1 && (
+                                                <FormField
+                                                    control={form.control}
+                                                    name="entraIdpId"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>
+                                                                {t(
+                                                                    "rdpEntraIdp"
+                                                                )}
+                                                            </FormLabel>
+                                                            <Select
+                                                                value={
+                                                                    field.value ||
+                                                                    String(
+                                                                        entraIdps[0]
+                                                                            .idpId
+                                                                    )
+                                                                }
+                                                                onValueChange={
+                                                                    field.onChange
+                                                                }
+                                                            >
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {entraIdps.map(
+                                                                        (
+                                                                            entraIdp
+                                                                        ) => (
+                                                                            <SelectItem
+                                                                                key={
+                                                                                    entraIdp.idpId
+                                                                                }
+                                                                                value={String(
+                                                                                    entraIdp.idpId
+                                                                                )}
+                                                                            >
+                                                                                {
+                                                                                    entraIdp.name
+                                                                                }
+                                                                            </SelectItem>
+                                                                        )
+                                                                    )}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )}
+                                            <FormField
+                                                control={form.control}
+                                                name="entraDeviceName"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t(
+                                                                "rdpEntraDeviceName"
+                                                            )}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                autoComplete="off"
+                                                                placeholder={
+                                                                    entraDeviceId ??
+                                                                    undefined
+                                                                }
+                                                                {...field}
+                                                            />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            {t(
+                                                                entraDeviceId
+                                                                    ? "rdpEntraDeviceDefaultDescription"
+                                                                    : "rdpEntraDeviceNameDescription"
+                                                            )}
+                                                        </FormDescription>
+                                                        {entraDevices &&
+                                                            entraDevices.length >
+                                                                0 && (
+                                                                <Select
+                                                                    value={
+                                                                        entraDevices.some(
+                                                                            (
+                                                                                device
+                                                                            ) =>
+                                                                                device.deviceId ===
+                                                                                field.value
+                                                                        )
+                                                                            ? field.value
+                                                                            : ""
+                                                                    }
+                                                                    onValueChange={
+                                                                        field.onChange
+                                                                    }
+                                                                >
+                                                                    <SelectTrigger>
+                                                                        <SelectValue
+                                                                            placeholder={t(
+                                                                                "rdpEntraDeviceSelect"
+                                                                            )}
+                                                                        />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {entraDevices.map(
+                                                                            (
+                                                                                device
+                                                                            ) => (
+                                                                                <SelectItem
+                                                                                    key={
+                                                                                        device.deviceId
+                                                                                    }
+                                                                                    value={
+                                                                                        device.deviceId
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        device.name
+                                                                                    }
+                                                                                </SelectItem>
+                                                                            )
+                                                                        )}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            )}
+                                                        {entraDevices &&
+                                                            entraDevices.length ===
+                                                                0 && (
+                                                                <FormDescription>
+                                                                    {t(
+                                                                        "rdpEntraNoDevices"
+                                                                    )}
+                                                                </FormDescription>
+                                                            )}
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            loading={
+                                                                loadingEntraDevices
+                                                            }
+                                                            disabled={
+                                                                loadingEntraDevices
+                                                            }
+                                                            onClick={() =>
+                                                                void loadEntraDevices()
+                                                            }
+                                                        >
+                                                            {t(
+                                                                "rdpEntraChooseDevice"
+                                                            )}
+                                                        </Button>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormDescription>
+                                                {t("rdpEntraSignInDescription")}
+                                            </FormDescription>
+                                        </>
+                                    )}
+                                    {authMode === "password" && (
+                                        <>
+                                            <FormField
+                                                control={form.control}
+                                                name="domain"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("domain")}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="username"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("username")}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="password"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>
+                                                            {t("password")}
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                type="password"
+                                                                {...field}
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="nla"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <div className="flex items-center gap-x-2">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={
+                                                                        field.value
+                                                                    }
+                                                                    onCheckedChange={(
+                                                                        checked
+                                                                    ) =>
+                                                                        field.onChange(
+                                                                            checked ===
+                                                                                true
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </FormControl>
+                                                            <FormLabel className="cursor-pointer">
+                                                                {t(
+                                                                    "rdpNetworkLevelAuth"
+                                                                )}
+                                                            </FormLabel>
+                                                        </div>
+                                                        <FormDescription>
+                                                            {field.value
+                                                                ? t(
+                                                                      "rdpNetworkLevelAuthDescription"
+                                                                  )
+                                                                : t(
+                                                                      "rdpNetworkLevelAuthDisabledDescription"
+                                                                  )}
+                                                        </FormDescription>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </>
+                                    )}
                                     <Button
                                         type="submit"
                                         disabled={!moduleReady || connecting}
                                         loading={connecting}
                                         className="w-full"
                                     >
-                                        {t("browserGatewayConnect")}
+                                        {authMode === "entra"
+                                            ? t("rdpEntraSignIn")
+                                            : t("browserGatewayConnect")}
                                     </Button>
                                     {submitError && (
                                         <Alert variant="destructive">
                                             <AlertDescription>
-                                                {submitError}
+                                                <p>{submitError}</p>
+                                                {submitErrorDetails && (
+                                                    <p className="mt-2 text-xs break-words opacity-80">
+                                                        {submitErrorDetails}
+                                                    </p>
+                                                )}
                                             </AlertDescription>
                                         </Alert>
                                     )}

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, resources, targets } from "@server/db";
+import { listEntraIdpsForOrg } from "@server/lib/idp/entraRdpIdps";
 import { eq, and, inArray } from "drizzle-orm";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
@@ -47,7 +48,8 @@ export async function getBrowserTarget(
                 name: resources.name,
                 orgId: resources.orgId,
                 pamMode: resources.pamMode,
-                authDaemonMode: resources.authDaemonMode
+                authDaemonMode: resources.authDaemonMode,
+                rdpEntraDeviceId: resources.rdpEntraDeviceId
             })
             .from(targets)
             .innerJoin(resources, eq(targets.resourceId, resources.resourceId))
@@ -73,6 +75,8 @@ export async function getBrowserTarget(
             ? decrypt(row.authToken, config.getRawConfig().server.secret!)
             : "";
 
+        const entraIdps = await listEntraIdpsForOrg(row.orgId);
+
         return response<GetBrowserTargetResponse>(res, {
             data: {
                 ip: row.ip,
@@ -83,7 +87,9 @@ export async function getBrowserTarget(
                 orgId: row.orgId,
                 resourceId: row.resourceId,
                 niceId: row.niceId,
-                name: row.name ?? ""
+                name: row.name ?? "",
+                entraIdps,
+                rdpEntraDeviceId: row.rdpEntraDeviceId
             },
             success: true,
             error: false,
