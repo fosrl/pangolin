@@ -475,6 +475,9 @@ export async function buildPublicResourceBlueprintConfig(
     if (mode === "rdp" && resource.rdpEntraDeviceId) {
         resourceConfig["rdp-entra-device-id"] = resource.rdpEntraDeviceId;
     }
+    if (mode === "rdp" && resource.rdpSignInMethods) {
+        resourceConfig["rdp-sign-in-methods"] = resource.rdpSignInMethods;
+    }
 
     if (resource.maintenanceModeEnabled) {
         resourceConfig.maintenance = stripUndefined({

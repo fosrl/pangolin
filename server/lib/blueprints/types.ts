@@ -388,6 +388,7 @@ export const PublicResourceSchema = z
         mtls: MtlsSchema.optional(), // deprecated alias for auth.mtls
         "auth-daemon": AuthDaemonSchema.optional(),
         "rdp-entra-device-id": z.guid().optional(),
+        "rdp-sign-in-methods": z.enum(["both", "entra", "password"]).optional(),
         "proxy-protocol": z.boolean().optional(),
         "proxy-protocol-version": z.int().min(1).optional(),
         labels: z.array(z.string().min(1)).optional(),

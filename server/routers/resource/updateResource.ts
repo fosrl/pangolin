@@ -161,6 +161,13 @@ const updateHttpResourceBodySchema = z
             .describe(
                 "For rdp-mode resources: Microsoft Entra device ID of the host, used for sign-in with Microsoft Entra ID. Set to null to clear it."
             ),
+        rdpSignInMethods: z
+            .enum(["both", "entra", "password"])
+            .nullable()
+            .optional()
+            .describe(
+                "For rdp-mode resources: sign-in methods offered on the browser RDP page. Null offers both."
+            ),
         resourcePolicyId: z
             .number()
             .nullable()

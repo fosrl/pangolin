@@ -453,6 +453,8 @@ export async function updatePublicResources(
                                 resourceData["auth-daemon"]?.port || 22123,
                             rdpEntraDeviceId:
                                 resourceData["rdp-entra-device-id"] ?? null,
+                            rdpSignInMethods:
+                                resourceData["rdp-sign-in-methods"] ?? null,
                             maintenanceModeEnabled:
                                 resourceData.maintenance?.enabled,
                             maintenanceModeType: resourceData.maintenance?.type,
@@ -691,6 +693,8 @@ export async function updatePublicResources(
                                 resourceData["auth-daemon"]?.port || 22123,
                             rdpEntraDeviceId:
                                 resourceData["rdp-entra-device-id"] ?? null,
+                            rdpSignInMethods:
+                                resourceData["rdp-sign-in-methods"] ?? null,
                             resourcePolicyId: null,
                             defaultResourcePolicyId: inlinePolicyId,
                             status: resourceStatusFromSite
@@ -1333,6 +1337,8 @@ export async function updatePublicResources(
                     authDaemonPort: resourceData["auth-daemon"]?.port || 22123,
                     rdpEntraDeviceId:
                         resourceData["rdp-entra-device-id"] ?? null,
+                    rdpSignInMethods:
+                        resourceData["rdp-sign-in-methods"] ?? null,
                     maintenanceModeEnabled: resourceData.maintenance?.enabled,
                     maintenanceModeType: resourceData.maintenance?.type,
                     maintenanceTitle: resourceData.maintenance?.title,

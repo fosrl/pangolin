@@ -49,7 +49,8 @@ export async function getBrowserTarget(
                 orgId: resources.orgId,
                 pamMode: resources.pamMode,
                 authDaemonMode: resources.authDaemonMode,
-                rdpEntraDeviceId: resources.rdpEntraDeviceId
+                rdpEntraDeviceId: resources.rdpEntraDeviceId,
+                rdpSignInMethods: resources.rdpSignInMethods
             })
             .from(targets)
             .innerJoin(resources, eq(targets.resourceId, resources.resourceId))
@@ -89,7 +90,8 @@ export async function getBrowserTarget(
                 niceId: row.niceId,
                 name: row.name ?? "",
                 entraIdps,
-                rdpEntraDeviceId: row.rdpEntraDeviceId
+                rdpEntraDeviceId: row.rdpEntraDeviceId,
+                rdpSignInMethods: row.rdpSignInMethods
             },
             success: true,
             error: false,

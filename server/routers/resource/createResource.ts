@@ -117,6 +117,12 @@ const createHttpResourceSchema = z
             .describe(
                 "For rdp-mode resources: Microsoft Entra device ID of the host, used for sign-in with Microsoft Entra ID."
             ),
+        rdpSignInMethods: z
+            .enum(["both", "entra", "password"])
+            .optional()
+            .describe(
+                "For rdp-mode resources: sign-in methods offered on the browser RDP page. Both are offered when omitted."
+            ),
         // Inference settings
         aiProviders: z
             .array(resourceAiProviderAttachmentSchema)
@@ -396,6 +402,7 @@ async function createHttpResource(
         authDaemonMode,
         pamMode,
         rdpEntraDeviceId,
+        rdpSignInMethods,
         aiProviders: aiProviderInputs
     } = parsedBody.data;
     const subdomain = parsedBody.data.subdomain;
@@ -634,6 +641,7 @@ async function createHttpResource(
                 authDaemonMode: authDaemonMode,
                 authDaemonPort: authDaemonPort,
                 rdpEntraDeviceId: rdpEntraDeviceId,
+                rdpSignInMethods: rdpSignInMethods,
                 ssl: true,
                 stickySession: stickySession,
                 postAuthPath: postAuthPath,

@@ -29,6 +29,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@app/components/ui/select";
+import { StrategySelect } from "@app/components/StrategySelect";
 import { runRdpEntraPopup } from "@app/lib/rdpEntraPopup";
 import { createRdpEntraDeviceFormSchema } from "@app/lib/rdpEntraDeviceForm";
 import type { RdpEntraDeviceFormValues } from "@app/lib/rdpEntraDeviceForm";
@@ -326,6 +327,11 @@ function RdpEntraForm({
         }
     });
 
+    type SignInMethods = NonNullable<GetResourceResponse["rdpSignInMethods"]>;
+    const [signInMethods, setSignInMethods] = useState<SignInMethods>(
+        resource.rdpSignInMethods ?? "both"
+    );
+
     const [, formAction, isSubmitting] = useActionState(save, null);
 
     async function save() {
@@ -337,9 +343,13 @@ function RdpEntraForm({
 
         try {
             await api.post(`/resource/${resource.resourceId}`, {
-                rdpEntraDeviceId
+                rdpEntraDeviceId,
+                rdpSignInMethods: signInMethods
             });
-            updateResource({ rdpEntraDeviceId });
+            updateResource({
+                rdpEntraDeviceId,
+                rdpSignInMethods: signInMethods
+            });
 
             toast({
                 title: t("settingsUpdated"),
@@ -370,6 +380,42 @@ function RdpEntraForm({
             <Form {...form}>
                 <SettingsSectionBody>
                     <SettingsSectionForm variant="half">
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium">
+                                {t("rdpSignInMethods")}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {t("rdpSignInMethodsDescription")}
+                            </p>
+                            <StrategySelect<SignInMethods>
+                                idPrefix="rdp-sign-in-methods"
+                                value={signInMethods}
+                                onChange={setSignInMethods}
+                                options={[
+                                    {
+                                        id: "both",
+                                        title: t("rdpSignInMethodsBoth"),
+                                        description: t(
+                                            "rdpSignInMethodsBothDescription"
+                                        )
+                                    },
+                                    {
+                                        id: "entra",
+                                        title: t("rdpSignInMethodsEntra"),
+                                        description: t(
+                                            "rdpSignInMethodsEntraDescription"
+                                        )
+                                    },
+                                    {
+                                        id: "password",
+                                        title: t("rdpSignInMethodsPassword"),
+                                        description: t(
+                                            "rdpSignInMethodsPasswordDescription"
+                                        )
+                                    }
+                                ]}
+                            />
+                        </div>
                         <FormField
                             control={form.control}
                             name="rdpEntraDeviceId"
