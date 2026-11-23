@@ -54,7 +54,6 @@ import {
     compileRoleMappingExpression,
     defaultRoleMappingConfig,
     defaultSyncRoleMappingConfig,
-    effectiveCreateMissingRoles,
     RoleMappingConfig
 } from "@app/lib/idpRoleMapping";
 import {
@@ -248,20 +247,11 @@ export default function Page() {
                 syncRoleMapping: syncRoleMappingExpression || null,
                 syncOrgMapping: syncOrgMapping || null,
                 mappingsLinked: data.mappingsLinked,
-                createMissingRoles: effectiveCreateMissingRoles(
-                    roleMapping,
-                    data.createMissingRoles
-                ),
+                createMissingRoles: data.createMissingRoles,
                 // linked mappings: sync uses the JIT flag
                 syncCreateMissingRoles: data.mappingsLinked
-                    ? effectiveCreateMissingRoles(
-                          roleMapping,
-                          data.createMissingRoles
-                      )
-                    : effectiveCreateMissingRoles(
-                          syncRoleMapping,
-                          data.syncCreateMissingRoles
-                      ),
+                    ? data.createMissingRoles
+                    : data.syncCreateMissingRoles,
                 directorySyncDeletions: data.directorySyncDeletions,
                 sessionRevalidation: data.sessionRevalidation,
                 roleMapping: roleMappingExpression,

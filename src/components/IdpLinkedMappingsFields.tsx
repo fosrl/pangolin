@@ -35,6 +35,8 @@ type IdpLinkedMappingsFieldsProps = {
     orgId?: string;
     fieldIdPrefix: string;
     showFreeformRoleNamesHint?: boolean;
+    /** The IdP's API integration is on: offer `groupNames` / `groups` as builder claim paths. */
+    groupClaimsAvailable?: boolean;
 };
 
 /**
@@ -51,6 +53,7 @@ export default function IdpLinkedMappingsFields({
     orgId,
     fieldIdPrefix,
     showFreeformRoleNamesHint,
+    groupClaimsAvailable,
     testResultsApiBase
 }: IdpLinkedMappingsFieldsProps) {
     const t = useTranslations();
@@ -67,6 +70,7 @@ export default function IdpLinkedMappingsFields({
             orgMappingField={set.orgMappingField}
             createMissingRoles={set.createMissingRoles}
             onCreateMissingRolesChange={set.onCreateMissingRolesChange}
+            groupClaimsAvailable={groupClaimsAvailable}
         />
     );
 

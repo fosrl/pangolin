@@ -120,6 +120,14 @@ function isSyncEnabled(data: GetIdpResponse) {
     );
 }
 
+/** The API integration adds `groups` / `groupNames` to the claims (google/azure). */
+function hasGroupClaims(data: GetIdpResponse) {
+    return (
+        supportsApiIntegration(data.idpOidcConfig?.variant) &&
+        data.idp.apiIntegrationEnabled
+    );
+}
+
 export default function PoliciesPage() {
     const { env } = useEnvContext();
     const api = createApiClient({ env });
@@ -294,6 +302,7 @@ export default function PoliciesPage() {
     }
 
     const syncEnabled = isSyncEnabled(idpQuery.data);
+    const groupClaimsAvailable = hasGroupClaims(idpQuery.data);
 
     return (
         <>
@@ -327,6 +336,7 @@ export default function PoliciesPage() {
                     idpId={idpId}
                     idp={idpQuery.data.idp}
                     syncEnabled={syncEnabled}
+                    groupClaimsAvailable={groupClaimsAvailable}
                 />
             </SettingsContainer>
 
@@ -453,6 +463,7 @@ export default function PoliciesPage() {
                                 <IdpLinkedMappingsFields
                                     testResultsApiBase={`/idp/${idpId}`}
                                     syncAvailable={syncEnabled}
+                                    groupClaimsAvailable={groupClaimsAvailable}
                                     linked={policyMappingsLinked}
                                     onLinkedChange={(linked) => {
                                         if (!linked) {
@@ -531,11 +542,13 @@ export default function PoliciesPage() {
 function DefaultMappingsSection({
     idpId,
     idp,
-    syncEnabled
+    syncEnabled,
+    groupClaimsAvailable
 }: {
     idpId: string;
     idp: GetIdpResponse["idp"];
     syncEnabled: boolean;
+    groupClaimsAvailable: boolean;
 }) {
     const { env } = useEnvContext();
     const api = createApiClient({ env });
@@ -635,6 +648,7 @@ function DefaultMappingsSection({
                         <IdpLinkedMappingsFields
                             testResultsApiBase={`/idp/${idpId}`}
                             syncAvailable={syncEnabled}
+                            groupClaimsAvailable={groupClaimsAvailable}
                             linked={defaultMappingsLinked}
                             onLinkedChange={(linked) => {
                                 if (!linked) {

@@ -9,7 +9,7 @@ import { SwitchInput } from "@app/components/SwitchInput";
 import { RoleMappingConfig } from "@app/lib/idpRoleMapping";
 import { useTranslations } from "next-intl";
 import type { Dispatch, SetStateAction } from "react";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { Alert, AlertDescription } from "@app/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 
@@ -66,6 +66,13 @@ export default function IdpUserProvisioningFields({
     const syncCreateMissingRoles =
         form.watch("syncCreateMissingRoles") ?? false;
 
+    // the API integration adds `groups` / `groupNames` to the claims (google/azure)
+    const apiIntegrationEnabled = useWatch({
+        control: form.control,
+        name: "apiIntegrationEnabled"
+    });
+    const groupClaimsAvailable = syncAvailable && apiIntegrationEnabled;
+
     const showJitMappings = autoProvision;
     const showSyncMappings = directorySyncEnabled;
 
@@ -111,6 +118,7 @@ export default function IdpUserProvisioningFields({
                     {mappingsLinked ? (
                         <IdpMappingTabs
                             testResultsApiBase={testResultsApiBase}
+                            groupClaimsAvailable={groupClaimsAvailable}
                             fieldIdPrefix="org-idp-mappings"
                             orgId={orgId}
                             roles={roles}
@@ -136,6 +144,9 @@ export default function IdpUserProvisioningFields({
                                     </h4>
                                     <IdpMappingTabs
                                         testResultsApiBase={testResultsApiBase}
+                                        groupClaimsAvailable={
+                                            groupClaimsAvailable
+                                        }
                                         fieldIdPrefix="org-idp-jit-mappings"
                                         orgId={orgId}
                                         roles={roles}
@@ -160,6 +171,9 @@ export default function IdpUserProvisioningFields({
                                     </h4>
                                     <IdpMappingTabs
                                         testResultsApiBase={testResultsApiBase}
+                                        groupClaimsAvailable={
+                                            groupClaimsAvailable
+                                        }
                                         fieldIdPrefix="org-idp-sync-mappings"
                                         orgId={orgId}
                                         roles={roles}

@@ -34,6 +34,8 @@ type IdpMappingTabsProps = {
     showFreeformRoleNamesHint?: boolean;
     createMissingRoles?: boolean;
     onCreateMissingRolesChange?: (checked: boolean) => void;
+    /** The IdP's API integration is on: offer `groupNames` / `groups` as builder claim paths. */
+    groupClaimsAvailable?: boolean;
     /**
      * `/idp/:idpId` or `/org/:orgId/idp/:idpId`: the mapping playground prefills
      * the claims of this IdP's latest completed test link.
@@ -52,6 +54,7 @@ export default function IdpMappingTabs({
     showFreeformRoleNamesHint,
     createMissingRoles,
     onCreateMissingRolesChange,
+    groupClaimsAvailable,
     testResultsApiBase
 }: IdpMappingTabsProps) {
     const t = useTranslations();
@@ -109,6 +112,7 @@ export default function IdpMappingTabs({
                 }
                 createMissingRoles={createMissingRoles}
                 onCreateMissingRolesChange={onCreateMissingRolesChange}
+                groupClaimsAvailable={groupClaimsAvailable}
             />
         </div>
     );

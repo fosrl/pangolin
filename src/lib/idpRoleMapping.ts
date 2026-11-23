@@ -47,7 +47,8 @@ const SINGLE_QUOTED_ROLE_REGEX = /^'([^']+)'$/;
 const QUOTED_ROLE_ARRAY_REGEX = /^\[(.*)\]$/;
 
 /** Stored role mappings created by the mapping builder are prefixed so the UI can restore the builder. */
-export const PANGOLIN_ROLE_MAP_BUILDER_PREFIX = "__PANGOLIN_ROLE_MAP_BUILDER_V1__";
+export const PANGOLIN_ROLE_MAP_BUILDER_PREFIX =
+    "__PANGOLIN_ROLE_MAP_BUILDER_V1__";
 
 const BUILDER_METADATA_SEPARATOR = "\n---\n";
 
@@ -94,29 +95,24 @@ export function unwrapRoleMapping(
             claimPath?: unknown;
             rules?: unknown;
         };
-        if (
-            typeof meta.claimPath === "string" &&
-            Array.isArray(meta.rules)
-        ) {
-            const rules: MappingBuilderRule[] = meta.rules.map(
-                (r: unknown) => {
-                    const row = r as {
-                        matchValue?: unknown;
-                        roleNames?: unknown;
-                    };
-                    return {
-                        matchValue:
-                            typeof row.matchValue === "string"
-                                ? row.matchValue
-                                : "",
-                        roleNames: Array.isArray(row.roleNames)
-                            ? row.roleNames.filter(
-                                  (n): n is string => typeof n === "string"
-                              )
-                            : []
-                    };
-                }
-            );
+        if (typeof meta.claimPath === "string" && Array.isArray(meta.rules)) {
+            const rules: MappingBuilderRule[] = meta.rules.map((r: unknown) => {
+                const row = r as {
+                    matchValue?: unknown;
+                    roleNames?: unknown;
+                };
+                return {
+                    matchValue:
+                        typeof row.matchValue === "string"
+                            ? row.matchValue
+                            : "",
+                    roleNames: Array.isArray(row.roleNames)
+                        ? row.roleNames.filter(
+                              (n): n is string => typeof n === "string"
+                          )
+                        : []
+                };
+            });
             return {
                 evaluationExpression: inner,
                 builderState: {
@@ -139,7 +135,9 @@ function escapeSingleQuotes(value: string): string {
     return value.replace(/'/g, "\\'");
 }
 
-export function compileRoleMappingExpression(config: RoleMappingConfig): string {
+export function compileRoleMappingExpression(
+    config: RoleMappingConfig
+): string {
     if (config.mode === "rawExpression") {
         return config.rawExpression.trim();
     }
@@ -163,7 +161,9 @@ export function compileRoleMappingExpression(config: RoleMappingConfig): string 
             matchValue: rule.matchValue.trim(),
             roleNames: dedupeNonEmpty(rule.roleNames)
         }))
-        .filter((rule) => Boolean(rule.matchValue) && rule.roleNames.length > 0);
+        .filter(
+            (rule) => Boolean(rule.matchValue) && rule.roleNames.length > 0
+        );
 
     if (!claimPath || !rules.length) {
         return "";
@@ -273,18 +273,6 @@ export function defaultSyncRoleMappingConfig(): RoleMappingConfig {
 
 function dedupeNonEmpty(values: string[]): string[] {
     return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-}
-
-/**
- * "Create missing roles" only applies to a raw expression, the only mode that can
- * return role names that aren't in the org. Saved as `false` otherwise, so a
- * hidden checkbox doesn't stay on after switching modes.
- */
-export function effectiveCreateMissingRoles(
-    config: RoleMappingConfig,
-    checked: boolean | undefined
-): boolean {
-    return config.mode === "rawExpression" && checked === true;
 }
 
 const COMPARATOR_BEFORE_REGEX = /(==|!=|<=|>=|<|>)\s*$/;

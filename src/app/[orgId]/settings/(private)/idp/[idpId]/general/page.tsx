@@ -46,7 +46,6 @@ import {
     compileRoleMappingExpression,
     defaultRoleMappingConfig,
     defaultSyncRoleMappingConfig,
-    effectiveCreateMissingRoles,
     detectRoleMappingConfig,
     ensureMappingBuilderRuleIds,
     RoleMappingConfig
@@ -477,20 +476,11 @@ export default function GeneralPage() {
                 syncOrgMapping:
                     syncOrgMappingTrimmed === "" ? null : syncOrgMappingTrimmed,
                 mappingsLinked: data.mappingsLinked,
-                createMissingRoles: effectiveCreateMissingRoles(
-                    roleMapping,
-                    data.createMissingRoles
-                ),
+                createMissingRoles: data.createMissingRoles,
                 // linked mappings: sync uses the JIT flag
                 syncCreateMissingRoles: data.mappingsLinked
-                    ? effectiveCreateMissingRoles(
-                          roleMapping,
-                          data.createMissingRoles
-                      )
-                    : effectiveCreateMissingRoles(
-                          syncRoleMapping,
-                          data.syncCreateMissingRoles
-                      ),
+                    ? data.createMissingRoles
+                    : data.syncCreateMissingRoles,
                 directorySyncDeletions: data.directorySyncDeletions
             };
 
