@@ -53,6 +53,10 @@ export type IdpRow = {
     name: string;
     type: string;
     variant?: string;
+    // Number of orgs the IdP is shared with, including this one.
+    orgCount?: number;
+    // The other orgs the IdP is shared with, excluding this one.
+    sharedWithOrgs?: { orgId: string; orgName: string }[];
 };
 
 type AdminIdpRow = ListUserAdminOrgIdpsResponse["idps"][number];
@@ -137,6 +141,8 @@ export default function IdpTable({ idps, orgId }: Props) {
     const [isUnassociateModalOpen, setIsUnassociateModalOpen] = useState(false);
     const [selectedUnassociateIdp, setSelectedUnassociateIdp] =
         useState<IdpRow | null>(null);
+    // Set when delete is clicked on an IdP other orgs still use.
+    const [sharedDeleteIdp, setSharedDeleteIdp] = useState<IdpRow | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [importSearchQuery, setImportSearchQuery] = useState("");
     const [importSubmitting, setImportSubmitting] = useState(false);
@@ -314,16 +320,22 @@ export default function IdpTable({ idps, orgId }: Props) {
                                         {t("viewSettings")}
                                     </DropdownMenuItem>
                                 </Link>
+                                {(siteRow.orgCount ?? 1) > 1 && (
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setSelectedUnassociateIdp(siteRow);
+                                            setIsUnassociateModalOpen(true);
+                                        }}
+                                    >
+                                        {t("idpUnassociateMenu")}
+                                    </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
                                     onClick={() => {
-                                        setSelectedUnassociateIdp(siteRow);
-                                        setIsUnassociateModalOpen(true);
-                                    }}
-                                >
-                                    {t("idpUnassociateMenu")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={() => {
+                                        if ((siteRow.orgCount ?? 1) > 1) {
+                                            setSharedDeleteIdp(siteRow);
+                                            return;
+                                        }
                                         setSelectedIdp(siteRow);
                                         setIsDeleteModalOpen(true);
                                     }}
@@ -413,6 +425,45 @@ export default function IdpTable({ idps, orgId }: Props) {
                     warningText={t("idpUnassociateWarning")}
                 />
             )}
+
+            <Credenza
+                open={sharedDeleteIdp !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSharedDeleteIdp(null);
+                    }
+                }}
+            >
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>
+                            {t("idpDeleteSharedTitle")}
+                        </CredenzaTitle>
+                    </CredenzaHeader>
+                    <CredenzaBody className="space-y-3">
+                        <p>
+                            {t("idpDeleteSharedDescription", {
+                                name: sharedDeleteIdp?.name ?? "",
+                                count: (sharedDeleteIdp?.orgCount ?? 1) - 1
+                            })}
+                        </p>
+                        <ul className="list-disc space-y-1 pl-5">
+                            {(sharedDeleteIdp?.sharedWithOrgs ?? []).map(
+                                (o) => (
+                                    <li key={o.orgId} className="break-all">
+                                        {o.orgName}
+                                    </li>
+                                )
+                            )}
+                        </ul>
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <CredenzaClose asChild>
+                            <Button variant="outline">{t("close")}</Button>
+                        </CredenzaClose>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
 
             <Credenza
                 open={importDialogOpen}

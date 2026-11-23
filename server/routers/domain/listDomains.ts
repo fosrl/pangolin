@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db } from "@server/db";
-import { domains, orgDomains, users } from "@server/db";
+import { domains, orgDomains, orgs, users } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
@@ -49,7 +49,44 @@ async function queryDomains(orgId: string, limit: number, offset: number) {
         .innerJoin(domains, eq(domains.domainId, orgDomains.domainId))
         .limit(limit)
         .offset(offset);
-    return res;
+
+    // The other orgs each domain is shared with, so the dashboard can offer
+    // unassociate (shared) or only delete (last org), and say which orgs
+    // still use it.
+    const domainIds = res.map((d) => d.domainId);
+    const otherLinks =
+        domainIds.length > 0
+            ? await db
+                  .select({
+                      domainId: orgDomains.domainId,
+                      orgId: orgs.orgId,
+                      orgName: orgs.name
+                  })
+                  .from(orgDomains)
+                  .innerJoin(orgs, eq(orgs.orgId, orgDomains.orgId))
+                  .where(
+                      and(
+                          inArray(orgDomains.domainId, domainIds),
+                          ne(orgDomains.orgId, orgId)
+                      )
+                  )
+                  .orderBy(orgs.name)
+            : [];
+    const othersById = new Map<string, { orgId: string; orgName: string }[]>();
+    for (const link of otherLinks) {
+        const list = othersById.get(link.domainId) ?? [];
+        list.push({ orgId: link.orgId, orgName: link.orgName });
+        othersById.set(link.domainId, list);
+    }
+
+    return res.map((d) => {
+        const sharedWithOrgs = othersById.get(d.domainId) ?? [];
+        return {
+            ...d,
+            orgCount: sharedWithOrgs.length + 1,
+            sharedWithOrgs
+        };
+    });
 }
 
 export type ListDomainsResponse = {
@@ -69,7 +106,11 @@ const ListDomainsResponseDataSchema = z.object({
             configManaged: z.boolean(),
             certResolver: z.string().nullable(),
             preferWildcardCert: z.boolean().nullable(),
-            errorMessage: z.string().nullable()
+            errorMessage: z.string().nullable(),
+            orgCount: z.number(),
+            sharedWithOrgs: z.array(
+                z.object({ orgId: z.string(), orgName: z.string() })
+            )
         })
     ),
     pagination: z.object({
@@ -95,7 +136,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(ListDomainsResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        ListDomainsResponseDataSchema
+                    )
                 }
             }
         }

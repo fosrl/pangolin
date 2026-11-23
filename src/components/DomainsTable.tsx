@@ -72,6 +72,10 @@ export type DomainRow = {
     certResolver: string;
     preferWildcardCert: boolean;
     errorMessage?: string | null;
+    // Number of orgs the domain is shared with, including this one.
+    orgCount?: number;
+    // The other orgs the domain is shared with, excluding this one.
+    sharedWithOrgs?: { orgId: string; orgName: string }[];
 };
 
 type Props = {
@@ -119,6 +123,10 @@ function groupImportableDomains(
 
 export default function DomainsTable({ domains, orgId }: Props) {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isUnassociateModalOpen, setIsUnassociateModalOpen] = useState(false);
+    // Set when delete is clicked on a domain other orgs still use.
+    const [sharedDeleteDomain, setSharedDeleteDomain] =
+        useState<DomainRow | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [selectedDomain, setSelectedDomain] = useState<DomainRow | null>(
         null
@@ -229,6 +237,33 @@ export default function DomainsTable({ domains, orgId }: Props) {
             });
             setIsDeleteModalOpen(false);
             refetch();
+            queryClient.invalidateQueries({
+                queryKey: ["admin-org-domains"]
+            });
+        } catch (e) {
+            toast({
+                title: t("error"),
+                description: formatAxiosError(e),
+                variant: "destructive"
+            });
+        }
+    };
+
+    const unassociateDomain = async (domainId: string) => {
+        try {
+            await api.post(
+                `/org/${org.org.orgId}/domain/${domainId}/unassociate`
+            );
+            toast({
+                title: t("success"),
+                description: t("domainUnassociatedDescription")
+            });
+            setIsUnassociateModalOpen(false);
+            refetch();
+            // The domain becomes importable into this org again.
+            queryClient.invalidateQueries({
+                queryKey: ["admin-org-domains"]
+            });
         } catch (e) {
             toast({
                 title: t("error"),
@@ -443,9 +478,24 @@ export default function DomainsTable({ domains, orgId }: Props) {
                                         {t("viewSettings")}
                                     </DropdownMenuItem>
                                 </Link>
+                                {!domain.configManaged &&
+                                    (domain.orgCount ?? 1) > 1 && (
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                setSelectedDomain(domain);
+                                                setIsUnassociateModalOpen(true);
+                                            }}
+                                        >
+                                            {t("domainUnassociate")}
+                                        </DropdownMenuItem>
+                                    )}
                                 {!domain.configManaged && (
                                     <DropdownMenuItem
                                         onClick={() => {
+                                            if ((domain.orgCount ?? 1) > 1) {
+                                                setSharedDeleteDomain(domain);
+                                                return;
+                                            }
                                             setSelectedDomain(domain);
                                             setIsDeleteModalOpen(true);
                                         }}
@@ -524,6 +574,32 @@ export default function DomainsTable({ domains, orgId }: Props) {
                 />
             )}
 
+            {selectedDomain && (
+                <ConfirmDeleteDialog
+                    open={isUnassociateModalOpen}
+                    setOpen={(val) => {
+                        setIsUnassociateModalOpen(val);
+                        setSelectedDomain(null);
+                    }}
+                    dialog={
+                        <div className="space-y-2">
+                            <p>{t("domainQuestionUnassociate")}</p>
+                            <p>
+                                {t("domainMessageUnassociate", {
+                                    count: (selectedDomain.orgCount ?? 1) - 1
+                                })}
+                            </p>
+                        </div>
+                    }
+                    buttonText={t("domainConfirmUnassociate")}
+                    onConfirm={async () =>
+                        unassociateDomain(selectedDomain.domainId)
+                    }
+                    string={selectedDomain.baseDomain}
+                    title={t("domainUnassociateTitle")}
+                />
+            )}
+
             <CreateDomainForm
                 open={isCreateModalOpen}
                 setOpen={setIsCreateModalOpen}
@@ -531,6 +607,45 @@ export default function DomainsTable({ domains, orgId }: Props) {
                     refetch();
                 }}
             />
+
+            <Credenza
+                open={sharedDeleteDomain !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSharedDeleteDomain(null);
+                    }
+                }}
+            >
+                <CredenzaContent>
+                    <CredenzaHeader>
+                        <CredenzaTitle>
+                            {t("domainDeleteSharedTitle")}
+                        </CredenzaTitle>
+                    </CredenzaHeader>
+                    <CredenzaBody className="space-y-3">
+                        <p>
+                            {t("domainDeleteSharedDescription", {
+                                name: sharedDeleteDomain?.baseDomain ?? "",
+                                count: (sharedDeleteDomain?.orgCount ?? 1) - 1
+                            })}
+                        </p>
+                        <ul className="list-disc space-y-1 pl-5">
+                            {(sharedDeleteDomain?.sharedWithOrgs ?? []).map(
+                                (o) => (
+                                    <li key={o.orgId} className="break-all">
+                                        {o.orgName}
+                                    </li>
+                                )
+                            )}
+                        </ul>
+                    </CredenzaBody>
+                    <CredenzaFooter>
+                        <CredenzaClose asChild>
+                            <Button variant="outline">{t("close")}</Button>
+                        </CredenzaClose>
+                    </CredenzaFooter>
+                </CredenzaContent>
+            </Credenza>
 
             <Credenza
                 open={importDialogOpen}

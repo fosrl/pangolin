@@ -143,6 +143,11 @@ export default function UserDevicesTable({
     const [selectedClient, setSelectedClient] = useState<ClientRow | null>(
         null
     );
+    // Restart or disconnect waiting on the confirm dialog.
+    const [pendingClientAction, setPendingClientAction] = useState<{
+        client: ClientRow;
+        action: "restart" | "disconnect";
+    } | null>(null);
     const [userFilterOpen, setUserFilterOpen] = useState(false);
 
     const api = createApiClient(useEnvContext());
@@ -274,8 +279,9 @@ export default function UserDevicesTable({
             });
     };
 
-    const disconnectClient = (clientId: number) => {
-        api.post(`/client/${clientId}/disconnect`)
+    const disconnectClient = (clientId: number) =>
+        api
+            .post(`/client/${clientId}/disconnect`)
             .then(() => {
                 toast({
                     title: t("success"),
@@ -292,10 +298,10 @@ export default function UserDevicesTable({
                     description: formatAxiosError(e)
                 });
             });
-    };
 
-    const restartClient = (clientId: number) => {
-        api.post(`/client/${clientId}/restart`)
+    const restartClient = (clientId: number) =>
+        api
+            .post(`/client/${clientId}/restart`)
             .then(() => {
                 toast({
                     title: t("success"),
@@ -309,7 +315,6 @@ export default function UserDevicesTable({
                     description: formatAxiosError(e)
                 });
             });
-    };
 
     const approveDevice = async (clientRow: ClientRow) => {
         try {
@@ -870,24 +875,26 @@ export default function UserDevicesTable({
                                             </DropdownMenuItem>
                                         </>
                                     )}
-                                {clientRow.online && (
-                                    <>
-                                        <DropdownMenuItem
-                                            onClick={() =>
-                                                restartClient(clientRow.id)
-                                            }
-                                        >
-                                            <span>{t("clientRestart")}</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            onClick={() =>
-                                                disconnectClient(clientRow.id)
-                                            }
-                                        >
-                                            <span>{t("clientDisconnect")}</span>
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        setPendingClientAction({
+                                            client: clientRow,
+                                            action: "restart"
+                                        })
+                                    }
+                                >
+                                    <span>{t("clientRestart")}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() =>
+                                        setPendingClientAction({
+                                            client: clientRow,
+                                            action: "disconnect"
+                                        })
+                                    }
+                                >
+                                    <span>{t("clientDisconnect")}</span>
+                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                     onClick={() => {
                                         if (clientRow.archived) {
@@ -1076,6 +1083,48 @@ export default function UserDevicesTable({
 
     return (
         <>
+            {pendingClientAction && (
+                <ConfirmDeleteDialog
+                    open={Boolean(pendingClientAction)}
+                    setOpen={(val) => {
+                        if (!val) setPendingClientAction(null);
+                    }}
+                    dialog={
+                        <p>
+                            {t.rich(
+                                pendingClientAction.action === "restart"
+                                    ? "clientRestartDialogMessage"
+                                    : "clientDisconnectDialogMessage",
+                                {
+                                    name: pendingClientAction.client.name,
+                                    b: (chunks) => <b>{chunks}</b>
+                                }
+                            )}
+                        </p>
+                    }
+                    buttonText={
+                        pendingClientAction.action === "restart"
+                            ? t("clientRestartButton")
+                            : t("clientDisconnectButton")
+                    }
+                    onConfirm={() =>
+                        pendingClientAction.action === "restart"
+                            ? restartClient(pendingClientAction.client.id)
+                            : disconnectClient(pendingClientAction.client.id)
+                    }
+                    string={pendingClientAction.client.name}
+                    warningText={
+                        pendingClientAction.action === "restart"
+                            ? t("clientRestartWarning")
+                            : t("clientDisconnectWarning")
+                    }
+                    title={
+                        pendingClientAction.action === "restart"
+                            ? t("clientRestartTitle")
+                            : t("clientDisconnectTitle")
+                    }
+                />
+            )}
             {selectedClient && !selectedClient.userId && (
                 <ConfirmDeleteDialog
                     open={isDeleteModalOpen}

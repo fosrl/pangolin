@@ -14,11 +14,11 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { db, idpOidcConfig } from "@server/db";
-import { idp, idpOrg } from "@server/db";
+import { idp, idpOrg, orgs } from "@server/db";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
@@ -60,7 +60,44 @@ async function query(orgId: string, limit: number, offset: number) {
         .orderBy(sql`idp.name DESC`)
         .limit(limit)
         .offset(offset);
-    return res;
+
+    // The other orgs each IdP is shared with, so the dashboard can offer
+    // unassociate (shared) or delete (last org), and say which orgs still
+    // use it.
+    const idpIds = res.map((r) => r.idpId);
+    const otherLinks =
+        idpIds.length > 0
+            ? await db
+                  .select({
+                      idpId: idpOrg.idpId,
+                      orgId: orgs.orgId,
+                      orgName: orgs.name
+                  })
+                  .from(idpOrg)
+                  .innerJoin(orgs, eq(orgs.orgId, idpOrg.orgId))
+                  .where(
+                      and(
+                          inArray(idpOrg.idpId, idpIds),
+                          ne(idpOrg.orgId, orgId)
+                      )
+                  )
+                  .orderBy(orgs.name)
+            : [];
+    const othersById = new Map<number, { orgId: string; orgName: string }[]>();
+    for (const link of otherLinks) {
+        const list = othersById.get(link.idpId) ?? [];
+        list.push({ orgId: link.orgId, orgName: link.orgName });
+        othersById.set(link.idpId, list);
+    }
+
+    return res.map((r) => {
+        const sharedWithOrgs = othersById.get(r.idpId) ?? [];
+        return {
+            ...r,
+            orgCount: sharedWithOrgs.length + 1,
+            sharedWithOrgs
+        };
+    });
 }
 
 registry.registerPath({

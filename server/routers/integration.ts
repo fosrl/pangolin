@@ -569,6 +569,15 @@ authenticated.patch(
     domain.updateOrgDomain
 );
 
+authenticated.post(
+    "/org/:orgId/domain/:domainId/unassociate",
+    verifyApiKeyOrgAccess,
+    verifyApiKeyDomainAccess,
+    verifyApiKeyHasAction(ActionsEnum.deleteOrgDomain),
+    logActionAudit(ActionsEnum.deleteOrgDomain),
+    domain.unassociateOrgDomain
+);
+
 authenticated.delete(
     "/org/:orgId/domain/:domainId",
     verifyApiKeyOrgAccess,

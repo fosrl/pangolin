@@ -18,6 +18,10 @@ export type ListOrgIdpsResponse = {
         name: string;
         type: string;
         variant: string;
+        // Number of orgs the IdP is shared with, including this one.
+        orgCount: number;
+        // The other orgs the IdP is shared with, excluding this one.
+        sharedWithOrgs: { orgId: string; orgName: string }[];
     }[];
     pagination: {
         total: number;

@@ -1,6 +1,7 @@
 export * from "./listDomains";
 export * from "./createOrgDomain";
 export * from "./deleteOrgDomain";
+export * from "./unassociateOrgDomain";
 export * from "./restartOrgDomain";
 export * from "./getDomain";
 export * from "./getDNSRecords";

@@ -1551,6 +1551,15 @@ authenticated.post(
     domain.restartOrgDomain
 );
 
+authenticated.post(
+    `/org/:orgId/domain/:domainId/unassociate`,
+    verifyOrgAccess,
+    verifyDomainAccess,
+    verifyUserHasAction(ActionsEnum.deleteOrgDomain),
+    logActionAudit(ActionsEnum.deleteOrgDomain),
+    domain.unassociateOrgDomain
+);
+
 authenticated.delete(
     `/org/:orgId/domain/:domainId`,
     verifyOrgAccess,

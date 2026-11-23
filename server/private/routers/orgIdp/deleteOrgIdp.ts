@@ -20,7 +20,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { idp, idpOidcConfig, idpOrg } from "@server/db";
-import { eq } from "drizzle-orm";
+import { and, count, eq, ne } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
 
 const paramsSchema = z
@@ -72,7 +72,7 @@ export async function deleteOrgIdp(
             );
         }
 
-        const { idpId } = parsedParams.data;
+        const { orgId, idpId } = parsedParams.data;
 
         // Check if IDP exists
         const [existingIdp] = await db
@@ -82,6 +82,25 @@ export async function deleteOrgIdp(
 
         if (!existingIdp) {
             return next(createHttpError(HttpCode.NOT_FOUND, "IdP not found"));
+        }
+
+        // From an org, a shared IdP can only be deleted by the last org
+        // using it. Other orgs have to unassociate it first. The root-key
+        // /idp/:idpId route has no orgId and still deletes it everywhere.
+        if (orgId) {
+            const [{ otherOrgCount }] = await db
+                .select({ otherOrgCount: count() })
+                .from(idpOrg)
+                .where(and(eq(idpOrg.idpId, idpId), ne(idpOrg.orgId, orgId)));
+
+            if (otherOrgCount > 0) {
+                return next(
+                    createHttpError(
+                        HttpCode.CONFLICT,
+                        `This identity provider is shared with ${otherOrgCount} other organization(s). Unassociate it from all other organizations before deleting it.`
+                    )
+                );
+            }
         }
 
         // Delete the IDP and its related records in a transaction
