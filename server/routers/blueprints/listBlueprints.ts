@@ -8,6 +8,12 @@ import { sql, eq, desc } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    LimitOffsetPaginationSchema,
+    PaginationSchema
+} from "@server/lib/openapi/pagination";
+import { BlueprintListItemSchema } from "@server/routers/blueprints/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { BlueprintData } from "./types";
 
 const listBluePrintsParamsSchema = z.strictObject({
@@ -48,20 +54,14 @@ async function queryBlueprints(orgId: string, limit: number, offset: number) {
     return res;
 }
 
-export type ListBlueprintsResponse = {
-    blueprints: NonNullable<
-        Pick<
-            BlueprintData,
-            | "blueprintId"
-            | "name"
-            | "source"
-            | "succeeded"
-            | "orgId"
-            | "createdAt"
-        >[]
-    >;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListBlueprintsResponse = z.infer<
+    typeof ListBlueprintsResponseDataSchema
+>;
+
+const ListBlueprintsResponseDataSchema = z.object({
+    blueprints: z.array(BlueprintListItemSchema),
+    pagination: LimitOffsetPaginationSchema
+});
 
 registry.registerPath({
     method: "get",
@@ -74,22 +74,7 @@ registry.registerPath({
         }),
         query: listBluePrintsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListBlueprintsResponseDataSchema)
 });
 
 export async function listBlueprints(

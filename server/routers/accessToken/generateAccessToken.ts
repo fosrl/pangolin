@@ -22,6 +22,8 @@ import { createDate, TimeSpan } from "oslo";
 import { encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import { createSelectSchema } from "drizzle-zod";
 
 export const generateAccessTokenBodySchema = z.strictObject({
     validForSeconds: z.int().positive().optional(), // seconds
@@ -36,10 +38,71 @@ export const generateAccssTokenParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
 
-export type GenerateAccessTokenResponse = Omit<
-    ResourceAccessToken,
-    "tokenHash"
-> & { accessToken: string };
+export type GenerateAccessTokenResponse = z.infer<
+    typeof GenerateAccessTokenResponseDataSchema
+>;
+
+const GenerateAccessTokenResponseDataSchema = createSelectSchema(
+    resourceAccessToken,
+    {
+        accessTokenId: (s) =>
+            s.openapi({ description: "ID of the access token." }),
+        orgId: (s) => s.openapi({ description: "ID of the organization." }),
+        resourceId: (s) =>
+            s.openapi({
+                description: "ID of the resource the token grants access to."
+            }),
+        userId: (s) =>
+            s.openapi({
+                description: "ID of the user that created the token."
+            }),
+        sessionLength: (s) =>
+            s.openapi({
+                description:
+                    "How long a session started with the token lasts, in milliseconds."
+            }),
+        expiresAt: (s) =>
+            s.openapi({
+                description:
+                    "Epoch milliseconds when the token expires. Null means it never expires."
+            }),
+        title: (s) => s.openapi({ description: "Title of the token." }),
+        description: (s) =>
+            s.openapi({ description: "Description of the token." }),
+        persistSession: (s) =>
+            s.openapi({
+                description:
+                    "Whether sessions started with the token survive browser restarts."
+            }),
+        createdAt: (s) =>
+            s.openapi({
+                description: "Epoch milliseconds when the token was created."
+            }),
+        path: (s) =>
+            s.openapi({
+                description: "Path users are sent to after they use the token."
+            })
+    }
+)
+    .pick({
+        accessTokenId: true,
+        orgId: true,
+        resourceId: true,
+        userId: true,
+        sessionLength: true,
+        expiresAt: true,
+        title: true,
+        description: true,
+        persistSession: true,
+        createdAt: true,
+        path: true
+    })
+    .extend({
+        accessToken: z.string().openapi({
+            description:
+                "The token value. It is only returned once, when the token is generated."
+        })
+    });
 
 registry.registerPath({
     method: "post",
@@ -56,22 +119,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GenerateAccessTokenResponseDataSchema)
 });
 
 registry.registerPath({
@@ -89,22 +137,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GenerateAccessTokenResponseDataSchema)
 });
 
 export async function generateAccessToken(

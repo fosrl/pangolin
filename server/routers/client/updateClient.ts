@@ -10,6 +10,8 @@ import { eq, and, ne } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { pushClientIdentitiesToSites } from "@server/lib/clientIdentities";
+import { ClientSchema } from "@server/routers/client/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const updateClientParamsSchema = z.strictObject({
     clientId: z.coerce.number().int().positive()
@@ -21,6 +23,12 @@ const updateClientSchema = z.strictObject({
 });
 
 export type UpdateClientBody = z.infer<typeof updateClientSchema>;
+
+const UpdateClientResponseDataSchema = z.array(ClientSchema);
+
+export type UpdateClientResponse = z.infer<
+    typeof UpdateClientResponseDataSchema
+>;
 
 registry.registerPath({
     method: "post",
@@ -37,22 +45,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(UpdateClientResponseDataSchema)
 });
 
 export async function updateClient(
@@ -146,7 +139,7 @@ export async function updateClient(
             });
         }
 
-        return response(res, {
+        return response<UpdateClientResponse>(res, {
             data: updatedClient,
             success: true,
             error: false,

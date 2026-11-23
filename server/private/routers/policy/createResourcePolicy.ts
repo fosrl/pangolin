@@ -42,6 +42,8 @@ import {
 } from "@server/lib/validators";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourcePolicySchema } from "@server/routers/policy/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, inArray, type InferInsertModel } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -140,6 +142,8 @@ const createResourcePolicyBodySchema = z.strictObject({
         )
 });
 
+export type CreateResourcePolicyResponse = z.infer<typeof ResourcePolicySchema>;
+
 registry.registerPath({
     method: "post",
     path: "/org/{orgId}/resource-policy",
@@ -155,7 +159,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicySchema, 201)
 });
 
 export async function createResourcePolicy(
@@ -461,7 +465,7 @@ export async function createResourcePolicy(
                 )
             );
         }
-        return response<ResourcePolicy>(res, {
+        return response<CreateResourcePolicyResponse>(res, {
             data: policy,
             success: true,
             error: false,

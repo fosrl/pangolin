@@ -9,6 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { RoleSummarySchema } from "@server/routers/role/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listResourceRolesSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -40,9 +42,13 @@ async function queryInlinePolicy(policyId: number) {
         .where(eq(rolePolicies.resourcePolicyId, policyId));
 }
 
-export type ListResourceRolesResponse = {
-    roles: NonNullable<Awaited<ReturnType<typeof query>>>;
-};
+export type ListResourceRolesResponse = z.infer<
+    typeof ListResourceRolesResponseDataSchema
+>;
+
+const ListResourceRolesResponseDataSchema = z.object({
+    roles: z.array(RoleSummarySchema)
+});
 
 registry.registerPath({
     method: "get",
@@ -52,22 +58,7 @@ registry.registerPath({
     request: {
         params: listResourceRolesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourceRolesResponseDataSchema)
 });
 
 registry.registerPath({
@@ -78,22 +69,7 @@ registry.registerPath({
     request: {
         params: listResourceRolesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourceRolesResponseDataSchema)
 });
 
 export async function listResourceRoles(

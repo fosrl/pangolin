@@ -316,21 +316,16 @@ export async function getUserResources(
                 }
                 const siteIdsRaw = JSON.parse(row.siteIds) as (number | null)[];
                 const siteNamesRaw = JSON.parse(row.siteNames) as (
-                    | string
-                    | null
+                    string | null
                 )[];
                 const siteNiceIdsRaw = JSON.parse(row.siteNiceIds) as (
-                    | string
-                    | null
+                    string | null
                 )[];
                 const siteAddressesRaw = JSON.parse(row.siteAddresses) as (
-                    | string
-                    | null
+                    string | null
                 )[];
                 const siteOnlinesRaw = JSON.parse(row.siteOnlines) as (
-                    | 0
-                    | 1
-                    | null
+                    0 | 1 | null
                 )[];
 
                 const siteIds: number[] = [];

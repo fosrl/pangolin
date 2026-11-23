@@ -11,6 +11,8 @@ import {
     primaryDb
 } from "@server/db";
 import { registry } from "@server/openApi";
+import { AiSessionLogSchema } from "@server/routers/auditLogs/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { eq, gt, lt, and, count, desc, inArray, isNull, or } from "drizzle-orm";
@@ -429,22 +431,7 @@ registry.registerPath({
         query: queryAiSessionLogsQuery,
         params: queryAiSessionLogsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(AiSessionLogSchema)
 });
 
 async function queryUniqueFilterAttributes(

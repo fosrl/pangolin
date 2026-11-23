@@ -39,17 +39,12 @@ export type MtlsOwner =
     | { type: "resource"; resourceId: number }
     | { type: "policy"; resourcePolicyId: number };
 
-export type MtlsCertificateInfo = {
-    mtlsCertificateId: number;
-    name: string | null;
-    subject: string | null;
-    issuer: string | null;
-    serialNumber: string | null;
-    fingerprint: string | null;
-    notBefore: number | null;
-    notAfter: number | null;
-    createdAt: number;
-};
+// A certificate without the PEM and without the id of its owner. Both owner
+// tables have the same columns, so either one describes it.
+export type MtlsCertificateInfo = Omit<
+    typeof resourcePolicyMtlsCertificates.$inferSelect,
+    "certificate" | "resourcePolicyId"
+>;
 
 type MtlsCertificateRow = MtlsCertificateInfo & { certificate: string };
 

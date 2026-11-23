@@ -9,6 +9,10 @@ import { fromError } from "zod-validation-error";
 import { idp, idpOidcConfig, idpOrg } from "@server/db";
 import { eq } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    NullDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const paramsSchema = z
     .object({
@@ -23,24 +27,9 @@ registry.registerPath({
     description: "Delete IDP.",
     tags: [OpenAPITags.GlobalIdp],
     request: {
-        params: paramsSchema
+        params: paramsSchema.omit({ orgId: true })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(NullDataSchema)
 });
 
 export async function deleteIdp(

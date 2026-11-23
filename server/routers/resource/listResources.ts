@@ -24,6 +24,11 @@ import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PaginationSchema,
+    LimitOffsetPaginationSchema
+} from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import {
@@ -44,6 +49,7 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { createSelectSchema } from "drizzle-zod";
 
 const listResourcesParamsSchema = z.strictObject({
     orgId: z.string()
@@ -180,40 +186,7 @@ const listResourcesSchema = z.strictObject({
 });
 
 // grouped by resource with targets[])
-export type ResourceWithTargets = {
-    resourceId: number;
-    name: string;
-    ssl: boolean;
-    fullDomain: string | null;
-    passwordId: number | null;
-    sso: boolean;
-    pincodeId: number | null;
-    whitelist: boolean;
-    mtls: boolean;
-    proxyPort: number | null;
-    enabled: boolean;
-    domainId: string | null;
-    niceId: string;
-    headerAuthId: number | null;
-    wildcard: boolean;
-    health: string | null;
-    mode: string | null;
-    targets: Array<{
-        targetId: number;
-        ip: string;
-        port: number;
-        enabled: boolean;
-        healthStatus: "healthy" | "unhealthy" | "unknown" | null;
-        siteName: string | null;
-    }>;
-    sites: Array<{
-        siteId: number;
-        siteName: string;
-        siteNiceId: string;
-        online?: boolean; // undefined for local sites
-    }>;
-    labels?: Array<Pick<Label, "color" | "labelId" | "name">>;
-};
+export type ResourceWithTargets = ListResourcesResponse["resources"][number];
 
 function queryResourcesBase() {
     const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
@@ -413,9 +386,160 @@ function queryResourcesBase() {
         );
 }
 
-export type ListResourcesResponse = PaginatedResponse<{
-    resources: ResourceWithTargets[];
-}>;
+export type ListResourcesResponse = z.infer<
+    typeof ListResourcesResponseDataSchema
+>;
+
+const ResourceListItemSchema = createSelectSchema(resources, {
+    resourceId: (s) =>
+        s.openapi({ description: "Numeric ID of the public resource." }),
+    niceId: (s) =>
+        s.openapi({
+            description:
+                "Human readable ID of the resource, unique within the organization."
+        }),
+    name: (s) => s.openapi({ description: "Resource name." }),
+    ssl: (s) =>
+        s.openapi({
+            description: "Whether the resource is served over HTTPS."
+        }),
+    fullDomain: (s) =>
+        s.openapi({
+            description: "Full domain the resource is served on (http mode)."
+        }),
+    domainId: (s) =>
+        s.openapi({
+            description:
+                "ID of the domain the resource is served on (http mode)."
+        }),
+    proxyPort: (s) =>
+        s.openapi({
+            description:
+                "Public port the resource listens on (tcp and udp mode)."
+        }),
+    enabled: (s) =>
+        s.openapi({
+            description: "Whether the resource currently accepts traffic."
+        }),
+    wildcard: (s) =>
+        s.openapi({
+            description:
+                "Whether the resource matches all subdomains of its domain."
+        }),
+    health: (s) =>
+        s.openapi({
+            description: "Aggregate health of the resource's targets."
+        })
+})
+    .pick({
+        resourceId: true,
+        niceId: true,
+        name: true,
+        ssl: true,
+        fullDomain: true,
+        domainId: true,
+        proxyPort: true,
+        enabled: true,
+        wildcard: true,
+        health: true
+    })
+    .extend({
+        mode: z
+            .string()
+            .nullable()
+            .openapi({ description: "How the resource is exposed." }),
+        passwordId: z.number().int().nullable().openapi({
+            description:
+                "ID of the password the resource is protected with, if any."
+        }),
+        pincodeId: z.number().int().nullable().openapi({
+            description:
+                "ID of the PIN code the resource is protected with, if any."
+        }),
+        headerAuthId: z.number().int().nullable().openapi({
+            description: "ID of the header authentication credential, if any."
+        }),
+        sso: z.boolean().openapi({
+            description:
+                "Whether users must sign in with the platform to access the resource."
+        }),
+        whitelist: z.boolean().openapi({
+            description:
+                "Whether access is limited to a list of one-time-password emails."
+        }),
+        mtls: z.boolean().openapi({
+            description:
+                "Whether clients must present a certificate (mutual TLS)."
+        }),
+        targets: z
+            .array(
+                z.object({
+                    targetId: z
+                        .number()
+                        .int()
+                        .openapi({ description: "Numeric ID of the target." }),
+                    ip: z.string().openapi({
+                        description: "IP address or hostname of the target."
+                    }),
+                    port: z
+                        .number()
+                        .int()
+                        .openapi({ description: "Port of the target." }),
+                    enabled: z.boolean().openapi({
+                        description: "Whether the target receives traffic."
+                    }),
+                    healthStatus: z
+                        .enum(["healthy", "unhealthy", "unknown"])
+                        .nullable()
+                        .openapi({
+                            description: "Current health of the target."
+                        }),
+                    siteName: z.string().nullable().openapi({
+                        description:
+                            "Name of the site that connects to the target."
+                    })
+                })
+            )
+            .openapi({ description: "Targets of the resource." }),
+        sites: z
+            .array(
+                z.object({
+                    siteId: z
+                        .number()
+                        .int()
+                        .openapi({ description: "Numeric ID of the site." }),
+                    siteName: z.string().openapi({ description: "Site name." }),
+                    siteNiceId: z.string().openapi({
+                        description: "Human readable ID of the site."
+                    }),
+                    online: z.boolean().optional().openapi({
+                        description:
+                            "Whether the site is connected. Not set for local sites."
+                    })
+                })
+            )
+            .openapi({
+                description: "Sites that serve the resource's targets."
+            }),
+        labels: z
+            .array(
+                z.object({
+                    labelId: z
+                        .number()
+                        .int()
+                        .openapi({ description: "Numeric ID of the label." }),
+                    name: z.string().openapi({ description: "Label name." }),
+                    color: z.string().openapi({ description: "Label color." })
+                })
+            )
+            .optional()
+            .openapi({ description: "Labels attached to the resource." })
+    });
+
+const ListResourcesResponseDataSchema = z.object({
+    resources: z.array(ResourceListItemSchema),
+    pagination: PaginationSchema
+});
 
 registry.registerPath({
     method: "get",
@@ -428,22 +552,7 @@ registry.registerPath({
         }),
         query: listResourcesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourcesResponseDataSchema)
 });
 
 registry.registerPath({
@@ -457,22 +566,7 @@ registry.registerPath({
         }),
         query: listResourcesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourcesResponseDataSchema)
 });
 
 export async function listResources(

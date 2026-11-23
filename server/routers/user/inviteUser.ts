@@ -64,10 +64,7 @@ const inviteUserBodySchema = z
 
 export type InviteUserBody = z.input<typeof inviteUserBodySchema>;
 
-export type InviteUserResponse = {
-    inviteLink: string;
-    expiresAt: number;
-};
+export type InviteUserResponse = z.infer<typeof InviteUserResponseDataSchema>;
 const InviteUserResponseDataSchema = z.object({
     inviteLink: z.string(),
     expiresAt: z.number()

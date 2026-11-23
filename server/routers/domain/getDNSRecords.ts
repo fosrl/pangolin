@@ -8,6 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import { createSelectSchema } from "drizzle-zod";
 import { getServerIp } from "@server/lib/serverIpService"; // your in-memory IP module
 
 const getDNSRecordsSchema = z.strictObject({
@@ -24,7 +26,27 @@ async function query(domainId: string) {
     return records;
 }
 
-export type GetDNSRecordsResponse = Awaited<ReturnType<typeof query>>;
+export type GetDNSRecordsResponse = z.infer<
+    typeof GetDNSRecordsResponseDataSchema
+>;
+
+const DnsRecordSchema = createSelectSchema(dnsRecords, {
+    baseDomain: (s) => s.openapi({ description: "Domain the record is for." }),
+    domainId: (s) =>
+        s.openapi({ description: "ID of the domain the record belongs to." }),
+    id: (s) => s.openapi({ description: "Numeric ID of the DNS record." }),
+    recordType: (s) =>
+        s.openapi({
+            description: "DNS record type, for example CNAME, A or TXT."
+        }),
+    value: (s) => s.openapi({ description: "Value the record must have." }),
+    verified: (s) =>
+        s.openapi({
+            description: "Whether the record was found with the expected value."
+        })
+});
+
+const GetDNSRecordsResponseDataSchema = z.array(DnsRecordSchema);
 
 registry.registerPath({
     method: "get",
@@ -37,22 +59,7 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetDNSRecordsResponseDataSchema)
 });
 
 export async function getDNSRecords(

@@ -10,9 +10,19 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import { RoleSchema } from "@server/routers/role/types";
 
 const getRoleSchema = z.strictObject({
     roleId: z.coerce.number().int().positive()
+});
+
+export type GetRoleResponse = z.infer<typeof GetRoleResponseDataSchema>;
+
+const GetRoleResponseDataSchema = RoleSchema.extend({
+    allowSsh: z.boolean().openapi({
+        description: "Whether users with this role may sign SSH keys."
+    })
 });
 
 registry.registerPath({
@@ -23,22 +33,7 @@ registry.registerPath({
     request: {
         params: getRoleSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetRoleResponseDataSchema)
 });
 
 export async function getRole(
@@ -85,7 +80,7 @@ export async function getRole(
             )
             .limit(1);
 
-        return response(res, {
+        return response<GetRoleResponse>(res, {
             data: { ...role[0], allowSsh: !!signSshKeyAction },
             success: true,
             error: false,

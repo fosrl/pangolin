@@ -55,9 +55,9 @@ const bodySchema = z.strictObject({
     tags: z.string().optional()
 });
 
-export type UpdateOrgIdpResponse = {
-    idpId: number;
-};
+export type UpdateOrgIdpResponse = z.infer<
+    typeof UpdateOrgIdpResponseDataSchema
+>;
 const UpdateOrgIdpResponseDataSchema = z.object({
     idpId: z.number()
 });

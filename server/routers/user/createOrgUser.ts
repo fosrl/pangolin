@@ -55,7 +55,9 @@ const bodySchema = z
         ]
     }));
 
-export type CreateOrgUserResponse = {};
+export type CreateOrgUserResponse = z.infer<
+    typeof CreateOrgUserResponseDataSchema
+>;
 const CreateOrgUserResponseDataSchema = z.object({});
 
 registry.registerPath({

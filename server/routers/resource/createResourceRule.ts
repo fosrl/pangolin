@@ -13,6 +13,9 @@ import {
     getResourceRuleValueValidationError
 } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourceRuleSchema } from "@server/routers/resource/types";
+import { ResourcePolicyRuleSchema } from "@server/routers/policy/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const createResourceRuleSchema = z.strictObject({
     action: z.enum(["ACCEPT", "DROP", "PASS"]),
@@ -25,6 +28,16 @@ const createResourceRuleSchema = z.strictObject({
 const createResourceRuleParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
 });
+
+// A resource that uses a policy has its rules stored on the policy
+const CreateResourceRuleResponseDataSchema = z.union([
+    ResourceRuleSchema,
+    ResourcePolicyRuleSchema
+]);
+
+export type CreateResourceRuleResponse = z.infer<
+    typeof CreateResourceRuleResponseDataSchema
+>;
 
 registry.registerPath({
     method: "put",
@@ -41,22 +54,10 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        CreateResourceRuleResponseDataSchema,
+        201
+    )
 });
 
 registry.registerPath({
@@ -74,22 +75,10 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        CreateResourceRuleResponseDataSchema,
+        201
+    )
 });
 
 export async function createResourceRule(
@@ -178,7 +167,7 @@ export async function createResourceRule(
                 })
                 .returning();
 
-            return response(res, {
+            return response<CreateResourceRuleResponse>(res, {
                 data: newRule,
                 success: true,
                 error: false,
@@ -200,7 +189,7 @@ export async function createResourceRule(
             })
             .returning();
 
-        return response(res, {
+        return response<CreateResourceRuleResponse>(res, {
             data: newRule,
             success: true,
             error: false,

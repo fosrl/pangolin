@@ -33,11 +33,11 @@ import {
 import { useEnvContext } from "@app/hooks/useEnvContext";
 import { toast } from "@app/hooks/useToast";
 import { createApiClient, formatAxiosError } from "@app/lib/api";
+import type { CustomDnsRecordRow } from "@server/routers/customDnsRecord/types";
 import {
     CUSTOM_DNS_RECORD_TYPES,
-    CustomDnsRecordRow,
-    CustomDnsRecordType
-} from "@server/routers/customDnsRecord/types";
+    type CustomDnsRecordType
+} from "@server/routers/customDnsRecord/recordTypes";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";

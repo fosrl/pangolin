@@ -20,17 +20,14 @@ const bodySchema = z.strictObject({
     preferWildcardCert: z.boolean().optional().nullable()
 });
 
-export type UpdateDomainResponse = {
-    domainId: string;
-    certResolver: string | null;
-    preferWildcardCert: boolean | null;
-};
+export type UpdateDomainResponse = z.infer<
+    typeof UpdateDomainResponseDataSchema
+>;
 const UpdateDomainResponseDataSchema = z.object({
     domainId: z.string(),
     certResolver: z.string().nullable(),
     preferWildcardCert: z.boolean().nullable()
 });
-
 
 registry.registerPath({
     method: "post",
@@ -48,7 +45,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateDomainResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateDomainResponseDataSchema
+                    )
                 }
             }
         }
@@ -58,8 +57,7 @@ registry.registerPath({
 registry.registerPath({
     method: "patch",
     path: "/org/{orgId}/domain/{domainId}",
-    description:
-        "Update a domain by domainId. Deprecated: use POST instead.",
+    description: "Update a domain by domainId. Deprecated: use POST instead.",
     deprecated: true,
     tags: [OpenAPITags.Domain],
     request: {
@@ -73,7 +71,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateDomainResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateDomainResponseDataSchema
+                    )
                 }
             }
         }

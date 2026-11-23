@@ -9,6 +9,12 @@ import { sql, eq, and, inArray } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PaginationSchema,
+    LimitOffsetPaginationSchema
+} from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import { createSelectSchema } from "drizzle-zod";
 
 const listInvitationsParamsSchema = z.strictObject({
     orgId: z.string()
@@ -29,12 +35,7 @@ const listInvitationsQuerySchema = z.strictObject({
         .pipe(z.int().nonnegative())
 });
 
-export type InvitationListRow = {
-    inviteId: string;
-    email: string;
-    expiresAt: number;
-    roles: { roleId: number; roleName: string | null }[];
-};
+export type InvitationListRow = ListInvitationsResponse["invitations"][number];
 
 async function queryInvitations(
     orgId: string,
@@ -90,10 +91,41 @@ async function queryInvitations(
     }));
 }
 
-export type ListInvitationsResponse = {
-    invitations: InvitationListRow[];
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListInvitationsResponse = z.infer<
+    typeof ListInvitationsResponseDataSchema
+>;
+
+const InvitationListItemSchema = createSelectSchema(userInvites, {
+    inviteId: (s) => s.openapi({ description: "ID of the invitation." }),
+    email: (s) =>
+        s.openapi({ description: "Email the invitation was sent to." }),
+    expiresAt: (s) =>
+        s.openapi({
+            description: "Epoch milliseconds when the invitation expires."
+        })
+})
+    .pick({ inviteId: true, email: true, expiresAt: true })
+    .extend({
+        roles: z
+            .array(
+                z.object({
+                    roleId: z
+                        .number()
+                        .int()
+                        .openapi({ description: "Numeric ID of the role." }),
+                    roleName: z
+                        .string()
+                        .nullable()
+                        .openapi({ description: "Role name." })
+                })
+            )
+            .openapi({ description: "Roles the user receives when accepting." })
+    });
+
+const ListInvitationsResponseDataSchema = z.object({
+    invitations: z.array(InvitationListItemSchema),
+    pagination: LimitOffsetPaginationSchema
+});
 
 registry.registerPath({
     method: "get",
@@ -104,22 +136,7 @@ registry.registerPath({
         params: listInvitationsParamsSchema,
         query: listInvitationsQuerySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListInvitationsResponseDataSchema)
 });
 
 export async function listInvitations(

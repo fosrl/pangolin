@@ -89,10 +89,7 @@ async function queryDomains(orgId: string, limit: number, offset: number) {
     });
 }
 
-export type ListDomainsResponse = {
-    domains: NonNullable<Awaited<ReturnType<typeof queryDomains>>>;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListDomainsResponse = z.infer<typeof ListDomainsResponseDataSchema>;
 
 const ListDomainsResponseDataSchema = z.object({
     domains: z.array(

@@ -11,6 +11,7 @@ import {
     virtualApiKeys
 } from "@server/db";
 import { registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { and, eq, gte, lte, inArray, isNull, not } from "drizzle-orm";
@@ -245,6 +246,30 @@ async function query(data: Q) {
     };
 }
 
+function idName<T extends z.ZodTypeAny>(idType: T) {
+    return z.object({
+        id: idType,
+        name: z.string().nullable()
+    });
+}
+
+const idEmail = z.object({ id: z.string(), email: z.string().nullable() });
+
+const QueryAiUsageFilterOptionsResponseDataSchema = z.object({
+    providers: z.array(idName(z.number().int())),
+    resources: z.array(idName(z.number().int())),
+    roles: z.array(idName(z.number().int())),
+    users: z.array(idEmail),
+    virtualApiKeys: z.array(
+        z.object({
+            id: z.string(),
+            name: z.string().nullable(),
+            lastChars: z.string()
+        })
+    ),
+    models: z.array(z.string())
+});
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/ai/usage/filters",
@@ -255,26 +280,13 @@ registry.registerPath({
         query: queryAiUsageFilterOptionsQuery,
         params: queryAiUsageFilterOptionsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        QueryAiUsageFilterOptionsResponseDataSchema
+    )
 });
 
-export type QueryAiUsageFilterOptionsResponse = Awaited<
-    ReturnType<typeof query>
+export type QueryAiUsageFilterOptionsResponse = z.infer<
+    typeof QueryAiUsageFilterOptionsResponseDataSchema
 >;
 
 export async function queryAiUsageFilterOptions(

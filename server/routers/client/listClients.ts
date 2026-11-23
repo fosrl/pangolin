@@ -20,6 +20,8 @@ import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PaginationSchema } from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import {
@@ -39,6 +41,7 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
+import { createSelectSchema } from "drizzle-zod";
 
 const listClientsParamsSchema = z.strictObject({
     orgId: z.string()
@@ -256,9 +259,149 @@ type ClientWithSites = Awaited<ReturnType<typeof queryClientsBase>>[0] & {
 
 type OlmWithUpdateAvailable = ClientWithSites;
 
-export type ListClientsResponse = PaginatedResponse<{
-    clients: Array<ClientWithSites>;
-}>;
+export type ListClientsResponse = z.infer<typeof ListClientsResponseDataSchema>;
+
+const clientRoleRef = z.object({
+    roleId: z
+        .number()
+        .int()
+        .openapi({ description: "Numeric ID of the role." }),
+    name: z.string().openapi({ description: "Role name." })
+});
+
+const ClientListItemSchema = createSelectSchema(clients, {
+    clientId: (s) => s.openapi({ description: "Numeric ID of the client." }),
+    orgId: (s) =>
+        s.openapi({
+            description: "ID of the organization the client belongs to."
+        }),
+    niceId: (s) =>
+        s.openapi({
+            description:
+                "Human readable ID of the client, unique within the organization."
+        }),
+    name: (s) => s.openapi({ description: "Client name." }),
+    pubKey: (s) =>
+        s.openapi({ description: "WireGuard public key of the client." }),
+    subnet: (s) =>
+        s.openapi({
+            description:
+                "Address assigned to the client inside the overlay network."
+        }),
+    megabytesIn: (s) =>
+        s.openapi({ description: "Megabytes received from the client." }),
+    megabytesOut: (s) =>
+        s.openapi({ description: "Megabytes sent to the client." }),
+    type: (s) => s.openapi({ description: "Kind of client, for example olm." }),
+    online: (s) =>
+        s.openapi({
+            description: "Whether the client is currently connected."
+        }),
+    userId: (s) =>
+        s.openapi({
+            description:
+                "ID of the user that owns the client. Null for machine clients."
+        }),
+    approvalState: z
+        .enum(["approved", "denied", "pending"])
+        .nullable()
+        .openapi({
+            description:
+                "Whether the client was approved by an admin. Only set when the owner's role requires device approval."
+        }),
+    archived: (s) =>
+        s.openapi({
+            description: "Whether the client is archived and hidden from lists."
+        }),
+    blocked: (s) =>
+        s.openapi({
+            description: "Whether the client is blocked from connecting."
+        })
+})
+    .pick({
+        clientId: true,
+        orgId: true,
+        niceId: true,
+        name: true,
+        pubKey: true,
+        subnet: true,
+        megabytesIn: true,
+        megabytesOut: true,
+        type: true,
+        online: true,
+        userId: true,
+        approvalState: true,
+        archived: true,
+        blocked: true
+    })
+    .extend({
+        orgName: z.string().nullable().openapi({
+            description: "Name of the organization the client belongs to."
+        }),
+        olmVersion: z
+            .string()
+            .nullable()
+            .openapi({ description: "Version of the Olm agent." }),
+        username: z
+            .string()
+            .nullable()
+            .openapi({ description: "Username of the owning user." }),
+        userEmail: z
+            .string()
+            .nullable()
+            .openapi({ description: "Email of the owning user." }),
+        agent: z
+            .string()
+            .nullable()
+            .openapi({ description: "Name of the agent software." }),
+        agentVersion: z.string().nullable().openapi({
+            description: "Version of the agent software."
+        }),
+        olmArchived: z.boolean().nullable().openapi({
+            description: "Whether the client's Olm agent is archived."
+        }),
+        sites: z
+            .array(
+                z.object({
+                    siteId: z
+                        .number()
+                        .int()
+                        .openapi({ description: "Numeric ID of the site." }),
+                    siteName: z
+                        .string()
+                        .nullable()
+                        .openapi({ description: "Site name." }),
+                    siteNiceId: z.string().nullable().openapi({
+                        description: "Human readable ID of the site."
+                    })
+                })
+            )
+            .openapi({ description: "Sites the client can currently reach." }),
+        olmUpdateAvailable: z.boolean().optional().openapi({
+            description: "Whether a newer Olm version is available."
+        }),
+        labels: z
+            .array(
+                z.object({
+                    labelId: z
+                        .number()
+                        .int()
+                        .openapi({ description: "Numeric ID of the label." }),
+                    name: z.string().openapi({ description: "Label name." }),
+                    color: z.string().openapi({ description: "Label color." })
+                })
+            )
+            .optional()
+            .openapi({ description: "Labels attached to the client." }),
+        roles: z.array(clientRoleRef).openapi({
+            description: "Roles assigned directly to the client."
+        })
+    });
+
+const ListClientsResponseDataSchema = z.object({
+    clients: z.array(ClientListItemSchema),
+    pagination: PaginationSchema
+});
 
 registry.registerPath({
     method: "get",
@@ -269,22 +412,7 @@ registry.registerPath({
         query: listClientsSchema,
         params: listClientsParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListClientsResponseDataSchema)
 });
 
 export async function listClients(

@@ -15,6 +15,10 @@ import { response } from "@server/lib/response";
 import logger from "@server/logger";
 import { hashPassword } from "@server/auth/password";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const setResourceAuthMethodsParamsSchema = z.object({
     resourceId: z.coerce.number().int().positive()
@@ -40,22 +44,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema, 201)
 });
 
 registry.registerPath({
@@ -74,22 +63,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema, 201)
 });
 
 export async function setResourcePassword(

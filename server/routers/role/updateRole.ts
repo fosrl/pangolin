@@ -11,6 +11,8 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { OpenAPITags, registry } from "@server/openApi";
+import { RoleSchema } from "@server/routers/role/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { pushClientIdentitiesForRole } from "@server/lib/clientIdentities";
 
@@ -37,7 +39,7 @@ const updateRoleBodySchema = z
 
 export type UpdateRoleBody = z.infer<typeof updateRoleBodySchema>;
 
-export type UpdateRoleResponse = Role;
+export type UpdateRoleResponse = z.infer<typeof RoleSchema>;
 
 registry.registerPath({
     method: "post",
@@ -54,22 +56,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(RoleSchema)
 });
 
 export async function updateRole(
@@ -227,7 +214,7 @@ export async function updateRole(
             });
         }
 
-        return response(res, {
+        return response<UpdateRoleResponse>(res, {
             data: updatedRole,
             success: true,
             error: false,

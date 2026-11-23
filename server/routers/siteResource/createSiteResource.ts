@@ -25,6 +25,11 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PrivateResourceIdParamsSchema,
+    SiteResourceSchema
+} from "@server/routers/siteResource/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -218,7 +223,7 @@ const createSiteResourceSchema = z
     );
 
 export type CreateSiteResourceBody = z.infer<typeof createSiteResourceSchema>;
-export type CreateSiteResourceResponse = SiteResource;
+export type CreateSiteResourceResponse = z.infer<typeof SiteResourceSchema>;
 
 registry.registerPath({
     method: "put",
@@ -235,22 +240,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteResourceSchema, 201)
 });
 
 registry.registerPath({
@@ -268,22 +258,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteResourceSchema, 201)
 });
 
 export async function createSiteResource(
@@ -781,7 +756,7 @@ export async function createSiteResource(
             }
         );
 
-        return response(res, {
+        return response<CreateSiteResourceResponse>(res, {
             data: newSiteResource,
             success: true,
             error: false,

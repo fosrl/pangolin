@@ -20,11 +20,13 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { and, asc, eq } from "drizzle-orm";
 import {
     ListCustomDnsRecordsResponse,
     toCustomDnsRecordRow
 } from "@server/routers/customDnsRecord/types";
+import { ListCustomDnsRecordsResponseDataSchema } from "@server/routers/customDnsRecord/types";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty(),
@@ -40,22 +42,7 @@ registry.registerPath({
     request: {
         params: paramsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListCustomDnsRecordsResponseDataSchema)
 });
 
 export async function listCustomDnsRecords(

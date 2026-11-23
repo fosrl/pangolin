@@ -9,6 +9,10 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { eq, and, inArray } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const bodySchema = z.strictObject({
     actionIds: z
@@ -27,7 +31,7 @@ registry.registerPath({
         "Set actions for an API key. This will replace any existing actions.",
     tags: [OpenAPITags.ApiKey],
     request: {
-        params: paramsSchema,
+        params: paramsSchema.extend({ orgId: z.string() }),
         body: {
             content: {
                 "application/json": {
@@ -36,22 +40,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 export async function setApiKeyActions(

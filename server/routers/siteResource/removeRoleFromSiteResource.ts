@@ -9,6 +9,11 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { eq, and } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromSiteResource,
     isOrgRebuildRateLimited
@@ -44,22 +49,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -68,7 +58,7 @@ registry.registerPath({
     description: "Remove a single role from a site resource.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Role],
     request: {
-        params: removeRoleFromSiteResourceParamsSchema,
+        params: PrivateResourceIdParamsSchema,
         body: {
             content: {
                 "application/json": {
@@ -77,22 +67,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 export async function removeRoleFromSiteResource(

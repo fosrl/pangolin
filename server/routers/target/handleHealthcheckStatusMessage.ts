@@ -128,9 +128,7 @@ export const handleHealthcheckStatusMessage: MessageHandler = async (
                     .update(targetHealthCheck)
                     .set({
                         hcHealth: healthStatus.status as
-                            | "unknown"
-                            | "healthy"
-                            | "unhealthy"
+                            "unknown" | "healthy" | "unhealthy"
                     })
                     .where(
                         eq(

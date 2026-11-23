@@ -20,6 +20,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgIdpCreatedSchema } from "@server/routers/orgIdp/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { idp, idpOidcConfig, idpOrg, orgs } from "@server/db";
 import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { encrypt } from "@server/lib/crypto";
@@ -65,22 +67,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(OrgIdpCreatedSchema, 201)
 });
 
 export async function createOrgOidcIdp(

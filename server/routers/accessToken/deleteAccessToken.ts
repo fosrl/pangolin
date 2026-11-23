@@ -9,6 +9,10 @@ import { resourceAccessToken } from "@server/db";
 import { and, eq } from "drizzle-orm";
 import { db } from "@server/db";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    NullDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const deleteAccessTokenParamsSchema = z.strictObject({
     accessTokenId: z.string()
@@ -22,22 +26,7 @@ registry.registerPath({
     request: {
         params: deleteAccessTokenParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(NullDataSchema)
 });
 
 export async function deleteAccessToken(

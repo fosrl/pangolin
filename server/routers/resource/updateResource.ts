@@ -37,6 +37,8 @@ import {
     wildcardSubdomainSchema
 } from "@server/lib/schemas";
 import { registry } from "@server/openApi";
+import { ResourceSchema } from "@server/routers/resource/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { OpenAPITags } from "@server/openApi";
 import { createCertificate } from "@server/routers/certificates/createCertificate";
 import {
@@ -247,7 +249,7 @@ const updateHttpResourceBodySchema = z
         }
     );
 
-export type UpdateResourceResponse = Resource;
+export type UpdateResourceResponse = z.infer<typeof ResourceSchema>;
 
 const updateRawResourceBodySchema = z
     .strictObject({
@@ -295,22 +297,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceSchema)
 });
 
 registry.registerPath({
@@ -331,22 +318,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ResourceSchema)
 });
 
 export async function updateResource(
@@ -934,7 +906,7 @@ async function updateHttpResource(
             );
         }
 
-        return response(res, {
+        return response<UpdateResourceResponse>(res, {
             data: applyInlinePolicyFields(updatedResource[0], inlinePolicy),
             success: true,
             error: false,
@@ -958,7 +930,7 @@ async function updateHttpResource(
         );
     }
 
-    return response(res, {
+    return response<UpdateResourceResponse>(res, {
         data: updatedResource[0],
         success: true,
         error: false,
@@ -1085,7 +1057,7 @@ async function updateRawResource(
         );
     }
 
-    return response(res, {
+    return response<UpdateResourceResponse>(res, {
         data: updatedResource,
         success: true,
         error: false,

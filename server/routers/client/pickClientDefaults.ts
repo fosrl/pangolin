@@ -10,17 +10,14 @@ import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSc
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 
-export type PickClientDefaultsResponse = {
-    olmId: string;
-    olmSecret: string;
-    subnet: string;
-};
+export type PickClientDefaultsResponse = z.infer<
+    typeof PickClientDefaultsResponseDataSchema
+>;
 const PickClientDefaultsResponseDataSchema = z.object({
     olmId: z.string(),
     olmSecret: z.string(),
     subnet: z.string()
 });
-
 
 const pickClientDefaultsSchema = z.strictObject({
     orgId: z.string()
@@ -39,7 +36,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(PickClientDefaultsResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        PickClientDefaultsResponseDataSchema
+                    )
                 }
             }
         }

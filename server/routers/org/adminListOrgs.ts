@@ -9,6 +9,8 @@ import { and, asc, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgSchema } from "@server/routers/org/types";
+import { PaginationSchema } from "@server/lib/openapi/pagination";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import type { PaginatedResponse } from "@server/types/Pagination";
 
@@ -60,42 +62,47 @@ const adminListOrgsSchema = z.strictObject({
         })
 });
 
-export type AdminOrgRow = {
-    orgId: string;
-    name: string;
-    subnet: string | null;
-    utilitySubnet: string | null;
-    createdAt: string | null;
-    userCount: number;
-    siteCount: number;
-    resourceCount: number;
-    owner: {
-        userId: string;
-        username: string;
-    } | null;
-};
+export type AdminOrgRow = AdminListOrgsResponse["orgs"][number];
 
-export type AdminListOrgsResponse = PaginatedResponse<{
-    orgs: AdminOrgRow[];
-}>;
+export type AdminListOrgsResponse = z.infer<
+    typeof AdminListOrgsResponseDataSchema
+>;
 
 const AdminListOrgsResponseDataSchema = z.object({
     orgs: z.array(
-        z.object({
-            orgId: z.string(),
-            name: z.string(),
-            subnet: z.string().nullable(),
-            createdAt: z.string().nullable(),
-            userCount: z.number(),
-            siteCount: z.number(),
-            resourceCount: z.number()
+        OrgSchema.pick({
+            orgId: true,
+            name: true,
+            subnet: true,
+            utilitySubnet: true,
+            createdAt: true
+        }).extend({
+            userCount: z.number().int().openapi({
+                description: "Number of users in the organization."
+            }),
+            siteCount: z.number().int().openapi({
+                description: "Number of sites in the organization."
+            }),
+            resourceCount: z.number().int().openapi({
+                description: "Number of public resources in the organization."
+            }),
+            owner: z
+                .object({
+                    userId: z
+                        .string()
+                        .openapi({ description: "ID of the owner." }),
+                    username: z
+                        .string()
+                        .openapi({ description: "Username of the owner." })
+                })
+                .nullable()
+                .openapi({
+                    description:
+                        "The user that owns the organization. Null when it has no owner."
+                })
         })
     ),
-    pagination: z.object({
-        total: z.number(),
-        page: z.number(),
-        pageSize: z.number()
-    })
+    pagination: PaginationSchema
 });
 
 registry.registerPath({

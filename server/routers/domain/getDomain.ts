@@ -8,6 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { DomainSchema } from "@server/routers/domain/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const getDomainSchema = z.strictObject({
     domainId: z.string().optional(),
@@ -25,7 +27,7 @@ async function query(domainId?: string, orgId?: string) {
     }
 }
 
-export type GetDomainResponse = NonNullable<Awaited<ReturnType<typeof query>>>;
+export type GetDomainResponse = z.infer<typeof DomainSchema>;
 
 registry.registerPath({
     method: "get",
@@ -38,22 +40,7 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(DomainSchema)
 });
 
 export async function getDomain(

@@ -44,18 +44,18 @@ const bodySchema = z.strictObject({
     sendAISessionLogs: z.boolean().optional()
 });
 
-export type UpdateEventStreamingDestinationResponse = {
-    destinationId: number;
-};
+export type UpdateEventStreamingDestinationResponse = z.infer<
+    typeof UpdateEventStreamingDestinationResponseDataSchema
+>;
 const UpdateEventStreamingDestinationResponseDataSchema = z.object({
     destinationId: z.number()
 });
 
-
 registry.registerPath({
     method: "post",
     path: "/org/{orgId}/event-streaming-destination/{destinationId}",
-    description: "Update an event streaming destination for a specific organization.",
+    description:
+        "Update an event streaming destination for a specific organization.",
     tags: [OpenAPITags.EventStreamingDestination],
     request: {
         params: paramsSchema,
@@ -72,7 +72,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateEventStreamingDestinationResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateEventStreamingDestinationResponseDataSchema
+                    )
                 }
             }
         }
@@ -126,7 +128,16 @@ export async function updateEventStreamingDestination(
             );
         }
 
-        const { type, config: configToUpdate, enabled, sendAccessLogs, sendActionLogs, sendConnectionLogs, sendRequestLogs, sendAISessionLogs } = parsedBody.data;
+        const {
+            type,
+            config: configToUpdate,
+            enabled,
+            sendAccessLogs,
+            sendActionLogs,
+            sendConnectionLogs,
+            sendRequestLogs,
+            sendAISessionLogs
+        } = parsedBody.data;
 
         const updateData: Record<string, unknown> = {
             updatedAt: Date.now()
@@ -138,11 +149,16 @@ export async function updateEventStreamingDestination(
             updateData.config = encrypt(configToUpdate, key);
         }
         if (enabled !== undefined) updateData.enabled = enabled;
-        if (sendAccessLogs !== undefined) updateData.sendAccessLogs = sendAccessLogs;
-        if (sendActionLogs !== undefined) updateData.sendActionLogs = sendActionLogs;
-        if (sendConnectionLogs !== undefined) updateData.sendConnectionLogs = sendConnectionLogs;
-        if (sendRequestLogs !== undefined) updateData.sendRequestLogs = sendRequestLogs;
-        if (sendAISessionLogs !== undefined) updateData.sendAISessionLogs = sendAISessionLogs;
+        if (sendAccessLogs !== undefined)
+            updateData.sendAccessLogs = sendAccessLogs;
+        if (sendActionLogs !== undefined)
+            updateData.sendActionLogs = sendActionLogs;
+        if (sendConnectionLogs !== undefined)
+            updateData.sendConnectionLogs = sendConnectionLogs;
+        if (sendRequestLogs !== undefined)
+            updateData.sendRequestLogs = sendRequestLogs;
+        if (sendAISessionLogs !== undefined)
+            updateData.sendAISessionLogs = sendAISessionLogs;
 
         await db
             .update(eventStreamingDestinations)
@@ -153,7 +169,6 @@ export async function updateEventStreamingDestination(
                     eq(eventStreamingDestinations.orgId, orgId)
                 )
             );
-
 
         return response<UpdateEventStreamingDestinationResponse>(res, {
             data: {

@@ -18,10 +18,12 @@ import logger from "@server/logger";
 import stoi from "@server/lib/stoi";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { getUserDeviceName } from "@server/db/names";
 import { build } from "@server/build";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
+import { ClientSchema } from "@server/routers/client/types";
 
 const getClientSchema = z.strictObject({
     clientId: z
@@ -64,19 +66,7 @@ async function query(clientId?: number, niceId?: string, orgId?: string) {
     }
 }
 
-type PostureData = {
-    biometricsEnabled?: boolean | null | "-";
-    diskEncrypted?: boolean | null | "-";
-    firewallEnabled?: boolean | null | "-";
-    autoUpdatesEnabled?: boolean | null | "-";
-    tpmAvailable?: boolean | null | "-";
-    windowsAntivirusEnabled?: boolean | null | "-";
-    macosSipEnabled?: boolean | null | "-";
-    macosGatekeeperEnabled?: boolean | null | "-";
-    macosFirewallStealthMode?: boolean | null | "-";
-    linuxAppArmorEnabled?: boolean | null | "-";
-    linuxSELinuxEnabled?: boolean | null | "-";
-};
+type PostureData = z.infer<typeof ClientPostureSchema>;
 
 function maskPostureDataWithPlaceholder(posture: PostureData): PostureData {
     const masked: PostureData = {};
@@ -222,35 +212,100 @@ function getPlatformPostureData(
     return Object.keys(posture).length > 0 ? posture : null;
 }
 
-export type GetClientResponse = NonNullable<
-    Awaited<ReturnType<typeof query>>
->["clients"] & {
-    olmId: string | null;
-    agent: string | null;
-    olmVersion: string | null;
-    agentVersion: string | null;
-    userEmail: string | null;
-    userName: string | null;
-    userUsername: string | null;
-    fingerprint: {
-        username: string | null;
-        hostname: string | null;
-        platform: string | null;
-        osVersion: string | null;
-        kernelVersion: string | null;
-        arch: string | null;
-        deviceModel: string | null;
-        serialNumber: string | null;
-        firstSeen: number | null;
-        lastSeen: number | null;
-    } | null;
-    posture: PostureData | null;
-    userType: string | null;
-    idpName: string | null;
-    idpVariant: string | null;
-    // roles assigned directly to the client (machine clients only)
-    roles: { roleId: number; name: string }[];
-};
+export type GetClientResponse = z.infer<typeof GetClientResponseDataSchema>;
+
+const ClientFingerprintSchema = z
+    .object({
+        username: z.string().nullable(),
+        hostname: z.string().nullable(),
+        platform: z.string().nullable(),
+        osVersion: z.string().nullable(),
+        kernelVersion: z.string().nullable(),
+        arch: z.string().nullable(),
+        deviceModel: z.string().nullable(),
+        serialNumber: z.string().nullable(),
+        firstSeen: z.number().int().nullable().openapi({
+            description: "Epoch seconds when the device was first seen."
+        }),
+        lastSeen: z.number().int().nullable().openapi({
+            description: "Epoch seconds when the device was last seen."
+        })
+    })
+    .openapi({
+        description: "Hardware and OS details reported by the device."
+    });
+
+const postureValue = z
+    .union([z.boolean(), z.null(), z.literal("-")])
+    .optional();
+
+const ClientPostureSchema = z
+    .object({
+        biometricsEnabled: postureValue,
+        diskEncrypted: postureValue,
+        firewallEnabled: postureValue,
+        autoUpdatesEnabled: postureValue,
+        tpmAvailable: postureValue,
+        windowsAntivirusEnabled: postureValue,
+        macosSipEnabled: postureValue,
+        macosGatekeeperEnabled: postureValue,
+        macosFirewallStealthMode: postureValue,
+        linuxAppArmorEnabled: postureValue,
+        linuxSELinuxEnabled: postureValue
+    })
+    .openapi({
+        description:
+            'Device security posture reported by the client. Fields are only present for the client platform. "-" means the value is hidden because the organization is not on a plan that includes posture checks.'
+    });
+
+const clientRoleRef = z.object({
+    roleId: z
+        .number()
+        .int()
+        .openapi({ description: "Numeric ID of the role." }),
+    name: z.string().openapi({ description: "Role name." })
+});
+
+const GetClientResponseDataSchema = ClientSchema.extend({
+    agent: z
+        .string()
+        .nullable()
+        .openapi({ description: "Name of the agent software." }),
+    olmVersion: z
+        .string()
+        .nullable()
+        .openapi({ description: "Version of the Olm agent." }),
+    agentVersion: z.string().nullable().openapi({
+        description: "Version of the agent software."
+    }),
+    userEmail: z
+        .string()
+        .nullable()
+        .openapi({ description: "Email of the owning user." }),
+    userName: z
+        .string()
+        .nullable()
+        .openapi({ description: "Name of the owning user." }),
+    userUsername: z.string().nullable().openapi({
+        description: "Username of the owning user."
+    }),
+    fingerprint: ClientFingerprintSchema.nullable(),
+    posture: ClientPostureSchema.nullable(),
+    userType: z.string().nullable().openapi({
+        description: "Sign-in type of the owning user."
+    }),
+    idpName: z.string().nullable().openapi({
+        description: "Name of the identity provider the owning user belongs to."
+    }),
+    idpVariant: z.string().nullable().openapi({
+        description:
+            "Variant of the identity provider (for example oidc flavor)."
+    }),
+    roles: z.array(clientRoleRef).openapi({
+        description:
+            "Roles assigned directly to the client. Machine clients only."
+    })
+});
 
 registry.registerPath({
     method: "get",
@@ -264,22 +319,7 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetClientResponseDataSchema)
 });
 
 registry.registerPath({
@@ -292,22 +332,7 @@ registry.registerPath({
             clientId: z.number()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetClientResponseDataSchema)
 });
 
 export async function getClient(

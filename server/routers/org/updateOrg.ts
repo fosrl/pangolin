@@ -9,6 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgSchema } from "@server/routers/org/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { build } from "@server/build";
 import { cache } from "#dynamic/lib/cache";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
@@ -55,6 +57,8 @@ const updateOrgBodySchema = z
         error: "At least one field must be provided for update"
     });
 
+export type UpdateOrgResponse = z.infer<typeof OrgSchema>;
+
 registry.registerPath({
     method: "post",
     path: "/org/{orgId}",
@@ -70,22 +74,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(OrgSchema)
 });
 
 export async function updateOrg(
@@ -334,8 +323,11 @@ export async function updateOrg(
         await cache.del(`org_${orgId}_connectionDays`);
         await cache.del(`org_${orgId}_aiSessionsDays`);
 
-        return response(res, {
-            data: updatedOrg[0],
+        // sshCaPrivateKey is encrypted, but it should never leave the server
+        const { sshCaPrivateKey: _, ...orgWithoutPrivateKey } = updatedOrg[0];
+
+        return response<UpdateOrgResponse>(res, {
+            data: orgWithoutPrivateKey,
             success: true,
             error: false,
             message: "Organization updated successfully",

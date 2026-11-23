@@ -9,6 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { BlueprintSchema } from "@server/routers/blueprints/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { BlueprintData } from "./types";
 
 const getBlueprintSchema = z.strictObject({
@@ -56,22 +58,7 @@ registry.registerPath({
     request: {
         params: getBlueprintSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(BlueprintSchema)
 });
 
 export async function getBlueprint(

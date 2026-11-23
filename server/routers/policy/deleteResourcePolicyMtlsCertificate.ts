@@ -6,6 +6,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { MtlsDisabledSchema } from "@server/routers/policy/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { removeMtlsCertificate } from "@server/lib/mtls";
 
 const deleteResourcePolicyMtlsCertificateParamsSchema = z.strictObject({
@@ -13,10 +15,9 @@ const deleteResourcePolicyMtlsCertificateParamsSchema = z.strictObject({
     mtlsCertificateId: z.coerce.number().int().positive()
 });
 
-export type DeleteResourcePolicyMtlsCertificateResponse = {
-    // true when removing the last CA certificate forced mTLS off
-    mtlsDisabled: boolean;
-};
+export type DeleteResourcePolicyMtlsCertificateResponse = z.infer<
+    typeof MtlsDisabledSchema
+>;
 
 const description =
     "Remove a trusted CA certificate from a resource policy. If it is the last one, mTLS is disabled on the policy since it can no longer verify any client.";
@@ -29,7 +30,7 @@ registry.registerPath({
     request: {
         params: deleteResourcePolicyMtlsCertificateParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(MtlsDisabledSchema)
 });
 
 registry.registerPath({
@@ -40,7 +41,7 @@ registry.registerPath({
     request: {
         params: deleteResourcePolicyMtlsCertificateParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(MtlsDisabledSchema)
 });
 
 export async function deleteResourcePolicyMtlsCertificate(

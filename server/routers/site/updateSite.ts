@@ -9,6 +9,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { SiteSchema } from "@server/routers/site/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
 import { tierMatrix, TierFeature } from "@server/lib/billing/tierMatrix";
 
@@ -28,6 +30,8 @@ const updateSiteBodySchema = z
         error: "At least one field must be provided for update"
     });
 
+export type UpdateSiteResponse = z.infer<typeof SiteSchema>;
+
 registry.registerPath({
     method: "post",
     path: "/site/{siteId}",
@@ -43,22 +47,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SiteSchema)
 });
 
 export async function updateSite(
@@ -170,7 +159,7 @@ export async function updateSite(
             );
         }
 
-        return response(res, {
+        return response<UpdateSiteResponse>(res, {
             data: updatedSite[0],
             success: true,
             error: false,

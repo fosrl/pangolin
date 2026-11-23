@@ -8,6 +8,11 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { eq, and } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromSiteResource,
     isOrgRebuildRateLimited
@@ -44,22 +49,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -69,7 +59,7 @@ registry.registerPath({
         "Remove a single client from a site resource. Clients with a userId cannot be removed.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Client],
     request: {
-        params: removeClientFromSiteResourceParamsSchema,
+        params: PrivateResourceIdParamsSchema,
         body: {
             content: {
                 "application/json": {
@@ -78,22 +68,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 export async function removeClientFromSiteResource(

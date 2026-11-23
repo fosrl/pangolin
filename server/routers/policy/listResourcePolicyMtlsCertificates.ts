@@ -8,6 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { MtlsCertificateInfoSchema } from "@server/routers/policy/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     listMtlsCertificates,
     type MtlsCertificateInfo
@@ -17,12 +19,16 @@ const listResourcePolicyMtlsCertificatesParamsSchema = z.strictObject({
     resourcePolicyId: z.string().transform(Number).pipe(z.int().positive())
 });
 
-export type ListResourcePolicyMtlsCertificatesResponse = {
-    certificates: MtlsCertificateInfo[];
-};
+export type ListResourcePolicyMtlsCertificatesResponse = z.infer<
+    typeof CertificatesDataSchema
+>;
 
 const description =
     "List the trusted CA certificates for a resource policy's mTLS.";
+
+const CertificatesDataSchema = z.object({
+    certificates: z.array(MtlsCertificateInfoSchema)
+});
 
 registry.registerPath({
     method: "get",
@@ -32,7 +38,7 @@ registry.registerPath({
     request: {
         params: listResourcePolicyMtlsCertificatesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(CertificatesDataSchema)
 });
 
 registry.registerPath({
@@ -43,7 +49,7 @@ registry.registerPath({
     request: {
         params: listResourcePolicyMtlsCertificatesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(CertificatesDataSchema)
 });
 
 export async function listResourcePolicyMtlsCertificates(

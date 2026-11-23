@@ -8,6 +8,8 @@ import { eq } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     performDeleteSiteResource,
     runSiteResourceDeleteSideEffects
@@ -19,9 +21,15 @@ const deleteSiteResourceParamsSchema = z.strictObject({
     siteResourceId: z.coerce.number().int().positive()
 });
 
-export type DeleteSiteResourceResponse = {
-    message: string;
-};
+export type DeleteSiteResourceResponse = z.infer<
+    typeof DeleteSiteResourceResponseDataSchema
+>;
+
+const DeleteSiteResourceResponseDataSchema = z.object({
+    message: z.string().openapi({
+        description: "Confirmation message."
+    })
+});
 
 registry.registerPath({
     method: "delete",
@@ -31,48 +39,18 @@ registry.registerPath({
     request: {
         params: deleteSiteResourceParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(DeleteSiteResourceResponseDataSchema)
 });
 
 registry.registerPath({
     method: "delete",
-    path: "/private-resource/{siteResourceId}",
+    path: "/private-resource/{resourceId}",
     description: "Delete a site resource.",
     tags: [OpenAPITags.PrivateResource],
     request: {
-        params: deleteSiteResourceParamsSchema
+        params: PrivateResourceIdParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(DeleteSiteResourceResponseDataSchema)
 });
 
 export async function deleteSiteResource(
@@ -132,7 +110,7 @@ export async function deleteSiteResource(
 
         runSiteResourceDeleteSideEffects(removedSiteResource);
 
-        return response(res, {
+        return response<DeleteSiteResourceResponse>(res, {
             data: { message: "Site resource deleted successfully" },
             success: true,
             error: false,

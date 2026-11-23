@@ -2,6 +2,10 @@ import { certificates, db } from "@server/db";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    NullDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { eq } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -16,7 +20,7 @@ const restartCertificateParamsSchema = z.strictObject({
 
 registry.registerPath({
     method: "post",
-    path: "/certificate/{certId}",
+    path: "/org/{orgId}/certificate/{certId}/restart",
     description: "Restart a certificate by ID.",
     tags: ["Certificate"],
     request: {
@@ -25,22 +29,7 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(NullDataSchema)
 });
 
 export async function restartCertificate(

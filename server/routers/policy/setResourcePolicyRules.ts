@@ -12,6 +12,10 @@ import {
     RESOURCE_RULE_MATCH_TYPES
 } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const ruleSchema = z.strictObject({
     ruleId: z.int().positive().optional(),
@@ -58,7 +62,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -77,7 +81,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -97,7 +101,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 registry.registerPath({
@@ -117,7 +121,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {}
+    responses: createApiSuccessResponses(EmptyDataSchema)
 });
 
 export async function setResourcePolicyRules(

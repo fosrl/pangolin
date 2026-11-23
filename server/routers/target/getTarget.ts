@@ -9,15 +9,36 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import {
+    TargetSchema,
+    TargetHealthCheckSchema
+} from "@server/routers/target/types";
 
 const getTargetSchema = z.strictObject({
     targetId: z.coerce.number().int().positive()
 });
 
-type GetTargetResponse = Target &
-    Partial<Omit<TargetHealthCheck, "hcHeaders" | "targetId">> & {
-        hcHeaders: { name: string; value: string }[] | null | undefined;
-    };
+export type GetTargetResponse = z.infer<typeof GetTargetResponseDataSchema>;
+
+const GetTargetResponseDataSchema = TargetSchema.extend(
+    TargetHealthCheckSchema.omit({
+        targetId: true,
+        siteId: true,
+        hcHeaders: true
+    }).partial().shape
+).extend({
+    hcHeaders: z
+        .array(
+            z.object({
+                name: z.string().openapi({ description: "Header name." }),
+                value: z.string().openapi({ description: "Header value." })
+            })
+        )
+        .nullable()
+        .optional()
+        .openapi({ description: "Custom request headers for http checks." })
+});
 
 registry.registerPath({
     method: "get",
@@ -27,22 +48,7 @@ registry.registerPath({
     request: {
         params: getTargetSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetTargetResponseDataSchema)
 });
 
 export async function getTarget(

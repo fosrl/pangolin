@@ -41,18 +41,18 @@ const bodySchema = z.strictObject({
     sendAISessionLogs: z.boolean().optional().default(false)
 });
 
-export type CreateEventStreamingDestinationResponse = {
-    destinationId: number;
-};
+export type CreateEventStreamingDestinationResponse = z.infer<
+    typeof CreateEventStreamingDestinationResponseDataSchema
+>;
 const CreateEventStreamingDestinationResponseDataSchema = z.object({
     destinationId: z.number()
 });
 
-
 registry.registerPath({
     method: "put",
     path: "/org/{orgId}/event-streaming-destination",
-    description: "Create an event streaming destination for a specific organization.",
+    description:
+        "Create an event streaming destination for a specific organization.",
     tags: [OpenAPITags.EventStreamingDestination],
     request: {
         params: paramsSchema,
@@ -69,7 +69,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(CreateEventStreamingDestinationResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        CreateEventStreamingDestinationResponseDataSchema
+                    )
                 }
             }
         }

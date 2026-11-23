@@ -41,7 +41,7 @@ const querySchema = z.strictObject({
         .optional()
         .default("0")
         .transform(Number)
-        .pipe(z.int().nonnegative()),
+        .pipe(z.int().nonnegative())
     // orgId: build === "saas" ? z.string() : z.string().optional() // Required for saas, optional otherwise
 });
 
@@ -61,10 +61,9 @@ async function query(limit: number, offset: number) {
     return res;
 }
 
-export type ListDomainNamespacesResponse = {
-    domainNamespaces: NonNullable<Awaited<ReturnType<typeof query>>>;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListDomainNamespacesResponse = z.infer<
+    typeof ListDomainNamespacesResponseDataSchema
+>;
 
 const ListDomainNamespacesResponseDataSchema = z.object({
     domainNamespaces: z.array(

@@ -8,6 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ListResourceMtlsCertificatesResponseDataSchema } from "@server/routers/resource/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { getResourceMtlsOwner, listMtlsCertificates } from "@server/lib/mtls";
 import { ListResourceMtlsCertificatesResponse } from "@server/routers/resource/types";
 
@@ -26,7 +28,9 @@ registry.registerPath({
     request: {
         params: listResourceMtlsCertificatesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(
+        ListResourceMtlsCertificatesResponseDataSchema
+    )
 });
 
 registry.registerPath({
@@ -37,7 +41,9 @@ registry.registerPath({
     request: {
         params: listResourceMtlsCertificatesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(
+        ListResourceMtlsCertificatesResponseDataSchema
+    )
 });
 
 export async function listResourceMtlsCertificates(

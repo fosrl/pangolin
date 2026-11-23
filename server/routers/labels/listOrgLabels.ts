@@ -3,12 +3,18 @@ import response from "@server/lib/response";
 import logger from "@server/logger";
 import type { ListOrgLabelsResponse } from "@server/routers/labels/types";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    LimitOffsetPaginationSchema,
+    PaginationSchema
+} from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, asc, eq, like, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
+import { ListOrgLabelsResponseDataSchema } from "@server/routers/labels/types";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -61,22 +67,7 @@ registry.registerPath({
         params: paramsSchema,
         query: listLabelsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListOrgLabelsResponseDataSchema)
 });
 
 export async function listOrgLabels(

@@ -9,6 +9,8 @@ import { eq } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import { ResourceSchema } from "@server/routers/resource/types";
 
 const listResourcesParamsSchema = z.strictObject({
     orgId: z.string()
@@ -25,9 +27,13 @@ function queryResourceNames(orgId: string) {
         .where(eq(resources.orgId, orgId));
 }
 
-export type ListResourceNamesResponse = Awaited<
-    ReturnType<typeof queryResourceNames>
+export type ListResourceNamesResponse = z.infer<
+    typeof ListResourceNamesResponseDataSchema
 >;
+
+const ListResourceNamesResponseDataSchema = z.array(
+    ResourceSchema.pick({ resourceId: true, name: true })
+);
 
 registry.registerPath({
     method: "get",
@@ -39,22 +45,7 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourceNamesResponseDataSchema)
 });
 
 registry.registerPath({
@@ -67,22 +58,7 @@ registry.registerPath({
             orgId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListResourceNamesResponseDataSchema)
 });
 
 export async function listAllResourceNames(

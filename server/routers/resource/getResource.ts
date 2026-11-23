@@ -3,6 +3,7 @@ import response from "@server/lib/response";
 import stoi from "@server/lib/stoi";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
@@ -10,6 +11,7 @@ import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { applyInlinePolicyFields } from "./inlinePolicyFields";
+import { ResourceSchema } from "@server/routers/resource/types";
 
 const getResourceSchema = z.strictObject({
     resourceId: z
@@ -51,13 +53,28 @@ async function queryInlinePolicy(resourcePolicyId: number) {
     return res;
 }
 
-export type GetResourceResponse = Omit<
-    NonNullable<Awaited<ReturnType<typeof query>>>,
-    "requestHeaders" | "responseHeaders"
-> & {
-    requestHeaders: { name: string; value: string }[] | null;
-    responseHeaders: { name: string; value: string }[] | null;
-};
+export type GetResourceResponse = z.infer<typeof GetResourceResponseDataSchema>;
+
+const headers = z
+    .array(
+        z.object({
+            name: z.string().openapi({ description: "Header name." }),
+            value: z.string().openapi({ description: "Header value." })
+        })
+    )
+    .nullable();
+
+const GetResourceResponseDataSchema = ResourceSchema.omit({
+    requestHeaders: true,
+    responseHeaders: true
+}).extend({
+    requestHeaders: headers.openapi({
+        description: "Headers added to requests to the target."
+    }),
+    responseHeaders: headers.openapi({
+        description: "Headers added to responses to the client."
+    })
+});
 
 registry.registerPath({
     method: "get",
@@ -71,22 +88,7 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetResourceResponseDataSchema)
 });
 
 registry.registerPath({
@@ -99,22 +101,7 @@ registry.registerPath({
             resourceId: z.number()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetResourceResponseDataSchema)
 });
 
 registry.registerPath({
@@ -127,22 +114,7 @@ registry.registerPath({
             resourceId: z.number()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetResourceResponseDataSchema)
 });
 
 export async function getResource(

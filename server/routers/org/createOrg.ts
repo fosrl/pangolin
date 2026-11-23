@@ -24,6 +24,8 @@ import config from "@server/lib/config";
 import { fromError } from "zod-validation-error";
 import { defaultRoleAllowedActions } from "../role";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgSchema } from "@server/routers/org/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { isValidCIDR } from "@server/lib/validators";
 import { createCustomer, linkEmailOrg } from "#dynamic/lib/billing";
 import { usageService } from "@server/lib/billing/usageService";
@@ -59,6 +61,8 @@ const createOrgSchema = z.strictObject({
         })
 });
 
+export type CreateOrgResponse = z.infer<typeof OrgSchema>;
+
 registry.registerPath({
     method: "put",
     path: "/org",
@@ -73,22 +77,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(OrgSchema, 201)
 });
 
 export async function createOrg(
@@ -436,8 +425,11 @@ export async function createOrg(
             );
         }
 
-        return response(res, {
-            data: org,
+        // sshCaPrivateKey is encrypted, but it should never leave the server
+        const { sshCaPrivateKey: _, ...orgWithoutPrivateKey } = org as Org;
+
+        return response<CreateOrgResponse>(res, {
+            data: orgWithoutPrivateKey,
             success: true,
             error: false,
             message: "Organization created successfully",

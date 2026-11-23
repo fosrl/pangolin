@@ -1,5 +1,6 @@
 import { logsDb, aiUsageRecords } from "@server/db";
 import { registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { and, count, desc, eq, sql } from "drizzle-orm";
@@ -161,6 +162,63 @@ async function query(data: Q) {
     };
 }
 
+const costUsd = z.number().openapi({ description: "Cost in US dollars." });
+
+const dayValueRows = (what: string) =>
+    z
+        .array(
+            z
+                .object({ day: z.string() })
+                .catchall(z.union([z.number(), z.string()]))
+        )
+        .openapi({
+            description: `One object per day, as YYYY-MM-DD in day, with one numeric property per series (${what}). Series outside the top entries are grouped under other.`
+        });
+
+const requests = z
+    .number()
+    .int()
+    .openapi({ description: "Number of requests." });
+
+const totalTokens = z
+    .number()
+    .int()
+    .openapi({ description: "Total tokens used." });
+
+const QueryAiUsageOverviewResponseDataSchema = z.object({
+    totalRequests: requests,
+    totalTokens,
+    totalCost: costUsd,
+    estimatedPercent: z.number().openapi({
+        description:
+            "Share of token counts that were estimated rather than reported by the provider."
+    }),
+    tokenBreakdown: z.object({
+        promptTokens: z.number().int(),
+        cacheReadTokens: z.number().int(),
+        cacheWriteTokens: z.number().int(),
+        completionTokens: z.number().int(),
+        reasoningTokens: z.number().int()
+    }),
+    requestsPerDay: z.array(z.object({ day: z.string(), requests })),
+    tokensPerDay: z.array(
+        z.object({
+            day: z.string(),
+            promptTokens: z.number().int(),
+            cacheReadTokens: z.number().int(),
+            cacheWriteTokens: z.number().int(),
+            completionTokens: z.number().int(),
+            reasoningTokens: z.number().int()
+        })
+    ),
+    costPerDay: z.array(z.object({ day: z.string(), cost: costUsd })),
+    modelCostPerDay: dayValueRows("one per model"),
+    modelTokensPerDay: dayValueRows("one per model"),
+    topModels: z.array(
+        z.object({ model: z.string(), requests, totalTokens, costUsd })
+    )
+});
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/ai/usage/overview",
@@ -170,25 +228,12 @@ registry.registerPath({
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(QueryAiUsageOverviewResponseDataSchema)
 });
 
-export type QueryAiUsageOverviewResponse = Awaited<ReturnType<typeof query>>;
+export type QueryAiUsageOverviewResponse = z.infer<
+    typeof QueryAiUsageOverviewResponseDataSchema
+>;
 
 export async function queryAiUsageOverview(
     req: Request,
@@ -199,14 +244,20 @@ export async function queryAiUsageOverview(
         const parsedQuery = aiUsageAnalyticsFiltersQuery.safeParse(req.query);
         if (!parsedQuery.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedQuery.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedQuery.error)
+                )
             );
         }
 
         const parsedParams = aiUsageAnalyticsParams.safeParse(req.params);
         if (!parsedParams.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedParams.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedParams.error)
+                )
             );
         }
 

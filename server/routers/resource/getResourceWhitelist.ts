@@ -13,6 +13,7 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const getResourceWhitelistSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -36,9 +37,20 @@ async function queryPolicyWhitelist(policyId: number) {
         .where(eq(resourcePolicyWhiteList.resourcePolicyId, policyId));
 }
 
-export type GetResourceWhitelistResponse = {
-    whitelist: NonNullable<Awaited<ReturnType<typeof queryWhitelist>>>;
-};
+export type GetResourceWhitelistResponse = z.infer<
+    typeof GetResourceWhitelistResponseDataSchema
+>;
+
+const GetResourceWhitelistResponseDataSchema = z.object({
+    whitelist: z.array(
+        z.object({
+            email: z.string().openapi({
+                description:
+                    "Email address allowed to sign in with a one-time password."
+            })
+        })
+    )
+});
 
 registry.registerPath({
     method: "get",
@@ -48,22 +60,7 @@ registry.registerPath({
     request: {
         params: getResourceWhitelistSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetResourceWhitelistResponseDataSchema)
 });
 
 registry.registerPath({
@@ -74,22 +71,7 @@ registry.registerPath({
     request: {
         params: getResourceWhitelistSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetResourceWhitelistResponseDataSchema)
 });
 
 export async function getResourceWhitelist(

@@ -8,6 +8,8 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { AiModelSelectionSchema } from "@server/routers/aiProvider/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listSiteResourceAiModelsParamsSchema = z.strictObject({
     siteResourceId: z.coerce.number().int().positive()
@@ -28,9 +30,13 @@ async function query(siteResourceId: number) {
         .where(eq(siteResourceAiModels.siteResourceId, siteResourceId));
 }
 
-export type ListSiteResourceAiModelsResponse = {
-    models: NonNullable<Awaited<ReturnType<typeof query>>>;
-};
+export type ListSiteResourceAiModelsResponse = z.infer<
+    typeof ListSiteResourceAiModelsResponseDataSchema
+>;
+
+const ListSiteResourceAiModelsResponseDataSchema = z.object({
+    models: z.array(AiModelSelectionSchema)
+});
 
 registry.registerPath({
     method: "get",
@@ -41,22 +47,9 @@ registry.registerPath({
     request: {
         params: listSiteResourceAiModelsParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListSiteResourceAiModelsResponseDataSchema
+    )
 });
 
 export async function listSiteResourceAiModels(

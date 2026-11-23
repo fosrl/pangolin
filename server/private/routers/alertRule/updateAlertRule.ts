@@ -189,9 +189,9 @@ const bodySchema = z
         }
     });
 
-export type UpdateAlertRuleResponse = {
-    alertRuleId: number;
-};
+export type UpdateAlertRuleResponse = z.infer<
+    typeof UpdateAlertRuleResponseDataSchema
+>;
 const UpdateAlertRuleResponseDataSchema = z.object({
     alertRuleId: z.number()
 });

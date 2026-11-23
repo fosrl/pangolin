@@ -1,5 +1,12 @@
-import { db, logsDb, aiUsageRecords, resources, siteResources } from "@server/db";
+import {
+    db,
+    logsDb,
+    aiUsageRecords,
+    resources,
+    siteResources
+} from "@server/db";
 import { registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { count, desc, inArray, sql } from "drizzle-orm";
@@ -49,7 +56,11 @@ async function query(data: Q) {
         })
         .from(aiUsageRecords)
         .where(baseConditions)
-        .groupBy(dayExpr, aiUsageRecords.resourceId, aiUsageRecords.siteResourceId)
+        .groupBy(
+            dayExpr,
+            aiUsageRecords.resourceId,
+            aiUsageRecords.siteResourceId
+        )
         .orderBy(dayExpr);
 
     const costTotals = new Map<string, number>();
@@ -157,34 +168,66 @@ async function query(data: Q) {
     };
 }
 
+const costUsd = z.number().openapi({ description: "Cost in US dollars." });
+
+const dayValueRows = (what: string) =>
+    z
+        .array(
+            z
+                .object({ day: z.string() })
+                .catchall(z.union([z.number(), z.string()]))
+        )
+        .openapi({
+            description: `One object per day, as YYYY-MM-DD in day, with one numeric property per series (${what}). Series outside the top entries are grouped under other.`
+        });
+
+const requests = z
+    .number()
+    .int()
+    .openapi({ description: "Number of requests." });
+
+const totalTokens = z
+    .number()
+    .int()
+    .openapi({ description: "Total tokens used." });
+
+const QueryAiUsageResourcesResponseDataSchema = z.object({
+    resourceCostPerDay: dayValueRows("one per resource"),
+    resourceTokensPerDay: dayValueRows("one per resource"),
+    topResources: z.array(
+        z.object({
+            key: z.string().openapi({
+                description: "Series key used in the per-day objects."
+            }),
+            resourceId: z.number().int().nullable(),
+            siteResourceId: z.number().int().nullable(),
+            type: z.enum(["public", "site"]).nullable(),
+            name: z.string().nullable(),
+            requests,
+            totalTokens,
+            costUsd
+        })
+    )
+});
+
 registry.registerPath({
     method: "get",
     path: "/org/{orgId}/logs/ai/usage/resources",
-    description: "Query the AI usage analytics resource breakdown for an organization",
+    description:
+        "Query the AI usage analytics resource breakdown for an organization",
     tags: [OpenAPITags.Logs],
     request: {
         query: aiUsageAnalyticsFiltersQuery,
         params: aiUsageAnalyticsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        QueryAiUsageResourcesResponseDataSchema
+    )
 });
 
-export type QueryAiUsageResourcesResponse = Awaited<ReturnType<typeof query>>;
+export type QueryAiUsageResourcesResponse = z.infer<
+    typeof QueryAiUsageResourcesResponseDataSchema
+>;
 
 export async function queryAiUsageResources(
     req: Request,
@@ -195,14 +238,20 @@ export async function queryAiUsageResources(
         const parsedQuery = aiUsageAnalyticsFiltersQuery.safeParse(req.query);
         if (!parsedQuery.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedQuery.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedQuery.error)
+                )
             );
         }
 
         const parsedParams = aiUsageAnalyticsParams.safeParse(req.params);
         if (!parsedParams.success) {
             return next(
-                createHttpError(HttpCode.BAD_REQUEST, fromError(parsedParams.error))
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedParams.error)
+                )
             );
         }
 

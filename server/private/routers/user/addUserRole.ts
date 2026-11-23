@@ -23,10 +23,13 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { UserOrgRoleSchema } from "@server/routers/user/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
 } from "@server/lib/rebuildClientAssociations";
+import { AddUserRoleResponse } from "@server/routers/user/types";
 
 const addUserRoleParamsSchema = z.strictObject({
     userId: z.string(),
@@ -41,22 +44,7 @@ registry.registerPath({
     request: {
         params: addUserRoleParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(UserOrgRoleSchema)
 });
 
 export async function addUserRole(
@@ -182,7 +170,7 @@ export async function addUserRole(
             });
         }
 
-        return response(res, {
+        return response<AddUserRoleResponse>(res, {
             data: newUserRole ?? { userId, orgId: role.orgId, roleId },
             success: true,
             error: false,

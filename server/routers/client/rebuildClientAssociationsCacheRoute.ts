@@ -9,7 +9,14 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
-import { rebuildClientAssociationsFromClient, isOrgRebuildRateLimited } from "@server/lib/rebuildClientAssociations";
+import {
+    createApiSuccessResponses,
+    NullDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
+import {
+    rebuildClientAssociationsFromClient,
+    isOrgRebuildRateLimited
+} from "@server/lib/rebuildClientAssociations";
 
 const paramsSchema = z.strictObject({
     clientId: z.string().transform(Number).pipe(z.int().positive())
@@ -24,7 +31,7 @@ registry.registerPath({
     request: {
         params: paramsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(NullDataSchema)
 });
 
 export async function rebuildClientAssociationsCacheRoute(

@@ -40,10 +40,9 @@ function queryActions(apiKeyId: string) {
         .innerJoin(actions, eq(actions.actionId, apiKeyActions.actionId));
 }
 
-export type ListApiKeyActionsResponse = {
-    actions: Awaited<ReturnType<typeof queryActions>>;
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListApiKeyActionsResponse = z.infer<
+    typeof ListApiKeyActionsResponseDataSchema
+>;
 
 const ListApiKeyActionsResponseDataSchema = z.object({
     actions: z.array(
@@ -64,7 +63,7 @@ registry.registerPath({
     description: "List all actions set for an API key.",
     tags: [OpenAPITags.ApiKey],
     request: {
-        params: paramsSchema,
+        params: paramsSchema.extend({ orgId: z.string() }),
         query: querySchema
     },
     responses: {

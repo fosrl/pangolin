@@ -21,8 +21,11 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
-import type {
-    ListResourcePoliciesResponse,
+import { PaginationSchema } from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
+import {
+    ListResourcePoliciesResponseDataSchema,
+    type ListResourcePoliciesResponse,
     ResourcePolicyWithResources
 } from "@server/routers/resource/types";
 import HttpCode from "@server/types/HttpCode";
@@ -86,7 +89,7 @@ registry.registerPath({
         }),
         query: listResourcePoliciesSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(ListResourcePoliciesResponseDataSchema)
 });
 
 export async function listResourcePolicies(

@@ -64,9 +64,9 @@ const bodySchema = z
         }
     });
 
-export type CreateHealthCheckResponse = {
-    targetHealthCheckId: number;
-};
+export type CreateHealthCheckResponse = z.infer<
+    typeof CreateHealthCheckResponseDataSchema
+>;
 const CreateHealthCheckResponseDataSchema = z.object({
     targetHealthCheckId: z.number()
 });

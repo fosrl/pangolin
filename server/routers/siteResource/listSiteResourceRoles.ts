@@ -9,6 +9,9 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
+import { RoleSummarySchema } from "@server/routers/role/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listSiteResourceRolesSchema = z
     .object({
@@ -32,9 +35,13 @@ async function query(siteResourceId: number) {
         .where(eq(roleSiteResources.siteResourceId, siteResourceId));
 }
 
-export type ListSiteResourceRolesResponse = {
-    roles: NonNullable<Awaited<ReturnType<typeof query>>>;
-};
+export type ListSiteResourceRolesResponse = z.infer<
+    typeof ListSiteResourceRolesResponseDataSchema
+>;
+
+const ListSiteResourceRolesResponseDataSchema = z.object({
+    roles: z.array(RoleSummarySchema)
+});
 
 registry.registerPath({
     method: "get",
@@ -44,22 +51,9 @@ registry.registerPath({
     request: {
         params: listSiteResourceRolesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListSiteResourceRolesResponseDataSchema
+    )
 });
 
 registry.registerPath({
@@ -68,24 +62,11 @@ registry.registerPath({
     description: "List all roles for a site resource.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Role],
     request: {
-        params: listSiteResourceRolesSchema
+        params: PrivateResourceIdParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        ListSiteResourceRolesResponseDataSchema
+    )
 });
 
 export async function listSiteResourceRoles(

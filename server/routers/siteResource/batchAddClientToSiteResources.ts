@@ -15,6 +15,7 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { eq, and, inArray } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
@@ -34,6 +35,24 @@ const batchAddClientToSiteResourcesBodySchema = z
     })
     .strict();
 
+const BatchAddClientToSiteResourcesResponseDataSchema = z.object({
+    addedCount: z.number().int().openapi({
+        description:
+            "Number of private resources the client was newly added to."
+    }),
+    skippedCount: z.number().int().openapi({
+        description:
+            "Number of requested private resources skipped because the client already had access."
+    }),
+    siteResourceIds: z.array(z.number().int()).openapi({
+        description: "IDs of the private resources the client was added to."
+    })
+});
+
+export type BatchAddClientToSiteResourcesResponse = z.infer<
+    typeof BatchAddClientToSiteResourcesResponseDataSchema
+>;
+
 registry.registerPath({
     method: "post",
     path: "/client/{clientId}/site-resources",
@@ -49,22 +68,10 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        BatchAddClientToSiteResourcesResponseDataSchema,
+        201
+    )
 });
 
 registry.registerPath({
@@ -82,22 +89,10 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(
+        BatchAddClientToSiteResourcesResponseDataSchema,
+        201
+    )
 });
 
 export async function batchAddClientToSiteResources(
@@ -286,7 +281,7 @@ export async function batchAddClientToSiteResources(
             );
         });
 
-        return response(res, {
+        return response<BatchAddClientToSiteResourcesResponse>(res, {
             data: {
                 addedCount: siteResourcesToAdd.length,
                 skippedCount:

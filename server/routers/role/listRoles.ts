@@ -2,6 +2,8 @@ import { db, orgs, roleActions, roles } from "@server/db";
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PaginationSchema } from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { ActionsEnum } from "@server/auth/actions";
@@ -10,6 +12,7 @@ import createHttpError from "http-errors";
 import { object, z } from "zod";
 import { fromError } from "zod-validation-error";
 import type { PaginatedResponse } from "@server/types/Pagination";
+import { RoleSchema } from "@server/routers/role/types";
 
 const listRolesParamsSchema = z.strictObject({
     orgId: z.string()
@@ -85,9 +88,21 @@ function queryRolesBase() {
     // .offset(offset);
 }
 
-export type ListRolesResponse = PaginatedResponse<{
-    roles: NonNullable<Awaited<ReturnType<typeof queryRolesBase>>>;
-}>;
+export type ListRolesResponse = z.infer<typeof ListRolesResponseDataSchema>;
+
+const RoleListItemSchema = RoleSchema.extend({
+    orgName: z.string().nullable().openapi({
+        description: "Name of the organization the role belongs to."
+    }),
+    allowSsh: z.boolean().openapi({
+        description: "Whether users with this role may sign SSH keys."
+    })
+});
+
+const ListRolesResponseDataSchema = z.object({
+    roles: z.array(RoleListItemSchema),
+    pagination: PaginationSchema
+});
 
 registry.registerPath({
     method: "get",
@@ -98,22 +113,7 @@ registry.registerPath({
         params: listRolesParamsSchema,
         query: listRolesSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListRolesResponseDataSchema)
 });
 
 export async function listRoles(
@@ -177,7 +177,7 @@ export async function listRoles(
             rolesListQuery
         ]);
 
-        let rolesWithAllowSsh = rolesList;
+        let rolesWithAllowSsh: ListRolesResponse["roles"] = [];
         if (rolesList.length > 0) {
             const roleIds = rolesList.map((r) => r.roleId);
             const signSshKeyRows = await db
@@ -196,7 +196,7 @@ export async function listRoles(
             }));
         }
 
-        return response(res, {
+        return response<ListRolesResponse>(res, {
             data: {
                 roles: rolesWithAllowSsh,
                 pagination: {

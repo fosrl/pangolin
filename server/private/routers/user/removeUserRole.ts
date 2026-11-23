@@ -23,12 +23,16 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { UserOrgRoleSchema } from "@server/routers/user/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { rebuildClientAssociationsFromClient } from "@server/lib/rebuildClientAssociations";
 
 const removeUserRoleParamsSchema = z.strictObject({
     userId: z.string(),
     roleId: z.coerce.number()
 });
+
+export type RemoveUserRoleResponse = z.infer<typeof UserOrgRoleSchema>;
 
 registry.registerPath({
     method: "delete",
@@ -39,22 +43,7 @@ registry.registerPath({
     request: {
         params: removeUserRoleParamsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(UserOrgRoleSchema)
 });
 
 export async function removeUserRole(
@@ -177,7 +166,7 @@ export async function removeUserRole(
             });
         }
 
-        return response(res, {
+        return response<RemoveUserRoleResponse>(res, {
             data: { userId, orgId: role.orgId, roleId },
             success: true,
             error: false,

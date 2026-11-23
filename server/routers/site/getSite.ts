@@ -10,6 +10,8 @@ import logger from "@server/logger";
 import stoi from "@server/lib/stoi";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { SiteSchema } from "@server/routers/site/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { getCountryCodeForIp } from "@server/lib/geoip";
 
 const getSiteSchema = z.strictObject({
@@ -43,15 +45,26 @@ async function query(siteId?: number, niceId?: string, orgId?: string) {
     }
 }
 
-type SiteQueryRow = NonNullable<Awaited<ReturnType<typeof query>>>;
+export type GetSiteResponse = z.infer<typeof GetSiteResponseDataSchema>;
 
-export type GetSiteResponse = SiteQueryRow["sites"] & {
-    newtId: string | null;
-    newtVersion: string | null;
-    agent: string | null;
-    agentVersion: string | null;
-    countryCode: string | null;
-};
+const GetSiteResponseDataSchema = SiteSchema.extend({
+    newtId: z.string().nullable().openapi({
+        description: "ID of the Newt agent connected to this site."
+    }),
+    newtVersion: z.string().nullable().openapi({
+        description: "Version of the Newt agent."
+    }),
+    agent: z.string().nullable().openapi({
+        description: "Name of the agent software."
+    }),
+    agentVersion: z.string().nullable().openapi({
+        description: "Version of the agent software."
+    }),
+    countryCode: z.string().nullable().openapi({
+        description:
+            "Two letter country code resolved from the site's endpoint IP."
+    })
+});
 
 registry.registerPath({
     method: "get",
@@ -65,22 +78,7 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetSiteResponseDataSchema)
 });
 
 registry.registerPath({
@@ -93,22 +91,7 @@ registry.registerPath({
             siteId: z.number()
         })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(GetSiteResponseDataSchema)
 });
 
 export async function getSite(

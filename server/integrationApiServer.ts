@@ -18,6 +18,7 @@ import path from "path";
 import { APP_PATH } from "./lib/consts";
 import * as yaml from "js-yaml";
 import { z } from "zod";
+import { stripIntegerBounds } from "./lib/openapi/stripIntegerBounds";
 
 const dev = process.env.ENVIRONMENT !== "prod";
 const externalPort = config.getRawConfig().server.integration_port;
@@ -175,15 +176,17 @@ function getOpenApiDocumentation() {
 
     const generator = new OpenApiGeneratorV3(registry.definitions);
 
-    const generated = generator.generateDocument({
-        openapi: "3.0.0",
-        info: {
-            version: "v1",
-            title: "Pangolin Integration API"
-        },
-        servers: [{ url: "/v1" }],
-        tags: openApiTags
-    });
+    const generated = stripIntegerBounds(
+        generator.generateDocument({
+            openapi: "3.0.0",
+            info: {
+                version: "v1",
+                title: "Pangolin Integration API"
+            },
+            servers: [{ url: "/v1" }],
+            tags: openApiTags
+        })
+    );
 
     if (!process.env.DISABLE_GEN_OPENAPI) {
         // convert to yaml and save to file

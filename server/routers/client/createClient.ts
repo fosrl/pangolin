@@ -24,6 +24,8 @@ import { isIpInCidr } from "@server/lib/ip";
 import { listExitNodes } from "#dynamic/lib/exitNodes";
 import { generateId } from "@server/auth/sessions/app";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ClientSchema } from "@server/routers/client/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
@@ -47,7 +49,7 @@ const createClientSchema = z.strictObject({
 
 export type CreateClientBody = z.infer<typeof createClientSchema>;
 
-export type CreateClientResponse = Client;
+export type CreateClientResponse = z.infer<typeof ClientSchema>;
 
 registry.registerPath({
     method: "put",
@@ -64,22 +66,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ClientSchema, 201)
 });
 
 export async function createClient(

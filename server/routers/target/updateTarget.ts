@@ -19,6 +19,8 @@ import {
 import { pickPort } from "./helpers";
 import { isTargetValid } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
+import { TargetWithHealthCheckSchema } from "@server/routers/target/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
 
 const updateTargetParamsSchema = z.strictObject({
@@ -71,6 +73,8 @@ const updateTargetBodySchema = z
         error: "At least one field must be provided for update"
     });
 
+export type UpdateTargetResponse = z.infer<typeof TargetWithHealthCheckSchema>;
+
 registry.registerPath({
     method: "post",
     path: "/target/{targetId}",
@@ -86,22 +90,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(TargetWithHealthCheckSchema)
 });
 
 export async function updateTarget(
@@ -466,7 +455,7 @@ export async function updateTarget(
             }
         }
 
-        return response(res, {
+        return response<UpdateTargetResponse>(res, {
             data: {
                 ...updatedTarget,
                 ...updatedHc

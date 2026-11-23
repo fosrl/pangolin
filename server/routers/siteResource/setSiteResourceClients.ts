@@ -8,6 +8,11 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { eq, inArray } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
+import { PrivateResourceIdParamsSchema } from "@server/routers/siteResource/types";
+import {
+    createApiSuccessResponses,
+    EmptyDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 import {
     rebuildClientAssociationsFromSiteResource,
     isOrgRebuildRateLimited
@@ -44,22 +49,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema, 201)
 });
 
 registry.registerPath({
@@ -69,7 +59,7 @@ registry.registerPath({
         "Set clients for a site resource. This will replace all existing clients. Clients with a userId cannot be added.",
     tags: [OpenAPITags.PrivateResource, OpenAPITags.Client],
     request: {
-        params: setSiteResourceClientsParamsSchema,
+        params: PrivateResourceIdParamsSchema,
         body: {
             content: {
                 "application/json": {
@@ -78,22 +68,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(EmptyDataSchema, 201)
 });
 
 export async function setSiteResourceClients(

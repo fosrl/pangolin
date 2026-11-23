@@ -13,6 +13,8 @@
 
 import { logsDb, sshCommandLog, sshSessionLog } from "@server/db";
 import { registry } from "@server/openApi";
+import { SshSessionCommandsSchema } from "@server/routers/auditLogs/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { NextFunction } from "express";
 import { Request, Response } from "express";
 import { and, asc, count, eq } from "drizzle-orm";
@@ -54,22 +56,7 @@ registry.registerPath({
         query: querySshSessionCommandsQuery,
         params: querySshSessionCommandsParams
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(SshSessionCommandsSchema)
 });
 
 export async function querySshSessionCommands(

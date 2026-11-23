@@ -18,18 +18,9 @@ import { z } from "zod";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 import { listExitNodes } from "#dynamic/lib/exitNodes";
 
-export type PickSiteDefaultsResponse = {
-    exitNodeId: number;
-    address: string;
-    publicKey: string;
-    name: string;
-    listenPort: number;
-    endpoint: string;
-    subnet: string; // TODO: make optional?
-    newtId: string;
-    newtSecret: string;
-    clientAddress?: string;
-};
+export type PickSiteDefaultsResponse = z.infer<
+    typeof PickSiteDefaultsResponseDataSchema
+>;
 const PickSiteDefaultsResponseDataSchema = z.object({
     exitNodeId: z.number(),
     address: z.string(),

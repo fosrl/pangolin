@@ -14,6 +14,9 @@ import {
     ResourceRuleMatchType
 } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourceRuleSchema } from "@server/routers/resource/types";
+import { ResourcePolicyRuleSchema } from "@server/routers/policy/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 // Define Zod schema for request parameters validation
 const updateResourceRuleParamsSchema = z.strictObject({
@@ -36,6 +39,16 @@ const updateResourceRuleSchema = z
         error: "At least one field must be provided for update"
     });
 
+// A resource that uses a policy has its rules stored on the policy
+const UpdateResourceRuleResponseDataSchema = z.union([
+    ResourceRuleSchema,
+    ResourcePolicyRuleSchema
+]);
+
+export type UpdateResourceRuleResponse = z.infer<
+    typeof UpdateResourceRuleResponseDataSchema
+>;
+
 registry.registerPath({
     method: "post",
     path: "/resource/{resourceId}/rule/{ruleId}",
@@ -51,22 +64,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(UpdateResourceRuleResponseDataSchema)
 });
 
 registry.registerPath({
@@ -84,22 +82,7 @@ registry.registerPath({
             }
         }
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(UpdateResourceRuleResponseDataSchema)
 });
 
 export async function updateResourceRule(
@@ -285,7 +268,7 @@ export async function updateResourceRule(
                   )
                   .returning();
 
-        return response(res, {
+        return response<UpdateResourceRuleResponse>(res, {
             data: updatedRule,
             success: true,
             error: false,

@@ -19,8 +19,14 @@ import {
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    PaginationSchema,
+    LimitOffsetPaginationSchema
+} from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import type { PaginatedResponse } from "@server/types/Pagination";
 import { UserType } from "@server/types/UserTypes";
+import { createSelectSchema } from "drizzle-zod";
 
 const listUsersParamsSchema = z.strictObject({
     orgId: z.string()
@@ -150,16 +156,82 @@ function queryUsersBase() {
         .leftJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId));
 }
 
-export type ListUsersResponse = PaginatedResponse<{
-    users: Array<
-        NonNullable<Awaited<ReturnType<typeof queryUsersBase>>>[number] & {
-            roles: Array<{
-                roleId: number;
-                roleName: string;
-            }>;
-        }
-    >;
-}>;
+export type ListUsersResponse = z.infer<typeof ListUsersResponseDataSchema>;
+
+const OrgUserListItemSchema = createSelectSchema(users, {
+    email: (s) => s.openapi({ description: "Email of the user." }),
+    emailVerified: (s) =>
+        s.openapi({ description: "Whether the user's email is verified." }),
+    dateCreated: (s) =>
+        s.openapi({ description: "ISO timestamp when the user was created." }),
+    username: (s) => s.openapi({ description: "Username of the user." }),
+    name: (s) => s.openapi({ description: "Display name of the user." }),
+    type: (s) =>
+        s.openapi({
+            description:
+                "How the user signs in, either an internal account or an identity provider type (e.g. oidc)."
+        }),
+    idpId: (s) =>
+        s.openapi({
+            description:
+                "ID of the identity provider the user belongs to. Null for internal users."
+        }),
+    twoFactorEnabled: (s) =>
+        s.openapi({
+            description:
+                "Whether the user has two-factor authentication enabled."
+        })
+})
+    .pick({
+        email: true,
+        emailVerified: true,
+        dateCreated: true,
+        username: true,
+        name: true,
+        type: true,
+        idpId: true,
+        twoFactorEnabled: true
+    })
+    .extend({
+        id: z.string().openapi({ description: "ID of the user." }),
+        orgId: z
+            .string()
+            .nullable()
+            .openapi({ description: "ID of the organization." }),
+        isOwner: z
+            .boolean()
+            .openapi({
+                description: "Whether the user owns the organization."
+            })
+            .nullable(),
+        idpName: z.string().nullable().openapi({
+            description:
+                "Name of the identity provider the user belongs to. Null for internal users."
+        }),
+        idpType: z.string().nullable().openapi({
+            description: "Type of the identity provider the user belongs to."
+        }),
+        idpVariant: z.string().nullable().openapi({
+            description:
+                "Variant of the identity provider (for example the OIDC flavor)."
+        }),
+        roles: z
+            .array(
+                z.object({
+                    roleId: z
+                        .number()
+                        .int()
+                        .openapi({ description: "Numeric ID of the role." }),
+                    roleName: z.string().openapi({ description: "Role name." })
+                })
+            )
+            .openapi({ description: "Roles the user has in the organization." })
+    });
+
+const ListUsersResponseDataSchema = z.object({
+    users: z.array(OrgUserListItemSchema),
+    pagination: PaginationSchema
+});
 
 registry.registerPath({
     method: "get",
@@ -170,22 +242,7 @@ registry.registerPath({
         params: listUsersParamsSchema,
         query: listUsersSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListUsersResponseDataSchema)
 });
 
 export async function listUsers(

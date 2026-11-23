@@ -9,6 +9,8 @@ import { sql, inArray, eq } from "drizzle-orm";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import { OrgSchema } from "@server/routers/org/types";
+import { LimitOffsetPaginationSchema } from "@server/lib/openapi/pagination";
 import { createApiResponseSchema } from "@server/lib/openapi/createApiResponseSchema";
 
 const listOrgsSchema = z.strictObject({
@@ -27,12 +29,8 @@ const listOrgsSchema = z.strictObject({
 });
 
 const ListOrgsResponseDataSchema = z.object({
-    orgs: z.array(z.object({}).passthrough()),
-    pagination: z.object({
-        total: z.number(),
-        limit: z.number(),
-        offset: z.number()
-    })
+    orgs: z.array(OrgSchema),
+    pagination: LimitOffsetPaginationSchema
 });
 
 registry.registerPath({
@@ -55,10 +53,7 @@ registry.registerPath({
     }
 });
 
-export type ListOrgsResponse = {
-    orgs: Org[];
-    pagination: { total: number; limit: number; offset: number };
-};
+export type ListOrgsResponse = z.infer<typeof ListOrgsResponseDataSchema>;
 
 export async function listOrgs(
     req: Request,
@@ -91,7 +86,10 @@ export async function listOrgs(
 
         return response<ListOrgsResponse>(res, {
             data: {
-                orgs: organizations,
+                // sshCaPrivateKey is encrypted, but it should never leave the server
+                orgs: organizations.map(
+                    ({ sshCaPrivateKey: _, ...org }) => org
+                ),
                 pagination: {
                     total: totalCount,
                     limit,

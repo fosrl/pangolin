@@ -6,21 +6,31 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { eq } from "drizzle-orm";
 import type { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import z from "zod";
 import { fromError } from "zod-validation-error";
+import { ResourcePolicyDetailSchema } from "@server/routers/policy/types";
 
 const getResourcePoliciesParamsSchema = z.strictObject({
     resourceId: z.string().transform(Number).pipe(z.int().positive())
 });
 
-export type GetResourcePoliciesResponse = {
-    defaultPolicy: GetResourcePolicyResponse;
-    sharedPolicy: GetResourcePolicyResponse | null;
-};
+export type GetResourcePoliciesResponse = z.infer<
+    typeof GetResourcePoliciesResponseDataSchema
+>;
+
+const GetResourcePoliciesResponseDataSchema = z.object({
+    defaultPolicy: ResourcePolicyDetailSchema.openapi({
+        description: "The resource's own inline policy."
+    }),
+    sharedPolicy: ResourcePolicyDetailSchema.nullable().openapi({
+        description: "The shared policy attached to the resource, if any."
+    })
+});
 
 registry.registerPath({
     method: "get",
@@ -31,7 +41,7 @@ registry.registerPath({
     request: {
         params: getResourcePoliciesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(GetResourcePoliciesResponseDataSchema)
 });
 
 registry.registerPath({
@@ -43,7 +53,7 @@ registry.registerPath({
     request: {
         params: getResourcePoliciesParamsSchema
     },
-    responses: {}
+    responses: createApiSuccessResponses(GetResourcePoliciesResponseDataSchema)
 });
 
 export async function getResourcePolicies(

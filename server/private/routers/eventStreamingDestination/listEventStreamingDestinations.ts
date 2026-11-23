@@ -45,29 +45,9 @@ const querySchema = z.strictObject({
         .pipe(z.int().nonnegative())
 });
 
-export type ListEventStreamingDestinationsResponse = {
-    destinations: {
-        destinationId: number;
-        orgId: string;
-        type: string;
-        config: string;
-        enabled: boolean;
-        lastError: string | null;
-        lastErrorAt: number | null;
-        createdAt: number;
-        updatedAt: number;
-        sendConnectionLogs: boolean;
-        sendRequestLogs: boolean;
-        sendActionLogs: boolean;
-        sendAccessLogs: boolean;
-        sendAISessionLogs: boolean;
-    }[];
-    pagination: {
-        total: number;
-        limit: number;
-        offset: number;
-    };
-};
+export type ListEventStreamingDestinationsResponse = z.infer<
+    typeof ListEventStreamingDestinationsResponseDataSchema
+>;
 
 const ListEventStreamingDestinationsResponseDataSchema = z.object({
     destinations: z.array(

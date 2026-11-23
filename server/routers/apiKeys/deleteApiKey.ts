@@ -9,6 +9,10 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    createApiSuccessResponses,
+    NullDataSchema
+} from "@server/lib/openapi/createApiResponseSchema";
 
 const paramsSchema = z.object({
     apiKeyId: z.string().nonempty()
@@ -20,24 +24,9 @@ registry.registerPath({
     description: "Delete an API key.",
     tags: [OpenAPITags.ApiKey],
     request: {
-        params: paramsSchema
+        params: paramsSchema.extend({ orgId: z.string() })
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(NullDataSchema)
 });
 
 export async function deleteApiKey(

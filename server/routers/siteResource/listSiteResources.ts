@@ -8,6 +8,7 @@ import {
     userSiteResources
 } from "@server/db";
 import { siteResources, sites, SiteResource } from "@server/db";
+import { createSelectSchema } from "drizzle-zod";
 import response from "@server/lib/response";
 import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
@@ -15,6 +16,8 @@ import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { SiteResourceSchema } from "@server/routers/siteResource/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 
 const listSiteResourcesParamsSchema = z.strictObject({
     siteId: z.coerce.number().int().positive(),
@@ -65,9 +68,26 @@ const listSiteResourcesQuerySchema = z.strictObject({
         })
 });
 
-export type ListSiteResourcesResponse = {
-    siteResources: SiteResource[];
-};
+export type ListSiteResourcesResponse = z.infer<
+    typeof ListSiteResourcesResponseDataSchema
+>;
+
+// The handler returns the joined rows as they come out of the query, so each
+// item holds the network, the site link and the private resource.
+const ListSiteResourcesResponseDataSchema = z.object({
+    siteResources: z.array(
+        z.object({
+            networks: createSelectSchema(networks, {
+                scope: z.enum(["global", "resource"]).openapi({
+                    description:
+                        "global networks are shared. resource networks belong to a single private resource."
+                })
+            }),
+            siteNetworks: createSelectSchema(siteNetworks),
+            siteResources: SiteResourceSchema
+        })
+    )
+});
 
 registry.registerPath({
     method: "get",
@@ -78,22 +98,7 @@ registry.registerPath({
         params: listSiteResourcesParamsSchema,
         query: listSiteResourcesQuerySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListSiteResourcesResponseDataSchema)
 });
 
 registry.registerPath({
@@ -105,22 +110,7 @@ registry.registerPath({
         params: listSiteResourcesParamsSchema,
         query: listSiteResourcesQuerySchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListSiteResourcesResponseDataSchema)
 });
 
 export async function listSiteResources(
@@ -231,7 +221,7 @@ export async function listSiteResources(
             .limit(limit)
             .offset(offset);
 
-        return response(res, {
+        return response<ListSiteResourcesResponse>(res, {
             data: { siteResources: siteResourcesList },
             success: true,
             error: false,

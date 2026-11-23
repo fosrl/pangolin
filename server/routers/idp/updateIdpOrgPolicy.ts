@@ -21,9 +21,10 @@ const bodySchema = z.strictObject({
     orgMapping: z.string().optional()
 });
 
-export type UpdateIdpOrgPolicyResponse = {};
+export type UpdateIdpOrgPolicyResponse = z.infer<
+    typeof UpdateIdpOrgPolicyResponseDataSchema
+>;
 const UpdateIdpOrgPolicyResponseDataSchema = z.object({});
-
 
 registry.registerPath({
     method: "post",
@@ -45,7 +46,9 @@ registry.registerPath({
             description: "Successful response",
             content: {
                 "application/json": {
-                    schema: createApiResponseSchema(UpdateIdpOrgPolicyResponseDataSchema)
+                    schema: createApiResponseSchema(
+                        UpdateIdpOrgPolicyResponseDataSchema
+                    )
                 }
             }
         }

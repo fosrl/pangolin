@@ -15,6 +15,8 @@ import {
 import response from "@server/lib/response";
 import logger from "@server/logger";
 import { OpenAPITags, registry } from "@server/openApi";
+import { ResourcePolicyDetailSchema } from "@server/routers/policy/types";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import HttpCode from "@server/types/HttpCode";
 import { and, eq, isNull, not, or, type SQL } from "drizzle-orm";
 import type { NextFunction, Request, Response } from "express";
@@ -160,8 +162,8 @@ export async function queryResourcePolicy(
     };
 }
 
-export type GetResourcePolicyResponse = NonNullable<
-    Awaited<ReturnType<typeof queryResourcePolicy>>
+export type GetResourcePolicyResponse = z.infer<
+    typeof ResourcePolicyDetailSchema
 >;
 
 registry.registerPath({
@@ -176,7 +178,7 @@ registry.registerPath({
             niceId: z.string()
         })
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicyDetailSchema)
 });
 
 registry.registerPath({
@@ -189,7 +191,7 @@ registry.registerPath({
             resourcePolicyId: z.number()
         })
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicyDetailSchema)
 });
 
 registry.registerPath({
@@ -202,7 +204,7 @@ registry.registerPath({
             resourcePolicyId: z.number()
         })
     },
-    responses: {}
+    responses: createApiSuccessResponses(ResourcePolicyDetailSchema)
 });
 
 export async function getResourcePolicy(

@@ -27,12 +27,18 @@ import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
+import {
+    LimitOffsetPaginationSchema,
+    PaginationSchema
+} from "@server/lib/openapi/pagination";
+import { createApiSuccessResponses } from "@server/lib/openapi/createApiResponseSchema";
 import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { ListAlertRulesResponse } from "@server/routers/alertRule/types";
 import {
     getAlertRuleIdsForLabels,
     getAlertSourceLabelIds
 } from "#private/lib/alerts/sourceLabels";
+import { ListAlertRulesResponseDataSchema } from "@server/routers/alertRule/types";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -100,22 +106,7 @@ registry.registerPath({
         query: querySchema,
         params: paramsSchema
     },
-    responses: {
-        200: {
-            description: "Successful response",
-            content: {
-                "application/json": {
-                    schema: z.object({
-                        data: z.record(z.string(), z.any()).nullable(),
-                        success: z.boolean(),
-                        error: z.boolean(),
-                        message: z.string(),
-                        status: z.number()
-                    })
-                }
-            }
-        }
-    }
+    responses: createApiSuccessResponses(ListAlertRulesResponseDataSchema)
 });
 
 export async function listAlertRules(
