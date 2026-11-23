@@ -367,6 +367,14 @@ jobs:
                       skopeo copy --all --retry-times 3 \
                         docker://$DOCKERHUB_IMAGE:ee-postgresql-$TAG \
                         docker://$GHCR_IMAGE:ee-postgresql-$TAG
+
+                      # Version-first tags (e.g. 1.2.3-rc.1-ee) so Renovate/Dependabot can parse them
+                      for VARIANT in "ee" "ee-postgresql"; do
+                          echo "Copying ${{ env.DOCKERHUB_IMAGE }}:${TAG}-${VARIANT} -> ${{ env.GHCR_IMAGE }}:${TAG}-${VARIANT}"
+                          skopeo copy --all --retry-times 3 \
+                            docker://$DOCKERHUB_IMAGE:$TAG-$VARIANT \
+                            docker://$GHCR_IMAGE:$TAG-$VARIANT
+                      done
                   else
                       echo "Regular release detected - copying all tags (latest, major, minor, full version)"
 
@@ -400,6 +408,16 @@ jobs:
                           skopeo copy --all --retry-times 3 \
                             docker://$DOCKERHUB_IMAGE:ee-postgresql-$TAG_SUFFIX \
                             docker://$GHCR_IMAGE:ee-postgresql-$TAG_SUFFIX
+                      done
+
+                      # Version-first tags (e.g. 1.2.3-ee) so Renovate/Dependabot can parse them
+                      for TAG_SUFFIX in "$MAJOR_TAG" "$MINOR_TAG" "$TAG"; do
+                          for VARIANT in "ee" "ee-postgresql"; do
+                              echo "Copying ${{ env.DOCKERHUB_IMAGE }}:${TAG_SUFFIX}-${VARIANT} -> ${{ env.GHCR_IMAGE }}:${TAG_SUFFIX}-${VARIANT}"
+                              skopeo copy --all --retry-times 3 \
+                                docker://$DOCKERHUB_IMAGE:$TAG_SUFFIX-$VARIANT \
+                                docker://$GHCR_IMAGE:$TAG_SUFFIX-$VARIANT
+                          done
                       done
                   fi
 
@@ -442,6 +460,8 @@ jobs:
                           "postgresql-${TAG}"
                           "ee-${TAG}"
                           "ee-postgresql-${TAG}"
+                          "${TAG}-ee"
+                          "${TAG}-ee-postgresql"
                       )
                   else
                       echo "Regular release - signing all tags"
@@ -452,35 +472,48 @@ jobs:
                           "postgresql-latest" "postgresql-$MAJOR_TAG" "postgresql-$MINOR_TAG" "postgresql-$TAG"
                           "ee-latest" "ee-$MAJOR_TAG" "ee-$MINOR_TAG" "ee-$TAG"
                           "ee-postgresql-latest" "ee-postgresql-$MAJOR_TAG" "ee-postgresql-$MINOR_TAG" "ee-postgresql-$TAG"
+                          "$MAJOR_TAG-ee" "$MINOR_TAG-ee" "$TAG-ee"
+                          "$MAJOR_TAG-ee-postgresql" "$MINOR_TAG-ee-postgresql" "$TAG-ee-postgresql"
                       )
                   fi
 
                   FAILED_TAGS=()
                   SUCCESSFUL_TAGS=()
+                  # Many tags share a digest (latest/major/minor/full, old and new naming).
+                  # Sign each digest once; later tags with the same digest are already covered.
+                  declare -A SIGNED_DIGESTS=()
 
                   for IMAGE_TAG in "${IMAGE_TAGS[@]}"; do
                     echo "Processing ${GHCR_IMAGE}:${IMAGE_TAG}"
-                    TAG_FAILED=false
 
-                    (
-                      set -e
-                      DIGEST="$(skopeo inspect --retry-times 3 docker://${GHCR_IMAGE}:${IMAGE_TAG} | jq -r '.Digest')"
-                      REF="${GHCR_IMAGE}@${DIGEST}"
-                      echo "Resolved digest: ${REF}"
+                    if ! DIGEST="$(skopeo inspect --retry-times 3 docker://${GHCR_IMAGE}:${IMAGE_TAG} | jq -r '.Digest')" \
+                        || [ -z "$DIGEST" ] || [ "$DIGEST" = "null" ]; then
+                      echo "⚠️  WARNING: Failed to resolve digest for ${GHCR_IMAGE}:${IMAGE_TAG}"
+                      FAILED_TAGS+=("${GHCR_IMAGE}:${IMAGE_TAG}")
+                      continue
+                    fi
 
-                      echo "==> cosign sign (keyless) --recursive ${REF}"
-                      cosign sign --recursive "${REF}"
-                    ) || TAG_FAILED=true
+                    REF="${GHCR_IMAGE}@${DIGEST}"
+                    echo "Resolved digest: ${REF}"
 
-                    if [ "$TAG_FAILED" = "true" ]; then
+                    if [ -n "${SIGNED_DIGESTS[$DIGEST]:-}" ]; then
+                      echo "✓ ${GHCR_IMAGE}:${IMAGE_TAG} already covered (digest signed via ${SIGNED_DIGESTS[$DIGEST]})"
+                      SUCCESSFUL_TAGS+=("${GHCR_IMAGE}:${IMAGE_TAG}")
+                      continue
+                    fi
+
+                    echo "==> cosign sign (keyless) --recursive ${REF}"
+                    if cosign sign --recursive "${REF}"; then
+                      echo "✓ Successfully signed ${GHCR_IMAGE}:${IMAGE_TAG}"
+                      SIGNED_DIGESTS[$DIGEST]="$IMAGE_TAG"
+                      SUCCESSFUL_TAGS+=("${GHCR_IMAGE}:${IMAGE_TAG}")
+                    else
                       echo "⚠️  WARNING: Failed to sign ${GHCR_IMAGE}:${IMAGE_TAG}"
                       FAILED_TAGS+=("${GHCR_IMAGE}:${IMAGE_TAG}")
-                    else
-                      echo "✓ Successfully signed ${GHCR_IMAGE}:${IMAGE_TAG}"
-                      SUCCESSFUL_TAGS+=("${GHCR_IMAGE}:${IMAGE_TAG}")
                     fi
                   done
 
+                  echo "Unique digests signed: ${#SIGNED_DIGESTS[@]}"
                   echo ""
                   echo "=========================================="
                   echo "Sign Summary"
