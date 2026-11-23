@@ -59,7 +59,7 @@ import { usePaidStatus } from "@app/hooks/usePaidStatus";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { RefreshCwIcon } from "lucide-react";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
@@ -87,7 +87,9 @@ export default function GeneralPage() {
         useState<string | undefined>();
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
-    // saved value: "Sync now" runs what's in the DB, not the unsaved form
+    // saved values: the preview and "Sync now" run what's in the DB, not the unsaved form
+    const [savedApiIntegrationEnabled, setSavedApiIntegrationEnabled] =
+        useState(false);
     const [savedSyncEnabled, setSavedSyncEnabled] = useState(false);
     const [syncDialogOpen, setSyncDialogOpen] = useState(false);
     const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
@@ -102,9 +104,6 @@ export default function GeneralPage() {
     );
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
-    // the server refuses the sync too, so don't offer it without the plan
-    const canSyncNow =
-        savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
 
     // OIDC form schema (full configuration)
     const OidcFormSchema = z.object({
@@ -238,6 +237,18 @@ export default function GeneralPage() {
         }
     });
 
+    const formSyncEnabled = useWatch({
+        control: form.control,
+        name: "directorySyncEnabled"
+    });
+    // the server refuses the sync too, so don't offer it without the plan.
+    // Follows the sync switch in the form, before saving, both ways: the dry run
+    // only needs the saved API integration; applying needs sync saved as enabled.
+    const canPreviewSync =
+        savedApiIntegrationEnabled &&
+        formSyncEnabled &&
+        isPaidUser(tierMatrix.idpAPIIntegration);
+
     // Update form resolver when variant changes
     useEffect(() => {
         form.clearErrors();
@@ -259,6 +270,9 @@ export default function GeneralPage() {
                     );
                     setRedirectUrl(res.data.data.redirectUrl);
                     setLastSyncedAt(data.idpOrg?.lastSyncedAt ?? null);
+                    setSavedApiIntegrationEnabled(
+                        data.idp.apiIntegrationEnabled
+                    );
                     setSavedSyncEnabled(
                         data.idp.apiIntegrationEnabled &&
                             data.idp.directorySyncEnabled
@@ -561,6 +575,9 @@ export default function GeneralPage() {
             if (typeof payload.identifierPath === "string") {
                 setOriginalIdentifierPath(payload.identifierPath);
             }
+            setSavedApiIntegrationEnabled(
+                Boolean(payload.apiIntegrationEnabled)
+            );
             setSavedSyncEnabled(Boolean(payload.directorySyncEnabled));
             const apiConfig = payload.apiConfig as
                 ReturnType<typeof buildGoogleIDPAPIConfig> | undefined;
@@ -607,6 +624,7 @@ export default function GeneralPage() {
             <IdpSyncNowDialog
                 open={syncDialogOpen}
                 setOpen={setSyncDialogOpen}
+                canApply={savedSyncEnabled}
                 orgId={orgId as string}
                 idpId={idpId as string}
                 lastSyncedAt={lastSyncedAt}
@@ -815,7 +833,7 @@ export default function GeneralPage() {
                                 />
                             </form>
                         </Form>
-                        {canSyncNow && (
+                        {canPreviewSync && (
                             <div className="flex flex-col gap-2 items-start border-t pt-6 mt-6">
                                 <Button
                                     type="button"

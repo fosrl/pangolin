@@ -13,7 +13,7 @@ import {
     FormMessage
 } from "@app/components/ui/form";
 import { Input } from "@app/components/ui/input";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "@app/hooks/useToast";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
@@ -68,7 +68,9 @@ export default function GeneralPage() {
     const [variant, setVariant] = useState<"oidc" | "google" | "azure">("oidc");
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
-    // saved value: "Sync now" runs what's in the DB, not the unsaved form
+    // saved values: the preview and "Sync now" run what's in the DB, not the unsaved form
+    const [savedApiIntegrationEnabled, setSavedApiIntegrationEnabled] =
+        useState(false);
     const [savedSyncEnabled, setSavedSyncEnabled] = useState(false);
     const [syncDialogOpen, setSyncDialogOpen] = useState(false);
     const [configuredServiceAccountEmail, setConfiguredServiceAccountEmail] =
@@ -81,9 +83,6 @@ export default function GeneralPage() {
     const redirectUrl = `${env.app.dashboardUrl}/auth/idp/${idpId}/oidc/callback`;
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
-    // the server refuses the sync too, so don't offer it without the plan
-    const canSyncNow =
-        savedSyncEnabled && isPaidUser(tierMatrix.idpAPIIntegration);
 
     const OidcFormSchema = z.object({
         name: z.string().min(2, { message: t("nameMin", { len: 2 }) }),
@@ -185,6 +184,18 @@ export default function GeneralPage() {
         }
     });
 
+    const formSyncEnabled = useWatch({
+        control: form.control,
+        name: "directorySyncEnabled"
+    });
+    // the server refuses the sync too, so don't offer it without the plan.
+    // Follows the sync switch in the form, before saving, both ways: the dry run
+    // only needs the saved API integration; applying needs sync saved as enabled.
+    const canPreviewSync =
+        savedApiIntegrationEnabled &&
+        formSyncEnabled &&
+        isPaidUser(tierMatrix.idpAPIIntegration);
+
     useEffect(() => {
         form.clearErrors();
     }, [variant, form]);
@@ -199,6 +210,9 @@ export default function GeneralPage() {
                         (data.idpOidcConfig?.variant as
                             "oidc" | "google" | "azure") || "oidc";
                     setVariant(idpVariant);
+                    setSavedApiIntegrationEnabled(
+                        data.idp.apiIntegrationEnabled
+                    );
                     setSavedSyncEnabled(
                         data.idp.apiIntegrationEnabled &&
                             data.idp.directorySyncEnabled
@@ -391,6 +405,9 @@ export default function GeneralPage() {
             if (typeof payload.identifierPath === "string") {
                 setOriginalIdentifierPath(payload.identifierPath);
             }
+            setSavedApiIntegrationEnabled(
+                Boolean(payload.apiIntegrationEnabled)
+            );
             setSavedSyncEnabled(Boolean(payload.directorySyncEnabled));
             const apiConfig = payload.apiConfig as
                 ReturnType<typeof buildGoogleIDPAPIConfig> | undefined;
@@ -447,6 +464,7 @@ export default function GeneralPage() {
             <IdpSyncNowDialog
                 open={syncDialogOpen}
                 setOpen={setSyncDialogOpen}
+                canApply={savedSyncEnabled}
                 idpId={idpId as string}
             />
             <SettingsContainer>
@@ -646,7 +664,7 @@ export default function GeneralPage() {
                                 )}
                             </form>
                         </Form>
-                        {canSyncNow && (
+                        {canPreviewSync && (
                             <div className="flex flex-col gap-2 items-start border-t pt-6 mt-6">
                                 <Button
                                     type="button"

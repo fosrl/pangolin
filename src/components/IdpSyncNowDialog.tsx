@@ -12,11 +12,7 @@ import {
 } from "@app/components/Credenza";
 import IdpLastSyncedAt from "@app/components/IdpLastSyncedAt";
 import UserRoleBadges from "@app/components/UserRoleBadges";
-import {
-    Alert,
-    AlertDescription,
-    AlertTitle
-} from "@app/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@app/components/ui/alert";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import {
@@ -52,6 +48,11 @@ type IdpSyncNowDialogProps = {
     /** ms since epoch, `null` when the org was never synced. Org IdPs only. */
     lastSyncedAt?: number | null;
     onSynced?: (syncedAt: number) => void;
+    /**
+     * `false` while directory sync isn't saved as enabled: the dry run still
+     * works (it only needs the API integration), but there's nothing to apply.
+     */
+    canApply?: boolean;
 };
 
 /** The membership changes of one org (`orgName` only for a global IdP). */
@@ -68,7 +69,8 @@ export default function IdpSyncNowDialog({
     orgId,
     idpId,
     lastSyncedAt,
-    onSynced
+    onSynced,
+    canApply = true
 }: IdpSyncNowDialogProps) {
     const t = useTranslations();
     const { env } = useEnvContext();
@@ -91,10 +93,9 @@ export default function IdpSyncNowDialog({
         ...globalPreviewQuery,
         enabled: open && isGlobal
     });
-    const {
-        error: previewError,
-        isFetching: loadingPreview
-    } = isGlobal ? globalPreview : orgPreview;
+    const { error: previewError, isFetching: loadingPreview } = isGlobal
+        ? globalPreview
+        : orgPreview;
     const counts = isGlobal
         ? globalPreview.data?.counts
         : orgPreview.data?.counts;
@@ -199,7 +200,9 @@ export default function IdpSyncNowDialog({
                 <CredenzaHeader>
                     <CredenzaTitle>{t("idpSyncPreviewTitle")}</CredenzaTitle>
                     <CredenzaDescription>
-                        {t("idpSyncPreviewDescription")}
+                        {canApply
+                            ? t("idpSyncPreviewDescription")
+                            : t("idpSyncPreviewOnlyDescription")}
                     </CredenzaDescription>
                 </CredenzaHeader>
                 <CredenzaBody className="min-w-0 space-y-4">
@@ -310,43 +313,49 @@ export default function IdpSyncNowDialog({
                                                             </TableCell>
                                                         </TableRow>
                                                     )}
-                                                    {group.changes.map((entry, i) => (
-                                                        <TableRow key={i}>
-                                                            <TableCell>
-                                                                <div className="font-medium">
-                                                                    {entry.name ??
-                                                                        entry.email ??
-                                                                        entry.username ??
-                                                                        "-"}
-                                                                </div>
-                                                                {entry.name &&
-                                                                    entry.email && (
-                                                                        <div className="text-xs text-muted-foreground">
-                                                                            {
-                                                                                entry.email
-                                                                            }
-                                                                        </div>
-                                                                    )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <ChangeBadge
-                                                                    entry={entry}
-                                                                />
-                                                            </TableCell>
-                                                            <TableCell className="text-sm">
-                                                                <RoleBadges
-                                                                    roles={
-                                                                        entry.previousRoles
-                                                                    }
-                                                                />
-                                                            </TableCell>
-                                                            <TableCell className="text-sm">
-                                                                <RoleBadges
-                                                                    roles={entry.roles}
-                                                                />
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
+                                                    {group.changes.map(
+                                                        (entry, i) => (
+                                                            <TableRow key={i}>
+                                                                <TableCell>
+                                                                    <div className="font-medium">
+                                                                        {entry.name ??
+                                                                            entry.email ??
+                                                                            entry.username ??
+                                                                            "-"}
+                                                                    </div>
+                                                                    {entry.name &&
+                                                                        entry.email && (
+                                                                            <div className="text-xs text-muted-foreground">
+                                                                                {
+                                                                                    entry.email
+                                                                                }
+                                                                            </div>
+                                                                        )}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <ChangeBadge
+                                                                        entry={
+                                                                            entry
+                                                                        }
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell className="text-sm">
+                                                                    <RoleBadges
+                                                                        roles={
+                                                                            entry.previousRoles
+                                                                        }
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell className="text-sm">
+                                                                    <RoleBadges
+                                                                        roles={
+                                                                            entry.roles
+                                                                        }
+                                                                    />
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )
+                                                    )}
                                                 </Fragment>
                                             ))}
                                         </TableBody>
@@ -358,15 +367,19 @@ export default function IdpSyncNowDialog({
                 </CredenzaBody>
                 <CredenzaFooter>
                     <CredenzaClose asChild>
-                        <Button variant="outline">{t("cancel")}</Button>
+                        <Button variant="outline">
+                            {canApply ? t("cancel") : t("close")}
+                        </Button>
                     </CredenzaClose>
-                    <Button
-                        onClick={apply}
-                        loading={applying}
-                        disabled={!counts || applying}
-                    >
-                        {t("idpSyncApply")}
-                    </Button>
+                    {canApply && (
+                        <Button
+                            onClick={apply}
+                            loading={applying}
+                            disabled={!counts || applying}
+                        >
+                            {t("idpSyncApply")}
+                        </Button>
+                    )}
                 </CredenzaFooter>
             </CredenzaContent>
         </Credenza>

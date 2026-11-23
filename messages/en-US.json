@@ -1070,6 +1070,7 @@
     "idpSyncNewRoles": "New Roles",
     "idpSyncNowDescription": "See what a sync would change in this organization. Nothing is applied until you confirm. Save your changes first.",
     "idpSyncPreviewTitle": "Directory Sync Preview",
+    "idpSyncPreviewOnlyDescription": "This is a preview of the saved settings, nothing has changed. Save the page with directory sync enabled to apply it.",
     "idpSyncPreviewDescription": "This is a preview, nothing has changed yet. Apply to run the directory sync now instead of waiting for the next scheduled run. The directory is read again when you apply, so the result can differ slightly if it changed in between.",
     "idpLastSyncedAt": "Last synced: <time>{date}</time>",
     "idpNeverSynced": "Last synced: never",
