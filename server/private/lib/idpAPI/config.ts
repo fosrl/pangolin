@@ -37,13 +37,15 @@ export function decryptIDPAPIConfig(
 
 type ResolveResult =
     // `value` undefined = leave the stored column untouched
-    | { success: true; value: string | undefined }
+    // `value` null = clear the stored column (the key was removed)
+    | { success: true; value: string | null | undefined }
     | { success: false; error: string };
 
 /**
  * Validates the directory sync config sent for `variant` and returns the encrypted
  * value to store. Secrets omitted from `incomingApiConfig` (e.g. the Google service account
- * key on update) are kept from the stored config.
+ * key on update) are kept from the stored config. A secret sent as `null` removes it:
+ * the stored config is cleared, which needs the API integration off (or a new key).
  */
 export function resolveIDPAPIConfig({
     variant,
@@ -61,12 +63,14 @@ export function resolveIDPAPIConfig({
     }
 
     const existing = decryptIDPAPIConfig(existingEncryptedApiConfig);
+    const keyRemoved = incomingApiConfig?.serviceAccountKey === null;
     const merged = incomingApiConfig
         ? {
               ...incomingApiConfig,
-              serviceAccountKey:
-                  incomingApiConfig.serviceAccountKey ??
-                  existing?.serviceAccountKey
+              serviceAccountKey: keyRemoved
+                  ? undefined
+                  : (incomingApiConfig.serviceAccountKey ??
+                    existing?.serviceAccountKey)
           }
         : existing;
 
@@ -77,8 +81,12 @@ export function resolveIDPAPIConfig({
                 error: "A service account key is required to enable the API integration"
             };
         }
-        // nothing worth storing yet
-        return { success: true, value: undefined };
+        // removed: the config is useless without its key, clear it.
+        // Otherwise nothing worth storing yet
+        return {
+            success: true,
+            value: keyRemoved && existingEncryptedApiConfig ? null : undefined
+        };
     }
 
     if (!incomingApiConfig) {

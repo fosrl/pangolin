@@ -14,19 +14,22 @@ import { Textarea } from "@app/components/ui/textarea";
 import { parseGoogleServiceAccountKey } from "@app/lib/idpApiConfig";
 import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef } from "react";
-import { useFormContext } from "react-hook-form";
+import { useEffect, useRef, useState } from "react";
+import { useFormContext, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Alert, AlertDescription } from "./ui/alert";
 
 export type GoogleDirectorySyncFormValues = {
     googleServiceAccountKey?: string;
+    /** Remove the stored key on save (edit pages). A new key in the field replaces it anyway. */
+    googleRemoveServiceAccountKey?: boolean;
     googleAdminEmail?: string;
     googleCustomerId?: string;
 };
 
 export const googleDirectorySyncFormFields = {
     googleServiceAccountKey: z.string().optional(),
+    googleRemoveServiceAccountKey: z.boolean().optional(),
     googleAdminEmail: z.string().optional(),
     googleCustomerId: z.string().optional()
 };
@@ -49,7 +52,11 @@ export function refineGoogleDirectorySyncFields(
                 message: t("idpGoogleServiceAccountKeyInvalid")
             });
         }
-    } else if (data.apiIntegrationEnabled && keyRequired) {
+    } else if (
+        data.apiIntegrationEnabled &&
+        // a removed key must be replaced while the integration stays on
+        (keyRequired || data.googleRemoveServiceAccountKey)
+    ) {
         ctx.addIssue({
             code: "custom",
             path: ["googleServiceAccountKey"],
@@ -67,13 +74,18 @@ export function refineGoogleDirectorySyncFields(
     }
 }
 
-/** API `apiConfig` payload, an omitted key keeps the stored one on update. */
+/**
+ * API `apiConfig` payload. On update, an omitted key keeps the stored one and a
+ * `null` key removes it (which clears the stored config).
+ */
 export function buildGoogleIDPAPIConfig(data: GoogleDirectorySyncFormValues) {
     const rawKey = data.googleServiceAccountKey?.trim();
     return {
         serviceAccountKey: rawKey
             ? (parseGoogleServiceAccountKey(rawKey) ?? undefined)
-            : undefined,
+            : data.googleRemoveServiceAccountKey
+              ? null
+              : undefined,
         adminEmail: data.googleAdminEmail?.trim() || undefined,
         customerId: data.googleCustomerId?.trim() || undefined
     };
@@ -91,6 +103,34 @@ export default function GoogleIDPAPIConfigFields({
     const t = useTranslations();
     const form = useFormContext<GoogleDirectorySyncFormValues>();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const removeKey = useWatch({
+        control: form.control,
+        name: "googleRemoveServiceAccountKey"
+    });
+    // a saved key hides the input until "Replace" (or "Remove", to paste another)
+    const [replacing, setReplacing] = useState(false);
+    useEffect(() => {
+        // saved (or removed): back to the notice
+        setReplacing(false);
+    }, [configuredServiceAccountEmail]);
+    const showKeyInput =
+        !configuredServiceAccountEmail || replacing || Boolean(removeKey);
+
+    function setRemoveKey(remove: boolean) {
+        form.setValue("googleRemoveServiceAccountKey", remove, {
+            shouldValidate: true
+        });
+        if (!remove) {
+            form.setValue("googleServiceAccountKey", "");
+            form.clearErrors("googleServiceAccountKey");
+        }
+    }
+
+    function cancelReplace() {
+        setReplacing(false);
+        form.setValue("googleServiceAccountKey", "");
+        form.clearErrors("googleServiceAccountKey");
+    }
 
     return (
         <div className="space-y-4">
@@ -103,14 +143,30 @@ export default function GoogleIDPAPIConfigFields({
                             <FormLabel>
                                 {t("idpGoogleServiceAccountKey")}
                             </FormLabel>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                {t("idpGoogleServiceAccountKeyUpload")}
-                            </Button>
+                            {showKeyInput && (
+                                <div className="flex gap-2">
+                                    {replacing && !removeKey && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={cancelReplace}
+                                        >
+                                            {t("cancel")}
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            fileInputRef.current?.click()
+                                        }
+                                    >
+                                        {t("idpGoogleServiceAccountKeyUpload")}
+                                    </Button>
+                                </div>
+                            )}
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -129,39 +185,96 @@ export default function GoogleIDPAPIConfigFields({
                             />
                         </div>
 
-                        {configuredServiceAccountEmail && (
-                            <Alert>
-                                <InfoIcon className="h-4 w-4" />
-                                <AlertDescription>
-                                    {t.rich(
-                                        "idpGoogleServiceAccountKeyConfigured",
-                                        {
-                                            email: configuredServiceAccountEmail,
-                                            em: (children) => (
-                                                <strong className="text-primary font-medium">
-                                                    {children}
-                                                </strong>
-                                            )
-                                        }
-                                    )}
-                                </AlertDescription>
-                            </Alert>
-                        )}
+                        {configuredServiceAccountEmail &&
+                            (removeKey ? (
+                                <Alert variant="warning">
+                                    <AlertDescription className="flex items-center justify-between gap-3">
+                                        <span>
+                                            {t(
+                                                "idpGoogleServiceAccountKeyRemoved"
+                                            )}
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setRemoveKey(false)}
+                                        >
+                                            {t(
+                                                "idpGoogleServiceAccountKeyUndoRemove"
+                                            )}
+                                        </Button>
+                                    </AlertDescription>
+                                </Alert>
+                            ) : (
+                                <Alert>
+                                    <InfoIcon className="h-4 w-4" />
+                                    <AlertDescription className="flex items-center justify-between gap-3">
+                                        <span>
+                                            {t.rich(
+                                                replacing
+                                                    ? "idpGoogleServiceAccountKeyReplacing"
+                                                    : "idpGoogleServiceAccountKeyConfigured",
+                                                {
+                                                    email: configuredServiceAccountEmail,
+                                                    em: (children) => (
+                                                        <strong className="text-primary font-medium">
+                                                            {children}
+                                                        </strong>
+                                                    )
+                                                }
+                                            )}
+                                        </span>
+                                        {!replacing && (
+                                            <div className="flex flex-none gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        setReplacing(true)
+                                                    }
+                                                >
+                                                    {t(
+                                                        "idpGoogleServiceAccountKeyReplace"
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        setRemoveKey(true)
+                                                    }
+                                                >
+                                                    {t(
+                                                        "idpGoogleServiceAccountKeyRemove"
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </AlertDescription>
+                                </Alert>
+                            ))}
 
-                        <FormControl>
-                            <Textarea
-                                {...field}
-                                value={field.value ?? ""}
-                                rows={6}
-                                className="font-mono text-xs"
-                                placeholder='{ "type": "service_account", ... }'
-                                autoComplete="off"
-                                spellCheck={false}
-                            />
-                        </FormControl>
-                        <FormDescription>
-                            {t("idpGoogleServiceAccountKeyDescription")}
-                        </FormDescription>
+                        {showKeyInput && (
+                            <>
+                                <FormControl>
+                                    <Textarea
+                                        {...field}
+                                        value={field.value ?? ""}
+                                        rows={6}
+                                        className="font-mono text-xs"
+                                        placeholder='{ "type": "service_account", ... }'
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                    />
+                                </FormControl>
+                                <FormDescription>
+                                    {t("idpGoogleServiceAccountKeyDescription")}
+                                </FormDescription>
+                            </>
+                        )}
 
                         <FormMessage />
                     </FormItem>

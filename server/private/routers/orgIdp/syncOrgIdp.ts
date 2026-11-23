@@ -22,8 +22,11 @@ import { fromError } from "zod-validation-error";
 import { and, eq } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
 import { runIdpDirectorySync } from "#private/lib/idpAPI/syncWorkflow";
+import { idpSyncDraftSchema, policyDraft } from "#private/lib/idpAPI/draft";
+import { loadApiIdp } from "#private/lib/idpAPI/loadApiProvider";
 import {
     countSyncEntries,
+    previewChanges,
     summarizeEntries,
     type SyncCounts,
     type SyncEntrySummary
@@ -37,14 +40,18 @@ const paramsSchema = z
     .strict();
 
 const bodySchema = z.strictObject({
-    dryRun: z.boolean().optional().default(false)
+    dryRun: z.boolean().optional().default(false),
+    /** Dry run only: preview these unsaved form values instead of the saved settings. */
+    draft: idpSyncDraftSchema.optional()
 });
 
 export type SyncOrgIdpResponse = {
     dryRun: boolean;
     counts: SyncCounts;
-    /** Only for a dry run. */
+    /** Only for a dry run: the membership changes, at most `MAX_PREVIEW_ENTRIES`. */
     entries?: SyncEntrySummary[];
+    /** Only for a dry run: some changes aren't in `entries` (the counts still include them). */
+    entriesTruncated?: boolean;
 };
 
 registry.registerPath({
@@ -93,7 +100,16 @@ export async function syncOrgIdp(
         }
 
         const { orgId, idpId } = parsedParams.data;
-        const { dryRun } = parsedBody.data;
+        const { dryRun, draft } = parsedBody.data;
+
+        if (draft && !dryRun) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Unsaved settings can only be previewed (dryRun)"
+                )
+            );
+        }
 
         const [existing] = await db
             .select({
@@ -114,7 +130,8 @@ export async function syncOrgIdp(
             );
         }
 
-        if (!existing.apiIntegrationEnabled) {
+        // a draft may turn the integration on, `loadApiIdp` checks it instead
+        if (!draft && !existing.apiIntegrationEnabled) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
@@ -132,7 +149,23 @@ export async function syncOrgIdp(
             );
         }
 
-        const [result] = await runIdpDirectorySync({ dryRun, idpId, orgId });
+        let draftIdp;
+        if (draft) {
+            draftIdp = await loadApiIdp(idpId, draft);
+            if (draftIdp instanceof Error) {
+                return next(draftIdp);
+            }
+        }
+
+        const [result] = await runIdpDirectorySync({
+            dryRun,
+            idpId,
+            orgId,
+            draft:
+                draft && draftIdp
+                    ? { idp: draftIdp, policy: policyDraft(draft) }
+                    : undefined
+        });
 
         if (!result) {
             // the query only skips IdPs that aren't google/azure
@@ -169,12 +202,16 @@ export async function syncOrgIdp(
 
         const { entries } = result.plan;
         const counts = countSyncEntries(entries);
+        const preview = dryRun ? previewChanges(entries) : undefined;
 
         return response<SyncOrgIdpResponse>(res, {
             data: {
                 dryRun,
                 counts,
-                entries: dryRun ? await summarizeEntries(entries, orgId) : undefined
+                entries: preview
+                    ? await summarizeEntries(preview.changes, orgId)
+                    : undefined,
+                entriesTruncated: preview?.truncated
             },
             success: true,
             error: false,

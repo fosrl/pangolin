@@ -11,6 +11,7 @@
  * This file is not licensed under the AGPLv3.
  */
 
+import { clearIdpApiTokenCache } from "@server/lib/idp/apiTokenCache";
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { deleteLoginClaimsForIdp } from "@server/lib/idp/loginClaims";
@@ -389,6 +390,9 @@ export async function updateOrgOidcIdp(
                     );
             }
         });
+
+        // the credentials or the provider permissions may have changed
+        await clearIdpApiTokenCache(idpId);
 
         if (sessionRevalidation === false) {
             await clearIdpSessionGrants(idpId);

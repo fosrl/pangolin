@@ -20,7 +20,8 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { OpenAPITags, registry } from "@server/openApi";
 import { isOrgIdentityProviderMode } from "@server/lib/idp/idpExistsForOrg";
-import { loadEnabledApiProvider } from "#private/lib/idpAPI/loadApiProvider";
+import { loadApiProvider } from "#private/lib/idpAPI/loadApiProvider";
+import { idpApiDraftSchema } from "#private/lib/idpAPI/draft";
 import type { IdpApiTestResult } from "#private/lib/idpAPI/types";
 
 const paramsSchema = z
@@ -29,16 +30,28 @@ const paramsSchema = z
     })
     .strict();
 
+const bodySchema = z.strictObject({
+    /** Unsaved form values to test instead of the saved settings. */
+    draft: idpApiDraftSchema.optional()
+});
+
 export type TestIdpApiIntegrationResponse = IdpApiTestResult;
 
 registry.registerPath({
     method: "post",
     path: "/idp/{idpId}/api-integration/test",
     description:
-        "Test the saved API integration credentials of a global IdP: gets a fresh access token, then reads one user and one group from the directory.",
+        "Test the API integration credentials (the saved ones, or the unsaved `draft`) of a global IdP: gets a fresh access token, then reads one user and one group from the directory.",
     tags: [OpenAPITags.GlobalIdp],
     request: {
-        params: paramsSchema
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: bodySchema
+                }
+            }
+        }
     },
     responses: {}
 });
@@ -59,6 +72,17 @@ export async function testIdpApiIntegration(
             );
         }
 
+        const parsedBody = bodySchema.safeParse(req.body ?? {});
+        if (!parsedBody.success) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedBody.error).toString()
+                )
+            );
+        }
+        const { draft } = parsedBody.data;
+
         if (isOrgIdentityProviderMode()) {
             return next(
                 createHttpError(
@@ -68,7 +92,7 @@ export async function testIdpApiIntegration(
             );
         }
 
-        const provider = await loadEnabledApiProvider(parsedParams.data.idpId);
+        const provider = await loadApiProvider(parsedParams.data.idpId, draft);
         if (provider instanceof Error) {
             return next(provider);
         }

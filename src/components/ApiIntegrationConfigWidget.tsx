@@ -22,8 +22,8 @@ type ApiIntegrationConfigWidgetProps = {
      * button. Omit it when the IdP doesn't exist yet (create pages).
      */
     testApiBase?: string;
-    /** The integration is saved as enabled; the test runs on the saved credentials. */
-    savedApiIntegrationEnabled?: boolean;
+    /** The credentials in the form to test, `null` when the form is invalid (see `IdpApiIntegrationTest`). */
+    getTestDraft?: () => Record<string, unknown> | null;
 };
 
 // Must be rendered inside the `<Form>` of a form with `GoogleDirectorySyncFormValues` fields.
@@ -35,7 +35,7 @@ export default function ApiIntegrationConfigWidget({
     disabled = false,
     switchId = "api-integration-toggle",
     testApiBase,
-    savedApiIntegrationEnabled = false
+    getTestDraft
 }: ApiIntegrationConfigWidgetProps) {
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
@@ -68,10 +68,10 @@ export default function ApiIntegrationConfigWidget({
                 </p>
             )}
 
-            {apiIntegrationEnabled && testApiBase && (
+            {apiIntegrationEnabled && testApiBase && getTestDraft && (
                 <IdpApiIntegrationTest
                     apiBase={testApiBase}
-                    disabled={!savedApiIntegrationEnabled}
+                    getDraft={getTestDraft}
                 />
             )}
         </div>

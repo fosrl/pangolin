@@ -301,10 +301,11 @@ export async function validateOidcCallback(
             string,
             unknown
         >;
-        const claims = await enrichClaimsWithIdpGroups(
-            existingIdp,
-            idTokenClaims
-        );
+        // a test login always looks the groups up, to show what the mappings would get
+        const { claims, enrichment: groupEnrichment } =
+            await enrichClaimsWithIdpGroups(existingIdp, idTokenClaims, {
+                test: Boolean(test)
+            });
 
         logger.debug("ID token claims", { claims });
 
@@ -317,6 +318,7 @@ export async function validateOidcCallback(
                 existingIdp,
                 claims,
                 enrichedClaimKeys,
+                groupEnrichment,
                 onlyOrgId: link?.orgId ?? undefined
             });
             if (!(await completeTestLink(test.linkId, testResult))) {

@@ -154,6 +154,7 @@ export default function IdpTestResultView({
                 <CopyTextBox
                     text={JSON.stringify(result.claims, null, 2)}
                     wrapText
+                    maxHeight="20rem"
                 />
             </div>
         </div>
@@ -252,6 +253,22 @@ function WarningText({ warning }: { warning: OidcTestWarning }) {
             return t("idpTestWarningNameNotFound", { path: warning.path });
         case "noGroupsClaim":
             return t("idpTestWarningNoGroupsClaim");
+        case "groupsNotFetched":
+            switch (warning.reason) {
+                case "apiIntegrationOff":
+                    return t("idpTestWarningGroupsApiOff");
+                case "notEntitled":
+                    return t("idpTestWarningGroupsNotEntitled");
+                case "noUserId":
+                    return t("idpTestWarningGroupsNoUserId");
+                case "autoProvisionOff":
+                    return t("idpTestWarningGroupsAutoProvisionOff");
+            }
+            break;
+        case "groupsFetchFailed":
+            return t("idpTestWarningGroupsFetchFailed", {
+                error: warning.error
+            });
     }
 }
 

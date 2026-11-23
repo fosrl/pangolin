@@ -185,7 +185,10 @@ export type IdpSyncResponse = {
         membershipsRemoved: number;
         unchanged: number;
     };
+    /** Dry run only: membership changes only, capped (see `entriesTruncated`). */
     entries?: IdpSyncEntry[];
+    /** Dry run only: some changes aren't in `entries`, the counts still include them. */
+    entriesTruncated?: boolean;
 };
 
 /** `POST /idp/:idpId/sync` (global IdP), one result per org the IdP maps users into. */
@@ -196,8 +199,9 @@ export type IdpGlobalSyncResponse = {
         | {
               status: "synced";
               counts: IdpSyncResponse["counts"];
-              /** Dry run only, membership changes only. */
+              /** Dry run only, membership changes only, capped (see `entriesTruncated`). */
               entries?: IdpSyncEntry[];
+              entriesTruncated?: boolean;
           }
         | { status: "skipped"; reason: "notEntitled" | "noRoleMapping" }
         | { status: "failed"; error: string }
@@ -241,19 +245,28 @@ export const globalIdpQueries = {
             }
         }),
 
-    syncPreview: ({ idpId }: { idpId: string }) =>
+    /** `draft`: unsaved form values to preview instead of the saved settings (not in the key: the dialog drops the query on close). */
+    syncPreview: ({
+        idpId,
+        draft
+    }: {
+        idpId: string;
+        draft?: Record<string, unknown>;
+    }) =>
         queryOptions({
             queryKey: ["IDP", idpId, "SYNC_PREVIEW"] as const,
             queryFn: async ({ signal, meta }) => {
                 const res = await meta!.api.post<
                     AxiosResponse<IdpGlobalSyncResponse>
-                >(`/idp/${idpId}/sync`, { dryRun: true }, { signal });
+                >(`/idp/${idpId}/sync`, { dryRun: true, draft }, { signal });
                 return res.data.data;
             },
             staleTime: 0,
             gcTime: 0,
             retry: false,
-            refetchOnWindowFocus: false
+            refetchOnWindowFocus: false,
+            // never show an earlier preview: it may be for other settings
+            placeholderData: undefined
         })
 };
 
@@ -544,8 +557,19 @@ export const orgQueries = {
             }
         }),
 
-    /** Dry run of the directory sync. Reads the directory, so it's never cached. */
-    idpSyncPreview: ({ orgId, idpId }: { orgId: string; idpId: string }) =>
+    /**
+     * Dry run of the directory sync. Reads the directory, so it's never cached.
+     * `draft`: unsaved form values to preview instead of the saved settings.
+     */
+    idpSyncPreview: ({
+        orgId,
+        idpId,
+        draft
+    }: {
+        orgId: string;
+        idpId: string;
+        draft?: Record<string, unknown>;
+    }) =>
         queryOptions({
             queryKey: ["ORG", orgId, "IDP_SYNC_PREVIEW", idpId] as const,
             queryFn: async ({ signal, meta }) => {
@@ -553,7 +577,7 @@ export const orgQueries = {
                     AxiosResponse<IdpSyncResponse>
                 >(
                     `/org/${orgId}/idp/${idpId}/sync`,
-                    { dryRun: true },
+                    { dryRun: true, draft },
                     { signal }
                 );
                 return res.data.data;
@@ -561,7 +585,9 @@ export const orgQueries = {
             staleTime: 0,
             gcTime: 0,
             retry: false,
-            refetchOnWindowFocus: false
+            refetchOnWindowFocus: false,
+            // never show an earlier preview: it may be for other settings
+            placeholderData: undefined
         }),
 
     proxyResources: ({

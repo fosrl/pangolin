@@ -12,6 +12,7 @@
  */
 
 import cache from "@server/lib/cache";
+import { idpApiTokenCacheKey } from "@server/lib/idp/apiTokenCache";
 import config from "@server/lib/config";
 import { decrypt } from "@server/lib/crypto";
 import logger from "@server/logger";
@@ -189,8 +190,6 @@ export class AzureDirectorySyncProvider extends IDPAPIProvider {
             groupNames: user.groups.map((g) => g.displayName)
         };
     }
-
-    #TOKEN_CACHE_KEY_PREFIX = "azureDirectorySyncToken";
     #microsoftGraphBaseUrl = "https://graph.microsoft.com/v1.0";
 
     get #tenantId() {
@@ -358,33 +357,81 @@ export class AzureDirectorySyncProvider extends IDPAPIProvider {
     }
 
     async testConnection(): Promise<IdpApiTestResult> {
-        const reasonOf = (body: any) => body.error?.message ?? body.error?.code;
+        // a valid token without the Graph permission gives "Insufficient privileges"
+        const reasonOf = (permission: string) => (body: any) => {
+            const message: string | undefined =
+                body.error?.message ?? body.error?.code;
+            if (body.error?.code === "Authorization_RequestDenied") {
+                return `${message} Add the Microsoft Graph permission ${permission} to the app registration as an Application permission (not Delegated) and grant admin consent for the tenant, then test again.`;
+            }
+            return message;
+        };
 
         return runApiIntegrationTest({
             getToken: () => this.#getToken(this.idp, { skipCache: true }),
-            readUsers: (token) =>
-                readOrThrow(
+            readUsers: async (token) => {
+                const body = await readOrThrow(
                     `${this.#microsoftGraphBaseUrl}/users?$top=1&$select=id`,
                     token,
                     "Microsoft Graph users",
-                    reasonOf
-                ),
+                    reasonOf("User.Read.All")
+                );
+                return body.value?.[0]?.id;
+            },
             readGroups: (token) =>
                 readOrThrow(
                     `${this.#microsoftGraphBaseUrl}/groups?$top=1&$select=id`,
                     token,
                     "Microsoft Graph groups",
-                    reasonOf
+                    reasonOf("GroupMember.Read.All (or Group.Read.All)")
+                ),
+            // same call as the sign-in group lookup (`fetchUserGroups`)
+            readUserGroups: (token, userId) =>
+                readOrThrow(
+                    `${this.#microsoftGraphBaseUrl}/users/${encodeURIComponent(userId)}/transitiveMemberOf?$top=1&$select=id`,
+                    token,
+                    "Microsoft Graph user groups",
+                    reasonOf("GroupMember.Read.All (or Group.Read.All)")
                 )
         });
+    }
+
+    /**
+     * Drops the trace/correlation IDs and timestamp Entra appends to every error,
+     * and adds what to do for the common AADSTS codes.
+     */
+    #explainTokenError(description: string, clientId: string): string {
+        const message = description.replace(/\s*Trace ID:[\s\S]*$/, "").trim();
+        const tenant = this.#tenantId;
+        const code = message.match(/AADSTS(\d+)/)?.[1];
+
+        let hint: string | undefined;
+        if (["common", "organizations", "consumers"].includes(tenant)) {
+            hint = `The tenant is "${tenant}", which can't be used to read a directory. Set the identity provider's Tenant ID to your tenant's ID (the Directory (tenant) ID on the app registration's Overview page).`;
+        } else if (code === "7000215") {
+            hint =
+                "The client secret is wrong. Paste the secret's Value (only shown once, when it's created), not its Secret ID, into the identity provider's Client Secret.";
+        } else if (code === "7000222") {
+            hint =
+                "The client secret has expired, so sign-in is failing too. Create a new secret under Certificates & secrets and paste its Value into the identity provider's Client Secret.";
+        } else if (code === "700016") {
+            hint = `There's no app with client ID "${clientId}" in tenant "${tenant}". Use the Application (client) ID from the Overview page of an app registered in this tenant.`;
+        } else if (code === "90002") {
+            hint = `Tenant "${tenant}" doesn't exist. Use the Directory (tenant) ID from the app registration's Overview page.`;
+        }
+
+        return hint ? `${message} ${hint}` : message;
     }
 
     async #getToken(
         idpRes: IDPAPIProviderIdp,
         { skipCache = false }: { skipCache?: boolean } = {}
     ): Promise<string> {
-        const cacheKey = `${this.#TOKEN_CACHE_KEY_PREFIX}:${idpRes.idp.idpId}`;
-        const cached = skipCache ? null : await cache.get<string>(cacheKey);
+        const cacheKey = idpApiTokenCacheKey("azure", idpRes.idp.idpId);
+        const cached =
+            skipCache || this.options.tokenCache === false
+                ? null
+                : await cache.get<string>(cacheKey);
 
         if (cached) {
             logger.info("Returning cached access token");
@@ -417,11 +464,13 @@ export class AzureDirectorySyncProvider extends IDPAPIProvider {
 
         const body: any = await res.json().catch(() => ({}));
         if (!res.ok) {
-            const reason =
+            const reason = this.#explainTokenError(
                 body.error_description ??
-                body.error ??
-                res.statusText ??
-                "no error details in response";
+                    body.error ??
+                    res.statusText ??
+                    "no error details in response",
+                clientId
+            );
             throw new Error(
                 `Directory sync: Entra token request for IdP ${idpRes.idp.idpId} failed (HTTP ${res.status}): ${reason}`
             );
@@ -429,11 +478,13 @@ export class AzureDirectorySyncProvider extends IDPAPIProvider {
 
         try {
             const tokenResponse = tokenBodySchema.parse(body);
-            await cache.set(
-                cacheKey,
-                tokenResponse.access_token,
-                tokenResponse.expires_in - 30 // keep the response 30 seconds less than the token to make sure to always have a fresh token
-            );
+            if (this.options.tokenCache !== false) {
+                await cache.set(
+                    cacheKey,
+                    tokenResponse.access_token,
+                    tokenResponse.expires_in - 30 // keep the response 30 seconds less than the token to make sure to always have a fresh token
+                );
+            }
 
             logger.info(
                 `Got new access token (expires in: ${tokenResponse.expires_in}s)`

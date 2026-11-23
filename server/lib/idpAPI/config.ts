@@ -11,7 +11,8 @@ export function decryptIDPAPIConfig(
 }
 
 type ResolveResult =
-    | { success: true; value: string | undefined }
+    // `value` null = clear the stored column (same shape as the enterprise version)
+    | { success: true; value: string | null | undefined }
     | { success: false; error: string };
 
 export function resolveIDPAPIConfig(_params: {

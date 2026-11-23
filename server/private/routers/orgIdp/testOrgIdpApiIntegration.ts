@@ -21,7 +21,8 @@ import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
 import { and, eq } from "drizzle-orm";
 import { OpenAPITags, registry } from "@server/openApi";
-import { loadEnabledApiProvider } from "#private/lib/idpAPI/loadApiProvider";
+import { loadApiProvider } from "#private/lib/idpAPI/loadApiProvider";
+import { idpApiDraftSchema } from "#private/lib/idpAPI/draft";
 import type { IdpApiTestResult } from "#private/lib/idpAPI/types";
 
 const paramsSchema = z
@@ -31,16 +32,28 @@ const paramsSchema = z
     })
     .strict();
 
+const bodySchema = z.strictObject({
+    /** Unsaved form values to test instead of the saved settings. */
+    draft: idpApiDraftSchema.optional()
+});
+
 export type TestOrgIdpApiIntegrationResponse = IdpApiTestResult;
 
 registry.registerPath({
     method: "post",
     path: "/org/{orgId}/idp/{idpId}/api-integration/test",
     description:
-        "Test the saved API integration credentials of an organization IdP: gets a fresh access token, then reads one user and one group from the directory.",
+        "Test the API integration credentials (the saved ones, or the unsaved `draft`) of an organization IdP: gets a fresh access token, then reads one user and one group from the directory.",
     tags: [OpenAPITags.OrgIdp],
     request: {
-        params: paramsSchema
+        params: paramsSchema,
+        body: {
+            content: {
+                "application/json": {
+                    schema: bodySchema
+                }
+            }
+        }
     },
     responses: {}
 });
@@ -61,6 +74,17 @@ export async function testOrgIdpApiIntegration(
             );
         }
 
+        const parsedBody = bodySchema.safeParse(req.body ?? {});
+        if (!parsedBody.success) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    fromError(parsedBody.error).toString()
+                )
+            );
+        }
+        const { draft } = parsedBody.data;
+
         const { orgId, idpId } = parsedParams.data;
 
         const [association] = await db
@@ -77,7 +101,7 @@ export async function testOrgIdpApiIntegration(
             );
         }
 
-        const provider = await loadEnabledApiProvider(idpId);
+        const provider = await loadApiProvider(idpId, draft);
         if (provider instanceof Error) {
             return next(provider);
         }

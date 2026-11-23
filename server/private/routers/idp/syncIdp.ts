@@ -26,11 +26,14 @@ import { runIdpDirectorySync } from "#private/lib/idpAPI/syncWorkflow";
 import {
     countSyncEntries,
     emptySyncCounts,
+    previewChanges,
     summarizeEntries,
     type SyncCounts,
     type SyncEntrySummary
 } from "#private/lib/idpAPI/syncSummary";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
+import { globalIdpSyncDraftSchema } from "#private/lib/idpAPI/draft";
+import { loadApiIdp } from "#private/lib/idpAPI/loadApiProvider";
 
 const paramsSchema = z
     .object({
@@ -41,7 +44,9 @@ const paramsSchema = z
 const bodySchema = z.strictObject({
     dryRun: z.boolean().optional().default(false),
     /** Only sync this org. */
-    orgId: z.string().nonempty().optional()
+    orgId: z.string().nonempty().optional(),
+    /** Dry run only: preview these unsaved form values instead of the saved settings. */
+    draft: globalIdpSyncDraftSchema.optional()
 });
 
 export type SyncIdpOrgResult = {
@@ -51,8 +56,10 @@ export type SyncIdpOrgResult = {
     | {
           status: "synced";
           counts: SyncCounts;
-          /** Only for a dry run, and only the membership changes. */
+          /** Only for a dry run: the membership changes, at most `MAX_PREVIEW_ENTRIES`. */
           entries?: SyncEntrySummary[];
+          /** Only for a dry run: some changes aren't in `entries` (the counts still include them). */
+          entriesTruncated?: boolean;
       }
     | { status: "skipped"; reason: "notEntitled" | "noRoleMapping" }
     | { status: "failed"; error: string }
@@ -111,7 +118,16 @@ export async function syncIdp(
         }
 
         const { idpId } = parsedParams.data;
-        const { dryRun, orgId } = parsedBody.data;
+        const { dryRun, orgId, draft } = parsedBody.data;
+
+        if (draft && !dryRun) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Unsaved settings can only be previewed (dryRun)"
+                )
+            );
+        }
 
         if (isOrgIdentityProviderMode()) {
             return next(
@@ -151,7 +167,8 @@ export async function syncIdp(
             );
         }
 
-        if (!existing.apiIntegrationEnabled) {
+        // a draft may turn the integration on, `loadApiIdp` checks it instead
+        if (!draft && !existing.apiIntegrationEnabled) {
             return next(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
@@ -169,7 +186,20 @@ export async function syncIdp(
             );
         }
 
-        const results = await runIdpDirectorySync({ dryRun, idpId, orgId });
+        let draftIdp;
+        if (draft) {
+            draftIdp = await loadApiIdp(idpId, draft);
+            if (draftIdp instanceof Error) {
+                return next(draftIdp);
+            }
+        }
+
+        const results = await runIdpDirectorySync({
+            dryRun,
+            idpId,
+            orgId,
+            draft: draftIdp ? { idp: draftIdp } : undefined
+        });
 
         const orgNames = new Map(
             results.length === 0
@@ -199,16 +229,20 @@ export async function syncIdp(
                     const { entries } = result.plan;
                     countSyncEntries(entries, counts);
                     // the preview lists changes only, a global IdP can cover many orgs
-                    const changes = entries.filter(
-                        (e) => e.membership.operation !== "unchanged"
-                    );
+                    const preview = dryRun
+                        ? previewChanges(entries)
+                        : undefined;
                     orgResults.push({
                         ...org,
                         status: "synced",
                         counts: countSyncEntries(entries),
-                        entries: dryRun
-                            ? await summarizeEntries(changes, result.orgId)
-                            : undefined
+                        entries: preview
+                            ? await summarizeEntries(
+                                  preview.changes,
+                                  result.orgId
+                              )
+                            : undefined,
+                        entriesTruncated: preview?.truncated
                     });
                     break;
                 }

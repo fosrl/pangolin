@@ -81,3 +81,41 @@ export function parseGoogleServiceAccountKey(raw: string) {
         return null;
     }
 }
+
+/** Save-payload fields the API integration test runs on (see `idpApiDraftSchema`). */
+export const IDP_API_DRAFT_KEYS = [
+    "clientId",
+    "clientSecret",
+    "authUrl",
+    "tokenUrl",
+    "apiConfig"
+] as const;
+
+/** Save-payload fields the sync preview of a global IdP runs on. */
+export const GLOBAL_IDP_SYNC_DRAFT_KEYS = [
+    ...IDP_API_DRAFT_KEYS,
+    "identifierPath",
+    "directorySyncDeletions"
+] as const;
+
+/** Save-payload fields the sync preview of an org IdP runs on (connection + the org's mappings). */
+export const ORG_IDP_SYNC_DRAFT_KEYS = [
+    ...GLOBAL_IDP_SYNC_DRAFT_KEYS,
+    "roleMapping",
+    "syncRoleMapping",
+    "mappingsLinked",
+    "createMissingRoles",
+    "syncCreateMissingRoles"
+] as const;
+
+/** The draft fields of an IdP save payload, sent to preview or test unsaved settings. */
+export function pickIdpDraft(
+    payload: Record<string, unknown>,
+    keys: readonly string[]
+): Record<string, unknown> {
+    return Object.fromEntries(
+        keys
+            .filter((key) => payload[key] !== undefined)
+            .map((key) => [key, payload[key]])
+    );
+}

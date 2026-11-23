@@ -16,16 +16,21 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import { eq } from "drizzle-orm";
 import { supportsApiIntegration } from "@app/lib/idpApiConfig";
+import { applyIdpDraft, type IdpSyncDraft } from "./draft";
 import { getIDPAPIProvider } from "./providers";
-import type { IDPAPIProvider } from "./types";
+import type { IDPAPIProvider, IDPAPIProviderIdp } from "./types";
 
 /**
- * The API provider of an IdP whose API integration is saved as enabled, or an
- * HTTP error to pass to `next` (not found, unsupported variant, not enabled).
+ * The IdP rows the API integration runs on, or an HTTP error to pass to `next`.
+ *
+ * - Without `draft`: the saved rows, whose API integration must be saved as on.
+ * - With `draft`: the saved rows with the unsaved form values applied (in
+ *   memory). The integration may not be saved as on yet: that's being tested.
  */
-export async function loadEnabledApiProvider(
-    idpId: number
-): Promise<IDPAPIProvider | createHttpError.HttpError> {
+export async function loadApiIdp(
+    idpId: number,
+    draft?: Partial<IdpSyncDraft>
+): Promise<IDPAPIProviderIdp | createHttpError.HttpError> {
     const [data] = await db
         .select()
         .from(idp)
@@ -45,14 +50,38 @@ export async function loadEnabledApiProvider(
             "The API integration is not available for this IdP type"
         );
     }
+
+    if (draft) {
+        const applied = applyIdpDraft(data, draft);
+        if (!applied.success) {
+            return createHttpError(HttpCode.BAD_REQUEST, applied.error);
+        }
+        return applied.value;
+    }
+
     if (!data.idp.apiIntegrationEnabled) {
         return createHttpError(
             HttpCode.BAD_REQUEST,
             "The API integration is not enabled for this IdP"
         );
     }
+    return data;
+}
 
-    const provider = getIDPAPIProvider(data);
+/** The API provider of `loadApiIdp`. A draft provider never uses the token cache. */
+export async function loadApiProvider(
+    idpId: number,
+    draft?: Partial<IdpSyncDraft>
+): Promise<IDPAPIProvider | createHttpError.HttpError> {
+    const data = await loadApiIdp(idpId, draft);
+    if (data instanceof Error) {
+        return data;
+    }
+
+    const provider = getIDPAPIProvider(
+        data,
+        draft ? { tokenCache: false } : undefined
+    );
     if (!provider) {
         return createHttpError(
             HttpCode.BAD_REQUEST,

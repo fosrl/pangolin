@@ -13,7 +13,7 @@ import { useState } from "react";
 type ApiIntegrationTestResult = {
     ok: boolean;
     checks: {
-        check: "token" | "users" | "groups";
+        check: "token" | "users" | "groups" | "userGroups";
         ok: boolean;
         error?: string;
     }[];
@@ -22,20 +22,25 @@ type ApiIntegrationTestResult = {
 const CHECK_LABEL_KEYS = {
     token: "idpApiTestCheckToken",
     users: "idpApiTestCheckUsers",
-    groups: "idpApiTestCheckGroups"
+    groups: "idpApiTestCheckGroups",
+    userGroups: "idpApiTestCheckUserGroups"
 } as const;
 
 type IdpApiIntegrationTestProps = {
     /** `/idp/:idpId` or `/org/:orgId/idp/:idpId`. */
     apiBase: string;
-    /** The test runs on the saved credentials, so it needs the integration saved as enabled. */
-    disabled?: boolean;
+    /**
+     * The unsaved credentials in the form (see `pickIdpDraft`), so the test runs
+     * on what's being edited. Returns `null` when the form is invalid: the form
+     * shows the errors and the test doesn't run.
+     */
+    getDraft: () => Record<string, unknown> | null;
 };
 
-/** Tests the saved API integration credentials and shows each step's result. */
+/** Tests the API integration credentials in the form and shows each step's result. */
 export default function IdpApiIntegrationTest({
     apiBase,
-    disabled = false
+    getDraft
 }: IdpApiIntegrationTestProps) {
     const t = useTranslations();
     const { env } = useEnvContext();
@@ -45,11 +50,17 @@ export default function IdpApiIntegrationTest({
     const [result, setResult] = useState<ApiIntegrationTestResult | null>(null);
 
     async function runTest() {
+        const draft = getDraft();
+        if (!draft) {
+            return;
+        }
+
         setTesting(true);
         setResult(null);
         try {
             const res = await api.post<AxiosResponse<ApiIntegrationTestResult>>(
-                `${apiBase}/api-integration/test`
+                `${apiBase}/api-integration/test`,
+                { draft }
             );
             setResult(res.data.data);
         } catch (e) {
@@ -71,16 +82,14 @@ export default function IdpApiIntegrationTest({
                     variant="outline"
                     onClick={runTest}
                     loading={testing}
-                    disabled={disabled || testing}
+                    disabled={testing}
                     className="gap-2"
                 >
                     <PlugZap className="size-4 flex-none" />
                     {t("idpApiTest")}
                 </Button>
                 <p className="text-sm text-muted-foreground">
-                    {disabled
-                        ? t("idpApiTestSaveFirst")
-                        : t("idpApiTestDescription")}
+                    {t("idpApiTestDescription")}
                 </p>
             </div>
 

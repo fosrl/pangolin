@@ -153,32 +153,54 @@ type IdpToSync = {
  * - `idpId` / `orgId`: only sync that IdP / org ("Sync now").
  * - `dryRun`: compute the plans without writing anything. A dry run also covers
  *   IdPs whose sync is off (the API integration must be on), to preview it.
+ * - `draft`: dry run only, previews unsaved settings. `idp` replaces the saved
+ *   rows of `idpId` (see `applyIdpDraft`), `policy` is applied over the saved
+ *   policy of `orgId` (org IdPs). The token cache isn't used, so draft
+ *   credentials never leak into the real sync.
  */
 export async function runIdpDirectorySync({
     dryRun = false,
     idpId,
-    orgId
+    orgId,
+    draft
 }: {
     dryRun?: boolean;
     idpId?: number;
     orgId?: string;
+    draft?: {
+        idp: IdpToSync;
+        policy?: Partial<typeof idpOrg.$inferSelect>;
+    };
 } = {}): Promise<IdpOrgSyncResult[]> {
-    const idpsToSync = await db
-        .select()
-        .from(idp)
-        .innerJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId))
-        .where(
-            and(
-                inArray(idpOidcConfig.variant, [...API_INTEGRATION_VARIANTS]),
-                eq(idp.apiIntegrationEnabled, true),
-                dryRun ? undefined : eq(idp.directorySyncEnabled, true),
-                idpId === undefined ? undefined : eq(idp.idpId, idpId)
-            )
+    if (draft && (!dryRun || draft.idp.idp.idpId !== idpId)) {
+        throw new Error(
+            "Directory sync: a draft can only be previewed (dry run of its own IdP)"
         );
+    }
+
+    const idpsToSync = draft
+        ? [draft.idp]
+        : await db
+              .select()
+              .from(idp)
+              .innerJoin(idpOidcConfig, eq(idpOidcConfig.idpId, idp.idpId))
+              .where(
+                  and(
+                      inArray(idpOidcConfig.variant, [
+                          ...API_INTEGRATION_VARIANTS
+                      ]),
+                      eq(idp.apiIntegrationEnabled, true),
+                      dryRun ? undefined : eq(idp.directorySyncEnabled, true),
+                      idpId === undefined ? undefined : eq(idp.idpId, idpId)
+                  )
+              );
 
     const results: IdpOrgSyncResult[] = [];
     for (const data of idpsToSync) {
-        const provider = getIDPAPIProvider(data);
+        const provider = getIDPAPIProvider(
+            data,
+            draft ? { tokenCache: false } : undefined
+        );
         if (!provider) {
             continue;
         }
@@ -186,7 +208,7 @@ export async function runIdpDirectorySync({
         // fetched once per IdP, on the first org that needs it, and reused for the others
         let directory: Promise<IDPDirectoryFetchResult> | null = null;
 
-        for (const target of await getSyncTargets(data, orgId)) {
+        for (const target of await getSyncTargets(data, orgId, draft?.policy)) {
             const base = { idpId: data.idp.idpId, orgId: target.orgId };
             try {
                 if (!target.roleMapping) {
@@ -274,7 +296,9 @@ function effectiveSyncMappings(idp: {
  */
 async function getSyncTargets(
     data: IdpToSync,
-    orgId: string | undefined
+    orgId: string | undefined,
+    /** Unsaved policy fields of `orgId` (org IdPs, sync preview). */
+    policyDraft?: Partial<typeof idpOrg.$inferSelect>
 ): Promise<SyncTarget[]> {
     const idpId = data.idp.idpId;
 
@@ -288,7 +312,11 @@ async function getSyncTargets(
                     orgId === undefined ? undefined : eq(idpOrg.orgId, orgId)
                 )
             );
-        return policies.map((policy) => {
+        return policies.map((saved) => {
+            const policy =
+                policyDraft && saved.orgId === orgId
+                    ? { ...saved, ...policyDraft }
+                    : saved;
             const mappings = effectiveSyncMappings({
                 ...policy,
                 linked: policy.mappingsLinked

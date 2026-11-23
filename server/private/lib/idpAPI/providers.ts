@@ -17,7 +17,11 @@ import {
 } from "@app/lib/idpApiConfig";
 import { AzureDirectorySyncProvider } from "./azure";
 import { GoogleDirectorySyncProvider } from "./google";
-import type { IDPAPIProvider, IDPAPIProviderIdp } from "./types";
+import type {
+    IDPAPIProvider,
+    IDPAPIProviderIdp,
+    IDPAPIProviderOptions
+} from "./types";
 
 /** The provider class of each variant in `API_INTEGRATION_VARIANTS`. */
 export const idpAPIProviderClasses = {
@@ -25,16 +29,20 @@ export const idpAPIProviderClasses = {
     google: GoogleDirectorySyncProvider
 } satisfies Record<
     APIIntegrationVariant,
-    new (idp: IDPAPIProviderIdp) => IDPAPIProvider
+    new (
+        idp: IDPAPIProviderIdp,
+        options?: IDPAPIProviderOptions
+    ) => IDPAPIProvider
 >;
 
 /** The API provider for this IdP, `null` when its variant has no API integration. */
 export function getIDPAPIProvider(
-    idp: IDPAPIProviderIdp
+    idp: IDPAPIProviderIdp,
+    options?: IDPAPIProviderOptions
 ): IDPAPIProvider | null {
     const variant = idp.idpOidcConfig.variant;
     if (!supportsApiIntegration(variant)) {
         return null;
     }
-    return new idpAPIProviderClasses[variant](idp);
+    return new idpAPIProviderClasses[variant](idp, options);
 }

@@ -61,7 +61,12 @@ import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { RefreshCwIcon } from "lucide-react";
-import { supportsApiIntegration } from "@app/lib/idpApiConfig";
+import {
+    IDP_API_DRAFT_KEYS,
+    ORG_IDP_SYNC_DRAFT_KEYS,
+    pickIdpDraft,
+    supportsApiIntegration
+} from "@app/lib/idpApiConfig";
 import IdpSessionRevalidationDescription from "@app/components/IdpSessionRevalidationDescription";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { SwitchInput } from "@app/components/SwitchInput";
@@ -87,10 +92,19 @@ export default function GeneralPage() {
     const [originalIdentifierPath, setOriginalIdentifierPath] = useState("");
     const [identifierConfirmOpen, setIdentifierConfirmOpen] = useState(false);
     // saved values: the preview and "Sync now" run what's in the DB, not the unsaved form
-    const [savedApiIntegrationEnabled, setSavedApiIntegrationEnabled] =
-        useState(false);
     const [savedSyncEnabled, setSavedSyncEnabled] = useState(false);
     const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+    // the preview runs on the form's values; applying runs the saved ones, so it
+    // needs the preview to match what's saved (`savedSyncDraftJson`)
+    const [syncDraft, setSyncDraft] = useState<Record<string, unknown>>();
+    const [syncApplyBlockedReason, setSyncApplyBlockedReason] = useState<
+        "syncNotSaved" | "unsavedChanges" | null
+    >(null);
+    const [savedSyncDraftJson, setSavedSyncDraftJson] = useState<string | null>(
+        null
+    );
+    // bumped on load and on save, to snapshot the saved values once the form has them
+    const [savedVersion, setSavedVersion] = useState(0);
     const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
     const [pendingPayload, setPendingPayload] = useState<Record<
         string,
@@ -240,11 +254,14 @@ export default function GeneralPage() {
         control: form.control,
         name: "directorySyncEnabled"
     });
+    const formApiIntegrationEnabled = useWatch({
+        control: form.control,
+        name: "apiIntegrationEnabled"
+    });
     // the server refuses the sync too, so don't offer it without the plan.
-    // Follows the sync switch in the form, before saving, both ways: the dry run
-    // only needs the saved API integration; applying needs sync saved as enabled.
+    // Follows the form: the preview runs on the unsaved values
     const canPreviewSync =
-        savedApiIntegrationEnabled &&
+        formApiIntegrationEnabled &&
         formSyncEnabled &&
         isPaidUser(tierMatrix.idpAPIIntegration);
 
@@ -269,9 +286,6 @@ export default function GeneralPage() {
                     );
                     setRedirectUrl(res.data.data.redirectUrl);
                     setLastSyncedAt(data.idpOrg?.lastSyncedAt ?? null);
-                    setSavedApiIntegrationEnabled(
-                        data.idp.apiIntegrationEnabled
-                    );
                     setSavedSyncEnabled(
                         data.idp.apiIntegrationEnabled &&
                             data.idp.directorySyncEnabled
@@ -379,6 +393,7 @@ export default function GeneralPage() {
                 router.push(`/${orgId}/settings/idp`);
             } finally {
                 setInitialLoading(false);
+                setSavedVersion((v) => v + 1);
             }
         };
 
@@ -408,128 +423,177 @@ export default function GeneralPage() {
         loadData();
     }, []);
 
+    /** Validates against the variant's schema, showing the errors on the form. */
+    function validateForm(data: GeneralFormValues): boolean {
+        const schema = getFormSchema();
+        const validationResult = schema.safeParse(data);
+        if (validationResult.success) {
+            return true;
+        }
+
+        const errors = validationResult.error.flatten().fieldErrors;
+        Object.keys(errors).forEach((key) => {
+            const fieldName = key as keyof GeneralFormValues;
+            const errorMessage = (errors as any)[key]?.[0] || t("invalidValue");
+            form.setError(fieldName, {
+                type: "manual",
+                message: errorMessage
+            });
+        });
+        return false;
+    }
+
+    /** The update payload for the form values. Also the source of the preview/test drafts. */
+    function buildPayload(data: GeneralFormValues): Record<string, unknown> {
+        const roleMappingExpression = compileRoleMappingExpression(roleMapping);
+        // linked mappings: sync uses the JIT ones
+        const syncRoleMappingExpression = data.mappingsLinked
+            ? roleMappingExpression
+            : compileRoleMappingExpression(syncRoleMapping);
+        const syncOrgMappingTrimmed =
+            (data.mappingsLinked
+                ? data.orgMapping?.trim()
+                : data.syncOrgMapping?.trim()) ?? "";
+
+        const orgMappingTrimmed = data.orgMapping?.trim() ?? "";
+        let payload: Record<string, unknown> = {
+            name: data.name,
+            clientId: data.clientId,
+            clientSecret: data.clientSecret,
+            apiIntegrationEnabled:
+                supportsApiIntegration(variant) && data.apiIntegrationEnabled,
+            allowManualProvisioning: data.allowManualProvisioning,
+            autoProvision: data.autoProvision,
+            directorySyncEnabled:
+                supportsApiIntegration(variant) &&
+                data.apiIntegrationEnabled &&
+                data.directorySyncEnabled,
+            sessionRevalidation: data.sessionRevalidation,
+            roleMapping: roleMappingExpression,
+            orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed,
+            syncRoleMapping: syncRoleMappingExpression || null,
+            syncOrgMapping:
+                syncOrgMappingTrimmed === "" ? null : syncOrgMappingTrimmed,
+            mappingsLinked: data.mappingsLinked,
+            createMissingRoles: data.createMissingRoles,
+            // linked mappings: sync uses the JIT flag
+            syncCreateMissingRoles: data.mappingsLinked
+                ? data.createMissingRoles
+                : data.syncCreateMissingRoles,
+            directorySyncDeletions: data.directorySyncDeletions
+        };
+
+        // Add variant-specific fields
+        if (variant === "oidc") {
+            const oidcData = data as OidcFormValues;
+            let scopes = oidcData.scopes;
+            if (data.sessionRevalidation) {
+                scopes = scopesForSessionRevalidation(scopes, "oidc");
+            }
+            payload = {
+                ...payload,
+                authUrl: oidcData.authUrl,
+                tokenUrl: oidcData.tokenUrl,
+                identifierPath: oidcData.identifierPath,
+                emailPath: oidcData.emailPath || "",
+                namePath: oidcData.namePath || "",
+                scopes
+            };
+        } else if (variant === "azure") {
+            const azureData = data as AzureFormValues;
+            // Construct URLs dynamically for Azure provider
+            const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
+            const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
+            let scopes = "openid profile email";
+            if (data.sessionRevalidation) {
+                scopes = scopesForSessionRevalidation(scopes, "azure");
+            }
+            payload = {
+                ...payload,
+                authUrl: authUrl,
+                tokenUrl: tokenUrl,
+                identifierPath: "email",
+                emailPath: "email",
+                namePath: "name",
+                scopes
+            };
+        } else if (variant === "google") {
+            // Google refresh tokens use access_type=offline, not offline_access
+            payload = {
+                ...payload,
+                authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+                tokenUrl: "https://oauth2.googleapis.com/token",
+                identifierPath: "email",
+                emailPath: "email",
+                namePath: "name",
+                scopes: "openid profile email",
+                apiConfig: buildGoogleIDPAPIConfig(data as GoogleFormValues)
+            };
+        }
+
+        return payload;
+    }
+
+    /** The form's unsaved values to preview or test, `null` (errors shown) when invalid. */
+    function currentDraft(
+        keys: readonly string[]
+    ): Record<string, unknown> | null {
+        const data = form.getValues();
+        if (!validateForm(data)) {
+            return null;
+        }
+        return pickIdpDraft(buildPayload(data), keys);
+    }
+
+    // snapshot of the saved values, once the form holds them (after load / save)
+    useEffect(() => {
+        if (savedVersion === 0) {
+            return;
+        }
+        setSavedSyncDraftJson(
+            JSON.stringify(
+                pickIdpDraft(
+                    buildPayload(form.getValues()),
+                    ORG_IDP_SYNC_DRAFT_KEYS
+                )
+            )
+        );
+    }, [savedVersion]);
+
+    function openSyncPreview() {
+        const draft = currentDraft(ORG_IDP_SYNC_DRAFT_KEYS);
+        if (!draft) {
+            return;
+        }
+        setSyncDraft(draft);
+        setSyncApplyBlockedReason(
+            !savedSyncEnabled
+                ? "syncNotSaved"
+                : JSON.stringify(draft) !== savedSyncDraftJson
+                  ? "unsavedChanges"
+                  : null
+        );
+        setSyncDialogOpen(true);
+    }
+
     async function onSubmit(data: GeneralFormValues) {
         setLoading(true);
 
         try {
-            // Validate against the correct schema based on variant
-            const schema = getFormSchema();
-            const validationResult = schema.safeParse(data);
-
-            if (!validationResult.success) {
-                // Set form errors
-                const errors = validationResult.error.flatten().fieldErrors;
-                Object.keys(errors).forEach((key) => {
-                    const fieldName = key as keyof GeneralFormValues;
-                    const errorMessage =
-                        (errors as any)[key]?.[0] || t("invalidValue");
-                    form.setError(fieldName, {
-                        type: "manual",
-                        message: errorMessage
-                    });
-                });
-                setLoading(false);
+            if (!validateForm(data)) {
                 return;
             }
 
-            const roleMappingExpression =
-                compileRoleMappingExpression(roleMapping);
-            // linked mappings: sync uses the JIT ones
-            const syncRoleMappingExpression = data.mappingsLinked
-                ? roleMappingExpression
-                : compileRoleMappingExpression(syncRoleMapping);
-            const syncOrgMappingTrimmed =
-                (data.mappingsLinked
-                    ? data.orgMapping?.trim()
-                    : data.syncOrgMapping?.trim()) ?? "";
+            const payload = buildPayload(data);
 
-            if (data.autoProvision && !roleMappingExpression) {
+            if (data.autoProvision && !payload.roleMapping) {
                 toast({
                     title: t("error"),
                     description:
                         "A role mapping is required when auto-provisioning is enabled.",
                     variant: "destructive"
                 });
-                setLoading(false);
                 return;
-            }
-
-            // Build payload based on variant
-            const orgMappingTrimmed = data.orgMapping?.trim() ?? "";
-            let payload: any = {
-                name: data.name,
-                clientId: data.clientId,
-                clientSecret: data.clientSecret,
-                apiIntegrationEnabled:
-                    supportsApiIntegration(variant) &&
-                    data.apiIntegrationEnabled,
-                allowManualProvisioning: data.allowManualProvisioning,
-                autoProvision: data.autoProvision,
-                directorySyncEnabled:
-                    supportsApiIntegration(variant) &&
-                    data.apiIntegrationEnabled &&
-                    data.directorySyncEnabled,
-                sessionRevalidation: data.sessionRevalidation,
-                roleMapping: roleMappingExpression,
-                orgMapping: orgMappingTrimmed === "" ? null : orgMappingTrimmed,
-                syncRoleMapping: syncRoleMappingExpression || null,
-                syncOrgMapping:
-                    syncOrgMappingTrimmed === "" ? null : syncOrgMappingTrimmed,
-                mappingsLinked: data.mappingsLinked,
-                createMissingRoles: data.createMissingRoles,
-                // linked mappings: sync uses the JIT flag
-                syncCreateMissingRoles: data.mappingsLinked
-                    ? data.createMissingRoles
-                    : data.syncCreateMissingRoles,
-                directorySyncDeletions: data.directorySyncDeletions
-            };
-
-            // Add variant-specific fields
-            if (variant === "oidc") {
-                const oidcData = data as OidcFormValues;
-                let scopes = oidcData.scopes;
-                if (data.sessionRevalidation) {
-                    scopes = scopesForSessionRevalidation(scopes, "oidc");
-                }
-                payload = {
-                    ...payload,
-                    authUrl: oidcData.authUrl,
-                    tokenUrl: oidcData.tokenUrl,
-                    identifierPath: oidcData.identifierPath,
-                    emailPath: oidcData.emailPath || "",
-                    namePath: oidcData.namePath || "",
-                    scopes
-                };
-            } else if (variant === "azure") {
-                const azureData = data as AzureFormValues;
-                // Construct URLs dynamically for Azure provider
-                const authUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/authorize`;
-                const tokenUrl = `https://login.microsoftonline.com/${azureData.tenantId}/oauth2/v2.0/token`;
-                let scopes = "openid profile email";
-                if (data.sessionRevalidation) {
-                    scopes = scopesForSessionRevalidation(scopes, "azure");
-                }
-                payload = {
-                    ...payload,
-                    authUrl: authUrl,
-                    tokenUrl: tokenUrl,
-                    identifierPath: "email",
-                    emailPath: "email",
-                    namePath: "name",
-                    scopes
-                };
-            } else if (variant === "google") {
-                // Google refresh tokens use access_type=offline, not offline_access
-                payload = {
-                    ...payload,
-                    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-                    tokenUrl: "https://oauth2.googleapis.com/token",
-                    identifierPath: "email",
-                    emailPath: "email",
-                    namePath: "name",
-                    scopes: "openid profile email",
-                    apiConfig: buildGoogleIDPAPIConfig(data as GoogleFormValues)
-                };
             }
 
             const nextIdentifierPath =
@@ -565,10 +629,8 @@ export default function GeneralPage() {
             if (typeof payload.identifierPath === "string") {
                 setOriginalIdentifierPath(payload.identifierPath);
             }
-            setSavedApiIntegrationEnabled(
-                Boolean(payload.apiIntegrationEnabled)
-            );
             setSavedSyncEnabled(Boolean(payload.directorySyncEnabled));
+            setSavedVersion((v) => v + 1);
             const apiConfig = payload.apiConfig as
                 ReturnType<typeof buildGoogleIDPAPIConfig> | undefined;
             if (apiConfig?.serviceAccountKey) {
@@ -576,7 +638,13 @@ export default function GeneralPage() {
                     apiConfig.serviceAccountKey.client_email
                 );
                 form.setValue("googleServiceAccountKey", "");
+            } else if (apiConfig?.serviceAccountKey === null) {
+                // removed: the server cleared the whole stored config
+                setConfiguredServiceAccountEmail(undefined);
+                form.setValue("googleAdminEmail", "");
+                form.setValue("googleCustomerId", "");
             }
+            form.setValue("googleRemoveServiceAccountKey", false);
             toast({
                 title: t("success"),
                 description: t("idpUpdatedDescription")
@@ -614,7 +682,8 @@ export default function GeneralPage() {
             <IdpSyncNowDialog
                 open={syncDialogOpen}
                 setOpen={setSyncDialogOpen}
-                canApply={savedSyncEnabled}
+                draft={syncDraft}
+                applyBlockedReason={syncApplyBlockedReason}
                 orgId={orgId as string}
                 idpId={idpId as string}
                 lastSyncedAt={lastSyncedAt}
@@ -787,8 +856,8 @@ export default function GeneralPage() {
                                             configuredServiceAccountEmail
                                         }
                                         testApiBase={`/org/${orgId}/idp/${idpId}`}
-                                        savedApiIntegrationEnabled={
-                                            savedApiIntegrationEnabled
+                                        getTestDraft={() =>
+                                            currentDraft(IDP_API_DRAFT_KEYS)
                                         }
                                     />
                                 </form>
@@ -832,7 +901,7 @@ export default function GeneralPage() {
                                 <Button
                                     type="button"
                                     variant="outlinePrimary"
-                                    onClick={() => setSyncDialogOpen(true)}
+                                    onClick={openSyncPreview}
                                     className="gap-2"
                                 >
                                     <RefreshCwIcon className="size-4 flex-none" />

@@ -1,3 +1,4 @@
+import type { IdpGroupEnrichment } from "@server/lib/idp/enrichClaimsWithIdpGroups";
 import { db, roles, userOrgRoles, userOrgs, users } from "@server/db";
 import type { MappingEvaluation } from "@app/lib/idpMappingEval";
 import { and, eq, inArray } from "drizzle-orm";
@@ -55,7 +56,16 @@ export type OidcTestWarning =
     | { code: "identifierPathError"; path: string; error: string }
     | { code: "emailNotFound"; path: string }
     | { code: "nameNotFound"; path: string }
-    | { code: "noGroupsClaim" };
+    | { code: "noGroupsClaim" }
+    /** The API integration's group lookup didn't add `groups` / `groupNames`. */
+    | {
+          code: "groupsNotFetched";
+          reason: Exclude<
+              Extract<IdpGroupEnrichment, { status: "skipped" }>["reason"],
+              "notAvailable"
+          >;
+      }
+    | { code: "groupsFetchFailed"; error: string };
 
 export type OidcTestResult = {
     idpId: number;
@@ -92,6 +102,7 @@ export async function previewIdpLogin({
     existingIdp,
     claims,
     enrichedClaimKeys,
+    groupEnrichment,
     onlyOrgId,
     testedAt = Date.now()
 }: {
@@ -99,6 +110,8 @@ export async function previewIdpLogin({
     /** ID token claims, plus the groups added by the IdP API integration. */
     claims: Record<string, unknown>;
     enrichedClaimKeys: string[];
+    /** What the API group lookup did, for a test login. */
+    groupEnrichment?: IdpGroupEnrichment;
     onlyOrgId?: string;
     /** When the claims were received (epoch ms). Defaults to now. */
     testedAt?: number;
@@ -132,7 +145,20 @@ export async function previewIdpLogin({
     if (idpOidcConfig.namePath && !identity.name) {
         warnings.push({ code: "nameNotFound", path: idpOidcConfig.namePath });
     }
-    if (!Object.keys(claims).some((key) => /group|role/i.test(key))) {
+    if (groupEnrichment?.status === "failed") {
+        warnings.push({
+            code: "groupsFetchFailed",
+            error: groupEnrichment.error
+        });
+    } else if (
+        groupEnrichment?.status === "skipped" &&
+        groupEnrichment.reason !== "notAvailable"
+    ) {
+        warnings.push({
+            code: "groupsNotFetched",
+            reason: groupEnrichment.reason
+        });
+    } else if (!Object.keys(claims).some((key) => /group|role/i.test(key))) {
         warnings.push({ code: "noGroupsClaim" });
     }
 

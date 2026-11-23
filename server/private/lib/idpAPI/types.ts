@@ -48,7 +48,8 @@ export type DirectoryFetchContext = {
 
 /** One step of the API integration test, in order: a later step only runs when the token works. */
 export type IdpApiTestCheck = {
-    check: "token" | "users" | "groups";
+    /** `userGroups`: the per-user group lookup of sign-in, on the first user read. */
+    check: "token" | "users" | "groups" | "userGroups";
     ok: boolean;
     /** Provider error, when `ok` is false. */
     error?: string;
@@ -59,11 +60,22 @@ export type IdpApiTestResult = {
     checks: IdpApiTestCheck[];
 };
 
+export type IDPAPIProviderOptions = {
+    /**
+     * `false` for unsaved (draft) credentials: never read the token cached for
+     * the saved ones, and never cache a token that the real sync would then use.
+     */
+    tokenCache?: boolean;
+};
+
 /** Providers only need the IdP and its OIDC config, global IdPs may have no `idpOrg` row. */
 export type IDPAPIProviderIdp = { idp: Idp; idpOidcConfig: IdpOidcConfig };
 
 export abstract class IDPAPIProvider {
-    constructor(public readonly idp: IDPAPIProviderIdp) {}
+    constructor(
+        public readonly idp: IDPAPIProviderIdp,
+        public readonly options: IDPAPIProviderOptions = {}
+    ) {}
 
     abstract fetchAllDirectoryUsers(): Promise<IDPDirectoryFetchResult>;
 

@@ -1,3 +1,4 @@
+import { clearIdpApiTokenCache } from "@server/lib/idp/apiTokenCache";
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { deleteLoginClaimsForIdp } from "@server/lib/idp/loginClaims";
@@ -308,6 +309,9 @@ export async function updateOidcIdp(
                     .where(eq(idpOidcConfig.idpId, idpId));
             }
         });
+
+        // the credentials or the provider permissions may have changed
+        await clearIdpApiTokenCache(idpId);
 
         if (sessionRevalidation === false) {
             await clearIdpSessionGrants(idpId);

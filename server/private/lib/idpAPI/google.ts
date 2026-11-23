@@ -24,6 +24,7 @@ import type { IDPAPIProviderIdp } from "./types";
 
 import { createSign } from "node:crypto";
 import cache from "@server/lib/cache";
+import { idpApiTokenCacheKey } from "@server/lib/idp/apiTokenCache";
 import logger from "@server/logger";
 import { decryptIDPAPIConfig } from "./config";
 import z from "zod";
@@ -95,7 +96,6 @@ type GoogleGroup = z.output<typeof groupBodySchema>["groups"][number];
 type GoogleMember = z.output<typeof memberBodySchema>["members"][number];
 
 export class GoogleDirectorySyncProvider extends IDPAPIProvider {
-    #TOKEN_CACHE_KEY_PREFIX = "googleDirectorySyncToken";
     #googleAPIBaseUrl = "https://admin.googleapis.com/admin/directory/v1";
     // number of groups whose members are fetched in parallel
     #MEMBERS_FETCH_CONCURRENCY = 5;
@@ -129,9 +129,9 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         const idpId = idpRes.idp.idpId;
         const token = await this.#getToken(idpRes, this.#getAPIConfig(idpRes));
 
-        // `groups?userKey=` only returns direct groups, but it also accepts a
-        //    group key, so we walk up the tree one level at a time to get the
-        //    same transitive groups as sync (`includeDerivedMembership`)
+        // a member's groups are direct ones only, but a group can be a member
+        //    too, so we walk up the tree one level at a time to get the same
+        //    transitive groups as sync (`includeDerivedMembership`)
         const groups = new Map<string, IDPGroup>();
         let frontier = [user.externalId];
 
@@ -140,13 +140,8 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
                 frontier,
                 this.#MEMBERS_FETCH_CONCURRENCY,
                 (key) => {
-                    const sp = new URLSearchParams({
-                        userKey: key,
-                        maxResults: "200",
-                        fields: "nextPageToken,groups(id,name,email)"
-                    });
                     return this.#fetchAllPages<GoogleGroup>({
-                        url: `${this.#googleAPIBaseUrl}/groups?${sp.toString()}`,
+                        url: this.#memberGroupsUrl(key, "200"),
                         token,
                         idpId,
                         label: `groups of ${key}`,
@@ -176,6 +171,22 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         }
 
         return [...groups.values()];
+    }
+
+    /**
+     * The groups `memberKey` (a user or group ID) is a direct member of. Uses
+     * `customer` + a `memberKey` query rather than `userKey`: without a customer
+     * or domain, `userKey` makes Google take the caller's domain, and a service
+     * account calling as itself (no admin email) has none ("Domain not found").
+     */
+    #memberGroupsUrl(memberKey: string, maxResults: string): string {
+        const sp = new URLSearchParams({
+            customer: this.#getAPIConfig(this.idp).customerId ?? "my_customer",
+            query: `memberKey=${memberKey}`,
+            maxResults,
+            fields: "nextPageToken,groups(id,name,email)"
+        });
+        return `${this.#googleAPIBaseUrl}/groups?${sp.toString()}`;
     }
 
     async fetchAllDirectoryUsers(): Promise<IDPDirectoryFetchResult> {
@@ -309,25 +320,56 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
                 maxResults: "1",
                 fields
             }).toString();
-        const reasonOf = (body: any) => body.error?.message;
+        const reasonOf = (body: any) => {
+            const message: string | undefined = body.error?.message;
+            // an unknown `customer` gives "Invalid Input" (users) or "Domain not found" (groups)
+            const customerId = this.#getAPIConfig(this.idp).customerId;
+            if (customerId && [400, 404].includes(body.error?.code)) {
+                return `${message ?? "no error details in response"}. Check the Customer ID "${customerId}": it must be the ID from the Google Admin console (Account > Account settings, like C01abc23d), not a domain. Leave it empty to use the admin's own customer.`;
+            }
+            // the token worked, so the delegated scopes are fine: the impersonated admin lacks rights
+            if (
+                body.error?.code === 403 &&
+                message?.startsWith("Not Authorized")
+            ) {
+                const { adminEmail, serviceAccountKey } = this.#getAPIConfig(
+                    this.idp
+                );
+                if (adminEmail) {
+                    return `${message}. The admin email "${adminEmail}" must be an admin of this Google Workspace with read access to users and groups (Super Admin, or a role with Admin API privileges Users > Read and Groups > Read).`;
+                }
+                // service accounts can't be Super Admin, and `my_customer` doesn't resolve for them
+                return `${message}. Without an admin email, the service account "${serviceAccountKey.client_email}" calls the API as itself: a super admin must assign it a custom admin role with Admin API privileges Users > Read and Groups > Read (Account > Admin roles > the role > Admins > Assign service accounts).${customerId ? "" : " Also set the Customer ID: the default (the admin's own customer) doesn't apply to a service account."}`;
+            }
+            return message;
+        };
 
         return runApiIntegrationTest({
             getToken: () =>
                 this.#getToken(this.idp, this.#getAPIConfig(this.idp), {
                     skipCache: true
                 }),
-            readUsers: (token) =>
-                readOrThrow(
+            readUsers: async (token) => {
+                const body = await readOrThrow(
                     `${this.#googleAPIBaseUrl}/users?${searchParams("users(id)")}`,
                     token,
                     "Google Workspace users",
                     reasonOf
-                ),
+                );
+                return body.users?.[0]?.id;
+            },
             readGroups: (token) =>
                 readOrThrow(
                     `${this.#googleAPIBaseUrl}/groups?${searchParams("groups(id)")}`,
                     token,
                     "Google Workspace groups",
+                    reasonOf
+                ),
+            readUserGroups: (token, userId) =>
+                readOrThrow(
+                    this.#memberGroupsUrl(userId, "1"),
+                    token,
+                    "Google Workspace user groups",
                     reasonOf
                 )
         });
@@ -338,8 +380,11 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         apiConfig: GoogleIDPAPIConfig,
         { skipCache = false }: { skipCache?: boolean } = {}
     ): Promise<string> {
-        const cacheKey = `${this.#TOKEN_CACHE_KEY_PREFIX}:${idpRes.idp.idpId}`;
-        const cached = skipCache ? null : await cache.get<string>(cacheKey);
+        const cacheKey = idpApiTokenCacheKey("google", idpRes.idp.idpId);
+        const cached =
+            skipCache || this.options.tokenCache === false
+                ? null
+                : await cache.get<string>(cacheKey);
 
         if (cached) {
             logger.info("Returning cached access token");
@@ -375,11 +420,15 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         });
         const body: any = await res.json().catch(() => ({}));
         if (!res.ok) {
-            const reason =
+            let reason =
                 body.error_description ??
                 body.error ??
                 res.statusText ??
                 "no error details in response";
+            // impersonating `adminEmail` needs domain-wide delegation for every requested scope
+            if (body.error === "unauthorized_client" && apiConfig.adminEmail) {
+                reason += `. Domain-wide delegation isn't set up for this service account: a super admin must open https://admin.google.com/ac/owl/domainwidedelegation (Security > Access and data control > API controls > Manage Domain Wide Delegation) and add its Client ID (the "client_id" in the key JSON) with these scopes: ${SCOPES.split(" ").join(", ")}. Changes can take a few minutes to apply.`;
+            }
             throw new Error(
                 `Directory sync: Google Workspace token request for IdP ${idpRes.idp.idpId} failed (HTTP ${res.status}): ${reason}`
             );
@@ -387,11 +436,13 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
 
         try {
             const tokenResponse = tokenBodySchema.parse(body);
-            await cache.set(
-                cacheKey,
-                tokenResponse.access_token,
-                tokenResponse.expires_in - 30 // keep the response 30 seconds less than the token to make sure to always have a fresh token
-            );
+            if (this.options.tokenCache !== false) {
+                await cache.set(
+                    cacheKey,
+                    tokenResponse.access_token,
+                    tokenResponse.expires_in - 30 // keep the response 30 seconds less than the token to make sure to always have a fresh token
+                );
+            }
 
             logger.info(
                 `Got new access token (expires in: ${tokenResponse.expires_in}s)`

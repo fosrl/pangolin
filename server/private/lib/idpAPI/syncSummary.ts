@@ -39,6 +39,31 @@ export type SyncCounts = {
     unchanged: number;
 };
 
+/** Rows a preview lists per org at most. The counts still cover every entry. */
+export const MAX_PREVIEW_ENTRIES = 1000;
+
+/**
+ * The membership changes of a plan, the rows a preview lists, capped at
+ * `MAX_PREVIEW_ENTRIES` (removals first, the riskiest changes to review).
+ */
+export function previewChanges(entries: UserSyncEntry[]): {
+    changes: UserSyncEntry[];
+    /** Changes left out by the cap. */
+    truncated: boolean;
+} {
+    const order = { remove: 0, updateRoles: 1, add: 2, unchanged: 3 } as const;
+    const changes = entries
+        .filter((e) => e.membership.operation !== "unchanged")
+        .sort(
+            (a, b) =>
+                order[a.membership.operation] - order[b.membership.operation]
+        );
+    return {
+        changes: changes.slice(0, MAX_PREVIEW_ENTRIES),
+        truncated: changes.length > MAX_PREVIEW_ENTRIES
+    };
+}
+
 export function emptySyncCounts(): SyncCounts {
     return {
         usersCreated: 0,
