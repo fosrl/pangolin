@@ -32,10 +32,8 @@ type IdpMappingTabsProps = {
     orgId?: string;
     fieldIdPrefix: string;
     showFreeformRoleNamesHint?: boolean;
-    /** "Create missing roles" checkbox, only shown for a raw expression unless `createMissingRolesInAnyMode`. */
     createMissingRoles?: boolean;
     onCreateMissingRolesChange?: (checked: boolean) => void;
-    createMissingRolesInAnyMode?: boolean;
     /**
      * `/idp/:idpId` or `/org/:orgId/idp/:idpId`: the mapping playground prefills
      * the claims of this IdP's latest completed test link.
@@ -54,7 +52,6 @@ export default function IdpMappingTabs({
     showFreeformRoleNamesHint,
     createMissingRoles,
     onCreateMissingRolesChange,
-    createMissingRolesInAnyMode,
     testResultsApiBase
 }: IdpMappingTabsProps) {
     const t = useTranslations();
@@ -112,7 +109,6 @@ export default function IdpMappingTabs({
                 }
                 createMissingRoles={createMissingRoles}
                 onCreateMissingRolesChange={onCreateMissingRolesChange}
-                createMissingRolesInAnyMode={createMissingRolesInAnyMode}
             />
         </div>
     );

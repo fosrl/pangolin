@@ -67,7 +67,6 @@ export default function IdpLinkedMappingsFields({
             orgMappingField={set.orgMappingField}
             createMissingRoles={set.createMissingRoles}
             onCreateMissingRolesChange={set.onCreateMissingRolesChange}
-            createMissingRolesInAnyMode
         />
     );
 

@@ -42,15 +42,8 @@ export type RoleMappingConfigFieldsProps = {
     showFreeformRoleNamesHint?: boolean;
     /** Org ID to use for role lookup. Falls back to URL params when not provided. */
     orgId?: string;
-    /**
-     * "Create missing roles" checkbox, hidden when the handler is omitted. Only
-     * shown for a raw expression, the only mode that can return roles that
-     * aren't in the org, unless `createMissingRolesInAnyMode` is set.
-     */
     createMissingRoles?: boolean;
     onCreateMissingRolesChange?: (checked: boolean) => void;
-    /** Show the checkbox in every mode (global defaults have no org role list, so any mode can name a missing role). */
-    createMissingRolesInAnyMode?: boolean;
 };
 
 export default function RoleMappingConfigFields({
@@ -69,8 +62,7 @@ export default function RoleMappingConfigFields({
     showFreeformRoleNamesHint = false,
     orgId,
     createMissingRoles = false,
-    onCreateMissingRolesChange,
-    createMissingRolesInAnyMode = false
+    onCreateMissingRolesChange
 }: RoleMappingConfigFieldsProps) {
     const t = useTranslations();
     const { env } = useEnvContext();
@@ -81,7 +73,10 @@ export default function RoleMappingConfigFields({
         !env.flags.disableEnterpriseFeatures &&
         !isPaidUser(tierMatrix.fullRbac);
 
-    const restrictToOrgRoles = roles.length > 0;
+    const hasOrgRoles = roles.length > 0;
+    // pick from the org roles, unless missing roles get created: then any name can be typed
+    const restrictToOrgRoles =
+        hasOrgRoles && !(onCreateMissingRolesChange && createMissingRoles);
 
     const roleOptions = useMemo(
         () =>
@@ -255,7 +250,7 @@ export default function RoleMappingConfigFields({
                             placeholder={t(
                                 "roleMappingAssignRolesPlaceholderFreeform"
                             )}
-                            enableAutocomplete={false}
+                            enableAutocomplete={hasOrgRoles}
                             autocompleteOptions={roleOptions}
                             restrictTagsToAutocompleteOptions={false}
                             allowDuplicates={false}
@@ -312,6 +307,7 @@ export default function RoleMappingConfigFields({
                                 fieldIdPrefix={`${fieldIdPrefix}-rule-${index}`}
                                 roleOptions={roleOptions}
                                 restrictToOrgRoles={restrictToOrgRoles}
+                                hasOrgRoles={hasOrgRoles}
                                 showFreeformRoleNamesHint={
                                     showFreeformRoleNamesHint
                                 }
@@ -379,23 +375,21 @@ export default function RoleMappingConfigFields({
                 </div>
             )}
 
-            {onCreateMissingRolesChange &&
-                (createMissingRolesInAnyMode ||
-                    roleMappingMode === "rawExpression") && (
-                    <div className="space-y-1">
-                        <CheckboxWithLabel
-                            id={`${fieldIdPrefix}-create-missing-roles`}
-                            label={t("roleMappingCreateMissingRoles")}
-                            checked={createMissingRoles}
-                            onCheckedChange={(checked) =>
-                                onCreateMissingRolesChange(checked === true)
-                            }
-                        />
-                        <FormDescription>
-                            {t("roleMappingCreateMissingRolesDescription")}
-                        </FormDescription>
-                    </div>
-                )}
+            {onCreateMissingRolesChange && (
+                <div className="space-y-1">
+                    <CheckboxWithLabel
+                        id={`${fieldIdPrefix}-create-missing-roles`}
+                        label={t("roleMappingCreateMissingRoles")}
+                        checked={createMissingRoles}
+                        onCheckedChange={(checked) =>
+                            onCreateMissingRolesChange(checked === true)
+                        }
+                    />
+                    <FormDescription>
+                        {t("roleMappingCreateMissingRolesDescription")}
+                    </FormDescription>
+                </div>
+            )}
         </div>
     );
 }
@@ -404,6 +398,7 @@ function BuilderRuleRow({
     rule,
     roleOptions,
     restrictToOrgRoles,
+    hasOrgRoles,
     showFreeformRoleNamesHint,
     fieldIdPrefix,
     mappingRulesGridClass,
@@ -416,6 +411,7 @@ function BuilderRuleRow({
     rule: MappingBuilderRule;
     roleOptions: Tag[];
     restrictToOrgRoles: boolean;
+    hasOrgRoles: boolean;
     showFreeformRoleNamesHint: boolean;
     fieldIdPrefix: string;
     mappingRulesGridClass: string;
@@ -545,7 +541,7 @@ function BuilderRuleRow({
                             placeholder={t(
                                 "roleMappingAssignRolesPlaceholderFreeform"
                             )}
-                            enableAutocomplete={false}
+                            enableAutocomplete={hasOrgRoles}
                             autocompleteOptions={roleOptions}
                             restrictTagsToAutocompleteOptions={false}
                             allowDuplicates={false}
