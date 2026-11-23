@@ -21,3 +21,4 @@ export * from "./deleteOrgIdp";
 export * from "./unassociateOrgIdp";
 export * from "./requireOrgIdentityProviderMode";
 export * from "./syncOrgIdp";
+export * from "./testOrgIdpApiIntegration";

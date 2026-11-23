@@ -1,6 +1,7 @@
 "use client";
 
 import GoogleIDPAPIConfigFields from "@app/components/GoogleIDPAPIConfigFields";
+import IdpApiIntegrationTest from "@app/components/idp/IdpApiIntegrationTest";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
 import { SwitchInput } from "@app/components/SwitchInput";
 import { usePaidStatus } from "@app/hooks/usePaidStatus";
@@ -16,6 +17,13 @@ type ApiIntegrationConfigWidgetProps = {
     configuredServiceAccountEmail?: string;
     disabled?: boolean;
     switchId?: string;
+    /**
+     * `/idp/:idpId` or `/org/:orgId/idp/:idpId`: shows the "Test API Integration"
+     * button. Omit it when the IdP doesn't exist yet (create pages).
+     */
+    testApiBase?: string;
+    /** The integration is saved as enabled; the test runs on the saved credentials. */
+    savedApiIntegrationEnabled?: boolean;
 };
 
 // Must be rendered inside the `<Form>` of a form with `GoogleDirectorySyncFormValues` fields.
@@ -25,7 +33,9 @@ export default function ApiIntegrationConfigWidget({
     onApiIntegrationEnabledChange,
     configuredServiceAccountEmail,
     disabled = false,
-    switchId = "api-integration-toggle"
+    switchId = "api-integration-toggle",
+    testApiBase,
+    savedApiIntegrationEnabled = false
 }: ApiIntegrationConfigWidgetProps) {
     const t = useTranslations();
     const { isPaidUser } = usePaidStatus();
@@ -56,6 +66,13 @@ export default function ApiIntegrationConfigWidget({
                 <p className="text-sm text-muted-foreground">
                     {t("idpApiIntegrationAzureCredentials")}
                 </p>
+            )}
+
+            {apiIntegrationEnabled && testApiBase && (
+                <IdpApiIntegrationTest
+                    apiBase={testApiBase}
+                    disabled={!savedApiIntegrationEnabled}
+                />
             )}
         </div>
     );

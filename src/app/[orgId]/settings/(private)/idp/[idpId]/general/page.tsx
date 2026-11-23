@@ -786,6 +786,10 @@ export default function GeneralPage() {
                                         configuredServiceAccountEmail={
                                             configuredServiceAccountEmail
                                         }
+                                        testApiBase={`/org/${orgId}/idp/${idpId}`}
+                                        savedApiIntegrationEnabled={
+                                            savedApiIntegrationEnabled
+                                        }
                                     />
                                 </form>
                             </Form>

@@ -289,11 +289,29 @@ authenticated.post(
 );
 
 authenticated.post(
+    "/org/:orgId/idp/:idpId/api-integration/test",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.idpAPIIntegration),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyIdpAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateIdp),
+    orgIdp.testOrgIdpApiIntegration
+);
+
+authenticated.post(
     "/idp/:idpId/sync",
     verifyValidLicense,
     verifyApiKeyIsRoot,
     verifyApiKeyHasAction(ActionsEnum.updateIdp),
     globalIdp.syncIdp
+);
+
+authenticated.post(
+    "/idp/:idpId/api-integration/test",
+    verifyValidLicense,
+    verifyApiKeyIsRoot,
+    verifyApiKeyHasAction(ActionsEnum.updateIdp),
+    globalIdp.testIdpApiIntegration
 );
 
 authenticated.delete(

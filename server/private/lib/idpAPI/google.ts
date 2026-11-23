@@ -12,7 +12,9 @@
  */
 
 import { IDPAPIProvider } from "./types";
+import { readOrThrow, runApiIntegrationTest } from "./testConnection";
 import type {
+    IdpApiTestResult,
     DirectoryFetchContext,
     IDPDirectoryFetchResult,
     IDPDirectoryUser,
@@ -299,12 +301,45 @@ export class GoogleDirectorySyncProvider extends IDPAPIProvider {
         }
     }
 
+    async testConnection(): Promise<IdpApiTestResult> {
+        const searchParams = (fields: string) =>
+            new URLSearchParams({
+                customer:
+                    this.#getAPIConfig(this.idp).customerId ?? "my_customer",
+                maxResults: "1",
+                fields
+            }).toString();
+        const reasonOf = (body: any) => body.error?.message;
+
+        return runApiIntegrationTest({
+            getToken: () =>
+                this.#getToken(this.idp, this.#getAPIConfig(this.idp), {
+                    skipCache: true
+                }),
+            readUsers: (token) =>
+                readOrThrow(
+                    `${this.#googleAPIBaseUrl}/users?${searchParams("users(id)")}`,
+                    token,
+                    "Google Workspace users",
+                    reasonOf
+                ),
+            readGroups: (token) =>
+                readOrThrow(
+                    `${this.#googleAPIBaseUrl}/groups?${searchParams("groups(id)")}`,
+                    token,
+                    "Google Workspace groups",
+                    reasonOf
+                )
+        });
+    }
+
     async #getToken(
         idpRes: IDPAPIProviderIdp,
-        apiConfig: GoogleIDPAPIConfig
+        apiConfig: GoogleIDPAPIConfig,
+        { skipCache = false }: { skipCache?: boolean } = {}
     ): Promise<string> {
         const cacheKey = `${this.#TOKEN_CACHE_KEY_PREFIX}:${idpRes.idp.idpId}`;
-        const cached = await cache.get<string>(cacheKey);
+        const cached = skipCache ? null : await cache.get<string>(cacheKey);
 
         if (cached) {
             logger.info("Returning cached access token");

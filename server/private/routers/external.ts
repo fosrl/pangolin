@@ -145,6 +145,17 @@ authenticated.post(
     orgIdp.syncOrgIdp
 );
 
+authenticated.post(
+    "/org/:orgId/idp/:idpId/api-integration/test",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.idpAPIIntegration),
+    orgIdp.requireOrgIdentityProviderMode,
+    verifyOrgAccess,
+    verifyIdpAccess,
+    verifyUserHasAction(ActionsEnum.updateIdp),
+    orgIdp.testOrgIdpApiIntegration
+);
+
 authenticated.put(
     "/org/:orgId/idp/:idpId/oidc/test-links",
     verifyValidLicense,
@@ -206,6 +217,13 @@ authenticated.post(
     verifyValidLicense,
     verifyUserIsServerAdmin,
     globalIdp.syncIdp
+);
+
+authenticated.post(
+    "/idp/:idpId/api-integration/test",
+    verifyValidLicense,
+    verifyUserIsServerAdmin,
+    globalIdp.testIdpApiIntegration
 );
 
 authenticated.delete(

@@ -46,6 +46,19 @@ export type DirectoryFetchContext = {
     identifierPath: string;
 };
 
+/** One step of the API integration test, in order: a later step only runs when the token works. */
+export type IdpApiTestCheck = {
+    check: "token" | "users" | "groups";
+    ok: boolean;
+    /** Provider error, when `ok` is false. */
+    error?: string;
+};
+
+export type IdpApiTestResult = {
+    ok: boolean;
+    checks: IdpApiTestCheck[];
+};
+
 /** Providers only need the IdP and its OIDC config, global IdPs may have no `idpOrg` row. */
 export type IDPAPIProviderIdp = { idp: Idp; idpOidcConfig: IdpOidcConfig };
 
@@ -59,6 +72,12 @@ export abstract class IDPAPIProvider {
     ): Promise<IDPGroup[]>;
 
     abstract toClaims(user: IDPDirectoryUser): object;
+
+    /**
+     * Checks the saved credentials: a fresh access token (never the cached one),
+     * then reading one user and one group, the permissions sync needs.
+     */
+    abstract testConnection(): Promise<IdpApiTestResult>;
 
     /** Reads the provider's immutable user ID (`externalId`) from ID token claims. */
     abstract externalIdFromClaims(

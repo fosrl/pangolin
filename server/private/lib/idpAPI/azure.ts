@@ -19,7 +19,9 @@ import z from "zod";
 import { fromError } from "zod-validation-error";
 import type { IDPAPIProviderIdp } from "./types";
 import { IDPAPIProvider } from "./types";
+import { readOrThrow, runApiIntegrationTest } from "./testConnection";
 import type {
+    IdpApiTestResult,
     DirectoryFetchContext,
     IDPDirectoryFetchResult,
     IDPGroup,
@@ -355,9 +357,34 @@ export class AzureDirectorySyncProvider extends IDPAPIProvider {
         };
     }
 
-    async #getToken(idpRes: IDPAPIProviderIdp): Promise<string> {
+    async testConnection(): Promise<IdpApiTestResult> {
+        const reasonOf = (body: any) => body.error?.message ?? body.error?.code;
+
+        return runApiIntegrationTest({
+            getToken: () => this.#getToken(this.idp, { skipCache: true }),
+            readUsers: (token) =>
+                readOrThrow(
+                    `${this.#microsoftGraphBaseUrl}/users?$top=1&$select=id`,
+                    token,
+                    "Microsoft Graph users",
+                    reasonOf
+                ),
+            readGroups: (token) =>
+                readOrThrow(
+                    `${this.#microsoftGraphBaseUrl}/groups?$top=1&$select=id`,
+                    token,
+                    "Microsoft Graph groups",
+                    reasonOf
+                )
+        });
+    }
+
+    async #getToken(
+        idpRes: IDPAPIProviderIdp,
+        { skipCache = false }: { skipCache?: boolean } = {}
+    ): Promise<string> {
         const cacheKey = `${this.#TOKEN_CACHE_KEY_PREFIX}:${idpRes.idp.idpId}`;
-        const cached = await cache.get<string>(cacheKey);
+        const cached = skipCache ? null : await cache.get<string>(cacheKey);
 
         if (cached) {
             logger.info("Returning cached access token");

@@ -12,3 +12,4 @@
  */
 
 export * from "./syncIdp";
+export * from "./testIdpApiIntegration";
