@@ -3,10 +3,11 @@ import { GetBrowserTargetResponse } from "@server/routers/browserGatewayTarget";
 import { AxiosResponse } from "axios";
 import { headers } from "next/headers";
 import { cache } from "react";
+import { getTrustedHost } from "@app/lib/getTrustedHost";
 
 export const getBrowserTargetForRequest = cache(async () => {
     const headersList = await headers();
-    const host = headersList.get("p-host") || headersList.get("host") || "";
+    const host = getTrustedHost(headersList);
     const hostname = host.split(":")[0];
 
     try {

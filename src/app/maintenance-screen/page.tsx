@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { headers } from "next/headers";
 import { priv } from "@app/lib/api";
+import { getTrustedHost } from "@app/lib/getTrustedHost";
 import { GetMaintenanceInfoResponse } from "@server/routers/resource/types";
 import { getTranslations } from "next-intl/server";
 import {
@@ -28,7 +29,7 @@ export default async function MaintenanceScreen() {
 
     try {
         const headersList = await headers();
-        const host = headersList.get("p-host") || headersList.get("host") || "";
+        const host = getTrustedHost(headersList);
         const hostname = host.split(":")[0];
 
         const res = await priv.get<AxiosResponse<GetMaintenanceInfoResponse>>(
