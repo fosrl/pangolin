@@ -226,8 +226,9 @@ export async function runIdpDirectorySync({
                 results.push({ ...base, status: "synced", plan });
             } catch (error) {
                 logger.error(
-                    `Directory sync: failed for IdP ${base.idpId}, org ${base.orgId}`,
-                    { error }
+                    `Directory sync: failed for IdP ${base.idpId}, org ${base.orgId}: ${
+                        error instanceof Error ? error.message : String(error)
+                    }`
                 );
                 results.push({
                     ...base,

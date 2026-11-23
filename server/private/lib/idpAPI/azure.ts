@@ -31,11 +31,17 @@ const userBodySchema = z.object({
     value: z.array(
         z.object({
             id: z.uuid(),
-            mail: z.email().nullish(),
+            // invalid addresses are dropped instead of failing the whole sync
+            mail: z.email().nullish().catch(null),
             displayName: z.string().nullish(),
             accountEnabled: z.boolean().nullish(),
             userPrincipalName: z.string().nullish(),
-            otherMails: z.array(z.email()).nullish()
+            otherMails: z
+                .array(z.string())
+                .nullish()
+                .transform((mails) =>
+                    mails?.filter((m) => z.email().safeParse(m).success)
+                )
         })
     )
 });

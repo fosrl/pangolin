@@ -18,27 +18,40 @@ import { db, idpOrg, type Idp, type IdpOidcConfig } from "@server/db";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { isOrgIdentityProviderMode } from "@server/lib/idp/idpExistsForOrg";
 import logger from "@server/logger";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 /**
- * An org IdP follows its org's plan. A global IdP isn't tied to one org (and may
- * have no `idpOrg` row yet), so it only needs a license, like its settings.
+ * Whether the login needs the API groups: auto-provision must be on (groups are
+ * only used by the JIT mappings) and the IdP entitled to the API integration.
+ *
+ * - Org IdP mode: auto-provision lives on the `idpOrg` policies (the `idp` row's
+ *   flag is always false), and the IdP follows its org's plan.
+ * - Global IdPs: the `idp` row's flag, and only a license is needed, like its
+ *   settings (a global IdP isn't tied to one org and may have no `idpOrg` row).
  */
-async function isEntitledToIdpAPI(idpId: number): Promise<boolean> {
+async function shouldEnrichWithIdpGroups(idp: Idp): Promise<boolean> {
     if (!isOrgIdentityProviderMode()) {
-        return license.isUnlocked();
+        return idp.autoProvision && license.isUnlocked();
     }
 
-    const [policy] = await db
+    const policies = await db
         .select({ orgId: idpOrg.orgId })
         .from(idpOrg)
-        .where(eq(idpOrg.idpId, idpId))
-        .limit(1);
-    if (!policy) {
-        return false;
-    }
+        .where(
+            and(eq(idpOrg.idpId, idp.idpId), eq(idpOrg.autoProvision, true))
+        );
 
-    return isLicensedOrSubscribed(policy.orgId, tierMatrix.idpAPIIntegration);
+    for (const policy of policies) {
+        if (
+            await isLicensedOrSubscribed(
+                policy.orgId,
+                tierMatrix.idpAPIIntegration
+            )
+        ) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -56,8 +69,7 @@ export async function enrichClaimsWithIdpGroups(
     { idp, idpOidcConfig }: { idp: Idp; idpOidcConfig: IdpOidcConfig },
     claims: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-    // groups are only used by the JIT mappings
-    if (!idp.apiIntegrationEnabled || !idp.autoProvision) {
+    if (!idp.apiIntegrationEnabled) {
         return claims;
     }
 
@@ -67,7 +79,7 @@ export async function enrichClaimsWithIdpGroups(
     }
 
     try {
-        if (!(await isEntitledToIdpAPI(idp.idpId))) {
+        if (!(await shouldEnrichWithIdpGroups(idp))) {
             return claims;
         }
 
