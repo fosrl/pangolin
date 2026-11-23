@@ -548,7 +548,7 @@
     "licenseBannerGetLicense": "Get a License",
     "licenseBannerViewDocs": "View Documentation",
     "licenseUpgradeBannerTitle": "Need More Capacity?",
-    "licenseUpgradeBannerDescription": "If you need to increase your site or user capacity, you can buy more licenses from the app.pangolin.net portal and add them below to upgrade your instance.",
+    "licenseUpgradeBannerDescription": "If you need to increase your site or user capacity, you can buy more licenses or adjust existing ones from the app.pangolin.net portal and add them below to upgrade your instance.",
     "licenseUpgradeBannerButton": "Buy More Licenses",
     "licenseLimitsExceededBannerTitle": "License Limits Exceeded",
     "licenseLimitsExceededBannerDescription": "Your license key is valid, but this server is using more than it allows: {details}. Enterprise features are turned off until usage is back within your limits. Remove the extra items, or buy more capacity and add the new license key below.",
