@@ -13,7 +13,10 @@
 
 import logger from "@server/logger";
 import { LogEvent, HttpConfig, PayloadFormat } from "../types";
-import { LogDestinationProvider } from "./LogDestinationProvider";
+import {
+    LogDestinationProvider,
+    PartialDeliveryError
+} from "./LogDestinationProvider";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -21,6 +24,23 @@ import { LogDestinationProvider } from "./LogDestinationProvider";
 
 /** Maximum time (ms) to wait for a single HTTP response. */
 const REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * How many times a single request is retried in place after an HTTP 429.
+ * Endpoints such as Discord webhooks rate-limit bursts of requests and say
+ * how long to wait via `Retry-After`; waiting that long and retrying keeps
+ * delivery moving instead of failing the whole poll cycle.
+ */
+const MAX_RATE_LIMIT_RETRIES = 3;
+
+/**
+ * Longest `Retry-After` (ms) honoured in place. Longer waits fail the request
+ * so the manager's back-off handles it without stalling the poll loop.
+ */
+const MAX_RATE_LIMIT_WAIT_MS = 10_000;
+
+/** Wait used when a 429 response carries no usable `Retry-After` header. */
+const DEFAULT_RATE_LIMIT_WAIT_MS = 1_000;
 
 /** Default payload format when none is specified in the config. */
 const DEFAULT_FORMAT: PayloadFormat = "json_array";
@@ -88,14 +108,20 @@ export class HttpLogDestination implements LogDestinationProvider {
         const format = this.config.format ?? DEFAULT_FORMAT;
 
         if (format === "json_single") {
-            // One HTTP POST per event – send sequentially so a failure on one
-            // event throws and lets the manager retry the whole batch from the
-            // same cursor position.
-            for (const event of events) {
-                await this.postRequest(
-                    this.buildSingleBody(event),
-                    "application/json"
-                );
+            // One HTTP POST per event, sent sequentially. If one fails after
+            // earlier ones were accepted, report how many got through so the
+            // manager can advance its cursor past them instead of resending
+            // them on the next attempt.
+            for (let i = 0; i < events.length; i++) {
+                try {
+                    await this.postRequest(
+                        this.buildSingleBody(events[i]),
+                        "application/json"
+                    );
+                } catch (err) {
+                    if (i === 0) throw err;
+                    throw new PartialDeliveryError(i, err);
+                }
             }
             return;
         }
@@ -121,15 +147,42 @@ export class HttpLogDestination implements LogDestinationProvider {
     ): Promise<void> {
         const headers = this.buildHeaders(contentType);
 
+        for (let attempt = 0; ; attempt++) {
+            const response = await this.fetchOnce(body, headers);
+
+            if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
+                const waitMs = parseRetryAfterMs(
+                    response.headers.get("retry-after")
+                );
+                if (waitMs <= MAX_RATE_LIMIT_WAIT_MS) {
+                    // Drain the body so the connection can be reused
+                    await response.text().catch(() => undefined);
+                    logger.debug(
+                        `HttpLogDestination: "${this.config.url}" rate-limited ` +
+                            `the request, retrying in ${waitMs} ms`
+                    );
+                    await sleep(waitMs);
+                    continue;
+                }
+            }
+
+            await this.assertOk(response);
+            return;
+        }
+    }
+
+    private async fetchOnce(
+        body: string,
+        headers: Record<string, string>
+    ): Promise<Response> {
         const controller = new AbortController();
         const timeoutHandle = setTimeout(
             () => controller.abort(),
             REQUEST_TIMEOUT_MS
         );
 
-        let response: Response;
         try {
-            response = await fetch(this.config.url, {
+            return await fetch(this.config.url, {
                 method: "POST",
                 headers,
                 body,
@@ -150,7 +203,9 @@ export class HttpLogDestination implements LogDestinationProvider {
         } finally {
             clearTimeout(timeoutHandle);
         }
+    }
 
+    private async assertOk(response: Response): Promise<void> {
         if (!response.ok) {
             // Try to include a snippet of the response body in the error so
             // operators can diagnose auth or schema rejections.
@@ -305,6 +360,32 @@ export class HttpLogDestination implements LogDestinationProvider {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Convert a `Retry-After` header value (delay in seconds, or an HTTP date)
+ * to milliseconds. Returns the default wait when the header is missing or
+ * cannot be parsed.
+ */
+export function parseRetryAfterMs(header: string | null): number {
+    const value = header?.trim();
+    if (!value) return DEFAULT_RATE_LIMIT_WAIT_MS;
+
+    const seconds = Number(value);
+    if (Number.isFinite(seconds)) {
+        return Math.max(0, Math.ceil(seconds * 1000));
+    }
+
+    const date = Date.parse(value);
+    if (!Number.isNaN(date)) {
+        return Math.max(0, date - Date.now());
+    }
+
+    return DEFAULT_RATE_LIMIT_WAIT_MS;
+}
 
 function epochSecondsToIso(epochSeconds: number): string {
     return new Date(epochSeconds * 1000).toISOString();

@@ -35,7 +35,10 @@ import {
     HttpConfig,
     S3Config
 } from "./types";
-import { LogDestinationProvider } from "./providers/LogDestinationProvider";
+import {
+    LogDestinationProvider,
+    PartialDeliveryError
+} from "./providers/LogDestinationProvider";
 import { HttpLogDestination } from "./providers/HttpLogDestination";
 import { S3LogDestination } from "./providers/S3LogDestination";
 import type { EventStreamingDestination } from "@server/db";
@@ -458,7 +461,24 @@ export class LogStreamingManager {
             const events = rows.map((row) => this.rowToLogEvent(logType, row));
 
             // Throws on failure – caught by the caller which applies back-off
-            await provider.send(events);
+            try {
+                await provider.send(events);
+            } catch (err) {
+                // Some events got through before the failure: move the cursor
+                // past them so the retry does not send them a second time.
+                if (
+                    err instanceof PartialDeliveryError &&
+                    err.deliveredCount > 0
+                ) {
+                    const delivered = Math.min(err.deliveredCount, rows.length);
+                    await this.updateCursor(
+                        dest.destinationId,
+                        logType,
+                        rows[delivered - 1].id
+                    );
+                }
+                throw err;
+            }
 
             lastSentId = rows[rows.length - 1].id;
             await this.updateCursor(dest.destinationId, logType, lastSentId);
