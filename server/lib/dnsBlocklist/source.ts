@@ -25,6 +25,15 @@ export function isDnsBlockCategory(value: string): value is DnsBlockCategory {
 }
 
 /**
+ * Whether browsers opening a domain in this category are shown the block page.
+ * Ads are not: they load inside other pages, where a block page would only
+ * replace a banner with an error frame, so they keep failing the lookup.
+ */
+export function categoryShowsBlockPage(category: DnsBlockCategory): boolean {
+    return category !== "ads";
+}
+
+/**
  * Where the category domain sets come from. Today the lists are files on disk;
  * an implementation backed by an upstream API can replace it without touching
  * anything else, as long as it returns the same per-category sets.

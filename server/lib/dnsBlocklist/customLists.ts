@@ -7,6 +7,8 @@ export type CustomListSnapshot = {
     /** Changes whenever the list's domains change. */
     key: string;
     domains: ReadonlySet<string>;
+    /** Whether its domains get the block page instead of a failed lookup. */
+    showBlockPage: boolean;
 };
 
 /** The custom lists selected by any of these roles. */

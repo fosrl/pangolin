@@ -49,6 +49,8 @@ export enum ActionsEnum {
     createDnsBlockList = "createDnsBlockList",
     updateDnsBlockList = "updateDnsBlockList",
     deleteDnsBlockList = "deleteDnsBlockList",
+    getDnsBlockPage = "getDnsBlockPage",
+    updateDnsBlockPage = "updateDnsBlockPage",
     inviteUser = "inviteUser",
     listInvitations = "listInvitations",
     removeInvitation = "removeInvitation",

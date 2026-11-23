@@ -3,6 +3,8 @@ export type DnsBlockListSummary = {
     name: string;
     description: string | null;
     domainCount: number;
+    // Browsers opening a domain on this list are sent to the org's block page
+    showBlockPage: boolean;
     updatedAt: number;
 };
 
@@ -39,6 +41,26 @@ export type RoleDnsBlockingValues = {
 
 export type GetRoleDnsBlockingResponse = RoleDnsBlockingValues;
 export type UpdateRoleDnsBlockingResponse = RoleDnsBlockingValues;
+
+// Wording of the block page. null fields use the default text. Text may use
+// the {{domain}} and {{orgName}} placeholders.
+export type DnsBlockPageValues = {
+    title: string | null;
+    message: string | null;
+    contact: string | null;
+};
+
+export type GetDnsBlockPageResponse = DnsBlockPageValues;
+export type UpdateDnsBlockPageResponse = DnsBlockPageValues;
+
+// What the public block page loads for an org.
+export type LoadDnsBlockPageResponse = DnsBlockPageValues & {
+    orgName: string;
+};
+
+export const DNS_BLOCK_PAGE_TITLE_MAX = 255;
+export const DNS_BLOCK_PAGE_MESSAGE_MAX = 2000;
+export const DNS_BLOCK_PAGE_CONTACT_MAX = 1000;
 
 // Limits shared by the API and the dashboard.
 export const DNS_BLOCK_LIST_MAX_DOMAINS = 100_000;

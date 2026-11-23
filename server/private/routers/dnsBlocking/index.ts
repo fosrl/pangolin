@@ -12,4 +12,5 @@
  */
 
 export * from "./dnsBlockList";
+export * from "./dnsBlockPage";
 export * from "./queryDnsBlockLogs";

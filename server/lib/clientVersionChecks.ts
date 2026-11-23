@@ -117,3 +117,20 @@ export function supportsDnsBlocklist(
         return false;
     }
 }
+
+// Whether this olm client understands the block page fields of
+// olm/dns/blocklist (pageCompressed and pageUrl). Older clients get every
+// blocked domain in the main list instead. Bump the version floor here to
+// match whatever release first ships the olm-side support.
+// OLM
+export function supportsDnsBlockPage(
+    clientVersion: string | null | undefined
+): boolean {
+    try {
+        if (!clientVersion) return false;
+        if (!semver.valid(clientVersion)) return false;
+        return semver.gte(clientVersion, "1.11.0");
+    } catch {
+        return false;
+    }
+}

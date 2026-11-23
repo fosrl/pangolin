@@ -35,6 +35,7 @@ export async function getCustomListsForRoles(
         .select({
             dnsBlockListId: dnsBlockLists.dnsBlockListId,
             domains: dnsBlockLists.domains,
+            showBlockPage: dnsBlockLists.showBlockPage,
             updatedAt: dnsBlockLists.updatedAt
         })
         .from(dnsBlockLists)
@@ -46,8 +47,9 @@ export async function getCustomListsForRoles(
         );
 
     return lists.map((list) => ({
-        key: `${list.dnsBlockListId}@${list.updatedAt}`,
-        domains: parseDomains(list.domains)
+        key: `${list.dnsBlockListId}@${list.updatedAt}${list.showBlockPage ? ":page" : ""}`,
+        domains: parseDomains(list.domains),
+        showBlockPage: list.showBlockPage
     }));
 }
 

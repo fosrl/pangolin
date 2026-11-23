@@ -73,6 +73,10 @@ export default async function GeneralSettingsPage({
                   {
                       title: t("authPage"),
                       href: `/{orgId}/settings/general/auth-page`
+                  },
+                  {
+                      title: t("dnsBlockPageTab"),
+                      href: `/{orgId}/settings/general/block-page`
                   }
               ]
             : [])

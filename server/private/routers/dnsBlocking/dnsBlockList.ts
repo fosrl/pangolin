@@ -45,7 +45,9 @@ const bodySchema = z.strictObject({
     name: z.string().trim().min(1).max(255),
     description: z.string().trim().max(1000).nullable().optional(),
     // Hosts-file lines or plain domains; normalized and de-duplicated here.
-    domains: z.string().max(10_000_000)
+    domains: z.string().max(10_000_000),
+    // Send browsers to the block page instead of failing the lookup
+    showBlockPage: z.boolean().optional()
 });
 
 // Normalizes the submitted text. Returns an error message when it cannot be
@@ -97,6 +99,7 @@ export async function listDnsBlockLists(
                 name: dnsBlockLists.name,
                 description: dnsBlockLists.description,
                 domainCount: dnsBlockLists.domainCount,
+                showBlockPage: dnsBlockLists.showBlockPage,
                 updatedAt: dnsBlockLists.updatedAt
             })
             .from(dnsBlockLists)
@@ -167,6 +170,7 @@ export async function getDnsBlockList(
                 name: list.name,
                 description: list.description,
                 domainCount: list.domainCount,
+                showBlockPage: list.showBlockPage,
                 updatedAt: list.updatedAt,
                 domains: list.domains
             },
@@ -220,7 +224,7 @@ export async function createDnsBlockList(
             );
         }
         const { orgId } = parsedParams.data;
-        const { name, description, domains } = parsedBody.data;
+        const { name, description, domains, showBlockPage } = parsedBody.data;
 
         const normalized = normalizeDomains(domains);
         if ("error" in normalized) {
@@ -237,6 +241,7 @@ export async function createDnsBlockList(
                 description: description ?? null,
                 domains: normalized.domains,
                 domainCount: normalized.count,
+                showBlockPage: showBlockPage ?? false,
                 updatedAt: Math.floor(Date.now() / 1000)
             })
             .returning();
@@ -248,6 +253,7 @@ export async function createDnsBlockList(
                 name: list.name,
                 description: list.description,
                 domainCount: list.domainCount,
+                showBlockPage: list.showBlockPage,
                 updatedAt: list.updatedAt,
                 domains: list.domains
             },
@@ -301,7 +307,7 @@ export async function updateDnsBlockList(
             );
         }
         const { orgId, listId } = parsedParams.data;
-        const { name, description, domains } = parsedBody.data;
+        const { name, description, domains, showBlockPage } = parsedBody.data;
 
         const normalized = normalizeDomains(domains);
         if ("error" in normalized) {
@@ -317,6 +323,8 @@ export async function updateDnsBlockList(
                 description: description ?? null,
                 domains: normalized.domains,
                 domainCount: normalized.count,
+                // left unchanged when the request does not include it
+                ...(showBlockPage !== undefined ? { showBlockPage } : {}),
                 updatedAt: Math.floor(Date.now() / 1000)
             })
             .where(
@@ -342,6 +350,7 @@ export async function updateDnsBlockList(
                 name: list.name,
                 description: list.description,
                 domainCount: list.domainCount,
+                showBlockPage: list.showBlockPage,
                 updatedAt: list.updatedAt,
                 domains: list.domains
             },

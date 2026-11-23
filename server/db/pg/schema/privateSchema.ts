@@ -686,10 +686,23 @@ export const dnsBlockLists = pgTable(
         description: varchar("description", { length: 1000 }),
         domains: text("domains").notNull().default(""), // newline separated
         domainCount: integer("domainCount").notNull().default(0),
+        // Send browsers to the org's block page instead of failing the lookup
+        showBlockPage: boolean("showBlockPage").notNull().default(false),
         updatedAt: bigint("updatedAt", { mode: "number" }).notNull() // epoch seconds
     },
     (table) => [index("idx_dnsBlockLists_orgId").on(table.orgId)]
 );
+
+// Wording of the page users see when they open a blocked site. No row means the
+// defaults. Text may contain {{domain}} and {{orgName}} placeholders.
+export const dnsBlockPageSettings = pgTable("dnsBlockPageSettings", {
+    orgId: varchar("orgId", { length: 255 })
+        .primaryKey()
+        .references(() => orgs.orgId, { onDelete: "cascade" }),
+    title: varchar("title", { length: 255 }),
+    message: varchar("message", { length: 2000 }),
+    contact: varchar("contact", { length: 1000 })
+});
 
 export const roleDnsBlockLists = pgTable(
     "roleDnsBlockLists",
@@ -988,4 +1001,7 @@ export type ResourceSessionReauth = InferSelectModel<
 >;
 export type RoleClientSettings = InferSelectModel<typeof roleClientSettings>;
 export type DnsBlockList = InferSelectModel<typeof dnsBlockLists>;
+export type DnsBlockPageSettings = InferSelectModel<
+    typeof dnsBlockPageSettings
+>;
 export type DnsBlockLog = InferSelectModel<typeof dnsBlockLog>;

@@ -13,6 +13,7 @@ import {
     SettingsSectionTitle
 } from "@app/components/Settings";
 import { PaidFeaturesAlert } from "@app/components/PaidFeaturesAlert";
+import { SwitchInput } from "@app/components/SwitchInput";
 import { Button } from "@app/components/ui/button";
 import {
     Form,
@@ -64,7 +65,8 @@ export default function DnsBlockListForm({
                     .min(1, { message: t("nameRequired") })
                     .max(255),
                 description: z.string().trim().max(1000),
-                domains: z.string()
+                domains: z.string(),
+                showBlockPage: z.boolean()
             }),
         [t]
     );
@@ -74,7 +76,8 @@ export default function DnsBlockListForm({
         defaultValues: {
             name: list?.name ?? "",
             description: list?.description ?? "",
-            domains: list?.domains ?? ""
+            domains: list?.domains ?? "",
+            showBlockPage: list?.showBlockPage ?? false
         }
     });
 
@@ -84,7 +87,8 @@ export default function DnsBlockListForm({
             const body = {
                 name: values.name,
                 description: values.description || null,
-                domains: values.domains
+                domains: values.domains,
+                showBlockPage: values.showBlockPage
             };
             if (list) {
                 await api.post(
@@ -177,6 +181,34 @@ export default function DnsBlockListForm({
                                                         />
                                                     </FormControl>
                                                     <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </SettingsFormCell>
+                                    <SettingsFormCell span="full">
+                                        <FormField
+                                            control={form.control}
+                                            name="showBlockPage"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormControl>
+                                                        <SwitchInput
+                                                            id="showBlockPage"
+                                                            label={t(
+                                                                "dnsBlockListShowBlockPage"
+                                                            )}
+                                                            description={t(
+                                                                "dnsBlockListShowBlockPageDescription"
+                                                            )}
+                                                            checked={
+                                                                field.value
+                                                            }
+                                                            onCheckedChange={
+                                                                field.onChange
+                                                            }
+                                                            disabled={disabled}
+                                                        />
+                                                    </FormControl>
                                                 </FormItem>
                                             )}
                                         />

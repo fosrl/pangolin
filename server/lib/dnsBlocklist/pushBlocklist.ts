@@ -38,7 +38,10 @@ async function sendBlocklist(
     if (mode === "register") {
         // A fresh connection starts with no list. Nothing to send if there is
         // nothing to block, but record that so later pushes can tell.
-        if (resolved === EMPTY_BLOCKLIST || !resolved.compressed) {
+        if (
+            resolved === EMPTY_BLOCKLIST ||
+            (!resolved.compressed && !resolved.pageCompressed)
+        ) {
             await cache.set(key, "", SENT_VERSION_TTL_SECONDS);
             return;
         }
@@ -57,6 +60,13 @@ async function sendBlocklist(
                 version: resolved.version,
                 // already compressed, so the websocket frame is not
                 compressed: resolved.compressed,
+                // only sent to olms that support the block page
+                ...(resolved.pageCompressed
+                    ? {
+                          pageCompressed: resolved.pageCompressed,
+                          pageUrl: resolved.pageUrl
+                      }
+                    : {}),
                 logBlocks: resolved.logBlocks
             }
         },

@@ -103,6 +103,14 @@ export default function DnsBlockListsTable({
                 })
         },
         {
+            accessorKey: "showBlockPage",
+            friendlyName: t("dnsBlockListBlockPage"),
+            header: () => (
+                <span className="p-3">{t("dnsBlockListBlockPage")}</span>
+            ),
+            cell: ({ row }) => (row.original.showBlockPage ? t("yes") : t("no"))
+        },
+        {
             accessorKey: "updatedAt",
             friendlyName: t("dnsBlockListLastUpdated"),
             header: ({ column }) => (

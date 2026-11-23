@@ -684,6 +684,25 @@ authenticated.delete(
 );
 
 authenticated.get(
+    "/org/:orgId/dns-block-page",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.getDnsBlockPage),
+    dnsBlocking.getDnsBlockPage
+);
+
+authenticated.post(
+    "/org/:orgId/dns-block-page",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyApiKeyOrgAccess,
+    verifyApiKeyHasAction(ActionsEnum.updateDnsBlockPage),
+    logActionAudit(ActionsEnum.updateDnsBlockPage),
+    dnsBlocking.updateDnsBlockPage
+);
+
+authenticated.get(
     "/org/:orgId/logs/dns-blocks",
     verifyValidLicense,
     verifyValidSubscription(tierMatrix.dnsBlocking),

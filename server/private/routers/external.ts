@@ -1072,6 +1072,25 @@ authenticated.delete(
 );
 
 authenticated.get(
+    "/org/:orgId/dns-block-page",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.getDnsBlockPage),
+    dnsBlocking.getDnsBlockPage
+);
+
+authenticated.post(
+    "/org/:orgId/dns-block-page",
+    verifyValidLicense,
+    verifyValidSubscription(tierMatrix.dnsBlocking),
+    verifyOrgAccess,
+    verifyUserHasAction(ActionsEnum.updateDnsBlockPage),
+    logActionAudit(ActionsEnum.updateDnsBlockPage),
+    dnsBlocking.updateDnsBlockPage
+);
+
+authenticated.get(
     "/org/:orgId/logs/dns-blocks",
     verifyValidLicense,
     verifyValidSubscription(tierMatrix.dnsBlocking),

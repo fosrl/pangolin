@@ -127,6 +127,8 @@ function getActionsCategories(root: boolean) {
             [t("actionCreateDnsBlockList")]: "createDnsBlockList",
             [t("actionUpdateDnsBlockList")]: "updateDnsBlockList",
             [t("actionDeleteDnsBlockList")]: "deleteDnsBlockList",
+            [t("actionGetDnsBlockPage")]: "getDnsBlockPage",
+            [t("actionUpdateDnsBlockPage")]: "updateDnsBlockPage",
             [t("actionListAllowedRoleResources")]: "listRoleResources",
             [t("actionAddUserRole")]: "addUserRole",
             [t("actionRemoveUserRole")]: "removeUserRole",
