@@ -129,12 +129,21 @@ export async function deleteRole(
             );
         }
 
-        let machineClientsToRebuild: Client[] = [];
+        if (newRole[0].orgId !== role[0].orgId) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    `Replacement role must belong to the same organization`
+                )
+            );
+        }
+
+        let clientsToRebuild: Client[] = [];
         await db.transaction(async (trx) => {
             // machine clients in this role lose it when the role is deleted
             // (clientOrgRoles cascades) and are not moved to the new role, so
             // their associations need to be rebuilt afterwards
-            machineClientsToRebuild = await trx
+            const machineClients = await trx
                 .select({ client: clients })
                 .from(clientOrgRoles)
                 .innerJoin(
@@ -143,6 +152,31 @@ export async function deleteRole(
                 )
                 .where(eq(clientOrgRoles.roleId, roleId))
                 .then((rows) => rows.map((row) => row.client));
+
+            // user devices of members of this role lose the resource grants
+            // the role carried (roleSiteResources cascades), so they need a
+            // rebuild too
+            const userDevices = await trx
+                .select({ client: clients })
+                .from(userOrgRoles)
+                .innerJoin(
+                    clients,
+                    and(
+                        eq(clients.userId, userOrgRoles.userId),
+                        eq(clients.orgId, userOrgRoles.orgId)
+                    )
+                )
+                .where(eq(userOrgRoles.roleId, roleId))
+                .then((rows) => rows.map((row) => row.client));
+
+            clientsToRebuild = [
+                ...new Map(
+                    [...machineClients, ...userDevices].map((c) => [
+                        c.clientId,
+                        c
+                    ])
+                ).values()
+            ];
 
             const uorNewRole = aliasedTable(userOrgRoles, "user_org_roles_new");
 
@@ -173,10 +207,10 @@ export async function deleteRole(
             await trx.delete(roles).where(eq(roles.roleId, roleId));
         });
 
-        for (const machineClient of machineClientsToRebuild) {
-            rebuildClientAssociationsFromClient(machineClient).catch((e) => {
+        for (const client of clientsToRebuild) {
+            rebuildClientAssociationsFromClient(client).catch((e) => {
                 logger.error(
-                    `Failed to rebuild client associations for client ${machineClient.clientId} after deleting role ${roleId}: ${e}`
+                    `Failed to rebuild client associations for client ${client.clientId} after deleting role ${roleId}: ${e}`
                 );
             });
         }
