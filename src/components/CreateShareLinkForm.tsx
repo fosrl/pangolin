@@ -245,6 +245,7 @@ export default function CreateShareLinkForm({
                     setNeverExpire(false);
                     setPersistSession(false);
                     setSelectedUser(null);
+                    setSelectedResource(null);
                     form.reset();
                 }}
             >
@@ -296,6 +297,7 @@ export default function CreateShareLinkForm({
                                                         <PopoverContent className="p-0">
                                                             <ResourceSelector
                                                                 excludeWildcard
+                                                                excludeDisabled
                                                                 orgId={
                                                                     org.org
                                                                         .orgId
@@ -609,14 +611,16 @@ export default function CreateShareLinkForm({
                         <CredenzaClose asChild>
                             <Button variant="outline">{t("close")}</Button>
                         </CredenzaClose>
-                        <Button
-                            type="button"
-                            onClick={form.handleSubmit(onSubmit)}
-                            loading={loading}
-                            disabled={link !== null || loading}
-                        >
-                            {t("createLink")}
-                        </Button>
+                        {!link && (
+                            <Button
+                                type="button"
+                                onClick={form.handleSubmit(onSubmit)}
+                                loading={loading}
+                                disabled={loading}
+                            >
+                                {t("createLink")}
+                            </Button>
+                        )}
                     </CredenzaFooter>
                 </CredenzaContent>
             </Credenza>
