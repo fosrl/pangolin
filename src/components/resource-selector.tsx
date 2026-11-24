@@ -25,6 +25,8 @@ export type ResourceSelectorProps = {
     selectedResource?: SelectedResource | null;
     onSelectResource: (resource: SelectedResource) => void;
     excludeWildcard?: boolean;
+    /** Only list enabled resources. */
+    excludeDisabled?: boolean;
     showClear?: boolean;
     onClear?: () => void;
     protocol?: string;
@@ -35,6 +37,7 @@ export function ResourceSelector({
     selectedResource,
     onSelectResource,
     excludeWildcard = false,
+    excludeDisabled = false,
     showClear = false,
     onClear,
     protocol
@@ -49,7 +52,8 @@ export function ResourceSelector({
             orgId: orgId,
             query: debouncedSearchQuery,
             perPage: 10,
-            protocol
+            protocol,
+            enabled: excludeDisabled ? true : undefined
         })
     );
 

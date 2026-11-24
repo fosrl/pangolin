@@ -443,19 +443,21 @@ export const orgQueries = {
         orgId,
         query,
         perPage = 10_000,
-        protocol
+        protocol,
+        enabled
     }: {
         orgId: string;
         query?: string;
         perPage?: number;
         protocol?: string;
+        enabled?: boolean;
     }) =>
         queryOptions({
             queryKey: [
                 "ORG",
                 orgId,
                 "PROXY_RESOURCES",
-                { query, perPage, protocol }
+                { query, perPage, protocol, enabled }
             ] as const,
             queryFn: async ({ signal, meta }) => {
                 const sp = new URLSearchParams({
@@ -468,6 +470,10 @@ export const orgQueries = {
 
                 if (protocol) {
                     sp.set("protocol", protocol);
+                }
+
+                if (typeof enabled === "boolean") {
+                    sp.set("enabled", String(enabled));
                 }
 
                 const res = await meta!.api.get<
