@@ -320,11 +320,12 @@ export class LogStreamingManager {
 
         let anyFailure = false;
         let firstError: string | null = null;
+        const progress = { advanced: false };
 
         for (const logType of enabledTypes) {
             if (!this.isRunning) break;
             try {
-                await this.processLogType(dest, provider, logType);
+                await this.processLogType(dest, provider, logType, progress);
             } catch (err) {
                 anyFailure = true;
                 if (firstError === null) {
@@ -340,6 +341,14 @@ export class LogStreamingManager {
         }
 
         if (anyFailure) {
+            // If events were still delivered this cycle (e.g. the endpoint
+            // rate-limited part-way through a backlog), the destination is
+            // reachable: restart back-off from the first step instead of
+            // escalating, so draining the backlog does not slow to the
+            // longest delay or hit MAX_BACKLOG_DURATION_MS and get dropped.
+            if (progress.advanced) {
+                this.failures.delete(dest.destinationId);
+            }
             this.recordFailure(dest.destinationId);
             await this.setDestinationError(
                 dest.destinationId,
@@ -431,11 +440,15 @@ export class LogStreamingManager {
      * short delay between consecutive requests to the remote endpoint.
      * The loop is capped at `MAX_CATCHUP_BATCHES` to keep the poll cycle
      * bounded.
+     *
+     * Sets `progress.advanced` whenever the cursor moves forward, including
+     * when the call later throws.
      */
     private async processLogType(
         dest: EventStreamingDestination,
         provider: LogDestinationProvider,
-        logType: LogType
+        logType: LogType,
+        progress: { advanced: boolean }
     ): Promise<void> {
         // Ensure a cursor row exists (creates one pointing at the current max
         // id so we do not replay historical logs on first run)
@@ -476,12 +489,14 @@ export class LogStreamingManager {
                         logType,
                         rows[delivered - 1].id
                     );
+                    progress.advanced = true;
                 }
                 throw err;
             }
 
             lastSentId = rows[rows.length - 1].id;
             await this.updateCursor(dest.destinationId, logType, lastSentId);
+            progress.advanced = true;
 
             batchCount++;
 
