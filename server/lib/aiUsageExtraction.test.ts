@@ -203,6 +203,74 @@ function testOpenAiResponsesIncompleteStream() {
     );
 }
 
+// Vertex `rawPredict` / `streamRawPredict` pass the publisher model's own
+// response through. Claude answers in the Anthropic Messages shape; Mistral
+// and other partner models answer in the OpenAI chat-completion shape.
+function testVertexRawPredictOpenAiShapedUsage() {
+    console.log("Running Vertex rawPredict OpenAI-shaped usage test...");
+    const body = JSON.stringify({
+        id: "cmpl-1",
+        object: "chat.completion",
+        model: "mistral-large-2411",
+        choices: [
+            {
+                index: 0,
+                message: { role: "assistant", content: "Hi" },
+                finish_reason: "stop"
+            }
+        ],
+        usage: { prompt_tokens: 120, completion_tokens: 30, total_tokens: 150 }
+    });
+    const expected = {
+        promptTokens: 120,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        completionTokens: 30,
+        reasoningTokens: 0,
+        estimated: false
+    };
+    assertEqualsObj(
+        extractUsage("google_raw_predict", body, false, headers),
+        expected,
+        "rawPredict reads OpenAI-shaped usage"
+    );
+
+    const stream =
+        'data: {"id":"cmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hi"}}]}\n\n' +
+        'data: {"id":"cmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":120,"completion_tokens":30,"total_tokens":150}}\n\n' +
+        "data: [DONE]\n\n";
+    assertEqualsObj(
+        extractUsage("google_raw_predict", stream, true, headers),
+        expected,
+        "streamRawPredict reads OpenAI-shaped usage"
+    );
+}
+
+function testVertexRawPredictAnthropicUsage() {
+    console.log("Running Vertex rawPredict Anthropic usage test...");
+    const body = JSON.stringify({
+        type: "message",
+        usage: {
+            input_tokens: 10,
+            cache_read_input_tokens: 5,
+            cache_creation_input_tokens: 2,
+            output_tokens: 4
+        }
+    });
+    assertEqualsObj(
+        extractUsage("google_raw_predict", body, false, headers),
+        {
+            promptTokens: 10,
+            cacheReadTokens: 5,
+            cacheWriteTokens: 2,
+            completionTokens: 4,
+            reasoningTokens: 0,
+            estimated: false
+        },
+        "rawPredict still reads Anthropic-shaped usage"
+    );
+}
+
 try {
     testConverseJsonWithCache();
     testConverseStreamWithCache();
@@ -212,6 +280,8 @@ try {
     testInvokeHeadersStillWin();
     testGeminiToolUsePromptTokens();
     testOpenAiResponsesIncompleteStream();
+    testVertexRawPredictOpenAiShapedUsage();
+    testVertexRawPredictAnthropicUsage();
     console.log("All aiUsageExtraction tests passed!");
 } catch (error) {
     console.error("Test failed:", error);
