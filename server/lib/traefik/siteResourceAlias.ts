@@ -43,6 +43,10 @@ export function buildSiteResourceAliasCertPlaceholders(params: {
         if (existingFullDomains.has(sr.fullDomain)) continue;
 
         const fullDomain = sr.fullDomain;
+        const hostRule = buildHostRule(
+            fullDomain,
+            fullDomain.startsWith("*.")
+        );
         const srKey = `site-resource-cert-${sr.siteResourceId}`;
         const siteResourceServiceName = `${srKey}-service`;
         const siteResourceRouterName = `${srKey}-router`;
@@ -83,7 +87,7 @@ export function buildSiteResourceAliasCertPlaceholders(params: {
             entryPoints: [config.getRawConfig().traefik.http_entrypoint],
             middlewares: [redirectHttpsMiddlewareName],
             service: siteResourceServiceName,
-            rule: buildHostRule(fullDomain),
+            rule: hostRule,
             priority: 100
         };
 
@@ -98,7 +102,7 @@ export function buildSiteResourceAliasCertPlaceholders(params: {
             entryPoints: [config.getRawConfig().traefik.https_entrypoint],
             service: siteResourceServiceName,
             middlewares: [siteResourceRewriteMiddlewareName],
-            rule: buildHostRule(fullDomain),
+            rule: hostRule,
             priority: 100,
             tls
         };
@@ -107,7 +111,7 @@ export function buildSiteResourceAliasCertPlaceholders(params: {
         config_output.http.routers[`${siteResourceRouterName}-assets`] = {
             entryPoints: [config.getRawConfig().traefik.https_entrypoint],
             service: siteResourceServiceName,
-            rule: `${buildHostRule(fullDomain)} && (PathPrefix(\`/_next\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
+            rule: `${hostRule} && (PathPrefix(\`/_next\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
             priority: 101,
             tls
         };
