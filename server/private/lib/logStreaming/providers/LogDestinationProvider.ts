@@ -32,7 +32,10 @@ export interface LogDestinationProvider {
      *
      * Implementations should:
      *  - Treat the call as atomic: either all events are accepted or an error
-     *    is thrown so the caller can retry / back off.
+     *    is thrown so the caller can retry / back off. Providers that deliver
+     *    events one at a time and fail part-way through should throw a
+     *    {@link PartialDeliveryError} so the caller does not resend the
+     *    events that were already accepted.
      *  - Respect the timeout contract expected by the manager (default 30 s).
      *  - NOT swallow errors – the manager relies on thrown exceptions to track
      *    failure state and apply exponential back-off.
@@ -41,4 +44,21 @@ export interface LogDestinationProvider {
      * @throws        Any network, authentication, or serialisation error.
      */
     send(events: LogEvent[]): Promise<void>;
+}
+
+/**
+ * Thrown by a provider when it delivered the first `deliveredCount` events of
+ * a batch (in order) before failing on the next one. The manager advances its
+ * cursor past the delivered events before applying back-off, so a retry picks
+ * up where delivery stopped instead of replaying the whole batch.
+ */
+export class PartialDeliveryError extends Error {
+    readonly deliveredCount: number;
+
+    constructor(deliveredCount: number, cause: unknown) {
+        const msg = cause instanceof Error ? cause.message : String(cause);
+        super(msg, { cause });
+        this.name = "PartialDeliveryError";
+        this.deliveredCount = deliveredCount;
+    }
 }
