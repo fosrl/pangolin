@@ -64,14 +64,9 @@ accessLog: # We enable access logs as json
         Authorization: redact  # Redact sensitive information
         Cookie: redact        # Redact sensitive information
 
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      httpChallenge:
-        entryPoint: web
-      email: "{{.LetsEncryptEmail}}"
-      storage: "/letsencrypt/acme.json"
-      caServer: "https://acme-v02.api.letsencrypt.org/directory"
+# certificatesResolvers is intentionally left out: this file is merged into an
+# existing traefik_config.yml, and repeating the resolver here would overwrite
+# the user's ACME settings (e.g. re-adding httpChallenge next to dnsChallenge).
 
 entryPoints:
   web:
