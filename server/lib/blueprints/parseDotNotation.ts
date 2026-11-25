@@ -1,70 +1,82 @@
-// Keys that would let a label path walk out of the target object and onto a
-// prototype. Docker labels come from Newt, so they are untrusted input.
-const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
-function isForbiddenSegment(segment: string): boolean {
-    const arrayMatch = segment.match(/^(.+)\[(\d+)\]$/);
-    return FORBIDDEN_KEYS.has(arrayMatch ? arrayMatch[1] : segment);
+type PathSegment = { key: string; index: number | null };
+
+// Split "a.b[0].c" into segments. Docker labels come from a Newt agent, so a
+// segment naming a reserved key (with or without an index) rejects the path.
+function parsePath(path: string): PathSegment[] | null {
+    const segments: PathSegment[] = [];
+    for (const raw of path.split(".")) {
+        const match = raw.match(/^(.+)\[(\d+)\]$/);
+        const key = match ? match[1] : raw;
+        if (RESERVED_KEYS.has(key)) {
+            return null;
+        }
+        segments.push({
+            key,
+            index: match ? parseInt(match[2], 10) : null
+        });
+    }
+    return segments;
 }
 
-export function setNestedProperty(obj: any, path: string, value: string): void {
-    const keys = path.split(".");
-    if (keys.some(isForbiddenSegment)) {
-        return;
+// Returns false (and leaves obj untouched) if the path is not safe to set.
+export function setNestedProperty(
+    obj: any,
+    path: string,
+    value: string
+): boolean {
+    const segments = parsePath(path);
+    if (!segments) {
+        return false;
     }
+
+    // Containers are null-prototype and only own properties are followed, so a
+    // missing key can never resolve to something on Object.prototype.
+    const own = (o: any, k: string) => (Object.hasOwn(o, k) ? o[k] : undefined);
+
     let current = obj;
 
-    for (let i = 0; i < keys.length - 1; i++) {
-        const key = keys[i];
+    for (let i = 0; i < segments.length - 1; i++) {
+        const { key, index } = segments[i];
 
-        // Handle array notation like "targets[0]"
-        const arrayMatch = key.match(/^(.+)\[(\d+)\]$/);
-
-        if (arrayMatch) {
-            const [, arrayKey, indexStr] = arrayMatch;
-            const index = parseInt(indexStr, 10);
-
-            // Initialize array if it doesn't exist
-            if (!current[arrayKey]) {
-                current[arrayKey] = [];
+        if (index !== null) {
+            let arr = own(current, key);
+            if (!Array.isArray(arr)) {
+                arr = [];
+                current[key] = arr;
             }
-
-            // Ensure array is long enough
-            while (current[arrayKey].length <= index) {
-                current[arrayKey].push({});
+            while (arr.length <= index) {
+                arr.push(Object.create(null));
             }
-
-            current = current[arrayKey][index];
+            current = arr[index];
         } else {
-            // Regular object property
-            if (!current[key]) {
-                current[key] = {};
+            let next = own(current, key);
+            if (typeof next !== "object" || next === null) {
+                next = Object.create(null);
+                current[key] = next;
             }
-            current = current[key];
+            current = next;
         }
     }
 
     // Set the final value
-    const finalKey = keys[keys.length - 1];
-    const arrayMatch = finalKey.match(/^(.+)\[(\d+)\]$/);
+    const { key: finalKey, index: finalIndex } = segments[segments.length - 1];
 
-    if (arrayMatch) {
-        const [, arrayKey, indexStr] = arrayMatch;
-        const index = parseInt(indexStr, 10);
-
-        if (!current[arrayKey]) {
-            current[arrayKey] = [];
+    if (finalIndex !== null) {
+        let arr = own(current, finalKey);
+        if (!Array.isArray(arr)) {
+            arr = [];
+            current[finalKey] = arr;
         }
-
-        // Ensure array is long enough
-        while (current[arrayKey].length <= index) {
-            current[arrayKey].push(null);
+        while (arr.length <= finalIndex) {
+            arr.push(null);
         }
-
-        current[arrayKey][index] = convertValue(value);
+        arr[finalIndex] = convertValue(value);
     } else {
         current[finalKey] = convertValue(value);
     }
+    return true;
 }
 
 // Helper function to convert string values to appropriate types

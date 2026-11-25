@@ -1,3 +1,4 @@
+import { buildPHostHeaders } from "@server/lib/browserGatewayTrust";
 import config from "@server/lib/config";
 import { applyMtlsConfig } from "./mtls";
 import { buildHostRule } from "./rule";
@@ -268,7 +269,10 @@ export function buildBrowserGatewayConfig(params: {
                 headers: {
                     customRequestHeaders: {
                         Host: "app.pangolin.net", // if we are sending to the cloud the host needs to be this but we will pull the p-host to find the resource
-                        "p-host": fullDomain
+                        ...buildPHostHeaders(
+                            config.getRawConfig().server.secret,
+                            fullDomain
+                        )
                     }
                 }
             };
@@ -371,7 +375,10 @@ export function buildBrowserGatewayConfig(params: {
             headers: {
                 customRequestHeaders: {
                     Host: "app.pangolin.net", // if we are sending to the cloud the host needs to be this but we will pull the p-host to find the resource
-                    "p-host": fullDomain
+                    ...buildPHostHeaders(
+                        config.getRawConfig().server.secret,
+                        fullDomain
+                    )
                 }
             }
         };

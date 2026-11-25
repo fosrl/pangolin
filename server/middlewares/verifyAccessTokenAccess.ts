@@ -8,6 +8,7 @@ import { canUserAccessResource } from "@server/auth/canUserAccessResource";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifyAccessTokenAccess(
     req: Request,
@@ -80,7 +81,7 @@ export async function verifyAccessTokenAccess(
             );
         }
 
-        if (!req.userOrg) {
+        if (!ownUserOrg(req)) {
             const res = await db
                 .select()
                 .from(userOrgs)
@@ -93,7 +94,7 @@ export async function verifyAccessTokenAccess(
             req.userOrg = res[0];
         }
 
-        if (!req.userOrg) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== resource[0].orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

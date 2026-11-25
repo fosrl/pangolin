@@ -37,6 +37,7 @@ import {
     getValidCertificatesForDomains
 } from "@server/lib/certificates";
 import config from "@server/lib/config";
+import { buildPHostHeaders } from "@server/lib/browserGatewayTrust";
 import {
     AI_GATEWAY_CLIENT_IP_MIDDLEWARE_NAME,
     AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE,
@@ -827,7 +828,10 @@ export async function getTraefikConfig(
                     headers: {
                         customRequestHeaders: {
                             Host: "app.pangolin.net", // if we are sending to the cloud the host needs to be this but we will pull the p-host to find the resource
-                            "p-host": fullDomain
+                            ...buildPHostHeaders(
+                                config.getRawConfig().server.secret,
+                                fullDomain
+                            )
                         }
                     }
                 };

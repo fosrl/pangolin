@@ -9,6 +9,7 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { callerIsOrgAdmin } from "@server/lib/callerIsOrgAdmin";
 import { OpenAPITags, registry } from "@server/openApi";
 import {
     rebuildClientAssociationsFromClient,
@@ -86,6 +87,15 @@ export async function addUserRoleLegacy(
         if (!role) {
             return next(
                 createHttpError(HttpCode.BAD_REQUEST, "Invalid role ID")
+            );
+        }
+
+        if (role.isAdmin && !(await callerIsOrgAdmin(req, role.orgId))) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Only an administrator can assign an administrator role"
+                )
             );
         }
 

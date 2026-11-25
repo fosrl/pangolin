@@ -7,6 +7,7 @@ import HttpCode from "@server/types/HttpCode";
 import logger from "@server/logger";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifySiteResourceAccess(
     req: Request,
@@ -69,7 +70,7 @@ export async function verifySiteResourceAccess(
             );
         }
 
-        if (!req.userOrg) {
+        if (!ownUserOrg(req)) {
             const userOrgRole = await db
                 .select()
                 .from(userOrgs)
@@ -83,7 +84,7 @@ export async function verifySiteResourceAccess(
             req.userOrg = userOrgRole[0];
         }
 
-        if (!req.userOrg) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== siteResource.orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

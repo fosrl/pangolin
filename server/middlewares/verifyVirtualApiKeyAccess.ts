@@ -6,6 +6,7 @@ import HttpCode from "@server/types/HttpCode";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifyVirtualApiKeyAccess(
     req: Request,
@@ -48,7 +49,7 @@ export async function verifyVirtualApiKeyAccess(
 
         const orgId = key.orgId;
 
-        if (!req.userOrg || req.userOrg.orgId !== orgId) {
+        if (ownUserOrg(req)?.orgId !== orgId) {
             const userOrgRole = await db
                 .select()
                 .from(userOrgs)
@@ -59,7 +60,7 @@ export async function verifyVirtualApiKeyAccess(
             req.userOrg = userOrgRole[0];
         }
 
-        if (!req.userOrg) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

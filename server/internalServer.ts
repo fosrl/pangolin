@@ -1,4 +1,5 @@
 import express from "express";
+import { initRequestAuthStateMiddleware } from "@server/middlewares/initRequestAuthState";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -15,6 +16,7 @@ const internalPort = config.getRawConfig().server.internal_port;
 
 export function createInternalServer() {
     const internalServer = express();
+    internalServer.use(initRequestAuthStateMiddleware);
 
     const trustProxy = config.getRawConfig().server.trust_proxy;
     if (trustProxy) {

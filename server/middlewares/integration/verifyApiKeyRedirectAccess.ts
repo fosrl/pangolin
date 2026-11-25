@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownApiKeyOrg } from "@server/lib/requestAuthState";
 
 export async function verifyApiKeyRedirectAccess(
     req: Request,
@@ -80,7 +81,7 @@ export async function verifyApiKeyRedirectAccess(
 
         const orgId = redirect.orgId;
 
-        if (!req.apiKeyOrg || req.apiKeyOrg.orgId !== orgId) {
+        if (ownApiKeyOrg(req)?.orgId !== orgId) {
             const apiKeyOrgRes = await db
                 .select()
                 .from(apiKeyOrg)
@@ -94,7 +95,7 @@ export async function verifyApiKeyRedirectAccess(
             req.apiKeyOrg = apiKeyOrgRes[0];
         }
 
-        if (!req.apiKeyOrg) {
+        if (!req.apiKeyOrg || ownApiKeyOrg(req)?.orgId !== orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

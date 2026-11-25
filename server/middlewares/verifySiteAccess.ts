@@ -6,6 +6,7 @@ import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifySiteAccess(
     req: Request,
@@ -85,7 +86,7 @@ export async function verifySiteAccess(
             );
         }
 
-        if (!req.userOrg) {
+        if (!ownUserOrg(req)) {
             // Get user's role ID in the organization
             const userOrgRole = await db
                 .select()
@@ -100,7 +101,7 @@ export async function verifySiteAccess(
             req.userOrg = userOrgRole[0];
         }
 
-        if (!req.userOrg || req.userOrg?.orgId !== site.orgId) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== site.orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

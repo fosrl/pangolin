@@ -30,6 +30,7 @@ import { TierFeature, tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
 import cache from "#dynamic/lib/cache";
 import { isLicensedOrSubscribed } from "#dynamic/lib/isLicencedOrSubscribed";
+import { callerIsOrgAdmin } from "@server/lib/callerIsOrgAdmin";
 
 const inviteUserParamsSchema = z.strictObject({
     orgId: z.string()
@@ -163,7 +164,7 @@ export async function inviteUser(
         }
 
         const orgRoles = await db
-            .select({ roleId: roles.roleId })
+            .select({ roleId: roles.roleId, isAdmin: roles.isAdmin })
             .from(roles)
             .where(
                 and(
@@ -177,6 +178,19 @@ export async function inviteUser(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
                     "Invalid role ID or role does not belong to this organization"
+                )
+            );
+        }
+
+        // Holding inviteUser must not be a way to get an admin role
+        if (
+            orgRoles.some((r) => r.isAdmin) &&
+            !(await callerIsOrgAdmin(req, orgId))
+        ) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Only an administrator can invite a user into an administrator role"
                 )
             );
         }

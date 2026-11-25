@@ -6,6 +6,10 @@ import { eq } from "drizzle-orm";
 import { configSchema, readConfigFile } from "./readConfigFile";
 import { fromError } from "zod-validation-error";
 import { build } from "@server/build";
+import {
+    BROWSER_GATEWAY_TRUST_ENV,
+    deriveBrowserGatewayTrustToken
+} from "@server/lib/browserGatewayTrust";
 
 export class Config {
     private rawConfig!: z.infer<typeof configSchema>;
@@ -42,6 +46,11 @@ export class Config {
         }
 
         process.env.APP_VERSION = APP_VERSION;
+
+        if (parsedConfig.server.secret) {
+            process.env[BROWSER_GATEWAY_TRUST_ENV] =
+                deriveBrowserGatewayTrustToken(parsedConfig.server.secret);
+        }
 
         process.env.NEXT_PORT = parsedConfig.server.next_port.toString();
         process.env.SERVER_EXTERNAL_PORT =

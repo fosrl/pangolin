@@ -11,6 +11,7 @@ import HttpCode from "@server/types/HttpCode";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifySiteProvisioningKeyAccess(
     req: Request,
@@ -81,7 +82,7 @@ export async function verifySiteProvisioningKeyAccess(
             );
         }
 
-        if (!req.userOrg) {
+        if (!ownUserOrg(req)) {
             const userOrgRole = await db
                 .select()
                 .from(userOrgs)
@@ -95,7 +96,10 @@ export async function verifySiteProvisioningKeyAccess(
             req.userOrg = userOrgRole[0];
         }
 
-        if (!req.userOrg) {
+        if (
+            !req.userOrg ||
+            ownUserOrg(req)?.orgId !== row.siteProvisioningKeyOrg.orgId
+        ) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

@@ -66,7 +66,16 @@ export function processContainerLabels(containers: Container[]): {
 
     // Process each container
     containers.forEach((container) => {
-        if (container.state !== "running") {
+        if (container?.state !== "running") {
+            return;
+        }
+
+        // Containers come straight from the Newt websocket message
+        if (
+            typeof container.labels !== "object" ||
+            container.labels === null ||
+            Array.isArray(container.labels)
+        ) {
             return;
         }
 
@@ -77,6 +86,9 @@ export function processContainerLabels(containers: Container[]): {
 
         // Filter and separate proxy-resources, client-resources, public-resources, and private-resources labels
         Object.entries(container.labels).forEach(([key, value]) => {
+            if (typeof value !== "string") {
+                return;
+            }
             if (key.startsWith("pangolin.proxy-resources.")) {
                 // remove the pangolin.proxy- prefix to get "resources.xxx"
                 const strippedKey = key.replace("pangolin.proxy-", "");
@@ -142,9 +154,13 @@ function processResourceLabels(
     targetResult: { [key: string]: ResourceConfig }
 ) {
     // Parse the labels using the existing parseDockerLabels logic
-    const tempResult: ParsedObject = {};
+    const tempResult: ParsedObject = Object.create(null);
     Object.entries(resourceLabels).forEach(([key, value]) => {
-        setNestedProperty(tempResult, key, value);
+        if (!setNestedProperty(tempResult, key, value)) {
+            logger.warn(
+                `Ignoring Docker label with a reserved key in container ${container.name}`
+            );
+        }
     });
 
     // Merge into target result

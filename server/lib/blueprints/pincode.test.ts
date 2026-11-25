@@ -1,6 +1,7 @@
 import "@server/extendZod";
 import { assertEquals } from "@test/assert";
 import { convertValue, setNestedProperty } from "./parseDotNotation";
+import { processContainerLabels } from "./parseDockerContainers";
 import { AuthSchema, ResourcePolicySchema } from "./types";
 
 function testResourcePincode() {
@@ -57,10 +58,83 @@ function testDockerLabelPincode() {
     );
 }
 
+function testDockerLabelPrototypePollution() {
+    console.log("Running Docker label prototype pollution test...");
+    const bad = [
+        "resources.__proto__.userOrg.userId",
+        "resources.app.__proto__.polluted",
+        "resources.constructor.prototype.polluted",
+        "resources.app.constructor.prototype.polluted",
+        "resources.app.prototype.polluted",
+        "resources.__proto__[0].polluted",
+        "resources.app.targets[0].__proto__",
+        "resources.app.__proto__[0]",
+        "__proto__.polluted"
+    ];
+    for (const path of bad) {
+        const labels: any = Object.create(null);
+        assertEquals(
+            setNestedProperty(labels, path, "x"),
+            false,
+            `${path} is rejected`
+        );
+        assertEquals(
+            Object.keys(labels).length,
+            0,
+            `${path} leaves the object untouched`
+        );
+    }
+    assertEquals(
+        ({} as any).userOrg,
+        undefined,
+        "Object.prototype.userOrg is not set"
+    );
+    assertEquals(
+        ({} as any).polluted,
+        undefined,
+        "Object.prototype.polluted is not set"
+    );
+
+    // End to end through the container parser, on a plain {} root
+    const result = processContainerLabels([
+        {
+            id: "1",
+            name: "evil",
+            image: "x",
+            state: "running",
+            status: "",
+            ports: null,
+            created: 0,
+            networks: {},
+            hostname: "h",
+            labels: {
+                "pangolin.proxy-resources.__proto__.userOrg.userId": "victim",
+                "pangolin.proxy-resources.app.__proto__.actionIds": "1",
+                "pangolin.proxy-resources.app.name": "ok"
+            }
+        }
+    ] as any);
+    assertEquals(({} as any).userOrg, undefined, "no pollution via parser");
+    assertEquals(({} as any).actionIds, undefined, "no pollution via parser");
+    assertEquals(
+        result["proxy-resources"].app.name,
+        "ok",
+        "valid labels in the same container still apply"
+    );
+
+    // Non-object labels from the websocket message are skipped
+    processContainerLabels([
+        { state: "running", labels: "nope" },
+        { state: "running", labels: null },
+        null
+    ] as any);
+}
+
 try {
     testResourcePincode();
     testResourcePolicyPincode();
     testDockerLabelPincode();
+    testDockerLabelPrototypePollution();
     console.log("All blueprint pincode tests passed!");
 } catch (error) {
     console.error("Test failed:", error);
