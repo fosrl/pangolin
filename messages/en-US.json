@@ -3603,6 +3603,7 @@
     "httpDestEnableBodyTemplate": "Enable custom body template",
     "httpDestBodyTemplateLabel": "Body Template (JSON)",
     "httpDestBodyTemplateHint": "Use template variables to reference event fields in your payload.",
+    "httpDestBodyTemplateFieldsHint": "{event} and {timestamp} are text, so put them inside quotes. {data} inserts the whole event as a JSON object, so do not quote it. To use one field of the event inside text, such as a Discord embed, put the field name in double braces inside quotes, for example {example}.",
     "httpDestPayloadFormatTitle": "Payload Format",
     "httpDestPayloadFormatDescription": "How events are serialised into each request body.",
     "httpDestFormatJsonArrayTitle": "JSON Array",
