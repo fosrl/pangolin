@@ -14,8 +14,14 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { AxiosResponse } from "axios";
-import { AcceptInviteResponse, GetUserResponse } from "@server/routers/user";
+import {
+    AcceptInviteResponse,
+    AcceptInviteStatus,
+    GetUserResponse
+} from "@server/routers/user";
 import { Loader2 } from "lucide-react";
+
+type CardType = Exclude<AcceptInviteStatus, "accepted"> | "rejected";
 
 type InviteStatusCardProps = {
     user: GetUserResponse | null;
@@ -37,66 +43,33 @@ export default function InviteStatusCard({
     const t = useTranslations();
 
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [type, setType] = useState<
-        | "rejected"
-        | "wrong_user"
-        | "user_does_not_exist"
-        | "not_logged_in"
-        | "user_limit_exceeded"
-        | "oidc_not_allowed"
-    >("rejected");
+    const [type, setType] = useState<CardType>("rejected");
 
     useEffect(() => {
         async function init() {
-            let error = "";
             const res = await api
                 .post<AxiosResponse<AcceptInviteResponse>>(`/invite/accept`, {
                     inviteId,
                     token: inviteToken
                 })
                 .catch((e) => {
-                    error = formatAxiosError(e);
-                    console.log("Error accepting invite:", error);
-                    setError(error);
-                    // console.error(e);
+                    // Only real failures (bad or expired token, revoked
+                    // invite, server error) are errors; they all show the
+                    // "not valid" card.
+                    console.log("Error accepting invite:", formatAxiosError(e));
                 });
 
-            if (res && res.status === 200) {
-                router.push(`/${res.data.data.orgId}`);
+            const result = res?.data?.data;
+
+            if (result?.accepted) {
+                router.push(`/${result.orgId}`);
                 return;
             }
 
-            function cardType() {
-                if (error.includes("Invite is not for this user")) {
-                    return "wrong_user";
-                } else if (
-                    error.includes(
-                        "Invites can only be accepted by internal users."
-                    )
-                ) {
-                    return "oidc_not_allowed";
-                } else if (
-                    error.includes(
-                        "User does not exist. Please create an account first."
-                    )
-                ) {
-                    return "user_does_not_exist";
-                } else if (
-                    error.includes("You must be logged in to accept an invite")
-                ) {
-                    return "not_logged_in";
-                } else if (
-                    error.includes("user limit is exceeded") ||
-                    error.includes("Can not accept")
-                ) {
-                    return "user_limit_exceeded";
-                } else {
-                    return "rejected";
-                }
-            }
-
-            const type = cardType();
+            const type: CardType =
+                result && result.status !== "accepted"
+                    ? result.status
+                    : "rejected";
             setType(type);
 
             if (!user && type === "user_does_not_exist") {
