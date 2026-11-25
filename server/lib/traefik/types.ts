@@ -35,6 +35,7 @@ export type ResourceWithTargets = Pick<
     | "stickySession"
     | "loadBalancingStrategy"
     | "tlsServerName"
+    | "verifyUpstreamTls"
     | "setHostHeader"
     | "enableProxy"
     | "requestHeaders"
