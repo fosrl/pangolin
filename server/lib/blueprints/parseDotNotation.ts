@@ -1,5 +1,17 @@
+// Keys that would let a label path walk out of the target object and onto a
+// prototype. Docker labels come from Newt, so they are untrusted input.
+const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+function isForbiddenSegment(segment: string): boolean {
+    const arrayMatch = segment.match(/^(.+)\[(\d+)\]$/);
+    return FORBIDDEN_KEYS.has(arrayMatch ? arrayMatch[1] : segment);
+}
+
 export function setNestedProperty(obj: any, path: string, value: string): void {
     const keys = path.split(".");
+    if (keys.some(isForbiddenSegment)) {
+        return;
+    }
     let current = obj;
 
     for (let i = 0; i < keys.length - 1; i++) {

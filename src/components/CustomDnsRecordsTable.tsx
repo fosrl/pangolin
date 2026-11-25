@@ -167,7 +167,7 @@ export default function CustomDnsRecordsTable({
             cell: ({ row }) => {
                 const record = row.original;
                 return (
-                    <div className="flex flex-col gap-1 max-w-md">
+                    <div className="flex flex-col gap-1 max-w-md whitespace-normal">
                         {record.values.map((value) => (
                             <span key={value} className="break-all">
                                 {formatValue(record, value)}

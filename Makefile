@@ -72,6 +72,9 @@ build-ee-sqlite:
 		--tag fosrl/pangolin:ee-$(major_tag) \
 		--tag fosrl/pangolin:ee-$(minor_tag) \
 		--tag fosrl/pangolin:ee-$(tag) \
+		--tag fosrl/pangolin:$(major_tag)-ee \
+		--tag fosrl/pangolin:$(minor_tag)-ee \
+		--tag fosrl/pangolin:$(tag)-ee \
 		--push .
 
 build-ee-postgresql:
@@ -88,6 +91,9 @@ build-ee-postgresql:
 		--tag fosrl/pangolin:ee-postgresql-$(major_tag) \
 		--tag fosrl/pangolin:ee-postgresql-$(minor_tag) \
 		--tag fosrl/pangolin:ee-postgresql-$(tag) \
+		--tag fosrl/pangolin:$(major_tag)-ee-postgresql \
+		--tag fosrl/pangolin:$(minor_tag)-ee-postgresql \
+		--tag fosrl/pangolin:$(tag)-ee-postgresql \
 		--push .
 
 build-saas:
@@ -280,6 +286,9 @@ create-manifests:
 		--tag fosrl/pangolin:ee-$$MAJOR_TAG \
 		--tag fosrl/pangolin:ee-$$MINOR_TAG \
 		--tag fosrl/pangolin:ee-$(tag) \
+		--tag fosrl/pangolin:$$MAJOR_TAG-ee \
+		--tag fosrl/pangolin:$$MINOR_TAG-ee \
+		--tag fosrl/pangolin:$(tag)-ee \
 		fosrl/pangolin:ee-latest-arm64 \
 		fosrl/pangolin:ee-latest-amd64 && \
 	echo "Creating multi-arch manifests for postgresql (enterprise)..." && \
@@ -288,6 +297,9 @@ create-manifests:
 		--tag fosrl/pangolin:ee-postgresql-$$MAJOR_TAG \
 		--tag fosrl/pangolin:ee-postgresql-$$MINOR_TAG \
 		--tag fosrl/pangolin:ee-postgresql-$(tag) \
+		--tag fosrl/pangolin:$$MAJOR_TAG-ee-postgresql \
+		--tag fosrl/pangolin:$$MINOR_TAG-ee-postgresql \
+		--tag fosrl/pangolin:$(tag)-ee-postgresql \
 		fosrl/pangolin:ee-postgresql-latest-arm64 \
 		fosrl/pangolin:ee-postgresql-latest-amd64 && \
 	echo "All multi-arch manifests created successfully!"
@@ -332,6 +344,7 @@ build-rc:
 		--build-arg IMAGE_DESCRIPTION="Pangolin Enterprise Edition - Identity-aware VPN and proxy for remote access to anything, anywhere" \
 		--platform linux/arm64,linux/amd64 \
 		--tag fosrl/pangolin:ee-$(tag) \
+		--tag fosrl/pangolin:$(tag)-ee \
 		--push . && \
 	docker buildx build \
 		--build-arg BUILD=enterprise \
@@ -344,6 +357,7 @@ build-rc:
 		--build-arg IMAGE_DESCRIPTION="Pangolin Enterprise Edition - Identity-aware VPN and proxy for remote access to anything, anywhere" \
 		--platform linux/arm64,linux/amd64 \
 		--tag fosrl/pangolin:ee-postgresql-$(tag) \
+		--tag fosrl/pangolin:$(tag)-ee-postgresql \
 		--push .
 
 build-rc-arm:
@@ -472,11 +486,13 @@ create-manifests-rc:
 	echo "Creating multi-arch manifests for RC sqlite (enterprise)..." && \
 	docker buildx imagetools create \
 		--tag fosrl/pangolin:ee-$(tag) \
+		--tag fosrl/pangolin:$(tag)-ee \
 		fosrl/pangolin:ee-$(tag)-arm64 \
 		fosrl/pangolin:ee-$(tag)-amd64 && \
 	echo "Creating multi-arch manifests for RC postgresql (enterprise)..." && \
 	docker buildx imagetools create \
 		--tag fosrl/pangolin:ee-postgresql-$(tag) \
+		--tag fosrl/pangolin:$(tag)-ee-postgresql \
 		fosrl/pangolin:ee-postgresql-$(tag)-arm64 \
 		fosrl/pangolin:ee-postgresql-$(tag)-amd64 && \
 	echo "All RC multi-arch manifests created successfully!"
