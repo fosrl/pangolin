@@ -76,6 +76,17 @@ badgerRouter.post("/exchange-session", badger.exchangeSession);
 
 internalRouter.get("/resource/browser-target", browserTarget.getBrowserTarget);
 
+// Microsoft Entra ID sign-in for browser RDP; driven by the dashboard pages
+// under /auth/idp/:idpId/rdp so no cross-origin call is needed.
+internalRouter.post(
+    "/idp/:idpId/rdp-entra/generate-url",
+    idp.generateRdpEntraUrl
+);
+internalRouter.post(
+    "/idp/:idpId/rdp-entra/validate-callback",
+    idp.validateRdpEntraCallback
+);
+
 internalRouter.get(
     "/ws/round-trip-message/:messageId",
     verifyUserFromResourceSessionMiddleware,

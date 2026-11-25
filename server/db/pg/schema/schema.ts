@@ -227,6 +227,11 @@ export const resources = pgTable(
             .$type<"site" | "remote" | "native">()
             .default("site"),
         authDaemonPort: integer("authDaemonPort").default(22123),
+        rdpEntraDeviceId: text("rdpEntraDeviceId"),
+        // Which sign-in methods the browser RDP page offers. Null offers both.
+        rdpSignInMethods: text("rdpSignInMethods").$type<
+            "both" | "entra" | "password"
+        >(),
         status: varchar("status")
             .$type<"pending" | "approved">()
             .default("approved")

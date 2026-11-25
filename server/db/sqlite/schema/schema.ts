@@ -255,6 +255,11 @@ export const resources = sqliteTable(
             .$type<"site" | "remote" | "native">()
             .default("site"),
         authDaemonPort: integer("authDaemonPort").default(22123),
+        rdpEntraDeviceId: text("rdpEntraDeviceId"),
+        // Which sign-in methods the browser RDP page offers. Null offers both.
+        rdpSignInMethods: text("rdpSignInMethods").$type<
+            "both" | "entra" | "password"
+        >(),
         status: text("status")
             .$type<"pending" | "approved">()
             .default("approved")

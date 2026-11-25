@@ -4,6 +4,8 @@ export * from "./deleteIdp";
 export * from "./listIdps";
 export * from "./generateOidcUrl";
 export * from "./validateOidcCallback";
+export * from "./generateRdpEntraUrl";
+export * from "./validateRdpEntraCallback";
 export * from "./getIdp";
 export * from "./createIdpOrgPolicy";
 export * from "./deleteIdpOrgPolicy";
