@@ -5,6 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifySetResourceClients(
     req: Request,
@@ -25,7 +26,7 @@ export async function verifySetResourceClients(
         );
     }
 
-    if (!req.userOrg) {
+    if (!req.userOrg || !ownUserOrg(req)) {
         return next(
             createHttpError(
                 HttpCode.FORBIDDEN,

@@ -17,6 +17,7 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromZodError } from "zod-validation-error";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 const getOrgParamsSchema = z.strictObject({
     orgId: z.string()
@@ -66,7 +67,7 @@ export async function getOrgOverview(
             );
         }
 
-        if (!req.userOrg) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== orgId) {
             return next(
                 createHttpError(HttpCode.UNAUTHORIZED, "User not authenticated")
             );

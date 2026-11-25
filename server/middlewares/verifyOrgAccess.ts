@@ -8,6 +8,7 @@ import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
 import { getFirstString } from "@server/lib/requestParams";
 import logger from "@server/logger";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifyOrgAccess(
     req: Request,
@@ -30,9 +31,7 @@ export async function verifyOrgAccess(
     }
 
     try {
-        // Own property only: never trust a value inherited from a polluted
-        // Object.prototype
-        if (!Object.hasOwn(req, "userOrg")) {
+        if (!ownUserOrg(req)) {
             const userOrgRes = await db
                 .select()
                 .from(userOrgs)
@@ -42,7 +41,7 @@ export async function verifyOrgAccess(
             req.userOrg = userOrgRes[0];
         }
 
-        if (!req.userOrg) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

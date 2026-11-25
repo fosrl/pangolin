@@ -6,6 +6,7 @@ import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { checkOrgAccessPolicy } from "#dynamic/lib/checkOrgAccessPolicy";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifyAdmin(
     req: Request,
@@ -27,7 +28,7 @@ export async function verifyAdmin(
         );
     }
 
-    if (!req.userOrg) {
+    if (!ownUserOrg(req)) {
         const userOrgRes = await db
             .select()
             .from(userOrgs)
@@ -36,7 +37,7 @@ export async function verifyAdmin(
         req.userOrg = userOrgRes[0];
     }
 
-    if (!req.userOrg) {
+    if (!req.userOrg || ownUserOrg(req)?.orgId !== orgId) {
         return next(
             createHttpError(
                 HttpCode.FORBIDDEN,

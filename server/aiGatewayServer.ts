@@ -1,4 +1,5 @@
 import express from "express";
+import { initRequestAuthStateMiddleware } from "@server/middlewares/initRequestAuthState";
 import helmet from "helmet";
 import cors from "cors";
 import config from "@server/lib/config";
@@ -13,6 +14,7 @@ const aiGatewayPort = config.getRawConfig().server.ai_gateway_port;
 
 export function createAiGatewayServer() {
     const aiGatewayServer = express();
+    aiGatewayServer.use(initRequestAuthStateMiddleware);
 
     const trustProxy = config.getRawConfig().server.trust_proxy;
     if (trustProxy) {

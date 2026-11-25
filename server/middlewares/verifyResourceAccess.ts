@@ -10,6 +10,7 @@ import {
     getRoleResourceAccess,
     getUserResourceAccess
 } from "@server/db/queries/verifySessionQueries";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifyResourceAccess(
     req: Request,
@@ -76,7 +77,7 @@ export async function verifyResourceAccess(
             );
         }
 
-        if (!req.userOrg) {
+        if (!ownUserOrg(req)) {
             const userOrgRole = await db
                 .select()
                 .from(userOrgs)
@@ -90,7 +91,7 @@ export async function verifyResourceAccess(
             req.userOrg = userOrgRole[0];
         }
 
-        if (!req.userOrg || req.userOrg?.orgId !== resource.orgId) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== resource.orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

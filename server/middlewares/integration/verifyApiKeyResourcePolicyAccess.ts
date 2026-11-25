@@ -4,6 +4,7 @@ import { resourcePolicies, apiKeyOrg } from "@server/db";
 import { eq, and } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { ownApiKeyOrg } from "@server/lib/requestAuthState";
 
 export async function verifyApiKeyResourcePolicyAccess(
     req: Request,
@@ -54,7 +55,7 @@ export async function verifyApiKeyResourcePolicyAccess(
         }
 
         // Verify that the API key is linked to the resource policy's organization
-        if (!req.apiKeyOrg) {
+        if (!ownApiKeyOrg(req)) {
             const apiKeyOrgResult = await db
                 .select()
                 .from(apiKeyOrg)
@@ -71,7 +72,7 @@ export async function verifyApiKeyResourcePolicyAccess(
             }
         }
 
-        if (!req.apiKeyOrg) {
+        if (!req.apiKeyOrg || ownApiKeyOrg(req)?.orgId !== policy.orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

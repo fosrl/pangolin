@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifyUserIsOrgOwner(
     req: Request,
@@ -29,7 +30,7 @@ export async function verifyUserIsOrgOwner(
         );
     }
     try {
-        if (!req.userOrg) {
+        if (!ownUserOrg(req)) {
             const res = await db
                 .select()
                 .from(userOrgs)
@@ -39,7 +40,7 @@ export async function verifyUserIsOrgOwner(
             req.userOrg = res[0];
         }
 
-        if (!req.userOrg) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

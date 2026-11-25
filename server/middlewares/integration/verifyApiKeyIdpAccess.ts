@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownApiKeyOrg } from "@server/lib/requestAuthState";
 
 export async function verifyApiKeyIdpAccess(
     req: Request,
@@ -59,7 +60,7 @@ export async function verifyApiKeyIdpAccess(
             );
         }
 
-        if (!req.apiKeyOrg) {
+        if (!ownApiKeyOrg(req)) {
             const apiKeyOrgRes = await db
                 .select()
                 .from(apiKeyOrg)
@@ -72,7 +73,10 @@ export async function verifyApiKeyIdpAccess(
             req.apiKeyOrg = apiKeyOrgRes[0];
         }
 
-        if (!req.apiKeyOrg) {
+        if (
+            !req.apiKeyOrg ||
+            ownApiKeyOrg(req)?.orgId !== idpRes.idpOrg.orgId
+        ) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

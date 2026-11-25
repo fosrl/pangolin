@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownApiKeyOrg } from "@server/lib/requestAuthState";
 
 export async function verifyApiKeySiteResourceAccess(
     req: Request,
@@ -50,7 +51,7 @@ export async function verifyApiKeySiteResourceAccess(
         }
 
         // Verify that the API key has access to the organization
-        if (!req.apiKeyOrg) {
+        if (!ownApiKeyOrg(req)) {
             const apiKeyOrgRes = await db
                 .select()
                 .from(apiKeyOrg)
@@ -72,6 +73,15 @@ export async function verifyApiKeySiteResourceAccess(
             }
 
             req.apiKeyOrg = apiKeyOrgRes[0];
+        }
+
+        if (!req.apiKeyOrg || ownApiKeyOrg(req)?.orgId !== siteResource.orgId) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Key does not have access to this organization"
+                )
+            );
         }
 
         // Attach the siteResource to the request for use in the next middleware/route

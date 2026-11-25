@@ -19,6 +19,7 @@ import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifyRemoteExitNodeAccess(
     req: Request,
@@ -90,7 +91,7 @@ export async function verifyRemoteExitNodeAccess(
             );
         }
 
-        if (!req.userOrg) {
+        if (!ownUserOrg(req)) {
             // Get user's role ID in the organization
             const userOrgRole = await db
                 .select()
@@ -105,7 +106,7 @@ export async function verifyRemoteExitNodeAccess(
             req.userOrg = userOrgRole[0];
         }
 
-        if (!req.userOrg) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== exitNodeOrg.orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

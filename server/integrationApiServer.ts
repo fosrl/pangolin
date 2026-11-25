@@ -1,4 +1,5 @@
 import express from "express";
+import { initRequestAuthStateMiddleware } from "@server/middlewares/initRequestAuthState";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import config from "@server/lib/config";
@@ -24,6 +25,7 @@ const externalPort = config.getRawConfig().server.integration_port;
 
 export function createIntegrationApiServer() {
     const apiServer = express();
+    apiServer.use(initRequestAuthStateMiddleware);
 
     const trustProxy = config.getRawConfig().server.trust_proxy;
     if (trustProxy) {

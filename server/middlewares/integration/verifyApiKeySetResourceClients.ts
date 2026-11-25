@@ -4,6 +4,7 @@ import { clients } from "@server/db";
 import { and, eq, inArray } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
+import { ownApiKeyOrg } from "@server/lib/requestAuthState";
 
 export async function verifyApiKeySetResourceClients(
     req: Request,
@@ -29,7 +30,7 @@ export async function verifyApiKeySetResourceClients(
         return next();
     }
 
-    if (!req.apiKeyOrg) {
+    if (!req.apiKeyOrg || !ownApiKeyOrg(req)) {
         return next(
             createHttpError(
                 HttpCode.FORBIDDEN,

@@ -18,6 +18,7 @@ import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
 import { getFirstString } from "@server/lib/requestParams";
+import { ownUserOrg } from "@server/lib/requestAuthState";
 
 export async function verifyIdpAccess(
     req: Request,
@@ -67,7 +68,7 @@ export async function verifyIdpAccess(
             );
         }
 
-        if (!req.userOrg) {
+        if (!ownUserOrg(req)) {
             const userOrgRole = await db
                 .select()
                 .from(userOrgs)
@@ -81,7 +82,7 @@ export async function verifyIdpAccess(
             req.userOrg = userOrgRole[0];
         }
 
-        if (!req.userOrg) {
+        if (!req.userOrg || ownUserOrg(req)?.orgId !== idpRes.idpOrg.orgId) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

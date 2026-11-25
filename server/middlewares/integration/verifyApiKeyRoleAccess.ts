@@ -5,6 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import createHttpError from "http-errors";
 import HttpCode from "@server/types/HttpCode";
 import logger from "@server/logger";
+import { ownApiKeyOrg } from "@server/lib/requestAuthState";
 
 export async function verifyApiKeyRoleAccess(
     req: Request,
@@ -99,7 +100,7 @@ export async function verifyApiKeyRoleAccess(
             );
         }
 
-        if (!req.apiKeyOrg) {
+        if (!ownApiKeyOrg(req)) {
             // Retrieve the API key's organization link if not already set
             const apiKeyOrgRes = await db
                 .select()
@@ -122,6 +123,15 @@ export async function verifyApiKeyRoleAccess(
             }
 
             req.apiKeyOrg = apiKeyOrgRes[0];
+        }
+
+        if (!req.apiKeyOrg || ownApiKeyOrg(req)?.orgId !== orgId) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Key does not have access to this organization"
+                )
+            );
         }
 
         return next();
