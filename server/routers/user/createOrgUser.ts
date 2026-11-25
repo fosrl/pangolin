@@ -6,6 +6,7 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { callerIsOrgAdmin } from "@server/lib/callerIsOrgAdmin";
 import { OpenAPITags, registry } from "@server/openApi";
 import { db, orgs, primaryDb } from "@server/db";
 import { and, eq, inArray } from "drizzle-orm";
@@ -198,7 +199,7 @@ export async function createOrgUser(
             }
 
             const orgRoles = await db
-                .select({ roleId: roles.roleId })
+                .select({ roleId: roles.roleId, isAdmin: roles.isAdmin })
                 .from(roles)
                 .where(
                     and(
@@ -212,6 +213,18 @@ export async function createOrgUser(
                     createHttpError(
                         HttpCode.BAD_REQUEST,
                         "Invalid role ID or role does not belong to this organization"
+                    )
+                );
+            }
+
+            if (
+                orgRoles.some((r) => r.isAdmin) &&
+                !(await callerIsOrgAdmin(req, orgId))
+            ) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Only an administrator can assign an administrator role"
                     )
                 );
             }

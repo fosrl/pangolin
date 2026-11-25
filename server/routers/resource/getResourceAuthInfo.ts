@@ -18,7 +18,6 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import { fromError } from "zod-validation-error";
 import logger from "@server/logger";
-import { build } from "@server/build";
 import { isResourceMtlsEnforced } from "@server/lib/mtls";
 
 const getResourceAuthInfoSchema = z.strictObject({
@@ -66,8 +65,6 @@ export async function getResourceAuthInfo(
         }
 
         const { resourceGuid } = parsedParams.data;
-
-        const isGuidInteger = /^\d+$/.test(resourceGuid);
 
         const sharedPolicy = alias(resourcePolicies, "sharedPolicy");
         const defaultPolicy = alias(resourcePolicies, "defaultPolicy");
@@ -171,12 +168,11 @@ export async function getResourceAuthInfo(
                 .where(whereClause)
                 .limit(1);
 
-        const [result] =
-            isGuidInteger && build === "saas"
-                ? await buildQuery(
-                      eq(resources.resourceId, Number(resourceGuid))
-                  )
-                : await buildQuery(eq(resources.resourceGuid, resourceGuid));
+        // Look up by guid only. Integer resource ids used to be accepted on
+        // SaaS, which let anyone enumerate every resource by counting up.
+        const [result] = await buildQuery(
+            eq(resources.resourceGuid, resourceGuid)
+        );
 
         const resource = result?.resources;
         if (!resource) {

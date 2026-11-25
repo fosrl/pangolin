@@ -21,6 +21,8 @@ import HttpCode from "@server/types/HttpCode";
 import createHttpError from "http-errors";
 import logger from "@server/logger";
 import { fromError } from "zod-validation-error";
+import { callerIsOrgAdmin } from "@server/lib/callerIsOrgAdmin";
+import { getUserOrgRoleIds } from "@server/lib/userOrgRoles";
 import {
     rebuildClientAssociationsFromClient,
     isOrgRebuildRateLimited
@@ -114,6 +116,21 @@ export async function setUserOrgRoles(
                 createHttpError(
                     HttpCode.BAD_REQUEST,
                     "One or more role IDs are invalid for this organization"
+                )
+            );
+        }
+
+        // Adding an administrator role the user does not already have needs
+        // an administrator
+        const currentRoleIds = await getUserOrgRoleIds(userId, orgId);
+        const addsAdminRole = orgRoles.some(
+            (r) => r.isAdmin === true && !currentRoleIds.includes(r.roleId)
+        );
+        if (addsAdminRole && !(await callerIsOrgAdmin(req, orgId))) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Only an administrator can assign an administrator role"
                 )
             );
         }

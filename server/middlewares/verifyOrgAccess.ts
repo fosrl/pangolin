@@ -30,7 +30,9 @@ export async function verifyOrgAccess(
     }
 
     try {
-        if (!req.userOrg) {
+        // Own property only: never trust a value inherited from a polluted
+        // Object.prototype
+        if (!Object.hasOwn(req, "userOrg")) {
             const userOrgRes = await db
                 .select()
                 .from(userOrgs)
