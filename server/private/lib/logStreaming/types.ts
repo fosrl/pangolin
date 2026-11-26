@@ -101,6 +101,8 @@ export interface HttpConfig {
      *   {{event}}     – the LogType string ("request", "action", etc.)
      *   {{timestamp}} – ISO-8601 UTC string derived from the event's timestamp
      *   {{data}}      – raw JSON object (no surrounding quotes) of the full row
+     *   {{<field>}}   – one top-level field of the row, e.g. {{orgId}}, as
+     *                   JSON-escaped text (use inside quotes)
      *
      * Example:
      *   { "event": "{{event}}", "ts": "{{timestamp}}", "payload": {{data}} }

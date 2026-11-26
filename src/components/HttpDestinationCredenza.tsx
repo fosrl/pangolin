@@ -585,6 +585,14 @@ export function HttpDestinationCredenza({
                                     <p className="text-xs text-muted-foreground">
                                         {t("httpDestBodyTemplateHint")}
                                     </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t("httpDestBodyTemplateFieldsHint", {
+                                            event: "{{event}}",
+                                            timestamp: "{{timestamp}}",
+                                            data: "{{data}}",
+                                            example: '"{{orgId}}"'
+                                        })}
+                                    </p>
                                 </div>
                             )}
 

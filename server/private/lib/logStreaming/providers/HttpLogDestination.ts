@@ -63,10 +63,18 @@ const DEFAULT_FORMAT: PayloadFormat = "json_array";
  *   - `{{event}}`     → the LogType string ("request", "action", etc.)
  *   - `{{timestamp}}` → ISO-8601 UTC datetime string
  *   - `{{data}}`      → raw inline JSON object  (**no surrounding quotes**)
+ *   - `{{<field>}}`   → a single top-level field of the event's data, e.g.
+ *                       `{{orgId}}` or `{{path}}`, rendered as text that is
+ *                       safe inside a JSON string (use it **inside quotes**)
  *
  * Example template:
  * ```
  * { "event": "{{event}}", "ts": "{{timestamp}}", "payload": {{data}} }
+ * ```
+ *
+ * Example for a Discord webhook (which needs strings in embed fields):
+ * ```
+ * { "content": "{{event}} in {{orgId}}", "embeds": [{ "description": "{{path}}" }] }
  * ```
  */
 export class HttpLogDestination implements LogDestinationProvider {
@@ -261,12 +269,19 @@ export class HttpLogDestination implements LogDestinationProvider {
     /**
      * Render a single event through the body template.
      *
-     * The three placeholder tokens are replaced in a specific order to avoid
-     * accidental double-replacement:
+     * Placeholders are expanded in a single pass, so text inserted for one
+     * placeholder is never expanded again (an event value that happens to
+     * contain `{{event}}` stays literal):
      *
-     *  1. `{{data}}`      → raw JSON (may contain `{{` characters in values)
-     *  2. `{{event}}`     → safe string
-     *  3. `{{timestamp}}` → safe ISO string
+     *  - `{{data}}`      → raw JSON of the whole data object
+     *  - `{{event}}`     → the log type, JSON-string-escaped
+     *  - `{{timestamp}}` → ISO-8601 string, JSON-string-escaped
+     *  - `{{<field>}}`   → a top-level field of `event.data`, see
+     *                      {@link renderDataField}. Placeholders that name no
+     *                      field are left untouched.
+     *
+     * The three fixed names keep their meaning even when the data object has
+     * a field with the same name (request logs have a `timestamp` column).
      *
      * If the rendered string is not valid JSON we fall back to returning it as
      * a plain string so the batch still makes it out and the operator can
@@ -274,18 +289,24 @@ export class HttpLogDestination implements LogDestinationProvider {
      */
     private renderTemplate(template: string, event: LogEvent): unknown {
         const isoTimestamp = epochSecondsToIso(event.timestamp);
-        const dataJson = JSON.stringify(event.data);
 
-        // Replace {{data}} first because its JSON value might legitimately
-        // contain the substrings "{{event}}" or "{{timestamp}}" inside string
-        // fields – those should NOT be re-expanded.
-        const rendered = template
-            .replace(/\{\{data\}\}/g, dataJson)
-            .replace(/\{\{event\}\}/g, escapeJsonString(event.logType))
-            .replace(
-                /\{\{timestamp\}\}/g,
-                escapeJsonString(isoTimestamp)
-            );
+        const rendered = template.replace(
+            /\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}/g,
+            (match, name: string) => {
+                switch (name) {
+                    case "data":
+                        return JSON.stringify(event.data);
+                    case "event":
+                        return escapeJsonString(event.logType);
+                    case "timestamp":
+                        return escapeJsonString(isoTimestamp);
+                }
+                if (!Object.prototype.hasOwnProperty.call(event.data, name)) {
+                    return match;
+                }
+                return renderDataField(event.data[name]);
+            }
+        );
 
         try {
             return JSON.parse(rendered);
@@ -295,7 +316,8 @@ export class HttpLogDestination implements LogDestinationProvider {
                     `event type "${event.logType}" destined for "${this.config.url}". ` +
                     `Sending rendered template as a raw string. ` +
                     `Check your template syntax – specifically that {{data}} is ` +
-                    `NOT wrapped in quotes.`
+                    `NOT wrapped in quotes, and that field placeholders such as ` +
+                    `{{orgId}} ARE wrapped in quotes.`
             );
             return rendered;
         }
@@ -319,4 +341,24 @@ function epochSecondsToIso(epochSeconds: number): string {
 function escapeJsonString(value: string): string {
     // JSON.stringify produces `"<escaped>"` – strip the outer quotes.
     return JSON.stringify(value).slice(1, -1);
+}
+
+/**
+ * Render one data field for a `{{<field>}}` placeholder.
+ *
+ * Strings are JSON-escaped so they can sit inside a quoted string in the
+ * template. Numbers and booleans are written as-is, which is valid both inside
+ * and outside quotes. Objects and arrays are serialised to JSON and escaped,
+ * so they also belong inside quotes. `null` and `undefined` become an empty
+ * string: many log columns are nullable, and a leftover `{{field}}` or the word
+ * `null` inside a message is less useful than nothing.
+ */
+export function renderDataField(value: unknown): string {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return escapeJsonString(value);
+    if (typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+    }
+    if (typeof value === "bigint") return value.toString();
+    return escapeJsonString(JSON.stringify(value));
 }
