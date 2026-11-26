@@ -42,6 +42,7 @@ import jmespath from "jmespath";
 import jsonwebtoken from "jsonwebtoken";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
+import { isEmailBanned } from "@server/lib/bannedEmails";
 
 const ensureTrailingSlash = (url: string): string => {
     return url;
@@ -523,6 +524,17 @@ export async function validateOidcCallback(
             }
 
             const orgUserCounts: { orgId: string; userCount: number }[] = [];
+
+            // Banned addresses (and banned domains) cannot be provisioned
+            // through an IdP either
+            if (!existingUser && email && (await isEmailBanned(email))) {
+                return next(
+                    createHttpError(
+                        HttpCode.FORBIDDEN,
+                        "Signup blocked. Do not attempt to continue to use this service."
+                    )
+                );
+            }
 
             let userId = existingUser?.userId;
             // sync the user with the orgs and roles
