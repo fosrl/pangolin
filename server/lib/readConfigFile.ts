@@ -286,6 +286,9 @@ export const configSchema = z
                     .array(z.string())
                     .optional()
                     .default(["newt", "wireguard", "local"]),
+                // Bearer token Traefik must send to GET /traefik-config. Set
+                // the same value in Traefik's HTTP provider `headers`.
+                config_token: z.string().optional(),
                 allow_raw_resources: z.boolean().optional().default(true),
                 file_mode: z.boolean().optional().default(false),
                 pp_transport_prefix: z
@@ -417,7 +420,10 @@ export const configSchema = z
                 disable_user_create_org: z.boolean().optional(),
                 allow_raw_resources: z.boolean().optional(),
                 enable_integration_api: z.boolean().optional(),
-                enable_api_create_user_sessions: z.boolean().optional().default(false),
+                enable_api_create_user_sessions: z
+                    .boolean()
+                    .optional()
+                    .default(false),
                 disable_local_sites: z.boolean().optional(),
                 disable_basic_wireguard_sites: z.boolean().optional(),
                 disable_config_managed_domains: z.boolean().optional(),

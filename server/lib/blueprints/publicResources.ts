@@ -70,6 +70,7 @@ import { syncInferenceAiConfig } from "./aiProviders";
 import { syncAiBudgets } from "./aiBudgets";
 import { clearMtls, syncMtlsCertificates } from "../mtls";
 import { checkReservedHost } from "@server/lib/reservedHosts";
+import { localSiteTargetError } from "@server/lib/localSiteTargets";
 
 export type PublicResourcesResults = {
     proxyResource: Resource;
@@ -155,6 +156,19 @@ export async function updatePublicResources(
                 internalPortToCreate = internalPort;
             } else {
                 internalPortToCreate = targetData["internal-port"];
+            }
+
+            // Traefik dials local-site targets from inside Pangolin's network
+            if (site.type === "local") {
+                const localTargetError = localSiteTargetError(
+                    targetData.hostname,
+                    serverConfig.getRawConfig().server.internal_hostname
+                );
+                if (localTargetError) {
+                    throw new Error(
+                        `${localTargetError}: ${targetData.hostname}`
+                    );
+                }
             }
 
             let authToken: string | undefined;
@@ -810,7 +824,7 @@ export async function updatePublicResources(
                     if (targetSiteId) {
                         // Look up site by niceId
                         [site] = await trx
-                            .select({ siteId: sites.siteId })
+                            .select({ siteId: sites.siteId, type: sites.type })
                             .from(sites)
                             .where(
                                 and(
@@ -822,7 +836,7 @@ export async function updatePublicResources(
                     } else if (siteId) {
                         // Use the provided siteId directly, but verify it belongs to the org
                         [site] = await trx
-                            .select({ siteId: sites.siteId })
+                            .select({ siteId: sites.siteId, type: sites.type })
                             .from(sites)
                             .where(
                                 and(
@@ -839,6 +853,18 @@ export async function updatePublicResources(
                         throw new Error(
                             `Site not found: ${targetSiteId} in org ${orgId}`
                         );
+                    }
+
+                    if (site.type === "local") {
+                        const localTargetError = localSiteTargetError(
+                            targetData.hostname,
+                            serverConfig.getRawConfig().server.internal_hostname
+                        );
+                        if (localTargetError) {
+                            throw new Error(
+                                `${localTargetError}: ${targetData.hostname}`
+                            );
+                        }
                     }
 
                     // update this target

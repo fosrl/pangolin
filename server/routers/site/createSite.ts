@@ -21,6 +21,7 @@ import { build } from "@server/build";
 import { usageService } from "@server/lib/billing/usageService";
 import { LimitId } from "@server/lib/billing";
 import { generateId } from "@server/auth/sessions/app";
+import config from "@server/lib/config";
 
 const createSiteParamsSchema = z.strictObject({
     orgId: z.string()
@@ -43,14 +44,6 @@ const createSiteSchema = z.strictObject({
     address: z.string().optional(),
     type: z.enum(["newt", "wireguard", "local"])
 });
-// .refine((data) => {
-//     if (data.type === "local") {
-//         return !config.getRawConfig().flags?.disable_local_sites;
-//     } else if (data.type === "wireguard") {
-//         return !config.getRawConfig().flags?.disable_basic_wireguard_sites;
-//     }
-//     return true;
-// });
 
 export type CreateSiteBody = z.infer<typeof createSiteSchema>;
 
@@ -123,6 +116,30 @@ export async function createSite(
             address,
             niceId
         } = parsedBody.data;
+
+        // The dashboard hides these types when disabled, but the API must
+        // refuse them too. A local site's targets are dialled from inside
+        // Pangolin's own network.
+        const flags = config.getRawConfig().flags;
+        const localSitesDisabled =
+            flags?.disable_local_sites ||
+            !config.getRawConfig().traefik.site_types.includes("local");
+        if (type === "local" && localSitesDisabled) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Local sites are disabled on this server"
+                )
+            );
+        }
+        if (type === "wireguard" && flags?.disable_basic_wireguard_sites) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Basic WireGuard sites are disabled on this server"
+                )
+            );
+        }
 
         const updatedNewtSecret = secret || generateId(48);
         const updatedNewtId = newtId || generateId(15);

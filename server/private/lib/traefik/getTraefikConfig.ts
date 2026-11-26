@@ -95,6 +95,7 @@ import {
     or,
     sql
 } from "drizzle-orm";
+import { localSiteTargetError } from "@server/lib/localSiteTargets";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const redirectToRootMiddlewareName = "redirect-to-root";
@@ -309,6 +310,21 @@ export async function getTraefikConfig(
                 maintenanceMessage: row.maintenanceMessage,
                 maintenanceEstimatedTime: row.maintenanceEstimatedTime
             });
+        }
+
+        // Existing local-site targets that point at Pangolin itself are not
+        // served, even if they were created before validation existed.
+        if (
+            row.siteType === "local" &&
+            localSiteTargetError(
+                row.ip ?? "",
+                config.getRawConfig().server.internal_hostname
+            )
+        ) {
+            logger.debug(
+                `Skipping local site target ${row.targetId} on resource ${row.resourceId}: points at a reserved address`
+            );
+            continue;
         }
 
         // Add target with its associated site data

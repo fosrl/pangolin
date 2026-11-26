@@ -20,6 +20,8 @@ import { pickPort } from "./helpers";
 import { isTargetValid } from "@server/lib/validators";
 import { OpenAPITags, registry } from "@server/openApi";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
+import { localSiteTargetError } from "@server/lib/localSiteTargets";
+import config from "@server/lib/config";
 
 const updateTargetParamsSchema = z.strictObject({
     targetId: z.coerce.number().int().positive()
@@ -237,6 +239,19 @@ export async function updateTarget(
                         : "Site must belong to the resource organization"
                 )
             );
+        }
+
+        // Traefik dials local-site targets from inside Pangolin's network
+        if (site.type === "local") {
+            const localTargetError = localSiteTargetError(
+                parsedBody.data.ip ?? target.ip,
+                config.getRawConfig().server.internal_hostname
+            );
+            if (localTargetError) {
+                return next(
+                    createHttpError(HttpCode.BAD_REQUEST, localTargetError)
+                );
+            }
         }
 
         const { internalPort, targetIps } = await pickPort(site.siteId!, db);
