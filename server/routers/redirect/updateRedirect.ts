@@ -22,6 +22,7 @@ import {
     isAllowedSsl
 } from "@server/routers/redirect/validation";
 import { createCertificate } from "../certificates";
+import { checkRedirectHostAvailable } from "@server/lib/reservedHosts";
 
 export type UpdateRedirectResponse = {
     redirect: Redirect;
@@ -186,6 +187,24 @@ export async function updateRedirect(
                         `Domain with ID ${effectiveDomainId} not found`
                     )
                 );
+            }
+        }
+
+        if (domain) {
+            const effectiveSubdomain =
+                body.subdomain !== undefined
+                    ? body.subdomain
+                    : existing.subdomain;
+            const fullDomain = [effectiveSubdomain ?? null, domain.baseDomain]
+                .filter(Boolean)
+                .join(".");
+            const hostError = await checkRedirectHostAvailable(
+                fullDomain,
+                existing.orgId,
+                existing.redirectId
+            );
+            if (hostError) {
+                return next(createHttpError(HttpCode.CONFLICT, hostError));
             }
         }
 

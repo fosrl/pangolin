@@ -69,6 +69,7 @@ import { usageService } from "../billing/usageService";
 import { syncInferenceAiConfig } from "./aiProviders";
 import { syncAiBudgets } from "./aiBudgets";
 import { clearMtls, syncMtlsCertificates } from "../mtls";
+import { checkReservedHost } from "@server/lib/reservedHosts";
 
 export type PublicResourcesResults = {
     proxyResource: Resource;
@@ -2297,6 +2298,16 @@ export async function getDomain(
         throw new Error(
             `Resource already exists: ${fullDomain} in org ${orgId}`
         );
+    }
+
+    // Same dashboard-host and login-page checks as createResource
+    const reservedHostError = await checkReservedHost(
+        fullDomain,
+        trx,
+        matchBaseDomain
+    );
+    if (reservedHostError) {
+        throw new Error(`${reservedHostError}: ${fullDomain}`);
     }
 
     const domain = await getDomainId(orgId, fullDomain, trx);
