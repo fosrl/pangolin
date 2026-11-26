@@ -35,6 +35,9 @@ export async function traefikConfigProvider(
     req: Request,
     res: Response
 ): Promise<any> {
+    if (config.getRawConfig().traefik.disable_http_config) {
+        return res.status(HttpCode.NOT_FOUND).json({ error: "Not found" });
+    }
     if (!isAuthorizedConfigRequest(req)) {
         return res
             .status(HttpCode.UNAUTHORIZED)

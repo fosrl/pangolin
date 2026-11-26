@@ -289,6 +289,9 @@ export const configSchema = z
                 // Bearer token Traefik must send to GET /traefik-config. Set
                 // the same value in Traefik's HTTP provider `headers`.
                 config_token: z.string().optional(),
+                // Turn GET /traefik-config off entirely, for deployments where
+                // Traefik does not use the HTTP provider (file_mode, k8s CRDs).
+                disable_http_config: z.boolean().optional().default(false),
                 allow_raw_resources: z.boolean().optional().default(true),
                 file_mode: z.boolean().optional().default(false),
                 pp_transport_prefix: z
