@@ -13,8 +13,9 @@ import { generateOidcRedirectUrl } from "@server/lib/idp/generateRedirectUrl";
 import { scopesForSessionRevalidation } from "@server/lib/idp/ensureOfflineAccessScope";
 import { encrypt } from "@server/lib/crypto";
 import config from "@server/lib/config";
-
-const paramsSchema = z.strictObject({});
+import { resolveIDPAPIConfig } from "#dynamic/lib/idpAPI/config";
+import license from "#dynamic/license/license";
+import { supportsApiIntegration } from "@app/lib/idpApiConfig";
 
 const bodySchema = z.strictObject({
     name: z.string().nonempty(),
@@ -27,6 +28,12 @@ const bodySchema = z.strictObject({
     namePath: z.string().optional(),
     scopes: z.string().nonempty(),
     autoProvision: z.boolean().optional(),
+    apiIntegrationEnabled: z.boolean().optional(),
+    allowManualProvisioning: z.boolean().optional(),
+    directorySyncEnabled: z.boolean().optional(),
+    directorySyncDeletions: z.boolean().optional(),
+    // provider-specific, validated against the variant's schema
+    apiConfig: z.record(z.string(), z.unknown()).optional(),
     sessionRevalidation: z.boolean().optional(),
     tags: z.string().optional(),
     variant: z.enum(["oidc", "google", "azure"]).optional().default("oidc")
@@ -93,6 +100,11 @@ export async function createOidcIdp(
             namePath,
             name,
             autoProvision,
+            apiIntegrationEnabled,
+            allowManualProvisioning,
+            directorySyncEnabled,
+            directorySyncDeletions,
+            apiConfig,
             tags,
             variant
         } = parsedBody.data;
@@ -105,6 +117,47 @@ export async function createOidcIdp(
                     HttpCode.BAD_REQUEST,
                     "Global IdP creation is not allowed in the current identity provider mode. Set app.identity_provider_mode to 'global' in the private configuration to enable this feature."
                 )
+            );
+        }
+
+        // the API integration (and sync, which needs it) is only supported for google/azure idps
+        const apiIntegrationSupported = supportsApiIntegration(variant);
+        const effectiveApiIntegrationEnabled =
+            apiIntegrationSupported && !!apiIntegrationEnabled;
+        const effectiveDirectorySyncEnabled =
+            apiIntegrationSupported && !!directorySyncEnabled;
+
+        if (effectiveDirectorySyncEnabled && !effectiveApiIntegrationEnabled) {
+            return next(
+                createHttpError(
+                    HttpCode.BAD_REQUEST,
+                    "Directory sync requires the API integration"
+                )
+            );
+        }
+
+        // the API integration and sync need a license (always unlocked on saas, never on oss).
+        // Global IdPs aren't tied to one org, the sync job checks each org's plan
+        const enablesApiFeatures =
+            effectiveApiIntegrationEnabled || effectiveDirectorySyncEnabled;
+        if (enablesApiFeatures && !(await license.isUnlocked())) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "The IdP API integration and directory sync require a valid license"
+                )
+            );
+        }
+
+        const resolvedApiConfig = resolveIDPAPIConfig({
+            variant,
+            incomingApiConfig: apiConfig,
+            existingEncryptedApiConfig: null,
+            apiIntegrationEnabled: effectiveApiIntegrationEnabled
+        });
+        if (!resolvedApiConfig.success) {
+            return next(
+                createHttpError(HttpCode.BAD_REQUEST, resolvedApiConfig.error)
             );
         }
 
@@ -124,11 +177,18 @@ export async function createOidcIdp(
                 .values({
                     name,
                     autoProvision,
+                    apiIntegrationEnabled: effectiveApiIntegrationEnabled,
+                    allowManualProvisioning,
+                    directorySyncEnabled: effectiveDirectorySyncEnabled,
+                    directorySyncDeletions,
+                    apiConfig: resolvedApiConfig.value,
                     sessionRevalidation,
                     type: "oidc",
                     tags,
                     defaultOrgMapping: `'{{orgId}}'`,
-                    defaultRoleMapping: `'Member'`
+                    defaultRoleMapping: `'Member'`,
+                    defaultSyncOrgMapping: `'{{orgId}}'`,
+                    defaultSyncRoleMapping: `'Member'`
                 })
                 .returning();
 

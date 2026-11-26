@@ -7,6 +7,7 @@ import { Input } from "@app/components/ui/input";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { Tag, TagInput } from "@app/components/tags/tag-input";
+import { CheckboxWithLabel } from "@app/components/ui/checkbox";
 import {
     createMappingBuilderRule,
     MappingBuilderRule,
@@ -17,6 +18,17 @@ import { useEnvContext } from "@app/hooks/useEnvContext";
 import { tierMatrix } from "@server/lib/billing/tierMatrix";
 import { build } from "@server/build";
 import { RolesSelector } from "./roles-selector";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@app/components/ui/select";
+
+/** Claims the IdP API integration adds, on login (enriched) and in directory sync. */
+const GROUP_CLAIM_PATHS = ["groupNames", "groups"] as const;
+const CUSTOM_CLAIM_PATH = "__custom__";
 
 export type RoleMappingRoleOption = {
     roleId: number;
@@ -41,6 +53,13 @@ export type RoleMappingConfigFieldsProps = {
     showFreeformRoleNamesHint?: boolean;
     /** Org ID to use for role lookup. Falls back to URL params when not provided. */
     orgId?: string;
+    createMissingRoles?: boolean;
+    onCreateMissingRolesChange?: (checked: boolean) => void;
+    /**
+     * The IdP's API integration is on (google/azure): the claims carry `groups`
+     * (group IDs) and `groupNames`, so the builder offers them as claim paths.
+     */
+    groupClaimsAvailable?: boolean;
 };
 
 export default function RoleMappingConfigFields({
@@ -57,7 +76,10 @@ export default function RoleMappingConfigFields({
     onRawExpressionChange,
     fieldIdPrefix = "role-mapping",
     showFreeformRoleNamesHint = false,
-    orgId
+    orgId,
+    createMissingRoles = false,
+    onCreateMissingRolesChange,
+    groupClaimsAvailable = false
 }: RoleMappingConfigFieldsProps) {
     const t = useTranslations();
     const { env } = useEnvContext();
@@ -68,7 +90,10 @@ export default function RoleMappingConfigFields({
         !env.flags.disableEnterpriseFeatures &&
         !isPaidUser(tierMatrix.fullRbac);
 
-    const restrictToOrgRoles = roles.length > 0;
+    const hasOrgRoles = roles.length > 0;
+    // pick from the org roles, unless missing roles get created: then any name can be typed
+    const restrictToOrgRoles =
+        hasOrgRoles && !(onCreateMissingRolesChange && createMissingRoles);
 
     const roleOptions = useMemo(
         () =>
@@ -94,6 +119,45 @@ export default function RoleMappingConfigFields({
             onFixedRoleNamesChange([fixedRoleNames[0]]);
         }
     }, [supportsMultipleRolesPerUser, fixedRoleNames, onFixedRoleNamesChange]);
+
+    // An untouched builder (no path picked, no rule filled in) starts on the group
+    // claims the API integration adds: `groupNames` with it, `groups` without.
+    // Saved builder mappings always have a filled rule, so they're never rewritten.
+    const [claimPathPicked, setClaimPathPicked] = useState(false);
+    const builderUntouched =
+        !claimPathPicked &&
+        mappingBuilderRules.every(
+            (rule) => !rule.matchValue.trim() && rule.roleNames.length === 0
+        );
+    const defaultClaimPath = groupClaimsAvailable ? "groupNames" : "groups";
+    useEffect(() => {
+        if (
+            builderUntouched &&
+            (GROUP_CLAIM_PATHS as readonly string[]).includes(
+                mappingBuilderClaimPath
+            ) &&
+            mappingBuilderClaimPath !== defaultClaimPath
+        ) {
+            onMappingBuilderClaimPathChange(defaultClaimPath);
+        }
+    }, [
+        builderUntouched,
+        defaultClaimPath,
+        mappingBuilderClaimPath,
+        onMappingBuilderClaimPathChange
+    ]);
+
+    // "Custom path" picked explicitly, kept even while the typed path matches a preset
+    const [customClaimPathPicked, setCustomClaimPathPicked] = useState(false);
+    const claimPathIsPreset = (GROUP_CLAIM_PATHS as readonly string[]).includes(
+        mappingBuilderClaimPath.trim()
+    );
+    const claimPathSelectValue =
+        customClaimPathPicked || !claimPathIsPreset
+            ? CUSTOM_CLAIM_PATH
+            : mappingBuilderClaimPath.trim();
+    const showClaimPathInput =
+        !groupClaimsAvailable || claimPathSelectValue === CUSTOM_CLAIM_PATH;
 
     const [fixedRolesActiveTagIndex, setFixedRolesActiveTagIndex] = useState<
         number | null
@@ -242,7 +306,7 @@ export default function RoleMappingConfigFields({
                             placeholder={t(
                                 "roleMappingAssignRolesPlaceholderFreeform"
                             )}
-                            enableAutocomplete={false}
+                            enableAutocomplete={hasOrgRoles}
                             autocompleteOptions={roleOptions}
                             restrictTagsToAutocompleteOptions={false}
                             allowDuplicates={false}
@@ -265,16 +329,69 @@ export default function RoleMappingConfigFields({
                 <div className="space-y-4 min-w-0 max-w-full">
                     <div className="space-y-2">
                         <FormLabel>{t("roleMappingClaimPath")}</FormLabel>
-                        <Input
-                            value={mappingBuilderClaimPath}
-                            onChange={(e) =>
-                                onMappingBuilderClaimPathChange(e.target.value)
-                            }
-                            placeholder={t("roleMappingClaimPathPlaceholder")}
-                        />
-                        <FormDescription>
-                            {t("roleMappingClaimPathDescription")}
-                        </FormDescription>
+                        {groupClaimsAvailable && (
+                            <Select
+                                value={claimPathSelectValue}
+                                onValueChange={(value) => {
+                                    setClaimPathPicked(true);
+                                    if (value === CUSTOM_CLAIM_PATH) {
+                                        setCustomClaimPathPicked(true);
+                                        return;
+                                    }
+                                    setCustomClaimPathPicked(false);
+                                    onMappingBuilderClaimPathChange(value);
+                                }}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        value="groupNames"
+                                        description={t(
+                                            "roleMappingClaimPathGroupNamesDescription"
+                                        )}
+                                    >
+                                        {t("roleMappingClaimPathGroupNames")}
+                                    </SelectItem>
+                                    <SelectItem
+                                        value="groups"
+                                        description={t(
+                                            "roleMappingClaimPathGroupIdsDescription"
+                                        )}
+                                    >
+                                        {t("roleMappingClaimPathGroupIds")}
+                                    </SelectItem>
+                                    <SelectItem
+                                        value={CUSTOM_CLAIM_PATH}
+                                        description={t(
+                                            "roleMappingClaimPathCustomDescription"
+                                        )}
+                                    >
+                                        {t("roleMappingClaimPathCustom")}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                        {showClaimPathInput && (
+                            <Input
+                                value={mappingBuilderClaimPath}
+                                onChange={(e) => {
+                                    setClaimPathPicked(true);
+                                    onMappingBuilderClaimPathChange(
+                                        e.target.value
+                                    );
+                                }}
+                                placeholder={t(
+                                    "roleMappingClaimPathPlaceholder"
+                                )}
+                            />
+                        )}
+                        {showClaimPathInput && (
+                            <FormDescription>
+                                {t("roleMappingClaimPathDescription")}
+                            </FormDescription>
+                        )}
                     </div>
 
                     <div className="space-y-3">
@@ -299,6 +416,7 @@ export default function RoleMappingConfigFields({
                                 fieldIdPrefix={`${fieldIdPrefix}-rule-${index}`}
                                 roleOptions={roleOptions}
                                 restrictToOrgRoles={restrictToOrgRoles}
+                                hasOrgRoles={hasOrgRoles}
                                 showFreeformRoleNamesHint={
                                     showFreeformRoleNamesHint
                                 }
@@ -365,6 +483,22 @@ export default function RoleMappingConfigFields({
                     </FormDescription>
                 </div>
             )}
+
+            {onCreateMissingRolesChange && (
+                <div className="space-y-1">
+                    <CheckboxWithLabel
+                        id={`${fieldIdPrefix}-create-missing-roles`}
+                        label={t("roleMappingCreateMissingRoles")}
+                        checked={createMissingRoles}
+                        onCheckedChange={(checked) =>
+                            onCreateMissingRolesChange(checked === true)
+                        }
+                    />
+                    <FormDescription>
+                        {t("roleMappingCreateMissingRolesDescription")}
+                    </FormDescription>
+                </div>
+            )}
         </div>
     );
 }
@@ -373,6 +507,7 @@ function BuilderRuleRow({
     rule,
     roleOptions,
     restrictToOrgRoles,
+    hasOrgRoles,
     showFreeformRoleNamesHint,
     fieldIdPrefix,
     mappingRulesGridClass,
@@ -385,6 +520,7 @@ function BuilderRuleRow({
     rule: MappingBuilderRule;
     roleOptions: Tag[];
     restrictToOrgRoles: boolean;
+    hasOrgRoles: boolean;
     showFreeformRoleNamesHint: boolean;
     fieldIdPrefix: string;
     mappingRulesGridClass: string;
@@ -514,7 +650,7 @@ function BuilderRuleRow({
                             placeholder={t(
                                 "roleMappingAssignRolesPlaceholderFreeform"
                             )}
-                            enableAutocomplete={false}
+                            enableAutocomplete={hasOrgRoles}
                             autocompleteOptions={roleOptions}
                             restrictTagsToAutocompleteOptions={false}
                             allowDuplicates={false}

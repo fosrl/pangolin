@@ -6,13 +6,14 @@ import { initTelemetryClient } from "@server/lib/telemetry";
 import { initLogCleanupInterval } from "@server/lib/cleanupLogs";
 import { initAcmeCertSync } from "@server/lib/acmeCertSync";
 import { startRebuildQueueProcessor } from "@server/lib/rebuildClientAssociations";
+import { initTestLinkCleanupInterval } from "@server/lib/idp/testLinks";
 
 export function startSchedulers() {
     // Start the ping accumulator for all builds - it batches per-site online/lastPing
     // updates into periodic bulk writes, preventing connection pool exhaustion.
     startPingAccumulator();
 
-    if (build != "saas") {
+    if (build !== "saas") {
         startOlmOfflineChecker(); // this is to handle the offline check for olms
         startNewtOfflineChecker(); // this is to handle the offline check for newts
     }
@@ -20,6 +21,8 @@ export function startSchedulers() {
     initTelemetryClient();
 
     initLogCleanupInterval();
+    // all builds: unlike logs, test link results are cleaned up on saas too
+    initTestLinkCleanupInterval();
     initAcmeCertSync();
     startRebuildQueueProcessor();
 }

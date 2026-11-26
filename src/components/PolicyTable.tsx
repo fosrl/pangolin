@@ -1,31 +1,31 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
-import { ExtendedColumnDef } from "@app/components/ui/data-table";
-import { Button } from "@app/components/ui/button";
-import {
-    ArrowUpDown,
-    Trash2,
-    MoreHorizontal,
-    Pencil,
-    ArrowRight
-} from "lucide-react";
 import { PolicyDataTable } from "@app/components/PolicyDataTable";
-import { Badge } from "@app/components/ui/badge";
+import { Button } from "@app/components/ui/button";
+import { ExtendedColumnDef } from "@app/components/ui/data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@app/components/ui/dropdown-menu";
-import Link from "next/link";
-import { InfoPopup } from "@app/components/ui/info-popup";
+import {
+    JitSyncRows,
+    OrgMappingSummary,
+    RoleMappingSummary
+} from "@app/components/IdpMappingSummary";
+import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export interface PolicyRow {
     orgId: string;
-    roleMapping?: string;
-    orgMapping?: string;
+    roleMapping?: string | null;
+    orgMapping?: string | null;
+    createMissingRoles?: boolean;
+    syncRoleMapping?: string | null;
+    syncOrgMapping?: string | null;
+    syncCreateMissingRoles?: boolean;
+    mappingsLinked?: boolean;
 }
 
 interface Props {
@@ -78,18 +78,25 @@ export default function PolicyTable({
                 );
             },
             cell: ({ row }) => {
-                const mapping = row.original.roleMapping;
-                return mapping ? (
-                    <InfoPopup
-                        text={
-                            mapping.length > 50
-                                ? `${mapping.substring(0, 50)}...`
-                                : mapping
+                const policy = row.original;
+                return (
+                    <JitSyncRows
+                        linked={policy.mappingsLinked !== false}
+                        jit={
+                            <RoleMappingSummary
+                                roleMapping={policy.roleMapping}
+                                createMissingRoles={policy.createMissingRoles}
+                            />
                         }
-                        info={mapping}
+                        sync={
+                            <RoleMappingSummary
+                                roleMapping={policy.syncRoleMapping}
+                                createMissingRoles={
+                                    policy.syncCreateMissingRoles
+                                }
+                            />
+                        }
                     />
-                ) : (
-                    "-"
                 );
             }
         },
@@ -110,18 +117,17 @@ export default function PolicyTable({
                 );
             },
             cell: ({ row }) => {
-                const mapping = row.original.orgMapping;
-                return mapping ? (
-                    <InfoPopup
-                        text={
-                            mapping.length > 50
-                                ? `${mapping.substring(0, 50)}...`
-                                : mapping
+                const policy = row.original;
+                return (
+                    <JitSyncRows
+                        linked={policy.mappingsLinked !== false}
+                        jit={<OrgMappingSummary orgMapping={policy.orgMapping} />}
+                        sync={
+                            <OrgMappingSummary
+                                orgMapping={policy.syncOrgMapping}
+                            />
                         }
-                        info={mapping}
                     />
-                ) : (
-                    "-"
                 );
             }
         },

@@ -77,6 +77,11 @@ import type { GetResourceResponse } from "@server/routers/resource/getResource";
 import type { GetResourceAuthInfoResponse } from "@server/routers/resource/getResourceAuthInfo";
 import type { ListResourcePoliciesResponse } from "@server/routers/resource/types";
 import type { ListRolesResponse } from "@server/routers/role";
+import type {
+    GetIdpResponse,
+    ListIdpOrgPoliciesResponse
+} from "@server/routers/idp";
+import type { ListOrgsResponse } from "@server/routers/org";
 import type { ListSitesResponse } from "@server/routers/site";
 import type {
     ListAllSiteResourcesByOrgResponse,
@@ -156,6 +161,113 @@ export type LatestVersionResponse = {
         latestVersion: string;
         releaseNotes: string;
     };
+};
+
+// `SyncOrgIdpResponse` lives in the private server code, which the frontend can't import
+export type IdpSyncEntry = {
+    username: string | null;
+    email: string | null;
+    name: string | null;
+    user: "create" | "update" | "unchanged" | "skip";
+    membership: "add" | "updateRoles" | "remove" | "unchanged";
+    reason?: string;
+    roles?: string[];
+    previousRoles?: string[];
+};
+
+export type IdpSyncResponse = {
+    dryRun: boolean;
+    counts: {
+        usersCreated: number;
+        usersUpdated: number;
+        membershipsAdded: number;
+        membershipsUpdated: number;
+        membershipsRemoved: number;
+        unchanged: number;
+    };
+    /** Dry run only: membership changes only, capped (see `entriesTruncated`). */
+    entries?: IdpSyncEntry[];
+    /** Dry run only: some changes aren't in `entries`, the counts still include them. */
+    entriesTruncated?: boolean;
+};
+
+/** `POST /idp/:idpId/sync` (global IdP), one result per org the IdP maps users into. */
+export type IdpGlobalSyncResponse = {
+    dryRun: boolean;
+    counts: IdpSyncResponse["counts"];
+    orgs: ({ orgId: string; orgName: string } & (
+        | {
+              status: "synced";
+              counts: IdpSyncResponse["counts"];
+              /** Dry run only, membership changes only, capped (see `entriesTruncated`). */
+              entries?: IdpSyncEntry[];
+              entriesTruncated?: boolean;
+          }
+        | { status: "skipped"; reason: "notEntitled" | "noRoleMapping" }
+        | { status: "failed"; error: string }
+    ))[];
+};
+
+export const globalIdpQueries = {
+    idp: ({ idpId }: { idpId: string }) =>
+        queryOptions({
+            queryKey: ["IDP", idpId] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<AxiosResponse<GetIdpResponse>>(
+                    `/idp/${idpId}`,
+                    { signal }
+                );
+                return res.data.data;
+            }
+        }),
+
+    /** Org policies of a global IdP. */
+    policies: ({ idpId }: { idpId: string }) =>
+        queryOptions({
+            queryKey: ["IDP", idpId, "POLICIES"] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<ListIdpOrgPoliciesResponse>
+                >(`/idp/${idpId}/org`, { signal });
+                return res.data.data.policies;
+            }
+        }),
+
+    /** Every org on the server (server admin). */
+    orgs: () =>
+        queryOptions({
+            queryKey: ["ORGS"] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.get<
+                    AxiosResponse<ListOrgsResponse>
+                >("/orgs", { signal });
+                return res.data.data.orgs;
+            }
+        }),
+
+    /** `draft`: unsaved form values to preview instead of the saved settings (not in the key: the dialog drops the query on close). */
+    syncPreview: ({
+        idpId,
+        draft
+    }: {
+        idpId: string;
+        draft?: Record<string, unknown>;
+    }) =>
+        queryOptions({
+            queryKey: ["IDP", idpId, "SYNC_PREVIEW"] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.post<
+                    AxiosResponse<IdpGlobalSyncResponse>
+                >(`/idp/${idpId}/sync`, { dryRun: true, draft }, { signal });
+                return res.data.data;
+            },
+            staleTime: 0,
+            gcTime: 0,
+            retry: false,
+            refetchOnWindowFocus: false,
+            // never show an earlier preview: it may be for other settings
+            placeholderData: undefined
+        })
 };
 
 export const productUpdatesQueries = {
@@ -427,7 +539,13 @@ export const orgQueries = {
             queryFn: async ({ signal, meta }) => {
                 const res = await meta!.api.get<
                     AxiosResponse<{
-                        idps: { idpId: number; name: string }[];
+                        idps: {
+                            idpId: number;
+                            name: string;
+                            type: string;
+                            variant: string | null;
+                            allowManualProvisioning?: boolean;
+                        }[];
                     }>
                 >(
                     build === "saas" || useOrgOnlyIdp
@@ -437,6 +555,39 @@ export const orgQueries = {
                 );
                 return res.data.data.idps;
             }
+        }),
+
+    /**
+     * Dry run of the directory sync. Reads the directory, so it's never cached.
+     * `draft`: unsaved form values to preview instead of the saved settings.
+     */
+    idpSyncPreview: ({
+        orgId,
+        idpId,
+        draft
+    }: {
+        orgId: string;
+        idpId: string;
+        draft?: Record<string, unknown>;
+    }) =>
+        queryOptions({
+            queryKey: ["ORG", orgId, "IDP_SYNC_PREVIEW", idpId] as const,
+            queryFn: async ({ signal, meta }) => {
+                const res = await meta!.api.post<
+                    AxiosResponse<IdpSyncResponse>
+                >(
+                    `/org/${orgId}/idp/${idpId}/sync`,
+                    { dryRun: true, draft },
+                    { signal }
+                );
+                return res.data.data;
+            },
+            staleTime: 0,
+            gcTime: 0,
+            retry: false,
+            refetchOnWindowFocus: false,
+            // never show an earlier preview: it may be for other settings
+            placeholderData: undefined
         }),
 
     proxyResources: ({

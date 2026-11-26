@@ -12,6 +12,8 @@ type CopyTextBoxProps = {
     wrapText?: boolean;
     outline?: boolean;
     centered?: boolean;
+    /** Caps the text area's height (CSS length, e.g. `"20rem"`), it scrolls past that. The copy button stays put. */
+    maxHeight?: string;
 };
 
 export default function CopyTextBox({
@@ -20,7 +22,8 @@ export default function CopyTextBox({
     getCopyText,
     wrapText = false,
     outline = true,
-    centered = false
+    centered = false,
+    maxHeight
 }: CopyTextBoxProps) {
     const [isCopied, setIsCopied] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
@@ -58,6 +61,7 @@ export default function CopyTextBox({
                         ? "whitespace-pre-wrap break-words"
                         : "overflow-x-auto"
                 }`}
+                style={maxHeight ? { maxHeight, overflowY: "auto" } : undefined}
             >
                 <code className="block w-full">{displayText || text}</code>
             </pre>

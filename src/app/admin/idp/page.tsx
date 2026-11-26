@@ -2,7 +2,7 @@ import { internal } from "@app/lib/api";
 import { authCookieHeader } from "@app/lib/api/cookies";
 import { AxiosResponse } from "axios";
 import SettingsSectionTitle from "@app/components/SettingsSectionTitle";
-import IdpTable, { IdpRow } from "@app/components/AdminIdpTable";
+import AdminIdpTable, { IdpRow } from "@app/components/AdminIdpTable";
 import { getTranslations } from "next-intl/server";
 
 export default async function IdpPage() {
@@ -25,7 +25,7 @@ export default async function IdpPage() {
                 title={t("idpManage")}
                 description={t("idpManageDescription")}
             />
-            <IdpTable idps={idps} />
+            <AdminIdpTable idps={idps} />
         </>
     );
 }

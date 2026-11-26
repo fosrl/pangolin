@@ -17,6 +17,7 @@ export enum TierFeature {
     SessionDurationPolicies = "sessionDurationPolicies", // handle downgrade by setting to default duration
     PasswordExpirationPolicies = "passwordExpirationPolicies", // handle downgrade by setting to default duration
     AutoProvisioning = "autoProvisioning", // handle downgrade by disabling auto provisioning
+    IdpAPIIntegration = "idpAPIIntegration", // directory sync and JIT group fetching, handle downgrade by skipping both (no data change needed)
     SessionRevalidation = "sessionRevalidation", // handle downgrade by disabling session revalidation
     FullRbac = "fullRbac",
     SiteProvisioningKeys = "siteProvisioningKeys", // handle downgrade by revoking keys if needed
@@ -65,6 +66,7 @@ export const tierMatrix: Record<TierFeature, Tier[]> = {
         "enterprise"
     ],
     [TierFeature.AutoProvisioning]: ["tier1", "tier3", "enterprise"],
+    [TierFeature.IdpAPIIntegration]: ["tier1", "tier3", "enterprise"],
     [TierFeature.SessionRevalidation]: ["tier1", "tier3", "enterprise"],
     [TierFeature.FullRbac]: ["tier1", "tier2", "tier3", "enterprise"],
     [TierFeature.SiteProvisioningKeys]: ["tier3", "enterprise"],
