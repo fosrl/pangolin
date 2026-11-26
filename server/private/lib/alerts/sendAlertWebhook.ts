@@ -17,6 +17,7 @@ import {
     WebhookAlertConfig,
     type AlertEventType
 } from "@server/routers/alertRule/types";
+import { assertSafeOutboundUrl } from "@server/lib/outboundUrlGuard";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 3;
@@ -80,6 +81,10 @@ export async function sendAlertWebhook(
 
     const headers = buildHeaders(webhookConfig);
 
+    // Webhook URLs are tenant-supplied: refuse this host, the metadata
+    // service and (on SaaS) internal networks, and never follow redirects.
+    await assertSafeOutboundUrl(url);
+
     let lastError: Error | undefined;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -95,7 +100,8 @@ export async function sendAlertWebhook(
                 method: webhookConfig.method ?? "POST",
                 headers,
                 body: JSON.stringify(body),
-                signal: controller.signal
+                signal: controller.signal,
+                redirect: "manual"
             });
         } catch (err: unknown) {
             clearTimeout(timeoutHandle);

@@ -1,6 +1,12 @@
 import http from "node:http";
 import https from "node:https";
 import { Readable } from "node:stream";
+import {
+    getOutboundPolicy,
+    guardedLookup,
+    OutboundUrlError
+} from "@server/lib/outboundUrlGuard";
+import { outboundHostBlockReason } from "@server/lib/outboundAddress";
 
 type UpstreamFetchInit = {
     method: string;
@@ -20,6 +26,21 @@ export function aiGatewayUpstreamFetch(
     init: UpstreamFetchInit
 ): Promise<Response> {
     const parsed = new URL(url);
+    // Provider URLs are tenant-supplied: never let them reach this host, the
+    // metadata service or (on SaaS) internal networks. The lookup re-checks
+    // the address actually connected to, so DNS changes cannot get around it.
+    const policy = getOutboundPolicy();
+    const hostReason = outboundHostBlockReason(parsed.hostname, policy);
+    if (hostReason) {
+        return Promise.reject(
+            new OutboundUrlError(`Upstream URL not allowed: ${hostReason}`)
+        );
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return Promise.reject(
+            new OutboundUrlError("Upstream URL must be http or https")
+        );
+    }
     const isHttps = parsed.protocol === "https:";
     const lib = isHttps ? https : http;
     const agent =
@@ -36,7 +57,8 @@ export function aiGatewayUpstreamFetch(
             {
                 method: init.method,
                 headers: init.headers,
-                agent
+                agent,
+                lookup: guardedLookup(policy)
             },
             (res) => {
                 const headers = new Headers();

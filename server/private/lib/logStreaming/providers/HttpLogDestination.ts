@@ -14,6 +14,7 @@
 import logger from "@server/logger";
 import { LogEvent, HttpConfig, PayloadFormat } from "../types";
 import { LogDestinationProvider } from "./LogDestinationProvider";
+import { assertSafeOutboundUrl } from "@server/lib/outboundUrlGuard";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -121,6 +122,11 @@ export class HttpLogDestination implements LogDestinationProvider {
     ): Promise<void> {
         const headers = this.buildHeaders(contentType);
 
+        // Destination URLs are tenant-supplied: refuse this host, the
+        // metadata service and (on SaaS) internal networks, and never follow
+        // redirects.
+        await assertSafeOutboundUrl(this.config.url);
+
         const controller = new AbortController();
         const timeoutHandle = setTimeout(
             () => controller.abort(),
@@ -133,11 +139,11 @@ export class HttpLogDestination implements LogDestinationProvider {
                 method: "POST",
                 headers,
                 body,
-                signal: controller.signal
+                signal: controller.signal,
+                redirect: "manual"
             });
         } catch (err: unknown) {
-            const isAbort =
-                err instanceof Error && err.name === "AbortError";
+            const isAbort = err instanceof Error && err.name === "AbortError";
             if (isAbort) {
                 throw new Error(
                     `HttpLogDestination: request to "${this.config.url}" timed out after ${REQUEST_TIMEOUT_MS} ms`
@@ -282,10 +288,7 @@ export class HttpLogDestination implements LogDestinationProvider {
         const rendered = template
             .replace(/\{\{data\}\}/g, dataJson)
             .replace(/\{\{event\}\}/g, escapeJsonString(event.logType))
-            .replace(
-                /\{\{timestamp\}\}/g,
-                escapeJsonString(isoTimestamp)
-            );
+            .replace(/\{\{timestamp\}\}/g, escapeJsonString(isoTimestamp));
 
         try {
             return JSON.parse(rendered);

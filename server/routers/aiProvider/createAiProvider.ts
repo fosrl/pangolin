@@ -26,6 +26,10 @@ import {
 } from "@server/routers/aiProvider/validation";
 import { serializeCapabilities } from "@server/lib/aiCapabilities";
 import { getUniqueProviderName, getUniqueResourceName } from "@server/db/names";
+import {
+    assertSafeOutboundUrl,
+    OutboundUrlError
+} from "@server/lib/outboundUrlGuard";
 
 const paramsSchema = z.strictObject({
     orgId: z.string().nonempty()
@@ -109,6 +113,19 @@ export async function createAiProvider(
             skipTlsVerification,
             enabled
         } = parsedBody.data;
+
+        if (upstreamUrl) {
+            try {
+                await assertSafeOutboundUrl(upstreamUrl);
+            } catch (error) {
+                if (error instanceof OutboundUrlError) {
+                    return next(
+                        createHttpError(HttpCode.BAD_REQUEST, error.message)
+                    );
+                }
+                throw error;
+            }
+        }
 
         const key = config.getRawConfig().server.secret!;
         const encryptedApiKey = apiKey ? encrypt(apiKey, key) : null;

@@ -425,6 +425,10 @@ export const configSchema = z
                     .optional()
                     .default(false),
                 disable_local_sites: z.boolean().optional(),
+                // Refuse private/internal addresses for tenant-supplied outbound
+                // URLs (AI providers, webhooks, log streaming). Defaults to on
+                // for SaaS and off for self-hosted.
+                block_private_outbound_urls: z.boolean().optional(),
                 disable_basic_wireguard_sites: z.boolean().optional(),
                 disable_config_managed_domains: z.boolean().optional(),
                 disable_product_help_banners: z.boolean().optional(),
