@@ -17,7 +17,7 @@ import createHttpError from "http-errors";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 
-import { approvals, clients, db, orgs, type Approval } from "@server/db";
+import { approvals, clients, db, type Approval } from "@server/db";
 import response from "@server/lib/response";
 import { and, eq, type InferInsertModel } from "drizzle-orm";
 import type { NextFunction, Request, Response } from "express";
@@ -69,10 +69,10 @@ export async function processPendingApproval(
             .where(
                 and(
                     eq(approvals.approvalId, approvalId),
+                    eq(approvals.orgId, orgId),
                     eq(approvals.decision, "pending")
                 )
             )
-            .innerJoin(orgs, eq(approvals.orgId, approvals.orgId))
             .limit(1);
 
         if (approval.length === 0) {
@@ -87,8 +87,23 @@ export async function processPendingApproval(
         const [updatedApproval] = await db
             .update(approvals)
             .set(updateData)
-            .where(eq(approvals.approvalId, approvalId))
+            .where(
+                and(
+                    eq(approvals.approvalId, approvalId),
+                    eq(approvals.orgId, orgId),
+                    eq(approvals.decision, "pending")
+                )
+            )
             .returning();
+
+        if (!updatedApproval) {
+            return next(
+                createHttpError(
+                    HttpCode.NOT_FOUND,
+                    `Pending Approval with ID ${approvalId} not found`
+                )
+            );
+        }
 
         // Update user device approval state too
         if (
@@ -106,7 +121,12 @@ export async function processPendingApproval(
             await db
                 .update(clients)
                 .set(updateDataBody)
-                .where(eq(clients.clientId, updatedApproval.clientId));
+                .where(
+                    and(
+                        eq(clients.clientId, updatedApproval.clientId),
+                        eq(clients.orgId, orgId)
+                    )
+                );
         }
 
         return response(res, {
