@@ -29,10 +29,43 @@ const acceptInviteBodySchema = z.strictObject({
     inviteId: z.string()
 });
 
+/**
+ * Why an invite was not accepted, for the cases the invite page handles by
+ * sending the user somewhere (sign up, log in, switch account) or explaining
+ * the problem. These are answered with HTTP 200 and `accepted: false` rather
+ * than an error status: reverse proxies are often set up to replace 4xx bodies
+ * with a generic error page, which used to hide the reason and made every new
+ * invitee see "invite expired" (#2426). A bad token, a missing invite and
+ * server faults are still errors.
+ */
+export type AcceptInviteStatus =
+    | "accepted"
+    | "user_does_not_exist"
+    | "not_logged_in"
+    | "wrong_user"
+    | "oidc_not_allowed"
+    | "user_limit_exceeded";
+
 export type AcceptInviteResponse = {
     accepted: boolean;
     orgId: string;
+    status: AcceptInviteStatus;
 };
+
+function inviteNotAccepted(
+    res: Response,
+    orgId: string,
+    status: Exclude<AcceptInviteStatus, "accepted">,
+    message: string
+) {
+    return response<AcceptInviteResponse>(res, {
+        data: { accepted: false, orgId, status },
+        success: true,
+        error: false,
+        message,
+        status: HttpCode.OK
+    });
+}
 
 export async function acceptInvite(
     req: Request,
@@ -78,40 +111,40 @@ export async function acceptInvite(
             )
             .limit(1);
         if (!existingInternalUser) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "User does not exist. Please create an account first."
-                )
+            return inviteNotAccepted(
+                res,
+                existingInvite.orgId,
+                "user_does_not_exist",
+                "User does not exist. Please create an account first."
             );
         }
 
         const { user } = await verifySession(req);
 
         if (!user) {
-            return next(
-                createHttpError(
-                    HttpCode.UNAUTHORIZED,
-                    "You must be logged in to accept an invite"
-                )
+            return inviteNotAccepted(
+                res,
+                existingInvite.orgId,
+                "not_logged_in",
+                "You must be logged in to accept an invite"
             );
         }
 
         if (user.email !== existingInvite.email) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "Invite is not for this user"
-                )
+            return inviteNotAccepted(
+                res,
+                existingInvite.orgId,
+                "wrong_user",
+                "Invite is not for this user"
             );
         }
 
         if (user.type !== UserType.Internal) {
-            return next(
-                createHttpError(
-                    HttpCode.BAD_REQUEST,
-                    "Invites can only be accepted by internal users."
-                )
+            return inviteNotAccepted(
+                res,
+                existingInvite.orgId,
+                "oidc_not_allowed",
+                "Invites can only be accepted by internal users."
             );
         }
 
@@ -138,11 +171,11 @@ export async function acceptInvite(
                 } // We need to add one to know if we are violating the limit
             );
             if (rejectUsers) {
-                return next(
-                    createHttpError(
-                        HttpCode.FORBIDDEN,
-                        "Can not accept because this org's user limit is exceeded. Please contact your administrator to upgrade their plan."
-                    )
+                return inviteNotAccepted(
+                    res,
+                    existingInvite.orgId,
+                    "user_limit_exceeded",
+                    "Can not accept because this org's user limit is exceeded. Please contact your administrator to upgrade their plan."
                 );
             }
         }
@@ -233,7 +266,11 @@ export async function acceptInvite(
         });
 
         return response<AcceptInviteResponse>(res, {
-            data: { accepted: true, orgId: existingInvite.orgId },
+            data: {
+                accepted: true,
+                orgId: existingInvite.orgId,
+                status: "accepted"
+            },
             success: true,
             error: false,
             message: "Invite accepted",
