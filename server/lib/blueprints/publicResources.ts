@@ -71,6 +71,7 @@ import { syncAiBudgets } from "./aiBudgets";
 import { clearMtls, syncMtlsCertificates } from "../mtls";
 import { checkReservedHost } from "@server/lib/reservedHosts";
 import { localSiteTargetError } from "@server/lib/localSiteTargets";
+import { isLocalSiteServedByPangolin } from "@server/lib/localSiteTargetPolicy";
 
 export type PublicResourcesResults = {
     proxyResource: Resource;
@@ -158,8 +159,12 @@ export async function updatePublicResources(
                 internalPortToCreate = targetData["internal-port"];
             }
 
-            // Traefik dials local-site targets from inside Pangolin's network
-            if (site.type === "local") {
+            // Pangolin's Traefik dials these targets from inside its own
+            // network; local sites on a remote exit node are dialled there
+            if (
+                site.type === "local" &&
+                (await isLocalSiteServedByPangolin(site.exitNodeId, trx))
+            ) {
                 const localTargetError = localSiteTargetError(
                     targetData.hostname,
                     serverConfig.getRawConfig().server.internal_hostname
@@ -824,7 +829,11 @@ export async function updatePublicResources(
                     if (targetSiteId) {
                         // Look up site by niceId
                         [site] = await trx
-                            .select({ siteId: sites.siteId, type: sites.type })
+                            .select({
+                                siteId: sites.siteId,
+                                type: sites.type,
+                                exitNodeId: sites.exitNodeId
+                            })
                             .from(sites)
                             .where(
                                 and(
@@ -836,7 +845,11 @@ export async function updatePublicResources(
                     } else if (siteId) {
                         // Use the provided siteId directly, but verify it belongs to the org
                         [site] = await trx
-                            .select({ siteId: sites.siteId, type: sites.type })
+                            .select({
+                                siteId: sites.siteId,
+                                type: sites.type,
+                                exitNodeId: sites.exitNodeId
+                            })
                             .from(sites)
                             .where(
                                 and(
@@ -855,7 +868,13 @@ export async function updatePublicResources(
                         );
                     }
 
-                    if (site.type === "local") {
+                    if (
+                        site.type === "local" &&
+                        (await isLocalSiteServedByPangolin(
+                            site.exitNodeId,
+                            trx
+                        ))
+                    ) {
                         const localTargetError = localSiteTargetError(
                             targetData.hostname,
                             serverConfig.getRawConfig().server.internal_hostname

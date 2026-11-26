@@ -118,13 +118,11 @@ export async function createSite(
         } = parsedBody.data;
 
         // The dashboard hides these types when disabled, but the API must
-        // refuse them too. A local site's targets are dialled from inside
-        // Pangolin's own network.
+        // refuse them too. (traefik.site_types is not checked here: remote
+        // exit nodes serve local sites even when the central Traefik does
+        // not.)
         const flags = config.getRawConfig().flags;
-        const localSitesDisabled =
-            flags?.disable_local_sites ||
-            !config.getRawConfig().traefik.site_types.includes("local");
-        if (type === "local" && localSitesDisabled) {
+        if (type === "local" && flags?.disable_local_sites) {
             return next(
                 createHttpError(
                     HttpCode.FORBIDDEN,

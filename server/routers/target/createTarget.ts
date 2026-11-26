@@ -37,6 +37,7 @@ import { generateId } from "@server/auth/sessions/app";
 import config from "@server/lib/config";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
 import { localSiteTargetError } from "@server/lib/localSiteTargets";
+import { isLocalSiteServedByPangolin } from "@server/lib/localSiteTargetPolicy";
 
 const resourceTargetParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -335,8 +336,12 @@ export async function createTarget(
             );
         }
 
-        // Traefik dials local-site targets from inside Pangolin's network
-        if (site.type === "local") {
+        // Pangolin's Traefik dials these targets from inside its own network.
+        // Local sites on a remote exit node are dialled by that node instead.
+        if (
+            site.type === "local" &&
+            (await isLocalSiteServedByPangolin(site.exitNodeId))
+        ) {
             const localTargetError = localSiteTargetError(
                 targetData.ip,
                 config.getRawConfig().server.internal_hostname

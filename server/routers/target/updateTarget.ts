@@ -22,6 +22,7 @@ import { OpenAPITags, registry } from "@server/openApi";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
 import { localSiteTargetError } from "@server/lib/localSiteTargets";
 import config from "@server/lib/config";
+import { isLocalSiteServedByPangolin } from "@server/lib/localSiteTargetPolicy";
 
 const updateTargetParamsSchema = z.strictObject({
     targetId: z.coerce.number().int().positive()
@@ -241,8 +242,12 @@ export async function updateTarget(
             );
         }
 
-        // Traefik dials local-site targets from inside Pangolin's network
-        if (site.type === "local") {
+        // Pangolin's Traefik dials these targets from inside its own network.
+        // Local sites on a remote exit node are dialled by that node instead.
+        if (
+            site.type === "local" &&
+            (await isLocalSiteServedByPangolin(site.exitNodeId))
+        ) {
             const localTargetError = localSiteTargetError(
                 parsedBody.data.ip ?? target.ip,
                 config.getRawConfig().server.internal_hostname

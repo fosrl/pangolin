@@ -313,9 +313,12 @@ export async function getTraefikConfig(
         }
 
         // Existing local-site targets that point at Pangolin itself are not
-        // served, even if they were created before validation existed.
+        // served, even if they were created before validation existed. A
+        // remote exit node's config is dialled by that node, so it is left
+        // alone.
         if (
             row.siteType === "local" &&
+            exitNode?.type !== "remoteExitNode" &&
             localSiteTargetError(
                 row.ip ?? "",
                 config.getRawConfig().server.internal_hostname
