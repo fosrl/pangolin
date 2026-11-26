@@ -339,7 +339,8 @@ export async function verifyResourceSession(
                 path,
                 ipCC,
                 ipAsn,
-                method
+                method,
+                query
             );
 
             if (action == "ACCEPT") {
@@ -1654,7 +1655,8 @@ async function checkRules(
     path: string | undefined,
     ipCC?: string,
     ipAsn?: number,
-    method?: string
+    method?: string,
+    query?: Record<string, string>
 ): Promise<"ACCEPT" | "DROP" | "PASS" | undefined> {
     const ruleCacheKey = `rules:${resourceId}`;
 
@@ -1689,7 +1691,7 @@ async function checkRules(
         } else if (
             path &&
             rule.match == "PATH" &&
-            isPathAllowed(rule.value, path)
+            isPathAllowed(rule.value, path, query)
         ) {
             return rule.action as any;
         } else if (

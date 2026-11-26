@@ -242,6 +242,43 @@ function runTests() {
         "Path with invalid curly braces should be invalid"
     );
 
+    // Test query component (issue #839: blocking URLs with "?" in them)
+    assertEquals(
+        isValidUrlGlobPattern("login/?autoLaunch=0"),
+        true,
+        "Path with a single query param should be valid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("login?autoLaunch=0&foo=bar"),
+        true,
+        "Path with multiple query params should be valid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("login?userId=*"),
+        true,
+        "Query param with a wildcard value should be valid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("login?"),
+        false,
+        "Path with an empty query component should be invalid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("login?autoLaunch"),
+        false,
+        "Query pair missing '=' should be invalid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("login?=0"),
+        false,
+        "Query pair with an empty key should be invalid"
+    );
+    assertEquals(
+        isValidUrlGlobPattern("login?auto<Launch>=0"),
+        false,
+        "Query key with invalid characters should be invalid"
+    );
+
     // Test invalid percent encoding
     assertEquals(
         isValidUrlGlobPattern("invalid%2"),

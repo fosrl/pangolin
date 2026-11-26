@@ -13,7 +13,33 @@ export function isValidIP(ip: string): boolean {
     return z.ipv4().safeParse(ip).success || z.ipv6().safeParse(ip).success;
 }
 
-export function isValidUrlGlobPattern(pattern: string): boolean {
+// Characters allowed in a single path segment or in a query key/value:
+// - unreserved (A-Z a-z 0-9 - . _ ~)
+// - sub-delims (! $ & ' ( ) * + , ; =)
+// - @ : for compatibility with some systems
+// - percent-encoded sequences (checked separately below)
+function isValidGlobChars(text: string): boolean {
+    for (let j = 0; j < text.length; j++) {
+        const char = text[j];
+
+        if (char === "%" && j + 2 < text.length) {
+            const hex1 = text[j + 1];
+            const hex2 = text[j + 2];
+            if (!/^[0-9A-Fa-f]$/.test(hex1) || !/^[0-9A-Fa-f]$/.test(hex2)) {
+                return false;
+            }
+            j += 2; // Skip the next two characters
+            continue;
+        }
+
+        if (!/^[A-Za-z0-9\-._~!$&'()*+,;#=@:]$/.test(char)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isValidUrlGlobPath(pattern: string): boolean {
     if (pattern === "/") {
         return true;
     }
@@ -38,32 +64,51 @@ export function isValidUrlGlobPattern(pattern: string): boolean {
             return false;
         }
 
-        // Check each character in the segment
-        for (let j = 0; j < segment.length; j++) {
-            const char = segment[j];
-
-            // Check for percent-encoded sequences
-            if (char === "%" && j + 2 < segment.length) {
-                const hex1 = segment[j + 1];
-                const hex2 = segment[j + 2];
-                if (
-                    !/^[0-9A-Fa-f]$/.test(hex1) ||
-                    !/^[0-9A-Fa-f]$/.test(hex2)
-                ) {
-                    return false;
-                }
-                j += 2; // Skip the next two characters
-                continue;
-            }
-
-            // Allow:
-            // - unreserved (A-Z a-z 0-9 - . _ ~)
-            // - sub-delims (! $ & ' ( ) * + , ; =)
-            // - @ : for compatibility with some systems
-            if (!/^[A-Za-z0-9\-._~!$&'()*+,;#=@:]$/.test(char)) {
-                return false;
-            }
+        if (!isValidGlobChars(segment)) {
+            return false;
         }
+    }
+
+    return true;
+}
+
+// A query pattern is one or more `key=value` pairs separated by `&`, e.g.
+// `autoLaunch=0` or `userId=*&autoLaunch=0`. Each key/value is checked with
+// the same charset as a path segment, so `*` wildcards work in values too.
+function isValidUrlGlobQuery(queryPattern: string): boolean {
+    if (!queryPattern) {
+        return false;
+    }
+
+    return queryPattern.split("&").every((pair) => {
+        const eqIndex = pair.indexOf("=");
+        // every pair needs a `=` with a non-empty key before it
+        if (eqIndex <= 0) {
+            return false;
+        }
+
+        const key = pair.slice(0, eqIndex);
+        const value = pair.slice(eqIndex + 1);
+        return isValidGlobChars(key) && isValidGlobChars(value);
+    });
+}
+
+export function isValidUrlGlobPattern(pattern: string): boolean {
+    // A pattern may carry an optional query component after the first `?`,
+    // e.g. `/login/?autoLaunch=0`. A literal `?` in a path or value is
+    // written percent-encoded (%3F), matching how it arrives in a real URL.
+    const queryIndex = pattern.indexOf("?");
+    const pathPattern =
+        queryIndex === -1 ? pattern : pattern.slice(0, queryIndex);
+    const queryPattern =
+        queryIndex === -1 ? null : pattern.slice(queryIndex + 1);
+
+    if (!isValidUrlGlobPath(pathPattern)) {
+        return false;
+    }
+
+    if (queryPattern !== null && !isValidUrlGlobQuery(queryPattern)) {
+        return false;
     }
 
     return true;
