@@ -449,6 +449,31 @@ export async function createSite(
                         })
                         .returning();
                 } else if (type == "local") {
+                    // A local site on an exit node is served by that node's
+                    // Traefik, so the org must be allowed to use the node.
+                    // Otherwise a local site on another org's remote exit
+                    // node would proxy into that org's network.
+                    if (exitNodeId) {
+                        const { exitNode, hasAccess } =
+                            await verifyExitNodeOrgAccess(exitNodeId, orgId);
+                        if (!exitNode) {
+                            return next(
+                                createHttpError(
+                                    HttpCode.NOT_FOUND,
+                                    "Exit node not found"
+                                )
+                            );
+                        }
+                        if (!hasAccess) {
+                            return next(
+                                createHttpError(
+                                    HttpCode.FORBIDDEN,
+                                    "Not authorized to use this exit node"
+                                )
+                            );
+                        }
+                    }
+
                     [newSite] = await trx
                         .insert(sites)
                         .values({

@@ -92,6 +92,7 @@ import {
     isNotNull,
     isNull,
     not,
+    notExists,
     or,
     sql
 } from "drizzle-orm";
@@ -213,6 +214,30 @@ export async function getTraefikConfig(
                     )
                 ),
                 inArray(sites.type, siteTypes),
+                // A remote exit node only serves sites of the orgs it is
+                // linked to. Nodes with no org links keep the old behaviour
+                // so existing sites on them keep routing.
+                exitNode?.type === "remoteExitNode"
+                    ? or(
+                          inArray(
+                              sites.orgId,
+                              db
+                                  .select({ orgId: exitNodeOrgs.orgId })
+                                  .from(exitNodeOrgs)
+                                  .where(
+                                      eq(exitNodeOrgs.exitNodeId, exitNodeId)
+                                  )
+                          ),
+                          notExists(
+                              db
+                                  .select({ orgId: exitNodeOrgs.orgId })
+                                  .from(exitNodeOrgs)
+                                  .where(
+                                      eq(exitNodeOrgs.exitNodeId, exitNodeId)
+                                  )
+                          )
+                      )
+                    : undefined,
                 allowRawResources
                     ? inArray(resources.mode, [
                           "http",
