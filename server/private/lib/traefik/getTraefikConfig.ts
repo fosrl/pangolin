@@ -657,10 +657,13 @@ export async function getTraefikConfig(
                 config_output.http.services = {};
             }
 
+            const preAuthMiddlewares =
+                config.getRawConfig().traefik.pre_auth_middlewares;
             const additionalMiddlewares =
                 config.getRawConfig().traefik.additional_middlewares || [];
 
             const routerMiddlewares = [
+                ...preAuthMiddlewares,
                 badgerMiddlewareName,
                 ...additionalMiddlewares
             ];
@@ -842,6 +845,7 @@ export async function getTraefikConfig(
                     ],
                     service: maintenanceServiceName,
                     middlewares: [
+                        ...preAuthMiddlewares,
                         rewriteMiddlewareName,
                         maintenanceHeadersMiddlewareName
                     ],
@@ -857,7 +861,10 @@ export async function getTraefikConfig(
                             resource.ssl ? entrypointHttps : entrypointHttp
                         ],
                         service: maintenanceServiceName,
-                        middlewares: [maintenanceHeadersMiddlewareName],
+                        middlewares: [
+                            ...preAuthMiddlewares,
+                            maintenanceHeadersMiddlewareName
+                        ],
                         rule: `${rule} && (PathPrefix(\`/_next\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`)) `,
                         priority: 2001,
                         ...(resource.ssl ? { tls } : {})
@@ -1150,6 +1157,7 @@ export async function getTraefikConfig(
             const additionalMiddlewares =
                 config.getRawConfig().traefik.additional_middlewares || [];
             const routerMiddlewares = [
+                ...config.getRawConfig().traefik.pre_auth_middlewares,
                 badgerMiddlewareName,
                 AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE
             ];
