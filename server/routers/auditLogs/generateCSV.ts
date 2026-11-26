@@ -1,8 +1,10 @@
 // Spreadsheet applications (Excel, LibreOffice, Google Sheets) evaluate a cell
 // as a formula when it starts with one of these characters, even if the cell is
-// quoted. Log exports carry attacker controlled text in every column, so a
+// quoted. They also skip leading whitespace (spaces, tabs, CR) before deciding
+// a cell is a formula, so the prefix must be detected after any leading
+// whitespace. Log exports carry attacker controlled text in every column, so a
 // leading apostrophe is prefixed to force the cell to be read as literal text.
-const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+const FORMULA_PREFIX = /^\s*[=+\-@]/;
 
 // A leading "-" alone is not dangerous when the rest of the value is just a
 // number: spreadsheets read -12 as a number, not a formula. Only values like
