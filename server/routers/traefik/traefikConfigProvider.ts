@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { timingSafeEqual } from "crypto";
 import logger from "@server/logger";
 import HttpCode from "@server/types/HttpCode";
 import config from "@server/lib/config";
@@ -8,10 +9,40 @@ import { getCurrentExitNodeId } from "@server/lib/exitNodes";
 
 const badgerMiddlewareName = "badger";
 
+let warnedMissingToken = false;
+
+// The config lists every org's backends, header values and gateway trust
+// tokens, so only Traefik may read it once a token is configured.
+function isAuthorizedConfigRequest(req: Request): boolean {
+    const token = config.getRawConfig().traefik.config_token;
+    if (!token) {
+        if (!warnedMissingToken) {
+            warnedMissingToken = true;
+            logger.warn(
+                "traefik.config_token is not set: GET /api/v1/traefik-config is readable by anything that can reach the internal port. Set it and add the same bearer token to Traefik's HTTP provider headers."
+            );
+        }
+        return true;
+    }
+    const header = req.headers.authorization ?? "";
+    const expected = `Bearer ${token}`;
+    const a = Buffer.from(header);
+    const b = Buffer.from(expected);
+    return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function traefikConfigProvider(
-    _: Request,
+    req: Request,
     res: Response
 ): Promise<any> {
+    if (config.getRawConfig().traefik.disable_http_config) {
+        return res.status(HttpCode.NOT_FOUND).json({ error: "Not found" });
+    }
+    if (!isAuthorizedConfigRequest(req)) {
+        return res
+            .status(HttpCode.UNAUTHORIZED)
+            .json({ error: "Unauthorized" });
+    }
     try {
         // First query to get resources with site and org info
         // Get the current exit node name from config
@@ -51,8 +82,10 @@ export async function traefikConfigProvider(
                                         .internal_hostname
                                 }:${config.getRawConfig().server.internal_port}`
                             ).href,
-                        disableDefaultCFIPs: config.getRawConfig().server.trust_ips.length > 0,
-                        customIPHeader: config.getRawConfig().server.custom_ip_header,
+                        disableDefaultCFIPs:
+                            config.getRawConfig().server.trust_ips.length > 0,
+                        customIPHeader:
+                            config.getRawConfig().server.custom_ip_header,
                         trustip: config.getRawConfig().server.trust_ips,
 
                         userSessionCookieName:

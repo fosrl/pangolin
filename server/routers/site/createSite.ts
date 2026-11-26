@@ -21,6 +21,7 @@ import { build } from "@server/build";
 import { usageService } from "@server/lib/billing/usageService";
 import { LimitId } from "@server/lib/billing";
 import { generateId } from "@server/auth/sessions/app";
+import config from "@server/lib/config";
 
 const createSiteParamsSchema = z.strictObject({
     orgId: z.string()
@@ -43,14 +44,6 @@ const createSiteSchema = z.strictObject({
     address: z.string().optional(),
     type: z.enum(["newt", "wireguard", "local"])
 });
-// .refine((data) => {
-//     if (data.type === "local") {
-//         return !config.getRawConfig().flags?.disable_local_sites;
-//     } else if (data.type === "wireguard") {
-//         return !config.getRawConfig().flags?.disable_basic_wireguard_sites;
-//     }
-//     return true;
-// });
 
 export type CreateSiteBody = z.infer<typeof createSiteSchema>;
 
@@ -123,6 +116,28 @@ export async function createSite(
             address,
             niceId
         } = parsedBody.data;
+
+        // The dashboard hides these types when disabled, but the API must
+        // refuse them too. (traefik.site_types is not checked here: remote
+        // exit nodes serve local sites even when the central Traefik does
+        // not.)
+        const flags = config.getRawConfig().flags;
+        if (type === "local" && flags?.disable_local_sites) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Local sites are disabled on this server"
+                )
+            );
+        }
+        if (type === "wireguard" && flags?.disable_basic_wireguard_sites) {
+            return next(
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Basic WireGuard sites are disabled on this server"
+                )
+            );
+        }
 
         const updatedNewtSecret = secret || generateId(48);
         const updatedNewtId = newtId || generateId(15);
@@ -434,6 +449,31 @@ export async function createSite(
                         })
                         .returning();
                 } else if (type == "local") {
+                    // A local site on an exit node is served by that node's
+                    // Traefik, so the org must be allowed to use the node.
+                    // Otherwise a local site on another org's remote exit
+                    // node would proxy into that org's network.
+                    if (exitNodeId) {
+                        const { exitNode, hasAccess } =
+                            await verifyExitNodeOrgAccess(exitNodeId, orgId);
+                        if (!exitNode) {
+                            return next(
+                                createHttpError(
+                                    HttpCode.NOT_FOUND,
+                                    "Exit node not found"
+                                )
+                            );
+                        }
+                        if (!hasAccess) {
+                            return next(
+                                createHttpError(
+                                    HttpCode.FORBIDDEN,
+                                    "Not authorized to use this exit node"
+                                )
+                            );
+                        }
+                    }
+
                     [newSite] = await trx
                         .insert(sites)
                         .values({

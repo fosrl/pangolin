@@ -1,6 +1,6 @@
 import { getRequestClientInfo } from "@server/auth/sessions/clientInfo";
 import { NextFunction, Request, Response } from "express";
-import { bannedEmails, bannedIps, db, users } from "@server/db";
+import { bannedIps, db, users } from "@server/db";
 import HttpCode from "@server/types/HttpCode";
 import { email, z } from "zod";
 import { fromError } from "zod-validation-error";
@@ -23,6 +23,7 @@ import { checkValidInvite } from "@server/auth/checkValidInvite";
 import { passwordSchema } from "@server/auth/passwordSchema";
 import { UserType } from "@server/types/UserTypes";
 import { build } from "@server/build";
+import { isEmailBanned } from "@server/lib/bannedEmails";
 
 export const signupBodySchema = z.object({
     email: z.email().toLowerCase(),
@@ -66,14 +67,12 @@ export async function signup(
         skipVerificationEmail
     } = parsedBody.data;
 
-    const [bannedEmail] = await db
-        .select()
-        .from(bannedEmails)
-        .where(eq(bannedEmails.email, email))
-        .limit(1);
-    if (bannedEmail) {
+    if (await isEmailBanned(email)) {
         return next(
-            createHttpError(HttpCode.FORBIDDEN, "Signup blocked. Do not attempt to continue to use this service.")
+            createHttpError(
+                HttpCode.FORBIDDEN,
+                "Signup blocked. Do not attempt to continue to use this service."
+            )
         );
     }
 
@@ -85,7 +84,10 @@ export async function signup(
             .limit(1);
         if (bannedIp) {
             return next(
-                createHttpError(HttpCode.FORBIDDEN, "Signup blocked. Do not attempt to continue to use this service.")
+                createHttpError(
+                    HttpCode.FORBIDDEN,
+                    "Signup blocked. Do not attempt to continue to use this service."
+                )
             );
         }
     }

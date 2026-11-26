@@ -32,7 +32,10 @@ email:
     smtp_pass: "{{.EmailSMTPPass}}"
     no_reply: "{{.EmailNoReply}}"
 {{end}}
-flags:
+{{if .TraefikConfigToken}}traefik:
+    config_token: "{{.TraefikConfigToken}}"
+
+{{end}}flags:
     require_email_verification: {{.EnableEmail}}
     disable_signup_without_invite: true
     disable_user_create_org: false

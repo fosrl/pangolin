@@ -30,6 +30,10 @@ import {
     parseCapabilities,
     serializeCapabilities
 } from "@server/lib/aiCapabilities";
+import {
+    assertSafeOutboundUrl,
+    OutboundUrlError
+} from "@server/lib/outboundUrlGuard";
 
 const paramsSchema = z.strictObject({
     providerId: z.coerce.number().int().positive()
@@ -135,6 +139,18 @@ export async function updateAiProvider(
             body.upstreamUrl !== undefined
                 ? body.upstreamUrl
                 : existing.upstreamUrl;
+        if (body.upstreamUrl) {
+            try {
+                await assertSafeOutboundUrl(body.upstreamUrl);
+            } catch (error) {
+                if (error instanceof OutboundUrlError) {
+                    return next(
+                        createHttpError(HttpCode.BAD_REQUEST, error.message)
+                    );
+                }
+                throw error;
+            }
+        }
         const nextAuthType: AiProviderAuthType =
             body.authType !== undefined
                 ? body.authType

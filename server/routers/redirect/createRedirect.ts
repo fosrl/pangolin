@@ -22,6 +22,7 @@ import {
 } from "@server/routers/redirect/validation";
 import { getUniqueRedirectName } from "@server/db/names";
 import { createCertificate } from "../certificates";
+import { checkRedirectHostAvailable } from "@server/lib/reservedHosts";
 
 export type CreateRedirectResponse = {
     redirect: Redirect;
@@ -187,6 +188,19 @@ export async function createRedirect(
                         `Domain with ID ${domainId} not found`
                     )
                 );
+            }
+        }
+
+        if (domain) {
+            const fullDomain = [subdomain ?? null, domain.baseDomain]
+                .filter(Boolean)
+                .join(".");
+            const hostError = await checkRedirectHostAvailable(
+                fullDomain,
+                orgId
+            );
+            if (hostError) {
+                return next(createHttpError(HttpCode.CONFLICT, hostError));
             }
         }
 

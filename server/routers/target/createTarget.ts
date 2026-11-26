@@ -36,6 +36,8 @@ import { encrypt } from "@server/lib/crypto";
 import { generateId } from "@server/auth/sessions/app";
 import config from "@server/lib/config";
 import { sendBrowserGatewayTargets } from "@server/routers/newt/targets";
+import { localSiteTargetError } from "@server/lib/localSiteTargets";
+import { isLocalSiteServedByPangolin } from "@server/lib/localSiteTargetPolicy";
 
 const resourceTargetParamsSchema = z.strictObject({
     resourceId: z.coerce.number().int().positive()
@@ -332,6 +334,23 @@ export async function createTarget(
                         : "Site must belong to the resource organization"
                 )
             );
+        }
+
+        // Pangolin's Traefik dials these targets from inside its own network.
+        // Local sites on a remote exit node are dialled by that node instead.
+        if (
+            site.type === "local" &&
+            (await isLocalSiteServedByPangolin(site.exitNodeId))
+        ) {
+            const localTargetError = localSiteTargetError(
+                targetData.ip,
+                config.getRawConfig().server.internal_hostname
+            );
+            if (localTargetError) {
+                return next(
+                    createHttpError(HttpCode.BAD_REQUEST, localTargetError)
+                );
+            }
         }
 
         const resourceId = resource?.resourceId ?? null;
