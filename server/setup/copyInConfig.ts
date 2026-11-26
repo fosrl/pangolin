@@ -13,12 +13,7 @@ export async function copyInConfig() {
     const listenPort = config.getRawConfig().gerbil.start_port;
     const relayPort = config.getRawConfig().gerbil.clients_start_port;
 
-    if (
-        !config.getRawConfig().flags?.disable_config_managed_domains &&
-        config.getRawConfig().domains
-    ) {
-        await copyInDomains();
-    }
+    await copyInDomains();
 
     const exitNodeName = config.getRawConfig().gerbil.exit_node_name;
     if (exitNodeName) {
@@ -44,7 +39,10 @@ export async function copyInConfig() {
 
 async function copyInDomains() {
     await db.transaction(async (trx) => {
-        const rawDomains = config.getRawConfig().domains!; // always defined if disable flag is not set
+        const rawConfig = config.getRawConfig();
+        const rawDomains = rawConfig.flags?.disable_config_managed_domains
+            ? {}
+            : (rawConfig.domains ?? {});
 
         const configDomains = Object.entries(rawDomains).map(
             ([key, value]) => ({
