@@ -45,6 +45,7 @@ import {
     setPublicResourceAiProviders,
     type ResourceAiProviderAttachment
 } from "@server/lib/aiInferenceResource";
+import { checkReservedHost } from "@server/lib/reservedHosts";
 
 const createResourceParamsSchema = z.strictObject({
     orgId: z.string()
@@ -539,34 +540,14 @@ async function createHttpResource(
         );
     }
 
-    // Prevent creating resource with same domain as dashboard
-    const dashboardUrl = config.getRawConfig().app.dashboard_url;
-    if (dashboardUrl) {
-        const dashboardHost = new URL(dashboardUrl).hostname;
-        if (fullDomain === dashboardHost) {
-            return next(
-                createHttpError(
-                    HttpCode.CONFLICT,
-                    "Resource domain cannot be the same as the dashboard domain"
-                )
-            );
-        }
-    }
-
-    if (build != "oss") {
-        const existingLoginPages = await db
-            .select()
-            .from(loginPage)
-            .where(eq(loginPage.fullDomain, fullDomain));
-
-        if (existingLoginPages.length > 0) {
-            return next(
-                createHttpError(
-                    HttpCode.CONFLICT,
-                    "Login page with that domain already exists"
-                )
-            );
-        }
+    // Dashboard host and login page domains are reserved
+    const reservedHostError = await checkReservedHost(
+        fullDomain,
+        db,
+        matchBaseDomain
+    );
+    if (reservedHostError) {
+        return next(createHttpError(HttpCode.CONFLICT, reservedHostError));
     }
 
     let resource: Resource | undefined;

@@ -92,9 +92,11 @@ import {
     isNotNull,
     isNull,
     not,
+    notExists,
     or,
     sql
 } from "drizzle-orm";
+import { localSiteTargetError } from "@server/lib/localSiteTargets";
 
 const redirectHttpsMiddlewareName = "redirect-to-https";
 const redirectToRootMiddlewareName = "redirect-to-root";
@@ -212,6 +214,30 @@ export async function getTraefikConfig(
                     )
                 ),
                 inArray(sites.type, siteTypes),
+                // A remote exit node only serves sites of the orgs it is
+                // linked to. Nodes with no org links keep the old behaviour
+                // so existing sites on them keep routing.
+                exitNode?.type === "remoteExitNode"
+                    ? or(
+                          inArray(
+                              sites.orgId,
+                              db
+                                  .select({ orgId: exitNodeOrgs.orgId })
+                                  .from(exitNodeOrgs)
+                                  .where(
+                                      eq(exitNodeOrgs.exitNodeId, exitNodeId)
+                                  )
+                          ),
+                          notExists(
+                              db
+                                  .select({ orgId: exitNodeOrgs.orgId })
+                                  .from(exitNodeOrgs)
+                                  .where(
+                                      eq(exitNodeOrgs.exitNodeId, exitNodeId)
+                                  )
+                          )
+                      )
+                    : undefined,
                 allowRawResources
                     ? inArray(resources.mode, [
                           "http",
@@ -309,6 +335,24 @@ export async function getTraefikConfig(
                 maintenanceMessage: row.maintenanceMessage,
                 maintenanceEstimatedTime: row.maintenanceEstimatedTime
             });
+        }
+
+        // Existing local-site targets that point at Pangolin itself are not
+        // served, even if they were created before validation existed. A
+        // remote exit node's config is dialled by that node, so it is left
+        // alone.
+        if (
+            row.siteType === "local" &&
+            exitNode?.type !== "remoteExitNode" &&
+            localSiteTargetError(
+                row.ip ?? "",
+                config.getRawConfig().server.internal_hostname
+            )
+        ) {
+            logger.debug(
+                `Skipping local site target ${row.targetId} on resource ${row.resourceId}: points at a reserved address`
+            );
+            continue;
         }
 
         // Add target with its associated site data

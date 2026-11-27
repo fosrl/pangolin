@@ -15,6 +15,7 @@ import {
     siteResourceAiModels,
     siteResourceAiProviders,
     siteResources,
+    userOrgs,
     users
 } from "@server/db";
 import config from "@server/lib/config";
@@ -87,6 +88,7 @@ import {
 } from "@server/lib/aiUsageExtraction";
 import { streamAiGatewayResponse } from "@server/routers/aiGateway/streamAiGatewayResponse";
 import { logAiSession } from "#dynamic/routers/aiGateway/logAiSession";
+import { canUserAccessSiteResource } from "@server/auth/canUserAccessSiteResource";
 
 const EXIT_NODE_RANGES_CACHE_KEY = "aiGateway:exitNodeRanges";
 const EXIT_NODE_RANGES_TTL_SEC = 6000;
@@ -324,7 +326,16 @@ async function resolveRequestUser(
     // intermediary proxy between Traefik and this gateway may overwrite
     // X-Forwarded-For/X-Real-Ip rather than appending to them, corrupting
     // what req.ip resolves to.
-    const ip = getRequestHeader(req, AI_GATEWAY_CLIENT_IP_HEADER) || req.ip;
+    // The header is only meaningful when Badger overwrites it at the Traefik
+    // hop; otherwise a client could send any IP and be attributed to
+    // another user.
+    const clientIpHeaderTrusted =
+        config.getRawConfig().server.enable_ai_gateway_client_ip_header &&
+        isAiGatewayTrustHeaderValid(req.headers as Record<string, string>);
+    const ip =
+        (clientIpHeaderTrusted
+            ? getRequestHeader(req, AI_GATEWAY_CLIENT_IP_HEADER)
+            : undefined) || req.ip;
     if (!ip) {
         return { user: null, virtualApiKeyId: null };
     }
@@ -348,6 +359,27 @@ async function resolveRequestUser(
         user: await buildRequestUser(client.userId, orgId),
         virtualApiKeyId: null
     };
+}
+
+async function isGrantedSiteResource(
+    userId: string,
+    orgId: string,
+    siteResourceId: number,
+    roleIds: number[]
+): Promise<boolean> {
+    const [membership] = await db
+        .select({ userId: userOrgs.userId })
+        .from(userOrgs)
+        .where(and(eq(userOrgs.userId, userId), eq(userOrgs.orgId, orgId)))
+        .limit(1);
+    if (!membership) {
+        return false;
+    }
+    return canUserAccessSiteResource({
+        userId,
+        resourceId: siteResourceId,
+        roleIds
+    });
 }
 
 function getRequestHeader(req: Request, name: string): string | undefined {
@@ -874,11 +906,11 @@ export async function handleAiGatewayProxy(
             orgId
         } = target;
 
-        // Public inference must pass Badger verify-session first. Traefik
-        // injects the trust header only on that path; the gateway trusts it
-        // and does not re-verify the virtual API key.
+        // Every request must come through Traefik, which stamps the trust
+        // header on both the public inference router (after Badger
+        // verify-session) and the site-resource router. Without it the
+        // resource type, client IP and identity headers are unverified.
         if (
-            resourceId != null &&
             !isAiGatewayTrustHeaderValid(req.headers as Record<string, string>)
         ) {
             return res
@@ -934,6 +966,33 @@ export async function handleAiGatewayProxy(
             )
         ]);
         const requestUser = identity.user;
+
+        // A private (site-resource) gateway spends the owning org's provider
+        // keys, so only members granted that site resource may use it. This
+        // also stops clients of other orgs on a shared exit node.
+        if (siteResourceId != null) {
+            const allowed =
+                requestUser != null &&
+                orgId != null &&
+                (await isGrantedSiteResource(
+                    requestUser.userId,
+                    orgId,
+                    siteResourceId,
+                    requestUser.roleIds ?? []
+                ));
+            if (!allowed) {
+                return res
+                    .status(HttpCode.FORBIDDEN)
+                    .json(
+                        buildAiCapabilityErrorBody(
+                            capability,
+                            "permission",
+                            "You do not have access to this inference resource",
+                            HttpCode.FORBIDDEN
+                        )
+                    );
+            }
+        }
 
         if (requestUser) {
             logger.debug(

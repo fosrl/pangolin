@@ -56,6 +56,7 @@ type Config struct {
 	EnableBotDetection        bool
 	EnableMaxMind             bool
 	Secret                    string
+	TraefikConfigToken        string
 	IsEnterprise              bool
     IsPostgreSQL              bool
 	IsPostgreSQLPass          string
@@ -111,6 +112,7 @@ func main() {
 		loadVersions(&config)
 		config.DoCrowdsecInstall = false
 		config.Secret = generateRandomSecretKey()
+		config.TraefikConfigToken = generateRandomSecretKey()
 
 		fmt.Println("\n=== Generating Configuration Files ===")
 

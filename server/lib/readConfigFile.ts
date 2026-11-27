@@ -286,6 +286,12 @@ export const configSchema = z
                     .array(z.string())
                     .optional()
                     .default(["newt", "wireguard", "local"]),
+                // Bearer token Traefik must send to GET /traefik-config. Set
+                // the same value in Traefik's HTTP provider `headers`.
+                config_token: z.string().optional(),
+                // Turn GET /traefik-config off entirely, for deployments where
+                // Traefik does not use the HTTP provider (file_mode, k8s CRDs).
+                disable_http_config: z.boolean().optional().default(false),
                 allow_raw_resources: z.boolean().optional().default(true),
                 file_mode: z.boolean().optional().default(false),
                 pp_transport_prefix: z
@@ -417,8 +423,15 @@ export const configSchema = z
                 disable_user_create_org: z.boolean().optional(),
                 allow_raw_resources: z.boolean().optional(),
                 enable_integration_api: z.boolean().optional(),
-                enable_api_create_user_sessions: z.boolean().optional().default(false),
+                enable_api_create_user_sessions: z
+                    .boolean()
+                    .optional()
+                    .default(false),
                 disable_local_sites: z.boolean().optional(),
+                // Refuse private/internal addresses for tenant-supplied outbound
+                // URLs (AI providers, webhooks, log streaming). Defaults to on
+                // for SaaS and off for self-hosted.
+                block_private_outbound_urls: z.boolean().optional(),
                 disable_basic_wireguard_sites: z.boolean().optional(),
                 disable_config_managed_domains: z.boolean().optional(),
                 disable_product_help_banners: z.boolean().optional(),
