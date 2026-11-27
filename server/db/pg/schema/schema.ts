@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { InferSelectModel, sql } from "drizzle-orm";
 import {
     bigint,
+    bigserial,
     boolean,
     index,
     integer,
@@ -1737,7 +1738,8 @@ export const blueprints = pgTable("blueprints", {
 export const requestAuditLog = pgTable(
     "requestAuditLog",
     {
-        id: serial("id").primaryKey(),
+        // bigint: the SaaS table exhausted the int4 id space (2^31) in Nov 2026
+        id: bigserial("id", { mode: "number" }).primaryKey(),
         timestamp: integer("timestamp").notNull(), // this is EPOCH time in seconds
         orgId: text("orgId").references(() => orgs.orgId, {
             onDelete: "cascade"
