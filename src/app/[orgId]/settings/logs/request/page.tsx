@@ -84,6 +84,10 @@ export default function GeneralPage() {
         endDate: DateTimeValue;
     }>(getDefaultDateRange());
 
+    const [loadRequested, setLoadRequested] = useState(
+        Boolean(searchParams.get("start") && searchParams.get("end"))
+    );
+
     const queryFilters = useMemo(() => {
         let timeStart: string | undefined;
         let timeEnd: string | undefined;
@@ -132,7 +136,8 @@ export default function GeneralPage() {
         ...logQueries.requests({
             orgId: orgId as string,
             filters: queryFilters
-        })
+        }),
+        enabled: loadRequested
     });
 
     const rows = data?.log ?? [];
@@ -150,6 +155,7 @@ export default function GeneralPage() {
         endDate: DateTimeValue
     ) => {
         setDateRange({ startDate, endDate });
+        setLoadRequested(true);
         setCurrentPage(0);
         updateUrlParamsForAllFilters({
             start: startDate.date?.toISOString() || "",
@@ -162,6 +168,7 @@ export default function GeneralPage() {
     };
 
     const handleRefresh = () => {
+        setLoadRequested(true);
         // When the end date has no explicit time, it represents an
         // open-ended "up to now" upper bound. Since dateRange is only
         // recomputed on user interaction, that upper bound otherwise stays
@@ -792,6 +799,9 @@ export default function GeneralPage() {
                 onPageChange={handlePageChange}
                 onPageSizeChange={handlePageSizeChange}
                 isLoading={isLoading}
+                emptyMessage={
+                    loadRequested ? undefined : t("logsSelectTimeRange")
+                }
                 pageSize={pageSize}
                 // Row expansion props
                 expandable={true}
