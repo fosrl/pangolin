@@ -100,17 +100,22 @@ export async function runMigrations() {
         console.log("Migrations are disabled. Skipping...");
         return;
     }
+    // determine if the migrations table exists. This stays outside the try below
+    // so that an unreachable database exits non-zero and can be restarted
+    const exists = await db
+        .select()
+        .from(versionMigrations)
+        .limit(1)
+        .execute()
+        .then((res) => res.length > 0)
+        .catch((e) => {
+            // 42P01 (undefined_table) means a fresh database, nothing else does
+            if ((e?.cause?.code ?? e?.code) === "42P01") return false;
+            throw e;
+        });
+
     try {
         const appVersion = APP_VERSION;
-
-        // determine if the migrations table exists
-        const exists = await db
-            .select()
-            .from(versionMigrations)
-            .limit(1)
-            .execute()
-            .then((res) => res.length > 0)
-            .catch(() => false);
 
         if (exists) {
             console.log("Migrations table exists, running scripts...");
