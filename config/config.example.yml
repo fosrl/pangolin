@@ -23,6 +23,12 @@ server:
         allowed_headers: ["X-CSRF-Token", "Content-Type"]
         credentials: false
 
+# traefik:
+#     # Run trusted middleware references in order before Badger on generated
+#     # HTTP routers that use it, and before rewrites and headers on application
+#     # and Browser Gateway maintenance routes. Defaults to an empty list.
+#     pre_auth_middlewares: ["my-middleware@file"]
+
 flags:
     require_email_verification: false
     disable_signup_without_invite: true

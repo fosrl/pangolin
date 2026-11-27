@@ -59,7 +59,11 @@ export function buildRedirectConfig(params: {
     const httpsEntrypoint = config.getRawConfig().traefik.https_entrypoint;
     const additionalMiddlewares =
         config.getRawConfig().traefik.additional_middlewares || [];
-    const routerMiddlewares = [badgerMiddlewareName, ...additionalMiddlewares];
+    const routerMiddlewares = [
+        ...config.getRawConfig().traefik.pre_auth_middlewares,
+        badgerMiddlewareName,
+        ...additionalMiddlewares
+    ];
 
     for (const redirect of redirects) {
         const routerName = `${redirect.redirectId}-redirect-${redirect.name}-router`;

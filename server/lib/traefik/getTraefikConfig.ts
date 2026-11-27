@@ -517,6 +517,7 @@ export async function getTraefikConfig(
                 config.getRawConfig().traefik.additional_middlewares || [];
 
             const routerMiddlewares = [
+                ...config.getRawConfig().traefik.pre_auth_middlewares,
                 badgerMiddlewareName,
                 ...additionalMiddlewares
             ];
@@ -806,6 +807,7 @@ export async function getTraefikConfig(
             const additionalMiddlewares =
                 config.getRawConfig().traefik.additional_middlewares || [];
             const routerMiddlewares = [
+                ...config.getRawConfig().traefik.pre_auth_middlewares,
                 badgerMiddlewareName,
                 AI_GATEWAY_TRUST_MIDDLEWARE_RESOURCE,
                 irHeadersMiddlewareName,

@@ -168,9 +168,12 @@ export function buildBrowserGatewayConfig(params: {
         if (!config_output.http.services) config_output.http.services = {};
 
         const fullDomain = bgResource.fullDomain;
+        const preAuthMiddlewares =
+            config.getRawConfig().traefik.pre_auth_middlewares;
         const additionalMiddlewares =
             config.getRawConfig().traefik.additional_middlewares || [];
         const routerMiddlewares = [
+            ...preAuthMiddlewares,
             badgerMiddlewareName,
             bgRateLimitMiddlewareName,
             ...additionalMiddlewares
@@ -283,6 +286,7 @@ export function buildBrowserGatewayConfig(params: {
                 ],
                 service: bgMaintenanceServiceName,
                 middlewares: [
+                    ...preAuthMiddlewares,
                     bgRewriteMiddlewareName,
                     bgMaintenanceHeadersMiddlewareName
                 ],
@@ -297,7 +301,10 @@ export function buildBrowserGatewayConfig(params: {
                     bgResource.ssl ? entrypointHttps : entrypointHttp
                 ],
                 service: bgMaintenanceServiceName,
-                middlewares: [bgMaintenanceHeadersMiddlewareName],
+                middlewares: [
+                    ...preAuthMiddlewares,
+                    bgMaintenanceHeadersMiddlewareName
+                ],
                 rule: `${hostRule} && (PathPrefix(\`/_next\`) || PathRegexp(\`^/__nextjs*\`) || Path(\`/favicon.ico\`))`,
                 priority: 2001,
                 ...(bgResource.ssl ? { tls } : {})
