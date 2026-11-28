@@ -1,6 +1,6 @@
 import config from "@server/lib/config";
 import { certificates, db } from "@server/db";
-import { and, eq, isNotNull, or, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, isNotNull, isNull, or, inArray, sql } from "drizzle-orm";
 import { decrypt } from "@server/lib/crypto";
 import logger from "@server/logger";
 import { regionalCache as cache } from "#dynamic/lib/cache";
@@ -18,6 +18,11 @@ export type CertificateResult = {
     updatedAt?: number | null;
 };
 
+// expiresAt is in unix seconds. A certificate with an unknown expiry is kept.
+function isExpired(cert: CertificateResult): boolean {
+    return cert.expiresAt != null && cert.expiresAt <= Date.now() / 1000;
+}
+
 export async function getValidCertificatesForDomains(
     domains: Set<string>,
     useCache: boolean = true
@@ -30,7 +35,7 @@ export async function getValidCertificatesForDomains(
         for (const domain of domains) {
             const cacheKey = `cert:${domain}`;
             const cachedCert = await cache.get<CertificateResult>(cacheKey);
-            if (cachedCert) {
+            if (cachedCert && !isExpired(cachedCert)) {
                 finalResults.push(cachedCert); // Valid cache hit
             } else {
                 // Also check for a wildcard cache entry covering this domain's parent
@@ -41,7 +46,7 @@ export async function getValidCertificatesForDomains(
                     const wildcardCacheKey = `cert:*.${parentDomain}`;
                     const cachedWildcard =
                         await cache.get<CertificateResult>(wildcardCacheKey);
-                    if (cachedWildcard) {
+                    if (cachedWildcard && !isExpired(cachedWildcard)) {
                         // Re-stamp queriedDomain so callers see the originally requested domain
                         finalResults.push({
                             ...cachedWildcard,
@@ -97,6 +102,10 @@ export async function getValidCertificatesForDomains(
                 eq(certificates.status, "valid"),
                 isNotNull(certificates.certFile),
                 isNotNull(certificates.keyFile),
+                or(
+                    isNull(certificates.expiresAt),
+                    gt(certificates.expiresAt, Math.floor(Date.now() / 1000))
+                ),
                 or(
                     // Condition for exact matches on the requested domains
                     inArray(certificates.domain, domainsToQueryArray),
