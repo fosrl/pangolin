@@ -6,6 +6,10 @@ import semver from "semver";
 import { versionMigrations } from "../db/sqlite";
 import { __DIRNAME, APP_PATH, APP_VERSION } from "@server/lib/consts";
 import { formatBackupFileName } from "@server/lib/backupFileName";
+import {
+    getMigrationBackupRetention,
+    pruneMigrationBackups
+} from "@server/lib/backupRetention";
 import { SqliteError } from "better-sqlite3";
 import fs from "fs";
 import { build } from "@server/build";
@@ -119,12 +123,16 @@ async function run() {
     await runMigrations();
 }
 
-function backupDb(version?: string) {
+function getBackupsDir() {
+    return path.join(APP_PATH, "db", "backups");
+}
+
+function backupDb(version?: string): string {
     // make dir config/db/backups
     const appPath = APP_PATH;
     const dbDir = path.join(appPath, "db");
 
-    const backupsDir = path.join(dbDir, "backups");
+    const backupsDir = getBackupsDir();
 
     // check if the backups directory exists and create it if it doesn't
     if (!fs.existsSync(backupsDir)) {
@@ -137,6 +145,31 @@ function backupDb(version?: string) {
     const dbPath = path.join(dbDir, "db.sqlite");
     const backupPath = path.join(backupsDir, fileName);
     fs.copyFileSync(dbPath, backupPath);
+    return fileName;
+}
+
+// Remove older migration backups when MIGRATION_BACKUP_RETENTION is set.
+// The backups made by this run are always kept. A failure here must never
+// fail the migrations themselves.
+function pruneOldBackups(backupsMadeThisRun: string[]) {
+    const keep = getMigrationBackupRetention();
+    if (keep <= 0 || backupsMadeThisRun.length === 0) {
+        return;
+    }
+    try {
+        const deleted = pruneMigrationBackups(
+            getBackupsDir(),
+            keep,
+            backupsMadeThisRun
+        );
+        if (deleted.length > 0) {
+            console.log(
+                `Removed ${deleted.length} old migration backup(s), keeping the ${keep} newest older backup(s)`
+            );
+        }
+    } catch (error) {
+        console.warn("Could not prune old migration backups:", error);
+    }
 }
 
 export async function runMigrations() {
@@ -207,6 +240,8 @@ async function executeScripts() {
             migrationsToRun.map((m) => m.version).join(", ")
         );
 
+        const backupsMadeThisRun: string[] = [];
+
         // Run migrations in order
         for (const migration of migrationsToRun) {
             console.log(`Running migration ${migration.version}`);
@@ -214,7 +249,7 @@ async function executeScripts() {
             try {
                 if (!process.env.DISABLE_BACKUP_ON_MIGRATION) {
                     // Backup the database before running the migration
-                    backupDb(migration.version);
+                    backupsMadeThisRun.push(backupDb(migration.version));
                 }
 
                 await migration.run();
@@ -248,6 +283,8 @@ async function executeScripts() {
         }
 
         console.log("All migrations completed successfully");
+
+        pruneOldBackups(backupsMadeThisRun);
     } catch (error) {
         console.error("Migration process failed:", error);
         throw error;
